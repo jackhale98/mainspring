@@ -11,12 +11,17 @@
  * Errors are `EngineFailure`s (failure.ts): `boot` while starting; `invalid-request`, `internal`
  * or `crash` as the bridge reports them; `crash` when the VM fails underneath (wasm trap, out of
  * memory, Ruby VM bug), after which every further call fails with `crash` too.
+ *
+ * `bootEngineForNode` boots the same engine typed as `NodeEngine`, which adds the phase-1 token
+ * oracle `tokens(text)` (spec 6.9). Only Node tools use it; the worker boots with `bootEngine`,
+ * whose `Engine` type has no `tokens`, and the worker protocol has no message for it.
  */
 import { WASI } from '@bjorn3/browser_wasi_shim';
 import { RbError, RbFatalError, RubyVM, type RbValue } from '@ruby/wasm-wasi';
 import { EngineFailure, isFatalWasmError } from './failure.ts';
 import { decodeText, loadAsset, loadManifest, type AssetLoader } from './manifest.ts';
 import type { EngineVersions, ScheduleRequest, ScheduleResult, SyntaxDocs } from './protocol';
+import type { TokenOracleResult } from './token-oracle';
 import { BUNDLE_ROOT, WORKSPACE_ROOT, clearDirectory, createEngineFs, type LogFn } from './wasi-fs.ts';
 
 export interface BootTimings {
@@ -42,6 +47,16 @@ export interface Engine {
 	/** Never throws for TaskJuggler errors (they are messages); see the module comment. */
 	schedule(request: ScheduleRequest): ScheduleResult;
 	syntax(): SyntaxDocs;
+}
+
+/** The engine as Node tools see it: `Engine` plus the token oracle, which the worker never exposes. */
+export interface NodeEngine extends Engine {
+	/**
+	 * TaskJuggler's own scanner over `text`, without macro expansion: every token and trivia item
+	 * with UTF-16 offsets (token-oracle.ts). Scanner errors are part of the result; bridge failures
+	 * throw `EngineFailure` like `schedule`. It reads and changes no workspace state.
+	 */
+	tokens(text: string): TokenOracleResult;
 }
 
 export interface BootOptions {
@@ -154,7 +169,7 @@ function isVmBroken(error: unknown): boolean {
 	);
 }
 
-class WasmEngine implements Engine {
+class WasmEngine implements NodeEngine {
 	readonly versions: EngineVersions;
 	readonly rubyVersion: string;
 	readonly bootMs: number;
@@ -227,6 +242,13 @@ class WasmEngine implements Engine {
 		return this.#syntax;
 	}
 
+	tokens(text: string): TokenOracleResult {
+		const reply = this.#reply(
+			this.#call(() => this.#bridge.call('tokens', this.#vm.wrap(text)).toString()),
+		);
+		return reply as unknown as TokenOracleResult;
+	}
+
 	/** parseBridgeReply; a `crash` the bridge reports (out of memory) also breaks the engine. */
 	#reply(json: string): Record<string, unknown> {
 		try {
@@ -259,6 +281,15 @@ class WasmEngine implements Engine {
 
 /** Loads, verifies and boots the engine. Throws `EngineFailure` (kind `boot`). */
 export async function bootEngine(opts: BootOptions): Promise<Engine> {
+	return boot(opts);
+}
+
+/** `bootEngine` for Node tools (engine/golden/run-wasm.mjs): the same engine, with `tokens()`. */
+export async function bootEngineForNode(opts: BootOptions): Promise<NodeEngine> {
+	return boot(opts);
+}
+
+async function boot(opts: BootOptions): Promise<WasmEngine> {
 	const now = opts.now ?? (() => performance.now());
 	const log = opts.log ?? (() => {});
 	const t0 = now();

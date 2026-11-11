@@ -6,21 +6,25 @@
 // equality of canonical JSON, `revision` and `timings` excluded.
 //
 //   node engine/golden/run-wasm.mjs [--engine public/engine] [--only <id>]... [--repeat <n>]
-//                                   [--syntax] [--json <file>]
+//                                   [--syntax] [--tokens] [--json <file>]
 //
 // It uses the real worker runtime (src/engine/runtime.ts, loaded through Node's type
 // stripping) with a file-system loader instead of fetch, so it runs the same manifest and hash
 // checks, WASI file system, bridge and serializer as the browser. All plans run through one
 // long-lived engine, in manifest order. --repeat runs each plan n times and reports the fastest
-// run; --syntax builds the syntax docs first, to show it leaves no state behind. Exits 1 if any
-// plan differs from its golden. Build the engine first: npm run build:engine.
+// run; --syntax builds the syntax docs first, to show it leaves no state behind. --tokens runs the
+// token oracle (phase-1 T19) over every file of the selected plans first and checks each stream
+// with checkTokenStream; that too must leave no state behind. Exits 1 if any plan differs from
+// its golden or any token stream fails its check. Build the engine first: npm run build:engine.
 //
-// Exports bootNodeEngine, loadCorpus, planRequest and compareWithGolden for other Node tools.
+// Exports bootNodeEngine (a NodeEngine, with the token oracle), loadCorpus, planRequest and
+// compareWithGolden for other Node tools.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { bootEngine } from '../../src/engine/runtime.ts';
+import { bootEngineForNode } from '../../src/engine/runtime.ts';
+import { checkTokenStream } from '../../src/engine/token-oracle.ts';
 import { canonicalJson, diffPaths } from './lib.mjs';
 
 const GOLDEN = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +33,7 @@ const REPO = path.resolve(GOLDEN, '..', '..');
 /**
  * Boots the engine from a directory holding manifest.json and the hashed assets.
  * @param {{ dir?: string, log?: (stream: 'stdout' | 'stderr', line: string) => void }} [opts]
+ * @returns {Promise<import('../../src/engine/runtime.ts').NodeEngine>}
  */
 export async function bootNodeEngine(opts = {}) {
 	const dir = path.resolve(REPO, opts.dir ?? 'public/engine');
@@ -37,7 +42,7 @@ export async function bootNodeEngine(opts = {}) {
 	}
 	/** @param {string} name */
 	const load = async (name) => new Uint8Array(await fs.promises.readFile(path.join(dir, name)));
-	return bootEngine({ load, log: opts.log ?? ((stream, line) => console.error(`[${stream}] ${line}`)) });
+	return bootEngineForNode({ load, log: opts.log ?? ((stream, line) => console.error(`[${stream}] ${line}`)) });
 }
 
 /**
@@ -85,6 +90,39 @@ export function compareWithGolden(golden, result) {
 	return diffPaths(JSON.parse(canonicalJson(golden.result)), JSON.parse(canonicalJson(rest)));
 }
 
+/**
+ * Runs the token oracle over every file of the corpus and checks each stream; returns the number
+ * of files that fail.
+ * @param {import('../../src/engine/runtime.ts').NodeEngine} engine
+ * @param {ReturnType<typeof loadCorpus>} corpus
+ */
+function checkTokens(engine, corpus) {
+	const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+	const seen = new Set();
+	let bad = 0;
+	let items = 0;
+	const t = performance.now();
+	for (const { plan, golden } of corpus) {
+		for (const f of golden.files) {
+			const file = path.join(plan.root, f);
+			if (seen.has(file)) continue;
+			seen.add(file);
+			const text = decoder.decode(fs.readFileSync(path.join(REPO, file)));
+			const result = engine.tokens(text);
+			const problems = checkTokenStream(text, result);
+			items += result.tokens.length;
+			if (result.scanError) console.log(`tokens: ${file}: scanner error ${result.scanError.id} at line ${result.scanError.line}`);
+			if (problems.length) {
+				bad++;
+				console.log(`tokens: ${file}: ${problems.length} problem(s)`);
+				for (const p of problems.slice(0, 5)) console.log(`    ${p}`);
+			}
+		}
+	}
+	console.log(`tokens: ${seen.size} files, ${items} items, ${seen.size - bad} consistent, ${fmt(performance.now() - t)} ms`);
+	return bad;
+}
+
 /** @param {number | undefined} n */
 const fmt = (n) => (n === undefined ? '-' : n >= 100 ? Math.round(n).toString() : n.toFixed(1));
 
@@ -95,6 +133,7 @@ async function main() {
 			only: { type: 'string', multiple: true, default: [] },
 			repeat: { type: 'string', default: '1' },
 			syntax: { type: 'boolean', default: false },
+			tokens: { type: 'boolean', default: false },
 			json: { type: 'string' },
 		},
 	});
@@ -117,6 +156,8 @@ async function main() {
 			throw new Error(`syntax docs look wrong (${bad.length} incomplete keyword(s))`);
 		}
 	}
+
+	const tokenFailures = values.tokens ? checkTokens(engine, corpus) : 0;
 
 	let revision = 0;
 	let failures = 0;
@@ -156,7 +197,7 @@ async function main() {
 	if (values.json) {
 		fs.writeFileSync(values.json, `${JSON.stringify({ boot: engine.bootTimings, plans: report }, null, 2)}\n`);
 	}
-	if (failures) process.exitCode = 1;
+	if (failures || tokenFailures) process.exitCode = 1;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -13,6 +13,7 @@
 #   TJBridge.schedule(request_json) -> String (JSON)
 #   TJBridge.syntax -> String (JSON)
 #   TJBridge.versions -> String (JSON) { "tj", "ruby" }
+#   TJBridge.tokens(text) -> String (JSON), Node only (see below)
 #
 # request_json is a ScheduleRequest: { files, entry, revision, options? }.
 # The bridge replaces WORKSPACE (default /workspace, which the worker must
@@ -27,6 +28,12 @@
 # TJBridge.syntax returns SyntaxDocs (syntax.rb, required on first use so that
 # booting does not pay for it) or the same { "error": ... } shape. The result
 # is cached for the life of the VM.
+#
+# TJBridge.tokens is the token oracle of phase-1 T19 (tokens.rb, required on
+# first use): TaskJuggler's own scanner tokens for one text, or the same
+# { "error": ... } shape. Only Node tools call it (src/engine/runtime.ts
+# NodeEngine); the worker protocol has no message for it. It touches neither
+# the workspace nor any state a later schedule reads.
 #
 # timings: writeFsMs (request JSON parse and workspace write), parseMs,
 # scheduleMs and serializeMs are measured here. totalMs is their sum as seen
@@ -97,6 +104,16 @@ module TJBridge
       require_relative 'syntax'
       JSON.generate(MainspringBridge::SyntaxDocs.build)
     end
+  rescue NoMemoryError, SystemStackError => e
+    exception_failure('crash', e)
+  rescue StandardError, ScriptError => e
+    exception_failure('internal', e)
+  end
+
+  def tokens(text)
+    require_relative 'tokens'
+    text = text.to_s unless text.is_a?(String)
+    MainspringBridge::Tokens.json(text)
   rescue NoMemoryError, SystemStackError => e
     exception_failure('crash', e)
   rescue StandardError, ScriptError => e
