@@ -78,6 +78,19 @@ jobs:
         env:
           MAINSPRING_DEV_PAGES: '1'
       - run: npm run test:e2e
+      # Gate criterion 2 (UI thread stays responsive while a 1,000-task plan schedules). Reuses the
+      # dev-pages build above; one worker, no retries (playwright.responsiveness.config.ts).
+      - name: Responsiveness gate
+        run: npm run test:responsiveness
+        env:
+          RESPONSIVENESS_SKIP_BUILD: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: responsiveness-report
+          path: test-results/responsiveness-*
+          if-no-files-found: ignore
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

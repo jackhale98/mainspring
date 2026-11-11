@@ -10,6 +10,8 @@ const launchOptions = process.env['CHROMIUM_PATH']
 
 export default defineConfig({
 	testDir: 'tests/e2e',
+	// Vitest unit tests live beside the helpers; responsiveness has its own config.
+	testIgnore: ['**/*.test.ts', '**/engine-responsiveness.spec.ts'],
 	fullyParallel: true,
 	forbidOnly: !!process.env['CI'],
 	retries: process.env['CI'] ? 1 : 0,

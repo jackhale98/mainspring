@@ -11,6 +11,25 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="robots" content="noindex" />
 		<title>Engine test page</title>
+		<style>
+			/* Gives the responsiveness test (tests/e2e/engine-responsiveness.spec.ts) motion to drop frames from. */
+			#spinner {
+				width: 2rem;
+				height: 2rem;
+				background: currentColor;
+				animation: spin 1s linear infinite;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				#spinner {
+					animation: none;
+				}
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+		</style>
 	</head>
 	<body>
 		<main>
@@ -18,18 +37,42 @@
 			<p id="state" data-testid="state">
 				booting
 			</p>
+			<div id="spinner" data-testid="spinner" aria-hidden="true"></div>
+			<div id="ticker" data-testid="ticker" aria-hidden="true"></div>
+			<label>
+				Typing target <input id="probe" data-testid="probe" type="text" />
+			</label>
 		</main>
 		<script>
 			import { createEngineClient } from '../../engine/client';
 			import { createDevApi } from '../../engine/devApi';
 
+			// The responsiveness test starts its cold window at this mark.
+			performance.mark('mainspring:client-created');
 			const client = createEngineClient();
+			// A rAF-driven animation, next to the CSS one.
+			const ticker = document.getElementById('ticker');
+			let angle = 0;
+			// The rAF loop keeps running for the measurement; under reduced motion it stops rotating.
+			const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+			const tick = (): void => {
+				if (!still) angle = (angle + 3) % 360;
+				if (ticker)
+					ticker.style.cssText = `width:2rem;height:0.5rem;background:currentColor;transform:rotate(${angle}deg)`;
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
 			const state = document.getElementById('state');
 			const show = (): void => {
 				if (state) state.textContent = client.state;
 			};
 			client.onState(show);
 			window.mainspringDev = createDevApi(client);
+			// The responsiveness test classifies long tasks as boot or post-ready by this mark.
+			window.mainspringDev.ready().then(
+				() => performance.mark('mainspring:ready'),
+				() => undefined,
+			);
 			window.mainspringDev.ready().then(show, show);
 		</script>
 	</body>

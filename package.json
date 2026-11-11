@@ -15,6 +15,7 @@
 		"test:unit": "vitest run",
 		"test:e2e": "playwright test",
 		"build:engine": "node engine/build-bundle.mjs",
+		"test:responsiveness": "node scripts/test-responsiveness.mjs",
 		"test:golden": "node scripts/test-golden.mjs",
 		"golden:record": "node engine/golden/record-native.mjs",
 		"golden:verify": "node engine/golden/record-native.mjs --verify",
