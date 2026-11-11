@@ -370,7 +370,7 @@ The zip's contents are not known yet. Record each item below as found, or as mis
 | 01 | shifts-resource | `shift` definitions; resource `shifts` with date ranges; leaves inside a shift |
 | 02 | shifts-allocation-task | per-allocation `shifts`; task-level `shifts` |
 | 03 | limits-resource-max | resource `limits` with `dailymax`, `weeklymax`, `monthlymax` |
-| 04 | limits-task-min-per-resource | task `limits` with min variants and per-resource limits; expected warnings |
+| 04 | limits-task-min-per-resource | task `limits` with per-resource limits (`{ resources r }`) that bind; one min variant kept as a recorded no-op, because TaskJuggler 3.8.4 never checks lower limits (`limitsOk?` checks upper limits only) |
 | 05 | scenarios-tree | nested `scenario`, `active no`, scenario-prefixed attributes (`delayed:effort`) |
 | 06 | scenarios-tracking | `trackingscenario`, `complete`, user `booking`s, fixed `now` |
 | 07 | deps-onstart-onend | `depends` and `precedes` with `onstart` and `onend` |
@@ -385,7 +385,7 @@ The zip's contents are not known yet. Record each item below as found, or as mis
 | 16 | constraints-violations | `start`, `end`, `minstart`, `maxend`, plus constraints that cannot be met, so error messages are compared |
 | 17 | priority-efficiency | `priority` contention, `efficiency` < 1 and > 1, overallocation warnings |
 | 18 | structure-include-macro | `include` from subfolders, `macro`, `supplement`, `extend`; non-ASCII names, for column counting |
-| 19 | errors-parse | syntax error inside an included `.tji` at a known line and column; `ok: false` |
+| 19 | errors-parse | syntax error inside an included `.tji` at a known line, with non-ASCII text before the bad token; `ok: false`. Native tj3 reports column 0 for scanner errors, so the column is whatever the shared serializer reports on both sides |
 | 20 | scale-1000 | generated: at least 1,000 tasks, at least 50 resources in groups, 4-level nesting, dependency chains, a 3-year horizon. Used by the gate's responsiveness test |
 
 Expected total: 26 plans (5 + 1 + 20); see 11.1. The parity spec asserts the exact count from the manifest.
