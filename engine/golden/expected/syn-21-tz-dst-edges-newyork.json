@@ -1,0 +1,485 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-21-tz-dst-edges-newyork",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            10440,
+            10560
+          ]
+        ],
+        "resource": "night",
+        "scenario": "plan",
+        "task": "autumn.at_overlap"
+      },
+      {
+        "intervals": [
+          [
+            191940,
+            192060
+          ]
+        ],
+        "resource": "night",
+        "scenario": "plan",
+        "task": "spring.at_gap"
+      },
+      {
+        "intervals": [
+          [
+            10470,
+            10530
+          ]
+        ],
+        "resource": "edge",
+        "scenario": "plan",
+        "task": "autumn.in_overlap"
+      },
+      {
+        "intervals": [
+          [
+            201900,
+            201960
+          ]
+        ],
+        "resource": "edge",
+        "scenario": "plan",
+        "task": "spring.in_gap"
+      },
+      {
+        "intervals": [
+          [
+            10380,
+            10440
+          ]
+        ],
+        "resource": "leaver",
+        "scenario": "plan",
+        "task": "autumn.alap"
+      },
+      {
+        "intervals": [
+          [
+            191880,
+            191910
+          ],
+          [
+            191970,
+            192120
+          ]
+        ],
+        "resource": "leaver",
+        "scenario": "plan",
+        "task": "spring.through_leave"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-22T00:00:00Z",
+      "id": "ny21",
+      "name": "New York DST edges",
+      "now": "2026-03-08T07:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2025-10-26T00:00:00Z",
+      "timezone": "America/New_York",
+      "timingResolutionMin": 30,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "night",
+        "name": "Sunday nights",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "group": false,
+        "id": "edge",
+        "name": "Edge hours",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "group": false,
+        "id": "leaver",
+        "name": "Leaves at the edges",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 25
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "autumn",
+        "milestone": false,
+        "name": "Autumn overlap 2025-11-02",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "night",
+              "edge",
+              "leaver"
+            ],
+            "criticalness": 0,
+            "end": 10560,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 10350
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 32
+        }
+      },
+      {
+        "id": "autumn.at_overlap",
+        "milestone": false,
+        "name": "Starts at 01:00 (overlap start)",
+        "parent": "autumn",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "night"
+            ],
+            "criticalness": 0.12698412698412698,
+            "end": 10560,
+            "pathCriticalness": 0.12698412698412698,
+            "scheduled": true,
+            "start": 10440
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 33
+        }
+      },
+      {
+        "id": "autumn.in_overlap",
+        "milestone": false,
+        "name": "Starts at 01:30 (inside the overlap)",
+        "parent": "autumn",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "edge"
+            ],
+            "criticalness": 0.09523809523809523,
+            "end": 10530,
+            "pathCriticalness": 0.09523809523809523,
+            "scheduled": true,
+            "start": 10470
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 38
+        }
+      },
+      {
+        "id": "autumn.alap",
+        "milestone": false,
+        "name": "Ends at 01:30, as late as possible, before the leave",
+        "parent": "autumn",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "leaver"
+            ],
+            "criticalness": 0.0642570281124498,
+            "end": 10440,
+            "pathCriticalness": 0.0642570281124498,
+            "scheduled": true,
+            "start": 10380
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 43
+        }
+      },
+      {
+        "id": "autumn.window",
+        "milestone": false,
+        "name": "Fixed 00:30 to 01:30",
+        "parent": "autumn",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 10470,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 10350
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 49
+        }
+      },
+      {
+        "id": "autumn.overlap_end",
+        "milestone": false,
+        "name": "Starts at 02:00 (overlap end)",
+        "parent": "autumn",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 10560,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 10500
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 53
+        }
+      },
+      {
+        "id": "autumn.mark",
+        "milestone": true,
+        "name": "Milestone at 01:30",
+        "parent": "autumn",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 10470,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 10470
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 57
+        }
+      },
+      {
+        "id": "spring",
+        "milestone": false,
+        "name": "Spring gap 2026-03-08",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "night",
+              "edge",
+              "leaver"
+            ],
+            "criticalness": 0,
+            "end": 201960,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 191880
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 63
+        }
+      },
+      {
+        "id": "spring.at_gap",
+        "milestone": false,
+        "name": "Starts at 02:00 (gap start)",
+        "parent": "spring",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "night"
+            ],
+            "criticalness": 0.12698412698412698,
+            "end": 192060,
+            "pathCriticalness": 0.12698412698412698,
+            "scheduled": true,
+            "start": 191940
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 64
+        }
+      },
+      {
+        "id": "spring.in_gap",
+        "milestone": false,
+        "name": "Starts at 02:30 (inside the gap)",
+        "parent": "spring",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "edge"
+            ],
+            "criticalness": 0.09523809523809523,
+            "end": 201960,
+            "pathCriticalness": 0.09523809523809523,
+            "scheduled": true,
+            "start": 201900
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 69
+        }
+      },
+      {
+        "id": "spring.through_leave",
+        "milestone": false,
+        "name": "Starts at 01:00, works around the leave",
+        "parent": "spring",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "leaver"
+            ],
+            "criticalness": 0.19277108433734938,
+            "end": 192120,
+            "pathCriticalness": 0.19277108433734938,
+            "scheduled": true,
+            "start": 191880
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 74
+        }
+      },
+      {
+        "id": "spring.window",
+        "milestone": false,
+        "name": "Fixed 01:00 to 02:30",
+        "parent": "spring",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 191970,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 191880
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 79
+        }
+      },
+      {
+        "id": "spring.gap_end",
+        "milestone": false,
+        "name": "Starts at 03:00 (gap end)",
+        "parent": "spring",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 192000,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 191940
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 83
+        }
+      },
+      {
+        "id": "spring.mark",
+        "milestone": true,
+        "name": "Milestone at 02:30",
+        "parent": "spring",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 191970,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 191970
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 87
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

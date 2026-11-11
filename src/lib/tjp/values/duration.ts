@@ -14,6 +14,7 @@
  *   seconds, never 0, months rounded down to the resolution, and a multiple of it.
  * All arithmetic follows Ruby's Integer/Float rules (see number.ts).
  */
+import { maxScheduleGranularity, type ZoneEnv } from './civil';
 import type { ProjectContext } from './context';
 import { parseWith, type Cursor } from './cursor';
 import {
@@ -167,7 +168,7 @@ export const TIMING_RESOLUTIONS = [5, 10, 15, 20, 30, 60] as const;
 
 /**
  * `timingresolution <INTEGER> min`: the minutes (the text after the keyword). Any integer
- * parses; `checkTimingResolution` applies `bad_timing_res`.
+ * parses; `checkTimingResolution` applies `bad_timing_res` and `too_large_timing_res`.
  */
 export function parseTimingResolution(text: string, base = 0): Parsed<number> {
 	return parseWith(text, base, (c) => {
@@ -182,8 +183,22 @@ export function printTimingResolution(minutes: number): Result<string> {
 	return checkTimingResolution(minutes).ok ? ok(`${minutes}min`) : fail('unrepresentable', 0, 0);
 }
 
-/** TaskJuggler's own check. The browser engine's maximum is 60 min, so `too_large_timing_res` never adds to it. */
-export function checkTimingResolution(minutes: number): Result<number> {
-	if ((TIMING_RESOLUTIONS as readonly number[]).includes(minutes)) return ok(minutes);
-	return fail('number-range', 0, 0, 'bad_timing_res', { got: minutes });
+/**
+ * TaskJuggler's own checks (TjpSyntaxRules.rb:3332-3345): one of TIMING_RESOLUTIONS
+ * (`bad_timing_res`), and, given the zone in force (`env`), at most the zone's cap,
+ * `Project.maxScheduleGranularity` (`too_large_timing_res`: 15 min for Asia/Kathmandu, 30 for
+ * Asia/Kolkata). Without `env` only the first check runs; a zone without zone data fails with
+ * `zone-data`.
+ */
+export function checkTimingResolution(minutes: number, env?: ZoneEnv): Result<number> {
+	if (!(TIMING_RESOLUTIONS as readonly number[]).includes(minutes)) {
+		return fail('number-range', 0, 0, 'bad_timing_res', { got: minutes });
+	}
+	if (!env) return ok(minutes);
+	const cap = maxScheduleGranularity(env);
+	if (cap === null) return fail('zone-data', 0, 0, null, { zone: env.zone ?? '' });
+	if (minutes * 60 > cap) {
+		return fail('number-range', 0, 0, 'too_large_timing_res', { got: minutes, max: cap / 60 });
+	}
+	return ok(minutes);
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
+import { createTimeZoneHost } from '../../../engine/runtime';
 import {
 	civilFromDays,
 	daysFromCivil,
@@ -8,11 +9,13 @@ import {
 	isLeapYear,
 	lastDayOfMonth,
 	localToEpoch,
+	maxScheduleGranularity,
 	sameTimeNextDay,
 	utcSeconds,
 	weekdayOf,
 	type ZoneOffsets,
 } from './civil';
+import { TZ_TABLE, caseEpoch, caseFields } from './testing/tz-table';
 
 const f = (year: number, month: number, day: number, hour = 0, minute = 0, second = 0) => ({
 	year,
@@ -70,13 +73,33 @@ describe('local time', () => {
 		expect(epochToLocal(0, { zone: 'Europe/Berlin' })).toBeNull();
 	});
 
-	it('follows the bridge patch: two offset lookups', () => {
+	it('follows the bridge patch (local_to_utc) east of UTC', () => {
 		expect(localToEpoch(f(2026, 1, 5, 9), env)).toBe(1767603600 - 3600);
 		expect(localToEpoch(f(2026, 7, 6, 9), env)).toBe(utcSeconds(f(2026, 7, 6, 7)));
 		// 02:30 on 2026-03-29 does not exist in Berlin; the patch lands on 01:30 UTC (03:30 CEST).
 		expect(localToEpoch(f(2026, 3, 29, 2, 30), env)).toBe(utcSeconds(f(2026, 3, 29, 1, 30)));
 		// 02:30 on 2026-10-25 happens twice; the patch picks the later one (CET).
 		expect(localToEpoch(f(2026, 10, 25, 2, 30), env)).toBe(utcSeconds(f(2026, 10, 25, 1, 30)));
+	});
+
+	it('follows the bridge patch west of UTC: gap with the earlier offset, overlap later', () => {
+		// New York 2026: EST to EDT at 2026-03-08 07:00Z, back at 2026-11-01 06:00Z.
+		const changes = [utcSeconds(f(2026, 3, 8, 7)), utcSeconds(f(2026, 11, 1, 6))] as const;
+		const ny = {
+			zone: 'America/New_York',
+			zones: {
+				offset: (_zone: string, e: number) =>
+					e >= changes[0] && e < changes[1] ? -4 * 3600 : -5 * 3600,
+				valid: () => true,
+			},
+		};
+		expect(localToEpoch(f(2026, 3, 8, 2), ny)).toBe(utcSeconds(f(2026, 3, 8, 7)));
+		expect(localToEpoch(f(2026, 3, 8, 2, 30), ny)).toBe(utcSeconds(f(2026, 3, 8, 7, 30)));
+		expect(localToEpoch(f(2026, 3, 8, 3), ny)).toBe(utcSeconds(f(2026, 3, 8, 7)));
+		expect(localToEpoch(f(2026, 3, 8, 1, 59), ny)).toBe(utcSeconds(f(2026, 3, 8, 6, 59)));
+		expect(localToEpoch(f(2026, 11, 1, 1), ny)).toBe(utcSeconds(f(2026, 11, 1, 6)));
+		expect(localToEpoch(f(2026, 11, 1, 0, 59), ny)).toBe(utcSeconds(f(2026, 11, 1, 4, 59)));
+		expect(localToEpoch(f(2026, 11, 1, 2), ny)).toBe(utcSeconds(f(2026, 11, 1, 7)));
 	});
 
 	it('reads local fields back', () => {
@@ -92,5 +115,24 @@ describe('local time', () => {
 			utcSeconds(f(2027, 1, 1)),
 		);
 		expect(sameTimeNextDay(0, { zone: 'Europe/Berlin' })).toBeNull();
+	});
+});
+
+describe('engine/golden/tz-edge-cases.json', () => {
+	const zones = createTimeZoneHost();
+
+	it.each(TZ_TABLE.cases)('$zone $local ($kind) is $utc', (c) => {
+		expect(localToEpoch(caseFields(c), { zone: c.zone, zones })).toBe(caseEpoch(c));
+	});
+
+	it.each(TZ_TABLE.resolutions)('$zone caps timingresolution at $maxMinutes min', (r) => {
+		expect(maxScheduleGranularity({ zone: r.zone, zones })).toBe(r.maxMinutes * 60);
+	});
+
+	it('has the full table and needs zone data for the cap', () => {
+		expect(TZ_TABLE.cases).toHaveLength(61);
+		expect(TZ_TABLE.resolutions).toHaveLength(10);
+		expect(maxScheduleGranularity({ zone: null })).toBe(3600);
+		expect(maxScheduleGranularity({ zone: 'Asia/Kathmandu' })).toBeNull();
 	});
 });

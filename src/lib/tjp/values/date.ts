@@ -213,9 +213,10 @@ export function resolveDateAt(
 /**
  * The canonical date for an instant, as the app writes it: local time in the env's zone, or with
  * an explicit offset unless that local time names exactly this one instant. So a time in a DST
- * overlap (the first 01:30 on 2026-11-01 in New York) always carries its offset, whichever of
- * the two instants the engine's algorithm would pick. Null when zone data is missing or the year
- * is outside 1970..2035.
+ * overlap (01:30 on 2026-11-01 in New York, either one) always carries its offset, although the
+ * engine reads it plain as the later instant (`localToEpoch`); an instant never has a local time
+ * in a gap, so gap times are never written. Null when zone data is missing or the year is
+ * outside 1970..2035.
  */
 export function dateFromEpoch(epoch: number, env: ZoneEnv): TjDate | null {
 	const local = epochToLocal(epoch, env);

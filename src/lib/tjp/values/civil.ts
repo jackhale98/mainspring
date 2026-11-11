@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-// Close translation of TjTime#sameTimeNextDay, #lastDayOfMonth, #leapYear? (TaskJuggler 3.8.4).
+// Close translation of TjTime#sameTimeNextDay, #lastDayOfMonth, #leapYear? and
+// Project.maxScheduleGranularity (TaskJuggler 3.8.4).
 /**
  * Calendar arithmetic on plain integers (no `Date`), and local time the way the browser engine
  * reads it.
@@ -9,11 +10,16 @@
  * TjTime.rb:523-525, `rule_timezone` at TjpSyntaxRules.rb:7135-7139 calls TjTime.setTimeZone).
  * The `timezone` attributes of reports, shifts and exports do not change how dates are read.
  *
- * In the browser engine `Time.local` is the bridge's patch
- * (engine/bridge/wasm/tj_wasm_tz.rb:46-56): `base = Time.utc(fields)`, then the offset is looked
- * up twice, `off = offset(zone, base)` and `off = offset(zone, base - off)`, and the instant is
- * `base - off`. `localToEpoch` does exactly that, with the same host interface
- * (`TimeZoneHost` in src/engine/runtime.ts satisfies `ZoneOffsets`).
+ * In the browser engine `Time.local` is the bridge's patch (`TJWasmTZ.local_to_utc`,
+ * engine/bridge/wasm/tj_wasm_tz.rb:111-125, called at :135-141), which resolves DST edges as
+ * native Ruby does: with `wall = Time.utc(fields)`, take the offsets one day either side,
+ * `before = offset(zone, wall - 1 d)` and `after = offset(zone, wall + 1 d)`. Equal, the instant
+ * is `wall - before`. Otherwise it is `wall - after` if that instant has offset `after` (the
+ * unique time after a change, or the later of the two in an overlap), else `wall - before` (the
+ * unique time before a change, or a gap time read with the offset before the change, so New
+ * York 2026-03-08 02:30 is 07:30Z). `localToEpoch` does exactly that, with the same host
+ * interface (`TimeZoneHost` in src/engine/runtime.ts satisfies `ZoneOffsets`), and
+ * engine/golden/tz-edge-cases.json is its shared test table.
  *
  * `Time.utc` rolls a day past the month's end into the next month (2026-02-30 is 2026-03-02), and
  * `daysFromCivil` does the same. `daysFromCivil` and `civilFromDays` are H. Hinnant's
@@ -110,7 +116,7 @@ function zoneOf(env: ZoneEnv): string | null {
 
 /**
  * TaskJuggler's zone-name check as the browser engine runs it (TjTime.checkTimeZone, replaced by
- * engine/bridge/wasm/tj_wasm_tz.rb:69-74): 'UTC', or a name with a '/' the zone data knows.
+ * engine/bridge/wasm/tj_wasm_tz.rb:167-173): 'UTC', or a name with a '/' the zone data knows.
  */
 export function checkZoneName(name: string, zones?: ZoneOffsets): Result<string> {
 	if (name === 'UTC') return ok(name);
@@ -126,15 +132,40 @@ export function offsetAt(env: ZoneEnv, epoch: number): number | null {
 	return env.zones ? env.zones.offset(zone, epoch) : null;
 }
 
-/** `Time.mktime(fields)` in the env's zone (bridge patch algorithm); null without zone data. */
+/**
+ * `Time.mktime(fields)` in the env's zone (`local_to_utc` in the bridge patch, see the module
+ * comment): a gap time is read with the offset before the change, an overlap time is the later
+ * instant. Null without zone data.
+ */
 export function localToEpoch(f: CivilFields, env: ZoneEnv): number | null {
-	const base = utcSeconds(f);
+	const wall = utcSeconds(f);
 	const zone = zoneOf(env);
-	if (zone === null) return base;
-	if (!env.zones) return null;
-	let off = env.zones.offset(zone, base);
-	off = env.zones.offset(zone, base - off);
-	return base - off;
+	if (zone === null) return wall;
+	const zones = env.zones;
+	if (!zones) return null;
+	const before = zones.offset(zone, wall - DAY);
+	const after = zones.offset(zone, wall + DAY);
+	if (before === after) return wall - before;
+	if (zones.offset(zone, wall - after) === after) return wall - after;
+	return wall - before;
+}
+
+/** 2000-01-01T00:00:00Z, the instant Project.maxScheduleGranularity reads. */
+const Y2000 = 946684800;
+
+/**
+ * `Project.maxScheduleGranularity` (Project.rb:1017-1035) in seconds: the largest timing
+ * resolution TaskJuggler accepts in the env's zone. It reads the minutes of the zone's local time
+ * at 2000-01-01T00:00Z (`Time#getlocal`, routed by engine/bridge/wasm/tj_wasm_tz.rb:153-164): 0
+ * gives 3600, 30 gives 1800, 15 or 45 give 900. A zone in summer time on that date gets the
+ * summer offset's cap (Australia/Lord_Howe, +11:00, gets 3600). Null without zone data or for an
+ * offset TaskJuggler refuses ("Unknown Time zone alignment").
+ */
+export function maxScheduleGranularity(env: ZoneEnv): number | null {
+	const off = offsetAt(env, Y2000);
+	if (off === null) return null;
+	const min = fieldsFromUtc(Y2000 + off).minute;
+	return min === 0 ? 3600 : min === 30 ? 1800 : min === 15 || min === 45 ? 900 : null;
 }
 
 /**

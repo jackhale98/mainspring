@@ -196,6 +196,20 @@ describe('project settings for T8 and T11', () => {
 			error: { tj: 'bad_timing_res' },
 		});
 		expect(printValue({ kind: 'timingresolution', value: 7 }).ok).toBe(false);
+		// The zone in force caps it (Project.maxScheduleGranularity): +05:45 allows 15 min.
+		const kathmandu = projectContext({ zone: 'Asia/Kathmandu', zones: createTimeZoneHost() });
+		expect(
+			checkValue('timingresolution', parsed('timingresolution', '30min'), kathmandu, {
+				from: 3,
+				to: 8,
+			}),
+		).toMatchObject({
+			ok: false,
+			error: { tj: 'too_large_timing_res', from: 3, to: 8, args: { max: 15 } },
+		});
+		expect(checkValue('timingresolution', parsed('timingresolution', '15min'), kathmandu).ok).toBe(
+			true,
+		);
 		expect(parseValue('number', '260')).toMatchObject({
 			ok: true,
 			value: { value: { value: 260, float: false } },
