@@ -839,4 +839,16 @@ them.
 12. **T19 split.** The engine part of T19 (the token oracle, Node only) is merged; the differential
     test `tests/grammar/scanner-diff.test.ts` is still to do and runs in the `fidelity` job, which
     builds the engine.
+13. **Formatting rules (T12).** Indentation depth counts `Body` nodes, not every `{` (the braces of
+    `%{ }` date expressions do not count). A body opened part-way through a continuation line (for
+    example a report's `columns name, effort { … }`) keeps its lines' layout as continuations of the
+    owning statement. Macro-related text-only ranges (`macro-body`, `macro-call`, `env-var`,
+    `macro-id`, `expanded-only`) are left exactly as written; opaque and `auto-id` blocks are
+    re-indented, because indentation never changes a TaskJuggler value outside strings and comments.
+    Files with syntax errors are refused; formatting never produces new error nodes (checked by a
+    reparse, reported as `syntax-error` if it ever did).
+14. **Line breaks (review of T12).** TaskJuggler reads files with `universal_newline`, so `\r\n` and a
+    lone `\r` are line breaks (Scanner.rb:174, UTF8String.rb:131). The tokenizer and grammar treat all
+    three as line breaks while keeping offsets on the original text. This corrects section 5.1 and the
+    earlier note that CRLF macro bodies run to the end of the file.
 
