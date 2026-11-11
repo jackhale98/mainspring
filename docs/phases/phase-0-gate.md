@@ -1,7 +1,8 @@
 # Phase 0 gate: Foundation and engine
 
-Status: **waiting for approval.** Evidence recorded 2026-11-11 on branch
-`claude/new-session-6tly46` (also pushed to `main`). Spec: `docs/phases/phase-0.md`.
+Status: **approved by the user on 2026-11-11**, including the engine-boot deviation (spec section
+11, item 18). The OpenSSL question stays open until before any public release. Evidence recorded
+on branch `claude/new-session-6tly46` and `main`.
 
 ## Verdict
 

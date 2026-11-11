@@ -66,6 +66,6 @@ Haiku-sized work (fixtures, test runs, log triage, docs formatting) in the main 
 
 ## Current status
 
-- Phase 0 complete, waiting at its gate (`docs/phases/phase-0-gate.md`). Do not start Phase 1
-  until the user approves the gate.
+- Phase 0 approved 2026-11-11 (`docs/phases/phase-0-gate.md`).
+- Phase 1: spec being drafted (`docs/phases/phase-1.md`); no Phase 1 code until the user approves it.
 - `poc/` is the frozen proof of concept; see `poc/INVENTORY.md`. Never edit it.
