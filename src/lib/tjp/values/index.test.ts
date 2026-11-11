@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
+import { createTimeZoneHost } from '../../../engine/runtime';
 import {
 	KEYWORD_VALUE_KIND,
 	checkValue,
@@ -34,6 +35,7 @@ const SAMPLES: ReadonlyArray<readonly [ValueKind, string, string]> = [
 	['workinghours', 'mon-fri 9:00-17:00', 'mon - fri 9:00 - 17:00'],
 	['leaves', 'holiday "x" 2026-11-26+2d', 'holiday "x" 2026-11-26 +2d'],
 	['vacation', '"x" 2026-02-23', '"x" 2026-02-23'],
+	['timingresolution', '015 min', '15min'],
 ];
 
 describe('parseValue and printValue', () => {
@@ -144,5 +146,59 @@ describe('checkValue', () => {
 		]) {
 			expect(KEYWORD_VALUE_KIND[k]).toBeDefined();
 		}
+	});
+});
+
+describe('project settings for T8 and T11', () => {
+	const zones = createTimeZoneHost();
+	it('validates timezone names as the browser engine does', () => {
+		const ctx = projectContext({ zones });
+		expect(checkValue('timezone', parsed('string', '"UTC"'), projectContext({})).ok).toBe(true);
+		expect(checkValue('timezone', parsed('string', '"Europe/Berlin"'), ctx).ok).toBe(true);
+		expect(
+			checkValue('timezone', parsed('string', '"Mars/Olympus"'), ctx, { from: 9, to: 23 }),
+		).toMatchObject({
+			ok: false,
+			error: { code: 'bad-zone', tj: 'bad_time_zone', from: 9, to: 23 },
+		});
+		expect(checkValue('timezone', parsed('string', '"EST"'), ctx)).toMatchObject({
+			ok: false,
+			error: { tj: 'bad_time_zone' },
+		});
+		expect(
+			checkValue('timezone', parsed('string', '"Europe/Berlin"'), projectContext({})),
+		).toMatchObject({
+			ok: false,
+			error: { code: 'zone-data' },
+		});
+		expect(checkValue('note', parsed('string', '"EST"'), ctx).ok).toBe(true);
+	});
+
+	it('reads timingresolution and yearlyworkingdays', () => {
+		expect(KEYWORD_VALUE_KIND['timingresolution']).toBe('timingresolution');
+		expect(KEYWORD_VALUE_KIND['yearlyworkingdays']).toBe('number');
+		expect(parseValue('timingresolution', '15min')).toMatchObject({
+			ok: true,
+			value: { value: 15 },
+		});
+		expect(parseValue('timingresolution', '15h')).toMatchObject({
+			ok: false,
+			error: { code: 'bad-unit' },
+		});
+		expect(parseValue('timingresolution', '1.5min')).toMatchObject({
+			ok: false,
+			error: { code: 'unexpected-token' },
+		});
+		const ctx = projectContext({});
+		expect(checkValue('timingresolution', parsed('timingresolution', '30min'), ctx).ok).toBe(true);
+		expect(checkValue('timingresolution', parsed('timingresolution', '7min'), ctx)).toMatchObject({
+			ok: false,
+			error: { tj: 'bad_timing_res' },
+		});
+		expect(printValue({ kind: 'timingresolution', value: 7 }).ok).toBe(false);
+		expect(parseValue('number', '260')).toMatchObject({
+			ok: true,
+			value: { value: { value: 260, float: false } },
+		});
 	});
 });

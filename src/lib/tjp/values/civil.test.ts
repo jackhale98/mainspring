@@ -24,7 +24,10 @@ const f = (year: number, month: number, day: number, hour = 0, minute = 0, secon
 });
 /** Europe/Berlin for 2026: CET, CEST from 2026-03-29 01:00 UTC to 2026-10-25 01:00 UTC. */
 const DST = [utcSeconds(f(2026, 3, 29, 1)), utcSeconds(f(2026, 10, 25, 1))] as const;
-const berlin: ZoneOffsets = { offset: (_zone, e) => (e >= DST[0] && e < DST[1] ? 7200 : 3600) };
+const berlin: ZoneOffsets = {
+	offset: (_zone, e) => (e >= DST[0] && e < DST[1] ? 7200 : 3600),
+	valid: (zone) => zone === 'Europe/Berlin',
+};
 const env = { zone: 'Europe/Berlin', zones: berlin };
 
 describe('civil arithmetic', () => {

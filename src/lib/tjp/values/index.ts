@@ -13,6 +13,7 @@
  * Spelling is kept by not rewriting: `keepOrPrint` returns the text as written when it already
  * means the new value. The edit API uses it for its `already-set` no-op (spec 7.1).
  */
+import { checkZoneName } from './civil';
 import type { ProjectContext } from './context';
 import {
 	printDate,
@@ -24,8 +25,11 @@ import {
 } from './date';
 import {
 	durationAmount,
+	checkTimingResolution,
 	parseDuration,
+	parseTimingResolution,
 	printDuration,
+	printTimingResolution,
 	sameDuration,
 	type Duration,
 	type DurationUse,
@@ -92,7 +96,8 @@ export type TypedValue =
 	| { readonly kind: 'scheduling'; readonly value: 'asap' | 'alap' }
 	| { readonly kind: 'workinghours'; readonly value: WorkingHours }
 	| { readonly kind: 'leaves'; readonly value: readonly Leave[] }
-	| { readonly kind: 'vacation'; readonly value: Vacation };
+	| { readonly kind: 'vacation'; readonly value: Vacation }
+	| { readonly kind: 'timingresolution'; readonly value: number };
 
 export type ValueKind = TypedValue['kind'];
 type ValueOf<K extends ValueKind> = Extract<TypedValue, { kind: K }>['value'];
@@ -115,6 +120,8 @@ export const KEYWORD_VALUE_KIND: Readonly<Record<string, ValueKind>> = {
 	efficiency: 'number',
 	rate: 'number',
 	dailyworkinghours: 'number',
+	yearlyworkingdays: 'number',
+	timingresolution: 'timingresolution',
 	note: 'string',
 	email: 'string',
 	timezone: 'string',
@@ -170,6 +177,8 @@ export function parseValue(kind: ValueKind, text: string, base = 0): Parsed<Type
 			return tag(kind, parseLeaves(text, base));
 		case 'vacation':
 			return tag(kind, parseVacation(text, base));
+		case 'timingresolution':
+			return tag(kind, parseTimingResolution(text, base));
 	}
 }
 
@@ -204,6 +213,8 @@ export function printValue(v: TypedValue): Result<string> {
 			return printLeaves(v.value);
 		case 'vacation':
 			return printVacation(v.value);
+		case 'timingresolution':
+			return printTimingResolution(v.value);
 	}
 }
 
@@ -237,6 +248,7 @@ export function sameValue(a: TypedValue, b: TypedValue): boolean {
 		case 'string':
 		case 'id':
 		case 'scheduling':
+		case 'timingresolution':
 			return b.kind === a.kind && a.value === b.value;
 	}
 }
@@ -267,7 +279,8 @@ const DURATION_USE: Readonly<Record<string, DurationUse>> = {
 
 /**
  * TaskJuggler's context-dependent checks for a keyword's value; `span` places the error.
- * Dates of `start`, `end`, `minstart` and `maxend` must lie in the project frame (`valDate`).
+ * Dates of `start`, `end`, `minstart` and `maxend` must lie in the project frame (`valDate`);
+ * a `timezone` must be 'UTC' or a known `Region/City` zone (`bad_time_zone`, needs `ctx.zones`).
  */
 export function checkValue(
 	keyword: string,
@@ -305,6 +318,10 @@ export function checkValue(
 			return keyword === 'complete' ? done(checkComplete(v.value)) : ok(true);
 		case 'integer':
 			return keyword === 'priority' ? done(checkPriority(v.value)) : ok(true);
+		case 'timingresolution':
+			return done(checkTimingResolution(v.value));
+		case 'string':
+			return keyword === 'timezone' ? done(checkZoneName(v.value, ctx.zones)) : ok(true);
 		default:
 			return ok(true);
 	}

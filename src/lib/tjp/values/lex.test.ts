@@ -117,6 +117,10 @@ describe('ValueLexer', () => {
 		expect(t?.str?.value).toBe('a ->8- b\n');
 	});
 
+	it('accepts junk before a cut mark that ends the line, as the unanchored native check does', () => {
+		expect(lex('-8<-mon-8<-\n  a\n->8-')[0]?.str).toEqual({ value: 'a\n', style: 'cut' });
+	});
+
 	it('refuses junk after the cut mark', () => {
 		expect(lexError('-8<- x\n->8-')).toMatchObject({
 			code: 'junk-after-cut',
@@ -161,5 +165,31 @@ describe('hasExpansion', () => {
 		expect(hasExpansion('a ${b}')).toBe(true);
 		expect(hasExpansion('$(HOME)')).toBe(true);
 		expect(hasExpansion('cost: $5 (approx)')).toBe(false);
+	});
+});
+
+describe('ValueLexer at the end of the file', () => {
+	it('closes a string at the last \\" of a final line without a newline (end pattern backtracks)', () => {
+		// Native tj3 reads `task t "a⏎\"` at EOF as the name `a\n\`.
+		const [t] = lex('"a\n\\"');
+		expect(t?.str?.value).toBe('a\n\\');
+		expect(t?.to).toBe(5);
+		expect(kinds('"a\n\\"x')).toEqual(['string:"a\n\\"', 'id:x']);
+		expect(lex('"a\nb\\"c\\"d')[0]?.str?.value).toBe('a\nb"c\\');
+		expect(lex("'a\n\\'")[0]?.str?.value).toBe('a\n\\');
+	});
+
+	it('stays unterminated on the first line or after a final newline', () => {
+		expect(lexError('"a\\"').code).toBe('unterminated');
+		expect(lexError('"a\n\\"\n').code).toBe('unterminated');
+		expect(lexError('"a\nb').code).toBe('unterminated');
+	});
+
+	it('lexes long input in linear time', () => {
+		const t0 = performance.now();
+		expect(lex(`${'5d, '.repeat(50000)}x`).length).toBe(150001);
+		expect(lex('5d,\n'.repeat(50000)).length).toBe(150000);
+		expect(lex(`${'"s", '.repeat(20000)}"$5"`).length).toBe(40001);
+		expect(performance.now() - t0).toBeLessThan(3000);
 	});
 });

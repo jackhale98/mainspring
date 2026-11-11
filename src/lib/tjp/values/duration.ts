@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-only
+// Close translation of the duration rules of TjpSyntaxRules.rb (TaskJuggler 3.8.4).
 /**
  * Durations: `number durationUnit`, unit `min | h | d | w | m | y` (TjpSyntaxRules.rb:1000-1018).
  * `5d` lexes as INTEGER `5` and ID `d`, so `5 d` is the same value.
@@ -20,6 +21,7 @@ import {
 	int,
 	printNumber,
 	rDiv,
+	readInteger,
 	readNumber,
 	rMul,
 	rRound,
@@ -158,4 +160,30 @@ export function equivalentDurations(
 	const x = durationAmount(a, use, ctx);
 	const y = durationAmount(b, use, ctx);
 	return x.ok && y.ok && x.value === y.value;
+}
+
+/** The values `timingresolution` accepts (TjpSyntaxRules.rb:3332-3345). */
+export const TIMING_RESOLUTIONS = [5, 10, 15, 20, 30, 60] as const;
+
+/**
+ * `timingresolution <INTEGER> min`: the minutes (the text after the keyword). Any integer
+ * parses; `checkTimingResolution` applies `bad_timing_res`.
+ */
+export function parseTimingResolution(text: string, base = 0): Parsed<number> {
+	return parseWith(text, base, (c) => {
+		const n = readInteger(c);
+		const u = c.expect('id', 'absId', 'idColon');
+		if (u.text !== 'min') raise('bad-unit', u.from, u.to, null, { got: u.text });
+		return n;
+	});
+}
+
+export function printTimingResolution(minutes: number): Result<string> {
+	return checkTimingResolution(minutes).ok ? ok(`${minutes}min`) : fail('unrepresentable', 0, 0);
+}
+
+/** TaskJuggler's own check. The browser engine's maximum is 60 min, so `too_large_timing_res` never adds to it. */
+export function checkTimingResolution(minutes: number): Result<number> {
+	if ((TIMING_RESOLUTIONS as readonly number[]).includes(minutes)) return ok(minutes);
+	return fail('number-range', 0, 0, 'bad_timing_res', { got: minutes });
 }

@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The project settings a value's meaning depends on, as they stand at the value's position in
- * parse order (TaskJuggler applies `dailyworkinghours`, `workinghours`, `timingresolution` and
- * `timezone` as it reads them). The index (T8) builds one per position; values never look it up.
+ * parse order (TaskJuggler applies `dailyworkinghours`, `yearlyworkingdays`, `workinghours`,
+ * `timingresolution` and the project's `timezone` as it reads them). Only the project-level
+ * `timezone` (TjpSyntaxRules.rb:7135) changes how dates are read; the `timezone` of a report,
+ * shift or export does not. The index (T8) builds one context per position; values never look
+ * it up.
  *
  * Defaults are TaskJuggler's (Project.rb:80-106): 8.0 daily working hours, 260.714 yearly
  * working days, a 60 min timing resolution, Mon-Fri 9:00-17:00 (WorkingHours.rb:65-71, 40 h a

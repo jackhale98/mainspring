@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
 import { createTimeZoneHost } from '../../../engine/runtime';
-import { utcSeconds } from './civil';
+import { localInstants, utcSeconds } from './civil';
 import { projectContext } from './context';
 import {
 	dateFromEpoch,
@@ -243,6 +243,51 @@ describe('dateFromEpoch and minutes', () => {
 		expect(dateFromEpoch(utc(2026, 10, 25, 0, 30), berlin)).toEqual(
 			tj(2026, 10, 25, 2, 30, 0, 120),
 		);
+	});
+
+	it('writes an offset for both instants of an overlap and keeps unique times plain', () => {
+		const ny = { zone: 'America/New_York', zones };
+		// 2026-11-01: 02:00 EDT falls back to 01:00 EST at 06:00 UTC.
+		expect(dateFromEpoch(utc(2026, 11, 1, 5, 30), ny)).toEqual(tj(2026, 11, 1, 1, 30, 0, -240));
+		expect(dateFromEpoch(utc(2026, 11, 1, 6, 30), ny)).toEqual(tj(2026, 11, 1, 1, 30, 0, -300));
+		expect(dateFromEpoch(utc(2026, 11, 1, 4, 30), ny)).toEqual(tj(2026, 11, 1, 0, 30));
+		expect(dateFromEpoch(utc(2026, 11, 1, 7), ny)).toEqual(tj(2026, 11, 1, 2));
+		// 2026-03-08: 02:00 EST springs to 03:00 EDT at 07:00 UTC; times around the gap are unique.
+		expect(dateFromEpoch(utc(2026, 3, 8, 6, 30), ny)).toEqual(tj(2026, 3, 8, 1, 30));
+		expect(dateFromEpoch(utc(2026, 3, 8, 7, 30), ny)).toEqual(tj(2026, 3, 8, 3, 30));
+
+		const sydney = { zone: 'Australia/Sydney', zones };
+		// 2027-04-04: 03:00 AEDT falls back to 02:00 AEST at 16:00 UTC the day before.
+		expect(dateFromEpoch(utc(2027, 4, 3, 15, 30), sydney)).toEqual(tj(2027, 4, 4, 2, 30, 0, 660));
+		expect(dateFromEpoch(utc(2027, 4, 3, 16, 30), sydney)).toEqual(tj(2027, 4, 4, 2, 30, 0, 600));
+		expect(dateFromEpoch(utc(2026, 10, 3, 16), sydney)).toEqual(tj(2026, 10, 4, 3));
+
+		const kathmandu = { zone: 'Asia/Kathmandu', zones };
+		// 1986-01-01: +05:30 became +05:45 at 18:30 UTC, skipping local 00:00 to 00:15.
+		expect(dateFromEpoch(utc(1985, 12, 31, 18, 15), kathmandu)).toEqual(tj(1985, 12, 31, 23, 45));
+		expect(dateFromEpoch(utc(1985, 12, 31, 18, 30), kathmandu)).toEqual(tj(1986, 1, 1, 0, 15));
+	});
+
+	it('finds gaps and overlaps', () => {
+		const f = (y: number, mo: number, d: number, h: number, mi: number) => ({
+			year: y,
+			month: mo,
+			day: d,
+			hour: h,
+			minute: mi,
+			second: 0,
+		});
+		const ny = { zone: 'America/New_York', zones };
+		expect(localInstants(f(2026, 3, 8, 2, 30), ny)).toEqual([]);
+		expect(localInstants(f(2026, 11, 1, 1, 30), ny)).toEqual([
+			utc(2026, 11, 1, 5, 30),
+			utc(2026, 11, 1, 6, 30),
+		]);
+		expect(localInstants(f(2026, 6, 1, 9, 0), ny)).toEqual([utc(2026, 6, 1, 13)]);
+		expect(localInstants(f(2026, 10, 4, 2, 30), { zone: 'Australia/Sydney', zones })).toEqual([]);
+		expect(localInstants(f(1986, 1, 1, 0, 5), { zone: 'Asia/Kathmandu', zones })).toEqual([]);
+		expect(localInstants(f(2026, 6, 1, 9, 0), { zone: null })).toEqual([utc(2026, 6, 1, 9)]);
+		expect(localInstants(f(2026, 6, 1, 9, 0), { zone: 'Asia/Kathmandu' })).toBeNull();
 	});
 
 	it('converts between instants and view minutes', () => {

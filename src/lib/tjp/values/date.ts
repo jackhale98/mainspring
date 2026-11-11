@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-only
+// Close translation of TjTime#parse and TjpSyntaxRules.rb rule_date (TaskJuggler 3.8.4).
 /**
  * Dates: `YYYY-MM-DD[-hh:mm[:ss]][-±HHMM]` (the DATE token, ProjectFileScanner.rb:88) and the
  * date expression `%{ DATE ± duration }` (`dateCalcedOrNot`, TjpSyntaxRules.rb:957-962).
@@ -18,6 +19,7 @@
 import {
 	epochToLocal,
 	fieldsFromUtc,
+	localInstants,
 	localToEpoch,
 	offsetAt,
 	utcSeconds,
@@ -210,14 +212,18 @@ export function resolveDateAt(
 
 /**
  * The canonical date for an instant, as the app writes it: local time in the env's zone, or with
- * an explicit offset when local time cannot name the instant (a DST overlap or gap). Null when
- * zone data is missing or the year is outside 1970..2035.
+ * an explicit offset unless that local time names exactly this one instant. So a time in a DST
+ * overlap (the first 01:30 on 2026-11-01 in New York) always carries its offset, whichever of
+ * the two instants the engine's algorithm would pick. Null when zone data is missing or the year
+ * is outside 1970..2035.
  */
 export function dateFromEpoch(epoch: number, env: ZoneEnv): TjDate | null {
 	const local = epochToLocal(epoch, env);
 	if (local === null) return null;
 	let d: TjDate = { ...local, zone: null };
-	if (localToEpoch(local, env) !== epoch) {
+	const instants = localInstants(local, env);
+	const unique = instants !== null && instants.length === 1 && instants[0] === epoch;
+	if (!unique || localToEpoch(local, env) !== epoch) {
 		const off = offsetAt(env, epoch) ?? 0;
 		d = { ...fieldsFromUtc(epoch + off), zone: Math.round(off / 60) };
 	}

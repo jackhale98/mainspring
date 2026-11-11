@@ -39,6 +39,7 @@ export type ValueErrorCode =
 	| 'start-before-end'
 	| 'out-of-project'
 	| 'zone-data'
+	| 'bad-zone'
 	// Ids
 	| 'not-an-id'
 	| 'too-many-bangs'

@@ -1,19 +1,25 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-only
+// Close translation of TjTime#sameTimeNextDay, #lastDayOfMonth, #leapYear? (TaskJuggler 3.8.4).
 /**
  * Calendar arithmetic on plain integers (no `Date`), and local time the way the browser engine
  * reads it.
  *
  * TaskJuggler reads a date without a zone with `Time.mktime` in the zone set by the last
- * `timezone` statement parsed so far, and UTC before any (TaskJuggler.rb:40, TjTime.rb:523-525,
- * TjpSyntaxRules.rb:7135-7139). In the browser engine `Time.local` is the bridge's patch
+ * project-level `timezone` statement parsed so far, and UTC before any (TaskJuggler.rb:40,
+ * TjTime.rb:523-525, `rule_timezone` at TjpSyntaxRules.rb:7135-7139 calls TjTime.setTimeZone).
+ * The `timezone` attributes of reports, shifts and exports do not change how dates are read.
+ *
+ * In the browser engine `Time.local` is the bridge's patch
  * (engine/bridge/wasm/tj_wasm_tz.rb:46-56): `base = Time.utc(fields)`, then the offset is looked
  * up twice, `off = offset(zone, base)` and `off = offset(zone, base - off)`, and the instant is
  * `base - off`. `localToEpoch` does exactly that, with the same host interface
  * (`TimeZoneHost` in src/engine/runtime.ts satisfies `ZoneOffsets`).
  *
  * `Time.utc` rolls a day past the month's end into the next month (2026-02-30 is 2026-03-02), and
- * `daysFromCivil` does the same.
+ * `daysFromCivil` does the same. `daysFromCivil` and `civilFromDays` are H. Hinnant's
+ * public-domain algorithms.
  */
+import { fail, ok, type Result } from './result';
 
 export interface CivilFields {
 	readonly year: number;
@@ -24,9 +30,12 @@ export interface CivilFields {
 	readonly second: number;
 }
 
-/** UTC offset in seconds of an IANA zone at a UTC instant (epoch seconds). */
+/** Time-zone data (the engine's `TimeZoneHost` in src/engine/runtime.ts fits). */
 export interface ZoneOffsets {
+	/** UTC offset in seconds of an IANA zone at a UTC instant (epoch seconds). */
 	offset(zone: string, epochSeconds: number): number;
+	/** Whether the zone name is known. */
+	valid(zone: string): boolean;
 }
 
 /** The zone dates are read in: null and 'UTC' are UTC; anything else needs `zones`. */
@@ -99,6 +108,17 @@ function zoneOf(env: ZoneEnv): string | null {
 	return env.zone === null || env.zone === '' || env.zone === 'UTC' ? null : env.zone;
 }
 
+/**
+ * TaskJuggler's zone-name check as the browser engine runs it (TjTime.checkTimeZone, replaced by
+ * engine/bridge/wasm/tj_wasm_tz.rb:69-74): 'UTC', or a name with a '/' the zone data knows.
+ */
+export function checkZoneName(name: string, zones?: ZoneOffsets): Result<string> {
+	if (name === 'UTC') return ok(name);
+	if (!name.includes('/')) return fail('bad-zone', 0, 0, 'bad_time_zone', { zone: name });
+	if (!zones) return fail('zone-data', 0, 0, null, { zone: name });
+	return zones.valid(name) ? ok(name) : fail('bad-zone', 0, 0, 'bad_time_zone', { zone: name });
+}
+
 /** Offset of the env's zone at a UTC instant; null if the zone needs data that is missing. */
 export function offsetAt(env: ZoneEnv, epoch: number): number | null {
 	const zone = zoneOf(env);
@@ -115,6 +135,24 @@ export function localToEpoch(f: CivilFields, env: ZoneEnv): number | null {
 	let off = env.zones.offset(zone, base);
 	off = env.zones.offset(zone, base - off);
 	return base - off;
+}
+
+/**
+ * Every instant whose local time in the env's zone is `f`, ascending: none in a gap, two in an
+ * overlap. Null without zone data. Offsets are sampled 15 h either side, which finds any single
+ * transition near `f` (two transitions within 15 h are not seen).
+ */
+export function localInstants(f: CivilFields, env: ZoneEnv): number[] | null {
+	const base = utcSeconds(f);
+	const zone = zoneOf(env);
+	if (zone === null) return [base];
+	const zones = env.zones;
+	if (!zones) return null;
+	const offsets = new Set(
+		[base - 15 * 3600, base, base + 15 * 3600].map((e) => zones.offset(zone, e)),
+	);
+	const out = [...offsets].map((o) => base - o).filter((e) => zones.offset(zone, e) === base - e);
+	return [...new Set(out)].sort((a, b) => a - b);
 }
 
 /** `Time#localtime` fields in the env's zone; null without zone data. */

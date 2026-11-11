@@ -11,7 +11,7 @@
 import fc from 'fast-check';
 import { lastDayOfMonth } from '../civil';
 import type { DateExpr, TjDate } from '../date';
-import { DURATION_UNITS, type Duration } from '../duration';
+import { DURATION_UNITS, TIMING_RESOLUTIONS, type Duration } from '../duration';
 import type { TaskRef } from '../ids';
 import type { Interval } from '../interval';
 import { LEAVE_TYPES, type Leave, type Vacation } from '../leave';
@@ -131,6 +131,7 @@ export const arbitraries: Readonly<Record<ValueKind, fc.Arbitrary<TypedValue>>> 
 	workinghours: as('workinghours', workingHours),
 	leaves: as('leaves', fc.array(leave, { minLength: 1, maxLength: 3 })),
 	vacation: as('vacation', vacation),
+	timingresolution: as('timingresolution', fc.constantFrom(...TIMING_RESOLUTIONS)),
 };
 
 // ---- the messy printer ----
@@ -289,6 +290,8 @@ function toks(v: TypedValue, c: Chooser): Tok[] {
 					...intervalToks(l.interval, c),
 				]),
 			);
+		case 'timingresolution':
+			return [numToks(int(v.value), c), { kind: 'unit', text: 'min' }];
 		case 'vacation':
 			return [
 				...(v.value.name === null ? [] : [stringTok(v.value.name, c)]),

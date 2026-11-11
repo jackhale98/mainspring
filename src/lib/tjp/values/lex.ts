@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-only
+// Close translation of engine/tj/lib/taskjuggler/ProjectFileScanner.rb (TaskJuggler 3.8.4).
 /**
  * A small lexer for value text, following TaskJuggler's ProjectFileScanner
  * (engine/tj/lib/taskjuggler/ProjectFileScanner.rb:24-152) for the tokens a value can hold:
@@ -45,6 +46,7 @@ const PATTERNS: ReadonlyArray<readonly [TokenKind, RegExp]> = [
 	['integer', /\d+/y],
 ];
 const CUT_END = /[ \t\n\v\f\r]*->8-/y;
+const CUT_START_OK = /-8<-[ \t\n\v\f\r]*\n$/;
 
 export class ValueLexer {
 	private pos = 0;
@@ -84,15 +86,31 @@ export class ValueLexer {
 
 	private peekEnd = 0;
 
+	private readonly nextCache = new Map<string, { from: number; at: number }>();
+
+	/** `text.indexOf(ch, p)`, cached so a forward scan stays linear. */
+	private findNext(ch: string, p: number): number {
+		const c = this.nextCache.get(ch);
+		if (c && p >= c.from && (c.at < 0 || p <= c.at)) return c.at;
+		const at = this.text.indexOf(ch, p);
+		this.nextCache.set(ch, { from: p, at });
+		return at;
+	}
+
 	/** End of the line holding `p`, including its `\n`. */
 	private lineEnd(p: number): number {
-		const nl = this.text.indexOf('\n', p);
+		const nl = this.findNext('\n', p);
 		return nl < 0 ? this.text.length : nl + 1;
 	}
 
-	private match(re: RegExp, p: number, limit: number): number {
-		re.lastIndex = p;
-		const m = re.exec(this.text.slice(0, limit));
+	/**
+	 * Length of the sticky match of `re` at `p`, or -1. With `limit`, the match may not run past
+	 * it (patterns whose classes include `\n` are confined to their line).
+	 */
+	private match(re: RegExp, p: number, limit?: number): number {
+		const s = limit === undefined ? this.text : this.text.slice(p, limit);
+		re.lastIndex = limit === undefined ? p : 0;
+		const m = re.exec(s);
 		return m ? m[0].length : -1;
 	}
 
@@ -106,8 +124,7 @@ export class ValueLexer {
 				this.pos = this.lineEnd(this.pos);
 			} else if (c === '/' && t[this.pos + 1] === '*') {
 				const le = this.lineEnd(this.pos);
-				const line = t.slice(0, le);
-				const close = line.lastIndexOf('*/');
+				const close = t.lastIndexOf('*/', le - 2);
 				if (close >= this.pos + 2) {
 					this.pos = close + 2; // one-line comment, greedy to the last */ on the line
 				} else if (t[le - 1] === '\n') {
@@ -126,7 +143,7 @@ export class ValueLexer {
 		const start = this.pos;
 		while (this.pos < this.text.length) {
 			const le = this.lineEnd(this.pos);
-			const close = this.text.slice(0, le).lastIndexOf('*/');
+			const close = this.text.lastIndexOf('*/', le - 2);
 			if (close >= this.pos) {
 				this.pos = close + 2;
 				return;
@@ -148,12 +165,16 @@ export class ValueLexer {
 		const p = this.pos;
 		if (p >= t.length) return null;
 		const le = this.lineEnd(p);
-		let n = this.match(MACRO_CALL, p, le);
-		if (n >= 0) raise('macro-call', this.base + p, this.base + p + n);
-		n = this.match(ENV_REF, p, le);
-		if (n >= 0) raise('env-var', this.base + p, this.base + p + n);
+		const dollar = this.findNext('$', p);
+		let n: number;
+		if (dollar >= 0 && dollar < le) {
+			n = this.match(MACRO_CALL, p, le);
+			if (n >= 0) raise('macro-call', this.base + p, this.base + p + n);
+			n = this.match(ENV_REF, p, le);
+			if (n >= 0) raise('env-var', this.base + p, this.base + p + n);
+		}
 		for (const [kind, re] of PATTERNS) {
-			n = this.match(re, p, le);
+			n = this.match(re, p);
 			if (n > 0) return this.tok(kind, p, p + n);
 		}
 		const c = t[p];
@@ -170,16 +191,29 @@ export class ValueLexer {
 		let i = p + 1;
 		let value = '';
 		let firstLine = true;
+		/** The last `\q` escape on the current line: where it is and the value before it. */
+		let lastEscape: { at: number; value: string } | null = null;
 		for (;;) {
-			if (i >= t.length) raise('unterminated', this.base + p, this.end);
+			if (i >= t.length) {
+				// On a later line that ends the file without a newline, only the end pattern
+				// `(\\"|[^"])*"` can match, and it backtracks: the last `\"` on the line closes the
+				// string, its backslash kept (ProjectFileScanner.rb:108-112, 118-122).
+				if (firstLine || lastEscape === null) raise('unterminated', this.base + p, this.end);
+				const style = q === '"' ? 'double' : 'single';
+				return this.tok('string', p, lastEscape.at + 2, { value: `${lastEscape.value}\\`, style });
+			}
 			const c = t[i];
 			if (c === '\\' && t[i + 1] === q) {
+				lastEscape = { at: i, value };
 				value += q;
 				i += 2;
 			} else if (c === q) {
 				break;
 			} else {
-				if (c === '\n') firstLine = false;
+				if (c === '\n') {
+					firstLine = false;
+					lastEscape = null;
+				}
 				// The scanner's in-string macro pattern (ProjectFileScanner.rb:63-66).
 				if (!firstLine && c === '$' && MACRO_AT.test(t.slice(i, this.lineEnd(i)))) {
 					raise('macro-call', this.base + p, this.base + this.lineEnd(i));
@@ -193,8 +227,10 @@ export class ValueLexer {
 
 	private cutHere(p: number, le: number): Token {
 		const t = this.text;
-		for (let i = p + 4; i < le; i++) {
-			if (!isWs(t[i])) raise('junk-after-cut', this.base + p, this.base + le - 1, 'junk_after_cut');
+		// startStringSZR's check is unanchored (`/-8<-\s*\n$/`, ProjectFileScanner.rb:259-266): any
+		// `-8<-` closing the line satisfies it, so `-8<-x-8<-` opens a string too.
+		if (!CUT_START_OK.test(t.slice(p, le))) {
+			raise('junk-after-cut', this.base + p, this.base + le - 1, 'junk_after_cut');
 		}
 		let line = le;
 		let indent: string | null = null;
