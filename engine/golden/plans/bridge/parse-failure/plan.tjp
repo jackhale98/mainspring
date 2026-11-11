@@ -1,0 +1,15 @@
+# Bridge fixture: parse failure after a complete project header.
+# Targets: a syntax error on line 14 of the entry file. Expected: ok false;
+# project info filled from the header; tasks, resources and bookings empty;
+# one error at plan.tjp:14.
+project pf "Parse failure" 2026-03-02 +1m {
+  now 2026-03-02-09:00
+}
+
+resource r "R"
+
+task a "A" {
+  effort 2d
+  allocate r
+  colour "red"
+}

@@ -1,0 +1,279 @@
+{
+  "note": "Native wall-clock times in ms from golden:record (minimum of the two runs). Never compared. parse/schedule/serialize/total are measured inside Ruby; processMs includes Ruby and TaskJuggler start-up.",
+  "platform": "linux-x64",
+  "ruby": "3.3.6",
+  "plans": {
+    "upstream-tutorial": {
+      "tasks": 15,
+      "parseMs": 141.5,
+      "scheduleMs": 37.7,
+      "serializeMs": 4.9,
+      "totalMs": 184.1,
+      "processMs": 597.6
+    },
+    "upstream-fedora-20": {
+      "tasks": 414,
+      "parseMs": 351.7,
+      "scheduleMs": 325.7,
+      "serializeMs": 6.4,
+      "totalMs": 684,
+      "processMs": 1141.7
+    },
+    "upstream-template": {
+      "tasks": 10,
+      "parseMs": 81.4,
+      "scheduleMs": 3.1,
+      "serializeMs": 0.2,
+      "totalMs": 84.9,
+      "processMs": 493.8
+    },
+    "upstream-scrum": {
+      "tasks": 18,
+      "parseMs": 76.1,
+      "scheduleMs": 15.2,
+      "serializeMs": 1.1,
+      "totalMs": 93.5,
+      "processMs": 494.4
+    },
+    "upstream-todolist": {
+      "tasks": 7,
+      "parseMs": 59.6,
+      "scheduleMs": 93.9,
+      "serializeMs": 0.2,
+      "totalMs": 153.8,
+      "processMs": 619.1
+    },
+    "poc-sample": {
+      "tasks": 13,
+      "parseMs": 63.8,
+      "scheduleMs": 12.8,
+      "serializeMs": 0.8,
+      "totalMs": 79.1,
+      "processMs": 479.4
+    },
+    "syn-01-shifts-resource": {
+      "tasks": 5,
+      "parseMs": 56.7,
+      "scheduleMs": 27.8,
+      "serializeMs": 1.3,
+      "totalMs": 85.9,
+      "processMs": 563.5
+    },
+    "syn-02-shifts-allocation-task": {
+      "tasks": 5,
+      "parseMs": 54.6,
+      "scheduleMs": 12.8,
+      "serializeMs": 0.7,
+      "totalMs": 68.1,
+      "processMs": 475.3
+    },
+    "syn-03-limits-resource-max": {
+      "tasks": 6,
+      "parseMs": 59.2,
+      "scheduleMs": 10.8,
+      "serializeMs": 1,
+      "totalMs": 71,
+      "processMs": 532.5
+    },
+    "syn-04-limits-task-min-per-resource": {
+      "tasks": 8,
+      "parseMs": 58.8,
+      "scheduleMs": 10.7,
+      "serializeMs": 1.1,
+      "totalMs": 70.7,
+      "processMs": 478.5
+    },
+    "syn-05-scenarios-tree": {
+      "tasks": 5,
+      "parseMs": 55.5,
+      "scheduleMs": 18.5,
+      "serializeMs": 0.9,
+      "totalMs": 75.1,
+      "processMs": 516.4
+    },
+    "syn-06-scenarios-tracking": {
+      "tasks": 5,
+      "parseMs": 56.7,
+      "scheduleMs": 11.2,
+      "serializeMs": 0.9,
+      "totalMs": 68.8,
+      "processMs": 490.9
+    },
+    "syn-07-deps-onstart-onend": {
+      "tasks": 9,
+      "parseMs": 58.8,
+      "scheduleMs": 6.7,
+      "serializeMs": 0.4,
+      "totalMs": 65.9,
+      "processMs": 513
+    },
+    "syn-08-deps-gaps-alap": {
+      "tasks": 9,
+      "parseMs": 58.6,
+      "scheduleMs": 9.3,
+      "serializeMs": 1.3,
+      "totalMs": 69.3,
+      "processMs": 490.9
+    },
+    "syn-09-tz-dst-berlin": {
+      "tasks": 5,
+      "parseMs": 62.7,
+      "scheduleMs": 14.7,
+      "serializeMs": 2.1,
+      "totalMs": 79.5,
+      "processMs": 532.6
+    },
+    "syn-10-tz-fractional-offset": {
+      "tasks": 5,
+      "parseMs": 59.7,
+      "scheduleMs": 12.2,
+      "serializeMs": 1,
+      "totalMs": 72.9,
+      "processMs": 513.3
+    },
+    "syn-11-tz-southern-sydney": {
+      "tasks": 6,
+      "parseMs": 63,
+      "scheduleMs": 15.3,
+      "serializeMs": 1.5,
+      "totalMs": 80.1,
+      "processMs": 531
+    },
+    "syn-12-tz-unset": {
+      "tasks": 4,
+      "parseMs": 52.8,
+      "scheduleMs": 3.8,
+      "serializeMs": 0.3,
+      "totalMs": 57,
+      "processMs": 460.6
+    },
+    "syn-13-calendars-leaves": {
+      "tasks": 6,
+      "parseMs": 58.4,
+      "scheduleMs": 8.3,
+      "serializeMs": 2.9,
+      "totalMs": 69.8,
+      "processMs": 489.2
+    },
+    "syn-14-workinghours-resolution": {
+      "tasks": 6,
+      "parseMs": 69.5,
+      "scheduleMs": 63.5,
+      "serializeMs": 2.3,
+      "totalMs": 135.4,
+      "processMs": 595
+    },
+    "syn-15-allocate-select": {
+      "tasks": 15,
+      "parseMs": 58.2,
+      "scheduleMs": 16.4,
+      "serializeMs": 1.6,
+      "totalMs": 76.3,
+      "processMs": 478.7
+    },
+    "syn-16-constraints-violations": {
+      "tasks": 4,
+      "parseMs": 52,
+      "scheduleMs": 5.1,
+      "serializeMs": 0.3,
+      "totalMs": 57.5,
+      "processMs": 463.3
+    },
+    "syn-17-priority-efficiency": {
+      "tasks": 9,
+      "parseMs": 63.8,
+      "scheduleMs": 10.4,
+      "serializeMs": 0.9,
+      "totalMs": 75.4,
+      "processMs": 521.8
+    },
+    "syn-18-structure-include-macro": {
+      "tasks": 4,
+      "parseMs": 93,
+      "scheduleMs": 14.5,
+      "serializeMs": 0.3,
+      "totalMs": 108.1,
+      "processMs": 521.8
+    },
+    "syn-19-errors-parse": {
+      "tasks": 0,
+      "parseMs": 53.2,
+      "scheduleMs": 0,
+      "serializeMs": 0.1,
+      "totalMs": 53.4,
+      "processMs": 515.3
+    },
+    "syn-20-scale-1000": {
+      "tasks": 1225,
+      "parseMs": 611,
+      "scheduleMs": 1165.3,
+      "serializeMs": 323.5,
+      "totalMs": 2099.8,
+      "processMs": 2640
+    },
+    "bridge-header-only": {
+      "tasks": 0,
+      "parseMs": 43.9,
+      "scheduleMs": 3.7,
+      "serializeMs": 0.1,
+      "totalMs": 47.8,
+      "processMs": 449.9
+    },
+    "bridge-parse-failure": {
+      "tasks": 0,
+      "parseMs": 51.2,
+      "scheduleMs": 0,
+      "serializeMs": 0.1,
+      "totalMs": 51.4,
+      "processMs": 473.6
+    },
+    "bridge-schedule-error": {
+      "tasks": 2,
+      "parseMs": 51.8,
+      "scheduleMs": 1.9,
+      "serializeMs": 0.2,
+      "totalMs": 53.9,
+      "processMs": 505.4
+    },
+    "bridge-scenario-warning": {
+      "tasks": 2,
+      "parseMs": 53.3,
+      "scheduleMs": 4.7,
+      "serializeMs": 0.3,
+      "totalMs": 58.6,
+      "processMs": 465.2
+    },
+    "bridge-include-subfolder": {
+      "tasks": 3,
+      "parseMs": 57.8,
+      "scheduleMs": 2.5,
+      "serializeMs": 0.2,
+      "totalMs": 60.6,
+      "processMs": 472.5
+    },
+    "bridge-bom-invalid-utf8": {
+      "tasks": 2,
+      "parseMs": 46.6,
+      "scheduleMs": 4,
+      "serializeMs": 0.1,
+      "totalMs": 50.9,
+      "processMs": 489.6
+    },
+    "bridge-now-option": {
+      "tasks": 1,
+      "parseMs": 47.9,
+      "scheduleMs": 4.2,
+      "serializeMs": 0.1,
+      "totalMs": 52.5,
+      "processMs": 465.1
+    },
+    "bridge-now-line": {
+      "tasks": 1,
+      "parseMs": 50.8,
+      "scheduleMs": 4.3,
+      "serializeMs": 0.1,
+      "totalMs": 55.3,
+      "processMs": 475.7
+    }
+  }
+}

@@ -1,0 +1,250 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "bridge-scenario-warning",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "r",
+        "scenario": "plan",
+        "task": "early"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "r",
+        "scenario": "plan",
+        "task": "late"
+      },
+      {
+        "intervals": [
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ]
+        ],
+        "resource": "r",
+        "scenario": "delayed",
+        "task": "early"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ]
+        ],
+        "resource": "r",
+        "scenario": "delayed",
+        "task": "late"
+      }
+    ],
+    "messages": [
+      {
+        "column": null,
+        "file": "plan.tjp",
+        "id": "maxend",
+        "level": "warning",
+        "line": 20,
+        "scenario": "delayed",
+        "text": "The end time (2026-03-13-17:00-+0000) of task late is too late. Must be before 2026-03-13-00:00-+0000."
+      }
+    ],
+    "ok": true,
+    "project": {
+      "end": "2026-05-01T20:00:00Z",
+      "id": "sw",
+      "name": "Scenario warning",
+      "now": "2026-03-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan",
+          "parent": null
+        },
+        {
+          "active": true,
+          "id": "delayed",
+          "name": "Delayed",
+          "parent": "plan"
+        }
+      ],
+      "start": "2026-03-02T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "r",
+        "name": "R",
+        "parent": null,
+        "scenarios": {
+          "delayed": {
+            "efficiency": 1
+          },
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "early",
+        "milestone": false,
+        "name": "Early",
+        "parent": null,
+        "scenarios": {
+          "delayed": {
+            "allocated": [
+              "r"
+            ],
+            "criticalness": 4.266666666666667,
+            "end": 22620,
+            "pathCriticalness": 4.266666666666667,
+            "scheduled": true,
+            "start": 20700
+          },
+          "plan": {
+            "allocated": [
+              "r"
+            ],
+            "criticalness": 1.7777777777777777,
+            "end": 6780,
+            "pathCriticalness": 1.7777777777777777,
+            "scheduled": true,
+            "start": 4860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 15
+        }
+      },
+      {
+        "id": "late",
+        "milestone": false,
+        "name": "Late",
+        "parent": null,
+        "scenarios": {
+          "delayed": {
+            "allocated": [
+              "r"
+            ],
+            "criticalness": 21.333333333333332,
+            "end": 16860,
+            "pathCriticalness": 21.333333333333332,
+            "scheduled": true,
+            "start": 540
+          },
+          "plan": {
+            "allocated": [
+              "r"
+            ],
+            "criticalness": 2.6666666666666665,
+            "end": 3900,
+            "pathCriticalness": 2.6666666666666665,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 20
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

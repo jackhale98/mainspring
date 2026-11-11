@@ -15,7 +15,9 @@
 		"test:unit": "vitest run",
 		"test:e2e": "playwright test",
 		"build:engine": "node -e \"console.error('build:engine: not implemented yet (T5/T11)'); process.exit(1)\"",
-		"test:golden": "node -e \"console.error('test:golden: not implemented yet (T5/T11)'); process.exit(1)\""
+		"test:golden": "node -e \"console.error('test:golden: not implemented yet (T5/T11)'); process.exit(1)\"",
+		"golden:record": "node engine/golden/record-native.mjs",
+		"golden:verify": "node engine/golden/record-native.mjs --verify"
 	},
 	"dependencies": {
 		"@astrojs/svelte": "^9.1.0",

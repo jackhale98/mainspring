@@ -1,0 +1,18 @@
+# Bridge fixture: scheduling error with tasks.
+# Targets: task b has fixed dates that cannot follow its dependency a, so
+# scheduling stops with error task_pred_before in scenario plan. Expected:
+# ok false; tasks and bookings hold the partial schedule; the error carries
+# scenario "plan" and points at plan.tjp:14.
+project se "Schedule error" 2026-03-02 +1m {
+  now 2026-03-02-09:00
+}
+
+resource r "R"
+
+task a "A" { effort 3d allocate r }
+
+task b "B" {
+  start 2026-03-02
+  end 2026-03-03
+  depends a
+}

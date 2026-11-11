@@ -1,0 +1,25 @@
+# Bridge fixture: a warning that carries its scenario.
+# Targets: task late meets its maxend in scenario plan but not in the child
+# scenario delayed (delayed:effort 10d), so TaskJuggler warns (maxend) in
+# scenario delayed only. Expected: ok true; one warning with scenario
+# "delayed" at plan.tjp:20; both scenarios scheduled.
+project sw "Scenario warning" 2026-03-02 +2m {
+  now 2026-03-02-09:00
+  scenario plan "Plan" {
+    scenario delayed "Delayed"
+  }
+}
+
+resource r "R"
+
+task early "Early" {
+  effort 2d
+  allocate r
+}
+
+task late "Late" {
+  effort 3d
+  delayed:effort 10d
+  allocate r
+  maxend 2026-03-13
+}

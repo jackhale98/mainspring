@@ -1,0 +1,556 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-03-limits-resource-max",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            780
+          ],
+          [
+            1980,
+            2220
+          ],
+          [
+            3420,
+            3660
+          ],
+          [
+            4860,
+            4980
+          ],
+          [
+            10620,
+            10860
+          ],
+          [
+            12060,
+            12300
+          ],
+          [
+            13500,
+            13740
+          ],
+          [
+            14940,
+            15060
+          ],
+          [
+            20700,
+            20940
+          ],
+          [
+            22140,
+            22380
+          ],
+          [
+            23580,
+            23820
+          ],
+          [
+            25020,
+            25140
+          ],
+          [
+            30780,
+            31020
+          ],
+          [
+            32220,
+            32340
+          ],
+          [
+            40860,
+            41100
+          ],
+          [
+            42300,
+            42540
+          ],
+          [
+            43740,
+            43980
+          ],
+          [
+            45180,
+            45300
+          ],
+          [
+            50940,
+            51180
+          ],
+          [
+            52380,
+            52620
+          ],
+          [
+            53820,
+            54060
+          ],
+          [
+            55260,
+            55380
+          ],
+          [
+            61020,
+            61260
+          ],
+          [
+            62460,
+            62700
+          ],
+          [
+            63900,
+            64140
+          ],
+          [
+            65340,
+            65460
+          ],
+          [
+            71100,
+            71340
+          ],
+          [
+            72540,
+            72660
+          ]
+        ],
+        "resource": "eve",
+        "scenario": "plan",
+        "task": "deliver.alpha"
+      },
+      {
+        "intervals": [
+          [
+            81180,
+            81420
+          ],
+          [
+            82620,
+            82860
+          ],
+          [
+            84060,
+            84300
+          ]
+        ],
+        "resource": "eve",
+        "scenario": "plan",
+        "task": "deliver.gamma"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            900
+          ],
+          [
+            1980,
+            2340
+          ],
+          [
+            3420,
+            3780
+          ],
+          [
+            4860,
+            5220
+          ],
+          [
+            6300,
+            6660
+          ],
+          [
+            10620,
+            10980
+          ],
+          [
+            12060,
+            12420
+          ],
+          [
+            13500,
+            13860
+          ],
+          [
+            14940,
+            15300
+          ],
+          [
+            16380,
+            16740
+          ],
+          [
+            20700,
+            21060
+          ],
+          [
+            22140,
+            22500
+          ],
+          [
+            23580,
+            23940
+          ],
+          [
+            25020,
+            25140
+          ]
+        ],
+        "resource": "fay",
+        "scenario": "plan",
+        "task": "deliver.beta"
+      },
+      {
+        "intervals": [
+          [
+            25140,
+            25380
+          ],
+          [
+            26460,
+            26820
+          ],
+          [
+            30780,
+            31140
+          ],
+          [
+            32220,
+            32580
+          ],
+          [
+            33660,
+            34020
+          ],
+          [
+            35100,
+            35460
+          ],
+          [
+            36540,
+            36900
+          ],
+          [
+            40860,
+            41220
+          ],
+          [
+            42300,
+            42420
+          ]
+        ],
+        "resource": "fay",
+        "scenario": "plan",
+        "task": "deliver.delta"
+      },
+      {
+        "intervals": [
+          [
+            72660,
+            73020
+          ],
+          [
+            73980,
+            74460
+          ],
+          [
+            75420,
+            75900
+          ],
+          [
+            76860,
+            77340
+          ],
+          [
+            81180,
+            81660
+          ],
+          [
+            82620,
+            83100
+          ],
+          [
+            84060,
+            84420
+          ]
+        ],
+        "resource": "gus",
+        "scenario": "plan",
+        "task": "deliver.gamma"
+      },
+      {
+        "intervals": [
+          [
+            84420,
+            84540
+          ],
+          [
+            85500,
+            85980
+          ],
+          [
+            86940,
+            87420
+          ],
+          [
+            91260,
+            91740
+          ],
+          [
+            92700,
+            93180
+          ],
+          [
+            94140,
+            94620
+          ],
+          [
+            95580,
+            95940
+          ]
+        ],
+        "resource": "gus",
+        "scenario": "plan",
+        "task": "deliver.epsilon"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "limits03",
+      "name": "Resource maximums",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "eve",
+        "name": "Eve",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 8
+        }
+      },
+      {
+        "group": false,
+        "id": "fay",
+        "name": "Fay",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "group": false,
+        "id": "gus",
+        "name": "Gus",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 22
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "deliver",
+        "milestone": false,
+        "name": "Deliveries",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "eve",
+              "fay",
+              "gus"
+            ],
+            "criticalness": 0,
+            "end": 95940,
+            "pathCriticalness": 48.271186440677965,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 25
+        }
+      },
+      {
+        "id": "deliver.alpha",
+        "milestone": false,
+        "name": "Alpha",
+        "parent": "deliver",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "eve"
+            ],
+            "criticalness": 26.033898305084747,
+            "end": 72660,
+            "pathCriticalness": 48.271186440677965,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 26
+        }
+      },
+      {
+        "id": "deliver.beta",
+        "milestone": false,
+        "name": "Beta",
+        "parent": "deliver",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "fay"
+            ],
+            "criticalness": 21.694915254237287,
+            "end": 25140,
+            "pathCriticalness": 34.71186440677966,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 30
+        }
+      },
+      {
+        "id": "deliver.gamma",
+        "milestone": false,
+        "name": "Gamma",
+        "parent": "deliver",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "eve",
+              "gus"
+            ],
+            "criticalness": 14.101694915254237,
+            "end": 84420,
+            "pathCriticalness": 22.237288135593218,
+            "scheduled": true,
+            "start": 72660
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 34
+        }
+      },
+      {
+        "id": "deliver.delta",
+        "milestone": false,
+        "name": "Delta",
+        "parent": "deliver",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "fay"
+            ],
+            "criticalness": 13.016949152542374,
+            "end": 42420,
+            "pathCriticalness": 13.016949152542374,
+            "scheduled": true,
+            "start": 25140
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 39
+        }
+      },
+      {
+        "id": "deliver.epsilon",
+        "milestone": false,
+        "name": "Epsilon",
+        "parent": "deliver",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "gus"
+            ],
+            "criticalness": 8.135593220338983,
+            "end": 95940,
+            "pathCriticalness": 8.135593220338983,
+            "scheduled": true,
+            "start": 84420
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 44
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

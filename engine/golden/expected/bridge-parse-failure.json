@@ -1,0 +1,60 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "bridge-parse-failure",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [],
+    "messages": [
+      {
+        "column": null,
+        "file": "plan.tjp",
+        "id": "no_reduce",
+        "level": "error",
+        "line": 14,
+        "scenario": null,
+        "text": "Unexpected token 'colour' found. Expecting '}'"
+      }
+    ],
+    "ok": false,
+    "project": {
+      "end": "2026-04-01T10:00:00Z",
+      "id": "pf",
+      "name": "Parse failure",
+      "now": "2026-03-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-03-02T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [],
+    "tasks": []
+  },
+  "schemaVersion": 1
+}

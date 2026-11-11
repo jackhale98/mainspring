@@ -1,0 +1,233 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "lib/resources.tji",
+    "lib/tasks.tji",
+    "plan.tjp"
+  ],
+  "id": "syn-18-structure-include-macro",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ]
+        ],
+        "resource": "lena",
+        "scenario": "plan",
+        "task": "prep"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ]
+        ],
+        "resource": "lena",
+        "scenario": "plan",
+        "task": "rollout.ready"
+      },
+      {
+        "intervals": [
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ]
+        ],
+        "resource": "mira",
+        "scenario": "plan",
+        "task": "rollout.go"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "struct18",
+      "name": "Structure and includes",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "lena",
+        "name": "Léna Müller",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/resources.tji",
+          "line": 4
+        }
+      },
+      {
+        "group": false,
+        "id": "mira",
+        "name": "Mira Øksnes",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/resources.tji",
+          "line": 7
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "prep",
+        "milestone": false,
+        "name": "Vorbereitung für Übergabe",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "lena"
+            ],
+            "criticalness": 1.6271186440677967,
+            "end": 11100,
+            "pathCriticalness": 1.6271186440677967,
+            "scheduled": true,
+            "start": 6300
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/tasks.tji",
+          "line": 4
+        }
+      },
+      {
+        "id": "rollout",
+        "milestone": false,
+        "name": "Rollout",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "lena",
+              "mira"
+            ],
+            "criticalness": 0,
+            "end": 11100,
+            "pathCriticalness": 3.7966101694915255,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "id": "rollout.ready",
+        "milestone": false,
+        "name": "Ready",
+        "parent": "rollout",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "lena"
+            ],
+            "criticalness": 3.2542372881355934,
+            "end": 5340,
+            "pathCriticalness": 3.7966101694915255,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 20
+        }
+      },
+      {
+        "id": "rollout.go",
+        "milestone": false,
+        "name": "Go",
+        "parent": "rollout",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "mira"
+            ],
+            "criticalness": 0.5423728813559322,
+            "end": 11100,
+            "pathCriticalness": 0.5423728813559322,
+            "scheduled": true,
+            "start": 6300
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

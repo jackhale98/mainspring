@@ -1,0 +1,425 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-02-shifts-allocation-task",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            720
+          ],
+          [
+            1980,
+            2160
+          ],
+          [
+            3420,
+            3600
+          ],
+          [
+            4860,
+            5040
+          ],
+          [
+            6300,
+            6480
+          ],
+          [
+            10620,
+            10800
+          ],
+          [
+            12060,
+            12240
+          ],
+          [
+            13500,
+            13680
+          ],
+          [
+            14940,
+            15120
+          ],
+          [
+            16380,
+            16560
+          ],
+          [
+            20700,
+            20880
+          ],
+          [
+            22140,
+            22320
+          ],
+          [
+            23580,
+            23760
+          ],
+          [
+            25020,
+            25080
+          ]
+        ],
+        "resource": "cara",
+        "scenario": "plan",
+        "task": "work.part1"
+      },
+      {
+        "intervals": [
+          [
+            25080,
+            25200
+          ],
+          [
+            26460,
+            26640
+          ],
+          [
+            30780,
+            30960
+          ],
+          [
+            32220,
+            32400
+          ],
+          [
+            33660,
+            33840
+          ]
+        ],
+        "resource": "cara",
+        "scenario": "plan",
+        "task": "work.part3"
+      },
+      {
+        "intervals": [
+          [
+            34020,
+            34140
+          ],
+          [
+            35340,
+            35580
+          ],
+          [
+            36780,
+            37020
+          ],
+          [
+            41100,
+            41340
+          ],
+          [
+            42540,
+            42780
+          ],
+          [
+            43980,
+            44220
+          ],
+          [
+            45420,
+            45660
+          ],
+          [
+            46860,
+            47100
+          ],
+          [
+            51180,
+            51420
+          ],
+          [
+            52620,
+            52860
+          ],
+          [
+            54060,
+            54300
+          ],
+          [
+            55500,
+            55740
+          ],
+          [
+            56940,
+            57060
+          ]
+        ],
+        "resource": "cara",
+        "scenario": "plan",
+        "task": "work.part4"
+      },
+      {
+        "intervals": [
+          [
+            780,
+            1020
+          ],
+          [
+            2220,
+            2460
+          ],
+          [
+            3660,
+            3900
+          ],
+          [
+            5100,
+            5340
+          ],
+          [
+            6540,
+            6780
+          ],
+          [
+            10860,
+            11100
+          ],
+          [
+            12300,
+            12540
+          ],
+          [
+            13740,
+            13980
+          ],
+          [
+            15180,
+            15420
+          ],
+          [
+            16620,
+            16860
+          ]
+        ],
+        "resource": "dan",
+        "scenario": "plan",
+        "task": "work.part2"
+      },
+      {
+        "intervals": [
+          [
+            25260,
+            25500
+          ],
+          [
+            26700,
+            26940
+          ],
+          [
+            31020,
+            31260
+          ],
+          [
+            32460,
+            32700
+          ],
+          [
+            33900,
+            34020
+          ]
+        ],
+        "resource": "dan",
+        "scenario": "plan",
+        "task": "work.part3"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "shifts02",
+      "name": "Shifts on allocations and tasks",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "cara",
+        "name": "Cara",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 17
+        }
+      },
+      {
+        "group": false,
+        "id": "dan",
+        "name": "Dan",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 20
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "work",
+        "milestone": false,
+        "name": "Shift allocation",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "cara",
+              "dan"
+            ],
+            "criticalness": 0,
+            "end": 57060,
+            "pathCriticalness": 24.813559322033896,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 23
+        }
+      },
+      {
+        "id": "work.part1",
+        "milestone": false,
+        "name": "Morning-only build",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "cara"
+            ],
+            "criticalness": 8.813559322033898,
+            "end": 25080,
+            "pathCriticalness": 24.813559322033896,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      },
+      {
+        "id": "work.part2",
+        "milestone": false,
+        "name": "Afternoon-only build",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dan"
+            ],
+            "criticalness": 4.745762711864407,
+            "end": 16860,
+            "pathCriticalness": 15.322033898305085,
+            "scheduled": true,
+            "start": 780
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 30
+        }
+      },
+      {
+        "id": "work.part3",
+        "milestone": false,
+        "name": "Shared review",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "cara",
+              "dan"
+            ],
+            "criticalness": 5.423728813559322,
+            "end": 34020,
+            "pathCriticalness": 16,
+            "scheduled": true,
+            "start": 25080
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 36
+        }
+      },
+      {
+        "id": "work.part4",
+        "milestone": false,
+        "name": "Task-level shift",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "cara"
+            ],
+            "criticalness": 10.576271186440678,
+            "end": 57060,
+            "pathCriticalness": 10.576271186440678,
+            "scheduled": true,
+            "start": 34020
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 45
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

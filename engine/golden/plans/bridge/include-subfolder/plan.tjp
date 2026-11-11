@@ -1,0 +1,18 @@
+# Bridge fixture: includes from subfolders.
+# Targets: plan.tjp includes parts/tasks.tji, which includes deep/more.tji
+# (relative to parts/), which includes ../shared.tji (parts/shared.tji).
+# more.tji redefines a macro, so TaskJuggler warns (marco_redefinition) from
+# a nested file. Expected: ok true; task sources and the warning use
+# workspace-relative paths such as parts/deep/more.tji, with no '..'.
+project inc "Include subfolder" 2026-03-02 +1m {
+  now 2026-03-02-09:00
+}
+
+macro owner [team]
+
+resource team "Team" {
+  resource ann "Ann"
+  resource bob "Bob"
+}
+
+include "parts/tasks.tji"

@@ -1,0 +1,142 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "bridge-schedule-error",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "r",
+        "scenario": "plan",
+        "task": "a"
+      }
+    ],
+    "messages": [
+      {
+        "column": null,
+        "file": "plan.tjp",
+        "id": "task_pred_before",
+        "level": "error",
+        "line": 14,
+        "scenario": "plan",
+        "text": "Task b (2026-03-02-00:00-+0000) must start after end (2026-03-04-17:00-+0000) of task a. This condition could not be met."
+      }
+    ],
+    "ok": false,
+    "project": {
+      "end": "2026-04-01T10:00:00Z",
+      "id": "se",
+      "name": "Schedule error",
+      "now": "2026-03-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-03-02T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "r",
+        "name": "R",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 10
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "a",
+        "milestone": false,
+        "name": "A",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r"
+            ],
+            "criticalness": 3.2542372881355934,
+            "end": 3900,
+            "pathCriticalness": 3.2542372881355934,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "id": "b",
+        "milestone": false,
+        "name": "B",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 1440,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

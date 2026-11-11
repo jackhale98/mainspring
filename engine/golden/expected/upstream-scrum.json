@@ -1,0 +1,884 @@
+{
+  "entry": "scrum.tjp",
+  "files": [
+    "scrum.tjp"
+  ],
+  "id": "upstream-scrum",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            7740,
+            8220
+          ],
+          [
+            9180,
+            9660
+          ]
+        ],
+        "resource": "r1",
+        "scenario": "plan",
+        "task": "product.s1.t1"
+      },
+      {
+        "intervals": [
+          [
+            23580,
+            24060
+          ],
+          [
+            27900,
+            28380
+          ],
+          [
+            29340,
+            29820
+          ]
+        ],
+        "resource": "r1",
+        "scenario": "plan",
+        "task": "product.s1.t2"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            17820,
+            18300
+          ],
+          [
+            19260,
+            19740
+          ],
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ]
+        ],
+        "resource": "r1",
+        "scenario": "plan",
+        "task": "product.s1.t3"
+      },
+      {
+        "intervals": [
+          [
+            39420,
+            39900
+          ],
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            43740,
+            44220
+          ],
+          [
+            48060,
+            48540
+          ],
+          [
+            49500,
+            49980
+          ]
+        ],
+        "resource": "r1",
+        "scenario": "plan",
+        "task": "product.s2.t3"
+      },
+      {
+        "intervals": [
+          [
+            62460,
+            62940
+          ],
+          [
+            63900,
+            64380
+          ],
+          [
+            68220,
+            68700
+          ],
+          [
+            69660,
+            70140
+          ],
+          [
+            71100,
+            71580
+          ],
+          [
+            72540,
+            73020
+          ]
+        ],
+        "resource": "r1",
+        "scenario": "plan",
+        "task": "product.s3.t1"
+      },
+      {
+        "intervals": [
+          [
+            73980,
+            74460
+          ],
+          [
+            78300,
+            78780
+          ],
+          [
+            79740,
+            80220
+          ],
+          [
+            81180,
+            81660
+          ]
+        ],
+        "resource": "r1",
+        "scenario": "plan",
+        "task": "product.s3.t3"
+      },
+      {
+        "intervals": [
+          [
+            30780,
+            31260
+          ],
+          [
+            32220,
+            32700
+          ],
+          [
+            33660,
+            34140
+          ],
+          [
+            37980,
+            38460
+          ]
+        ],
+        "resource": "r2",
+        "scenario": "plan",
+        "task": "product.s1.t4"
+      },
+      {
+        "intervals": [
+          [
+            39420,
+            39900
+          ],
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ]
+        ],
+        "resource": "r2",
+        "scenario": "plan",
+        "task": "product.s2.t1"
+      },
+      {
+        "intervals": [
+          [
+            43740,
+            44220
+          ],
+          [
+            48060,
+            48540
+          ],
+          [
+            49500,
+            49980
+          ]
+        ],
+        "resource": "r2",
+        "scenario": "plan",
+        "task": "product.s2.t5"
+      },
+      {
+        "intervals": [
+          [
+            82620,
+            83100
+          ],
+          [
+            84060,
+            84540
+          ],
+          [
+            88380,
+            88860
+          ],
+          [
+            89820,
+            90300
+          ],
+          [
+            91260,
+            91740
+          ],
+          [
+            92700,
+            93180
+          ],
+          [
+            94140,
+            94620
+          ]
+        ],
+        "resource": "r2",
+        "scenario": "plan",
+        "task": "product.s3.t4"
+      },
+      {
+        "intervals": [
+          [
+            73980,
+            74460
+          ],
+          [
+            78300,
+            78780
+          ],
+          [
+            79740,
+            80220
+          ],
+          [
+            81180,
+            81660
+          ],
+          [
+            98460,
+            98940
+          ]
+        ],
+        "resource": "r2",
+        "scenario": "plan",
+        "task": "product.s3.t5"
+      },
+      {
+        "intervals": [
+          [
+            43740,
+            44220
+          ],
+          [
+            48060,
+            48540
+          ],
+          [
+            49500,
+            49980
+          ],
+          [
+            61020,
+            61500
+          ]
+        ],
+        "resource": "r3",
+        "scenario": "plan",
+        "task": "product.s2.t2"
+      },
+      {
+        "intervals": [
+          [
+            50940,
+            51420
+          ],
+          [
+            52380,
+            52860
+          ],
+          [
+            53820,
+            54300
+          ],
+          [
+            58140,
+            58620
+          ],
+          [
+            59580,
+            60060
+          ]
+        ],
+        "resource": "r3",
+        "scenario": "plan",
+        "task": "product.s2.t4"
+      },
+      {
+        "intervals": [
+          [
+            73980,
+            74460
+          ],
+          [
+            78300,
+            78780
+          ],
+          [
+            79740,
+            80220
+          ],
+          [
+            81180,
+            81660
+          ]
+        ],
+        "resource": "r3",
+        "scenario": "plan",
+        "task": "product.s3.t2"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2012-06-01T16:00:00Z",
+      "id": "prj",
+      "name": "Scrum Example Project",
+      "now": "2012-03-07T00:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2012-02-01T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "r1",
+        "name": "R1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 5
+        }
+      },
+      {
+        "group": false,
+        "id": "r2",
+        "name": "R2",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 6
+        }
+      },
+      {
+        "group": false,
+        "id": "r3",
+        "name": "R3",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 7
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "product",
+        "milestone": false,
+        "name": "Product",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1",
+              "r2",
+              "r3"
+            ],
+            "criticalness": 0,
+            "end": 98940,
+            "pathCriticalness": 80.38691322901849,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 13
+        }
+      },
+      {
+        "id": "product.s1",
+        "milestone": false,
+        "name": "Sprint 1",
+        "parent": "product",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1",
+              "r2"
+            ],
+            "criticalness": 0,
+            "end": 38460,
+            "pathCriticalness": 80.38691322901849,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 14
+        }
+      },
+      {
+        "id": "product.s1.t1",
+        "milestone": false,
+        "name": "T1",
+        "parent": "product.s1",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1"
+            ],
+            "criticalness": 14.110953058321481,
+            "end": 9660,
+            "pathCriticalness": 80.38691322901849,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 15
+        }
+      },
+      {
+        "id": "product.s1.t2",
+        "milestone": false,
+        "name": "T2",
+        "parent": "product.s1",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1"
+            ],
+            "criticalness": 8.466571834992887,
+            "end": 29820,
+            "pathCriticalness": 66.275960170697,
+            "scheduled": true,
+            "start": 23580
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 19
+        }
+      },
+      {
+        "id": "product.s1.t3",
+        "milestone": false,
+        "name": "T3",
+        "parent": "product.s1",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1"
+            ],
+            "criticalness": 19.75533428165007,
+            "end": 22620,
+            "pathCriticalness": 69.5533428165007,
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 24
+        }
+      },
+      {
+        "id": "product.s1.t4",
+        "milestone": false,
+        "name": "T4",
+        "parent": "product.s1",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r2"
+            ],
+            "criticalness": 8.011379800853485,
+            "end": 38460,
+            "pathCriticalness": 57.80938833570412,
+            "scheduled": true,
+            "start": 30780
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 28
+        }
+      },
+      {
+        "id": "product.s2",
+        "milestone": false,
+        "name": "Sprint 2",
+        "parent": "product",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1",
+              "r2",
+              "r3"
+            ],
+            "criticalness": 0,
+            "end": 61500,
+            "pathCriticalness": 49.79800853485064,
+            "scheduled": true,
+            "start": 39420
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 34
+        }
+      },
+      {
+        "id": "product.s2.t1",
+        "milestone": false,
+        "name": "T1",
+        "parent": "product.s2",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r2"
+            ],
+            "criticalness": 6.008534850640114,
+            "end": 42780,
+            "pathCriticalness": 38.964438122332865,
+            "scheduled": true,
+            "start": 39420
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 36
+        }
+      },
+      {
+        "id": "product.s2.t2",
+        "milestone": false,
+        "name": "T2",
+        "parent": "product.s2",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r3"
+            ],
+            "criticalness": 4.733997155049787,
+            "end": 61500,
+            "pathCriticalness": 31.681365576102415,
+            "scheduled": true,
+            "start": 43740
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 40
+        }
+      },
+      {
+        "id": "product.s2.t3",
+        "milestone": false,
+        "name": "T3",
+        "parent": "product.s2",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1"
+            ],
+            "criticalness": 16.933143669985775,
+            "end": 49980,
+            "pathCriticalness": 49.79800853485064,
+            "scheduled": true,
+            "start": 39420
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 45
+        }
+      },
+      {
+        "id": "product.s2.t4",
+        "milestone": false,
+        "name": "T4",
+        "parent": "product.s2",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r3"
+            ],
+            "criticalness": 5.917496443812233,
+            "end": 60060,
+            "pathCriticalness": 32.86486486486486,
+            "scheduled": true,
+            "start": 50940
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 49
+        }
+      },
+      {
+        "id": "product.s2.t5",
+        "milestone": false,
+        "name": "T5",
+        "parent": "product.s2",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r2"
+            ],
+            "criticalness": 6.008534850640114,
+            "end": 49980,
+            "pathCriticalness": 32.95590327169275,
+            "scheduled": true,
+            "start": 43740
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 54
+        }
+      },
+      {
+        "id": "product.s3",
+        "milestone": false,
+        "name": "Sprint 3",
+        "parent": "product",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1",
+              "r2",
+              "r3"
+            ],
+            "criticalness": 0,
+            "end": 98940,
+            "pathCriticalness": 26.94736842105263,
+            "scheduled": true,
+            "start": 62460
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 60
+        }
+      },
+      {
+        "id": "product.s3.t1",
+        "milestone": false,
+        "name": "T1",
+        "parent": "product.s3",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1"
+            ],
+            "criticalness": 16.933143669985775,
+            "end": 73020,
+            "pathCriticalness": 26.94736842105263,
+            "scheduled": true,
+            "start": 62460
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 62
+        }
+      },
+      {
+        "id": "product.s3.t2",
+        "milestone": false,
+        "name": "T2",
+        "parent": "product.s3",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r3"
+            ],
+            "criticalness": 4.733997155049787,
+            "end": 81660,
+            "pathCriticalness": 4.733997155049787,
+            "scheduled": true,
+            "start": 73980
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 67
+        }
+      },
+      {
+        "id": "product.s3.t3",
+        "milestone": false,
+        "name": "T3",
+        "parent": "product.s3",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r1"
+            ],
+            "criticalness": 11.288762446657184,
+            "end": 81660,
+            "pathCriticalness": 25.30867709815078,
+            "scheduled": true,
+            "start": 73980
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 72
+        }
+      },
+      {
+        "id": "product.s3.t4",
+        "milestone": false,
+        "name": "T4",
+        "parent": "product.s3",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r2"
+            ],
+            "criticalness": 14.019914651493599,
+            "end": 94620,
+            "pathCriticalness": 14.019914651493599,
+            "scheduled": true,
+            "start": 82620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 77
+        }
+      },
+      {
+        "id": "product.s3.t5",
+        "milestone": false,
+        "name": "T5",
+        "parent": "product.s3",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "r2"
+            ],
+            "criticalness": 10.014224751066855,
+            "end": 98940,
+            "pathCriticalness": 10.014224751066855,
+            "scheduled": true,
+            "start": 73980
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "scrum.tjp",
+          "line": 82
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

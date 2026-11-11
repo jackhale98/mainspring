@@ -1,0 +1,9 @@
+# Bridge fixture: header-only project.
+# Targets: a project header with no tasks. TaskJuggler stops scheduling with
+# error no_tasks, which has no source location, so the message has file,
+# line and column null. Expected: ok false; project info filled (timezone and
+# version as written); tasks, resources and bookings empty.
+project hdr "Header only" "0.9" 2026-03-02 +1m {
+  timezone "Europe/Berlin"
+  now 2026-03-02-09:00
+}

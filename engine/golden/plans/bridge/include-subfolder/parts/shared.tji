@@ -1,0 +1,5 @@
+# Included from parts/deep/more.tji as ../shared.tji.
+task ship "Ship" {
+  milestone
+  depends test
+}

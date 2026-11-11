@@ -1,0 +1,714 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-05-scenarios-tree",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "hal",
+        "scenario": "plan",
+        "task": "launch.prep"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ]
+        ],
+        "resource": "hal",
+        "scenario": "plan",
+        "task": "launch.build"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ]
+        ],
+        "resource": "ivy",
+        "scenario": "plan",
+        "task": "launch.build"
+      },
+      {
+        "intervals": [
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ],
+          [
+            23580,
+            24060
+          ],
+          [
+            25020,
+            25500
+          ]
+        ],
+        "resource": "ivy",
+        "scenario": "plan",
+        "task": "launch.test"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "hal",
+        "scenario": "delayed",
+        "task": "launch.prep"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ]
+        ],
+        "resource": "hal",
+        "scenario": "delayed",
+        "task": "launch.build"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ]
+        ],
+        "resource": "ivy",
+        "scenario": "delayed",
+        "task": "launch.build"
+      },
+      {
+        "intervals": [
+          [
+            23580,
+            24060
+          ],
+          [
+            25020,
+            25500
+          ],
+          [
+            26460,
+            26940
+          ],
+          [
+            30780,
+            31260
+          ],
+          [
+            32220,
+            32700
+          ],
+          [
+            33660,
+            34140
+          ]
+        ],
+        "resource": "ivy",
+        "scenario": "delayed",
+        "task": "launch.test"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "hal",
+        "scenario": "worst",
+        "task": "launch.prep"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ],
+          [
+            23580,
+            24060
+          ],
+          [
+            25020,
+            25500
+          ],
+          [
+            26460,
+            26940
+          ]
+        ],
+        "resource": "hal",
+        "scenario": "worst",
+        "task": "launch.build"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ],
+          [
+            23580,
+            24060
+          ],
+          [
+            25020,
+            25500
+          ],
+          [
+            26460,
+            26940
+          ]
+        ],
+        "resource": "ivy",
+        "scenario": "worst",
+        "task": "launch.build"
+      },
+      {
+        "intervals": [
+          [
+            30780,
+            31260
+          ],
+          [
+            32220,
+            32700
+          ],
+          [
+            33660,
+            34140
+          ],
+          [
+            35100,
+            35580
+          ],
+          [
+            36540,
+            37020
+          ],
+          [
+            40860,
+            41340
+          ]
+        ],
+        "resource": "ivy",
+        "scenario": "worst",
+        "task": "launch.test"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-04-30T00:00:00Z",
+      "id": "scen05",
+      "name": "Scenario tree",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan",
+          "parent": null
+        },
+        {
+          "active": true,
+          "id": "delayed",
+          "name": "Delayed",
+          "parent": "plan"
+        },
+        {
+          "active": true,
+          "id": "worst",
+          "name": "Worst case",
+          "parent": "delayed"
+        },
+        {
+          "active": false,
+          "id": "parked",
+          "name": "Parked",
+          "parent": "plan"
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "hal",
+        "name": "Hal",
+        "parent": null,
+        "scenarios": {
+          "delayed": {
+            "efficiency": 1
+          },
+          "plan": {
+            "efficiency": 1
+          },
+          "worst": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "group": false,
+        "id": "ivy",
+        "name": "Ivy",
+        "parent": null,
+        "scenarios": {
+          "delayed": {
+            "efficiency": 1
+          },
+          "plan": {
+            "efficiency": 1
+          },
+          "worst": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "launch",
+        "milestone": false,
+        "name": "Launch",
+        "parent": null,
+        "scenarios": {
+          "delayed": {
+            "allocated": [
+              "hal",
+              "ivy"
+            ],
+            "criticalness": 0,
+            "end": 34140,
+            "pathCriticalness": 31.16867469879518,
+            "scheduled": true,
+            "start": 540
+          },
+          "plan": {
+            "allocated": [
+              "hal",
+              "ivy"
+            ],
+            "criticalness": 0,
+            "end": 25500,
+            "pathCriticalness": 18.44578313253012,
+            "scheduled": true,
+            "start": 540
+          },
+          "worst": {
+            "allocated": [
+              "hal",
+              "ivy"
+            ],
+            "criticalness": 0,
+            "end": 41340,
+            "pathCriticalness": 47.36144578313253,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 22
+        }
+      },
+      {
+        "id": "launch.prep",
+        "milestone": false,
+        "name": "Preparation",
+        "parent": "launch",
+        "scenarios": {
+          "delayed": {
+            "allocated": [
+              "hal"
+            ],
+            "criticalness": 5.783132530120482,
+            "end": 6780,
+            "pathCriticalness": 31.16867469879518,
+            "scheduled": true,
+            "start": 540
+          },
+          "plan": {
+            "allocated": [
+              "hal"
+            ],
+            "criticalness": 4.8192771084337345,
+            "end": 6780,
+            "pathCriticalness": 18.44578313253012,
+            "scheduled": true,
+            "start": 540
+          },
+          "worst": {
+            "allocated": [
+              "hal"
+            ],
+            "criticalness": 7.228915662650603,
+            "end": 6780,
+            "pathCriticalness": 47.36144578313253,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 23
+        }
+      },
+      {
+        "id": "launch.build",
+        "milestone": false,
+        "name": "Build",
+        "parent": "launch",
+        "scenarios": {
+          "delayed": {
+            "allocated": [
+              "hal",
+              "ivy"
+            ],
+            "criticalness": 16.86746987951807,
+            "end": 22620,
+            "pathCriticalness": 25.385542168674696,
+            "scheduled": true,
+            "start": 10620
+          },
+          "plan": {
+            "allocated": [
+              "hal",
+              "ivy"
+            ],
+            "criticalness": 9.156626506024097,
+            "end": 16860,
+            "pathCriticalness": 13.626506024096386,
+            "scheduled": true,
+            "start": 10620
+          },
+          "worst": {
+            "allocated": [
+              "hal",
+              "ivy"
+            ],
+            "criticalness": 29.879518072289155,
+            "end": 26940,
+            "pathCriticalness": 40.13253012048193,
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 27
+        }
+      },
+      {
+        "id": "launch.test",
+        "milestone": false,
+        "name": "Test",
+        "parent": "launch",
+        "scenarios": {
+          "delayed": {
+            "allocated": [
+              "ivy"
+            ],
+            "criticalness": 7.518072289156627,
+            "end": 34140,
+            "pathCriticalness": 8.518072289156628,
+            "scheduled": true,
+            "start": 23580
+          },
+          "plan": {
+            "allocated": [
+              "ivy"
+            ],
+            "criticalness": 3.4698795180722892,
+            "end": 25500,
+            "pathCriticalness": 4.46987951807229,
+            "scheduled": true,
+            "start": 20700
+          },
+          "worst": {
+            "allocated": [
+              "ivy"
+            ],
+            "criticalness": 9.253012048192772,
+            "end": 41340,
+            "pathCriticalness": 10.253012048192772,
+            "scheduled": true,
+            "start": 30780
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 34
+        }
+      },
+      {
+        "id": "launch.ship",
+        "milestone": true,
+        "name": "Ship",
+        "parent": "launch",
+        "scenarios": {
+          "delayed": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 34140,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 34140
+          },
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 25500,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 25500
+          },
+          "worst": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 41340,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 41340
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 40
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}
