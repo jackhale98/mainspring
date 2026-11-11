@@ -1,0 +1,36 @@
+# Feature: timezone Europe/Berlin; work spanning the March and October DST changes
+# Binding: spring runs 03-23 to about 04-01 (crossing 03-29) and autumn 10-19 to about 10-30 (crossing 10-25).
+# SPDX-License-Identifier: GPL-2.0-or-later
+project berlin09 "Berlin DST" 2026-03-02 - 2026-11-06 {
+  timezone "Europe/Berlin"
+  now 2026-03-20-09:00
+}
+
+resource ute "Ute" {
+}
+
+resource vic "Vic" {
+}
+
+task dst "DST span" {
+  task spring "Across March change" {
+    start 2026-03-23-09:00
+    effort 8d
+    allocate ute
+  }
+  task summer "Summer block" {
+    start 2026-07-06-09:00
+    effort 15d
+    allocate vic
+  }
+  task autumn "Across October change" {
+    start 2026-10-19-09:00
+    effort 20d
+    depends !summer
+    allocate ute, vic
+  }
+  task handover "Handover" {
+    depends !autumn, !spring
+    milestone
+  }
+}

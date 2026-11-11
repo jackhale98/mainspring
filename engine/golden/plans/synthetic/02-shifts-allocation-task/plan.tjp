@@ -1,0 +1,51 @@
+# Feature: per-allocation shifts (allocate ... { shifts }); task-level shifts
+# Binding: each allocation has its own body; part3 gives cara and dan separate ranged shifts that overlap
+# the scheduled work (01-22 to 01-28); part4 task-level shift overlaps its work and limits cara to 13:00-17:00.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project shifts02 "Shifts on allocations and tasks" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+shift morning "Morning" {
+  workinghours mon - fri 8:00 - 12:00
+}
+
+shift afternoon "Afternoon" {
+  workinghours mon - fri 13:00 - 17:00
+}
+
+resource cara "Cara" {
+}
+
+resource dan "Dan" {
+}
+
+task work "Shift allocation" {
+  task part1 "Morning-only build" {
+    effort 5d
+    allocate cara {
+      shifts morning
+    }
+  }
+  task part2 "Afternoon-only build" {
+    effort 5d
+    allocate dan {
+      shifts afternoon
+    }
+  }
+  task part3 "Shared review" {
+    effort 4d
+    depends !part1, !part2
+    allocate cara {
+      shifts morning 2026-01-19 - 2026-02-27
+    }, dan {
+      shifts afternoon 2026-01-19 - 2026-02-27
+    }
+  }
+  task part4 "Task-level shift" {
+    shifts afternoon 2026-01-19 - 2026-03-27
+    effort 6d
+    depends !part3
+    allocate cara
+  }
+}

@@ -1,0 +1,9 @@
+// Mainspring on Cloudflare: static files only, no worker routes and no server code.
+// Cloudflare runs `npm run build`, then `npx wrangler deploy` uploads dist/.
+{
+	"name": "mainspring",
+	"compatibility_date": "2026-10-01",
+	"assets": {
+		"directory": "./dist",
+	},
+}

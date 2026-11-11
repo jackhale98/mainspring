@@ -30,3 +30,26 @@ results are dropped. Writing the Phase 0 spec raised four points the plan leaves
 - The bridge must convert every task and booking time to whole minutes; a non-integral value
   is a bridge bug and fails parity.
 - Views read minutes directly, with no `Date` parsing on the main thread.
+
+## Addendum, 2026-11-11: details settled while building T4, T7 and T9
+
+5. **Client transport.** `EngineClientOptions.transport` accepts a `WorkerLike` or a
+   `WorkerFactory`. Only a factory can be restarted after a crash or timeout; a single worker
+   instance goes to `failed` instead.
+6. **`cancel` is client-side only.** The client never posts `cancel`: with one request in
+   flight, the worker never holds an unstarted request, so the message would do nothing. The
+   type stays in `ToWorker`, and the worker treats it as a no-op.
+7. **Rejections.** `ready()` and `syntax()` reject with `EngineRequestError`, which carries an
+   `EngineError`. `schedule()` still never rejects, except `RangeError` for a revision that is
+   not greater than the last one.
+8. **Boot timeout.** Boot and every reboot have their own watchdog (`bootTimeoutMs`, longer
+   than the run timeout because the first load downloads about 9 MB). If it expires, the
+   client fails with kind `boot`. A failed boot is final; the app creates a new client.
+9. **Worker error contract.** Wasm traps and out-of-memory are reported as `crash`, and the
+   client restarts the worker. `internal` and `invalid-request` for a revision fail only that
+   request and keep the worker.
+10. **Nullable fields.** TaskJuggler never records source columns, so `SourceRef.column` is
+    `number | null`. `pathCriticalness` is `number | null`, because scheduling can stop before
+    it is computed.
+11. **`now` resolution.** `options.now` is rounded down to the whole hour, as TaskJuggler does
+    with its own clock. Golden plans set `now` on the hour.

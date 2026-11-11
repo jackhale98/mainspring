@@ -1,0 +1,49 @@
+# Feature: resource limits with dailymax, weeklymax and monthlymax
+# Binding: eve dailymax 4h, weeklymax 14h (less than 5 x 4h) and monthlymax 48h (less than about 4.4 x 14h); alpha takes weeks longer than at 4h/day.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project limits03 "Resource maximums" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+resource eve "Eve" {
+  limits {
+    dailymax 4h
+    weeklymax 14h
+    monthlymax 48h
+  }
+}
+
+resource fay "Fay" {
+  limits {
+    dailymax 6h
+  }
+}
+
+resource gus "Gus" {
+}
+
+task deliver "Deliveries" {
+  task alpha "Alpha" {
+    effort 12d
+    allocate eve
+  }
+  task beta "Beta" {
+    effort 10d
+    allocate fay
+  }
+  task gamma "Gamma" {
+    effort 8d
+    depends !alpha
+    allocate eve, gus
+  }
+  task delta "Delta" {
+    effort 6d
+    depends !beta
+    allocate fay
+  }
+  task epsilon "Epsilon" {
+    effort 6d
+    depends !gamma
+    allocate gus
+  }
+}

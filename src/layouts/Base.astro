@@ -1,0 +1,58 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import '../styles/tokens.css';
+import { strings } from '../lib/strings';
+
+interface Props {
+	title?: string;
+}
+const { title = strings.appName } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content={strings.tagline} />
+		<title>{title}</title>
+	</head>
+	<body>
+		<a class="skip" href="#main">
+			{strings.skipToContent}
+		</a>
+		<slot />
+	</body>
+</html>
+
+<style is:global>
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+	body {
+		margin: 0;
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-family: var(--font-sans);
+		font-size: var(--text-md);
+		line-height: var(--leading);
+	}
+	:focus-visible {
+		outline: 3px solid var(--color-focus);
+		outline-offset: 2px;
+	}
+	.skip {
+		position: absolute;
+		left: var(--space-2);
+		top: -4rem;
+		padding: var(--space-2) var(--space-4);
+		background: var(--color-accent);
+		color: var(--color-accent-text);
+		border-radius: var(--radius-sm);
+	}
+	.skip:focus {
+		top: var(--space-2);
+	}
+</style>

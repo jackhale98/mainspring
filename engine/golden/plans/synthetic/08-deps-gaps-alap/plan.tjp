@@ -1,0 +1,61 @@
+# Feature: gapduration (calendar time) and gaplength (working time); scheduling alap; precedes chains
+# SPDX-License-Identifier: GPL-2.0-or-later
+project gaps08 "Gaps and ALAP" 2026-01-05 - 2026-04-30 {
+  now 2026-02-02-09:00
+}
+
+resource pia "Pia" {
+}
+
+resource quin "Quin" {
+}
+
+task line "Gap line" {
+  task design "Design" {
+    start 2026-01-05
+    effort 5d
+    allocate pia
+  }
+  task build "Build" {
+    effort 6d
+    depends !design {
+      gapduration 7d
+    }
+    allocate quin
+  }
+  task test "Test" {
+    effort 3d
+    depends !build {
+      gaplength 2d
+    }
+    allocate pia
+  }
+  task release "Release" {
+    effort 1d
+    depends !test {
+      gapduration 3d
+    }
+    allocate quin
+  }
+}
+
+task alap "ALAP chain" {
+  scheduling alap
+  end 2026-04-15
+  task alpha "Alpha" {
+    effort 4d
+    precedes !beta
+    allocate pia
+  }
+  task beta "Beta" {
+    effort 3d
+    precedes !gamma {
+      gaplength 1d
+    }
+    allocate quin
+  }
+  task gamma "Gamma" {
+    effort 2d
+    allocate pia
+  }
+}

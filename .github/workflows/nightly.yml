@@ -1,0 +1,67 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Results are recorded, not blocking.
+jobs:
+  # enabled when T11 lands
+  timings:
+    name: Engine timings per golden plan
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:engine
+      - run: npx playwright install --with-deps chromium
+      # Worker timings per plan are recorded against engine/golden/native-timings.json, never compared.
+      - run: npm run test:golden
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engine-timings
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # enabled when T12 lands
+  golden-cross-browser:
+    name: Golden plans (${{ matrix.browser }})
+    if: false
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:engine
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run test:golden -- --project=${{ matrix.browser }}
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: golden-${{ matrix.browser }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 30

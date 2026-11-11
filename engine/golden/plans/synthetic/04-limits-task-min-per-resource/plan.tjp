@@ -1,0 +1,78 @@
+# Feature: task limits with per-resource upper limits ({ resources r }) and min variants (dailymin, weeklymin)
+# Expected: native tj3 3.8.4 exits 0 with one warning: task f maxend is too late (resource dailymax 3h and
+# task dailymax 2h stretch its 10d effort far past 2026-01-09).
+# The per-resource limits bind: task d limits sol to 2h per day (dailymax 2h { resources sol }) while pat
+# is unconstrained, and task g limits sol to 4h per week (weeklymax 4h { resources sol }).
+# dailymin and weeklymin are expected to be a NO-OP in 3.8.4: limitsOk? only checks upper limits, so tasks
+# a, b (an impossible 10h dailymin) and c schedule as if the min limits were absent and no warning is emitted.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project min04 "Task minimum limits" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+resource pat "Pat" {
+}
+
+resource quy "Quy" {
+}
+
+resource sol "Sol" {
+}
+
+resource rhea "Rhea" {
+  limits {
+    dailymax 3h
+  }
+}
+
+task minimums "Minimum limits" {
+  task a "A: achievable minimum" {
+    effort 4d
+    limits {
+      dailymin 4h
+    }
+    allocate pat
+  }
+  task b "B: impossible minimum" {
+    effort 3d
+    limits {
+      dailymin 10h
+    }
+    allocate quy
+  }
+  task c "C: weekly minimum" {
+    effort 3d
+    limits {
+      weeklymin 8h
+    }
+    allocate rhea
+  }
+  task d "D: per-resource limits" {
+    effort 4d
+    depends !a
+    limits {
+      dailymax 2h { resources sol }
+    }
+    allocate pat, sol
+  }
+  task g "G: weekly per-resource limit" {
+    effort 3d
+    limits {
+      weeklymax 4h { resources sol }
+    }
+    allocate pat, sol
+  }
+  task f "F: cannot fit the window" {
+    effort 10d
+    maxend 2026-01-09
+    limits {
+      dailymax 2h
+    }
+    allocate rhea
+  }
+  task e "E: after impossible" {
+    effort 2d
+    depends !b
+    allocate quy
+  }
+}

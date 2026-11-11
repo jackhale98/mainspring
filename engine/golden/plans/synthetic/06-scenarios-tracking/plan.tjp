@@ -1,0 +1,58 @@
+# Feature: trackingscenario; complete; user bookings (resource and task) in the tracking scenario; fixed now
+# Binding: all bookings live in the scenario "actual", which is the trackingscenario, so tj3 projects from
+# the real bookings before now (2026-02-10). Task "second" has only 2 of 6 days booked (01-12, 01-13), so the
+# rest is projected after now; resource kai carries a resource-level booking on task "fourth" (02-02, 02-03).
+# Scenario "plan" has no bookings, so the two scenarios schedule differently.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project track06 "Tracking" 2026-01-05 - 2026-03-27 {
+  now 2026-02-10-09:00
+  scenario plan "Plan" {
+    scenario actual "Actual" {
+    }
+  }
+  trackingscenario actual
+}
+
+resource jo "Jo" {
+}
+
+resource kai "Kai" {
+}
+
+task proj "Tracked project" {
+  task first "First" {
+    start 2026-01-05
+    effort 5d
+    complete 100
+    allocate jo
+    actual:booking jo 2026-01-05-09:00 - 2026-01-05-12:00, 2026-01-05-13:00 - 2026-01-05-17:00
+    actual:booking jo 2026-01-06-09:00 - 2026-01-06-12:00, 2026-01-06-13:00 - 2026-01-06-17:00
+    actual:booking jo 2026-01-07-09:00 - 2026-01-07-12:00, 2026-01-07-13:00 - 2026-01-07-17:00
+    actual:booking jo 2026-01-08-09:00 - 2026-01-08-12:00, 2026-01-08-13:00 - 2026-01-08-17:00
+    actual:booking jo 2026-01-09-09:00 - 2026-01-09-12:00, 2026-01-09-13:00 - 2026-01-09-17:00
+  }
+  task second "Second" {
+    effort 6d
+    complete 40
+    start 2026-01-12-09:00
+    allocate jo
+    actual:booking jo 2026-01-12-09:00 - 2026-01-12-12:00, 2026-01-12-13:00 - 2026-01-12-17:00
+    actual:booking jo 2026-01-13-09:00 - 2026-01-13-12:00, 2026-01-13-13:00 - 2026-01-13-17:00
+  }
+  task third "Third" {
+    effort 4d
+    complete 0
+    depends !second
+    allocate kai
+  }
+  task fourth "Fourth" {
+    effort 3d
+    start 2026-02-02-09:00
+    allocate kai
+  }
+}
+
+supplement resource kai {
+  actual:booking proj.fourth 2026-02-02-09:00 - 2026-02-02-12:00, 2026-02-02-13:00 - 2026-02-02-17:00
+  actual:booking proj.fourth 2026-02-03-09:00 - 2026-02-03-12:00, 2026-02-03-13:00 - 2026-02-03-17:00
+}
