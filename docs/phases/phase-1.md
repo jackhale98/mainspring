@@ -803,7 +803,7 @@ them.
    global and resource level, as the grammar does.
 7. **Workspace interface (T7).** `Workspace.commit(path, transactions, origin)` takes the editor's
    transactions (the incremental reparse and `changesSince` need each change set); `subscribe`
-   listeners get a third argument `{paths, transactions}`; an empty `apply` is a no-op; a file
+   listeners get a third argument `{paths, transactions, reconfigured}`; an empty `apply` is a no-op; a file
    whose parse context changes is reparsed and its version bumped. `apply` reports origin
    `'format'` for format edits. `IncludeEdge` gains `written` (prefix token ranges) and problem
    values for macro-built paths and prefixes; `IncludeGraph` gains `tops`. `opts.extensions` gets a
@@ -823,9 +823,10 @@ them.
    problem.
 10. **Text-only containment (T7).** A target may contain a text-only range and still be edited
     (deleting a block that holds a `${x}` value is safe), except when the contained range hides
-    declarations: `macro-id`, `auto-id` and `expanded-only` ranges, and statement-level macro calls
-    inside task or resource bodies, block a delete or move of anything that contains them unless
-    engine hints resolve them. Queries may use the element's own range or its widened deletion
+    declarations: `macro-id`, `auto-id` and `expanded-only` ranges, statement-level macro calls (in
+    bodies or at top level) and syntax-error ranges block a delete or move of anything that contains
+    them unless engine hints resolve them (`TextOnly.within: null`). Other ranges carry a `within`
+    construct that a target must fully cover to be allowed. Queries may use the element's own range or its widened deletion
     range (with its line or leading comments); both are safe. X5 (`expanded-only`) is computed by
     the index (T8) from engine hints.
 11. **Corpus counts (engine fixes).** Two time-zone goldens were added while fixing wasm/native
