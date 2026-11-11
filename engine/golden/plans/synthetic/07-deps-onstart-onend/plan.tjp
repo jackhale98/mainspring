@@ -46,4 +46,9 @@ task chain "Chain" {
     depends !a { onend }
     allocate nina
   }
+  task h "H" {
+    effort 1d
+    precedes !g { onend }
+    allocate omar
+  }
 }

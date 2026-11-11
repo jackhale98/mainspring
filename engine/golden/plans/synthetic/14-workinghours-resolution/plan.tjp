@@ -1,4 +1,6 @@
 # Feature: project and resource workinghours; dailyworkinghours; weekstartsmonday; non-default timingresolution
+# Binding: resource quin has no workinghours of its own and so follows the project hours (mon-thu 8:30-17:00, fri 8:30-12:30);
+# resource rae works Sat, Sun and Mon 4h each with weeklymax 8h; observed in 3.8.4: weekstartsmonday did NOT change the schedule (weekly limits do not depend on it).
 # SPDX-License-Identifier: GPL-2.0-or-later
 project hours14 "Working hours" 2026-01-05 - 2026-03-27 {
   timingresolution 15min
@@ -18,6 +20,17 @@ resource pavel "Pavel" {
   workinghours mon - fri 10:00 - 12:00, 14:00 - 16:00
 }
 
+resource quin "Quin" {
+}
+
+resource rae "Rae" {
+  workinghours tue - fri off
+  workinghours sat - mon 9:00 - 13:00
+  limits {
+    weeklymax 8h
+  }
+}
+
 task hours "Working-hours work" {
   task first "First" {
     effort 4d
@@ -31,5 +44,13 @@ task hours "Working-hours work" {
     effort 3d
     depends !first, !second
     allocate ola, pavel
+  }
+  task fourth "Fourth" {
+    effort 6d
+    allocate quin
+  }
+  task fifth "Fifth" {
+    effort 6d
+    allocate rae
   }
 }

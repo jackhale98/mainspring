@@ -3,5 +3,5 @@
 
 task broken "Broken task" {
   effort 3d
-  effort @@ 2d
+  note "Überprüfung für Zoë – 日本語" @@ 2d
 }

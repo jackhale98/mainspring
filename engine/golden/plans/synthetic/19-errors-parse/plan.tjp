@@ -1,5 +1,6 @@
 # Feature: parse error inside an included .tji file, reported with file, line and column
-# Expected: native tj3 fails parsing (ok: false) at lib/broken.tji, line 6, column 10 (the first "@" in "effort @@ 2d").
+# Expected: native tj3 fails parsing at lib/broken.tji line 6 ("Unexpected token '@'"). Native tj3 reports column 0 (Scanner passes 0);
+# the column is whatever the bridge reports (settled in T4/T9). The error line has multi-byte text before the bad token.
 # SPDX-License-Identifier: GPL-2.0-or-later
 project errors19 "Parse error in include" 2026-01-05 - 2026-03-27 {
   now 2026-02-02-09:00
