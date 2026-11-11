@@ -3,6 +3,11 @@
 Plans whose native TaskJuggler outputs the browser engine must reproduce exactly
 (`docs/phases/phase-0.md`, section 6). `manifest.json` lists them; `expected/<id>.json`
 holds each plan's recorded output.
+
+The manifest holds 34 plans: the five upstream examples (read in place from
+`engine/tj/examples/`), the PoC sample, the 20 synthetic plans below, and 8 bridge fixtures
+(see "Bridge fixtures" further down).
+
 ## Synthetic plans
 
 Synthetic TaskJuggler plans for Phase 0 (spec section 6.1). Each plan's header comment names the feature it targets. Validate a plan with native tj3 from its own directory (the run command uses `poc/stubs` until `engine/stubs` exists):
@@ -72,10 +77,16 @@ Ruby, `tj3` or Bundler.
 | `... --verify` (`npm run golden:verify`) | Re-run natively and fail on any difference from the committed files |
 | `... --allow-ruby` | Accept a Ruby other than 3.4.x |
 
-The script refuses to run when `engine/tj` is not the tree pinned in `engine/tj.pin.json`,
-when Ruby is not 3.4.x, or when `engine/bridge/` or `engine/golden/plans/` have uncommitted
-changes (goldens must come from committed inputs). Commit plan and bridge changes first,
-then record, then commit `expected/` and `native-timings.json`.
+With npm, pass options after `--`, for example `npm run golden:record -- --allow-ruby`.
+
+The script refuses to run when `engine/tj` is not the tree pinned in `engine/tj.pin.json`
+(modified, untracked and ignored files all count), when Ruby is not 3.4.x, or when
+`engine/bridge/` or `engine/golden/plans/` have uncommitted changes (goldens must come from
+committed inputs). Commit plan and bridge changes first, then record, then commit
+`expected/` and `native-timings.json`.
+
+The goldens committed now were recorded with Ruby 3.3.6 and `--allow-ruby`. They are
+provisional and must be re-recorded with Ruby 3.4.x before the Phase 0 gate.
 
 ### What a run does
 
@@ -92,9 +103,18 @@ bridge code (`engine/bridge/request.rb`, `engine/bridge/serialize.rb`), never th
 3. If the two runs' outputs differ, the plan fails (nondeterminism) and nothing is written.
 4. Serializer cross-check: the real `tj3` CLI (`engine/tj/bin/tj3`) runs on the same
    workspace with `cross-check.tji` as a second file and writes a CSV report of every task's
-   start and end per active scenario. The script checks it row by row against the golden's
-   task dates. Both sides of the parity test share `serialize.rb`, so this is what catches
-   serializer bugs.
+   start and end per active scenario. Both sides of the parity test share `serialize.rb`, so
+   this is what catches serializer bugs. tj3 must agree with the golden on:
+   - every task's start and end in every active scenario, row by row;
+   - the project's `start`, `end` and `now`, and the list of active scenarios;
+   - every message up to the end of scheduling: level, id, file, line and text;
+   - when neither side parses: tj3 exits non-zero and its first error has the same id,
+     file and line as the golden's.
+
+   `cross-check-shim.rb` is preloaded into the tj3 process. It pins `Time.now` for plans
+   without a `now` line, lets `-f` still write the report after a scheduling error (tj3
+   otherwise ends on the first `TjRuntimeError`), ignores `.taskjugglerrc` files, and dumps
+   tj3's own project frame and messages as JSON at exit.
 5. Unless `--verify` is given and every plan passed, it writes `expected/<id>.json`
    (`JSON.stringify` of the sorted object with 2-space indent and a trailing newline, no
    timestamps, so re-recording unchanged plans gives no diff) and `native-timings.json`
@@ -104,9 +124,12 @@ bridge code (`engine/bridge/request.rb`, `engine/bridge/serialize.rb`), never th
 
 A plan's own `now` line always wins. When the plan has none, the manifest's `now` is used
 as `options.now`, which stands in for the system clock that TaskJuggler reads for its
-default: like the clock, it is aligned down to the whole hour (`TjTime.new.align(3600)`).
+default (`TjTime.new.align(3600)`). It is set when the project is created, so `${now}` and
+`${today}` macros see it. `options.now` must be ISO 8601 UTC with seconds, a real date and
+time, and on a whole UTC hour (`2026-01-05T09:00:00Z`); anything else is rejected as an
+invalid request, by the bridge and by the recorder's manifest check, rather than rounded.
 The cross-check pins `Time.now` of the `tj3` process to the same instant, so both see the
-same `now`. Manifest `now` values should be whole hours.
+same `now`.
 
 ### Text encoding
 
@@ -117,9 +140,14 @@ Workspace files are UTF-8 text on both sides, and both sides use the same rule
   the browser's `TextDecoder` (and Node's `Buffer#toString`) produce, so the native recorder
   sees the text the browser would. Ruby's `String#scrub` was checked against `TextDecoder`
   on 22 invalid-sequence vectors and agreed on all of them;
-- one leading byte-order mark (U+FEFF) is removed, as `TextDecoder` does by default. Doing
-  it in the shared bridge keeps both sides equal whichever JS decoder read the files;
+- exactly one leading byte-order mark (U+FEFF) is removed by the bridge;
 - CRLF and CR line ends become LF inside TaskJuggler itself, on both sides.
+
+**Decoding rule for the JS side.** The worker (T6) and the parity harness (T11) must
+decode file bytes with `new TextDecoder('utf-8', { ignoreBOM: true })`, which replaces
+invalid sequences with U+FFFD and keeps a leading BOM, and leave BOM removal to the bridge.
+The default `TextDecoder` drops the BOM itself, so a file starting with two BOMs would then
+reach the bridge with one where the native recorder had two, and the outputs would differ.
 
 So a golden describes what the browser engine gets after decoding, not what `tj3` does with
 raw invalid bytes (it stops with `UTF-8 encoding error`). The upstream Tutorial is valid
@@ -139,3 +167,22 @@ recorder sets `LANG=C.UTF-8`, passes `-EUTF-8` to Ruby, and the bridge sets
   `resources` and `bookings` are empty.
 - `milestone` is scenario-specific in TaskJuggler; `TaskResult.milestone` is its value in
   the first active scenario.
+
+### Bridge fixtures
+
+`plans/bridge/` holds small plans for the bridge's own paths, so the parity test covers
+them in the browser too. Each header says what it targets and expects.
+
+| id | Targets |
+| --- | --- |
+| bridge-header-only | Project header and no tasks: `no_tasks` error without a location, project info filled, `ok: false` |
+| bridge-parse-failure | Syntax error after a complete header: project info filled, no tasks, `ok: false` |
+| bridge-schedule-error | Scheduling error with tasks: partial schedule kept, error carries scenario `plan`, `ok: false` |
+| bridge-scenario-warning | `maxend` warning only in the child scenario `delayed`, `ok: true` |
+| bridge-include-subfolder | Nested includes, including `../shared.tji`; a warning from a nested file; workspace-relative paths |
+| bridge-bom-invalid-utf8 | BOM plus invalid UTF-8 in a comment and a task name (raw bytes on disk) |
+| bridge-now-option | No `now` line: `options.now` becomes `now`, seen by `${now}` and `${today}` |
+| bridge-now-line | A `now` line wins over `options.now` |
+
+Unit tests for the recorder's pure helpers (`lib.mjs`) are in
+`tests/golden/record-lib.test.ts` and run with `npm run test:unit`.

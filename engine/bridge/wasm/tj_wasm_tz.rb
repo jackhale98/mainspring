@@ -27,8 +27,11 @@ module TJWasmTZ
     z.nil? || z.empty? || z == 'UTC' ? nil : z
   end
 
-  # UTC offset in seconds of +zone+ at UTC instant +epoch+. Offsets only
-  # change on quarter-hour boundaries, so they are cached per 15 minutes.
+  # UTC offset in seconds of +zone+ at UTC instant +epoch+, cached per
+  # 15-minute block of UTC time. The cache assumes every offset change in a
+  # zone falls on a 15-minute UTC boundary. That holds for the zones and years
+  # in the golden corpus (2026 to 2028), but not for every historical rule
+  # (local mean time offsets, for example, have odd minutes and seconds).
   def self.offset(zone, epoch)
     key = [zone, epoch.to_i.div(900)]
     @cache[key] ||= JS.global[:tjTz].call(:offset, zone, epoch.to_i.to_f).to_f.to_i

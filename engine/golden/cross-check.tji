@@ -4,10 +4,11 @@
 # section 6.2, step 5).
 #
 # record-native.mjs copies this file into the plan's workspace and runs the
-# real tj3 CLI from engine/tj/bin with it as a second input file:
+# real tj3 CLI from engine/tj/bin with it as a second input file, with
+# cross-check-shim.rb preloaded:
 #
 #   tj3 --silent --no-color -f --report mainspring_crosscheck \
-#       <entry> mainspring-cross-check.tji
+#       <workspace>/<entry> <workspace>/mainspring-cross-check.tji
 #
 # tj3 then writes mainspring-cross-check.csv (into its working directory) with
 # one row per task and active scenario: scenario name, full task id, start
@@ -30,5 +31,5 @@ taskreport mainspring_crosscheck "mainspring-cross-check" {
   scenarios ${mainspring_crosscheck_scenarios}
   columns scenario, id, start, end
   hidetask 0
-  sorttasks tree
+  sorttasks tree, seqno.up
 }

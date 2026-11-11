@@ -1,0 +1,10 @@
+# Included from parts/tasks.tji. Redefining the macro warns here.
+macro owner [bob]
+
+task test "Test" {
+  effort 1d
+  allocate ${owner}
+  depends build
+}
+
+include "../shared.tji"

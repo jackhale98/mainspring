@@ -1,0 +1,7 @@
+# Included from plan.tjp; includes deep/more.tji relative to this folder.
+task build "Build" {
+  effort 2d
+  allocate ann
+}
+
+include "deep/more.tji"

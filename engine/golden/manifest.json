@@ -5,7 +5,17 @@
     "root": "engine/tj/examples/Tutorial",
     "entry": "tutorial.tjp",
     "now": null,
-    "features": ["scenarios", "timezone", "accounts", "leaves", "limits", "macros", "extend", "journal", "complete"]
+    "features": [
+      "scenarios",
+      "timezone",
+      "accounts",
+      "leaves",
+      "limits",
+      "macros",
+      "extend",
+      "journal",
+      "complete"
+    ]
   },
   {
     "id": "upstream-fedora-20",
@@ -13,7 +23,17 @@
     "root": "engine/tj/examples/Fedora-20",
     "entry": "f-20.tjp",
     "now": "2013-09-02T12:00:00Z",
-    "features": ["include", "macros", "scenarios", "timezone", "workinghours", "milestones", "precedes", "flags", "large"]
+    "features": [
+      "include",
+      "macros",
+      "scenarios",
+      "timezone",
+      "workinghours",
+      "milestones",
+      "precedes",
+      "flags",
+      "large"
+    ]
   },
   {
     "id": "upstream-template",
@@ -21,7 +41,15 @@
     "root": "engine/tj/examples/ProjectTemplate",
     "entry": "template.tjp",
     "now": null,
-    "features": ["timezone", "accounts", "vacation", "macros", "extend", "journal", "flags"]
+    "features": [
+      "timezone",
+      "accounts",
+      "vacation",
+      "macros",
+      "extend",
+      "journal",
+      "flags"
+    ]
   },
   {
     "id": "upstream-scrum",
@@ -29,7 +57,11 @@
     "root": "engine/tj/examples/Scrum",
     "entry": "scrum.tjp",
     "now": null,
-    "features": ["sprints", "effort", "depends"]
+    "features": [
+      "sprints",
+      "effort",
+      "depends"
+    ]
   },
   {
     "id": "upstream-todolist",
@@ -37,7 +69,12 @@
     "root": "engine/tj/examples/ToDo-List",
     "entry": "todolist.tjp",
     "now": null,
-    "features": ["complete", "priority", "macros", "journal"]
+    "features": [
+      "complete",
+      "priority",
+      "macros",
+      "journal"
+    ]
   },
   {
     "id": "poc-sample",
@@ -45,6 +82,368 @@
     "root": "engine/golden/plans/poc-sample",
     "entry": "plan.tjp",
     "now": null,
-    "features": ["timezone", "leaves", "resource-groups", "depends", "milestones"]
+    "features": [
+      "timezone",
+      "leaves",
+      "resource-groups",
+      "depends",
+      "milestones"
+    ]
+  },
+  {
+    "id": "syn-01-shifts-resource",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/01-shifts-resource",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "shifts",
+      "resource-shifts",
+      "shift-leaves"
+    ]
+  },
+  {
+    "id": "syn-02-shifts-allocation-task",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/02-shifts-allocation-task",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "allocation-shifts",
+      "task-shifts"
+    ]
+  },
+  {
+    "id": "syn-03-limits-resource-max",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/03-limits-resource-max",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "limits",
+      "dailymax",
+      "weeklymax",
+      "monthlymax"
+    ]
+  },
+  {
+    "id": "syn-04-limits-task-min-per-resource",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/04-limits-task-min-per-resource",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "task-limits",
+      "per-resource-limits",
+      "min-limits",
+      "warnings"
+    ]
+  },
+  {
+    "id": "syn-05-scenarios-tree",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/05-scenarios-tree",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "scenarios",
+      "nested-scenarios",
+      "inactive-scenario",
+      "scenario-attributes"
+    ]
+  },
+  {
+    "id": "syn-06-scenarios-tracking",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/06-scenarios-tracking",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "trackingscenario",
+      "bookings",
+      "complete",
+      "now"
+    ]
+  },
+  {
+    "id": "syn-07-deps-onstart-onend",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/07-deps-onstart-onend",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "depends",
+      "precedes",
+      "onstart",
+      "onend"
+    ]
+  },
+  {
+    "id": "syn-08-deps-gaps-alap",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/08-deps-gaps-alap",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "gapduration",
+      "gaplength",
+      "alap",
+      "precedes"
+    ]
+  },
+  {
+    "id": "syn-09-tz-dst-berlin",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/09-tz-dst-berlin",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "timezone",
+      "dst",
+      "europe-berlin"
+    ]
+  },
+  {
+    "id": "syn-10-tz-fractional-offset",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/10-tz-fractional-offset",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "timezone",
+      "fractional-offset",
+      "timingresolution"
+    ]
+  },
+  {
+    "id": "syn-11-tz-southern-sydney",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/11-tz-southern-sydney",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "timezone",
+      "dst",
+      "southern-hemisphere",
+      "year-boundary"
+    ]
+  },
+  {
+    "id": "syn-12-tz-unset",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/12-tz-unset",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "no-timezone",
+      "utc"
+    ]
+  },
+  {
+    "id": "syn-13-calendars-leaves",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/13-calendars-leaves",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "leaves",
+      "vacation",
+      "resource-leaves"
+    ]
+  },
+  {
+    "id": "syn-14-workinghours-resolution",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/14-workinghours-resolution",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "workinghours",
+      "dailyworkinghours",
+      "weekstartsmonday",
+      "timingresolution"
+    ]
+  },
+  {
+    "id": "syn-15-allocate-select",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/15-allocate-select",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "alternative",
+      "select",
+      "persistent",
+      "mandatory"
+    ]
+  },
+  {
+    "id": "syn-16-constraints-violations",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/16-constraints-violations",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "start",
+      "end",
+      "minstart",
+      "maxend",
+      "warnings"
+    ]
+  },
+  {
+    "id": "syn-17-priority-efficiency",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/17-priority-efficiency",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "priority",
+      "efficiency",
+      "bookings",
+      "warnings"
+    ]
+  },
+  {
+    "id": "syn-18-structure-include-macro",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/18-structure-include-macro",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "include",
+      "macro",
+      "supplement",
+      "extend",
+      "non-ascii"
+    ]
+  },
+  {
+    "id": "syn-19-errors-parse",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/19-errors-parse",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "parse-error",
+      "include",
+      "non-ascii"
+    ]
+  },
+  {
+    "id": "syn-20-scale-1000",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/20-scale-1000",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "scale",
+      "resource-groups",
+      "nesting",
+      "depends"
+    ],
+    "timeoutMs": 120000
+  },
+  {
+    "id": "bridge-header-only",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/header-only",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "bridge",
+      "no-tasks",
+      "message-without-location",
+      "version",
+      "timezone"
+    ]
+  },
+  {
+    "id": "bridge-parse-failure",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/parse-failure",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "bridge",
+      "parse-error",
+      "project-info-after-parse-error"
+    ]
+  },
+  {
+    "id": "bridge-schedule-error",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/schedule-error",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "bridge",
+      "scheduling-error",
+      "partial-schedule",
+      "message-scenario"
+    ]
+  },
+  {
+    "id": "bridge-scenario-warning",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/scenario-warning",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "bridge",
+      "scenarios",
+      "message-scenario",
+      "warnings"
+    ]
+  },
+  {
+    "id": "bridge-include-subfolder",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/include-subfolder",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "bridge",
+      "include",
+      "nested-include",
+      "parent-relative-include",
+      "warnings"
+    ]
+  },
+  {
+    "id": "bridge-bom-invalid-utf8",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/bom-invalid-utf8",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "bridge",
+      "encoding",
+      "bom",
+      "invalid-utf8"
+    ]
+  },
+  {
+    "id": "bridge-now-option",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/now-option",
+    "entry": "plan.tjp",
+    "now": "2026-03-03T09:00:00Z",
+    "features": [
+      "bridge",
+      "options-now",
+      "now-macro"
+    ]
+  },
+  {
+    "id": "bridge-now-line",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/bridge/now-line",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "bridge",
+      "now-line-wins"
+    ]
   }
 ]

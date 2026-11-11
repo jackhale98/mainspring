@@ -14,7 +14,8 @@
 # Request semantics match tj_bridge.rb because the code is shared: the files
 # under --root that match the globs (default **/*.tjp and **/*.tji) become the
 # request's `files`, read as bytes and decoded like the browser does (invalid
-# UTF-8 -> U+FFFD, leading BOM dropped; see request.rb). They are written to a
+# UTF-8 -> U+FFFD, exactly one leading BOM dropped; see request.rb). They are
+# written to a
 # private workspace directory (a fresh temporary one, or --workspace, which is
 # kept for the tj3 cross-check), and <workspace>/<entry> is parsed and
 # scheduled, with --now applied only when the plan has no `now` line.

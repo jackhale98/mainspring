@@ -1,0 +1,12 @@
+# Bridge fixture: options.now for a plan without a `now` line.
+# Targets: the manifest's now (2026-03-03T09:00:00Z) replaces TaskJuggler's
+# clock default when the project is created, so the ${now} and ${today}
+# macros already see it. Expected: ok true; project.now is
+# 2026-03-03T09:00:00Z; task kickoff starts at ${now} (minute 1980) and is
+# named after ${today}.
+project nowopt "Now from options" 2026-03-02 +1m
+
+task kickoff "Kickoff on ${today}" {
+  start ${now}
+  duration 1d
+}

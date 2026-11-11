@@ -1,0 +1,18 @@
+ï»¿# Bridge fixture: BOM and invalid UTF-8 bytes.
+# Targets: the file starts with a UTF-8 BOM and holds invalid UTF-8: the
+# bytes FF FE in this comment (here: ÿþ) and a Latin-1 e-acute (E9) in the
+# name of task a. Both sides turn each invalid sequence into U+FFFD and drop
+# the BOM. Expected: ok true; task a is named "Caf" + U+FFFD; task b keeps its
+# valid UTF-8 name.
+project enc "Encoding" 2026-03-02 +1m {
+  now 2026-03-02-09:00
+}
+
+task a "Café" {
+  duration 2d
+}
+
+task b "NaÃ¯ve Ã©tÃ©" {
+  duration 1d
+  depends a
+}

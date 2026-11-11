@@ -14,16 +14,18 @@
 # Reports are never generated.
 #
 # options.now (ADR-0002, decision 1) stands in for the system clock that
-# TaskJuggler reads when a plan has no `now` line: Project#initialize keeps its
-# default `TjTime.new.align(3600)`, but with the clock reading options.now. A
-# `now` line in the plan overrides it, exactly as it overrides the clock.
+# TaskJuggler reads when a plan has no `now` line. It must be ISO 8601 UTC
+# with seconds and on a whole UTC hour (anything else is an invalid request),
+# so it equals TaskJuggler's own default `TjTime.new.align(3600)` read at that
+# instant. It is set when the Project is created, so `${now}` macros see it;
+# a `now` line in the plan overrides it, exactly as it overrides the clock.
 #
 # Source text: workspace files are UTF-8 text. Invalid UTF-8 byte sequences
 # become U+FFFD (the same maximal-subpart rule as the browser's TextDecoder)
-# and one leading U+FEFF (BOM) is removed, which TextDecoder also does by
-# default. The browser only ever passes valid strings, so this matters for the
-# native recorder, and it makes both sides agree whichever JS decoder read
-# the files. See engine/golden/README.md, "Recording native outputs".
+# and exactly one leading U+FEFF (BOM) is removed. The worker and the parity
+# harness must decode bytes with TextDecoder({ ignoreBOM: true }), which keeps
+# the BOM, so that both sides hand the same text to this function. See
+# engine/golden/README.md, "Recording native outputs".
 #
 # This file adds two small hooks to TaskJuggler::Project (clock and metadata
 # capture). It changes no scheduling behaviour; all other TaskJuggler code is
@@ -35,8 +37,9 @@ module MainspringBridge
   # The request itself is malformed (bad path, missing entry, bad `now`).
   class InvalidRequest < StandardError; end
 
-  BOM = "﻿"
-  NOW_RE = /\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?Z\z/.freeze
+  BOM = "\uFEFF"
+  # ISO 8601 UTC with seconds. engine/golden/lib.mjs has the same NOW_RE.
+  NOW_RE = /\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\z/.freeze
 
   # Hooks into TaskJuggler::Project. State lives in module attributes for the
   # duration of one run and is reset by MainspringBridge.run.
@@ -45,9 +48,8 @@ module MainspringBridge
       super
       Capture.header = self
       Capture.version = version
-      if (clock = Capture.clock)
-        @attributes['now'] = TaskJuggler::TjTime.new(clock).align(3600)
-      end
+      # parse_now only accepts whole hours, so no alignment is needed.
+      @attributes['now'] = TaskJuggler::TjTime.new(Capture.clock) if Capture.clock
     end
 
     def []=(name, value)
@@ -85,20 +87,35 @@ module MainspringBridge
   end
 
   # nil, or a Time for an ISO 8601 UTC string such as "2026-01-05T09:00:00Z".
+  # The fields must round-trip (no 2026-02-31, no T24:00:00) and the instant
+  # must be a whole UTC hour. engine/golden/lib.mjs nowProblem applies the
+  # same rules to manifest values.
   def parse_now(now)
     return nil if now.nil?
 
     m = now.is_a?(String) && NOW_RE.match(now)
-    raise InvalidRequest, "options.now must be ISO 8601 UTC: #{now.inspect}" unless m
+    unless m
+      raise InvalidRequest, 'options.now must be ISO 8601 UTC with seconds, ' \
+                            "such as 2026-01-05T09:00:00Z: #{now.inspect}"
+    end
 
-    Time.utc(*m.captures.map(&:to_i))
-  rescue ArgumentError
-    raise InvalidRequest, "options.now is not a valid date: #{now.inspect}"
+    fields = m.captures.map(&:to_i)
+    t = begin
+      Time.utc(*fields)
+    rescue ArgumentError
+      nil
+    end
+    unless t && [t.year, t.month, t.day, t.hour, t.min, t.sec] == fields
+      raise InvalidRequest, "options.now is not a real date and time: #{now.inspect}"
+    end
+    raise InvalidRequest, "options.now must be on a whole UTC hour: #{now.inspect}" unless t.min.zero? && t.sec.zero?
+
+    t
   end
 
   def normalize_text(text)
     t = text.to_s.dup.force_encoding(Encoding::UTF_8)
-    t = t.scrub("�") unless t.valid_encoding?
+    t = t.scrub("\uFFFD") unless t.valid_encoding?
     t.start_with?(BOM) ? t[1..] : t
   end
 
