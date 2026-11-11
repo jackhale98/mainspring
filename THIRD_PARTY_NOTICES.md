@@ -30,6 +30,15 @@ The ruby.wasm binary statically links further libraries. Its own `NOTICE` (repro
 | wasi-vfs (packs the Ruby standard library) | Apache-2.0 WITH LLVM-exception                                                  | Yes: the LLVM exception waives the terms that conflict with GPL-2.0 |
 | OpenSSL                                    | Apache-2.0 (version 3.2.0)                                                      | **No** (see below)                                                  |
 
+## Shipped in the page scripts
+
+The site's own scripts in `dist/_astro/` are bundled by Vite. Checked on a build with
+`MAINSPRING_DEV_PAGES=1`, the only third-party code in them besides the engine worker (above) is
+the Svelte client runtime (`svelte` 5.57.2, MIT, in `client.svelte.*.js`), which GPL-2.0 permits.
+Astro 7.4.1 (MIT) adds no runtime of its own: the built pages contain no `astro-island` hydration
+script. The Svelte license text is not yet reproduced in the built site; add it to `/engine/NOTICES.txt`
+or a site-level notices file before a public release.
+
 ## Open point: OpenSSL inside ruby.wasm
 
 Both binaries in `@ruby/3.4-wasm-wasi` 2.10.1 (`ruby.wasm` and `ruby+stdlib.wasm`) link OpenSSL

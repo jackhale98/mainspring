@@ -203,4 +203,21 @@ describe('startDispatcher', () => {
 		]);
 		expect(posted[1]).toMatchObject({ revision: 1 });
 	});
+
+	it('keeps answering after a message handler throws', async () => {
+		const posted: FromWorker[] = [];
+		const handle = startDispatcher(
+			() => Promise.resolve(fakeEngine()),
+			(m) => posted.push(m),
+		);
+		const poison = {
+			get type(): string {
+				throw new Error('boom');
+			},
+		};
+		handle(poison);
+		handle({ type: 'schedule', request: request(7) });
+		await settle();
+		expect(posted.map((m) => m.type)).toEqual(['ready', 'scheduled']);
+	});
 });

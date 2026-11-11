@@ -32,13 +32,12 @@ const SEED = Number(process.env['GOLDEN_SEED'] ?? 20261111);
 const BOOT_TIMEOUT_MS = 180_000;
 const PLAN_TIMEOUT_MS = 120_000;
 
-test.describe.configure({ mode: 'serial' });
 test.skip(({ browserName }) => browserName !== 'chromium', 'Golden parity gates on Chromium only');
 
 const corpus = loadCorpus();
 const rows: PlanRow[] = [];
 let versions: EngineVersions | null = null;
-let revision = 0;
+let revision = 100;
 
 async function openEngine(page: Page): Promise<EngineVersions> {
 	await page.goto('/dev/engine');
@@ -55,6 +54,22 @@ async function schedule(page: Page, request: ScheduleRequest): Promise<ScheduleO
 		if (!api) throw new Error('window.mainspringDev is missing');
 		return api.schedule(req);
 	}, request);
+}
+
+/** Rejects if `work` has no result after PLAN_TIMEOUT_MS; always clears its timer. */
+async function withTimeout<T>(label: string, work: Promise<T>): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<never>((_, reject) => {
+		timer = setTimeout(
+			() => reject(new Error(`${label}: no result in ${PLAN_TIMEOUT_MS} ms`)),
+			PLAN_TIMEOUT_MS,
+		);
+	});
+	try {
+		return await Promise.race([work, timeout]);
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 /** Schedules one plan and compares it; returns the table row. */
@@ -107,29 +122,31 @@ test('manifest, goldens and pin agree', () => {
 	for (const { plan, golden } of corpus) expect(golden.native.tjCommit, plan.id).toBe(pin);
 });
 
-test('every golden plan matches in one long-lived worker (shuffled)', async ({ page }) => {
-	test.setTimeout(BOOT_TIMEOUT_MS + PLAN_TIMEOUT_MS * corpus.length);
-	versions = await openEngine(page);
-	const order = seededShuffle(corpus, SEED);
-	console.log(`golden order (seed ${SEED}): ${order.map((e) => e.plan.id).join(' ')}`);
-	for (const entry of order) {
-		const row = await Promise.race([
-			runPlan(page, entry, 'shuffled'),
-			new Promise<never>((_, reject) =>
-				setTimeout(
-					() => reject(new Error(`${entry.plan.id}: no result in ${PLAN_TIMEOUT_MS} ms`)),
-					PLAN_TIMEOUT_MS,
-				),
-			),
-		]);
-		rows.push(row);
-	}
-	const failed = rows.filter((r) => r.run === 'shuffled' && !r.pass);
-	expect(rows.filter((r) => r.run === 'shuffled')).toHaveLength(EXPECTED_PLAN_COUNT);
-	expect(
-		failed.map((r) => `${r.id}\n  ${r.diffs.join('\n  ')}`),
-		'plans that differ from their golden',
-	).toEqual([]);
+test('the long-lived client forgets files that a later request leaves out', async ({ page }) => {
+	test.setTimeout(BOOT_TIMEOUT_MS + 2 * PLAN_TIMEOUT_MS);
+	const built = await openEngine(page);
+	expect(built.tjCommit, 'built engine tjCommit').toBe(pinnedCommit());
+	const plan = `project p "P" 2026-01-05 +1w\ninclude "inc.tji"\ntask t "T" { start 2026-01-05 length 1d }\n`;
+	const inc = 'resource r "R"\n';
+	const a = await withTimeout(
+		'stale-include A',
+		schedule(page, {
+			files: { 'plan.tjp': plan, 'inc.tji': inc },
+			entry: 'plan.tjp',
+			revision: 1,
+		}),
+	);
+	expect(a.status, 'request A outcome').toBe('done');
+	if (a.status !== 'done') return;
+	expect(a.result.ok, `request A: ${JSON.stringify(a.result.messages)}`).toBe(true);
+	const b = await withTimeout(
+		'stale-include B',
+		schedule(page, { files: { 'plan.tjp': plan }, entry: 'plan.tjp', revision: 2 }),
+	);
+	expect(b.status, 'request B outcome').toBe('done');
+	if (b.status !== 'done') return;
+	expect(b.result.ok, 'request B must not see inc.tji from request A').toBe(false);
+	expect(b.result.messages.map((m) => m.id)).toContain('bad_include');
 });
 
 test(`${FRESH_PLAN} matches again in a fresh page and client`, async ({ page }) => {
@@ -137,8 +154,31 @@ test(`${FRESH_PLAN} matches again in a fresh page and client`, async ({ page }) 
 	await openEngine(page);
 	const entry = corpus.find((e) => e.plan.id === FRESH_PLAN);
 	if (!entry) throw new Error(`${FRESH_PLAN} is not in the manifest`);
-	const row = await runPlan(page, entry, 'fresh');
+	const row = await withTimeout(FRESH_PLAN, runPlan(page, entry, 'fresh'));
 	rows.push(row);
 	expect(row.diffs).toEqual([]);
 	expect(row.pass).toBe(true);
+});
+
+// Last on purpose: if it fails, the worker restarts, and the rows of earlier tests are kept
+// only for tests that ran in the same worker.
+test('every golden plan matches in one long-lived worker (shuffled)', async ({ page }) => {
+	test.setTimeout(BOOT_TIMEOUT_MS + PLAN_TIMEOUT_MS * corpus.length);
+	versions = await openEngine(page);
+	const order = seededShuffle(corpus, SEED);
+	console.log(`golden order (seed ${SEED}): ${order.map((e) => e.plan.id).join(' ')}`);
+	const problems: string[] = [];
+	for (const entry of order) {
+		try {
+			rows.push(await withTimeout(entry.plan.id, runPlan(page, entry, 'shuffled')));
+		} catch (error) {
+			// A hung or crashed request must not hide the other plans.
+			problems.push(`${entry.plan.id}\n  ${String(error)}`);
+			break;
+		}
+	}
+	const shuffled = rows.filter((r) => r.run === 'shuffled');
+	for (const r of shuffled) if (!r.pass) problems.push(`${r.id}\n  ${r.diffs.join('\n  ')}`);
+	expect(problems, 'plans that differ from their golden').toEqual([]);
+	expect(shuffled).toHaveLength(EXPECTED_PLAN_COUNT);
 });
