@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * Page-side instruments for the responsiveness test: a longtask observer, a rAF gap monitor and
- * an input latency recorder. Installed with `page.addInitScript(installMonitor)` before the page
- * loads, so the observer's `buffered` flag and the first frames are covered.
+ * an Event Timing observer (the API behind INP). Installed with `page.addInitScript` before the
+ * page loads, so the `buffered` flag and the first frames are covered.
  *
  * `installMonitor` is serialised into the page: it must not reference anything outside itself.
  */
@@ -16,27 +16,25 @@ export interface FrameGap {
 	at: number;
 	gapMs: number;
 }
-export interface InputRecord {
-	/** performance.now() at the handler. */
-	at: number;
-	/** event.timeStamp to the handler running. */
-	handlerMs: number;
-	/** event.timeStamp to the next animation frame. */
-	frameMs: number;
+/** One Event Timing entry (only events of 16 ms or more are reported by the browser). */
+export interface EventRecord {
+	name: string;
+	startTime: number;
+	/** startTime to the next paint, rounded to 8 ms by the browser. */
+	duration: number;
+	processingStart: number;
 }
 export interface MonitorData {
 	longTasks: LongTaskRecord[];
 	frames: FrameGap[];
-	inputs: InputRecord[];
-	now: number;
+	events: EventRecord[];
+	/** performance.now() of every typed key's `input` event. */
+	keys: number[];
 }
 
 declare global {
 	interface Window {
-		__monitor?: {
-			longTasks: LongTaskRecord[];
-			frames: FrameGap[];
-			inputs: InputRecord[];
+		__monitor?: MonitorData & {
 			/** Resolves after two animation frames; returns performance.now(). */
 			twoFrames(): Promise<number>;
 		};
@@ -46,10 +44,22 @@ declare global {
 export function installMonitor(): void {
 	const longTasks: LongTaskRecord[] = [];
 	const frames: FrameGap[] = [];
-	const inputs: InputRecord[] = [];
+	const events: EventRecord[] = [];
+	const keys: number[] = [];
 	new PerformanceObserver((list) => {
 		for (const e of list.getEntries()) longTasks.push({ start: e.startTime, duration: e.duration });
 	}).observe({ type: 'longtask', buffered: true });
+	new PerformanceObserver((list) => {
+		for (const e of list.getEntries() as PerformanceEventTiming[]) {
+			events.push({
+				name: e.name,
+				startTime: e.startTime,
+				duration: e.duration,
+				processingStart: e.processingStart,
+			});
+		}
+		// durationThreshold is part of Event Timing but missing from TypeScript's DOM types.
+	}).observe({ type: 'event', durationThreshold: 16, buffered: true } as PerformanceObserverInit);
 
 	let last = performance.now();
 	const frame = (t: number): void => {
@@ -59,22 +69,13 @@ export function installMonitor(): void {
 	};
 	requestAnimationFrame(frame);
 
-	addEventListener(
-		'input',
-		(e) => {
-			const at = performance.now();
-			const handlerMs = at - e.timeStamp;
-			requestAnimationFrame(() => {
-				inputs.push({ at, handlerMs, frameMs: performance.now() - e.timeStamp });
-			});
-		},
-		true,
-	);
+	addEventListener('input', () => keys.push(performance.now()), true);
 
 	window.__monitor = {
 		longTasks,
 		frames,
-		inputs,
+		events,
+		keys,
 		twoFrames: () =>
 			new Promise((resolve) => {
 				requestAnimationFrame(() => requestAnimationFrame(() => resolve(performance.now())));
@@ -85,21 +86,30 @@ export function installMonitor(): void {
 export interface WindowStats {
 	longTasks: LongTaskRecord[];
 	maxFrameGapMs: number;
-	maxInputHandlerMs: number;
-	maxInputFrameMs: number;
-	inputCount: number;
+	/** Longest Event Timing duration; 0 when no event reached the 16 ms threshold. */
+	maxEventMs: number;
+	/** Longest processingStart - startTime. */
+	maxInputDelayMs: number;
+	keyCount: number;
 }
 
-/** Statistics of what happened between `start` and `end` (performance.now() values). */
+/** Largest value, or 0 for none (a loop: spreading thousands of frames into Math.max can throw). */
+function maxOf(values: Iterable<number>): number {
+	let max = 0;
+	for (const v of values) if (v > max) max = v;
+	return max;
+}
+
+/** Statistics of what happened from `start` to `end` (performance.now() values). */
 export function windowStats(data: MonitorData, start: number, end: number): WindowStats {
-	const longTasks = data.longTasks.filter((t) => t.start < end && t.start + t.duration > start);
-	const gaps = data.frames.filter((f) => f.at >= start && f.at <= end).map((f) => f.gapMs);
-	const inputs = data.inputs.filter((i) => i.at >= start && i.at <= end);
+	const events = data.events.filter((e) => e.startTime >= start && e.startTime <= end);
 	return {
-		longTasks,
-		maxFrameGapMs: Math.max(0, ...gaps),
-		maxInputHandlerMs: Math.max(0, ...inputs.map((i) => i.handlerMs)),
-		maxInputFrameMs: Math.max(0, ...inputs.map((i) => i.frameMs)),
-		inputCount: inputs.length,
+		longTasks: data.longTasks.filter((t) => t.start < end && t.start + t.duration > start),
+		maxFrameGapMs: maxOf(
+			data.frames.filter((f) => f.at >= start && f.at <= end).map((f) => f.gapMs),
+		),
+		maxEventMs: maxOf(events.map((e) => e.duration)),
+		maxInputDelayMs: maxOf(events.map((e) => e.processingStart - e.startTime)),
+		keyCount: data.keys.filter((k) => k >= start && k <= end).length,
 	};
 }

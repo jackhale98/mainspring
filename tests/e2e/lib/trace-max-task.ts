@@ -26,10 +26,13 @@ export interface MaxTask {
 	/** Wall-clock milliseconds of the longest task; 0 when the trace holds no task. */
 	maxMs: number;
 	/**
-	 * The longest thread CPU time (`tdur`) of any task, in milliseconds. A task far longer in wall
-	 * time than in CPU time was descheduled or blocked, not busy; see the responsiveness report.
+	 * The longest thread CPU time (`tdur`) of any task, in milliseconds; null when no task carries
+	 * `tdur` (callers must treat that as a failure, not as 0). A task far longer in wall time than
+	 * in CPU time was blocked, not busy.
 	 */
-	maxCpuMs: number;
+	maxCpuMs: number | null;
+	/** Thread CPU time of the longest task by wall time; null when it has no `tdur`. */
+	longestCpuMs: number | null;
 	taskCount: number;
 	pid: number | null;
 	tid: number | null;
@@ -70,13 +73,26 @@ export function maxMainThreadTask(trace: unknown, since = 0): MaxTask {
 	for (const list of byThread.values()) {
 		if (!busiest || list.length > busiest.length) busiest = list;
 	}
-	if (!busiest) return { maxMs: 0, maxCpuMs: 0, taskCount: 0, pid: null, tid: null, startUs: null };
+	if (!busiest)
+		return {
+			maxMs: 0,
+			maxCpuMs: null,
+			longestCpuMs: null,
+			taskCount: 0,
+			pid: null,
+			tid: null,
+			startUs: null,
+		};
 	let longest = busiest[0] as TraceEvent;
 	for (const e of busiest) if ((e.dur ?? 0) > (longest.dur ?? 0)) longest = e;
-	const maxCpuUs = Math.max(0, ...busiest.map((e) => e.tdur ?? 0));
+	let maxCpuUs: number | null = null;
+	for (const e of busiest) {
+		if (e.tdur !== undefined && (maxCpuUs === null || e.tdur > maxCpuUs)) maxCpuUs = e.tdur;
+	}
 	return {
 		maxMs: (longest.dur ?? 0) / 1000,
-		maxCpuMs: maxCpuUs / 1000,
+		maxCpuMs: maxCpuUs === null ? null : maxCpuUs / 1000,
+		longestCpuMs: longest.tdur === undefined ? null : longest.tdur / 1000,
 		taskCount: busiest.length,
 		pid: longest.pid ?? null,
 		tid: longest.tid ?? null,

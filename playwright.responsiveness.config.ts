@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Responsiveness gate (npm run test:responsiveness): Chromium desktop only, against a build with
-// MAINSPRING_DEV_PAGES=1. Kept apart from playwright.config.ts, whose build has no dev pages.
+// MAINSPRING_DEV_PAGES=1. A separate config because the measurement needs one worker, no retries
+// and no Playwright trace (its snapshots add main-thread work that would be measured).
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env['RESPONSIVENESS_PORT'] ?? 4323);

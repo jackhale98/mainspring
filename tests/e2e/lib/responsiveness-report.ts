@@ -15,13 +15,17 @@ export interface WindowReport {
 	readyAt: number;
 	end: number;
 	longTasks: LongTaskRecord[];
-	/** Long tasks that began before the worker was ready (cold window only), and the rest. */
+	/** Long tasks that ended before the ready message was handled (cold window only), and the rest. */
 	bootLongTasks: LongTaskRecord[];
 	scheduleLongTasks: LongTaskRecord[];
 	maxFrameGapMs: number;
-	maxInputHandlerMs: number;
-	maxInputFrameMs: number;
-	inputCount: number;
+	/** Event Timing over the whole window: longest duration and longest input delay. */
+	maxEventMs: number;
+	maxInputDelayMs: number;
+	/** Event Timing from the ready message to the end of the window. */
+	afterReadyMaxEventMs: number;
+	afterReadyMaxInputDelayMs: number;
+	keyCount: number;
 }
 
 export interface RunReport {
@@ -36,36 +40,44 @@ export interface RunReport {
 }
 
 export interface TraceStats {
-	/** Longest main-thread task, wall-clock ms, and longest thread CPU time of any task. */
+	/** Longest main-thread task, wall-clock ms; longest thread CPU time of any task; CPU time of the longest task. */
 	maxMs: number;
-	maxCpuMs: number;
+	maxCpuMs: number | null;
+	longestCpuMs: number | null;
 	taskCount: number;
 	file: string;
 }
 
-const ms = (n: number): string => n.toFixed(1);
+const ms = (n: number | null): string => (n === null ? 'n/a' : n.toFixed(1));
 
 function row(r: RunReport, name: 'cold' | 'warm'): string {
 	const w = r[name];
 	const t = name === 'cold' ? r.traceCold : r.traceWarm;
-	const trace = t ? `${ms(t.maxMs)} (cpu ${ms(t.maxCpuMs)})` : '-';
+	const trace = t ? `${ms(t.maxMs)} (its cpu ${ms(t.longestCpuMs)})` : '-';
 	const long =
 		name === 'cold'
 			? `${w.longTasks.length} (boot ${w.bootLongTasks.length}, after ready ${w.scheduleLongTasks.length})`
 			: String(w.longTasks.length);
-	const input = `${ms(w.maxInputHandlerMs)} / ${ms(w.maxInputFrameMs)}`;
-	return `| ${r.label} | ${name} | ${long} | ${trace} | ${ms(w.maxFrameGapMs)} | ${input} | ${w.inputCount} | ${w.tasks} | ${ms(w.scheduleMs)} | ${ms(w.windowMs)} |`;
+	const events =
+		name === 'cold' ? `${ms(w.maxEventMs)} / ${ms(w.afterReadyMaxEventMs)}` : ms(w.maxEventMs);
+	return `| ${r.label} | ${name} | ${long} | ${trace} | ${ms(w.maxFrameGapMs)} | ${events} | ${ms(w.maxInputDelayMs)} | ${w.keyCount} | ${w.tasks} | ${ms(w.scheduleMs)} | ${ms(w.windowMs)} |`;
 }
 
-export function renderReport(runs: readonly RunReport[], limitMs: number): string {
+export function renderReport(
+	runs: readonly RunReport[],
+	limitMs: number,
+	bootCapMs: number,
+	eventLimitMs: number,
+): string {
 	const lines = [
 		'# Engine responsiveness (gate criterion 2)',
 		'',
-		`Plan syn-20-scale-1000, Chromium. Limit: no task over ${limitMs} ms. Throttled runs are reported, not asserted.`,
-		'Trace max task: wall-clock ms of the longest CrRendererMain task, then its longest thread CPU time.',
+		`Plan syn-20-scale-1000, Chromium. Limit: no task over ${limitMs} ms after the engine is ready and in the warm window; engine-boot long tasks reported and capped at ${bootCapMs} ms each (spec section 11, item 18). Event Timing after ready: at most ${eventLimitMs} ms. Throttled runs are reported, not asserted.`,
+		"Trace max task: wall-clock ms of the longest CrRendererMain task and that task's thread CPU time.",
+		'Event Timing: keystroke to next paint (duration, events of 16 ms or more); cold shows whole window / after ready.',
 		'',
-		'| Run | Window | Long tasks | Trace max task ms | Max rAF gap ms | Max input latency ms (handler / next frame) | Keys | Tasks | Worker scheduleMs | Window ms |',
-		'| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+		'| Run | Window | Long tasks | Trace max task ms | Max rAF gap ms | Max event ms | Max input delay ms | Keys | Tasks | Worker scheduleMs | Window ms |',
+		'| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
 	];
 	for (const r of runs) lines.push(row(r, 'cold'), row(r, 'warm'));
 	const traced = runs.find((r) => r.traceWarm);
