@@ -1,6 +1,6 @@
 # Phase 0: Foundation and engine
 
-Status: approved 2026-11-11. T0, T1 and T3 are done (see the task table). Source: `docs/BUILD_PLAN.md` ("Phase 0: Foundation and engine", "Engine worker", "Testing and quality", "Risks and mitigations"). The plan's open points and conflicts are listed in section 11. This spec does not settle them.
+Status: approved 2026-11-11. T0, T1, T3 and T15 are done (see the task table). Source: `docs/BUILD_PLAN.md` ("Phase 0: Foundation and engine", "Engine worker", "Testing and quality", "Risks and mitigations"). The plan's open points and conflicts are listed in section 11. This spec does not settle them.
 
 ## 1. Scope
 
@@ -320,7 +320,7 @@ Every task runs in its own worktree and goes through `reviewer` before merge (CL
 | T12 | Responsiveness test and trace analysis (section 9, criterion 2) | `perf-a11y-auditor` with `test-writer` | `tests/e2e/engine-responsiveness.spec.ts`, `tests/e2e/lib/trace-max-task.ts` | T6, T7, T8 (scale-1000) |
 | T13 | Shell e2e on desktop Chrome, Pixel 7 and iPhone 14: shell loads, engine reaches `ready`, the PoC sample schedules, axe is clean | `test-writer` | `tests/e2e/shell.spec.ts`, `playwright.config.ts` | T2, T6 |
 | T14 | CI workflows (section 7), plus `nightly.yml` that records engine timings for every golden plan and runs golden on Firefox and WebKit without blocking | `test-writer` | `.github/workflows/*.yml` | T2; jobs are added as T5, T11, T12, T13 land |
-| T15 | ADR-0002, engine protocol decisions: the user's answers to 11.4 to 11.6 and 11.14 | `docs-writer` | `docs/decisions/0002-engine-protocol.md` | User answers 11.x; before T7 and T4 merge |
+| T15 | **Done.** ADR-0002, engine protocol decisions: the user's answers to 11.4 to 11.6 and 11.14 | `docs-writer` | `docs/decisions/0002-engine-protocol.md` | User answers 11.x; before T7 and T4 merge |
 | T16 | Gate evidence: CI run link, parity table, long-task and trace results, screenshots | Main session; `test-runner` runs the suites | `docs/phases/phase-0-gate.md` | all |
 
 ### 5.1 What Phase 0 needs from the PoC (T1 inventory)
@@ -520,7 +520,7 @@ These are phase bullets, not gate criteria; they are listed for completeness.
 
 ## 11. Conflicts and ambiguities
 
-None of these are resolved silently. Items 4, 5, 6 and 14 need the user's answer and go into ADR-0002 (T15).
+None of these are resolved silently. Items 4, 5, 6 and 14 were answered by the user on 2026-11-11 and are recorded in ADR-0002; each was resolved as this spec proposes.
 
 1. **"Six bundled examples." Resolved by T1.** At `3b36c79`, upstream `examples/` holds five project files, and the PoC README shows it ran exactly those five plus its own sample. The plan's "six" counts the sample. The corpus is 26 plans.
 2. **PoC location.** Plan line 14 says copy `bridge/`, `stubs/` and `web/tj-runtime.mjs` straight into the repo. The kickoff says they are in `poc/`. The plan's layout has no `poc/`. Neither has happened. This spec keeps `poc/` as a frozen reference through Phase 0; whether to delete it is decided at the gate.
