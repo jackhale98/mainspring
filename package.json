@@ -1,0 +1,41 @@
+{
+	"name": "mainspring",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "A static, offline-first PWA for TaskJuggler plans. The real TaskJuggler scheduler runs in the browser.",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"dev": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"typecheck": "astro check && svelte-check --tsconfig ./tsconfig.json --threshold error && tsc --noEmit",
+		"test:unit": "vitest run",
+		"test:e2e": "playwright test",
+		"build:engine": "node -e \"console.log('not implemented yet (T5/T11)')\"",
+		"test:golden": "node -e \"console.log('not implemented yet (T5/T11)')\""
+	},
+	"dependencies": {
+		"@astrojs/svelte": "^9.1.0",
+		"astro": "^7.4.1",
+		"svelte": "^5.57.2"
+	},
+	"devDependencies": {
+		"@astrojs/check": "^0.9.11",
+		"@axe-core/playwright": "^4.14.0",
+		"@playwright/test": "^1.64.1",
+		"@types/node": "^22.20.5",
+		"fast-check": "^4.10.2",
+		"prettier": "^3.9.10",
+		"prettier-plugin-astro": "^1.1.1",
+		"prettier-plugin-svelte": "^4.1.1",
+		"svelte-check": "^4.7.7",
+		"typescript": "^6.0.3",
+		"vitest": "^5.0.5"
+	},
+	"engines": {
+		"node": ">=22.22.0"
+	}
+}

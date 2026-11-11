@@ -1,0 +1,26 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import Base from '../layouts/Base.astro';
+import { strings } from '../lib/strings';
+---
+
+<Base title={strings.appName}>
+	<main id="main" class="home">
+		<h1>{strings.appName}</h1>
+		<p>{strings.tagline}</p>
+		<p>
+			<a href="/app">{strings.home.openApp}</a>
+		</p>
+	</main>
+</Base>
+
+<style>
+	.home {
+		max-inline-size: 60rem;
+		margin-inline: auto;
+		padding: var(--space-6) var(--gutter);
+	}
+	a {
+		color: var(--color-accent);
+	}
+</style>
