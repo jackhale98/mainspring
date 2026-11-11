@@ -18,6 +18,19 @@ import { engineLine, strings } from '../../lib/strings';
 	</main>
 </Base>
 
+<script>
+	import { createEngineClient } from '../../engine/client';
+	import { engineLine } from '../../lib/strings';
+
+	const line = document.querySelector('[data-testid="engine-status"]');
+	const client = createEngineClient();
+	const show = (): void => {
+		if (line) line.textContent = engineLine(client.state);
+	};
+	client.onState(show);
+	show();
+</script>
+
 <style>
 	.bar {
 		display: flex;

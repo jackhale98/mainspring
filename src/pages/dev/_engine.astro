@@ -1,0 +1,36 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Test harness for the engine client: /dev/engine, routed only when MAINSPRING_DEV_PAGES=1
+// (scripts/astro-dev-pages.mjs). Plain text is fine here; it is not user-facing.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>Engine test page</title>
+	</head>
+	<body>
+		<main>
+			<h1>Engine test page</h1>
+			<p id="state" data-testid="state">
+				booting
+			</p>
+		</main>
+		<script>
+			import { createEngineClient } from '../../engine/client';
+			import { createDevApi } from '../../engine/devApi';
+
+			const client = createEngineClient();
+			const state = document.getElementById('state');
+			const show = (): void => {
+				if (state) state.textContent = client.state;
+			};
+			client.onState(show);
+			window.mainspringDev = createDevApi(client);
+			window.mainspringDev.ready().then(show, show);
+		</script>
+	</body>
+</html>

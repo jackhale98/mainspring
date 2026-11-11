@@ -75,6 +75,8 @@ jobs:
           done
           exit 1
       - run: npm run build
+        env:
+          MAINSPRING_DEV_PAGES: '1'
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -91,11 +93,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # enabled when T11 lands (test:golden currently exits 1 by design)
   golden:
     name: Golden plans (Chromium)
-    if: false
-    needs: engine
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -104,19 +103,36 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v4
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
         with:
-          name: engine
-          path: public/engine/
-      - run: npx playwright install --with-deps chromium
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        # Same retrying install as the e2e job.
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      # Builds the engine and the site with MAINSPRING_DEV_PAGES=1, then runs tests/golden/parity.spec.ts.
       - run: npm run test:golden
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: golden-report
+          path: |
+            test-results/golden-report.md
+            test-results/golden-report.json
+          if-no-files-found: warn
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: golden-diff-report
-          path: |
-            test-results/
-            playwright-report/
+          name: golden-test-results
+          path: test-results/
           if-no-files-found: ignore
           retention-days: 7
 

@@ -14,7 +14,11 @@ describe('strings', () => {
 		}
 	});
 
-	it('builds the placeholder engine line', () => {
+	it('builds the engine line, with and without a status', () => {
 		expect(engineLine()).toBe('Engine: not connected yet');
+		expect(engineLine('booting')).toBe('Engine: Starting the scheduler');
+		expect(engineLine('idle')).toBe('Engine: Ready');
+		expect(engineLine('busy')).toBe('Engine: Scheduling');
+		expect(engineLine('failed')).toBe('Engine: Failed');
 	});
 });
