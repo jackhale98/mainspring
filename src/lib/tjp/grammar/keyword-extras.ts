@@ -8,8 +8,9 @@
  *
  * - Deprecated forms (`level(:deprecated)`): `shift` in task, resource and allocation bodies
  *   (rule_taskShiftAssignments and friends), `startcredit`/`endcredit`, a scenario's `enabled`,
- *   `disabled` and `projection { sloppy | strict }`.
- * - `leaveallowances`, which the reference documents under the id `leaveallowance`.
+ *   `disabled` and `projection { sloppy | strict }`. As in TaskJuggler, the task and resource
+ *   forms are scenario attributes (rule_taskScenarioAttributes, rule_resourceScenarioAttributes),
+ *   so they accept a scenario prefix.
  */
 import { bodyContext, resolveKeyword, type ContextId, type KeywordEntry } from '../syntax/keywords';
 
@@ -23,30 +24,32 @@ function extra(
 	keyword: string,
 	contexts: readonly ContextId[],
 	syntax: string,
-	body: ContextId | null = null,
+	opts: { scenarioSpecific?: boolean; body?: ContextId } = {},
 ): Extra {
 	const name = keyword.split('.')[0] ?? keyword;
+	const scenarioSpecific = opts.scenarioSpecific ?? false;
 	return {
-		entry: { keyword, name, contexts, scenarioSpecific: false, syntax, summary: '' },
-		body,
+		entry: { keyword, name, contexts, scenarioSpecific, syntax, summary: '' },
+		body: opts.body ?? null,
 	};
 }
+
+const SCENARIO = { scenarioSpecific: true };
 
 const TASK = ['supplement.task', 'task'];
 const RESOURCE = ['resource', 'supplement.resource'];
 
 const EXTRAS: readonly Extra[] = [
-	extra('shift.task', TASK, 'shift <shift> [<interval2>]'),
-	extra('shift.resource', RESOURCE, 'shift <shift> [<interval2>]'),
+	extra('shift.task', TASK, 'shift <shift> [<interval2>]', SCENARIO),
+	extra('shift.resource', RESOURCE, 'shift <shift> [<interval2>]', SCENARIO),
 	extra('shift.allocate', ['allocate'], 'shift <shift> [<interval2>]'),
-	extra('startcredit', TASK, 'startcredit <amount>'),
-	extra('endcredit', TASK, 'endcredit <amount>'),
+	extra('startcredit', TASK, 'startcredit <amount>', SCENARIO),
+	extra('endcredit', TASK, 'endcredit <amount>', SCENARIO),
 	extra('enabled', ['scenario'], 'enabled'),
 	extra('disabled', ['scenario'], 'disabled'),
-	extra('projection', ['scenario'], 'projection [{ <attributes> }]', 'projection'),
+	extra('projection', ['scenario'], 'projection [{ <attributes> }]', { body: 'projection' }),
 	extra('sloppy.projection', ['projection'], 'sloppy'),
 	extra('strict.projection', ['projection'], 'strict'),
-	extra('leaveallowances', RESOURCE, 'leaveallowances <leave allowance> [, ...]'),
 ];
 
 const byContext = new Map<ContextId, Map<string, Extra>>();

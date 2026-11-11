@@ -25,6 +25,7 @@
  * Incremental reparses should take their fragments from `reuseFragments` (fragments.ts), which
  * makes the result equal to a fresh parse also next to syntax errors.
  */
+import type { SyntaxNode } from '@lezer/common';
 import type { LRParser } from '@lezer/lr';
 import type { TopContextName } from '../syntax/keywords';
 import { tjpContextFor } from './context';
@@ -34,6 +35,7 @@ import { TYPED_KEYWORDS } from './terms';
 export { parser as tjpGlobalParser } from './parser.generated';
 export { EXTRA_KEYWORDS } from './keyword-extras';
 export { reuseFragments } from './fragments';
+export { stringTemplate, type StringTemplate } from './props';
 export { requiresArgument } from './lexer';
 
 const configured = new Map<TopContextName, LRParser>([['global', parser]]);
@@ -71,10 +73,28 @@ export const OPAQUE_STATEMENTS: ReadonlySet<string> = new Set([
 	'ExtensionStatement',
 ]);
 
+const MACRO_HEADS: ReadonlySet<string> = new Set(['MacroCall', 'MacroWord', 'EnvRef']);
+
+/**
+ * Whether a statement node is an artefact of error recovery. When a statement cannot start at
+ * some token (`effrot 5d` after a typed statement, the `3h` in `effort 5d 3h`), Lezer inserts a
+ * statement head and builds a MacroCallStatement whose head is an error node instead of a
+ * MacroCall, MacroWord or EnvRef. Such a node is not a statement-level macro call (5.4) and lies
+ * inside a syntax error (X6).
+ */
+export function isRecoveryStatement(node: SyntaxNode): boolean {
+	if (node.name !== 'MacroCallStatement') return false;
+	let head = node.firstChild;
+	if (head?.name === 'ScenarioPrefix') head = head.nextSibling;
+	return !head || !MACRO_HEADS.has(head.name);
+}
+
 /**
  * Leaf nodes whose text TaskJuggler's scanner expands, so their ranges are text-only (5.4 X2):
  * macro calls, glued macro words, `$(NAME)` references and strings that contain either.
- * `MacroBody` ranges are text-only too (X1).
+ * `MacroBody` ranges are text-only too (X1). On a `TemplateString`,
+ * `node.type.prop(stringTemplate)` tells whether it holds `${…}`, `$(…)` or both (props.ts),
+ * for the `macro-call` and `env-var` reasons.
  */
 export const MACRO_TOKENS: ReadonlySet<string> = new Set([
 	'MacroCall',

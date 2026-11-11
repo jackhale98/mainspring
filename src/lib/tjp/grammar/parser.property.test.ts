@@ -132,52 +132,66 @@ function hasErrors(tree: Tree): boolean {
 }
 
 const RUNS = Number(process.env['GRAMMAR_RUNS'] ?? 300);
+/** Per-test timeout: a case takes a few milliseconds, so scale with the run count. */
+const TIMEOUT = 10_000 + RUNS * 25;
 
 describe('incremental reparse', () => {
-	it('equals a fresh parse after random edits to corpus files', () => {
-		fc.assert(
-			fc.property(
-				fc.constantFrom(...FILES),
-				topArb,
-				fc.array(editArb, { minLength: 1, maxLength: 4 }),
-				check,
-			),
-			{ numRuns: RUNS },
-		);
-	});
+	it(
+		'equals a fresh parse after random edits to corpus files',
+		() => {
+			fc.assert(
+				fc.property(
+					fc.constantFrom(...FILES),
+					topArb,
+					fc.array(editArb, { minLength: 1, maxLength: 4 }),
+					check,
+				),
+				{ numRuns: RUNS },
+			);
+		},
+		TIMEOUT,
+	);
 
-	it('equals a fresh parse after many small edits to one file (typing)', () => {
-		// Character-by-character typing and deleting at one spot, as in the editor.
-		fc.assert(
-			fc.property(
-				fc.constantFrom(...FILES.filter((f) => (TEXTS.get(f)?.length ?? 0) < 20_000)),
-				fc.double({ min: 0, max: 1, noNaN: true }),
-				fc.constantFrom(...SNIPPETS.filter((s) => s.length > 3)),
-				(file, at, typed) => {
-					const edits: Edit[] = [];
-					for (let i = 0; i < typed.length; i++)
-						edits.push({ at, del: 0, insert: typed.charAt(i) });
-					check(file, 'global', edits);
-				},
-			),
-			{ numRuns: Math.max(20, RUNS / 10) },
-		);
-	});
+	it(
+		'equals a fresh parse after many small edits to one file (typing)',
+		() => {
+			// Character-by-character typing and deleting at one spot, as in the editor.
+			fc.assert(
+				fc.property(
+					fc.constantFrom(...FILES.filter((f) => (TEXTS.get(f)?.length ?? 0) < 20_000)),
+					fc.double({ min: 0, max: 1, noNaN: true }),
+					fc.constantFrom(...SNIPPETS.filter((s) => s.length > 3)),
+					(file, at, typed) => {
+						const edits: Edit[] = [];
+						for (let i = 0; i < typed.length; i++)
+							edits.push({ at, del: 0, insert: typed.charAt(i) });
+						check(file, 'global', edits);
+					},
+				),
+				{ numRuns: Math.max(20, RUNS / 10) },
+			);
+		},
+		TIMEOUT,
+	);
 
-	it('never throws on random token soup', () => {
-		fc.assert(
-			fc.property(
-				fc.array(fc.oneof(fc.constantFrom(...SNIPPETS), fc.string({ maxLength: 3 })), {
-					maxLength: 40,
-				}),
-				topArb,
-				(parts, top) => {
-					const text = parts.join(' ');
-					const tree = tjpParser(top).parse(text);
-					expect(printLeaves(tree, text)).toBe(text);
-				},
-			),
-			{ numRuns: RUNS },
-		);
-	});
+	it(
+		'never throws on random token soup',
+		() => {
+			fc.assert(
+				fc.property(
+					fc.array(fc.oneof(fc.constantFrom(...SNIPPETS), fc.string({ maxLength: 3 })), {
+						maxLength: 40,
+					}),
+					topArb,
+					(parts, top) => {
+						const text = parts.join(' ');
+						const tree = tjpParser(top).parse(text);
+						expect(printLeaves(tree, text)).toBe(text);
+					},
+				),
+				{ numRuns: RUNS },
+			);
+		},
+		TIMEOUT,
+	);
 });

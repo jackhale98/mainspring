@@ -42,6 +42,24 @@ describe('buildTable', () => {
 		expect(PROLOG_CONTEXT).toBe(types.PROLOG_CONTEXT);
 	});
 
+	it('names a keyword as its syntax line writes it, documentation-only entries by id', () => {
+		const table = buildTable({
+			tjVersion: '3.8.4',
+			keywords: [
+				...minimal(),
+				{
+					...kw('leaveallowance', ['task']),
+					syntax: 'leaveallowances annual <date> [-] <value>',
+				},
+				{ ...kw('halign.center', []), syntax: 'center' },
+			],
+		});
+		const get = (id: string) => table.find((e) => e.keyword === id);
+		expect(get('leaveallowance')?.name).toBe('leaveallowances');
+		expect(get('halign.center')?.name).toBe('halign');
+		expect(get('effort')?.name).toBe('effort');
+	});
+
 	it('maps properties to the top level, adds the prolog, sorts and trims', () => {
 		const table = buildTable({ tjVersion: '3.8.4', keywords: minimal().reverse() });
 		expect(table.map((e) => e.keyword)).toEqual([

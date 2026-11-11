@@ -1,22 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Parse timings (T5): a full parse of the 1,000-task synthetic plan (5,629 lines) must take under
-// 100 ms warm in Node; an incremental reparse after one edit is reported and loosely bounded.
+// Parse timings (T5). Spec 8.4 records performance targets rather than enforcing them, so this
+// prints the numbers for the gate and asserts only sanity bounds ten times the targets: a full
+// parse of the 1,000-task synthetic plan (5,629 lines) under 100 ms warm in Node, and an
+// incremental reparse (reuseFragments included) after typing one line.
 import { describe, expect, it } from 'vitest';
 import { readTjp } from '../../../../tests/grammar/corpus';
 import { reuseFragments } from './fragments';
 import { tjpGlobalParser } from './parser';
 
-const PLANS = [
-	'engine/golden/plans/synthetic/20-scale-1000/plan.tjp',
-	'engine/tj/examples/Fedora-20/f-20.tjp',
-];
+const FULL_TARGET_MS = 100;
+const INCREMENTAL_TARGET_MS = 10;
+const SANITY = 10;
+
+const SCALE = 'engine/golden/plans/synthetic/20-scale-1000/plan.tjp';
+const PLANS = [SCALE, 'engine/tj/examples/Fedora-20/f-20.tjp'];
 
 function median(xs: number[]): number {
 	const s = [...xs].sort((a, b) => a - b);
 	return s[Math.floor(s.length / 2)] ?? NaN;
 }
 
-function time(f: () => void, runs: number): number {
+function time(f: () => void, runs = 7): number {
+	f();
 	const out: number[] = [];
 	for (let i = 0; i < runs; i++) {
 		const t0 = performance.now();
@@ -26,28 +31,61 @@ function time(f: () => void, runs: number): number {
 	return median(out);
 }
 
+/** Inserts `insert` at the start of the line holding `offset`; returns the edit. */
+function edit(text: string, offset: number, insert: string) {
+	const at = text.lastIndexOf('\n', offset) + 1;
+	return {
+		text: text.slice(0, at) + insert + text.slice(at),
+		change: [{ fromA: at, toA: at, fromB: at, toB: at + insert.length }],
+	};
+}
+
 describe.each(PLANS)('%s', (file) => {
 	const text = readTjp(file);
 	const lines = text.split('\n').length;
 
-	it('parses fully under 100 ms warm', () => {
-		for (let i = 0; i < 3; i++) tjpGlobalParser.parse(text);
-		const ms = time(() => tjpGlobalParser.parse(text), 7);
+	it('parses fully', () => {
+		const ms = time(() => tjpGlobalParser.parse(text));
 		console.info(`full parse ${file} (${lines} lines): median ${ms.toFixed(1)} ms`);
-		expect(ms).toBeLessThan(100);
+		expect(ms).toBeLessThan(FULL_TARGET_MS * SANITY);
 	});
 
 	it('reparses incrementally after typing one line', () => {
 		const tree = tjpGlobalParser.parse(text);
-		const at = text.indexOf('\n', text.length >> 1) + 1;
-		const insert = '  # typed\n';
-		const edited = text.slice(0, at) + insert + text.slice(at);
-		const change = [{ fromA: at, toA: at, fromB: at, toB: at + insert.length }];
-		const fragments = reuseFragments(tree, change);
-		tjpGlobalParser.parse(edited, fragments); // warm the reuse caches
-		const ms = time(() => tjpGlobalParser.parse(edited, fragments), 7);
-		console.info(`incremental reparse ${file}: median ${ms.toFixed(2)} ms`);
-		// Typically 2 to 3 ms; bounded loosely so slow CI machines do not flake.
-		expect(ms).toBeLessThan(25);
+		const e = edit(text, text.length >> 1, '  # typed\n');
+		const ms = time(() => tjpGlobalParser.parse(e.text, reuseFragments(tree, e.change)));
+		console.info(
+			`incremental reparse ${file}, reuseFragments included: median ${ms.toFixed(2)} ms`,
+		);
+		expect(ms).toBeLessThan(INCREMENTAL_TARGET_MS * SANITY);
+	});
+});
+
+describe('an unterminated string near the top of the 1,000-task plan', () => {
+	const text = readTjp(SCALE);
+	// After the project block. The plan has no single quote, so this string never closes: the rest
+	// of the file is one runaway error token. (A `"` would close at the next double quote.)
+	const e = edit(text, text.indexOf('resource grp0'), "note '\n");
+
+	it('turns the rest of the file into one error token', () => {
+		let scan = 0;
+		tjpGlobalParser.parse(e.text).iterate({
+			enter(n) {
+				if (n.name === 'ScanError' && n.to === e.text.length) scan++;
+			},
+		});
+		expect(scan).toBe(1);
+	});
+
+	it('parses fully and incrementally', () => {
+		const full = time(() => tjpGlobalParser.parse(e.text));
+		const tree = tjpGlobalParser.parse(text);
+		const incremental = time(() => tjpGlobalParser.parse(e.text, reuseFragments(tree, e.change)));
+		console.info(
+			`unterminated string at line ${text.slice(0, e.change[0]?.fromA).split('\n').length} of ` +
+				`${SCALE}: full ${full.toFixed(2)} ms, incremental ${incremental.toFixed(2)} ms`,
+		);
+		expect(full).toBeLessThan(FULL_TARGET_MS * SANITY);
+		expect(incremental).toBeLessThan(FULL_TARGET_MS * SANITY);
 	});
 });

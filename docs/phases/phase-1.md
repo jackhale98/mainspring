@@ -801,4 +801,31 @@ them.
    and T8 treat an invalid value as parsed-null, not as typed.
 6. **Erratum.** Section 5.3 lists `vacation` in the project context; TaskJuggler accepts it only at
    global and resource level, as the grammar does.
+7. **Workspace interface (T7).** `Workspace.commit(path, transactions, origin)` takes the editor's
+   transactions (the incremental reparse and `changesSince` need each change set); `subscribe`
+   listeners get a third argument `{paths, transactions}`; an empty `apply` is a no-op; a file
+   whose parse context changes is reparsed and its version bumped. `apply` reports origin
+   `'format'` for format edits. `IncludeEdge` gains `written` (prefix token ranges) and problem
+   values for macro-built paths and prefixes; `IncludeGraph` gains `tops`. `opts.extensions` gets a
+   way to reconfigure the editor language when a file's context changes (T13).
+8. **Include semantics (T7, checked against native tj3).** `include` is allowed only at global
+   level and in the project body (ProjectFileParser.rb:485); text that looks like an include inside
+   a task or resource body is not one. TaskJuggler parses an included file once per include site,
+   so a template included under `taskprefix g1` and `taskprefix g2` declares both `g1.t` and
+   `g2.t`: the graph records every visit (file, site chain, effective prefixes, context), each file
+   is parsed once (in its first visit's context, with `contextConflicts` for the rest), and the
+   index emits one declaration per visit. A prefix written with a macro or `$(NAME)` is unknown,
+   and ids below it need engine hints. After a prefixed include's first top-level task, TaskJuggler
+   parents later nested-include tasks to that task (TjpSyntaxRules.rb:6114-6116).
+9. **Erratum: prolog includes.** In TaskJuggler 3.8.4 an `include` before the project header always
+   fails ("You must declare the project header before you include other files",
+   TjpSyntaxRules.rb:1940-1951); section 5.2 assumed it works. The graph reports such edges as a
+   problem.
+10. **Text-only containment (T7).** A target may contain a text-only range and still be edited
+    (deleting a block that holds a `${x}` value is safe), except when the contained range hides
+    declarations: `macro-id`, `auto-id` and `expanded-only` ranges, and statement-level macro calls
+    inside task or resource bodies, block a delete or move of anything that contains them unless
+    engine hints resolve them. Queries may use the element's own range or its widened deletion
+    range (with its line or leading comments); both are safe. X5 (`expanded-only`) is computed by
+    the index (T8) from engine hints.
 
