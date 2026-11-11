@@ -4,8 +4,8 @@ Plans whose native TaskJuggler outputs the browser engine must reproduce exactly
 (`docs/phases/phase-0.md`, section 6). `manifest.json` lists them; `expected/<id>.json`
 holds each plan's recorded output.
 
-The manifest holds 34 plans: the five upstream examples (read in place from
-`engine/tj/examples/`), the PoC sample, the 20 synthetic plans below, and 8 bridge fixtures
+The manifest holds 35 plans: the five upstream examples (read in place from
+`engine/tj/examples/`), the PoC sample, the 21 synthetic plans below, and 8 bridge fixtures
 (see "Bridge fixtures" further down).
 
 ## Synthetic plans
@@ -38,8 +38,9 @@ ruby -I /ABS/WORKTREE/poc/stubs -I /ABS/WORKTREE/engine/tj/lib /ABS/WORKTREE/eng
 | syn-18-structure-include-macro | `plans/synthetic/18-structure-include-macro/plan.tjp` | include from subfolders; macro; supplement; extend; non-ASCII names | ok (exit 0) |
 | syn-19-errors-parse | `plans/synthetic/19-errors-parse/plan.tjp` | syntax error inside an included .tji; multi-byte text before the bad token | error (exit 1): `lib/broken.tji:6` "Unexpected token '@' found. Expecting '}'"; native column is 0, the bridge column is settled in T4/T9 |
 | syn-20-scale-1000 | `plans/synthetic/20-scale-1000/plan.tjp` (generated) | 1,000 leaf tasks; 54 resources in 6 groups; 4-level nesting; phases chained across time | ok (exit 0); schedule runs 2026-01-05 to 2028-11-30 |
+| syn-21-tz-dst-edges-newyork | `plans/synthetic/21-tz-dst-edges-newyork/plan.tjp` | America/New_York (west of UTC); task starts and ends, leaves, working hours and `now` at the exact edges of the 2025-11-02 overlap and the 2026-03-08 gap (see "DST edge cases") | ok (exit 0); overlap 01:00 is 06:00Z, gap 02:00 is 07:00Z; the gap leave ends at 07:30Z |
 
-Expected task counts (lines starting with `task`, including included files): 5, 5, 6, 8, 5, 5, 9, 9, 5, 5, 6, 4, 6, 6, 15, 4, 9, 4, 2 (plan 19 fails to parse at the include), and 1,225 for plan 20.
+Expected task counts (lines starting with `task`, including included files): 5, 5, 6, 8, 5, 5, 9, 9, 5, 5, 6, 4, 6, 6, 15, 4, 9, 4, 2 (plan 19 fails to parse at the include), 1,225 for plan 20, and 14 for plan 21.
 
 ## Regenerating plan 20
 
@@ -81,8 +82,9 @@ With npm, pass options after `--`, for example `npm run golden:record -- --allow
 
 The script refuses to run when `engine/tj` is not the tree pinned in `engine/tj.pin.json`
 (modified, untracked and ignored files all count), when Ruby is not 3.4.x, when native Ruby
-does not sort ties stably (see below), or when `engine/bridge/` or `engine/golden/plans/`
-have uncommitted changes (goldens must come from committed inputs). Commit plan and bridge
+does not sort ties stably (see below) or disagrees with the DST edge-case table (see "DST edge
+cases"), or when `engine/bridge/` or `engine/golden/plans/` have uncommitted changes (goldens
+must come from committed inputs). Commit plan and bridge
 changes first, then record, then commit `expected/` and `native-timings.json`.
 
 **Stable sorting.** TaskJuggler sorts with ties in places (for example the candidates of
@@ -204,6 +206,32 @@ them in the browser too. Each header says what it targets and expects.
 Unit tests for the recorder's pure helpers (`lib.mjs`) are in
 `tests/golden/record-lib.test.ts` and run with `npm run test:unit`.
 
+### DST edge cases
+
+`tz-edge-cases.json` is a shared table of local times at offset changes: zone, TaskJuggler date
+text (`2026-03-08-02:00`), the UTC instant native TaskJuggler gives it, and a kind (`gap`,
+`overlap`, `before`, `after`, `plain`). It covers New York, Los Angeles, Santiago and Sao Paulo
+(west of UTC; Santiago and Sao Paulo change at local midnight), Berlin, Sydney, Lord Howe
+(30-minute change) and Kathmandu (1986 change to +05:45). Native Ruby's `Time.local` (on glibc,
+Ruby 3.3 and 3.4 alike) resolves them so:
+
+- a gap time (skipped by a forward change) is read with the offset in force before the change,
+  so New York `2026-03-08-02:30` is 07:30Z, shown as 03:30 EDT;
+- an overlap time (repeated by a backward change) is the later instant, so New York
+  `2026-11-01-01:00` is 06:00Z (EST).
+
+`engine/bridge/wasm/tj_wasm_tz.rb` implements the same rules for ruby.wasm with Intl offsets.
+The table is checked on both sides with `tz-edges.mjs`:
+
+| Command | What it checks |
+| --- | --- |
+| `node engine/golden/tz-edges.mjs --native` | Native TaskJuggler: `tz-edge-cases.rb` parses each date with `TjTime` after setting the zone, in one Ruby process (developer only, like the recorder; `record-native.mjs` also runs it before recording) |
+| `node engine/golden/tz-edges.mjs` | The built wasm engine in Node: one generated plan per zone and change, one milestone per case (`run-wasm.mjs` runs it after the corpus) |
+
+The table's unit tests (`tests/golden/tz-edges.test.ts`) also check every case against the
+rules above with Node's own Intl offsets, so CI covers the table without Ruby.
+`syn-21-tz-dst-edges-newyork` is the full-schedule counterpart for New York.
+
 ## Running the goldens in the browser engine from Node
 
 `run-wasm.mjs` boots the built engine (`npm run build:engine` first) in Node and schedules the
@@ -221,7 +249,8 @@ exactly the golden's `files`, decoded with `TextDecoder('utf-8', { ignoreBOM: tr
 `options.now`. Results are compared as canonical JSON with `revision` and `timings` left out
 (spec 6.3); it prints per-plan timings next to `native-timings.json` and exits 1 on any
 difference. `--repeat` keeps the fastest of n runs; `--syntax` builds the syntax docs first, which
-also shows they leave no state behind. Its exports (`bootNodeEngine`, `loadCorpus`,
+also shows they leave no state behind. Without `--only` it then checks the DST edge-case table
+in the same engine (see "DST edge cases"). Its exports (`bootNodeEngine`, `loadCorpus`,
 `planRequest`, `compareWithGolden`) are for other Node tools. The gating parity test
 (`npm run test:golden`, T11) runs in Chromium instead.
 

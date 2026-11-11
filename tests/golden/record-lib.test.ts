@@ -226,7 +226,7 @@ describe('manifestProblems', () => {
 		const manifest: unknown = JSON.parse(readFileSync('engine/golden/manifest.json', 'utf8'));
 		expect(manifestProblems(manifest)).toEqual([]);
 		const kinds = (manifest as { kind: string }[]).map((p) => p.kind);
-		expect(kinds).toHaveLength(34);
+		expect(kinds).toHaveLength(35);
 		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(8);
 	});
 

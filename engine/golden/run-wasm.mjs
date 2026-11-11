@@ -14,8 +14,10 @@
 // long-lived engine, in manifest order. --repeat runs each plan n times and reports the fastest
 // run; --syntax builds the syntax docs first, to show it leaves no state behind. --tokens runs the
 // token oracle (phase-1 T19) over every file of the selected plans first and checks each stream
-// with checkTokenStream; that too must leave no state behind. Exits 1 if any plan differs from
-// its golden or any token stream fails its check. Build the engine first: npm run build:engine.
+// with checkTokenStream; that too must leave no state behind. Without --only it then checks the
+// DST edge-case table (tz-edges.mjs) in the same engine. Exits 1 if any plan differs from its
+// golden, any token stream fails its check or any edge case differs from the table. Build the
+// engine first: npm run build:engine.
 //
 // Exports bootNodeEngine (a NodeEngine, with the token oracle), loadCorpus, planRequest and
 // compareWithGolden for other Node tools.
@@ -26,6 +28,7 @@ import { parseArgs } from 'node:util';
 import { bootEngineForNode } from '../../src/engine/runtime.ts';
 import { checkTokenStream } from '../../src/engine/token-oracle.ts';
 import { canonicalJson, diffPaths } from './lib.mjs';
+import { checkTzEdgesWasm } from './tz-edges.mjs';
 
 const GOLDEN = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(GOLDEN, '..', '..');
@@ -194,8 +197,17 @@ async function main() {
 		report[plan.id] = { tasks: golden.result.tasks.length, match: ok, timings: best, nativeTotalMs: nativeMs ?? null };
 	}
 	console.log(`${corpus.length - failures}/${corpus.length} plans match their golden`);
+	/** @type {{ total: number, failed: number } | null} */
+	let tzEdges = null;
+	if (values.only.length === 0) {
+		const tz = checkTzEdgesWasm(engine, undefined, ++revision);
+		for (const d of tz.diffs) console.log(`    ${d}`);
+		console.log(`${tz.total - tz.diffs.length}/${tz.total} tz edge cases match tz-edge-cases.json`);
+		tzEdges = { total: tz.total, failed: tz.diffs.length };
+		if (tz.diffs.length) failures++;
+	}
 	if (values.json) {
-		fs.writeFileSync(values.json, `${JSON.stringify({ boot: engine.bootTimings, plans: report }, null, 2)}\n`);
+		fs.writeFileSync(values.json, `${JSON.stringify({ boot: engine.bootTimings, plans: report, tzEdges }, null, 2)}\n`);
 	}
 	if (failures || tokenFailures) process.exitCode = 1;
 }
