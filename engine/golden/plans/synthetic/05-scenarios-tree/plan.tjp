@@ -1,0 +1,44 @@
+# Feature: nested scenario tree; "active no" scenario; scenario-prefixed attributes (delayed:effort)
+# SPDX-License-Identifier: GPL-2.0-or-later
+project scen05 "Scenario tree" 2026-01-05 - 2026-04-30 {
+  now 2026-02-02-09:00
+  scenario plan "Plan" {
+    scenario delayed "Delayed" {
+      scenario worst "Worst case" {
+      }
+    }
+    scenario parked "Parked" {
+      active no
+    }
+  }
+}
+
+resource hal "Hal" {
+}
+
+resource ivy "Ivy" {
+}
+
+task launch "Launch" {
+  task prep "Preparation" {
+    effort 5d
+    allocate hal
+  }
+  task build "Build" {
+    effort 10d
+    delayed:effort 14d
+    worst:effort 20d
+    depends !prep
+    allocate hal, ivy
+  }
+  task test "Test" {
+    effort 4d
+    delayed:effort 6d
+    depends !build
+    allocate ivy
+  }
+  task ship "Ship" {
+    milestone
+    depends !test
+  }
+}

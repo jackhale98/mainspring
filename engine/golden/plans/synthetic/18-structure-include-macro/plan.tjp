@@ -1,0 +1,29 @@
+# Feature: include from subfolders; macro; supplement; extend; non-ASCII names (column counting)
+# SPDX-License-Identifier: GPL-2.0-or-later
+project struct18 "Structure and includes" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+  extend resource {
+    text Code "Code"
+  }
+}
+
+macro phaseLen [4d]
+
+include "lib/resources.tji"
+include "lib/tasks.tji"
+
+supplement resource lena {
+  Code "L-01"
+}
+
+task rollout "Rollout" {
+  task ready "Ready" {
+    effort ${phaseLen}
+    allocate lena
+  }
+  task go "Go" {
+    effort 2d
+    depends !ready
+    allocate mira
+  }
+}

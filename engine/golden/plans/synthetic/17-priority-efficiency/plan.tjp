@@ -1,0 +1,62 @@
+# Feature: priority contention; efficiency below 1 and above 1; overallocation warnings; a user booking larger than the planned effort
+# Expected: native tj3 exits 0 and emits an overbooked warning for task booked ("The total effort (3.5d or 28.0h) of the provided bookings for task contend.booked exceeds the specified effort of 2.0d or 16.0h").
+# SPDX-License-Identifier: GPL-2.0-or-later
+project prio17 "Priority and efficiency" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+resource fox "Fox" {
+  efficiency 0.5
+}
+
+resource gil "Gil" {
+  efficiency 1.5
+}
+
+resource hana "Hana" {
+  efficiency 1.0
+}
+
+task contend "Contention" {
+  task urgent "Urgent" {
+    priority 900
+    effort 5d
+    allocate fox
+  }
+  task normal "Normal" {
+    effort 5d
+    allocate fox
+  }
+  task low "Low" {
+    priority 100
+    effort 5d
+    allocate fox
+  }
+  task fast "Fast worker" {
+    effort 6d
+    allocate gil
+  }
+  task slow "Slow worker" {
+    effort 6d
+    allocate fox
+    depends !urgent
+  }
+  task double "Overloaded" {
+    effort 8d
+    allocate hana, gil
+    allocate fox
+  }
+  task booked "Overbooked" {
+    start 2026-01-12
+    effort 2d
+    allocate hana
+    booking hana 2026-01-12-09:00 - 2026-01-12-12:00, 2026-01-12-13:00 - 2026-01-12-17:00
+    booking hana 2026-01-13-09:00 - 2026-01-13-12:00, 2026-01-13-13:00 - 2026-01-13-17:00
+    booking hana 2026-01-14-09:00 - 2026-01-14-12:00, 2026-01-14-13:00 - 2026-01-14-17:00
+    booking hana 2026-01-15-09:00 - 2026-01-15-12:00, 2026-01-15-13:00 - 2026-01-15-17:00
+  }
+  task fin "Finish" {
+    milestone
+    depends !fast, !double
+  }
+}
