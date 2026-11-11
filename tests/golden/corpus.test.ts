@@ -25,6 +25,8 @@ describe('corpus', () => {
 		for (const { plan, golden } of loadCorpus()) {
 			expect(golden.native.tjCommit, plan.id).toBe(pin);
 			expect(golden.id).toBe(plan.id);
+			expect(golden.options.now, `${plan.id} options.now`).toBe(plan.now);
+			expect(golden.entry, `${plan.id} entry`).toBe(plan.entry);
 		}
 	});
 

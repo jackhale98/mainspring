@@ -288,8 +288,8 @@ public/engine/                # built, gitignored
 src/
   engine/ protocol.ts, queue.ts, client.ts, worker.ts, runtime.ts, wasi-fs.ts, *.test.ts
   lib/strings.ts              # user-facing copy
-  pages/app/index.astro       # placeholder shell: engine status, version, last timings
-  pages/dev/engine.astro      # test harness; built only when MAINSPRING_DEV_PAGES=1
+  pages/app/index.astro       # placeholder shell: engine status only (version and last timings deferred to Phase 2)
+  pages/dev/_engine.astro     # test harness; scripts/astro-dev-pages.mjs injects it as /dev/engine when MAINSPRING_DEV_PAGES=1
 tests/
   golden/ canonical.ts, compare.ts, compare.test.ts, parity.spec.ts
   e2e/ shell.spec.ts, engine-responsiveness.spec.ts, lib/trace-max-task.ts
@@ -316,7 +316,7 @@ Every task runs in its own worktree and goes through `reviewer` before merge (CL
 | T8 | 20 synthetic plans (section 6.1) and the seeded `scale-1000` generator. Each file's header names the feature it targets | `fixture-maker` | `engine/golden/plans/synthetic/**`, `generators/` | none; check locally with native tj3 |
 | T9 | Native record script (6.2) and the serializer cross-check | `engine-specialist` | `engine/golden/record-native.mjs`, `engine/bridge/native/record.rb`, `Gemfile*`, `cross-check.tji` | T3, T4 |
 | T10 | Write `manifest.json` (upstream examples, PoC sample, synthetic plans), run `golden:record` twice (it must be deterministic), and commit `expected/` and `native-timings.json` | `fixture-maker` | `engine/golden/manifest.json`, `expected/**`, `native-timings.json` | T8, T9, T1 (PoC sample) |
-| T11 | Parity harness: `canonical.ts` and `compare.ts` with unit tests (including a one-minute mutation that must fail), `parity.spec.ts`, `/dev/engine` page | `test-writer`; `engine-specialist` reviews | `tests/golden/**`, `src/pages/dev/engine.astro` | T6, T7, T10 (can be written against T7's fakes earlier) |
+| T11 | Parity harness: `canonical.ts` and `compare.ts` with unit tests (including a one-minute mutation that must fail), `parity.spec.ts`, `/dev/engine` page (file `src/pages/dev/_engine.astro`, injected by `scripts/astro-dev-pages.mjs` when `MAINSPRING_DEV_PAGES=1`) | `test-writer`; `engine-specialist` reviews | `tests/golden/**`, `src/pages/dev/_engine.astro`, `scripts/astro-dev-pages.mjs` | T6, T7, T10 (can be written against T7's fakes earlier) |
 | T12 | Responsiveness test and trace analysis (section 9, criterion 2) | `perf-a11y-auditor` with `test-writer` | `tests/e2e/engine-responsiveness.spec.ts`, `tests/e2e/lib/trace-max-task.ts` | T6, T7, T8 (scale-1000) |
 | T13 | Shell e2e on desktop Chrome, Pixel 7 and iPhone 14: shell loads, engine reaches `ready`, the PoC sample schedules, axe is clean | `test-writer` | `tests/e2e/shell.spec.ts`, `playwright.config.ts` | T2, T6 |
 | T14 | CI workflows (section 7), plus `nightly.yml` that records engine timings for every golden plan and runs golden on Firefox and WebKit without blocking | `test-writer` | `.github/workflows/*.yml` | T2; jobs are added as T5, T11, T12, T13 land |
@@ -431,7 +431,7 @@ Comparison is string equality of canonical JSON: keys sorted recursively, 2-spac
 
 ### 7.1 npm scripts
 
-`format:check`, `typecheck` (`astro check` and `tsc --noEmit`), `test:unit` (Vitest), `build:engine`, `build`, `test:e2e`, `test:golden`. `golden:record` and `golden:verify` are developer-only, and CI never calls them.
+`format:check`, `typecheck` (`astro check` and `tsc --noEmit`), `test:unit` (Vitest), `build:engine`, `build`, `test:e2e`, `test:golden`. `golden:record`, `golden:verify` and `golden:wasm` (runs the corpus through the engine in Node, `engine/golden/run-wasm.mjs`) are developer-only, and CI never calls them.
 
 ### 7.2 Jobs
 
@@ -440,7 +440,7 @@ Comparison is string equality of canonical JSON: keys sorted recursively, 2-spac
 | check | `npm ci`, `format:check`, `typecheck`, `test:unit` | none |
 | engine | `build:engine`, then `build:engine -- --check`; check that `engine/tj` matches `tj.pin.json` (`git rev-parse HEAD:engine/tj` equals the pinned tree); upload `public/engine` | none |
 | e2e | Playwright browsers; `MAINSPRING_DEV_PAGES=1 npm run build`; `test:e2e` (desktop Chrome, Pixel 7, iPhone 14, axe, responsiveness spec on Chromium); upload screenshots, traces and the long-task report | engine |
-| golden | `test:golden` on Chromium; upload the diff report on failure | engine |
+| golden | `build:engine` itself (it does not use `needs: engine`), then `test:golden` on Chromium; upload the diff report on failure | none |
 | no-ruby | Fail if any workflow step, npm script used in CI, or test file invokes `ruby`, `tj3`, `bundle` or `gem` | none |
 
 No Ruby is installed or invoked. The GitHub runner image has Ruby preinstalled, so the guarantee comes from the `no-ruby` job and the scripts, not the image.

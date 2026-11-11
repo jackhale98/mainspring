@@ -151,6 +151,9 @@ module MainspringBridge
     # run both match).
     def bookings(project, resources)
       out = []
+      # Scanning scoreboardSize slots is enough: Scoreboard allocates ceil(...)+1 slots and
+      # never sets slots >= scoreboardSize to nil, so available? is false there, and booking
+      # indices stop at endIdx-1 <= scoreboardSize-1.
       size = project.scoreboardSize
       @active.each do |scenarioId, idx|
         resources.each do |r|
