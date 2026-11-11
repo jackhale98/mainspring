@@ -66,6 +66,17 @@ texts must also go into the site-level notices before a public release.
 the packages above. `@lezer/generator` (MIT) is a development dependency: it generates the
 parser tables at build time and does not ship.
 
+## Sample plans (from Phase 1)
+
+Text mode bundles four sample workspaces (`src/lib/workspace/samples.ts`), loaded on demand. Two
+are Mainspring's own golden plans. The other two are TaskJuggler's examples, shipped unmodified
+with their notices in the file text:
+
+| Sample               | Files                                                  | Authors                              | License                                   | GPL-2.0 compatible |
+| -------------------- | ------------------------------------------------------ | ------------------------------------ | ----------------------------------------- | ------------------ |
+| TaskJuggler tutorial | `engine/tj/examples/Tutorial/tutorial.tjp`             | the TaskJuggler authors              | GPL-2.0-only (part of TaskJuggler 3.8.4)  | Yes                |
+| Fedora 20 schedule   | `engine/tj/examples/Fedora-20/f-20.tjp`, `reports.tji` | John Poelstra, Robyn Bergeron (2011) | MIT (Expat), notice in each file's header | Yes                |
+
 ## License check in CI
 
 `node scripts/ci/licenses.mjs` (CI `check` job) walks the production dependency tree in

@@ -1,0 +1,6 @@
+# Feature: template included under two prefixes, with a nested include
+# SPDX-License-Identifier: GPL-2.0-or-later
+task t "T" {
+  length 1d
+}
+include "n.tji" { taskprefix t }

@@ -23,6 +23,13 @@ export const strings = {
 	home: {
 		openApp: 'Open the app',
 	},
+	/** Sample plans for Text mode, keyed by `Sample.id` (src/lib/workspace/samples.ts). */
+	samples: {
+		'poc-sample': 'Proof-of-concept plan',
+		'upstream-tutorial': 'TaskJuggler tutorial',
+		'syn-18-structure-include-macro': 'Includes, macros and supplements',
+		'upstream-fedora-20': 'Fedora 20 release schedule',
+	},
 } as const;
 
 /**

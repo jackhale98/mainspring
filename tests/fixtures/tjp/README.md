@@ -28,6 +28,7 @@ sources under `engine/` on the load path, `--no-reports --silent plan.tjp`, `TZ=
 | `include-taskprefix` | `include "sub.tji" { taskprefix parent }`, prefixed ids referenced as `parent.sub1` | accepted (exit 0) |
 | `include-resourceprefix` | `include "people.tji" { resourceprefix team }`, leaf id used in `allocate` | accepted (exit 0) |
 | `include-nested` | Nested includes (`defs.tji` includes `leaf.tji`), macros defined in includes and used after them, task prefix include, resource prefix include in a separate statement | accepted (exit 0) |
+| `include-prefix-property` | A prefixed include that declares a task and then includes another file: its tasks go under the inherited `@property` (`outer.leaf`), while an include before any task composes the prefix (`outer.mid.leaf2`); a template included under two prefixes, with a nested include read on both visits (`g1.t`, `g2.t`, `g1.n`, `g2.n`) | accepted (exit 0); ids checked with a temporary `taskreport` in a scratch copy |
 | `bom-utf8` | Leading UTF-8 BOM and non-ASCII names (ADR-0002 #13) | rejected (exit 1): "Unexpected token" at line 1. Expected: native does not skip a BOM, the bridge strips it, and the parser must keep it as trivia |
 | `numbers-dates` | `5d` as Integer + Identifier, `.5` float, date with time and zone, `36h`, `8.0` | accepted (exit 0) |
 | `neg-unterminated-string` | NEGATIVE: unterminated string (error token to end of file) | rejected (exit 1), "Unexpected token 'A' found. Expecting :STRING" at line 5 |

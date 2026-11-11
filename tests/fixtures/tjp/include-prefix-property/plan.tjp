@@ -1,0 +1,20 @@
+# Feature: include prefixes and the inherited @property (rule_taskHeader); a template included twice
+# SPDX-License-Identifier: GPL-2.0-or-later
+project ipp "Include prefix property" 2026-01-05 +2m
+
+task outer "Outer"
+task g1 "G1"
+task g2 "G2"
+
+# a.tji declares mid, then includes deep/b.tji { taskprefix mid }: leaf lands in outer, not outer.mid
+include "sub/a.tji" { taskprefix outer }
+# x.tji includes deep/c.tji { taskprefix mid } before any task: leaf2 lands in outer.mid
+include "sub/x.tji" { taskprefix outer }
+# The template is read once per site: g1.t and g2.t, and its nested include twice
+include "tmpl.tji" { taskprefix g1 }
+include "tmpl.tji" { taskprefix g2 }
+
+task after "After" {
+  length 1d
+  depends outer.leaf, outer.mid.leaf2, g1.t, g2.t, g1.n, g2.n
+}

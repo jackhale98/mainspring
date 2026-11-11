@@ -1,0 +1,3 @@
+# Feature: prefixed include that includes another file before any task
+# SPDX-License-Identifier: GPL-2.0-or-later
+include "deep/c.tji" { taskprefix mid }
