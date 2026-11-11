@@ -388,7 +388,9 @@ The zip's contents are not known yet. Record each item below as found, or as mis
 | 19 | errors-parse | syntax error inside an included `.tji` at a known line, with non-ASCII text before the bad token; `ok: false`. Native tj3 reports column 0 for scanner errors, so the column is whatever the shared serializer reports on both sides |
 | 20 | scale-1000 | generated: at least 1,000 tasks, at least 50 resources in groups, 4-level nesting, dependency chains, a 3-year horizon. Used by the gate's responsiveness test |
 
-Expected total: 26 plans (5 + 1 + 20); see 11.1. The parity spec asserts the exact count from the manifest.
+**Bridge fixtures** (`bridge-<name>`, in `engine/golden/plans/bridge/`), added during T9 review so parity covers the bridge's error paths: header-only project, parse failure, scheduling error with tasks, scenario warning, include from a subfolder, BOM plus invalid UTF-8, `options.now`, and a `now` line taking precedence over `options.now`.
+
+Expected total: 34 plans (5 upstream + 1 PoC + 20 synthetic + 8 bridge); see 11.1. The parity spec asserts the exact count from the manifest.
 
 ### 6.2 Native outputs (developer script, never run in CI)
 
@@ -462,7 +464,7 @@ Nightly (`nightly.yml`): engine timings per golden plan against `native-timings.
 | Worker state leaks between runs (parser cache) | Wrong results in the app | Single-worker shuffled corpus run |
 | License undecided | Legal; blocks the phase | T0 first |
 | mycelium-web not available to the session | T2 blocked | User attaches the repo before wave 1 |
-| CI time (26 plans in wasm, about 3× native) | Slow merges | One shared worker; per-plan timeouts; timings recorded nightly |
+| CI time (34 plans in wasm, about 3× native) | Slow merges | One shared worker; per-plan timeouts; timings recorded nightly |
 
 ## 9. Gate acceptance criteria
 

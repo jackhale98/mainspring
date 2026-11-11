@@ -55,3 +55,11 @@ results are dropped. Writing the Phase 0 spec raised four points the plan leaves
     whole UTC hour (TaskJuggler aligns its own clock default to the hour). Any other value is
     rejected with `invalid-request` rather than silently rounded. A `now` line written in the
     plan is passed to TaskJuggler unchanged.
+12. **Stable sorting.** TaskJuggler breaks ties in some choices (for example `select
+    minallocated`) by sort order. Native Ruby on glibc keeps tied items in order, and ruby.wasm's
+    own quicksort does not, so a wasm-only patch (`engine/bridge/wasm/tj_wasm_sort.rb`) makes
+    `sort` keep ties in order. The native recorder refuses to run on platforms whose sort
+    reorders ties.
+13. **Text decoding.** Files are decoded as UTF-8 with invalid sequences replaced by U+FFFD,
+    and exactly one leading BOM is dropped, the same way on both sides. Browser code decodes
+    bytes with `TextDecoder('utf-8', { ignoreBOM: true })` and leaves BOM removal to the bridge.
