@@ -44,6 +44,13 @@ export const EXTRA_CONTEXTS = /** @type {const} */ ({
 	project: { engine: [], add: [GLOBAL_CONTEXT] },
 });
 
+/**
+ * Prefix of the header line naming the engine build. Informational only: the keywords come from
+ * TaskJuggler's SyntaxReference in the pinned engine/tj, so a rebuilt bridge with the same tj
+ * commit must not force a regeneration.
+ */
+const BUILD_LINE = '// Generated with engine build sha256 ';
+
 const NAME_RE = /^[a-z][a-z0-9]*$/;
 
 /** Code-unit order, independent of the locale. */
@@ -136,13 +143,12 @@ export function renderModule(entries, from) {
 		'// Over 400 lines because it is data: one entry per TaskJuggler keyword.',
 		'//',
 		`// TaskJuggler ${from.tj}, commit ${from.tjCommit}`,
-		`// Engine bundle sha256 ${from.bundleHash}`,
+		`${BUILD_LINE}${from.bundleHash} (informational; --check ignores it)`,
 		"import type { KeywordEntry } from './types';",
 		'',
 		'/** Must equal SyntaxDocs.tjVersion. */',
 		`export const TJ_VERSION = ${q(from.tj)};`,
 		`export const TJ_COMMIT = ${q(from.tjCommit)};`,
-		`export const ENGINE_BUNDLE_HASH = ${q(from.bundleHash)};`,
 		'',
 		'export const KEYWORDS: readonly KeywordEntry[] = [',
 		...entries.map(
@@ -168,30 +174,44 @@ export async function formatModule(source) {
 }
 
 /**
- * Null when the committed text matches the fresh one, otherwise a message for --check.
+ * How the committed text compares with the fresh one, for --check. `ok` is false when the table
+ * or the TaskJuggler version or commit differs; a different engine build alone is a note.
  * @param {string | null} committed
  * @param {string} fresh
+ * @returns {{ ok: boolean, message: string | null }}
  */
 export function compareModule(committed, fresh) {
-	if (committed === fresh) return null;
-	if (committed === null) return `${OUT} is missing`;
+	if (committed === fresh) return { ok: true, message: null };
+	if (committed === null) return { ok: false, message: `${OUT} is missing` };
+	const content = (/** @type {string} */ text) =>
+		text
+			.split('\n')
+			.filter((l) => !l.startsWith(BUILD_LINE))
+			.join('\n');
+	if (content(committed) === content(fresh)) {
+		return {
+			ok: true,
+			message:
+				`note: ${OUT} was generated with another engine build; the table and the ` +
+				'TaskJuggler commit match, so it needs no regeneration',
+		};
+	}
 	const a = committed.split('\n');
 	const b = fresh.split('\n');
-	// The commit and the bundle hash are the only 40- and 64-digit hex strings in the file.
-	const body = (/** @type {string} */ text) =>
-		text.replace(/\b[0-9a-f]{40}(?:[0-9a-f]{24})?\b/g, '');
-	const what =
-		body(committed) === body(fresh)
-			? 'only the engine provenance in its header differs (the engine was rebuilt)'
-			: 'the keyword table differs';
 	let i = 0;
-	while (i < a.length && a[i] === b[i]) i++;
-	return (
-		`${OUT} is stale: ${what}.\n` +
-		`  first difference at line ${i + 1}:\n` +
-		`  committed: ${a[i] ?? '<end of file>'}\n` +
-		`  generated: ${b[i] ?? '<end of file>'}`
-	);
+	while (
+		i < a.length &&
+		(a[i] === b[i] || (a[i]?.startsWith(BUILD_LINE) && b[i]?.startsWith(BUILD_LINE)))
+	)
+		i++;
+	return {
+		ok: false,
+		message:
+			`${OUT} is stale: the keyword table or the TaskJuggler version or commit differs.\n` +
+			`  first difference at line ${i + 1}:\n` +
+			`  committed: ${a[i] ?? '<end of file>'}\n` +
+			`  generated: ${b[i] ?? '<end of file>'}`,
+	};
 }
 
 async function main() {
@@ -229,13 +249,14 @@ async function main() {
 	const out = path.join(REPO, OUT);
 	if (values.check) {
 		const committed = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : null;
-		const problem = compareModule(committed, fresh);
-		if (problem) {
+		const { ok, message } = compareModule(committed, fresh);
+		if (!ok) {
 			console.error(
-				`gen-tjp-keywords --check: ${problem}\nRun npm run gen:keywords and commit it.`,
+				`gen-tjp-keywords --check: ${message}\nRun npm run gen:keywords and commit it.`,
 			);
 			return 1;
 		}
+		if (message) console.log(`gen-tjp-keywords --check: ${message}`);
 		console.log(`gen-tjp-keywords --check: ${OUT} is up to date (${entries.length} keywords)`);
 		return 0;
 	}

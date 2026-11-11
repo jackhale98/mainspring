@@ -3,7 +3,7 @@
 // an identifier is a keyword in the current context, the context tracker asks bodyContext() which
 // context a statement's body opens, and completion lists keywordsInContext(). All of it works
 // before the engine boots; docs.ts adds the engine's full documentation once syntax() resolves.
-import { ENGINE_BUNDLE_HASH, KEYWORDS, TJ_COMMIT, TJ_VERSION } from './keywords.generated';
+import { KEYWORDS, TJ_COMMIT, TJ_VERSION } from './keywords.generated';
 import {
 	GLOBAL_CONTEXT,
 	PROLOG_CONTEXT,
@@ -12,7 +12,7 @@ import {
 	type TopContextName,
 } from './types';
 
-export { ENGINE_BUNDLE_HASH, KEYWORDS, TJ_COMMIT, TJ_VERSION };
+export { KEYWORDS, TJ_COMMIT, TJ_VERSION };
 export { GLOBAL_CONTEXT, PROLOG_CONTEXT };
 export type { ContextId, KeywordEntry, TopContextName };
 

@@ -93,8 +93,8 @@ describe('renderModule and formatModule', () => {
 		expect(await formatModule(a)).toBe(a);
 		expect(a).toMatch(/^\/\/ SPDX-License-Identifier: GPL-2.0-only\n/);
 		expect(a).toContain(`// TaskJuggler 3.8.4, commit ${from.tjCommit}`);
-		// The provenance line; the word itself would trip scripts/ci/no-ruby.mjs.
-		expect(a).toMatch(new RegExp(`^// Engine \\w+ sha256 ${from.bundleHash}$`, 'm'));
+		expect(a).toContain(`// Generated with engine build sha256 ${from.bundleHash} (informational`);
+		expect(a).not.toContain('export const ENGINE_');
 		expect(a).toContain("export const TJ_VERSION = '3.8.4';");
 	});
 
@@ -106,24 +106,47 @@ describe('renderModule and formatModule', () => {
 
 describe('compareModule', () => {
 	it('accepts an identical file', () => {
-		expect(compareModule('a\nb\n', 'a\nb\n')).toBeNull();
+		expect(compareModule('a\nb\n', 'a\nb\n')).toEqual({ ok: true, message: null });
 	});
 
 	it('reports a missing file', () => {
-		expect(compareModule(null, 'a\n')).toMatch(/missing/);
+		expect(compareModule(null, 'a\n')).toEqual({
+			ok: false,
+			message: expect.stringMatching(/missing/),
+		});
 	});
 
-	it('tells a rebuilt engine apart from a changed table', () => {
-		const table = buildTable({ tjVersion: '3.8.4', keywords: minimal() });
-		const old = renderModule(table, from);
-		const rebuilt = renderModule(table, { ...from, bundleHash: 'd'.repeat(64) });
-		expect(compareModule(old, rebuilt)).toMatch(/only the engine provenance/);
+	const table = () => buildTable({ tjVersion: '3.8.4', keywords: minimal() });
+
+	it('passes with a note when only the engine build differs', () => {
+		const old = renderModule(table(), from);
+		const rebuilt = renderModule(table(), { ...from, bundleHash: 'd'.repeat(64) });
+		const result = compareModule(old, rebuilt);
+		expect(result.ok).toBe(true);
+		expect(result.message).toMatch(/another engine build/);
+	});
+
+	it('fails when the TaskJuggler commit or version differs', () => {
+		const old = renderModule(table(), from);
+		for (const other of [
+			{ ...from, tjCommit: 'e'.repeat(40) },
+			{ ...from, tj: '3.8.5' },
+		]) {
+			const result = compareModule(old, renderModule(table(), other));
+			expect(result.ok).toBe(false);
+			expect(result.message).toMatch(/is stale/);
+		}
+	});
+
+	it('fails when the table differs, even with another engine build', () => {
+		const old = renderModule(table(), from);
 		const changed = renderModule(
 			buildTable({ tjVersion: '3.8.4', keywords: [...minimal(), kw('length', ['task'])] }),
-			from,
+			{ ...from, bundleHash: 'd'.repeat(64) },
 		);
-		const message = compareModule(old, changed);
-		expect(message).toMatch(/the keyword table differs/);
-		expect(message).toMatch(/first difference at line \d+/);
+		const result = compareModule(old, changed);
+		expect(result.ok).toBe(false);
+		expect(result.message).toMatch(/is stale: the keyword table/);
+		expect(result.message).toMatch(/first difference at line \d+/);
 	});
 });

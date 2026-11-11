@@ -7,14 +7,12 @@
 // Over 400 lines because it is data: one entry per TaskJuggler keyword.
 //
 // TaskJuggler 3.8.4, commit 3b36c799605621103d7d065c69e3f958a3dd6698
-// Engine bundle sha256 2296c6271e73d7d65d06b4da8b32d7ac4144d210b73331ed67ea69724c139996
+// Generated with engine build sha256 2296c6271e73d7d65d06b4da8b32d7ac4144d210b73331ed67ea69724c139996 (informational; --check ignores it)
 import type { KeywordEntry } from './types';
 
 /** Must equal SyntaxDocs.tjVersion. */
 export const TJ_VERSION = '3.8.4';
 export const TJ_COMMIT = '3b36c799605621103d7d065c69e3f958a3dd6698';
-export const ENGINE_BUNDLE_HASH =
-	'2296c6271e73d7d65d06b4da8b32d7ac4144d210b73331ed67ea69724c139996';
 
 export const KEYWORDS: readonly KeywordEntry[] = [
 	{
