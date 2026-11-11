@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Unit tests for engine/golden/tz-edges.mjs and the DST edge-case table it checks
-// (engine/golden/tz-edge-cases.json). The native and wasm checks themselves need Ruby or the
+// Unit tests for engine/golden/tz-edges.mjs and the time-zone edge-case table it checks
+// (engine/golden/tz-edge-cases.json: DST instants and timingresolution caps). The native and wasm checks themselves need Ruby or the
 // built engine (tz-edges.mjs, run-wasm.mjs); these tests cover the table and the pure helpers.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
 	TZ_EDGE_KINDS,
-	loadTzEdgeCases,
+	loadTzEdgeTable,
 	nativeTzEdgeDiffs,
 	tzEdgeDiffs,
 	tzEdgePlans,
 	tzEdgeProblems,
+	tzResolutionDiffs,
+	tzResolutionPlans,
 } from '../../engine/golden/tz-edges.mjs';
 
 interface EdgeCase {
@@ -20,7 +22,14 @@ interface EdgeCase {
 	kind: string;
 }
 
-const cases: EdgeCase[] = loadTzEdgeCases();
+interface ResolutionCase {
+	zone: string;
+	maxMinutes: number;
+	note?: string;
+}
+
+const table: { cases: EdgeCase[]; resolutions: ResolutionCase[] } = loadTzEdgeTable();
+const { cases, resolutions } = table;
 const MIN = 60_000;
 const DAY = 86_400_000;
 
@@ -108,6 +117,17 @@ describe('tz-edge-cases.json', () => {
 				throw new Error(`unknown kind ${c.kind}`);
 		}
 	});
+
+	// Project.maxScheduleGranularity: the minutes of the zone's time at 2000-01-01T00:00Z.
+	it.each(resolutions)('$zone caps timingresolution at $maxMinutes min', (r) => {
+		const minutes = (((offsetMs(r.zone, Date.UTC(2000, 0, 1)) / MIN) % 60) + 60) % 60;
+		expect(r.maxMinutes).toBe({ 0: 60, 30: 30, 15: 15, 45: 15 }[minutes]);
+	});
+
+	it('has resolution caps of 15, 30 and 60 minutes, including Kathmandu', () => {
+		expect(new Set(resolutions.map((r) => r.maxMinutes))).toEqual(new Set([15, 30, 60]));
+		expect(resolutions.find((r) => r.zone === 'Asia/Kathmandu')?.maxMinutes).toBe(15);
+	});
 });
 
 describe('tzEdgeProblems', () => {
@@ -118,10 +138,13 @@ describe('tzEdgeProblems', () => {
 		kind: 'gap',
 	};
 
+	const res = { zone: 'Asia/Kathmandu', maxMinutes: 15 };
+	const of = (c: object, r: object = res) => ({ cases: [c], resolutions: [r] });
+
 	it('accepts a good case and every kind', () => {
-		for (const kind of TZ_EDGE_KINDS)
-			expect(tzEdgeProblems({ cases: [{ ...good, kind }] })).toEqual([]);
-		expect(tzEdgeProblems({ cases: [{ ...good, zone: 'UTC' }] })).toEqual([]);
+		for (const kind of TZ_EDGE_KINDS) expect(tzEdgeProblems(of({ ...good, kind }))).toEqual([]);
+		expect(tzEdgeProblems(of({ ...good, zone: 'UTC' }))).toEqual([]);
+		expect(tzEdgeProblems(of(good, { ...res, note: '+05:45' }))).toEqual([]);
 	});
 
 	it.each([
@@ -134,17 +157,30 @@ describe('tzEdgeProblems', () => {
 		[{ utc: '2026-03-08T07:10:00Z' }, 'quarter hour'],
 		[{ kind: 'fold' }, 'kind'],
 	])('rejects %j', (change, reason) => {
-		const problems = tzEdgeProblems({ cases: [{ ...good, ...change }] });
+		const problems = tzEdgeProblems(of({ ...good, ...change }));
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toContain(reason);
+	});
+
+	it.each([
+		[{ zone: 'IST' }, 'zone'],
+		[{ maxMinutes: 45 }, 'maxMinutes'],
+		[{ note: 5 }, 'note'],
+	])('rejects resolution %j', (change, reason) => {
+		const problems = tzEdgeProblems(of(good, { ...res, ...change }));
 		expect(problems).toHaveLength(1);
 		expect(problems[0]).toContain(reason);
 	});
 
 	it('rejects duplicates and an empty or missing list', () => {
-		expect(
-			tzEdgeProblems({ cases: [good, { ...good, utc: '2026-03-08T06:00:00Z' }] })[0],
-		).toContain('duplicate');
-		expect(tzEdgeProblems({ cases: [] })).toEqual(['cases must be a non-empty array']);
-		expect(tzEdgeProblems(null)).toEqual(['cases must be a non-empty array']);
+		const twice = { cases: [good, { ...good, utc: '2026-03-08T06:00:00Z' }], resolutions: [res] };
+		expect(tzEdgeProblems(twice)[0]).toContain('duplicate');
+		expect(tzEdgeProblems({ cases: [good], resolutions: [res, res] })[0]).toContain('duplicate');
+		expect(tzEdgeProblems({ cases: [], resolutions: [res] })).toEqual([
+			'cases must be a non-empty array',
+		]);
+		expect(tzEdgeProblems({ cases: [good] })).toEqual(['resolutions must be a non-empty array']);
+		expect(tzEdgeProblems(null)).toHaveLength(2);
 	});
 });
 
@@ -216,20 +252,78 @@ describe('tzEdgeDiffs', () => {
 	});
 });
 
+describe('tzResolutionPlans and tzResolutionDiffs', () => {
+	const plans = tzResolutionPlans(resolutions);
+	const byZone = (zone: string) => {
+		const p = plans.find((x) => x.zone === zone);
+		if (!p) throw new Error(`no plan for ${zone}`);
+		return p;
+	};
+
+	it('tries the next allowed value above the cap, or 60 for a 60-minute cap', () => {
+		expect(plans).toHaveLength(resolutions.length);
+		expect(byZone('Asia/Kathmandu').tried).toBe(20);
+		expect(byZone('Asia/Kolkata').tried).toBe(60);
+		expect(byZone('America/New_York').tried).toBe(60);
+		for (const p of plans) {
+			expect(p.text).toContain(
+				`  now 2026-01-05\n  timezone "${p.zone}"\n  timingresolution ${p.tried}min\n}\n`,
+			);
+			expect(p.text).toContain('task t "T" { start ${projectstart} milestone }\n');
+		}
+	});
+
+	const error = (max: number) => ({
+		level: 'error',
+		id: 'too_large_timing_res',
+		text: `The maximum allowed timing resolution for the timezone is ${max} minutes.`,
+	});
+
+	it('wants the cap error above the cap', () => {
+		const p = byZone('Asia/Kathmandu');
+		expect(tzResolutionDiffs(p, { ok: false, messages: [error(15)] })).toEqual([]);
+		expect(tzResolutionDiffs(p, { ok: false, messages: [error(60)] })[0]).toContain('15 minutes');
+		expect(
+			tzResolutionDiffs(p, { ok: true, messages: [], project: { timingResolutionMin: 20 } })[0],
+		).toContain('got ok true');
+	});
+
+	it('wants a schedule at a 60-minute cap', () => {
+		const p = byZone('America/New_York');
+		const ok = { ok: true, messages: [], project: { timingResolutionMin: 60 } };
+		expect(tzResolutionDiffs(p, ok)).toEqual([]);
+		expect(tzResolutionDiffs(p, { ok: false, messages: [error(30)] })).toHaveLength(1);
+	});
+});
+
 describe('nativeTzEdgeDiffs', () => {
 	const [a, b] = cases as [EdgeCase, EdgeCase];
-	const two = [a, b];
+	const [r] = resolutions as [ResolutionCase];
+	const two = { cases: [a, b], resolutions: [r] };
 	const first = { zone: a.zone, local: a.local, utc: a.utc };
 	const second = { zone: b.zone, local: b.local, utc: b.utc };
+	const cap = { zone: r.zone, maxMinutes: r.maxMinutes };
+	type NativeCase = { zone: string; local: string; utc?: string; error?: string };
+	type NativeCap = { zone: string; maxMinutes?: number; error?: string };
+	const out = (c: NativeCase[], res: NativeCap[] = [cap]) => ({ cases: c, resolutions: res });
 
 	it('compares results in table order', () => {
-		expect(nativeTzEdgeDiffs(two, [first, second])).toEqual([]);
-		expect(
-			nativeTzEdgeDiffs(two, [first, { ...second, utc: '2000-01-01T00:00:00Z' }]),
-		).toHaveLength(1);
+		expect(nativeTzEdgeDiffs(two, out([first, second]))).toEqual([]);
+		const moved = { ...second, utc: '2000-01-01T00:00:00Z' };
+		expect(nativeTzEdgeDiffs(two, out([first, moved]))).toHaveLength(1);
 		const failed = { zone: b.zone, local: b.local, error: 'TjException: x' };
-		expect(nativeTzEdgeDiffs(two, [first, failed])[0]).toContain('TjException: x');
-		expect(nativeTzEdgeDiffs(two, [first])[0]).toContain('expected 2 native results');
-		expect(nativeTzEdgeDiffs(two, [second, first])[0]).toContain('result 0 is for');
+		expect(nativeTzEdgeDiffs(two, out([first, failed]))[0]).toContain('TjException: x');
+		expect(nativeTzEdgeDiffs(two, out([first]))[0]).toContain('expected 2 + 1 native results');
+		expect(nativeTzEdgeDiffs(two, out([second, first]))[0]).toContain('result 0 is for');
+	});
+
+	it('compares resolution caps', () => {
+		const wrong = { ...cap, maxMinutes: 60 };
+		expect(nativeTzEdgeDiffs(two, out([first, second], [wrong]))[0]).toContain(
+			`expected ${r.maxMinutes} min, got 60`,
+		);
+		expect(nativeTzEdgeDiffs(two, out([first, second], [{ zone: 'UTC' }]))[0]).toContain(
+			'resolution result 0 is for UTC',
+		);
 	});
 });

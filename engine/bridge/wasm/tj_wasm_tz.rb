@@ -5,9 +5,10 @@
 # overlaps like native Ruby, see local_to_utc). Wasm only.
 #
 # WASI's C library only knows UTC, so ENV['TZ'] is ignored and every
-# Time.local / Time#localtime silently becomes UTC. TaskJuggler relies on TZ
-# for all local-time math, so these calls are routed through the host's Intl
-# time-zone database. The worker must define globalThis.tjTz with:
+# Time.local / Time#localtime / Time#getlocal silently becomes UTC.
+# TaskJuggler relies on TZ for all local-time math, so these calls are routed
+# through the host's Intl time-zone database. The worker must define
+# globalThis.tjTz with:
 #
 #   offset(zone: string, epochSeconds: number) -> number
 #       UTC offset in seconds of `zone` at that UTC instant
@@ -18,6 +19,32 @@
 # TjTime.checkTimeZone is replaced by an Intl-based check. It keeps upstream's
 # rules that 'UTC' is valid and that other zones need a '/'; upstream's
 # ENV['TZ'] probe cannot work without zoneinfo.
+#
+# Audit of engine/tj/lib (TaskJuggler 3.8.4) for Time methods that read the
+# process zone, and what reaches them here:
+#
+# - Time.local / Time.mktime (TjTime#initialize, #parse, #beginOfWeek and
+#   the calendar methods through TjTime.new([...])): routed, local_to_utc.
+# - Time#localtime without an argument (TjTime#localtime, used by every
+#   local field: to_a, wday, secondsOfDay, strftime, to_s, midnight, ...):
+#   routed. The result has a fixed offset, so utc_offset / gmt_offset and
+#   strftime %z, %H, %d and so on are right.
+# - Time#getlocal without an argument (Project.maxScheduleGranularity, which
+#   caps `timingresolution` after `timezone`): routed like localtime. With an
+#   argument, both keep Ruby's behaviour (the argument names the offset).
+# - Time#zone and strftime %Z: NOT routed. Intl does not expose tzdata's
+#   abbreviations (Berlin is "CET" in tzdata, "GMT+1" in Intl), so a fixed-
+#   offset Time gives nil and "" where native gives "EST", "CEST" or
+#   "+0545". TaskJuggler reads them only in TjTime.checkTimeZone (replaced
+#   below), and %Z only appears if a plan's own `timeformat` asks for it
+#   (${today}, report and journal text).
+# - Time.now / Time.new / Time.at: used only as instants (TjTime.new, the
+#   default `now`, which the bridge replaces with options.now, and
+#   MessageHandler#log, which needs a log file the bridge never sets); every
+#   local field is read through TjTime#localtime. Time.new with date
+#   arguments is not used.
+# - TjTime#to_s reads @time.sec directly; it differs only for offsets with
+#   seconds, which since 1970 means Africa/Monrovia until 1972-01-07.
 require 'js'
 
 module TJWasmTZ
@@ -114,6 +141,19 @@ class Time
 
     zone = TJWasmTZ.zone
     zone ? __tj_localtime(TJWasmTZ.offset(zone, to_i)) : __tj_localtime
+  end
+
+  # Ruby's getlocal converts in C and never calls #localtime, so it needs its
+  # own route. Project.maxScheduleGranularity reads
+  # Time.gm(2000, 1, 1).getlocal.min: under UTC it said 60 minutes for every
+  # zone, so `timingresolution 30min` was accepted for Asia/Kathmandu
+  # (+05:45), where native allows at most 15 (too_large_timing_res).
+  alias_method :__tj_getlocal, :getlocal
+  def getlocal(*args)
+    return __tj_getlocal(*args) unless args.empty?
+
+    zone = TJWasmTZ.zone
+    zone ? __tj_getlocal(TJWasmTZ.offset(zone, to_i)) : __tj_getlocal
   end
 end
 

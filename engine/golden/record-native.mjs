@@ -19,8 +19,8 @@
 // (tracked, untracked and ignored files all count), if Ruby is not 3.4.x
 // (ruby.wasm is 3.4; --allow-ruby overrides and each golden records the
 // version), if engine/bridge/ or engine/golden/plans/ have uncommitted
-// changes, or if native Ruby disagrees with the stable-sort probe or the DST
-// edge-case table (tz-edge-cases.json).
+// changes, or if native Ruby disagrees with the stable-sort probe or the
+// time-zone edge-case table (tz-edge-cases.json).
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -103,15 +103,16 @@ function preflight(allowRuby) {
 		throw new Refusal(`engine/bridge/wasm/tj_wasm_sort.rb changes native sort results:\n  ${diffs.slice(0, 5).join('\n  ')}`);
 	}
 	console.warn('sort check: native Ruby keeps ties in order, and tj_wasm_sort.rb gives identical orders');
-	// The DST edge-case table (tz-edge-cases.json) says how local times at
-	// offset changes resolve; engine/bridge/wasm/tj_wasm_tz.rb implements it
-	// for the browser. It must hold for the Ruby that records the goldens.
+	// The time-zone edge-case table (tz-edge-cases.json) says how local times
+	// at offset changes resolve and how a zone caps timingresolution;
+	// engine/bridge/wasm/tj_wasm_tz.rb implements both for the browser. It
+	// must hold for the Ruby that records the goldens.
 	const tz = checkTzEdgesNative();
 	if (tz.diffs.length) {
 		throw new Refusal(`native Ruby ${tz.ruby} disagrees with engine/golden/tz-edge-cases.json, so ` +
 			`engine/bridge/wasm/tj_wasm_tz.rb no longer matches it:\n  ${tz.diffs.slice(0, 10).join('\n  ')}`);
 	}
-	console.warn(`tz check: native Ruby gives all ${tz.total} instants of tz-edge-cases.json`);
+	console.warn(`tz check: native Ruby agrees with all ${tz.total} cases of tz-edge-cases.json`);
 	return ruby;
 }
 

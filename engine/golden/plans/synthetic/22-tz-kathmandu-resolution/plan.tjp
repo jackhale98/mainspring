@@ -1,0 +1,19 @@
+# Feature: timezone Asia/Kathmandu (+05:45) followed by a timingresolution the zone does not allow
+# Binding: after `timezone`, TaskJuggler caps timingresolution at the zone's alignment to UTC, read with Time#getlocal on 2000-01-01 (Project.maxScheduleGranularity); +05:45 allows 15 min, so 30min is error too_large_timing_res at line 9 and nothing is scheduled
+# `now` comes before the error so the result does not depend on the clock; it is on a whole UTC hour (11:45 local is 06:00Z) because the resolution is still 60 min there.
+# The task's dates are on 30-minute UTC boundaries (09:15 local is 03:30Z), so an engine that misreads the cap as 60 min schedules the plan instead of failing.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project kathmandu22 "Kathmandu resolution" 2026-02-02 - 2026-03-27 {
+  timezone "Asia/Kathmandu"
+  now 2026-02-16-11:45
+  timingresolution 30min
+}
+
+resource raj "Raj" {
+}
+
+task survey "Survey" {
+  start 2026-02-02-09:15
+  effort 3d
+  allocate raj
+}

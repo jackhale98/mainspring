@@ -15,7 +15,7 @@ import {
 describe('corpus', () => {
 	it('has the expected plan count, one golden per manifest id and no stray goldens', () => {
 		const ids = loadManifest().map((p) => p.id);
-		expect(ids).toHaveLength(35);
+		expect(ids).toHaveLength(36);
 		expect(new Set(ids).size).toBe(ids.length);
 		expect(expectedIds()).toEqual([...ids].sort());
 	});

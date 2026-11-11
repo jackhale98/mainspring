@@ -1,8 +1,9 @@
 {
-  "description": "Local times at daylight-saving and other offset changes, and the UTC instant native TaskJuggler 3.8.4 gives each one (TjTime parses a date with Ruby's Time.local, which on glibc searches with localtime_r). 'local' is TaskJuggler date text read in 'zone' as the project time zone; 'utc' is the instant. Checked natively by `node engine/golden/tz-edges.mjs --native` (and before every golden recording) and in the wasm engine by `node engine/golden/tz-edges.mjs` and `npm run golden:wasm`. Kinds: gap (the local time does not exist), overlap (it happens twice), before and after (the last and first unambiguous times around a change), plain (no change nearby).",
+  "description": "Time-zone edge cases and what native TaskJuggler 3.8.4 does with them. 'cases': local times at daylight-saving and other offset changes and the UTC instant each one is (TjTime parses a date with Ruby's Time.local, which on glibc searches with localtime_r); 'local' is TaskJuggler date text read in 'zone' as the project time zone, 'utc' is the instant. Kinds: gap (the local time does not exist), overlap (it happens twice), before and after (the last and first unambiguous times around a change), plain (no change nearby). 'resolutions': the largest timingresolution, in minutes, that TaskJuggler allows after `timezone` (Project.maxScheduleGranularity: the minutes of Time#getlocal on 2000-01-01, so a zone in summer time on that date, like Lord Howe, gets the summer offset's cap). Checked natively by `node engine/golden/tz-edges.mjs --native` (and before every golden recording) and in the wasm engine by `node engine/golden/tz-edges.mjs` and `npm run golden:wasm`.",
   "rules": {
     "gap": "Read with the UTC offset in force before the change, so the instant lies as far after the change as the local time lies after the gap's start (New York 2026-03-08-02:30 is 07:30Z, shown as 03:30 EDT).",
-    "overlap": "The later of the two instants, the one after the change (New York 2026-11-01-01:00 is 06:00Z, EST)."
+    "overlap": "The later of the two instants, the one after the change (New York 2026-11-01-01:00 is 06:00Z, EST).",
+    "resolution": "60 if the zone's offset on 2000-01-01 is a whole hour, 30 if it ends in :30, 15 if it ends in :15 or :45."
   },
   "tzdata": "2026e",
   "cases": [
@@ -67,5 +68,17 @@
     { "zone": "Australia/Lord_Howe", "local": "2026-10-04-02:15", "utc": "2026-10-03T15:45:00Z", "kind": "gap" },
     { "zone": "Australia/Lord_Howe", "local": "2026-10-04-02:30", "utc": "2026-10-03T15:30:00Z", "kind": "after" },
     { "zone": "UTC", "local": "2026-03-08-02:00", "utc": "2026-03-08T02:00:00Z", "kind": "plain" }
+  ],
+  "resolutions": [
+    { "zone": "Asia/Kathmandu", "maxMinutes": 15, "note": "+05:45" },
+    { "zone": "Australia/Eucla", "maxMinutes": 15, "note": "+08:45" },
+    { "zone": "Pacific/Chatham", "maxMinutes": 15, "note": "+13:45 (summer time on 2000-01-01)" },
+    { "zone": "Asia/Kolkata", "maxMinutes": 30, "note": "+05:30" },
+    { "zone": "Asia/Tehran", "maxMinutes": 30, "note": "+03:30" },
+    { "zone": "Australia/Adelaide", "maxMinutes": 30, "note": "+10:30 (summer time on 2000-01-01)" },
+    { "zone": "America/St_Johns", "maxMinutes": 30, "note": "-03:30" },
+    { "zone": "Australia/Lord_Howe", "maxMinutes": 60, "note": "+11:00 (summer time on 2000-01-01), although standard time is +10:30" },
+    { "zone": "America/New_York", "maxMinutes": 60, "note": "-05:00" },
+    { "zone": "UTC", "maxMinutes": 60, "note": "+00:00" }
   ]
 }

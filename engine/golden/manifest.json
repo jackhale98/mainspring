@@ -361,6 +361,19 @@
     ]
   },
   {
+    "id": "syn-22-tz-kathmandu-resolution",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/22-tz-kathmandu-resolution",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "timezone",
+      "fractional-offset",
+      "timingresolution",
+      "error"
+    ]
+  },
+  {
     "id": "bridge-header-only",
     "kind": "bridge",
     "root": "engine/golden/plans/bridge/header-only",

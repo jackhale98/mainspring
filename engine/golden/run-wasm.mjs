@@ -15,9 +15,9 @@
 // run; --syntax builds the syntax docs first, to show it leaves no state behind. --tokens runs the
 // token oracle (phase-1 T19) over every file of the selected plans first and checks each stream
 // with checkTokenStream; that too must leave no state behind. Without --only it then checks the
-// DST edge-case table (tz-edges.mjs) in the same engine. Exits 1 if any plan differs from its
-// golden, any token stream fails its check or any edge case differs from the table. Build the
-// engine first: npm run build:engine.
+// time-zone edge-case table (tz-edges.mjs) in the same engine. Exits 1 if any plan differs from
+// its golden, any token stream fails its check or any edge case differs from the table. Build
+// the engine first: npm run build:engine.
 //
 // Exports bootNodeEngine (a NodeEngine, with the token oracle), loadCorpus, planRequest and
 // compareWithGolden for other Node tools.
