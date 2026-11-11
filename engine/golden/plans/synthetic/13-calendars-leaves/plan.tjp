@@ -1,4 +1,6 @@
 # Feature: global leaves (holiday, annual, special, sick, unpaid, unemployed); resource leaves; vacation
+# Binding: each leave lies inside work of an affected resource: zed unemployed 01-05..09 (kick, zed is skipped), xan annual 01-19..23 (mid),
+# xan sick 02-04..05 (build), holiday 02-09 and yui unpaid 02-11..13 (late), vacation 02-23 (late), yui special 03-02..04 (closeout).
 # SPDX-License-Identifier: GPL-2.0-or-later
 project leaves13 "Calendars and leaves" 2026-01-05 - 2026-03-27 {
   now 2026-02-02-09:00
@@ -32,9 +34,19 @@ task calendar "Calendar work" {
     depends !kick
     allocate xan
   }
-  task late "Late" {
-    effort 6d
+  task build "Build" {
+    effort 12d
     depends !mid
+    allocate xan
+  }
+  task late "Late" {
+    start 2026-02-09
+    effort 20d
     allocate yui, zed
+  }
+  task closeout "Closeout" {
+    start 2026-02-26
+    effort 6d
+    allocate yui
   }
 }

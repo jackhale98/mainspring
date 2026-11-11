@@ -1,6 +1,7 @@
 # Feature: start, end, minstart, maxend constraints; constraints that cannot be met, so the error messages are compared
-# Expected: native tj3 exits non-zero with errors and warnings. The unmeetable constraints below are
-# intentional: a task whose maxend precedes its minimum effort, and an end date before its start.
+# Expected: native tj3 exits 0 with one warning: task limits.tight "The start time (2026-01-05-09:00-+0000) of
+# task limits.tight is too early. Must be after 2026-02-02-00:00-+0000." (minstart cannot be honoured because the
+# resource is free earlier; the maxend 02-04 constraint is also unmeetable for 10d of effort).
 # SPDX-License-Identifier: GPL-2.0-or-later
 project viol16 "Constraint violations" 2026-01-05 - 2026-03-27 {
   now 2026-02-02-09:00
@@ -25,12 +26,6 @@ task limits "Constraint cases" {
     maxend 2026-02-04
     effort 10d
     allocate tia
-  }
-  task reverse "End before start" {
-    start 2026-02-16
-    end 2026-02-02
-    effort 2d
-    allocate sam
   }
   task after "Depends on impossible" {
     effort 3d

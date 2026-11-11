@@ -1,4 +1,10 @@
 # Feature: alternative allocation; select (maxloaded, minloaded, minallocated, order); persistent; mandatory
+# Binding: every select mode sits on an allocation that has alternatives (the body binds to the last allocated
+# resource, so each is written allocate x { alternative y, z select mode }). Early load tasks book ada 8d,
+# bea 6d, cy 1d and dev 6d; "crit" (cy only, 15d, in March) makes cy the most critical resource.
+# Resulting picks (see README): maxloaded -> ada, minloaded -> cy, minallocated -> bea, order -> dev.
+# persistent: sticky (persistent) stays on p1 while a high-priority task blocks p1; fluid (not persistent)
+# moves to q2 during the block. mandatory: m1 is on leave 03-04..03-06 and the mandatory allocation stops work.
 # SPDX-License-Identifier: GPL-2.0-or-later
 project select15 "Allocation selection" 2026-01-05 - 2026-03-27 {
   now 2026-02-02-09:00
@@ -16,43 +22,120 @@ resource cy "Cy" {
 resource dev "Dev" {
 }
 
+resource p1 "P1" {
+}
+
+resource p2 "P2" {
+}
+
+resource q1 "Q1" {
+}
+
+resource q2 "Q2" {
+}
+
+resource m1 "M1" {
+  leaves annual 2026-03-04 - 2026-03-06
+}
+
+resource m2 "M2" {
+}
+
 task alloc "Allocation policies" {
+  task loads "Preloads" {
+    priority 900
+    task load_ada "Load Ada" {
+      start 2026-01-05
+      effort 8d
+      allocate ada
+    }
+    task load_bea "Load Bea" {
+      start 2026-01-05
+      effort 6d
+      allocate bea
+    }
+    task load_cy "Load Cy" {
+      start 2026-01-05
+      effort 1d
+      allocate cy
+    }
+    task load_dev "Load Dev" {
+      start 2026-01-05
+      effort 6d
+      allocate dev
+    }
+    task crit "Critical Cy" {
+      priority 100
+      start 2026-03-02
+      effort 15d
+      allocate cy
+    }
+  }
   task maxl "Pick max loaded" {
-    effort 6d
-    allocate ada, bea {
-      alternative cy
+    priority 800
+    start 2026-02-02
+    effort 4d
+    allocate cy {
+      alternative ada, bea, dev
       select maxloaded
     }
   }
   task minl "Pick min loaded" {
-    effort 6d
-    allocate ada, bea, cy {
+    priority 700
+    start 2026-02-16
+    effort 4d
+    allocate ada {
+      alternative bea, cy, dev
       select minloaded
     }
   }
   task mina "Pick min allocated" {
-    effort 5d
-    allocate ada, bea, cy {
+    priority 600
+    start 2026-02-23
+    effort 4d
+    allocate cy {
+      alternative ada, bea, dev
       select minallocated
     }
   }
   task ordered "Pick in order" {
+    priority 500
+    start 2026-02-02
     effort 4d
-    allocate cy, bea {
+    allocate dev {
+      alternative cy, bea, ada
       select order
     }
   }
+  task block "Blocks p1 and q1" {
+    priority 900
+    start 2026-02-04
+    effort 2d
+    allocate p1, q1
+  }
   task sticky "Persistent" {
+    start 2026-02-02
     effort 6d
-    allocate ada, bea {
+    allocate p1 {
+      alternative p2
+      select order
       persistent
     }
   }
+  task fluid "Not persistent" {
+    start 2026-02-02
+    effort 6d
+    allocate q1 {
+      alternative q2
+      select order
+    }
+  }
   task pair "Mandatory" {
-    effort 4d
-    allocate dev {
+    start 2026-03-03
+    effort 8d
+    allocate m1 {
       mandatory
     }
-    allocate ada, bea
+    allocate m2
   }
 }

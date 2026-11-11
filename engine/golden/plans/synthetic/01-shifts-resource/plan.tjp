@@ -1,4 +1,5 @@
 # Feature: shift definitions; resource shifts with date ranges; leaves inside a shift
+# Work: task build (02-02 onward) runs through the shift leave 02-16/17, past the end of partTime (02-27) and into fullTime from 03-01.
 # SPDX-License-Identifier: GPL-2.0-or-later
 project shifts01 "Shifts on resources" 2026-01-05 - 2026-03-27 {
   now 2026-02-02-09:00
@@ -36,7 +37,7 @@ task project "Shift project" {
   }
   task build "Build" {
     start 2026-02-02
-    effort 6d
+    effort 34d
     allocate ann, ben
   }
 }
