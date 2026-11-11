@@ -1,0 +1,58 @@
+# Feature: alternative allocation; select (maxloaded, minloaded, minallocated, order); persistent; mandatory
+# SPDX-License-Identifier: GPL-2.0-or-later
+project select15 "Allocation selection" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+resource ada "Ada" {
+}
+
+resource bea "Bea" {
+}
+
+resource cy "Cy" {
+}
+
+resource dev "Dev" {
+}
+
+task alloc "Allocation policies" {
+  task maxl "Pick max loaded" {
+    effort 6d
+    allocate ada, bea {
+      alternative cy
+      select maxloaded
+    }
+  }
+  task minl "Pick min loaded" {
+    effort 6d
+    allocate ada, bea, cy {
+      select minloaded
+    }
+  }
+  task mina "Pick min allocated" {
+    effort 5d
+    allocate ada, bea, cy {
+      select minallocated
+    }
+  }
+  task ordered "Pick in order" {
+    effort 4d
+    allocate cy, bea {
+      select order
+    }
+  }
+  task sticky "Persistent" {
+    effort 6d
+    allocate ada, bea {
+      persistent
+    }
+  }
+  task pair "Mandatory" {
+    effort 4d
+    allocate dev {
+      mandatory
+    }
+    allocate ada, bea
+  }
+}

@@ -1,0 +1,36 @@
+# Feature: timezone Asia/Kathmandu (+05:45 fractional offset); timingresolution 15min
+# SPDX-License-Identifier: GPL-2.0-or-later
+project kathmandu10 "Fractional offset" 2026-02-02 - 2026-03-27 {
+  timingresolution 15min
+  timezone "Asia/Kathmandu"
+  now 2026-02-16-09:00
+}
+
+resource raj "Raj" {
+}
+
+resource sita "Sita" {
+}
+
+task fractional "Fractional offset" {
+  task survey "Survey" {
+    start 2026-02-02-09:00
+    effort 3d
+    allocate raj
+  }
+  task install "Install" {
+    effort 4d
+    depends !survey
+    allocate sita
+  }
+  task quarter "Quarter-hour work" {
+    start 2026-02-23-09:15
+    effort 1.25d
+    allocate raj
+  }
+  task close "Close" {
+    effort 1d
+    depends !install, !quarter
+    allocate sita
+  }
+}

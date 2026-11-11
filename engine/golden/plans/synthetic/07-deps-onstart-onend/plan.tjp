@@ -1,0 +1,49 @@
+# Feature: depends and precedes with onstart and onend targets
+# SPDX-License-Identifier: GPL-2.0-or-later
+project deps07 "Dependency targets" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+resource nina "Nina" {
+}
+
+resource omar "Omar" {
+}
+
+task chain "Chain" {
+  task a "A" {
+    start 2026-01-05
+    effort 5d
+    allocate nina
+  }
+  task b "B" {
+    effort 4d
+    depends !a { onend }
+    allocate omar
+  }
+  task c "C" {
+    effort 3d
+    depends !b { onstart }
+    allocate nina
+  }
+  task d "D" {
+    effort 3d
+    depends !a { onstart }
+    allocate omar
+  }
+  task e "E" {
+    effort 2d
+    depends !c, !d { onend }
+    allocate nina
+  }
+  task f "F" {
+    effort 2d
+    precedes !e { onstart }
+    allocate omar
+  }
+  task g "G" {
+    effort 2d
+    depends !a { onend }
+    allocate nina
+  }
+}

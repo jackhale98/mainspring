@@ -1,0 +1,9 @@
+# Feature: include target for plan 18 (subfolder include, non-ASCII resource names)
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+resource lena "Léna Müller" {
+}
+
+resource mira "Mira Øksnes" {
+  Code "M-02"
+}

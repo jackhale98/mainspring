@@ -1,0 +1,7 @@
+# Feature: include target for plan 18 (macro and task names with non-ASCII characters)
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+task prep "Vorbereitung für Übergabe" {
+  effort 2d
+  allocate lena
+}

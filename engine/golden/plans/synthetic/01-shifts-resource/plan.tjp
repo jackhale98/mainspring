@@ -1,0 +1,42 @@
+# Feature: shift definitions; resource shifts with date ranges; leaves inside a shift
+# SPDX-License-Identifier: GPL-2.0-or-later
+project shifts01 "Shifts on resources" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+shift partTime "Part time" {
+  workinghours mon - fri 9:00 - 13:00
+  leaves annual 2026-02-16 - 2026-02-17
+}
+
+shift fullTime "Full time" {
+  workinghours mon - fri 9:00 - 12:00, 13:00 - 17:00
+}
+
+resource ann "Ann" {
+  shifts partTime 2026-01-05 - 2026-02-27
+  shifts fullTime 2026-03-01 - 2026-03-31
+}
+
+resource ben "Ben" {
+  shifts fullTime 2026-01-05 - 2026-03-31
+}
+
+task project "Shift project" {
+  task design "Design" {
+    task sketch "Sketch" {
+      effort 4d
+      allocate ann
+    }
+    task review "Review" {
+      effort 3d
+      depends !sketch
+      allocate ben
+    }
+  }
+  task build "Build" {
+    start 2026-02-02
+    effort 6d
+    allocate ann, ben
+  }
+}

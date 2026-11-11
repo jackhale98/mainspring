@@ -1,0 +1,31 @@
+# Feature: timezone Australia/Sydney; southern-hemisphere DST (October and April); span across the year boundary
+# SPDX-License-Identifier: GPL-2.0-or-later
+project sydney11 "Southern DST" 2026-12-01 - 2027-02-26 {
+  timezone "Australia/Sydney"
+  now 2026-12-10-09:00
+}
+
+resource tam "Tam" {
+}
+
+resource uma "Uma" {
+}
+
+task southern "Southern hemisphere" {
+  task ferry "Across year boundary" {
+    start 2026-12-21-09:00
+    effort 15d
+    allocate tam
+  }
+  task summer "Summer work" {
+    start 2027-01-11-09:00
+    effort 10d
+    depends !ferry
+    allocate uma
+  }
+  task audit "Audit" {
+    effort 4d
+    depends !summer
+    allocate tam, uma
+  }
+}

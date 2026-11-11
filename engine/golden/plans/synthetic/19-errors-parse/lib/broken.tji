@@ -1,0 +1,7 @@
+# Feature: included file with a deliberate syntax error (see plan.tjp header for the expected location)
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+task broken "Broken task" {
+  effort 3d
+  effort @@ 2d
+}

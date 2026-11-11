@@ -1,0 +1,29 @@
+# Feature: no timezone attribute (UTC default); shows that UTC normalisation holds
+# SPDX-License-Identifier: GPL-2.0-or-later
+project utc12 "No timezone" 2026-05-04 - 2026-06-26 {
+  now 2026-05-20-09:00
+}
+
+resource vera "Vera" {
+}
+
+resource walt "Walt" {
+}
+
+task plain "Plain work" {
+  task kickoff "Kickoff" {
+    start 2026-05-04-09:00
+    effort 3d
+    allocate vera
+  }
+  task middle "Middle" {
+    effort 6d
+    depends !kickoff
+    allocate walt
+  }
+  task finish "Finish" {
+    effort 3d
+    depends !middle
+    allocate vera, walt
+  }
+}

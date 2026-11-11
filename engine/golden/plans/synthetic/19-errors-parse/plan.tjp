@@ -1,0 +1,16 @@
+# Feature: parse error inside an included .tji file, reported with file, line and column
+# Expected: native tj3 fails parsing (ok: false) at lib/broken.tji, line 6, column 10 (the first "@" in "effort @@ 2d").
+# SPDX-License-Identifier: GPL-2.0-or-later
+project errors19 "Parse error in include" 2026-01-05 - 2026-03-27 {
+  now 2026-02-02-09:00
+}
+
+include "lib/broken.tji"
+
+resource tom "Tom" {
+}
+
+task errs "Error target" {
+  effort 2d
+  allocate tom
+}

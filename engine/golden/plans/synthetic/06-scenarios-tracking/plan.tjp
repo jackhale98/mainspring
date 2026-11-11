@@ -1,0 +1,40 @@
+# Feature: trackingscenario; complete; user bookings (resource and task); fixed now
+# SPDX-License-Identifier: GPL-2.0-or-later
+project track06 "Tracking" 2026-01-05 - 2026-03-27 {
+  now 2026-02-10-09:00
+  scenario plan "Plan" {
+    scenario actual "Actual" {
+    }
+  }
+  trackingscenario actual
+}
+
+resource jo "Jo" {
+}
+
+resource kai "Kai" {
+}
+
+task proj "Tracked project" {
+  task first "First" {
+    start 2026-01-05
+    effort 5d
+    complete 100
+    allocate jo
+    booking jo 2026-01-05-09:00 - 2026-01-05-17:00
+  }
+  task second "Second" {
+    effort 6d
+    complete 40
+    start 2026-01-12-09:00
+    allocate jo
+    booking jo 2026-01-12-09:00 - 2026-01-12-17:00
+    booking jo 2026-01-13-09:00 - 2026-01-13-17:00
+  }
+  task third "Third" {
+    effort 4d
+    complete 0
+    depends !second
+    allocate kai
+  }
+}
