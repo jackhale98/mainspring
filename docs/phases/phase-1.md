@@ -828,4 +828,14 @@ them.
     engine hints resolve them. Queries may use the element's own range or its widened deletion
     range (with its line or leading comments); both are safe. X5 (`expanded-only`) is computed by
     the index (T8) from engine hints.
+11. **Corpus counts (engine fixes).** Two time-zone goldens were added while fixing wasm/native
+    differences found in review: `syn-21-tz-dst-edges-newyork` (DST gaps and overlaps west of UTC)
+    and `syn-22-tz-kathmandu-resolution` (`Time#getlocal` and the zone's timing-resolution cap).
+    The golden corpus is now 36 plans (43 files), not the 34 plans (41 files) in sections 3 and 9.1;
+    the round-trip and parity suites assert the manifest's count. Known remaining difference:
+    strftime `%Z` time-zone abbreviations are empty in wasm (Intl has no tzdata abbreviations), so
+    a plan whose own `timeformat` uses `%Z` shows no abbreviation in the browser.
+12. **T19 split.** The engine part of T19 (the token oracle, Node only) is merged; the differential
+    test `tests/grammar/scanner-diff.test.ts` is still to do and runs in the `fidelity` job, which
+    builds the engine.
 
