@@ -214,6 +214,38 @@ describe('visits (TaskJuggler reads a file once per include site)', () => {
 		).toBeGreaterThan(0);
 	});
 
+	it('places each position through its own visit when comparing two files', () => {
+		const tTask = 'include "n.tji"\n'.length;
+		// n.tji on visit 2 (under g1) is read before t.tji's task on visit 3 (under g2) ...
+		expect(
+			compareParseOrder(
+				g,
+				{ file: 'n.tji', from: 0, visit: 2 },
+				{ file: 't.tji', from: tTask, visit: 3 },
+			),
+		).toBeLessThan(0);
+		// ... and n.tji on visit 4 after t.tji's task on visit 1.
+		expect(
+			compareParseOrder(
+				g,
+				{ file: 'n.tji', from: 0, visit: 4 },
+				{ file: 't.tji', from: tTask, visit: 1 },
+			),
+		).toBeGreaterThan(0);
+		// A position without its own visit uses `which`; the other keeps its own.
+		expect(
+			compareParseOrder(
+				g,
+				{ file: 'n.tji', from: 0 },
+				{ file: 't.tji', from: tTask, visit: 1 },
+				'first',
+			),
+		).toBeLessThan(0);
+		expect(
+			compareParseOrder(g, { file: 'n.tji', from: 0 }, { file: 't.tji', from: tTask, visit: 1 }),
+		).toBeGreaterThan(0);
+	});
+
 	it('stops at the visit limit', async () => {
 		const { VISIT_LIMIT } = await import('./includes');
 		// A chain of doubling includes: 2^14 visits would be made.
@@ -238,7 +270,28 @@ describe('prefix details', () => {
 			['x.tji', null, 'macro-prefix', 1],
 			['y.tji', null, null, 2],
 		]);
-		expect(g.visits.map((v) => v.prefixUnknown)).toEqual([false, true, true]);
+		expect(g.visits.map((v) => [v.taskPrefixUnknown, v.resourcePrefixUnknown])).toEqual([
+			[false, false],
+			[true, false],
+			[true, false],
+		]);
+	});
+
+	it('keeps task and resource prefixes apart, and labels only macro tokens', () => {
+		const g = graphOf({
+			'plan.tjp': `${HEADER}\nresource r "R"\ninclude "x.tji" { taskprefix ${'${pre}'} resourceprefix r }\ninclude "y.tji" { taskprefix "g1" }\n`,
+			'x.tji': '',
+			'y.tji': '',
+		});
+		expect(g.edges.map((e) => [e.target, e.taskPrefix, e.resourcePrefix, e.problem])).toEqual([
+			['x.tji', null, 'r', 'macro-prefix'],
+			['y.tji', null, null, null],
+		]);
+		expect(g.visits.map((v) => [v.taskPrefixUnknown, v.resourcePrefixUnknown])).toEqual([
+			[false, false],
+			[true, false],
+			[true, false],
+		]);
 	});
 
 	it('records the @property a nested include inherits (rule_taskHeader)', () => {
