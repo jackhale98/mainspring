@@ -1,0 +1,50 @@
+[
+  {
+    "id": "upstream-tutorial",
+    "kind": "upstream",
+    "root": "engine/tj/examples/Tutorial",
+    "entry": "tutorial.tjp",
+    "now": null,
+    "features": ["scenarios", "timezone", "accounts", "leaves", "limits", "macros", "extend", "journal", "complete"]
+  },
+  {
+    "id": "upstream-fedora-20",
+    "kind": "upstream",
+    "root": "engine/tj/examples/Fedora-20",
+    "entry": "f-20.tjp",
+    "now": "2013-09-02T12:00:00Z",
+    "features": ["include", "macros", "scenarios", "timezone", "workinghours", "milestones", "precedes", "flags", "large"]
+  },
+  {
+    "id": "upstream-template",
+    "kind": "upstream",
+    "root": "engine/tj/examples/ProjectTemplate",
+    "entry": "template.tjp",
+    "now": null,
+    "features": ["timezone", "accounts", "vacation", "macros", "extend", "journal", "flags"]
+  },
+  {
+    "id": "upstream-scrum",
+    "kind": "upstream",
+    "root": "engine/tj/examples/Scrum",
+    "entry": "scrum.tjp",
+    "now": null,
+    "features": ["sprints", "effort", "depends"]
+  },
+  {
+    "id": "upstream-todolist",
+    "kind": "upstream",
+    "root": "engine/tj/examples/ToDo-List",
+    "entry": "todolist.tjp",
+    "now": null,
+    "features": ["complete", "priority", "macros", "journal"]
+  },
+  {
+    "id": "poc-sample",
+    "kind": "poc",
+    "root": "engine/golden/plans/poc-sample",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": ["timezone", "leaves", "resource-groups", "depends", "milestones"]
+  }
+]

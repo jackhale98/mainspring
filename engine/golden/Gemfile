@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Gems for the native golden recorder only (engine/golden/record-native.mjs).
+# Never used in CI and never shipped in the browser bundle.
+#
+# TaskJuggler's scheduler path needs term-ansicolor (MessageHandler, Log), drb
+# (required by TaskJuggler.rb) and base64 (required by UTF8String.rb). Ruby 3.4
+# moved drb and base64 from default gems to bundled gems, so under Bundler they
+# must be listed here. mail, webrick and prawn are not loaded by scheduling or
+# by the tj3 CSV report that the cross-check uses.
+#
+# tins (term-ansicolor's only dependency) is held at 1.33: later releases pull
+# in irb, rdoc, prism and rbs, which the recorder never uses.
+#
+# Lock with Bundler 2.x (`bundle _2.5.22_ lock`), which Ruby 3.4's Bundler 2.6
+# reads without switching versions.
+source 'https://rubygems.org'
+
+gem 'term-ansicolor', '~> 1.11'
+gem 'tins', '~> 1.33.0'
+gem 'drb', '~> 2.2'
+gem 'base64', '~> 0.2'

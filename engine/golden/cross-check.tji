@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# cross-check.tji - serializer cross-check report (docs/phases/phase-0.md,
+# section 6.2, step 5).
+#
+# record-native.mjs copies this file into the plan's workspace and runs the
+# real tj3 CLI from engine/tj/bin with it as a second input file:
+#
+#   tj3 --silent --no-color -f --report mainspring_crosscheck \
+#       <entry> mainspring-cross-check.tji
+#
+# tj3 then writes mainspring-cross-check.csv (into its working directory) with
+# one row per task and active scenario: scenario name, full task id, start
+# and end in UTC. The script checks those dates against the task dates that
+# the shared serializer (engine/bridge/serialize.rb) wrote into the golden
+# file. Parity alone cannot catch serializer bugs, because both sides run the
+# same serializer.
+#
+# The report's scenario list must name scenarios that exist, so the script
+# rewrites the body of the macro below to the plan's active scenario ids, in
+# pre-order. Left as is, the file works for plans whose top scenario is the
+# default `plan`.
+
+macro mainspring_crosscheck_scenarios [plan]
+
+taskreport mainspring_crosscheck "mainspring-cross-check" {
+  formats csv
+  timezone "UTC"
+  timeformat "%Y-%m-%dT%H:%M:%SZ"
+  scenarios ${mainspring_crosscheck_scenarios}
+  columns scenario, id, start, end
+  hidetask 0
+  sorttasks tree
+}
