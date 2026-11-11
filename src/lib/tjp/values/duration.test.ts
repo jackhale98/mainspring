@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
+import { createTimeZoneHost } from '../../../engine/runtime';
 import { projectContext } from './context';
 import {
+	TIMING_RESOLUTIONS,
+	checkTimingResolution,
 	calendarSlots,
 	durationAmount,
 	equivalentDurations,
@@ -12,6 +15,7 @@ import {
 	type Duration,
 } from './duration';
 import { float, int } from './number';
+import { TZ_TABLE } from './testing/tz-table';
 
 const dur = (text: string): Duration => {
 	const r = parseDuration(text);
@@ -167,5 +171,44 @@ describe('durationAmount', () => {
 		expect(equivalentDurations(dur('1w'), dur('5d'), 'effort', ctx)).toBe(true);
 		expect(equivalentDurations(dur('1w'), dur('5d'), 'duration', ctx)).toBe(false);
 		expect(equivalentDurations(dur('8h'), dur('1d'), 'length', ctx)).toBe(true);
+	});
+});
+
+describe('checkTimingResolution', () => {
+	const zones = createTimeZoneHost();
+
+	it('accepts only the listed values', () => {
+		for (const m of TIMING_RESOLUTIONS)
+			expect(checkTimingResolution(m)).toEqual({ ok: true, value: m });
+		expect(checkTimingResolution(7)).toMatchObject({ ok: false, error: { tj: 'bad_timing_res' } });
+	});
+
+	// engine/golden/tz-edge-cases.json: the cap, then the next allowed value above it.
+	it.each(TZ_TABLE.resolutions)('caps $zone at $maxMinutes min', (r) => {
+		const env = { zone: r.zone, zones };
+		expect(checkTimingResolution(r.maxMinutes, env)).toEqual({ ok: true, value: r.maxMinutes });
+		const above = TIMING_RESOLUTIONS.find((m) => m > r.maxMinutes);
+		if (above === undefined) return;
+		expect(checkTimingResolution(above, env)).toMatchObject({
+			ok: false,
+			error: {
+				code: 'number-range',
+				tj: 'too_large_timing_res',
+				args: { got: above, max: r.maxMinutes },
+			},
+		});
+	});
+
+	it('caps nothing in UTC and needs zone data elsewhere', () => {
+		expect(checkTimingResolution(60, { zone: null })).toEqual({ ok: true, value: 60 });
+		expect(checkTimingResolution(60, { zone: 'Asia/Kathmandu' })).toMatchObject({
+			ok: false,
+			error: { code: 'zone-data' },
+		});
+		// bad_timing_res comes first, as in TjpSyntaxRules.rb.
+		expect(checkTimingResolution(7, { zone: 'Asia/Kathmandu', zones })).toMatchObject({
+			ok: false,
+			error: { tj: 'bad_timing_res' },
+		});
 	});
 });
