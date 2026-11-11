@@ -3,7 +3,7 @@
 # tokens.rb - the token oracle (docs/phases/phase-1.md, sections 5.1 and 6.9, task T19).
 # It runs TaskJuggler's own ProjectFileScanner over one buffer and returns every token the
 # scanner produces, with its offsets in that buffer, so that the TypeScript port of the scanner
-# (src/lib/tjp/grammar/tokens.ts) can be checked against it. Test only: the browser worker never
+# (src/lib/tjp/grammar/scanner.ts and scanner-core.ts) can be checked against it. Test only: the browser worker never
 # calls it. TJBridge.tokens (tj_bridge.rb) requires this file on first use; natively,
 # engine/bridge/native/tokens.rb does (engine/golden/check-tokens.mjs).
 #

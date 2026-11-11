@@ -298,7 +298,7 @@ Checks:
 
 | Command | What it does |
 | --- | --- |
-| `npx vitest run tests/engine/token-oracle-smoke.test.ts` | Smoke test in Node wasm on 14 fixtures: offsets slice back to each item's text, plus macro, CRLF, BOM, UTF-16 and error cases. Part of `npm run test:unit`; skipped when `public/engine` is not built |
+| `npx vitest run tests/engine/token-oracle-smoke.test.ts` | Smoke test in Node wasm on 14 fixtures: offsets slice back to each item's text, plus macro, CRLF, BOM, UTF-16 and error cases. Part of `npm run test:unit`; skipped when `public/engine` is not built, so it does not run in CI's `check` job (the Phase 1 `fidelity` job, which builds the engine, will run it) |
 | `node engine/golden/check-tokens.mjs [<path>]...` | Developer-only (needs native Ruby): native Ruby and the built engine must give identical results on every `.tjp`/`.tji` under `tests/fixtures/tjp`, `engine/golden/plans`, the manifest's files and TaskJuggler's `test/TestSuite/Syntax/{Correct,Errors}`, each result must pass `checkTokenStream`, and scanner errors must match the files' `# MARK: error` lines |
 | `node engine/golden/run-wasm.mjs --tokens` | The oracle over every golden plan file before the goldens run |
 
