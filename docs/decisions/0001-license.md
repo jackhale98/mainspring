@@ -32,3 +32,12 @@ GPL-2.0-only.
   `THIRD_PARTY_NOTICES.md`.
 - Mycelium modules copied in Phase 4 must be relicensed to GPL-2.0-or-later first. That is
   possible only if their sole author agrees, so check for outside contributions before copying.
+
+## Addendum, 2026-11-11: ports of TaskJuggler code
+
+Some Mainspring files are close translations of TaskJuggler's Ruby code into TypeScript or Ruby
+patches (the tokenizer port of `ProjectFileScanner`, parts of the value parsers, the wasm time
+patch, and the keyword table built from TaskJuggler's documentation). Those files are derived
+from GPL-2.0-only code, so they carry `SPDX-License-Identifier: GPL-2.0-only` and a header line
+naming the TaskJuggler source they follow. All other Mainspring files stay GPL-2.0-or-later. The
+distributed app is GPL-2.0 either way.
