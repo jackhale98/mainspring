@@ -1,0 +1,15 @@
+dist
+node_modules
+.astro
+package-lock.json
+public/engine
+test-results
+playwright-report
+# Vendored or frozen: never reformatted.
+engine
+poc
+docs/phases/screenshots
+# Project docs and agent definitions are owned by the architect and docs-writer.
+.claude
+docs
+CLAUDE.md

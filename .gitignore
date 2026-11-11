@@ -1,2 +1,14 @@
+node_modules/
+dist/
+.astro/
+.wrangler/
+coverage/
+test-results/
+playwright-report/
+# Built engine assets (spec 11.9): produced by `npm run build:engine`, never committed.
+public/engine/
+.env
+.env.*
+.DS_Store
 # Claude Code agent worktrees
 .claude/worktrees/
