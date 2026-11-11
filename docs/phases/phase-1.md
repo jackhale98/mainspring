@@ -1,6 +1,6 @@
 # Phase 1: Document layer and text mode
 
-Status: draft for the user's approval. Sources: `docs/BUILD_PLAN.md` ("Phase 1", "Architecture" (Document layer, Edit pipeline, State), "UX and interaction design" (Text mode, Direct manipulation, Layouts), "TaskJuggler capabilities to expose", "Testing and quality", "Risks and mitigations"), `docs/phases/phase-0.md`, `docs/phases/phase-0-gate.md`, ADR-0001, ADR-0002 and its addendum. The grammar design comes from `engine/tj/lib/taskjuggler/ProjectFileScanner.rb`, `TextParser/Scanner.rb` and `TjpSyntaxRules.rb` at `3b36c79`. Section 13 lists the open questions and section 14 the conflicts with the plan. This spec does not settle them silently.
+Status: approved by the user on 2026-11-11, with every recommendation in section 13 (recorded in ADR-0003). Sources: `docs/BUILD_PLAN.md` ("Phase 1", "Architecture" (Document layer, Edit pipeline, State), "UX and interaction design" (Text mode, Direct manipulation, Layouts), "TaskJuggler capabilities to expose", "Testing and quality", "Risks and mitigations"), `docs/phases/phase-0.md`, `docs/phases/phase-0-gate.md`, ADR-0001, ADR-0002 and its addendum. The grammar design comes from `engine/tj/lib/taskjuggler/ProjectFileScanner.rb`, `TextParser/Scanner.rb` and `TjpSyntaxRules.rb` at `3b36c79`. Section 13 lists the open questions and section 14 the conflicts with the plan. This spec does not settle them silently.
 
 ## 1. Scope
 
@@ -662,7 +662,7 @@ Each task runs in its own worktree and goes through `reviewer` before merge.
 | T20 | End-to-end text-mode specs and screenshots (9.4) | `test-writer` | `tests/e2e/text-mode.spec.ts` | T15 |
 | T21 | Performance and accessibility audit (8.4, axe, keyboard walkthrough of open, edit, read diagnostics) | `perf-a11y-auditor` | `tests/e2e/text-mode-perf.spec.ts`, report for the gate | T15 |
 | T22 | CI changes (9.5), including the carry-over nightly jobs | `test-writer`; `engine-specialist` reviews the golden config | `.github/workflows/*.yml`, `scripts/test-golden.mjs`, `playwright.golden.config.ts`, `scripts/ci/no-ruby.mjs` | T2; jobs added as T17, T18 and T20 land |
-| T23 | ADR-0003 recording the user's answers to section 13 | `docs-writer` formats; **user decides** | `docs/decisions/0003-document-layer.md` | user answers; before T9, T17 and T22 merge |
+| T23 | **Done.** ADR-0003 recording the user's answers to section 13 | `docs-writer` formats; **user decides** | `docs/decisions/0003-document-layer.md` | user answers; before T9, T17 and T22 merge |
 | T24 | Gate evidence | main session; `test-runner` runs the suites | `docs/phases/phase-1-gate.md` | all |
 
 ### 10.1 Parallel waves
