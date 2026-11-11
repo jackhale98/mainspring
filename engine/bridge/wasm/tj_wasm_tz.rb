@@ -58,9 +58,11 @@ module TJWasmTZ
   end
 
   # UTC offset in seconds of +zone+ at UTC instant +epoch+, cached per
-  # 15-minute block of UTC time. Every caller passes a UTC instant (never a
-  # local wall-clock value), so the key is the instant's block. The cache
-  # assumes every offset change in a zone falls on a 15-minute UTC boundary.
+  # 15-minute block of UTC time. The key and the value come from the same
+  # instant, so the cache is right whatever the caller means by +epoch+
+  # (local_to_utc probes at a wall-clock value plus or minus a day, read as
+  # an instant). The cache assumes every offset change in a zone falls on a
+  # 15-minute UTC boundary.
   # That holds for every zone in tzdata 2026e from 2023 to 2037, so for the
   # golden corpus (2026 to 2028), but not for every historical rule: local
   # mean time offsets have odd minutes and seconds, and some changes happened
@@ -77,8 +79,7 @@ module TJWasmTZ
   #
   # It resolves wall-clock times the way native Ruby's Time.local does
   # (find_time_t in time.c, the same in Ruby 3.3 and 3.4; it searches with
-  # localtime_r and never calls mktime), checked against native Ruby 3.3.6 on
-  # glibc for every tzdata 2026e zone and change from 1970 to 2037:
+  # localtime_r and never calls mktime):
   #
   # - a time that exists once is that instant;
   # - a time repeated by a backward change (overlap) is the later instant,
@@ -90,9 +91,15 @@ module TJWasmTZ
   # The offsets one day before and after +wall+ are the offsets on both sides
   # of any change near it (offsets stay within -12 h to +14 h, and no zone
   # changes twice within two days in that range), so the candidates are
-  # wall - before and wall - after. The one difference found is an overlap
-  # longer than two hours (only Antarctica/Rothera, 1976-12-01): Ruby looks
-  # only two hours ahead for the later instant, so in the first hour of that
+  # wall - before and wall - after.
+  #
+  # engine/golden/tz-patch-sweep.rb (developer only) loads this file in
+  # native Ruby with glibc's offsets standing in for Intl and compares
+  # Time.local with native around every change of every tzdata zone, 1970 to
+  # 2037 by default. With Ruby 3.3.6 and tzdata 2026e the only differences
+  # are changes off a quarter hour (the cache, see offset) and one overlap
+  # longer than two hours (Antarctica/Rothera, 1976-12-01): Ruby looks only
+  # two hours ahead for the later instant, so in the first hour of that
   # three-hour overlap it returns the earlier one.
   #
   # The previous version (from the PoC) applied the offset at wall, then the

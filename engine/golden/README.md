@@ -237,7 +237,16 @@ and `Time#zone` are the one known gap). The table is checked on both sides with
 | `node engine/golden/tz-edges.mjs` | The built wasm engine in Node: one generated plan per zone and change with one milestone per case, and one plan per cap that sets the next value above it, which must fail with `too_large_timing_res` (`run-wasm.mjs` runs it after the corpus) |
 
 The table's unit tests (`tests/golden/tz-edges.test.ts`) also check every entry against the
-rules above with Node's own Intl offsets, so CI covers the table without Ruby.
+rules above with Node's own Intl offsets, so CI covers the table without Ruby, and the TJP value
+code (`src/lib/tjp/values`, `localToEpoch` and `checkTimingResolution`) is tested against all of
+it.
+
+For a far wider check of the patch, `ruby engine/golden/tz-patch-sweep.rb [from [to [zone...]]]`
+(developer only; needs zdump, no gems) loads `tj_wasm_tz.rb` into native Ruby with glibc's
+offsets standing in for Intl and compares `Time.local` with native around every change of every
+tzdata zone, 1970 to 2037 by default. It exits 1 on any difference it cannot explain; with Ruby
+3.3.6 and tzdata 2026e the only differences are 206 local times at changes off a quarter hour
+(the patch's offset cache) and 4 in the three-hour Antarctica/Rothera overlap of 1976.
 `syn-21-tz-dst-edges-newyork` and `syn-22-tz-kathmandu-resolution` are the full-plan
 counterparts.
 
