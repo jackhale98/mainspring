@@ -20,7 +20,10 @@ describe('build-grammar', () => {
 		const fresh = await generate(read(GRAMMAR));
 		expect(compareFile(PARSER_OUT, read(PARSER_OUT), fresh.parser)).toBeNull();
 		expect(compareFile(TERMS_OUT, read(TERMS_OUT), fresh.terms)).toBeNull();
-		expect(fresh.parser.startsWith('// SPDX-License-Identifier: GPL-2.0-only\n')).toBe(true);
+		for (const text of [fresh.parser, fresh.terms]) {
+			expect(text.startsWith('// SPDX-License-Identifier: GPL-2.0-only\n')).toBe(true);
+			expect(text.split('\n', 6).join('\n')).toContain("TaskJuggler's TjpSyntaxRules.rb");
+		}
 	}, 30_000);
 
 	it('reports the first differing line', () => {

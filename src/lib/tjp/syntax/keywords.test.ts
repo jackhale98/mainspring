@@ -43,12 +43,23 @@ describe('the committed table', () => {
 		expect(new Set(ids).size).toBe(ids.length);
 		expect(ids).toEqual([...ids].sort());
 		for (const k of KEYWORDS) {
-			expect(k.name).toBe(k.keyword.split('.')[0]);
+			// The id without its scope, except where TaskJuggler's parser expects another word: the
+			// first word of the syntax line ('leaveallowance' is written 'leaveallowances').
+			const first = /^[a-z][a-z0-9]*/.exec(k.syntax)?.[0];
+			const written = k.contexts.length > 0 && first ? first : k.keyword.split('.')[0];
+			expect(k.name, k.keyword).toBe(written);
 			expect(k.name).toMatch(/^[a-z][a-z0-9]*$/);
 			expect(k.syntax.length).toBeGreaterThan(0);
 			expect(k.summary.length).toBeGreaterThan(0);
 			expect(k.contexts).toEqual([...new Set(k.contexts)].sort());
 		}
+	});
+
+	it('differs from the id only for leaveallowances', () => {
+		const renamed = KEYWORDS.filter((k) => k.name !== k.keyword.split('.')[0]);
+		expect(renamed.map((k) => `${k.keyword}:${k.name}`)).toEqual([
+			'leaveallowance:leaveallowances',
+		]);
 	});
 
 	it('names only contexts that are keywords, the top level or the prolog', () => {

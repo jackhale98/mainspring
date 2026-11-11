@@ -19,6 +19,7 @@ import {
 	type KeywordEntry,
 	type TopContextName,
 } from '../syntax/keywords';
+import { readWord } from './chars';
 import { headBodyContext, resolveHeadKeyword } from './keyword-extras';
 import { HEAD_KEYWORD_TERMS, STATEMENT_TERMS } from './terms';
 import * as T from './parser.terms.generated';
@@ -68,17 +69,6 @@ export function topFrame(top: TopContextName): TjpFrame {
 	return new TjpFrame(topContextId(top), null, null, null);
 }
 
-/** The identifier (word characters) at `offset` from the stream position. */
-function wordAt(input: InputStream, offset: number): string {
-	let s = '';
-	for (let i = offset; ; i++) {
-		const c = input.peek(i);
-		const word = (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c === 95;
-		if (!word) return s;
-		s += String.fromCharCode(c);
-	}
-}
-
 /** The context the body of `entry` opens when its subject is `subject`. */
 function subjectContext(entry: KeywordEntry, subject: string): ContextId | null {
 	return headBodyContext(entry, subject) ?? (isContext(subject) ? subject : null);
@@ -103,12 +93,23 @@ export function shiftFrame(
 			return frame.parent ?? frame;
 		case T.SupplementKind:
 			if (frame.awaiting)
-				return frame.with(subjectContext(frame.awaiting, wordAt(input, offset)), null);
+				return frame.with(
+					subjectContext(
+						frame.awaiting,
+						readWord((i) => input.peek(i), offset),
+					),
+					null,
+				);
 			return frame;
 		default:
 			if (HEAD_KEYWORD_TERMS.has(term)) {
 				const entry =
-					frame.ctx === null ? null : resolveHeadKeyword(wordAt(input, offset), frame.ctx);
+					frame.ctx === null
+						? null
+						: resolveHeadKeyword(
+								readWord((i) => input.peek(i), offset),
+								frame.ctx,
+							);
 				if (!entry) return frame.with(null, null);
 				const body = headBodyContext(entry);
 				return frame.with(body, body === null ? entry : null);
