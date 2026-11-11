@@ -79,7 +79,7 @@ One external tokenizer (`tokens.ts`) produces every token, so Lezer never applie
 - **Numbers and dates.** `Date` (`\d{4}-\d{1,2}-\d{1,2}(-\d{1,2}:\d{1,2}(:\d{1,2})?(-[-+]?\d{4})?)?`) before `Time` before `Float` (`\d*\.\d+`) before `Integer`. So `5d` is `Integer` + `Identifier`, as in TaskJuggler.
 - **Strings.** `"…"` and `'…'` may span lines; `\"` and `\'` are the only escapes. A cut-here string starts with `-8<-`, which must end its line (trailing whitespace is allowed), and closes at a line whose first non-blank text is `->8-`.
 - **Macro bodies.** `[` always starts a `MacroBody`. On one line it is greedy to the last `]` before the newline. Across lines it ends at the first line whose last character is `]`.
-- **Macro calls.** `${ name "arg" … }`, with an optional `?`, may span lines. A glued prefix (`[-a-zA-Z_0-9>:.+]*`) and any directly following word characters form one `MacroWord` token, e.g. `${content}${major}` or `f${major}x`. Strings that contain `${` stay `String` tokens and are flagged as templated. `$(NAME)` is `EnvRef` and stays on one line.
+- **Macro calls.** `${ name "arg" … }`, with an optional `?`, may span lines. A glued prefix (`[-a-zA-Z_0-9>:.+]*`) and a glued suffix of the same character class form one `MacroWord` token (so `${y}-01-01` and `a.${b}.c` are single tokens; settled in the T4 review), e.g. `${content}${major}` or `f${major}x`. Strings that contain `${` stay `String` tokens and are flagged as templated. `$(NAME)` is `EnvRef` and stays on one line.
 - **Punctuation.** `<=`, `>=` and `!=` are single tokens; any other character is a one-character token.
 - **Errors.** An unterminated string, comment or macro becomes an error token that runs to the end of the file, as TaskJuggler's `runaway_token`.
 
