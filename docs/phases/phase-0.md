@@ -227,7 +227,7 @@ Manifest (`engine/golden/manifest.json`):
 ```ts
 export interface GoldenPlan {
   id: string;                         // e.g. "upstream-fedora-20", "syn-09-tz-dst-berlin"
-  kind: 'upstream' | 'poc' | 'synthetic';
+  kind: 'upstream' | 'poc' | 'synthetic' | 'bridge';
   root: string;                       // repo-relative directory mounted as /workspace
   entry: WorkspacePath;               // relative to root
   files?: string[];                   // globs under root; default ["**/*.tjp", "**/*.tji"]
