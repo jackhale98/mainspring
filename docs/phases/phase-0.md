@@ -1,6 +1,6 @@
 # Phase 0: Foundation and engine
 
-Status: draft, waiting for approval. Source: `docs/BUILD_PLAN.md` ("Phase 0: Foundation and engine", "Engine worker", "Testing and quality", "Risks and mitigations"). The plan's open points and conflicts are listed in section 11. This spec does not settle them.
+Status: approved 2026-11-11. T0, T1 and T3 are done (see the task table). Source: `docs/BUILD_PLAN.md` ("Phase 0: Foundation and engine", "Engine worker", "Testing and quality", "Risks and mitigations"). The plan's open points and conflicts are listed in section 11. This spec does not settle them.
 
 ## 1. Scope
 
@@ -23,7 +23,7 @@ Status: draft, waiting for approval. Source: `docs/BUILD_PLAN.md` ("Phase 0: Fou
 - No completion UI. `syntax()` is built and tested, but nothing uses it yet.
 - No Gantt, resource, workload or calendar views. No gestures (Phases 2 and 3).
 - No derived schedule data: critical path, float, load per day and health checks are Phase 2 and 3.
-- No bridge fields beyond the v1 shape in section 3.3. Effort done and left, load per day and float inputs come later, with a `schemaVersion` bump and re-recorded goldens.
+- No bridge fields beyond the v1 shape in section 3.1. Effort done and left, load per day and float inputs come later, with a `schemaVersion` bump and re-recorded goldens.
 - No parse-skipping fast path (Phase 2 spike).
 - No storage, sync or auth. No Mycelium `auth/git/dropbox/onedrive/sync/store` modules (Phase 4).
 - No service worker, PWA install or offline mode. No deploy to staging or production (Phase 4).
@@ -305,10 +305,10 @@ Every task runs in its own worktree and goes through `reviewer` before merge (CL
 
 | # | Task | Owner | Files | Depends on |
 | --- | --- | --- | --- | --- |
-| T0 | Decide the license (open question). Record it as ADR-0001 | **User** decides; `docs-writer` formats | `docs/decisions/0001-license.md` | none; blocks the phase (section 10) |
-| T1 | Import the PoC zip unchanged into `poc/`. Record the zip's SHA-256. Leave out built binaries (ruby.wasm, bundles); note their source and version instead. Write `poc/INVENTORY.md` covering the items in 5.1 | `engine-specialist` (user provides the zip) | `poc/**` | T0, the zip being available |
+| T0 | **Done.** GPL-2.0-or-later, recorded in ADR-0001 | **User** decides; `docs-writer` formats | `docs/decisions/0001-license.md` | none; blocks the phase (section 10) |
+| T1 | **Done.** Import the PoC zip unchanged into `poc/`. Record the zip's SHA-256. Leave out built binaries (ruby.wasm, bundles); note their source and version instead. Write `poc/INVENTORY.md` covering the items in 5.1 | `engine-specialist` (user provides the zip) | `poc/**` | T0, the zip being available |
 | T2 | Scaffold from mycelium-web: Astro, Svelte 5, TS strict, Prettier, Vitest, Playwright with axe, `wrangler.jsonc` for static assets. Copy the configs and adapt names; do not copy app code. npm scripts per 7.1. Placeholder `/app` shell with desktop and phone screenshots. `strings.ts` | `ui-builder` | root configs, `src/pages/app/`, `src/lib/strings.ts`, `.gitignore`, `.nvmrc` | T0, mycelium-web attached |
-| T3 | `git subtree add --squash` TaskJuggler at `3b36c79` into `engine/tj/`, keeping its notices. Write `engine/tj.pin.json` with commit, tree SHA and version. Confirmed already: `lib/taskjuggler/version.rb` at this commit says `VERSION = '3.8.4'` | `engine-specialist` | `engine/tj/**`, `engine/tj.pin.json` | T0 |
+| T3 | **Done.** `git subtree add --squash` TaskJuggler at `3b36c79` into `engine/tj/`, keeping its notices. Write `engine/tj.pin.json` with commit, tree SHA and version. Confirmed already: `lib/taskjuggler/version.rb` at this commit says `VERSION = '3.8.4'` | `engine-specialist` | `engine/tj/**`, `engine/tj.pin.json` | T0 |
 | T4 | Port the bridge and stubs from `poc/`. Split them into `serialize.rb` (loads natively) and `wasm/` patches. Emit ScheduleResult v1 (3.1), with workspace-relative paths, canonical booking order, the `now` override, and no report generation (D7) | `engine-specialist` | `engine/bridge/**`, `engine/stubs/**` | T1, T3 |
 | T5 | Bundle build script (3.5) | `engine-specialist` | `engine/build-bundle.mjs` | T1, T2, T3 (the file list comes from T4; can start against the PoC list) |
 | T6 | Worker and runtime: port `poc/web/tj-runtime.mjs` to TypeScript in a dedicated worker. WASI in-memory FS, manifest and hash checks, `syntax()` | `engine-specialist` | `src/engine/worker.ts`, `runtime.ts`, `wasi-fs.ts` | T4, T5 |
@@ -360,7 +360,6 @@ The zip's contents are not known yet. Record each item below as found, or as mis
 | upstream-template | `ProjectTemplate/template.tjp` |
 | upstream-scrum | `Scrum/scrum.tjp` |
 | upstream-todolist | `ToDo-List/todolist.tjp` |
-| upstream-? | sixth example: the PoC's list decides (see 11.1) |
 
 **PoC sample:** `poc-sample`, in `engine/golden/plans/poc-sample/`.
 
@@ -389,7 +388,7 @@ The zip's contents are not known yet. Record each item below as found, or as mis
 | 19 | errors-parse | syntax error inside an included `.tji` at a known line and column; `ok: false` |
 | 20 | scale-1000 | generated: at least 1,000 tasks, at least 50 resources in groups, 4-level nesting, dependency chains, a 3-year horizon. Used by the gate's responsiveness test |
 
-Expected total: 27 plans (6 + 1 + 20), or 26 if 11.1 resolves to five examples. The parity spec asserts the exact count from the manifest.
+Expected total: 26 plans (5 + 1 + 20); see 11.1. The parity spec asserts the exact count from the manifest.
 
 ### 6.2 Native outputs (developer script, never run in CI)
 
@@ -463,7 +462,7 @@ Nightly (`nightly.yml`): engine timings per golden plan against `native-timings.
 | Worker state leaks between runs (parser cache) | Wrong results in the app | Single-worker shuffled corpus run |
 | License undecided | Legal; blocks the phase | T0 first |
 | mycelium-web not available to the session | T2 blocked | User attaches the repo before wave 1 |
-| CI time (27 plans in wasm, about 3× native) | Slow merges | One shared worker; per-plan timeouts; timings recorded nightly |
+| CI time (26 plans in wasm, about 3× native) | Slow merges | One shared worker; per-plan timeouts; timings recorded nightly |
 
 ## 9. Gate acceptance criteria
 
@@ -523,14 +522,14 @@ These are phase bullets, not gate criteria; they are listed for completeness.
 
 None of these are resolved silently. Items 4, 5, 6 and 14 need the user's answer and go into ADR-0002 (T15).
 
-1. **"Six bundled examples."** At `3b36c79`, upstream `examples/` holds five project files: `Tutorial/tutorial.tjp`, `Fedora-20/f-20.tjp`, `ProjectTemplate/template.tjp`, `Scrum/scrum.tjp`, `ToDo-List/todolist.tjp`. T1 must find the PoC's sixth. Otherwise the corpus is 26 plans.
+1. **"Six bundled examples." Resolved by T1.** At `3b36c79`, upstream `examples/` holds five project files, and the PoC README shows it ran exactly those five plus its own sample. The plan's "six" counts the sample. The corpus is 26 plans.
 2. **PoC location.** Plan line 14 says copy `bridge/`, `stubs/` and `web/tj-runtime.mjs` straight into the repo. The kickoff says they are in `poc/`. The plan's layout has no `poc/`. Neither has happened. This spec keeps `poc/` as a frozen reference through Phase 0; whether to delete it is decided at the gate.
 3. **"Native `tj3` JSON outputs."** `tj3` has no JSON output. This spec defines native output as unmodified TaskJuggler on native Ruby plus the shared bridge serializer, and adds a CSV cross-check against the real `tj3` CLI. Both are additions to the plan.
 4. **`now`.** `tj3` has no option to set `now`, and plans without it default to the clock. This spec adds `ScheduleRequest.options.now` (golden and test use only). That deviates from the plan's `schedule({files, entry, revision})`.
 5. **`bookings`.** This could mean user `booking` statements or scheduled allocations. This spec returns all scoreboard allocations per scenario, resource and task, the same way TaskJuggler's export emits bookings.
 6. **`cancel(revision)` and "stale results are dropped".** Ruby cannot be preempted, so `cancel` only drops pending requests and discards in-flight results. This spec delivers a finished result marked `latest: false` when a newer revision is pending, rather than dropping it, so long runs still show progress. It drops only results older than one already delivered. A strict reading would drop it instead.
 7. **Ruby version for recording.** ruby.wasm is Ruby 3.4; this session has 3.3.6. The spec requires 3.4.x natively.
-8. **Native gems and stubs.** Native recording uses real gems pinned in a Gemfile, not the wasm stubs. Whether TaskJuggler 3.8.4 needs gems beyond `term-ansicolor` and `drb` (for example `mail`) is confirmed in T9.
+8. **Native gems and stubs.** Native recording uses real gems pinned in a Gemfile, not the wasm stubs. The PoC README says the `mail` gem is never loaded by the scheduler; T9 confirms this for the native recorder.
 9. **`public/engine/`.** The layout says "built, hashed". This spec gitignores it and builds in CI, rather than committing about 9 MB binaries.
 10. **No owner for tooling and CI** in the agent table. This spec assigns the scaffold to `ui-builder` and CI to `test-writer`.
 11. **mycelium-web is not attached.** T2 copies the tooling categories the plan names. Versions and the `wrangler.jsonc` contents are taken from that repo once attached, not assumed here. Deploying is out of scope.

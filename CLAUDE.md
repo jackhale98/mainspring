@@ -22,8 +22,9 @@ only source of truth.
 - No schedule is ever computed outside the browser engine at runtime. Native `tj3` runs only in
   the developer script that produces the golden outputs.
 - Mobile counts: every UI change ships with a phone-emulation screenshot.
-- Licensing: TaskJuggler is GPL v2 only. Keep it unmodified in its own folder with its notices.
-  Do not add a license file or relicense code until the user decides the open license question.
+- Licensing: Mainspring is GPL-2.0-or-later (ADR-0001). TaskJuggler in `engine/tj/` is
+  GPL-2.0-only; keep it unmodified with its notices. Runtime dependencies must be GPL v2
+  compatible (no Apache-2.0-only or GPL v3 code in the shipped bundle).
 
 ## Conventions
 
@@ -65,5 +66,5 @@ Haiku-sized work (fixtures, test runs, log triage, docs formatting) in the main 
 
 ## Current status
 
-- Phase 0 spec drafted in `docs/phases/phase-0.md`, waiting for approval.
-- The PoC (`tj-wasm-poc.zip`) is not in the repo yet. It belongs in `poc/`.
+- Phase 0 in progress (`docs/phases/phase-0.md`, approved 2026-11-11).
+- `poc/` is the frozen proof of concept; see `poc/INVENTORY.md`. Never edit it.

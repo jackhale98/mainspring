@@ -1,0 +1,513 @@
+<title>TaskJuggler in WebAssembly</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+<style>
+/* Layout: a drafting-table workbench. Status rail on top, plan source and
+   schedule side by side (tabs on phones), task inspector under the chart. */
+:root {
+  --paper: #f3f5f2;      /* page ground, faint green-grey like drafting film */
+  --sheet: #fbfcfa;      /* panels */
+  --rule: #d5dbd4;       /* grid lines, borders */
+  --ink: #1b2420;        /* text */
+  --muted: #5d6b64;      /* secondary text */
+  --accent: #1f5d8c;     /* blueprint ink: bars, focus, buttons */
+  --accent-soft: #d9e6f1;
+  --container: #36443d;  /* summary-task brackets */
+  --weekend: #e9ede8;
+  --now: #c2410c;        /* status-date line */
+  --ok: #2f7d4f;
+  --warn: #9a6400;
+  --err: #b4232c;
+  --err-soft: #f7e1e1;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-code: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #121715; --sheet: #18201c; --rule: #2c3732; --ink: #e3eae5; --muted: #93a39a;
+    --accent: #6fa8d6; --accent-soft: #1f3344; --container: #b9c7bf; --weekend: #1d2622;
+    --now: #f08a4b; --ok: #6cc28f; --warn: #e0b04d; --err: #f07178; --err-soft: #3a1f22;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121715; --sheet: #18201c; --rule: #2c3732; --ink: #e3eae5; --muted: #93a39a;
+  --accent: #6fa8d6; --accent-soft: #1f3344; --container: #b9c7bf; --weekend: #1d2622;
+  --now: #f08a4b; --ok: #6cc28f; --warn: #e0b04d; --err: #f07178; --err-soft: #3a1f22;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 18px; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 12px; min-height: 100%;
+}
+*, *::before, *::after { box-sizing: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+h1 { font-family: var(--font-head); font-size: 1.35rem; font-weight: 600; letter-spacing: 0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--muted); font-weight: 600; }
+.lede { margin: 0; color: var(--muted); max-width: 70ch; line-height: 1.45; }
+
+.rail { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 8px 12px;
+  border: 1px solid var(--rule); background: var(--sheet); border-radius: 6px; font-size: 12.5px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.loading { color: var(--warn); } .chip.ok { color: var(--ok); } .chip.err { color: var(--err); }
+.chip.busy::before { animation: pulse 0.9s ease-in-out infinite alternate; }
+@keyframes pulse { from { opacity: 0.25 } to { opacity: 1 } }
+.metric { color: var(--muted); font-variant-numeric: tabular-nums; }
+.metric b { color: var(--ink); font-weight: 500; font-family: var(--font-code); font-size: 12px; }
+.progress { flex: 1 1 160px; height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; min-width: 120px; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+
+.tabs { display: none; gap: 4px; border-bottom: 1px solid var(--rule); }
+.tabs button { background: none; border: 0; padding: 8px 12px; cursor: pointer; color: var(--muted); font-weight: 500;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs .count { font-family: var(--font-code); font-size: 11px; color: var(--err); }
+
+.bench { display: grid; grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.4fr); gap: 12px; flex: 1; min-height: 520px; }
+.pane { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px;
+  border-bottom: 1px solid var(--rule); }
+.pane-head h2 { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.pane-head .file { font-family: var(--font-code); font-size: 12px; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.btn { border: 1px solid var(--rule); background: var(--paper); border-radius: 5px; padding: 4px 10px; cursor: pointer; font-size: 12.5px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--sheet); }
+
+/* Source editor */
+.editor { position: relative; flex: 1; display: grid; grid-template-columns: auto 1fr; min-height: 0; overflow: hidden; }
+.gutter, textarea { font-family: var(--font-code); font-size: 12.5px; line-height: 19px; }
+.gutter { margin: 0; padding: 10px 8px 10px 10px; text-align: right; color: var(--muted); background: var(--paper);
+  border-right: 1px solid var(--rule); overflow: hidden; user-select: none; white-space: pre; font-variant-numeric: tabular-nums; }
+.gutter .bad { color: var(--err); font-weight: 500; }
+textarea { border: 0; resize: none; padding: 10px 12px; background: transparent; color: var(--ink); white-space: pre;
+  overflow: auto; outline: none; tab-size: 2; min-height: 0; height: 100%; }
+textarea:focus-visible { box-shadow: inset 0 0 0 2px var(--accent-soft); }
+
+.messages { border-top: 1px solid var(--rule); max-height: 132px; overflow: auto; font-size: 12.5px; }
+.messages:empty { display: none; }
+.msg { display: grid; grid-template-columns: auto 1fr; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.msg.error { background: var(--err-soft); }
+.msg button { border: 0; background: none; padding: 0; cursor: pointer; color: var(--err); font-family: var(--font-code); font-size: 12px; text-decoration: underline; }
+.msg.warning button { color: var(--warn); }
+.msg span { min-width: 0; overflow-wrap: anywhere; }
+
+/* Gantt */
+.gantt-wrap { flex: 1; overflow: auto; position: relative; min-height: 240px; }
+.gantt { position: relative; }
+.g-head { position: sticky; top: 0; z-index: 3; display: flex; background: var(--sheet); border-bottom: 1px solid var(--rule); }
+.g-corner { position: sticky; left: 0; z-index: 4; background: var(--sheet); border-right: 1px solid var(--rule); flex: none;
+  display: flex; align-items: flex-end; padding: 0 10px 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.g-scale { position: relative; flex: none; height: 44px; }
+.g-month { position: absolute; top: 4px; font-size: 11.5px; font-weight: 600; white-space: nowrap; padding-left: 4px; border-left: 1px solid var(--rule); height: 18px; }
+.g-week { position: absolute; top: 24px; font-size: 10.5px; color: var(--muted); font-family: var(--font-code); padding-left: 3px; border-left: 1px solid var(--rule); height: 20px; font-variant-numeric: tabular-nums; }
+.g-row { display: flex; height: 32px; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.g-row:hover .g-label, .g-row:hover .g-track { background-color: var(--accent-soft); }
+.g-row.sel .g-label { box-shadow: inset 3px 0 0 var(--accent); background: var(--accent-soft); }
+.g-row.sel .g-track { background-color: var(--accent-soft); }
+.g-label { position: sticky; left: 0; z-index: 2; background: var(--sheet); border-right: 1px solid var(--rule); flex: none;
+  display: flex; align-items: center; gap: 6px; padding: 0 10px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-label.parent { font-weight: 600; }
+.g-label .id { font-family: var(--font-code); font-size: 10.5px; color: var(--muted); }
+.g-track { position: relative; flex: none; }
+.g-days { position: absolute; inset: 0; pointer-events: none; }
+.bar { position: absolute; top: 8px; height: 16px; border-radius: 3px; background: var(--accent); color: var(--sheet);
+  font-size: 10.5px; line-height: 16px; padding: 0 5px; white-space: nowrap; overflow: hidden; font-family: var(--font-code); }
+.bar.summary { top: 12px; height: 6px; border-radius: 0; background: var(--container); padding: 0; overflow: visible; }
+.bar.summary::before, .bar.summary::after { content: ""; position: absolute; bottom: -5px; border: 5px solid transparent; border-top-color: var(--container); }
+.bar.summary::before { left: -1px; border-left-color: var(--container); border-width: 5px 3px; }
+.bar.summary::after { right: -1px; border-right-color: var(--container); border-width: 5px 3px; }
+.diamond { position: absolute; top: 9px; width: 14px; height: 14px; margin-left: -7px; background: var(--now); transform: rotate(45deg); border-radius: 2px; }
+.res { position: absolute; top: 8px; font-size: 10.5px; line-height: 16px; color: var(--muted); white-space: nowrap; font-family: var(--font-code); }
+svg.links { position: absolute; top: 0; pointer-events: none; overflow: visible; }
+svg.links path { fill: none; stroke: var(--muted); stroke-width: 1.2; opacity: 0.75; }
+svg.links .arrow { fill: var(--muted); }
+.nowline { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed var(--now); z-index: 1; pointer-events: none; }
+
+/* Inspector */
+.inspector { border-top: 1px solid var(--rule); padding: 10px 12px; display: grid; gap: 8px; font-size: 13px; }
+.inspector .empty { color: var(--muted); margin: 0; }
+.insp-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.insp-title strong { font-size: 14px; }
+.insp-title code { font-family: var(--font-code); font-size: 12px; color: var(--muted); }
+dl.facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 16px; }
+dl.facts div { min-width: 0; }
+dl.facts dt { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+dl.facts dd { margin: 1px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.editrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+.stepper button { border: 0; background: var(--paper); width: 32px; height: 30px; cursor: pointer; font-size: 16px; }
+.stepper button:hover { background: var(--accent-soft); }
+.stepper output { min-width: 84px; text-align: center; font-family: var(--font-code); font-size: 12.5px; padding: 0 6px; }
+.hint { color: var(--muted); font-size: 12px; }
+.patchnote { font-family: var(--font-code); font-size: 11.5px; color: var(--ok); }
+
+.fatal { margin: 16px; padding: 12px 14px; border: 1px solid var(--err); background: var(--err-soft); border-radius: 6px; line-height: 1.5; }
+.fatal code { font-family: var(--font-code); font-size: 12px; overflow-wrap: anywhere; }
+.loadingnote { margin: auto; padding: 24px; color: var(--muted); text-align: center; line-height: 1.5; max-width: 42ch; }
+
+footer { color: var(--muted); font-size: 12px; line-height: 1.5; max-width: 90ch; }
+footer code { font-family: var(--font-code); font-size: 11.5px; }
+
+@media (max-width: 860px) {
+  .tabs { display: flex; }
+  html, body { height: auto; }
+  .bench { grid-template-columns: minmax(0, 1fr); min-height: 0; flex: none; }
+  .bench > .pane { min-height: 0; }
+  .editor { flex: none; height: 62vh; min-height: 380px; }
+  .gantt-wrap { flex: none; height: 56vh; min-height: 320px; }
+  .bench > .pane:not(.active) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .chip.busy::before { animation: none; } .progress i { transition: none; } }
+</style>
+
+<header class="top">
+  <h1>TaskJuggler <span>in WebAssembly</span></h1>
+  <p class="lede">The real TaskJuggler 3.8.4 scheduler, compiled to the browser with ruby.wasm. Edit the plan source and it reschedules here, with no server. Tap a task to change its effort from the chart; that edit is written back into the source.</p>
+</header>
+
+<section class="rail" aria-live="polite">
+  <span id="chip" class="chip loading busy">Loading</span>
+  <span id="stage" class="metric">Downloading the Ruby runtime</span>
+  <div class="progress" id="progress"><i></i></div>
+  <span class="metric" id="m-load" hidden>Startup <b id="v-load"></b></span>
+  <span class="metric" id="m-sched" hidden>Last schedule <b id="v-sched"></b></span>
+  <span class="metric" id="m-tasks" hidden>Tasks <b id="v-tasks"></b></span>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button id="tab-src" role="tab" aria-selected="false" aria-controls="pane-src">Plan source <span class="count" id="tab-err"></span></button>
+  <button id="tab-gantt" role="tab" aria-selected="true" aria-controls="pane-gantt">Schedule</button>
+</nav>
+
+<main class="bench">
+  <section class="pane" id="pane-src" aria-label="Plan source">
+    <div class="pane-head">
+      <h2><span class="file">roadmap.tjp</span></h2>
+      <div style="display:flex;gap:6px">
+        <button class="btn" id="btn-break">Add an error</button>
+        <button class="btn" id="btn-reset">Reset</button>
+      </div>
+    </div>
+    <div class="editor">
+      <pre class="gutter" id="gutter" aria-hidden="true">1</pre>
+      <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="TaskJuggler source"></textarea>
+    </div>
+    <div class="messages" id="messages" role="status"></div>
+  </section>
+
+  <section class="pane active" id="pane-gantt" aria-label="Schedule">
+    <div class="pane-head">
+      <h2 id="proj-name">Schedule</h2>
+      <span class="hint" id="proj-span"></span>
+    </div>
+    <div class="gantt-wrap" id="gantt-wrap">
+      <p class="loadingnote" id="loadingnote">Starting Ruby and TaskJuggler in your browser. The first visit downloads about 9 MB, which a real app would cache for offline use.</p>
+    </div>
+    <div class="inspector" id="inspector"><p class="empty">Select a task to see its schedule and edit its effort.</p></div>
+  </section>
+</main>
+
+<footer>
+  Proof of concept. Scheduling is done by unmodified TaskJuggler sources (GPLv2, from github.com/taskjuggler/TaskJuggler) on CRuby 3.4 compiled to WebAssembly. Small shims replace the terminal-color gem and the network daemon library, route time zones through the browser's <code>Intl</code> data, reuse the grammar tables between runs, and re-implement a few core iterators to avoid ruby.wasm's slow stack-unwinding path. Results were checked against native TaskJuggler on its six bundled example projects.
+</footer>
+
+<script>
+/*__RUNTIME__*/
+</script>
+<script>
+(() => {
+  const SAMPLE = /*__SAMPLE__*/"";
+  const $ = (id) => document.getElementById(id);
+  const src = $("src"), gutter = $("gutter");
+  let tj = null, result = null, lastGood = null, selectedId = null, timer = null, lastPatch = "";
+
+  // ---------- status rail ----------
+  function setChip(kind, text, busy) {
+    const c = $("chip"); c.className = "chip " + kind + (busy ? " busy" : ""); c.textContent = text;
+  }
+  function showMetric(id, val) { $("m-" + id).hidden = false; $("v-" + id).textContent = val; }
+  const mb = (n) => (n / 1048576).toFixed(1) + " MB";
+
+  // ---------- editor ----------
+  function lineCount(s) { let n = 1; for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 10) n++; return n; }
+  function renderGutter(badLines = new Set()) {
+    const n = lineCount(src.value); let out = "";
+    for (let i = 1; i <= n; i++) out += badLines.has(i) ? `<span class="bad">${i}</span>\n` : i + "\n";
+    gutter.innerHTML = out;
+  }
+  src.addEventListener("scroll", () => { gutter.scrollTop = src.scrollTop; });
+  src.addEventListener("input", () => { renderGutter(); scheduleSoon(); });
+  src.addEventListener("keydown", (e) => {
+    if (e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault(); const s = src.selectionStart;
+      src.setRangeText("  ", s, src.selectionEnd, "end"); renderGutter(); scheduleSoon();
+    }
+  });
+  function lineStart(text, line) {
+    let pos = 0; for (let l = 1; l < line; l++) { const nl = text.indexOf("\n", pos); if (nl < 0) return text.length; pos = nl + 1; }
+    return pos;
+  }
+  function revealLine(line) {
+    showTab("src");
+    const s = lineStart(src.value, line); let e = src.value.indexOf("\n", s); if (e < 0) e = src.value.length;
+    src.focus({ preventScroll: true }); src.setSelectionRange(s, e);
+    src.scrollTop = Math.max(0, (line - 4) * 19);
+  }
+
+  // ---------- tabs (phones) ----------
+  function showTab(which) {
+    const g = which === "gantt";
+    $("tab-gantt").setAttribute("aria-selected", g); $("tab-src").setAttribute("aria-selected", !g);
+    $("pane-gantt").classList.toggle("active", g); $("pane-src").classList.toggle("active", !g);
+  }
+  $("tab-src").onclick = () => showTab("src");
+  $("tab-gantt").onclick = () => showTab("gantt");
+
+  // ---------- scheduling ----------
+  function scheduleSoon(delay = 650) {
+    clearTimeout(timer);
+    if (tj) { setChip("loading", "Edited", false); timer = setTimeout(runSchedule, delay); }
+  }
+  function runSchedule() {
+    if (!tj) return;
+    setChip("loading", "Scheduling", true);
+    requestAnimationFrame(() => setTimeout(() => {
+      let r;
+      try { r = tj.schedule(src.value); }
+      catch (e) { r = { ok: false, messages: [{ type: "error", message: String(e.message || e).split("\n")[0] }] }; }
+      result = r;
+      if (r.ok) lastGood = r;
+      showMetric("sched", r.ok ? `${r.parseMs} ms parse + ${r.scheduleMs} ms schedule` : "failed");
+      if (lastGood) showMetric("tasks", String(lastGood.tasks.length));
+      setChip(r.ok ? "ok" : "err", r.ok ? "Scheduled" : (r.messages.some((m) => m.type === "error") ? "Error in plan" : "Not scheduled"), false);
+      renderMessages(r);
+      renderGantt(lastGood, !r.ok);
+      renderInspector();
+    }, 0));
+  }
+
+  function renderMessages(r) {
+    const box = $("messages"); box.innerHTML = "";
+    const bad = new Set();
+    for (const m of r.messages || []) {
+      if (m.type !== "error" && m.type !== "warning") continue;
+      if (m.line) bad.add(m.line);
+      const row = document.createElement("div"); row.className = "msg " + m.type;
+      const b = document.createElement("button");
+      b.textContent = m.line ? `line ${m.line}` : m.type;
+      if (m.line) b.onclick = () => revealLine(m.line); else b.disabled = true;
+      const t = document.createElement("span"); t.textContent = m.message;
+      row.append(b, t); box.append(row);
+    }
+    renderGutter(bad);
+    const errs = (r.messages || []).filter((m) => m.type === "error").length;
+    $("tab-err").textContent = errs ? `(${errs})` : "";
+  }
+
+  // ---------- gantt ----------
+  const DAY = 86400000;
+  function parseIso(s) { const [d, t = "00:00"] = s.split("T"); const [y, mo, da] = d.split("-").map(Number); const [h, mi] = t.split(":").map(Number); return Date.UTC(y, mo - 1, da, h, mi); }
+  const fmtDay = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const fmtDayLong = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const fmtMonth = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+
+  function renderGantt(r, stale) {
+    const wrap = $("gantt-wrap");
+    if (!r) { if (stale) wrap.innerHTML = `<p class="loadingnote">Fix the error in the plan source to see a schedule.</p>`; return; }
+    const narrow = window.matchMedia("(max-width: 600px)").matches;
+    const dayW = narrow ? 13 : 17, labelW = narrow ? 132 : 236;
+    const tasks = r.tasks;
+    let min = Infinity, max = -Infinity;
+    for (const t of tasks) { min = Math.min(min, parseIso(t.start)); max = Math.max(max, parseIso(t.end)); }
+    const origin = Math.floor(min / DAY) * DAY - 2 * DAY;
+    const days = Math.ceil((max - origin) / DAY) + 5;
+    const width = days * dayW;
+    const x = (ms) => ((ms - origin) / DAY) * dayW;
+    const barX0 = (s) => Math.floor((parseIso(s) - origin) / DAY) * dayW;
+    const barX1 = (e) => Math.ceil((parseIso(e) - origin) / DAY) * dayW;
+
+    // Weekend shading as a background image on each track.
+    let shade = "";
+    for (let i = 0; i < days; i++) { const dow = new Date(origin + i * DAY).getUTCDay(); if (dow === 0 || dow === 6) shade += `<rect x="${i * dayW}" width="${dayW}" height="32" fill="var(--weekend)"/>`; }
+    const daysSvg = `<svg class="g-days" width="${width}" height="32" aria-hidden="true">${shade}</svg>`;
+
+    // Scale: months and Monday ticks.
+    let scale = "";
+    for (let i = 0; i < days; i++) {
+      const d = new Date(origin + i * DAY);
+      if (d.getUTCDate() === 1 || i === 0) scale += `<div class="g-month" style="left:${i * dayW}px">${fmtMonth.format(d)}</div>`;
+      if (d.getUTCDay() === 1) scale += `<div class="g-week" style="left:${i * dayW}px">${d.getUTCDate()}</div>`;
+    }
+    const resName = Object.fromEntries(r.resources.map((x) => [x.id, x.name]));
+    const rowIndex = new Map(tasks.map((t, i) => [t.id, i]));
+    let rows = "";
+    tasks.forEach((t) => {
+      const indent = (t.level || 0) * 14;
+      const x0 = barX0(t.start), x1 = Math.max(barX1(t.end), x0 + dayW * 0.5);
+      let mark;
+      if (t.milestone) mark = `<div class="diamond" style="left:${x(parseIso(t.end))}px" title="${esc(t.name)}"></div>`;
+      else if (!t.leaf) mark = `<div class="bar summary" style="left:${x0}px;width:${x1 - x0}px"></div>`;
+      else {
+        const who = t.resources.map((id) => resName[id] || id).join(", ");
+        mark = `<div class="bar" style="left:${x0}px;width:${x1 - x0}px"></div><div class="res" style="left:${x1 + 6}px">${esc(who)}</div>`;
+      }
+      rows += `<div class="g-row${t.id === selectedId ? " sel" : ""}" data-id="${esc(t.id)}" role="button" tabindex="0" aria-label="${esc(t.name)}">
+        <div class="g-label${t.leaf ? "" : " parent"}" style="width:${labelW}px;padding-left:${10 + indent}px" title="${esc(t.name)} (${esc(t.id)})">${esc(t.name)}</div>
+        <div class="g-track" style="width:${width}px">${daysSvg}${mark}</div></div>`;
+    });
+
+    // Dependency connectors: finish of predecessor to start of successor.
+    let paths = "";
+    tasks.forEach((t, i) => {
+      for (const dep of t.depends || []) {
+        const j = rowIndex.get(dep); if (j === undefined) continue;
+        const p = tasks[j];
+        const sx = p.milestone ? x(parseIso(p.end)) : barX1(p.end), sy = 44 + j * 33 + 16;
+        const ex = t.milestone ? x(parseIso(t.end)) - 7 : barX0(t.start), ey = 44 + i * 33 + 16;
+        const mid = Math.max(sx + 6, ex - 6);
+        paths += `<path d="M${sx} ${sy} H${mid} V${ey} H${ex - 2}"/><path class="arrow" d="M${ex - 6} ${ey - 3.5} L${ex} ${ey} L${ex - 6} ${ey + 3.5}Z"/>`;
+      }
+    });
+    const nowMs = r.project.now ? parseIso(r.project.now) : null;
+    const height = 44 + tasks.length * 33;
+    wrap.innerHTML = `<div class="gantt" style="width:${labelW + width}px">
+      <div class="g-head"><div class="g-corner" style="width:${labelW}px">Task</div><div class="g-scale" style="width:${width}px">${scale}</div></div>
+      ${rows}
+      <svg class="links" style="left:${labelW}px" width="${width}" height="${height}" aria-hidden="true">${paths}</svg>
+      ${nowMs ? `<div class="nowline" style="left:${labelW + x(nowMs)}px" title="Status date"></div>` : ""}
+    </div>`;
+    wrap.style.opacity = stale ? "0.55" : "";
+    $("proj-name").textContent = r.project.name;
+    $("proj-span").textContent = `${fmtDay.format(new Date(Math.floor(min / DAY) * DAY))} to ${fmtDay.format(new Date(max))}${stale ? " · last good schedule" : ""}`;
+    wrap.querySelectorAll(".g-row").forEach((row) => {
+      const pick = () => { selectedId = row.dataset.id; lastPatch = ""; wrap.querySelectorAll(".g-row.sel").forEach((n) => n.classList.remove("sel")); row.classList.add("sel"); renderInspector(); };
+      row.addEventListener("click", pick);
+      row.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+    });
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+  // ---------- source patching (graphical edit -> exact text change) ----------
+  // Blank out comments and strings so braces and keywords inside them are ignored.
+  function mask(text) {
+    const a = text.split(""); let i = 0;
+    const blank = (s, e) => { for (let k = s; k < e; k++) if (a[k] !== "\n") a[k] = " "; };
+    while (i < text.length) {
+      const c = text[i];
+      if (c === "#" || (c === "/" && text[i + 1] === "/")) { let e = text.indexOf("\n", i); if (e < 0) e = text.length; blank(i, e); i = e; }
+      else if (c === "/" && text[i + 1] === "*") { let e = text.indexOf("*/", i + 2); e = e < 0 ? text.length : e + 2; blank(i, e); i = e; }
+      else if (text.startsWith("-8<-", i)) { let e = text.indexOf("->8-", i + 4); e = e < 0 ? text.length : e + 4; blank(i + 1, e - 1); i = e; }
+      else if (c === '"' || c === "'") { let e = i + 1; while (e < text.length && text[e] !== c) { if (text[e] === "\\") e++; e++; } blank(i + 1, e); i = e + 1; }
+      else i++;
+    }
+    return a.join("");
+  }
+  function findDurationAttr(text, taskLine) {
+    const m = mask(text);
+    const ls = lineStart(text, taskLine); let le = m.indexOf("\n", ls); if (le < 0) le = m.length;
+    const open = m.indexOf("{", ls); if (open < 0 || open > le) return null;
+    let depth = 0, close = -1; const top = m.split("");
+    for (let k = open; k < m.length; k++) {
+      if (m[k] === "{") depth++;
+      else if (m[k] === "}") { depth--; if (depth === 0) { close = k; break; } }
+      if (depth > 1 && m[k] !== "\n") top[k] = " ";   // hide nested task blocks
+    }
+    if (close < 0) return null;
+    const body = top.slice(open + 1, close).join("");
+    const re = /\b(effort|duration|length)\s+(\d+(?:\.\d+)?)\s*(min|h|d|w|m|y)\b/;
+    const hit = re.exec(body); if (!hit) return null;
+    const numStart = open + 1 + hit.index + hit[0].indexOf(hit[2], hit[1].length);
+    return { kind: hit[1], value: parseFloat(hit[2]), unit: hit[3], start: numStart, end: numStart + hit[2].length };
+  }
+  const UNIT = { min: "min", h: "h", d: "d", w: "wk", m: "mo", y: "yr" };
+  function stepAttr(delta) {
+    const t = lastGood && lastGood.tasks.find((x) => x.id === selectedId); if (!t) return;
+    const a = findDurationAttr(src.value, t.line); if (!a) return;
+    const step = a.unit === "h" ? 4 : a.unit === "min" ? 30 : a.value < 2 && delta < 0 ? 0.5 : 1;
+    let v = Math.round((a.value + delta * step) * 100) / 100; if (v <= 0) return;
+    const before = src.value.slice(a.start, a.end), after = String(v);
+    const scrollTop = src.scrollTop;
+    src.setRangeText(after, a.start, a.end, "preserve");
+    src.scrollTop = scrollTop;
+    const lineNo = src.value.slice(0, a.start).split("\n").length;
+    lastPatch = `Line ${lineNo}: ${a.kind} ${before}${a.unit} → ${after}${a.unit}`;
+    renderGutter(); clearTimeout(timer); runSchedule();
+  }
+
+  function renderInspector() {
+    const box = $("inspector");
+    const t = lastGood && lastGood.tasks.find((x) => x.id === selectedId);
+    if (!t) { box.innerHTML = `<p class="empty">Select a task to see its schedule and edit its effort.</p>`; return; }
+    const resName = Object.fromEntries(lastGood.resources.map((x) => [x.id, x.name]));
+    const nameOf = Object.fromEntries(lastGood.tasks.map((x) => [x.id, x.name]));
+    const a = findDurationAttr(src.value, t.line);
+    const s = new Date(parseIso(t.start)), e = new Date(parseIso(t.end));
+    const span = t.milestone ? fmtDayLong.format(e) : `${fmtDayLong.format(s)} to ${fmtDayLong.format(e)}`;
+    box.innerHTML = `
+      <div class="insp-title"><strong>${esc(t.name)}</strong><code>${esc(t.id)}</code><button class="btn" id="btn-line">Show line ${t.line} in source</button></div>
+      <dl class="facts">
+        <div><dt>${t.milestone ? "Date" : "Scheduled"}</dt><dd>${span}</dd></div>
+        <div><dt>Resources</dt><dd>${esc(t.resources.map((id) => resName[id] || id).join(", ") || "None")}</dd></div>
+        <div><dt>Depends on</dt><dd>${esc((t.depends || []).map((d) => nameOf[d] || d).join(", ") || "Nothing")}</dd></div>
+      </dl>
+      <div class="editrow">${a ? `
+        <span class="stepper" role="group" aria-label="${a.kind}">
+          <button id="dec" aria-label="Decrease ${a.kind}">−</button>
+          <output>${a.kind} ${a.value}${UNIT[a.unit]}</output>
+          <button id="inc" aria-label="Increase ${a.kind}">+</button>
+        </span>
+        <span class="hint">Changes the number in the source and reschedules.</span>`
+        : `<span class="hint">${t.leaf ? "This task has no effort, duration or length of its own to edit." : "Summary task: its dates come from its subtasks."}</span>`}
+      </div>
+      ${lastPatch ? `<div class="patchnote">${esc(lastPatch)}</div>` : ""}`;
+    $("btn-line").onclick = () => revealLine(t.line);
+    if (a) { $("dec").onclick = () => stepAttr(-1); $("inc").onclick = () => stepAttr(1); }
+  }
+
+  // ---------- buttons ----------
+  $("btn-reset").onclick = () => { src.value = SAMPLE; lastPatch = ""; renderGutter(); clearTimeout(timer); runSchedule(); };
+  $("btn-break").onclick = () => {
+    const at = src.value.indexOf("    depends !auth");
+    if (at >= 0) { src.setRangeText("    depends !autth", at, at + "    depends !auth".length, "preserve"); }
+    else { src.value += "\ntask broken \"Oops\" { effort 2x }\n"; }
+    renderGutter(); clearTimeout(timer); runSchedule();
+  };
+  let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => lastGood && renderGantt(lastGood, result && !result.ok), 150); });
+
+  // ---------- boot ----------
+  src.value = SAMPLE; renderGutter();
+  const stage = $("stage"), bar = $("progress").firstElementChild;
+  const t0 = performance.now();
+  TJRuntime.loadTaskJuggler({
+    wasmUrl: "ruby.wasm.gz", bundleUrl: "tj-bundle.json.gz",
+    onProgress(p) {
+      if (p.stage === "download") { stage.textContent = p.total ? `Downloading the Ruby runtime, ${mb(p.got)} of ${mb(p.total)}` : `Downloading the Ruby runtime, ${mb(p.got)}`; if (p.total) bar.style.width = (100 * p.got / p.total).toFixed(1) + "%"; }
+      if (p.stage === "compile") { stage.textContent = "Compiling WebAssembly"; bar.style.width = "100%"; }
+      if (p.stage === "boot") stage.textContent = "Starting Ruby and loading TaskJuggler";
+    },
+  }).then((rt) => {
+    tj = rt;
+    $("progress").hidden = true;
+    stage.textContent = `Download ${(rt.downloadMs / 1000).toFixed(1)} s · Ruby boot ${rt.bootMs} ms · TaskJuggler load ${rt.loadMs} ms`;
+    showMetric("load", `${((performance.now() - t0) / 1000).toFixed(1)} s`);
+    selectedId = "github.auth";
+    runSchedule();
+  }).catch((err) => {
+    setChip("err", "Could not start", false);
+    stage.textContent = "The in-browser runtime failed to start.";
+    $("gantt-wrap").innerHTML = `<div class="fatal"><strong>TaskJuggler could not start in this browser.</strong><br>${esc(String(err && err.message || err))}<br><span class="hint">If this mentions WebAssembly or a content security policy, the page host is blocking WebAssembly. A plain static host such as GitHub Pages does not.</span></div>`;
+  });
+})();
+</script>

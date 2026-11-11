@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/taskjuggler/TaskJuggler",
+  "commit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+  "tree": "2b5d22bf72d483b500b069cfc1e1bd906fa0253d",
+  "version": "3.8.4",
+  "license": "GPL-2.0-only"
+}

@@ -1,0 +1,73 @@
+project tjweb "TaskJuggler web front end" 2026-11-16 +5m {
+  timezone "America/New_York"
+  timeformat "%Y-%m-%d"
+  now 2026-11-16
+}
+
+leaves holiday "Thanksgiving" 2026-11-26 +2d,
+       holiday "Winter break" 2026-12-24 +2d,
+       holiday "New Year" 2027-01-01
+
+resource dev "Developers" {
+  resource jack "Jack"
+  resource ana "Ana"
+}
+resource rev "Reviewer"
+
+task spike "Wasm spike" {
+  task compile "Compile tj3 to ruby.wasm" {
+    effort 3d
+    allocate jack
+  }
+  task perf "Fix wasm slow paths" {
+    effort 4d
+    allocate jack
+    depends !compile
+  }
+}
+
+task app "PWA" {
+  depends spike
+  task editor "Source editor" {
+    effort 5d
+    allocate ana
+  }
+  task gantt "Gantt view" {
+    effort 6d
+    allocate jack
+  }
+  task roundtrip "Graphical edits patch source" {
+    effort 8d
+    allocate jack, ana
+    depends !editor, !gantt
+  }
+}
+
+task github "GitHub sync" {
+  task auth "Sign in with a GitHub App" {
+    effort 3d
+    allocate ana
+    depends app.editor
+  }
+  task branches "Branches and pull requests" {
+    effort 5d
+    allocate ana
+    depends !auth
+  }
+  task diff "Schedule diff between branches" {
+    effort 6d
+    allocate jack
+    depends app.roundtrip, !branches
+  }
+}
+
+task review "Code review" {
+  effort 3d
+  allocate rev
+  depends github
+}
+
+task release "v0.1 on GitHub Pages" {
+  milestone
+  depends review
+}
