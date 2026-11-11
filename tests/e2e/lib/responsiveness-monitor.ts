@@ -113,3 +113,22 @@ export function windowStats(data: MonitorData, start: number, end: number): Wind
 		keyCount: data.keys.filter((k) => k >= start && k <= end).length,
 	};
 }
+
+/**
+ * Long Tasks API entries have whole-millisecond durations (truncated) and coarsened start times,
+ * so `start + duration` can fall up to about 1 ms before the true end. A task counts as engine
+ * boot only when it ended clearly before the ready mark; anything within ROUNDING_MS of the mark
+ * (such as the task that handled the worker's ready message) counts as post-ready, which errs
+ * towards failing.
+ */
+export const ROUNDING_MS = 1;
+
+export function splitByReady(
+	tasks: readonly LongTaskRecord[],
+	readyAt: number,
+): { boot: LongTaskRecord[]; afterReady: LongTaskRecord[] } {
+	const boot: LongTaskRecord[] = [];
+	const afterReady: LongTaskRecord[] = [];
+	for (const t of tasks) (t.start + t.duration + ROUNDING_MS < readyAt ? boot : afterReady).push(t);
+	return { boot, afterReady };
+}

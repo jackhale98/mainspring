@@ -53,8 +53,10 @@
 			// A rAF-driven animation, next to the CSS one.
 			const ticker = document.getElementById('ticker');
 			let angle = 0;
+			// The rAF loop keeps running for the measurement; under reduced motion it stops rotating.
+			const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 			const tick = (): void => {
-				angle = (angle + 3) % 360;
+				if (!still) angle = (angle + 3) % 360;
 				if (ticker)
 					ticker.style.cssText = `width:2rem;height:0.5rem;background:currentColor;transform:rotate(${angle}deg)`;
 				requestAnimationFrame(tick);

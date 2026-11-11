@@ -23,7 +23,12 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { loadCorpus, planRequest } from '../golden/corpus';
 import { maxMainThreadTask } from './lib/trace-max-task';
-import { installMonitor, windowStats, type MonitorData } from './lib/responsiveness-monitor';
+import {
+	installMonitor,
+	splitByReady,
+	windowStats,
+	type MonitorData,
+} from './lib/responsiveness-monitor';
 import {
 	renderReport,
 	type RunReport,
@@ -78,9 +83,11 @@ function scheduleInPage(page: Page, revision: number, awaitReady: boolean): Prom
 				: performance.now();
 			if (waitReady) await api.ready();
 			// Cold: the page marks the moment the worker's ready message was handled. Warm: start.
-			const readyAt = cold
-				? (performance.getEntriesByName('mainspring:ready')[0]?.startTime ?? performance.now())
-				: start;
+			const mark = performance.getEntriesByName('mainspring:ready')[0];
+			if (cold && !mark) throw new Error('mainspring:ready mark missing on the dev page');
+			const readyAt = cold && mark ? mark.startTime : start;
+			if (!PerformanceObserver.supportedEntryTypes.includes('event'))
+				throw new Error('Event Timing is not supported; input latency cannot be measured');
 			const outcome = await api.schedule(req);
 			const end = await monitor.twoFrames();
 			if (outcome.status !== 'done') {
@@ -183,15 +190,14 @@ async function measure(page: Page, opts: RunOptions): Promise<RunReport> {
 		const window_ = (s: Summary): WindowReport => {
 			const stats = windowStats(data, s.start, s.end);
 			const afterReady = windowStats(data, s.readyAt, s.end);
-			// A boot long task ended before the ready message was handled. The task that delivers
-			// ready runs the handler, so it ends after the mark and counts as post-ready.
-			const boot = stats.longTasks.filter((t) => t.start + t.duration <= s.readyAt);
+			// Boot long tasks ended clearly before the ready message was handled (see splitByReady).
+			const split = splitByReady(stats.longTasks, s.readyAt);
 			return {
 				...s,
 				...stats,
 				windowMs: s.end - s.start,
-				bootLongTasks: boot,
-				scheduleLongTasks: stats.longTasks.filter((t) => !boot.includes(t)),
+				bootLongTasks: split.boot,
+				scheduleLongTasks: split.afterReady,
 				afterReadyMaxEventMs: afterReady.maxEventMs,
 				afterReadyMaxInputDelayMs: afterReady.maxInputDelayMs,
 			};
@@ -280,6 +286,12 @@ for (let run = 1; run <= RUNS; run++) {
 				expect(
 					coldTrace.longestCpuMs ?? Infinity,
 					'cold trace: CPU time of the longest main-thread task (ms)',
+				).toBeLessThanOrEqual(LIMIT_MS);
+				// And no main-thread task anywhere in the cold window was CPU-busy for over the limit.
+				expect(coldTrace.maxCpuMs, 'cold trace: thread CPU times present').not.toBeNull();
+				expect(
+					coldTrace.maxCpuMs ?? Infinity,
+					'cold trace: longest main-thread CPU time of any task (ms)',
 				).toBeLessThanOrEqual(LIMIT_MS);
 			}
 		} finally {

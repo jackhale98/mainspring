@@ -58,9 +58,13 @@ function row(r: RunReport, name: 'cold' | 'warm'): string {
 		name === 'cold'
 			? `${w.longTasks.length} (boot ${w.bootLongTasks.length}, after ready ${w.scheduleLongTasks.length})`
 			: String(w.longTasks.length);
+	const delay =
+		name === 'cold'
+			? `${ms(w.maxInputDelayMs)} / ${ms(w.afterReadyMaxInputDelayMs)}`
+			: ms(w.maxInputDelayMs);
 	const events =
 		name === 'cold' ? `${ms(w.maxEventMs)} / ${ms(w.afterReadyMaxEventMs)}` : ms(w.maxEventMs);
-	return `| ${r.label} | ${name} | ${long} | ${trace} | ${ms(w.maxFrameGapMs)} | ${events} | ${ms(w.maxInputDelayMs)} | ${w.keyCount} | ${w.tasks} | ${ms(w.scheduleMs)} | ${ms(w.windowMs)} |`;
+	return `| ${r.label} | ${name} | ${long} | ${trace} | ${ms(w.maxFrameGapMs)} | ${events} | ${delay} | ${w.keyCount} | ${w.tasks} | ${ms(w.scheduleMs)} | ${ms(w.windowMs)} |`;
 }
 
 export function renderReport(
@@ -74,7 +78,7 @@ export function renderReport(
 		'',
 		`Plan syn-20-scale-1000, Chromium. Limit: no task over ${limitMs} ms after the engine is ready and in the warm window; engine-boot long tasks reported and capped at ${bootCapMs} ms each (spec section 11, item 18). Event Timing after ready: at most ${eventLimitMs} ms. Throttled runs are reported, not asserted.`,
 		"Trace max task: wall-clock ms of the longest CrRendererMain task and that task's thread CPU time.",
-		'Event Timing: keystroke to next paint (duration, events of 16 ms or more); cold shows whole window / after ready.',
+		'Event Timing: keystroke to next paint (duration, events of 16 ms or more) and input delay; cold shows whole window / after ready.',
 		'',
 		'| Run | Window | Long tasks | Trace max task ms | Max rAF gap ms | Max event ms | Max input delay ms | Keys | Tasks | Worker scheduleMs | Window ms |',
 		'| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
