@@ -139,31 +139,42 @@ module MainspringBridge
     mh.trapSetup = true      # raise TjRuntimeError instead of calling exit
     Capture.reset(now)
 
-    t0 = clock_ms
-    tj = nil
-    parsed = scheduled = false
-    Dir.chdir(root) do
-      tj = TaskJuggler.new
-      parsed = guarded(mh) { tj.parse([File.join(root, entry)]) }
-      t1 = clock_ms
-      scheduled = parsed && guarded(mh) { tj.schedule }
-      t2 = clock_ms
-      ok = parsed && scheduled && mh.errors.zero?
-      project = parsed ? tj.project : nil
-      header = Capture.header
-      header = nil unless header && header['start'] && header['end']
-      result = Serializer.result(
-        ok: ok, project: project, header: header,
-        meta: { 'version' => Capture.version, 'timezone' => Capture.timezone },
-        messages: mh.messages, workspace_root: root
-      )
-      t3 = clock_ms
-      return [result, { 'parseMs' => (t1 - t0).round(1),
-                        'scheduleMs' => (t2 - t1).round(1),
-                        'serializeMs' => (t3 - t2).round(1) }]
+    previous = begin
+      Dir.pwd
+    rescue SystemCallError
+      nil
     end
+    Dir.chdir(root)
+    t0 = clock_ms
+    tj = TaskJuggler.new
+    parsed = guarded(mh) { tj.parse([File.join(root, entry)]) }
+    t1 = clock_ms
+    scheduled = parsed && guarded(mh) { tj.schedule }
+    t2 = clock_ms
+    ok = parsed && scheduled && mh.errors.zero?
+    header = Capture.header
+    header = nil unless header && header['start'] && header['end']
+    result = Serializer.result(
+      ok: ok, project: parsed ? tj.project : nil, header: header,
+      meta: { 'version' => Capture.version, 'timezone' => Capture.timezone },
+      messages: mh.messages, workspace_root: root
+    )
+    t3 = clock_ms
+    [result, { 'parseMs' => (t1 - t0).round(1),
+               'scheduleMs' => (t2 - t1).round(1),
+               'serializeMs' => (t3 - t2).round(1) }]
   ensure
     Capture.reset(nil)
+    restore_dir(previous)
+  end
+
+  # Return to the directory a run started in. Under WASI the start directory
+  # is "/", which is not a preopened directory and cannot be entered again;
+  # the run then stays in the workspace, which is harmless.
+  def restore_dir(dir)
+    Dir.chdir(dir) if dir
+  rescue SystemCallError
+    nil
   end
 
   # Run a TaskJuggler step. Errors that TaskJuggler reports as messages end

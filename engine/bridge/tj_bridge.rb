@@ -50,6 +50,8 @@ module TJBridge
   def schedule(request_json)
     t0 = MainspringBridge.clock_ms
     begin
+      # From JS, vm.wrap(string) arrives as a JS::Object; to_s gives the text.
+      request_json = request_json.to_s unless request_json.is_a?(String)
       req = JSON.parse(request_json)
       raise MainspringBridge::InvalidRequest, 'request must be an object' unless req.is_a?(Hash)
 
