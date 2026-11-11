@@ -6,10 +6,11 @@
  * gives the input back.
  */
 import { ExternalTokenizer, type InputStream, type Stack } from '@lezer/lr';
-import { scanToken, type LineSource, type ScannedToken } from './scanner';
+import { StringSource } from './scanner-core';
+import { scanToken, type ScanSource, type ScannedToken } from './scanner';
 import type { TjpToken } from './token-kinds';
 
-export { scanToken, type LineSource, type ScannedToken } from './scanner';
+export { scanToken, type ScanSource, type ScannedToken } from './scanner';
 export {
 	TokenFlag,
 	isTrivia,
@@ -21,28 +22,6 @@ export {
 	type TjpTokenKind,
 	type TjpTriviaKind,
 } from './token-kinds';
-
-/** A {@link LineSource} over a string, for tokens starting at `base`. */
-class StringSource implements LineSource {
-	base = 0;
-	/** The first `\n` at or after `nlFrom`, or the text length. */
-	private nl = -1;
-	private nlFrom = 0;
-
-	constructor(private readonly text: string) {}
-
-	line(offset: number): string {
-		const abs = this.base + offset;
-		const text = this.text;
-		if (abs >= text.length) return '';
-		if (abs < this.nlFrom || abs > this.nl) {
-			const nl = text.indexOf('\n', abs);
-			this.nl = nl < 0 ? text.length : nl;
-			this.nlFrom = abs;
-		}
-		return text.slice(abs, this.nl + 1);
-	}
-}
 
 /** The token that starts at `pos` in `text`, which must be a token boundary; null at the end. */
 export function scanTokenAt(text: string, pos: number): TjpToken | null {
@@ -74,11 +53,22 @@ export function tokenizeTjp(text: string): TjpToken[] {
 	return out;
 }
 
-/** A {@link LineSource} over a Lezer input stream, relative to its current position. */
-class StreamSource implements LineSource {
+/** A {@link ScanSource} over a Lezer input stream, relative to its current position. */
+class StreamSource implements ScanSource {
+	private readonly input: InputStream;
 	private readonly lines = new Map<number, string>();
 
-	constructor(private readonly input: InputStream) {}
+	constructor(input: InputStream) {
+		this.input = input;
+	}
+
+	peek(offset: number): number {
+		return this.input.peek(offset);
+	}
+
+	slice(offset: number, length: number): string {
+		return this.read(offset, length, false);
+	}
 
 	line(offset: number): string {
 		let s = this.lines.get(offset);
@@ -90,7 +80,7 @@ class StreamSource implements LineSource {
 	}
 
 	/** Up to `length` code units from `offset`, stopping after a `\n` if `toLineEnd`. */
-	read(offset: number, length: number, toLineEnd: boolean): string {
+	private read(offset: number, length: number, toLineEnd: boolean): string {
 		let out = '';
 		const codes: number[] = [];
 		for (let i = 0; i < length; i++) {
@@ -119,19 +109,23 @@ export type TjpTokenizerOptions = NonNullable<ConstructorParameters<typeof Exter
 
 /**
  * A Lezer external tokenizer that produces every token, trivia included, with TaskJuggler's
- * boundaries. The scanner reads to the end of the token's line (further for multi-line
- * tokens) through `peek`, so Lezer records the lookahead for incremental reparsing.
+ * boundaries. The scanner reads through `peek`, so Lezer records the lookahead for incremental
+ * reparsing; most tokens read only themselves plus two code units. The tokenizer is
+ * `contextual` by default, because `termFor` sees the parse stack (for `canShift`).
  */
 export function tjpExternalTokenizer(
 	termFor: TjpTermFor,
 	options: TjpTokenizerOptions = {},
 ): ExternalTokenizer {
-	return new ExternalTokenizer((input, stack) => {
-		if (input.next < 0) return;
-		const src = new StreamSource(input);
-		const t = scanToken(src, input.pos === 0);
-		if (!t) return;
-		const term = termFor(t, () => src.read(0, t.length, false), stack);
-		if (term >= 0) input.acceptToken(term, t.length);
-	}, options);
+	return new ExternalTokenizer(
+		(input, stack) => {
+			if (input.next < 0) return;
+			const src = new StreamSource(input);
+			const t = scanToken(src, input.pos === 0);
+			if (!t) return;
+			const term = termFor(t, () => src.slice(0, t.length), stack);
+			if (term >= 0) input.acceptToken(term, t.length);
+		},
+		{ contextual: true, ...options },
+	);
 }
