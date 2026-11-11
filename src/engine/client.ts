@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * Engine client (phase-0 spec 3.3): owns the engine worker, drives the latest-wins queue in
- * queue.ts, restarts the worker after a crash or timeout, and turns worker replies into settled
- * promises. The worker itself (worker.ts, task T6) only ever sees one schedule at a time.
+ * queue.ts, restarts the worker after a crash or reply timeout, gives up when a boot stalls, and
+ * turns worker replies into settled promises. The worker itself (worker.ts, task T6) only ever
+ * sees one schedule at a time. Timers live in deadline.ts, listeners in notifier.ts, and the
+ * worker plumbing in transport.ts.
  *
  * Error `message` strings created here are diagnostics, not user-facing copy: views show
  * `EngineError.kind` through src/lib/strings.ts.
  */
+import { Deadline, checkDuration } from './deadline';
+import { StateNotifier } from './notifier';
 import type {
 	EngineError,
 	EngineVersions,
@@ -23,19 +27,18 @@ import {
 	type QueueEffect,
 	type ScheduleOutcome,
 } from './queue';
+import {
+	createDefaultWorker,
+	describeThrown,
+	describeWorkerError,
+	listen,
+	send,
+	type WorkerFactory,
+	type WorkerLike,
+} from './transport';
 
 export type { EngineState, ScheduleOutcome } from './queue';
-
-/** The part of `Worker` the client uses. A real `Worker` satisfies it. */
-export interface WorkerLike {
-	postMessage(message: ToWorker): void;
-	terminate(): void;
-	addEventListener(type: 'message', listener: (event: MessageEvent<FromWorker>) => void): void;
-	addEventListener(type: 'error' | 'messageerror', listener: (event: Event) => void): void;
-}
-
-/** Creates a fresh worker. Called once at start and again for every restart. */
-export type WorkerFactory = () => WorkerLike;
+export type { WorkerFactory, WorkerLike } from './transport';
 
 export interface EngineClient {
 	readonly state: EngineState;
@@ -46,7 +49,10 @@ export interface EngineClient {
 	/** Cached after the first success. Rejects with `EngineRequestError`. */
 	syntax(): Promise<SyntaxDocs>;
 	cancel(revision: Revision): void;
-	/** Calls `listener` on every state change (not with the current state). Returns an unsubscribe. */
+	/**
+	 * Calls `listener` on state changes (not with the current state), always with the state current
+	 * at the call; changes made by listeners are coalesced. Returns an unsubscribe.
+	 */
 	onState(listener: (s: EngineState) => void): () => void;
 	/** Terminates the worker. Open schedules settle `cancelled`; open syntax and ready calls reject. */
 	dispose(): void;
@@ -58,9 +64,15 @@ export interface EngineClientOptions {
 	/**
 	 * Default 60_000. When the worker owes a reply and sends nothing for this long, the client
 	 * terminates it, reboots, and settles the in-flight request `failed` with kind `timeout`.
-	 * `Infinity` turns the watchdog off. Booting is not timed.
+	 * Any message from the live worker counts as progress and restarts the countdown.
+	 * `Infinity` turns the watchdog off.
 	 */
 	timeoutMs?: number;
+	/**
+	 * Default 180_000. The first boot and every reboot must reach `ready` within this time, or the
+	 * client terminates the worker and goes to `failed` with kind `boot`. `Infinity` turns it off.
+	 */
+	bootTimeoutMs?: number;
 	/**
 	 * Injectable for unit tests. A factory lets the client restart the worker after a crash or
 	 * timeout; a single instance cannot be restarted, so a crash or timeout leaves it `failed`.
@@ -84,8 +96,7 @@ export function createEngineClient(opts: EngineClientOptions = {}): EngineClient
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
-/** setTimeout's largest delay; longer delays would fire at once. */
-const MAX_TIMER_MS = 2_147_483_647;
+const DEFAULT_BOOT_TIMEOUT_MS = 180_000;
 const RESTART_KINDS: ReadonlySet<EngineError['kind']> = new Set(['boot', 'crash', 'timeout']);
 const UNSENT_ERROR: EngineError = Object.freeze({
 	kind: 'invalid-request',
@@ -97,16 +108,8 @@ interface Settlers<T> {
 	reject: (reason: EngineRequestError) => void;
 }
 
-function createDefaultWorker(workerUrl: URL | undefined): WorkerLike {
-	if (workerUrl) return new Worker(workerUrl, { type: 'module' });
-	// Vite bundles the worker only when it sees this literal `new Worker(new URL(...))` form.
-	// It runs only when no transport is injected, so tests and type checks never need worker.ts.
-	return new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-}
-
 class Client implements EngineClient {
 	readonly #queue = new ScheduleQueue();
-	readonly #timeoutMs: number;
 	readonly #factory: WorkerFactory | null;
 	#worker: WorkerLike | null = null;
 	/** Bumped whenever a worker is dropped, so its late events are ignored. */
@@ -119,15 +122,17 @@ class Client implements EngineClient {
 	#nextSyntaxId = 1;
 	#syntaxCache: SyntaxDocs | null = null;
 	#syntaxPromise: Promise<SyntaxDocs> | null = null;
-	#watchdog: ReturnType<typeof setTimeout> | null = null;
-	readonly #listeners = new Set<(s: EngineState) => void>();
-	#lastState: EngineState;
+	/** Runs while the worker owes a reply (rule 6 timeout). */
+	readonly #watchdog: Deadline;
+	/** Runs from creating a worker until its `ready`. */
+	readonly #bootDeadline: Deadline;
+	readonly #notifier = new StateNotifier(() => this.#queue.state);
 
 	constructor(opts: EngineClientOptions) {
-		const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-		if (!(timeoutMs > 0)) throw new RangeError(`timeoutMs must be positive, got ${timeoutMs}.`);
-		this.#timeoutMs = timeoutMs;
-		this.#lastState = this.#queue.state;
+		const timeoutMs = checkDuration('timeoutMs', opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+		const bootMs = checkDuration('bootTimeoutMs', opts.bootTimeoutMs ?? DEFAULT_BOOT_TIMEOUT_MS);
+		this.#watchdog = new Deadline(timeoutMs, () => this.#onTimeout());
+		this.#bootDeadline = new Deadline(bootMs, () => this.#onBootTimeout());
 		const { transport, workerUrl } = opts;
 		if (typeof transport === 'object') {
 			this.#factory = null;
@@ -180,14 +185,13 @@ class Client implements EngineClient {
 	}
 
 	onState(listener: (s: EngineState) => void): () => void {
-		this.#listeners.add(listener);
-		return () => void this.#listeners.delete(listener);
+		return this.#notifier.subscribe(listener);
 	}
 
 	dispose(): void {
 		if (this.#failure === DISPOSED_ERROR) return;
 		this.#failure = DISPOSED_ERROR;
-		this.#listeners.clear();
+		this.#notifier.clear();
 		this.#dropWorker();
 		this.#apply(this.#queue.dispose());
 		this.#settleReadyWaiters(DISPOSED_ERROR);
@@ -199,36 +203,42 @@ class Client implements EngineClient {
 		try {
 			worker = factory();
 		} catch (error) {
-			this.#halt({ kind: 'boot', message: 'The engine worker could not be created.', ...detail(error) });
+			const message = 'The engine worker could not be created.';
+			this.#halt({ kind: 'boot', message, ...describeThrown(error) });
 			return;
 		}
 		this.#worker = worker;
 		const generation = this.#generation;
-		worker.addEventListener('message', (event) => {
-			const data: unknown = event.data;
-			if (generation !== this.#generation || typeof data !== 'object' || data === null) return;
-			this.#onMessage(event.data);
-		});
-		const onError = (event: Event): void => {
-			if (generation === this.#generation) this.#onWorkerError(event);
+		const live = (): boolean => generation === this.#generation;
+		const onMessage = (message: FromWorker | null): void => {
+			if (!live()) return;
+			if (message) this.#onMessage(message);
+			// Any message from the live worker is progress, even one this client cannot read.
+			if (live()) this.#afterEvent(true);
 		};
-		worker.addEventListener('error', onError);
-		worker.addEventListener('messageerror', onError);
+		listen(worker, onMessage, (event) => {
+			if (live()) this.#onWorkerError(event);
+		});
+		this.#bootDeadline.start();
 	}
 
-	/** Unknown message types are ignored, so a newer worker cannot break an older client. */
+	/**
+	 * Applies one worker message; the listener then calls `#afterEvent`. Unknown message types are
+	 * ignored, so a newer worker cannot break an older client.
+	 */
 	#onMessage(message: FromWorker): void {
 		switch (message.type) {
 			case 'ready':
+				this.#bootDeadline.stop();
 				this.#versions = message.versions;
-				this.#run(this.#queue.ready(), true);
+				this.#apply(this.#queue.ready());
 				this.#settleReadyWaiters(message.versions);
 				break;
 			case 'scheduled':
-				this.#run(this.#queue.result(message.result), true);
+				this.#apply(this.#queue.result(message.result));
 				break;
 			case 'syntax':
-				this.#run(this.#queue.syntaxResult(message.id, message.result), true);
+				this.#apply(this.#queue.syntaxResult(message.id, message.result));
 				break;
 			case 'failed':
 				this.#onFailed(message);
@@ -243,9 +253,9 @@ class Client implements EngineClient {
 		} else if (RESTART_KINDS.has(error.kind)) {
 			this.#restart(error);
 		} else if (message.revision !== undefined) {
-			this.#run(this.#queue.failed(message.revision, error), true);
+			this.#apply(this.#queue.failed(message.revision, error));
 		} else if (message.id !== undefined) {
-			this.#run(this.#queue.syntaxFailed(message.id, error), true);
+			this.#apply(this.#queue.syntaxFailed(message.id, error));
 		} else {
 			// A failure tied to no request leaves the worker in an unknown state.
 			this.#restart(error);
@@ -253,10 +263,7 @@ class Client implements EngineClient {
 	}
 
 	#onWorkerError(event: Event): void {
-		const text = 'message' in event && typeof event.message === 'string' ? event.message : '';
-		const messageerror = event.type === 'messageerror';
-		const reason = messageerror ? 'sent a message that could not be read' : 'stopped unexpectedly';
-		const extra = text ? { detail: text } : {};
+		const { reason, ...extra } = describeWorkerError(event);
 		if (this.#queue.phase === 'booting') {
 			this.#halt({ kind: 'boot', message: `The engine worker ${reason} while starting.`, ...extra });
 		} else {
@@ -265,11 +272,13 @@ class Client implements EngineClient {
 	}
 
 	#onTimeout(): void {
-		this.#watchdog = null;
-		this.#restart({
-			kind: 'timeout',
-			message: `The engine worker did not reply within ${this.#timeoutMs} ms.`,
-		});
+		const message = `The engine worker did not reply within ${this.#watchdog.ms} ms.`;
+		this.#restart({ kind: 'timeout', message });
+	}
+
+	#onBootTimeout(): void {
+		const message = `The engine worker did not start within ${this.#bootDeadline.ms} ms.`;
+		this.#halt({ kind: 'boot', message });
 	}
 
 	/** Rule 6: fail what the worker owed, terminate it, and boot a new one. */
@@ -295,7 +304,8 @@ class Client implements EngineClient {
 
 	#dropWorker(): void {
 		this.#generation++;
-		this.#clearWatchdog();
+		this.#watchdog.stop();
+		this.#bootDeadline.stop();
 		const worker = this.#worker;
 		this.#worker = null;
 		worker?.terminate();
@@ -311,7 +321,7 @@ class Client implements EngineClient {
 		for (const effect of effects) {
 			switch (effect.type) {
 				case 'post':
-					if (!this.#post(effect.message)) unsent.push(effect.message);
+					if (!send(this.#worker, effect.message)) unsent.push(effect.message);
 					break;
 				case 'settle': {
 					const resolve = this.#schedules.get(effect.revision);
@@ -344,41 +354,11 @@ class Client implements EngineClient {
 		}
 	}
 
-	#post(message: ToWorker): boolean {
-		try {
-			this.#worker?.postMessage(message);
-			return true;
-		} catch {
-			return false;
-		}
-	}
-
 	/** Keeps the watchdog running exactly while the worker owes a reply; reports state changes. */
 	#afterEvent(progress: boolean): void {
-		if (!this.#queue.hasOutstandingWork) {
-			this.#clearWatchdog();
-		} else if ((progress || this.#watchdog === null) && this.#timeoutMs <= MAX_TIMER_MS) {
-			this.#clearWatchdog();
-			this.#watchdog = setTimeout(() => this.#onTimeout(), this.#timeoutMs);
-		}
-		const state = this.#queue.state;
-		if (state === this.#lastState) return;
-		this.#lastState = state;
-		for (const listener of [...this.#listeners]) {
-			try {
-				listener(state);
-			} catch (error) {
-				// A broken listener must not break the engine; report it without blocking.
-				queueMicrotask(() => {
-					throw error;
-				});
-			}
-		}
-	}
-
-	#clearWatchdog(): void {
-		if (this.#watchdog !== null) clearTimeout(this.#watchdog);
-		this.#watchdog = null;
+		if (!this.#queue.hasOutstandingWork) this.#watchdog.stop();
+		else if (progress || !this.#watchdog.armed) this.#watchdog.start();
+		this.#notifier.notify();
 	}
 
 	#settleReadyWaiters(outcome: EngineVersions | EngineError): void {
@@ -389,9 +369,4 @@ class Client implements EngineClient {
 			else resolve(outcome);
 		}
 	}
-}
-
-function detail(error: unknown): { detail?: string } {
-	if (error instanceof Error) return { detail: `${error.name}: ${error.message}` };
-	return error === undefined ? {} : { detail: String(error) };
 }

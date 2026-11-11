@@ -71,7 +71,8 @@ export interface ScenarioInfo {
 export interface SourceRef {
 	file: WorkspacePath;
 	line: number;
-	column: number;
+	/** TaskJuggler 3.8.4 records no columns, so the bridge emits null (T4). */
+	column: number | null;
 }
 
 export interface TaskResult {
@@ -91,7 +92,8 @@ export interface TaskScenarioResult {
 	/** Resource ids, sorted by resource pre-order. */
 	allocated: string[];
 	criticalness: number;
-	pathCriticalness: number;
+	/** Null when scheduling stopped before TaskJuggler computed it (it starts as nil). */
+	pathCriticalness: number | null;
 }
 
 export interface ResourceResult {
@@ -149,6 +151,17 @@ export interface KeywordDoc {
 	seeAlso: string[];
 }
 
+/**
+ * How the client reacts to each kind (contract for the worker, T6):
+ * - `boot`: the worker could not start (manifest, hash check, Ruby boot). Sent with no `revision`
+ *   or `id` before `ready`; the engine goes to `failed` for good.
+ * - `crash`: wasm traps, out-of-memory and anything else that leaves Ruby unusable must use this
+ *   kind. The client terminates the worker and starts a new one.
+ * - `internal`: a bridge exception confined to one request. With a `revision` or `id`, only that
+ *   request fails and the worker keeps running; with neither, the client restarts the worker.
+ * - `invalid-request`: the request itself was bad (e.g. `entry` not in `files`); as `internal`.
+ * - `timeout`: produced by the client only.
+ */
 export type EngineErrorKind = 'boot' | 'crash' | 'internal' | 'timeout' | 'invalid-request';
 export interface EngineError {
 	kind: EngineErrorKind;
@@ -160,6 +173,11 @@ export interface EngineError {
 export type ToWorker =
 	| { type: 'schedule'; request: ScheduleRequest }
 	| { type: 'syntax'; id: number }
+	/**
+	 * Never posted by the current client: it keeps pending requests itself and sends one schedule
+	 * at a time, so the worker may treat `cancel` as a no-op. A worker that does skip a request
+	 * must still answer it, or the client waits until its reply timeout.
+	 */
 	| { type: 'cancel'; revision: Revision };
 
 /** Worker to main thread (spec 3.2). */
@@ -167,6 +185,7 @@ export type FromWorker =
 	| { type: 'ready'; versions: EngineVersions; bootMs: number }
 	| { type: 'scheduled'; result: ScheduleResult }
 	| { type: 'syntax'; id: number; result: SyntaxDocs }
+	/** `revision` or `id` names the request that failed; see EngineErrorKind for the rules. */
 	| { type: 'failed'; revision?: Revision; id?: number; error: EngineError };
 
 export interface EngineVersions {

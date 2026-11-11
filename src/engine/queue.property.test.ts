@@ -2,6 +2,8 @@
 /**
  * Property tests for the pure queue: random event sequences against a model serial worker.
  * The model checks every effect as it is emitted, then drains the queue and checks the ends.
+ * Sequences are 20 to 80 events long; a final `halt` or `dispose` is rare and lands near the
+ * end, so most runs exercise long interleavings of edits, replies, cancels and crashes.
  */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
@@ -16,27 +18,60 @@ const HALT: EngineError = { kind: 'boot', message: 'cannot restart' };
 type Action =
 	| { kind: 'request'; step: number }
 	| { kind: 'bad'; back: number }
-	| { kind: 'cancel'; pick: number }
+	| { kind: 'cancel'; recent: boolean; pick: number }
 	| { kind: 'complete' }
 	| { kind: 'fail' }
 	| { kind: 'duplicate'; pick: number }
 	| { kind: 'crash' }
 	| { kind: 'ready' }
 	| { kind: 'syntax' }
-	| { kind: 'halt' };
+	| { kind: 'halt' }
+	| { kind: 'dispose' };
 
 const actionArb: fc.Arbitrary<Action> = fc.oneof(
 	{ weight: 8, arbitrary: fc.record({ kind: fc.constant('request'), step: fc.integer({ min: 1, max: 3 }) }) },
 	{ weight: 1, arbitrary: fc.record({ kind: fc.constant('bad'), back: fc.integer({ min: 0, max: 3 }) }) },
-	{ weight: 3, arbitrary: fc.record({ kind: fc.constant('cancel'), pick: fc.nat() }) },
+	// Cancels mostly hit the two newest revisions, the ones that can be in flight or pending.
+	{
+		weight: 3,
+		arbitrary: fc.record({
+			kind: fc.constant('cancel'),
+			recent: fc.constant(true),
+			pick: fc.integer({ min: 0, max: 1 }),
+		}),
+	},
+	{
+		weight: 1,
+		arbitrary: fc.record({ kind: fc.constant('cancel'), recent: fc.constant(false), pick: fc.nat() }),
+	},
 	{ weight: 8, arbitrary: fc.constant({ kind: 'complete' as const }) },
 	{ weight: 2, arbitrary: fc.constant({ kind: 'fail' as const }) },
 	{ weight: 1, arbitrary: fc.record({ kind: fc.constant('duplicate'), pick: fc.nat() }) },
 	{ weight: 2, arbitrary: fc.constant({ kind: 'crash' as const }) },
 	{ weight: 3, arbitrary: fc.constant({ kind: 'ready' as const }) },
 	{ weight: 2, arbitrary: fc.constant({ kind: 'syntax' as const }) },
-	{ weight: 1, arbitrary: fc.constant({ kind: 'halt' as const }) },
 );
+
+/** Final events: absent in two runs out of three, otherwise inserted 0 to 8 events from the end. */
+const scenarioArb = fc
+	.record({
+		actions: fc.array(actionArb, { minLength: 20, maxLength: 80, size: 'max' }),
+		terminal: fc.oneof(
+			{ weight: 2, arbitrary: fc.constant(null) },
+			{
+				weight: 1,
+				arbitrary: fc.record({
+					action: fc.constantFrom<Action>({ kind: 'halt' }, { kind: 'dispose' }),
+					fromEnd: fc.integer({ min: 0, max: 8 }),
+				}),
+			},
+		),
+	})
+	.map(({ actions, terminal }) => {
+		if (terminal === null) return actions;
+		const at = Math.max(0, actions.length - terminal.fromEnd);
+		return [...actions.slice(0, at), terminal.action, ...actions.slice(at)];
+	});
 
 class Model {
 	readonly queue = new ScheduleQueue();
@@ -49,6 +84,9 @@ class Model {
 	readonly posted = new Set<Revision>();
 	/** Revisions cancelled while still unsettled. */
 	readonly cancelRequested = new Set<Revision>();
+	/** Revisions open at `dispose`, or requested after it. */
+	readonly disposedOpen = new Set<Revision>();
+	disposed = false;
 	readonly doneOrder: Revision[] = [];
 	readonly syntaxSettled = new Map<number, number>();
 	nextSyntaxId = 1;
@@ -92,10 +130,14 @@ class Model {
 			expect(outcome.by).toBeGreaterThan(revision);
 			expect(this.requested).toContain(outcome.by);
 		} else if (outcome.status === 'cancelled') {
-			expect(this.cancelRequested.has(revision)).toBe(true);
+			expect(this.expectCancelled(revision)).toBe(true);
 		}
 		if (outcome.status !== 'done') expect(outcome.revision).toBe(revision);
 		this.outcomes.set(revision, outcome);
+	}
+
+	expectCancelled(revision: Revision): boolean {
+		return this.cancelRequested.has(revision) || this.disposedOpen.has(revision);
 	}
 
 	step(action: Action): void {
@@ -105,6 +147,7 @@ class Model {
 			case 'request': {
 				const revision = (last ?? 0) + action.step;
 				this.requested.push(revision);
+				if (this.disposed) this.disposedOpen.add(revision);
 				this.apply(q.request(makeRequest(revision)));
 				break;
 			}
@@ -116,7 +159,9 @@ class Model {
 				break;
 			}
 			case 'cancel': {
-				const revision = this.requested[action.pick % (this.requested.length + 1)] ?? -1;
+				const n = this.requested.length;
+				const index = action.recent ? n - 1 - action.pick : action.pick % (n + 1);
+				const revision = this.requested[index] ?? -1;
 				if (this.requested.includes(revision) && !this.outcomes.has(revision)) {
 					this.cancelRequested.add(revision);
 				}
@@ -140,8 +185,8 @@ class Model {
 				break;
 			case 'ready': {
 				const wasBooted = this.booted;
-				this.booted = q.phase !== 'halted';
 				const effects = q.ready();
+				this.booted = q.phase === 'ready';
 				if (wasBooted) expect(effects).toEqual([]);
 				this.apply(effects);
 				break;
@@ -153,6 +198,13 @@ class Model {
 				this.booted = false;
 				this.unanswered = [];
 				this.apply(q.halt(HALT));
+				break;
+			case 'dispose':
+				for (const r of this.requested) if (!this.outcomes.has(r)) this.disposedOpen.add(r);
+				this.disposed = true;
+				this.booted = false;
+				this.unanswered = [];
+				this.apply(q.dispose());
 				break;
 		}
 		const inFlight = this.unanswered.filter((m) => m.type === 'schedule').length;
@@ -172,7 +224,7 @@ class Model {
 	}
 
 	drain(): void {
-		if (this.queue.phase === 'halted') return;
+		if (this.queue.phase === 'halted' || this.queue.phase === 'disposed') return;
 		if (!this.booted) this.step({ kind: 'ready' });
 		while (this.unanswered.length > 0) this.answer(false);
 	}
@@ -180,8 +232,9 @@ class Model {
 
 describe('ScheduleQueue properties', () => {
 	it('keeps the latest-wins invariants for any event sequence', () => {
+		const stats = { runs: 0, requests: 0 };
 		fc.assert(
-			fc.property(fc.array(actionArb, { maxLength: 60 }), (actions) => {
+			fc.property(scenarioArb, (actions) => {
 				const model = new Model();
 				for (const action of actions) model.step(action);
 				model.drain();
@@ -190,19 +243,25 @@ describe('ScheduleQueue properties', () => {
 				for (const revision of model.requested) expect(model.settleCount.get(revision)).toBe(1);
 				for (let id = 1; id < model.nextSyntaxId; id++) expect(model.syntaxSettled.get(id)).toBe(1);
 
-				// Cancelled-while-open requests end cancelled; the newest open one ends done or failed.
-				for (const revision of model.cancelRequested) {
-					expect(model.outcomes.get(revision)?.status).toBe('cancelled');
+				// A request ends cancelled exactly when it was cancelled while open, or was open at (or
+				// made after) dispose. So the newest other request ends done or failed.
+				for (const revision of model.requested) {
+					const cancelled = model.outcomes.get(revision)?.status === 'cancelled';
+					expect(cancelled).toBe(model.expectCancelled(revision));
 				}
 				const newest = model.requested.at(-1);
-				if (newest !== undefined && !model.cancelRequested.has(newest)) {
+				if (newest !== undefined && !model.expectCancelled(newest)) {
 					expect(['done', 'failed']).toContain(model.outcomes.get(newest)?.status);
 				}
 
 				expect(model.queue.hasOutstandingWork).toBe(false);
 				expect(['idle', 'failed']).toContain(model.queue.state);
+				stats.runs++;
+				stats.requests += model.requested.length;
 			}),
 			{ numRuns: 200 },
 		);
+		// Guards against a generator that stops exploring (it once averaged one request per run).
+		expect(stats.requests / stats.runs).toBeGreaterThan(5);
 	});
 });

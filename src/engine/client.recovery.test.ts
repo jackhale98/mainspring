@@ -155,9 +155,17 @@ describe('timeout (rule 6)', () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 
-	it('does not time the boot, and Infinity turns the watchdog off', () => {
-		vi.advanceTimersByTime(TIMEOUT * 10);
-		expect(client.state).toBe('booting');
+	it('counts any message from the live worker as progress', async () => {
+		factory.current.boot();
+		const one = client.schedule(req(1));
+		vi.advanceTimersByTime(TIMEOUT - 10);
+		factory.current.emitRaw({ type: 'progress' });
+		vi.advanceTimersByTime(TIMEOUT - 10);
+		factory.current.answerNext();
+		await expect(one).resolves.toMatchObject({ status: 'done' });
+	});
+
+	it('turns the reply watchdog off with Infinity', () => {
 		client.dispose();
 		setup(Number.POSITIVE_INFINITY);
 		factory.current.boot();
@@ -165,8 +173,55 @@ describe('timeout (rule 6)', () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 
-	it.each([0, -1, Number.NaN])('rejects timeoutMs %s', (timeoutMs) => {
-		expect(() => createEngineClient({ transport: factory.create, timeoutMs })).toThrow(RangeError);
+	it.each([0, -1, Number.NaN])('rejects timeoutMs and bootTimeoutMs %s', (ms) => {
+		const transport = factory.create;
+		expect(() => createEngineClient({ transport, timeoutMs: ms })).toThrow(RangeError);
+		expect(() => createEngineClient({ transport, bootTimeoutMs: ms })).toThrow(RangeError);
+	});
+});
+
+describe('boot timeout', () => {
+	it('fails with kind boot when the first boot stalls, defaulting to 180 s', async () => {
+		const versions = client.ready();
+		const one = client.schedule(req(1));
+		vi.advanceTimersByTime(180_000 - 1);
+		expect(client.state).toBe('booting');
+		vi.advanceTimersByTime(1);
+		expect(client.state).toBe('failed');
+		expect(factory.current.terminated).toBe(true);
+		await expect(versions).rejects.toMatchObject({ error: { kind: 'boot' } });
+		await expect(one).resolves.toMatchObject({ status: 'failed', error: { kind: 'boot' } });
+		expect(factory.workers).toHaveLength(1);
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it('times every reboot too', async () => {
+		client.dispose();
+		factory = new FakeWorkerFactory();
+		client = createEngineClient({ transport: factory.create, timeoutMs: TIMEOUT, bootTimeoutMs: 500 });
+		factory.current.boot();
+		const one = client.schedule(req(1));
+		factory.current.emitError();
+		await expect(one).resolves.toMatchObject({ status: 'failed', error: { kind: 'crash' } });
+		const two = client.schedule(req(2));
+		vi.advanceTimersByTime(500);
+		await expect(two).resolves.toMatchObject({ status: 'failed', error: { kind: 'boot' } });
+		expect(factory.workers.map((w) => w.terminated)).toEqual([true, true]);
+		expect(client.state).toBe('failed');
+	});
+
+	it('stops once the worker is ready, and Infinity turns it off', () => {
+		vi.advanceTimersByTime(180_000 - 1);
+		factory.current.boot();
+		expect(vi.getTimerCount()).toBe(0);
+		vi.advanceTimersByTime(180_000);
+		expect(client.state).toBe('idle');
+		client.dispose();
+		client = createEngineClient({
+			transport: factory.create,
+			bootTimeoutMs: Number.POSITIVE_INFINITY,
+		});
+		expect(vi.getTimerCount()).toBe(0);
 	});
 });
 

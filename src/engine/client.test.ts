@@ -198,6 +198,20 @@ describe('createEngineClient', () => {
 		expect(client.state).toBe('idle');
 	});
 
+	it('gives later listeners the current state when an earlier listener changes it', () => {
+		client.onState((s) => {
+			if (s === 'idle') void client.schedule(req(1));
+		});
+		const seenByB: EngineState[] = [];
+		client.onState((s) => seenByB.push(s));
+		factory.current.boot();
+		expect(client.state).toBe('busy');
+		expect(seenByB.at(-1)).toBe(client.state);
+		expect(seenByB).toEqual(['busy']);
+		expect(states).toEqual(['idle', 'busy']);
+		expect(factory.current.postedRevisions()).toEqual([1]);
+	});
+
 	it('keeps working when a state listener throws', async () => {
 		const unsubscribe = client.onState(() => {
 			throw new Error('listener bug');
