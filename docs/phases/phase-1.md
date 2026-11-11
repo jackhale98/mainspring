@@ -186,7 +186,7 @@ export interface TjpFile {
   readonly version: number;   // bumps on every change to this file
   readonly top: TopContext;
 }
-/** Incremental reparse through TreeFragment.applyChanges. */
+/** Incremental reparse through grammar/parser.ts `reuseFragments` (settled in T5, 15.1), not plain TreeFragment.applyChanges. */
 export function updateFile(file: TjpFile, changes: ChangeSet): TjpFile;
 ```
 
@@ -772,3 +772,33 @@ These are phase bullets, not gate criteria; they are listed for completeness.
 14. **Carry-overs that need the user:** the Ruby 3.4 machine (T1), branch protection (13.6), and the OpenSSL-free ruby.wasm, which is still due before any public release and is not Phase 1 work. Phase 1 adds no Apache-2.0 dependency; Dexie is still due before Phase 4.
 
 Relevant files: `/home/user/mainspring/docs/BUILD_PLAN.md`, `/home/user/mainspring/docs/phases/phase-0.md`, `/home/user/mainspring/docs/phases/phase-0-gate.md`, `/home/user/mainspring/docs/decisions/0002-engine-protocol.md`, `/home/user/mainspring/src/engine/protocol.ts`, `/home/user/mainspring/engine/golden/run-wasm.mjs`, `/home/user/mainspring/engine/tj/lib/taskjuggler/ProjectFileScanner.rb`, `/home/user/mainspring/engine/tj/lib/taskjuggler/TjpSyntaxRules.rb`, `/home/user/mainspring/engine/golden/plans/bridge/bom-invalid-utf8/plan.tjp`, `/home/user/mainspring/scripts/test-golden.mjs`, `/home/user/mainspring/.github/workflows/nightly.yml`.
+
+## 15. Settled during implementation
+
+Decisions made while building, within the approved scope; recorded here so later tasks rely on
+them.
+
+1. **Incremental parsing (T5).** Documents reparse with `reuseFragments`, which drops reusable
+   fragments within 256 characters of the old tree's error regions. Plain
+   `TreeFragment.applyChanges` let Lezer's recovery reuse nodes next to an error, giving trees
+   that differ from a fresh parse. A property test in CI keeps incremental and fresh parses equal.
+2. **Custom attributes (T5).** A capitalised unknown identifier in a task or resource body parses
+   as an `ExtensionStatement`; `extend` declarations can be in another file, so the grammar cannot
+   decide validity. T8 indexes `extend` declarations, and T9 adds a diagnostic for an
+   `ExtensionStatement` whose name no `extend` in the workspace declares, with a "did you mean"
+   hint when it matches a keyword ignoring case (for example `Effort`).
+3. **Keywords missing from the engine's syntax reference (T5).** TaskJuggler 3.8.4 accepts some
+   deprecated keywords its reference omits (`shift` in bodies, `startcredit`, `endcredit`,
+   `enabled`, `disabled`, `projection`). The grammar knows them through
+   `grammar/keyword-extras.ts`; completion does not offer them (TaskJuggler warns that they are
+   deprecated). `leaveallowances` is a supported keyword that the generated table misnames
+   `leaveallowance`; the generator is fixed to take the name from the syntax line.
+4. **Recovery nodes (T5).** After a parse error, Lezer may produce a `MacroCallStatement` with no
+   macro leaf. T7 and T8 count a statement as a statement-level macro only when it has a
+   `MacroCall`, `MacroWord` or `EnvRef` child.
+5. **Loose typed slots (T5).** Leave types, `scheduling` values, `workinghours` days and the
+   `include` suffix accept any identifier in the grammar (no false positives); T6's typed values
+   and T8 treat an invalid value as parsed-null, not as typed.
+6. **Erratum.** Section 5.3 lists `vacation` in the project context; TaskJuggler accepts it only at
+   global and resource level, as the grammar does.
+
