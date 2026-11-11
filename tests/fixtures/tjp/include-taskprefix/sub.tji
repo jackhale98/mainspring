@@ -1,0 +1,9 @@
+# Feature: included file, parsed with the include site's prefix
+# SPDX-License-Identifier: GPL-2.0-or-later
+task sub1 "Sub 1" {
+  effort 1d
+}
+task sub2 "Sub 2" {
+  effort 1d
+  depends !sub1
+}

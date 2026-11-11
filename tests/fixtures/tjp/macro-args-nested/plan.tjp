@@ -1,0 +1,30 @@
+# Feature: macro arguments, optional ${?x} calls, nested macro calls, glued prefixes
+# SPDX-License-Identifier: GPL-2.0-or-later
+project margs "Macro args" 2026-01-05 +2m
+
+macro dur [${1}d]
+macro title [${1} ${2}]
+macro wrap [${title "Wrapped" "${1}"}]
+macro eff [effort ${dur "2"}]
+macro major [2]
+macro content [pre]
+
+resource ana "Ana"
+
+task t1 "${title "Plain" "name"}" {
+  ${eff}
+  allocate ana
+}
+task tw "${wrap "deep"}" {
+  effort ${dur "3"}
+  allocate ana
+}
+task t${major} "Glued" {
+  effort 1d
+  note "${content}${major}"
+  allocate ana
+}
+task t3 "Opt" {
+  effort ${?undefined}1d
+  allocate ana
+}

@@ -1,0 +1,15 @@
+# Feature: tab indentation, tabs between tokens and trailing tabs
+# SPDX-License-Identifier: GPL-2.0-or-later
+project tabs "Tabs" 2026-01-05 +2m
+
+resource ana "Ana"
+
+task	a	"A" {
+	effort	2d	
+	allocate ana
+}
+task b "B" {
+	effort 1d
+	depends	!a
+	allocate ana
+}

@@ -1,0 +1,22 @@
+# Feature: comment quirks: #, //, /* */ one-line greedy, multi-line, nested-looking
+# SPDX-License-Identifier: GPL-2.0-or-later
+project cmt "Comments" 2026-01-05 +2m // trailing line comment
+
+# hash comment
+// slash comment
+/* one-line block */
+resource ana "Ana" /* inline */ { efficiency 1.0 } /* after */ # tail
+
+/* multi
+   line
+   comment with # and // inside
+*/
+task a "A" {
+  effort 2d /* a */ /* b */
+  allocate ana
+  /* nested-looking /* inner */ still-comment? */
+}
+/* greedy: first */ task b "B" { effort 1d allocate ana } /* last */
+task c "C" { effort 1d allocate ana }
+/* open
+   close */ task d "D" { effort 1d allocate ana }

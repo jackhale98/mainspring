@@ -1,0 +1,5 @@
+# Feature: NEGATIVE: unterminated string runs to end of file (parse error)
+# SPDX-License-Identifier: GPL-2.0-or-later
+project neg1 "Unterminated 2026-01-05 +2m
+
+task a "A" { effort 1d }

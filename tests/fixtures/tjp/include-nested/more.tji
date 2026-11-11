@@ -1,0 +1,7 @@
+# Feature: include with taskprefix, reading a macro from a nested include
+# SPDX-License-Identifier: GPL-2.0-or-later
+task child "Child" {
+  start 2026-01-05
+  milestone
+  note ${leafnote}
+}

@@ -1,0 +1,5 @@
+# Feature: include that defines a macro and a resource, includes a further file
+# SPDX-License-Identifier: GPL-2.0-or-later
+macro len [2d]
+resource who "Who"
+include "leaf.tji"

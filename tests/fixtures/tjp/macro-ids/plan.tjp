@@ -1,0 +1,22 @@
+# Feature: macro ids (task ids and names supplied by macro calls), templated names
+# SPDX-License-Identifier: GPL-2.0-or-later
+project mids "Macro ids" 2026-01-05 +2m
+
+macro tid [dev]
+macro nm [Build]
+macro who [ana]
+
+resource ana "Ana"
+resource ${who}2 "Ana Two"
+
+task ${tid} "${nm} phase" {
+  task ${tid}_sub "${nm} sub ${who}" {
+    effort 1d
+    allocate ${who}
+  }
+}
+task lit "Literal ${nm}" {
+  effort 2d
+  depends ${tid}
+  allocate ana
+}

@@ -1,0 +1,32 @@
+# Feature: supplement task / supplement resource, repeated single-valued attributes
+# SPDX-License-Identifier: GPL-2.0-or-later
+project sup "Supplement" 2026-01-05 +2m
+
+resource ana "Ana"
+resource grp "Group" {
+  resource bo "Bo"
+}
+
+task top "Top" {
+  task a "A" {
+    effort 1d
+    allocate ana
+  }
+}
+
+supplement task top.a {
+  priority 600
+  priority 700
+  note "added later"
+}
+supplement task top {
+  task b "B" { effort 1d allocate bo }
+}
+supplement resource ana {
+  efficiency 0.8
+  vacation 2026-01-12 - 2026-01-14
+}
+supplement resource bo {
+  workinghours mon-thu 9:00-17:00
+  workinghours fri off
+}

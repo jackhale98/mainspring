@@ -1,0 +1,11 @@
+# Feature: one-line blocks, several statements per line, empty bodies
+# SPDX-License-Identifier: GPL-2.0-or-later
+project olb "One-line blocks" 2026-01-05 +2m { timezone "UTC" }
+
+resource ana "Ana" { efficiency 1.0 }
+resource bo "Bo" {}
+
+task a "A" { effort 2d allocate ana }
+task b "B" { effort 1d depends !a allocate ana, bo }
+task c "C" { task c1 "C1" { effort 1d allocate ana } task c2 "C2" { effort 1d depends !c1 allocate ana } }
+task m "M" { milestone depends !c.c2 }

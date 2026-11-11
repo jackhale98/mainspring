@@ -1,0 +1,21 @@
+# Feature: comment-like and macro-like text inside strings; escapes; multi-line strings
+# SPDX-License-Identifier: GPL-2.0-or-later
+project cis "Comment-like strings" 2026-01-05 +2m
+
+resource ana "Ana"
+
+task a "A # not a comment" {
+  effort 2d
+  allocate ana
+  note "http://example.org/path // and /* not */ comment"
+}
+task b 'B "single" it\'s' {
+  effort 1d
+  allocate ana
+  note "escaped \" quote and \\ text"
+}
+task c "C
+spans two lines" {
+  effort 1d
+  allocate ana
+}
