@@ -40,6 +40,10 @@ jobs:
       - run: npm ci
       - run: npm run build:engine
       - run: npm run build:engine -- --check
+      # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
+      # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
+      # engine build hash alone (bridge-only changes) prints a note and passes.
+      - run: npm run gen:keywords -- --check
       - name: Check engine/tj matches tj.pin.json
         run: |
           pinned="$(node -p "require('./engine/tj.pin.json').tree")"
