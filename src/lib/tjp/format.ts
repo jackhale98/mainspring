@@ -35,12 +35,17 @@
  * Formatting is idempotent: the steps it writes are all that unit, so the unit is still the most
  * common one afterwards.
  *
- * Files with syntax errors are refused. As a safety net the result is reparsed, and refused
- * (`unstable-parse`) unless it has the same tree shape (the tokenizer sees line starts through
- * at most 24 code units of indentation, grammar/chars.ts).
+ * Files with syntax errors are refused. As an internal check the result is reparsed
+ * (incrementally): if it has error nodes, format refuses with `syntax-error` and the ranges of
+ * those nodes mapped back to the file as it is; a different tree shape without errors throws.
+ * (Neither should happen; the tokenizer once read line starts through only 24 code units of
+ * indentation, which re-indenting could cross.)
  *
- * The edit API's `formatFile(ws, file): EditResult` (6.5, T10) wraps this: its targets are the
- * changed ranges, and `unstable-parse` has no 6.5 refusal reason yet.
+ * `opts.from`/`opts.to` select lines; a selected continuation line pulls in its statement's
+ * first line and that line's other continuations, so alignment is kept.
+ *
+ * The edit API's `formatFile(ws, file): EditResult` (6.5, T10) wraps this; its targets are the
+ * changed ranges.
  */
 import type { Line, Text } from '@codemirror/state';
 import type { SyntaxNode, Tree } from '@lezer/common';
@@ -59,11 +64,11 @@ export interface FormatOptions {
 	/** Format only the lines that touch [from, to] (default: the whole file). */
 	readonly from?: number;
 	readonly to?: number;
-	/** The indent unit to use ('\t' or spaces) instead of the detected one. */
+	/** The indent unit to use (a tab or one or more spaces) instead of the detected one. */
 	readonly unit?: string;
 }
 
-export type FormatRefusalReason = 'syntax-error' | 'unstable-parse';
+export type FormatRefusalReason = 'syntax-error';
 
 export type FormatResult =
 	| { readonly status: 'format'; readonly changes: readonly FormatChange[]; readonly unit: string }
@@ -307,8 +312,30 @@ function minimalChange(from: number, old: string, next: string): FormatChange | 
 	return { from: from + a, to: from + old.length - b, insert: next.slice(a, next.length - b) };
 }
 
-/** The changes that format `file` (7.3), or a refusal. */
+const UNIT = /^(\t| +)$/;
+
+/**
+ * The lines to format: those that touch [from, to], closed under continuation groups (a line,
+ * the continuation lines anchored to it, theirs, and so on). Index 0 is line 1.
+ */
+function selectedLines(doc: Text, infos: readonly LineInfo[], from: number, to: number): boolean[] {
+	const root: number[] = [];
+	const picked = new Set<number>();
+	for (let i = 0; i < infos.length; i++) {
+		const info = infos[i];
+		const r = info?.kind === 'continuation' ? (root[info.anchor - 1] ?? i) : i;
+		root.push(r);
+		const line = doc.line(i + 1);
+		if (line.to >= from && line.from <= to) picked.add(r);
+	}
+	return root.map((r) => picked.has(r));
+}
+
+/** The changes that format `file` (7.3), or a refusal. Throws RangeError on a bad `opts.unit`. */
 export function formatFile(file: TjpFile, opts: FormatOptions = {}): FormatResult {
+	if (opts.unit !== undefined && !UNIT.test(opts.unit)) {
+		throw new RangeError(`indent unit must be a tab or spaces: ${JSON.stringify(opts.unit)}`);
+	}
 	const issues = syntaxIssues(file.tree, file.text);
 	if (issues.length > 0) {
 		const at = issues.map((i) => ({ file: file.path, from: i.from, to: i.to }));
@@ -318,12 +345,11 @@ export function formatFile(file: TjpFile, opts: FormatOptions = {}): FormatResul
 	const unit = opts.unit ?? detectIndentUnit(file);
 	const infos = analyzeLines(file);
 	const indents = newIndents(doc, infos, unit);
-	const from = opts.from ?? 0;
-	const to = opts.to ?? doc.length;
+	const selected = selectedLines(doc, infos, opts.from ?? 0, opts.to ?? doc.length);
 	const changes: FormatChange[] = [];
 	for (let i = 1; i <= doc.lines; i++) {
+		if (!selected[i - 1]) continue;
 		const line = doc.line(i);
-		if (line.to < from || line.from > to) continue;
 		const info = infos[i - 1];
 		const old = indentOf(line.text);
 		const lead = minimalChange(line.from, old, indents[i - 1] ?? old);
@@ -335,13 +361,20 @@ export function formatFile(file: TjpFile, opts: FormatOptions = {}): FormatResul
 		}
 	}
 	if (changes.length === 0) return { status: 'format', changes, unit };
-	const after = updateFile(file, changeSetOf(changes, doc.length));
-	if (syntaxIssues(after.tree, after.text).length > 0 || !sameShape(file.tree, after.tree)) {
-		return {
-			status: 'refused',
-			reason: 'unstable-parse',
-			at: [{ file: file.path, from: 0, to: doc.length }],
-		};
+	const set = changeSetOf(changes, doc.length);
+	const after = updateFile(file, set);
+	const errors = syntaxIssues(after.tree, after.text);
+	if (errors.length > 0) {
+		const back = set.invert(doc);
+		const at = errors.map((e) => ({
+			file: file.path,
+			from: back.mapPos(e.from, -1),
+			to: back.mapPos(e.to, 1),
+		}));
+		return { status: 'refused', reason: 'syntax-error', at };
+	}
+	if (!sameShape(file.tree, after.tree)) {
+		throw new Error(`format changed the syntax tree of ${file.path}`);
 	}
 	return { status: 'format', changes, unit };
 }

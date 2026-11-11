@@ -3,8 +3,8 @@
 // formatted (a file with syntax errors is refused and sent as it is) and the wasm engine, booted
 // in Node by engine/golden/run-wasm.mjs, must still give the plan's golden result. The corpus is
 // mostly formatted already, so each plan is also formatted with a tab unit, which re-indents
-// nearly every line. Needs the built engine (npm run build:engine); skipped
-// without it.
+// nearly every line. Needs the built engine (npm run build:engine). Without it the test is
+// skipped, except with FORMAT_SCHEDULE=1 (the CI engine job), where a missing engine fails.
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -37,32 +37,38 @@ function formatted(file: TjpFile, unit?: string): string {
 		.toString();
 }
 
-describe.skipIf(!fs.existsSync(ENGINE))('formatted golden plans schedule identically', () => {
-	it('matches every golden with the detected unit and with a tab unit', async () => {
-		const engine = await bootNodeEngine({ log: () => {} });
-		let revision = 0;
-		const failures: string[] = [];
-		const changed = new Map<string, number>();
-		const corpus = loadCorpus() as Array<{ plan: { id: string; root: string }; golden: Golden }>;
-		for (const unit of [undefined, '\t']) {
-			const label = JSON.stringify(unit ?? 'detected');
-			for (const { plan, golden } of corpus) {
-				const request = planRequest(plan, golden, ++revision);
-				const snap = createWorkspace({ entry: golden.entry, files: request.files }).snapshot();
-				const files: Record<string, string> = {};
-				for (const [p, file] of snap.files) {
-					files[p] = formatted(file, unit);
-					const lines = file.text.toString().split('\n');
-					const diff = files[p].split('\n').filter((l, i) => l !== lines[i]).length;
-					changed.set(label, (changed.get(label) ?? 0) + diff);
+const REQUIRED = process.env['FORMAT_SCHEDULE'] === '1';
+
+describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
+	'formatted golden plans schedule identically',
+	() => {
+		it('matches every golden with the detected unit and with a tab unit', async () => {
+			const engine = await bootNodeEngine({ log: () => {} });
+			let revision = 0;
+			const failures: string[] = [];
+			const changed = new Map<string, number>();
+			const corpus = loadCorpus() as Array<{ plan: { id: string; root: string }; golden: Golden }>;
+			for (const unit of [undefined, '\t']) {
+				const label = JSON.stringify(unit ?? 'detected');
+				for (const { plan, golden } of corpus) {
+					const request = planRequest(plan, golden, ++revision);
+					const snap = createWorkspace({ entry: golden.entry, files: request.files }).snapshot();
+					const files: Record<string, string> = {};
+					for (const [p, file] of snap.files) {
+						files[p] = formatted(file, unit);
+						const lines = file.text.toString().split('\n');
+						const diff = files[p].split('\n').filter((l, i) => l !== lines[i]).length;
+						changed.set(label, (changed.get(label) ?? 0) + diff);
+					}
+					expect(Object.keys(files).sort()).toEqual(Object.keys(request.files).sort());
+					const result = engine.schedule({ ...request, files });
+					const diffs = compareWithGolden(golden, { ...result });
+					if (diffs.length > 0)
+						failures.push(`${plan.id} ${label}: ${diffs.slice(0, 5).join('; ')}`);
 				}
-				expect(Object.keys(files).sort()).toEqual(Object.keys(request.files).sort());
-				const result = engine.schedule({ ...request, files });
-				const diffs = compareWithGolden(golden, { ...result });
-				if (diffs.length > 0) failures.push(`${plan.id} ${label}: ${diffs.slice(0, 5).join('; ')}`);
 			}
-		}
-		console.log(`format schedule check: lines changed per unit ${JSON.stringify([...changed])}`);
-		expect(failures).toEqual([]);
-	}, 300_000);
-});
+			console.log(`format schedule check: lines changed per unit ${JSON.stringify([...changed])}`);
+			expect(failures).toEqual([]);
+		}, 300_000);
+	},
+);

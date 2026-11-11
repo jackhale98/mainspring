@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { changeSetOf, createFile, type TopContext } from './document';
+import { changeSetOf, createFile, syntaxIssues, type TopContext } from './document';
 import {
 	DEFAULT_UNIT,
 	analyzeLines,
@@ -274,14 +274,51 @@ describe('formatFile', () => {
 		expect(fmt(text, { unit: '  ' }, 'project')).toBe(L('timezone "UTC"', 'now 2026-01-05', ''));
 	});
 
-	it('refuses a result that would parse differently', () => {
-		// An unknown word starting a line is an error; behind 24+ blanks the tokenizer cannot see
-		// the line start, so it is an opaque argument there (grammar/chars.ts).
+	it('refuses with the new error ranges if the result would not parse', () => {
+		// With the 24-unit line-start limit of grammar/chars.ts, re-indenting `xyz` made it an
+		// unknown word starting a line (an error). Either the result parses cleanly, or format
+		// refuses and points at that line in the file as it is.
 		const deep = `${' '.repeat(26)}xyz`;
-		const file = createFile('p.tjp', L('taskreport r "" {', '      columns name', deep, '}', ''));
+		const text = L('taskreport r "" {', '      columns name', deep, '}', '');
+		const file = createFile('p.tjp', text);
 		expect(analyzeLines(file)[2]?.kind).toBe('continuation');
 		const r = formatFile(file, { unit: '  ' });
-		expect(r.status === 'refused' && r.reason).toBe('unstable-parse');
+		if (r.status === 'format') {
+			const next = changeSetOf([...r.changes], file.text.length).apply(file.text);
+			expect(syntaxIssues(createFile('q.tjp', next).tree, next)).toEqual([]);
+		} else {
+			expect(r.reason).toBe('syntax-error');
+			const line = text.indexOf(deep);
+			for (const at of r.at) {
+				expect(at.from).toBeGreaterThanOrEqual(line);
+				expect(at.to).toBeLessThanOrEqual(line + deep.length + 1);
+			}
+		}
+	});
+
+	it('rejects an indent unit that is not a tab or spaces', () => {
+		const file = createFile('p.tjp', L('task a "A" {', 'effort 1d', '}', ''));
+		for (const unit of ['', '\t\t', ' \t', 'x']) {
+			expect(() => formatFile(file, { unit })).toThrow(RangeError);
+		}
+		expect(fmt(L('task a "A" {', 'effort 1d', '}', ''), { unit: '\t' })).toBe(
+			L('task a "A" {', '\teffort 1d', '}', ''),
+		);
+	});
+
+	it('pulls a continuation group into a range that covers part of it', () => {
+		const text = L(
+			'task a "A" {',
+			'      allocate r1,',
+			'               r2,',
+			'               r3',
+			'}',
+			'',
+		);
+		const at = text.indexOf('r3');
+		expect(fmt(text, { from: at, to: at, unit: '  ' })).toBe(
+			L('task a "A" {', '  allocate r1,', '           r2,', '           r3', '}', ''),
+		);
 	});
 
 	it('returns no changes for a formatted file', () => {

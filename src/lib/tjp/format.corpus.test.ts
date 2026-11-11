@@ -137,14 +137,29 @@ describe('format over the corpora', () => {
 
 	it('changes some corpus files and leaves macro bodies byte for byte', () => {
 		let changed = 0;
+		let total = 0;
+		/** Each macro body with the character after it (its closing line feed). */
+		const bodies = (f: TjpFile): string[] => {
+			const text = f.text.toString();
+			const out: string[] = [];
+			f.tree.iterate({
+				enter(n) {
+					if (n.name === 'MacroBody') out.push(text.slice(n.from, n.to + 1));
+				},
+			});
+			return out;
+		};
 		for (const { file } of VALID) {
-			const old = file.text.toString();
-			const next = formatted(file);
-			if (next !== old) changed++;
-			const bodies = (t: string): string[] => t.match(/\[[^\]]*\]\n/g) ?? [];
-			expect(bodies(next).length).toBe(bodies(old).length);
+			const want = bodies(file);
+			total += want.length;
+			for (const unit of [undefined, '\t']) {
+				const next = formatted(file, unit === undefined ? {} : { unit });
+				if (unit === undefined && next !== file.text.toString()) changed++;
+				expect(bodies(createFile(file.path, next, file.top)), file.path).toEqual(want);
+			}
 		}
 		expect(changed).toBeGreaterThan(0);
+		expect(total).toBeGreaterThan(10);
 	});
 });
 
