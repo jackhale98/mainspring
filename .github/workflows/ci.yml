@@ -26,10 +26,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:unit
 
-  # enabled when T5/T11 land (build:engine currently exits 1 by design)
   engine:
     name: Engine build
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -93,7 +91,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # enabled when T5/T11 land (test:golden currently exits 1 by design)
+  # enabled when T11 lands (test:golden currently exits 1 by design)
   golden:
     name: Golden plans (Chromium)
     if: false

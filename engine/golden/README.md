@@ -203,3 +203,24 @@ them in the browser too. Each header says what it targets and expects.
 
 Unit tests for the recorder's pure helpers (`lib.mjs`) are in
 `tests/golden/record-lib.test.ts` and run with `npm run test:unit`.
+
+## Running the goldens in the browser engine from Node
+
+`run-wasm.mjs` boots the built engine (`npm run build:engine` first) in Node and schedules the
+manifest plans with it, one long-lived engine for the whole corpus, in manifest order:
+
+```
+node engine/golden/run-wasm.mjs [--only <id>]... [--repeat <n>] [--syntax] [--json <file>]
+npm run golden:wasm
+```
+
+It uses the worker's own runtime (`src/engine/runtime.ts`, loaded through Node's type
+stripping) with a file loader in place of `fetch`, so the manifest and hash checks, the WASI file
+system, the bridge and the serializer are the ones the browser runs. Each plan's request holds
+exactly the golden's `files`, decoded with `TextDecoder('utf-8', { ignoreBOM: true })`, and its
+`options.now`. Results are compared as canonical JSON with `revision` and `timings` left out
+(spec 6.3); it prints per-plan timings next to `native-timings.json` and exits 1 on any
+difference. `--repeat` keeps the fastest of n runs; `--syntax` builds the syntax docs first, which
+also shows they leave no state behind. Its exports (`bootNodeEngine`, `loadCorpus`,
+`planRequest`, `compareWithGolden`) are for other Node tools. The gating parity test
+(`npm run test:golden`, T11) runs in Chromium instead.

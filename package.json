@@ -7,20 +7,24 @@
 	"license": "GPL-2.0-or-later",
 	"scripts": {
 		"dev": "astro dev",
-		"build": "astro build",
+		"build": "npm run build:engine && astro build",
 		"preview": "astro preview",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"typecheck": "astro check && svelte-check --tsconfig ./tsconfig.json --threshold error && tsc --noEmit",
 		"test:unit": "vitest run",
 		"test:e2e": "playwright test",
-		"build:engine": "node -e \"console.error('build:engine: not implemented yet (T5/T11)'); process.exit(1)\"",
-		"test:golden": "node -e \"console.error('test:golden: not implemented yet (T5/T11)'); process.exit(1)\"",
+		"build:engine": "node engine/build-bundle.mjs",
+		"test:golden": "node -e \"console.error('test:golden: not implemented yet (T11)'); process.exit(1)\"",
 		"golden:record": "node engine/golden/record-native.mjs",
-		"golden:verify": "node engine/golden/record-native.mjs --verify"
+		"golden:verify": "node engine/golden/record-native.mjs --verify",
+		"golden:wasm": "node engine/golden/run-wasm.mjs"
 	},
 	"dependencies": {
 		"@astrojs/svelte": "^9.1.0",
+		"@bjorn3/browser_wasi_shim": "0.4.2",
+		"@ruby/3.4-wasm-wasi": "2.10.1",
+		"@ruby/wasm-wasi": "2.10.1",
 		"astro": "^7.4.1",
 		"svelte": "^5.57.2"
 	},
