@@ -149,3 +149,125 @@ describe('tjpExternalTokenizer', () => {
 		);
 	});
 });
+
+/**
+ * A nested grammar like the real one will be: statements led by a word the stack can shift
+ * (the `canShift` keyword rule of 5.2), arguments, and `{ … }` bodies.
+ */
+const NESTED = `
+@top File { Statement* }
+Statement { Word Arg* Body? }
+Arg { Tok }
+Body { Open Statement* Close }
+@skip { space }
+@external tokens tjp from "./tokens" { space, Word, Tok, Open, Close }
+`;
+
+function nestedParser(): LRParser {
+	return buildParser(NESTED, {
+		externalTokenizer: (_name, terms) =>
+			tjpExternalTokenizer((token, text, stack) => {
+				const term = (name: string): number => terms[name] ?? -1;
+				if (token.kind === 'Whitespace' || token.kind === 'Bom') return term('space');
+				if (token.kind === 'LineComment' || token.kind === 'BlockComment') return term('space');
+				if (token.kind === 'Punct') {
+					const s = text();
+					if (s === '{') return term('Open');
+					if (s === '}') return term('Close');
+				}
+				if (token.kind === 'Identifier' && stack.canShift(term('Word'))) return term('Word');
+				return term('Tok');
+			}),
+	});
+}
+
+describe('tjpExternalTokenizer in a nested, contextual grammar', () => {
+	const parser = nestedParser();
+	const base =
+		'project p "P" 2024-01-01 +1m {\n  timezone "UTC"\n}\nmacro m [\n  effort 1d\n]\n' +
+		'task t "N" {\n  note -8<-\n  hi\n  ->8-\n  /* c */ depends !a.b, c\n  task u "U" { effort 2d }\n}\n';
+	const pieces = [
+		'"',
+		"'",
+		'\\',
+		'\n',
+		'\r\n',
+		' ',
+		'#',
+		'//',
+		'/*',
+		'*/',
+		'[',
+		']',
+		']\n',
+		'-8<-\n',
+		'  ->8-',
+		'${x}',
+		'$(A)',
+		'a',
+		'task',
+		'1',
+		'.5',
+		'{',
+		'}',
+		'-',
+		'8',
+		'<',
+		'x',
+	];
+	const piece = fc.constantFrom(...pieces);
+	const doc = fc
+		.array(
+			fc.oneof(
+				fc.constant(base),
+				fc.tuple(piece, piece).map(([a, b]) => a + b),
+			),
+			{ minLength: 1, maxLength: 20 },
+		)
+		.map((parts) => parts.join(''));
+	const edit = fc.record({
+		at: fc.double({ min: 0, max: 1, noNaN: true }),
+		cut: fc.nat(3),
+		insert: fc.array(piece, { maxLength: 3 }),
+	});
+
+	it('gives the same tree after random edits and incremental reparses as a fresh parse', () => {
+		fc.assert(
+			fc.property(doc, fc.array(edit, { minLength: 1, maxLength: 4 }), (start, edits) => {
+				let text = start;
+				let tree = parser.parse(text);
+				for (const e of edits) {
+					const from = Math.min(text.length, Math.floor(e.at * text.length));
+					const to = Math.min(text.length, from + e.cut);
+					const insert = e.insert.join('');
+					const next = text.slice(0, from) + insert + text.slice(to);
+					const fragments = TreeFragment.applyChanges(TreeFragment.addTree(tree), [
+						{ fromA: from, toA: to, fromB: from, toB: from + insert.length },
+					]);
+					tree = parser.parse(next, fragments);
+					expect(leaves(tree)).toEqual(leaves(parser.parse(next)));
+					text = next;
+				}
+			}),
+			{ numRuns: 300 },
+		);
+	});
+
+	it('parses one long line in linear time', () => {
+		const line = 'a b c 1 2 "s" '.repeat(2000);
+		expect(line.length).toBe(28000);
+		const best = (f: () => void): number => {
+			f();
+			let min = Infinity;
+			for (let i = 0; i < 5; i++) {
+				const t0 = performance.now();
+				f();
+				min = Math.min(min, performance.now() - t0);
+			}
+			return min;
+		};
+		const ms = best(() => parser.parse(line));
+		console.info(`Lezer path, one ${line.length}-char line: best ${ms.toFixed(1)} ms`);
+		expect(ms).toBeLessThan(50);
+	});
+});

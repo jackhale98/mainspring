@@ -121,6 +121,11 @@ const TJ_TYPE: Partial<Record<TjpTokenKind, TaskJugglerTokenType>> = {
 /**
  * The TaskJuggler token type a kind corresponds to, for differential tests (T19). Null for
  * trivia, errors and macro or env tokens, which TaskJuggler expands instead of returning.
+ *
+ * Boundaries are TaskJuggler's except for one: TaskJuggler's `MACRO` match also consumes the
+ * line feed after the `]`, so its end is the `MacroBody` end + 1 (that `\n` is a `Whitespace`
+ * token here). Trivia boundaries differ too (TaskJuggler's `#` comment includes its `\n`), but
+ * TaskJuggler returns no trivia tokens.
  */
 export function taskJugglerType(kind: TjpTokenKind): TaskJugglerTokenType | null {
 	return TJ_TYPE[kind] ?? null;

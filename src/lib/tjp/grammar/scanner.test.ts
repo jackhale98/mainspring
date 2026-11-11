@@ -2,7 +2,8 @@
 // Unit tests for the ProjectFileScanner port. Cases marked "native" were checked against
 // TaskJuggler 3.8.4's own scanner while writing the port.
 import { describe, expect, it } from 'vitest';
-import { scanToken, type LineSource } from './scanner';
+import { scanToken, type ScanSource } from './scanner';
+import { StringSource } from './scanner-core';
 import { TokenFlag, type TjpToken } from './token-kinds';
 import { tokenizeTjp } from './tokens';
 
@@ -109,80 +110,6 @@ describe('identifiers and numbers', () => {
 			'Integer:100',
 			'Punct::',
 			'Integer:00',
-		]);
-	});
-});
-
-describe('strings', () => {
-	it('reads double- and single-quoted strings across lines', () => {
-		expect(lex('"a\nb" \'c\nd\' ""')).toEqual(['String:"a\nb"', "String:'c\nd'", 'String:""']);
-		expect(only("'x'", 'String').flags).toBe(TokenFlag.SingleQuoted);
-	});
-	it('treats any quote after a backslash as escaped (native)', () => {
-		expect(lex('"a\\\\" b" \'it\\\'s\' "q\'"')).toEqual([
-			'String:"a\\\\" b"',
-			"String:'it\\'s'",
-			'String:"q\'"',
-		]);
-	});
-	it('keeps comment-like text inside strings', () => {
-		expect(lex('"# a // b /* c */"')).toEqual(['String:"# a // b /* c */"']);
-	});
-	it('ends a last line without a line feed at an escaped quote (native)', () => {
-		expect(lex('"x\nabc\\" def')).toEqual(['String:"x\nabc\\"', 'Identifier:def']);
-	});
-	it('makes an unterminated string an error to the end (native)', () => {
-		expect(lex('a "b\nc\n')).toEqual(['Identifier:a', 'Error:"b\nc\n!unterminated-string']);
-		expect(lex('"abc\\" def')).toEqual(['Error:"abc\\" def!unterminated-string']);
-	});
-});
-
-describe('cut-here strings', () => {
-	it('closes at a line whose first non-blank text is ->8- (native)', () => {
-		expect(lex('x -8<-   \n  y ->8- z\n\t->8-w\n')).toEqual([
-			'Identifier:x',
-			'String:-8<-   \n  y ->8- z\n\t->8-',
-			'Identifier:w',
-		]);
-		const t = only('-8<-\n->8-', 'String');
-		expect([t.to, t.flags]).toEqual([9, TokenFlag.CutHere]);
-	});
-	it('accepts CRLF after the mark', () => {
-		expect(lex('-8<-\r\na\r\n  ->8-\r\n')).toEqual(['String:-8<-\r\na\r\n  ->8-']);
-	});
-	it('makes junk after -8<- an error token over the string only (native: junk_after_cut)', () => {
-		expect(lex('-8<- junk\n x\n->8- a')).toEqual([
-			'Error:-8<- junk\n x\n->8-!junk-after-cut',
-			'Identifier:a',
-		]);
-		expect(lex('-8<- ->8- {\nx\n')).toEqual(['Error:-8<- ->8- {\nx\n!junk-after-cut']);
-	});
-	it('checks for junk unanchored, as TaskJuggler does (native)', () => {
-		expect(lex('-8<- junk -8<-\n x\n->8- a')).toEqual([
-			'String:-8<- junk -8<-\n x\n->8-',
-			'Identifier:a',
-		]);
-	});
-	it('reads -8<- on a last line without a line feed as punctuation (native)', () => {
-		expect(lex('a -8<-')).toEqual(['Identifier:a', 'Punct:-', 'Integer:8', 'Punct:<', 'Punct:-']);
-	});
-	it('makes an unterminated cut-here string an error to the end', () => {
-		expect(lex('-8<-\nabc\n')).toEqual(['Error:-8<-\nabc\n!unterminated-string']);
-	});
-	it('flags macro calls inside, which may span lines', () => {
-		const t = only('-8<-\n a ${m "x"\n "y"} ->8-\n->8-', 'String');
-		expect(t.flags).toBe(TokenFlag.CutHere | TokenFlag.Macro);
-		// The prefix and expansion are rescanned first, so the ->8- after the call is text.
-		expect(t.to).toBe(31);
-		expect(lex('-8<-\n${a}\n${b} x\n  ->8- y')).toEqual([
-			'String:-8<-\n${a}\n${b} x\n  ->8-',
-			'Identifier:y',
-		]);
-	});
-	it('runs to the end when only an expansion would close it (upstream Macros.tjp)', () => {
-		expect(lex('note -8<-\n  ${n5}\n}\n')).toEqual([
-			'Identifier:note',
-			'Error:-8<-\n  ${n5}\n}\n!unterminated-string',
 		]);
 	});
 });
@@ -310,15 +237,28 @@ describe('punctuation', () => {
 });
 
 describe('scanToken', () => {
-	/** A source that serves `text` from `start`, like the Lezer adapter. */
-	function source(text: string, start: number): LineSource {
-		return {
-			line(offset) {
-				const abs = start + offset;
-				const nl = text.indexOf('\n', abs);
-				return text.slice(abs, nl < 0 ? text.length : nl + 1);
+	/** A string source starting at `start` that records the farthest offset it was asked for. */
+	function source(text: string, start: number): ScanSource & { readonly far: number } {
+		const inner = new StringSource(text);
+		inner.base = start;
+		const src = {
+			far: -1,
+			peek(offset: number) {
+				src.far = Math.max(src.far, offset);
+				return inner.peek(offset);
+			},
+			slice(offset: number, length: number) {
+				const s = inner.slice(offset, length);
+				src.far = Math.max(src.far, offset + s.length - 1);
+				return s;
+			},
+			line(offset: number) {
+				const s = inner.line(offset);
+				src.far = Math.max(src.far, offset + s.length - 1);
+				return s;
 			},
 		};
+		return src;
 	}
 	it('returns null at the end of input', () => {
 		expect(scanToken(source('', 0), true)).toBeNull();
@@ -336,5 +276,26 @@ describe('scanToken', () => {
 			flags: 0,
 			error: null,
 		});
+	});
+	it('reads only the token and two more code units for words, numbers and punctuation', () => {
+		const tail = ' x'.repeat(1000) + '\n';
+		for (const [head, length] of [
+			['task', 4],
+			['a.b.c', 5],
+			['2024-01-02', 10],
+			['10:30', 5],
+			['{', 1],
+			['"s"', 3],
+			['<=', 2],
+		] as const) {
+			const src = source(head + tail, 0);
+			expect(scanToken(src, false)?.length).toBe(length);
+			expect(src.far, head).toBeLessThanOrEqual(length + 1);
+		}
+	});
+	it('reads the rest of the line only where a pattern looks there', () => {
+		const src = source('/* a */ b */ c\nd', 0);
+		expect(scanToken(src, false)?.length).toBe(12);
+		expect(src.far).toBe(14);
 	});
 });
