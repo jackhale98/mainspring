@@ -26,12 +26,15 @@
 
 @external propSource tjpHighlighting from "./highlight"
 
+@external prop stringTemplate from "./props"
+
 @external tokens tjpTokens from "./lexer" {
   whitespace,
   LineComment,
   BlockComment,
   Bom,
   ScanError,
+  UnknownWord,
   Identifier,
   AbsoluteId,
   ScenarioPrefix,
@@ -40,7 +43,9 @@
   Float,
   Integer,
   String,
-  TemplateString,
+  TemplateString[stringTemplate=macro],
+  envString[@name=TemplateString, stringTemplate=env],
+  macroEnvString[@name=TemplateString, stringTemplate=macro_env],
   MacroBody,
   MacroCall,
   MacroWord,
@@ -255,11 +260,17 @@ MacroCallStatement { prefix? (headMacro | headMacroWord | headEnvRef) opaqueArgs
 
 OpaqueStatement { prefix? ((kw | headUnknown) opaqueArgs? | kwArgs opaqueArgs) }
 
-opaqueArgs { (atom | Body | Comma atom)+ }
+// After a body only a comma continues the statement (`columns a { … }, b`), so a typo on the
+// next line (`limits { … }` then `efort 5d`) is an error, as in TaskJuggler.
+opaqueArgs { plainArg+ bodyArgs? | bodyArgs }
+
+plainArg { atom | Comma atom }
+
+bodyArgs { Body (Comma atom plainArg* bodyArgs?)? }
 
 atom {
   Identifier | AbsoluteId | ScenarioPrefix | Date | Time | Float | Integer | String |
-  TemplateString | MacroBody | macroToken | Bang | Minus | Plus | Percent | Punct | DateExpr |
+  templateString | MacroBody | macroToken | Bang | Minus | Plus | Percent | Punct | DateExpr |
   Group
 }
 
@@ -269,7 +280,9 @@ Group { OpenParen (atom | Comma | Body)* CloseParen }
 
 macroToken { MacroCall | MacroWord | EnvRef }
 
-stringValue { String | TemplateString | macroToken }
+templateString { TemplateString | envString | macroEnvString }
+
+stringValue { String | templateString | macroToken }
 
 numberValue { Integer | Float | macroToken }
 
@@ -277,9 +290,9 @@ dateValue { Date | DateExpr | macroToken }
 
 Id { Identifier | macroToken }
 
-Name { String | TemplateString }
+Name { String | templateString }
 
-Version { String | TemplateString }
+Version { String | templateString }
 
 Ref { Identifier | AbsoluteId | macroToken }
 

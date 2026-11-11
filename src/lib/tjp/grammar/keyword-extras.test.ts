@@ -14,15 +14,24 @@ describe('keyword extras', () => {
 	});
 
 	it('resolve where the table does not', () => {
-		expect(resolveHeadKeyword('leaveallowances', 'resource')?.keyword).toBe('leaveallowances');
 		expect(resolveHeadKeyword('shift', 'task')?.keyword).toBe('shift.task');
 		expect(resolveHeadKeyword('endcredit', 'supplement.task')?.keyword).toBe('endcredit');
 		expect(resolveHeadKeyword('strict', 'projection')?.keyword).toBe('strict.projection');
 		expect(resolveHeadKeyword('strict', 'task')).toBeNull();
 	});
 
+	it('are scenario attributes where TaskJuggler reads them as such', () => {
+		expect(resolveHeadKeyword('startcredit', 'task')?.scenarioSpecific).toBe(true);
+		expect(resolveHeadKeyword('shift', 'resource')?.scenarioSpecific).toBe(true);
+		expect(resolveHeadKeyword('shift', 'allocate')?.scenarioSpecific).toBe(false);
+		expect(resolveHeadKeyword('enabled', 'scenario')?.scenarioSpecific).toBe(false);
+	});
+
 	it('defer to the table where it has the keyword', () => {
 		expect(resolveHeadKeyword('effort', 'task')).toBe(keywordById('effort'));
+		// The table names it as written (gen-tjp-keywords.mjs), so it needs no extra.
+		expect(resolveHeadKeyword('leaveallowances', 'resource')).toBe(keywordById('leaveallowance'));
+		expect(resolveHeadKeyword('leaveallowance', 'resource')).toBeNull();
 		expect(resolveHeadKeyword('shift', '')).toBe(keywordById('shift'));
 	});
 

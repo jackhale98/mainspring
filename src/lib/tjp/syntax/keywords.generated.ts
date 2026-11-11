@@ -990,7 +990,7 @@ export const KEYWORDS: readonly KeywordEntry[] = [
 	},
 	{
 		keyword: 'leaveallowance',
-		name: 'leaveallowance',
+		name: 'leaveallowances',
 		contexts: ['resource', 'supplement.resource'],
 		scenarioSpecific: true,
 		syntax:

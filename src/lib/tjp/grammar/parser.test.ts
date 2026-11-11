@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { KEYWORDS, type TopContextName } from '../syntax/keywords';
 import { errorNodes, printLeaves } from '../../../../tests/grammar/corpus';
 import {
+	isRecoveryStatement,
 	MACRO_TOKENS,
 	OPAQUE_STATEMENTS,
 	TYPED_KEYWORD_IDS,
@@ -252,11 +253,57 @@ describe('errors', () => {
 		['a stray value', 'task a "A" {\n  effort 1d\n  "x"\n}', 3],
 		['an unbalanced brace', 'task a "A" {\n}\n}\n', 3],
 		['a missing unit', 'task a "A" {\n  effort 5\n}', 3],
+		// A misspelt attribute on the line after an opaque statement is not taken as its argument.
+		['a typo after an opaque statement', 'task a "A" {\n  chargeset dev\n  effrot 5d\n}', 3],
+		[
+			'a typo after an opaque interval',
+			'task a "A" {\n  shifts night 2024-01-01 - 2024-02-01\n  efort 5d\n}',
+			3,
+		],
+		['a typo after an opaque body', 'task a "A" {\n  limits { dailymax 4h }\n  efort 5d\n}', 3],
+		['a typo after a body on one line', 'task a "A" { limits { dailymax 4h } efort 5d }', 1],
+		['a typo after a typed statement', 'task a "A" {\n  effort 1d\n  effrot 5d\n}', 3],
+		['a second value after a typed statement', 'task a "A" {\n  effort 5d 3h\n}', 2],
+		// TaskJuggler accepts only `leaveallowances` (TjpSyntaxRules.rb, rule_leaveAllowances).
+		[
+			'the documentation id instead of the keyword',
+			'resource r "R" {\n  leaveallowance annual 2024-01-01 20d\n}',
+			2,
+		],
 	])('puts the first error node at %s', (_what, text, line) => {
 		const tree = tjpGlobalParser.parse(text);
 		const errors = errorNodes(tree, text);
 		expect(errors[0]?.line).toBe(line);
 		expect(printLeaves(tree, text)).toBe(text);
+	});
+
+	it.each([
+		['a comma list', 'taskreport r "" {\n  columns name,\n    start\n}'],
+		['a comma list after a body', 'taskreport r "" {\n  columns name { title "N" },\n    end\n}'],
+		['a dependency list', 'task a "A" {\n  depends b,\n    c\n}\ntask b "B"\ntask c "C"'],
+		['a working-hours list', 'resource r "R" {\n  workinghours mon,\n    tue 9:00 - 12:00\n}'],
+		['leaveallowances', 'resource r "R" {\n  leaveallowances annual 2024-01-01 20d\n}'],
+	])('still continues %s on the next line', (_what, text) => {
+		expect(errorNodes(tjpGlobalParser.parse(text), text)).toEqual([]);
+	});
+
+	it('wraps recovery in a MacroCallStatement with no macro token', () => {
+		// After `effort 5d`, Lezer recovers from `3h` by inserting a statement head; the node it
+		// builds is a MacroCallStatement whose head is an error node, not a macro call.
+		const text = 'task a "A" {\n  effort 5d 3h\n}';
+		const tree = tjpGlobalParser.parse(text);
+		const stmt = tree.topNode
+			.getChild('TaskStatement')
+			?.getChild('Body')
+			?.getChild('MacroCallStatement');
+		expect(stmt).toBeTruthy();
+		expect(stmt && isRecoveryStatement(stmt)).toBe(true);
+		const real = tjpGlobalParser.parse('task a "A" { ${m} }');
+		const call = real.topNode
+			.getChild('TaskStatement')
+			?.getChild('Body')
+			?.getChild('MacroCallStatement');
+		expect(call && isRecoveryStatement(call)).toBe(false);
 	});
 
 	it('keeps an unterminated construct in one error node to the end', () => {

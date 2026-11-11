@@ -86,8 +86,9 @@ export function buildTable(docs) {
 		}
 	}
 	const entries = docs.keywords.map((k) => {
-		const name = k.keyword.split('.')[0] ?? '';
-		if (!NAME_RE.test(name)) throw new Error(`syntax(): unexpected keyword id '${k.keyword}'`);
+		const idName = k.keyword.split('.')[0] ?? '';
+		if (!NAME_RE.test(idName)) throw new Error(`syntax(): unexpected keyword id '${k.keyword}'`);
+		const name = writtenName(k, idName);
 		const contexts = new Set(
 			k.contexts.map((c) => {
 				if (c === ENGINE_GLOBAL) return GLOBAL_CONTEXT;
@@ -119,6 +120,22 @@ export function buildTable(docs) {
 		}
 	}
 	return entries;
+}
+
+/**
+ * The keyword as written in a file. That is normally the documentation id without its scope
+ * ('booking.task' is written 'booking'), but the parser matches the first word of the syntax line,
+ * and the two can differ: TaskJuggler documents `leaveallowances` (TjpSyntaxRules.rb,
+ * rule_leaveAllowances) under the id 'leaveallowance'. Entries that may appear somewhere and
+ * whose syntax line starts with a keyword take that word. Documentation-only entries (no
+ * contexts, e.g. 'halign.center', syntax 'center') keep the id.
+ * @param {EngineKeyword} k
+ * @param {string} idName
+ */
+function writtenName(k, idName) {
+	if (k.contexts.length === 0) return idName;
+	const first = /^[a-z][a-z0-9]*/.exec(k.syntax.trim())?.[0];
+	return first ?? idName;
 }
 
 /** @param {string} s */

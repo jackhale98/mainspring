@@ -4,17 +4,24 @@
  * grammar term for each token (phase-1.md 5.2).
  *
  * An identifier becomes a keyword term only when the keyword table (syntax/keywords.ts) has it in
- * the current context (or keyword-extras.ts adds it there) and the parse state can shift it, so an identifier in a value slot, after a
- * `,` or right after a keyword that needs an argument is never a keyword. Tokens that could
- * either continue a statement or start the next one get a separate head term:
+ * the current context (or keyword-extras.ts adds it there) and the parse state can shift it, so
+ * an identifier in a value slot, after a `,` or right after a keyword that needs an argument is
+ * never a keyword. Tokens that could either continue a statement or start the next one get a
+ * separate head term:
  * - keywords, and capitalised extension attributes (`extend task { text Phone … }`, TaskJuggler
  *   requires the capital) in task and resource bodies, start a statement whenever they can;
  * - macro calls and unknown identifiers (in bodies whose context is unknown) start one only when
  *   they cannot continue the current one;
  * - a scenario prefix starts one when a keyword or extension attribute follows it.
+ *
+ * An identifier that is neither, starts a line in a known context, and stands where a statement
+ * could end is read as a misspelt attribute (`chargeset dev` then `effrot 5d` on the next line):
+ * it becomes `UnknownWord`, which no rule accepts, so the error is on that line, where TaskJuggler
+ * reports it. Arguments continued on the next line after a `,` are unaffected.
  */
 import type { Stack } from '@lezer/lr';
 import type { ContextId, KeywordEntry } from '../syntax/keywords';
+import { readWord, startsLine, type Peek } from './chars';
 import { resolveHeadKeyword } from './keyword-extras';
 import type { TjpFrame } from './context';
 import * as T from './parser.terms.generated';
@@ -84,7 +91,7 @@ function isHeadWord(name: string, ctx: ContextId | null): boolean {
 	return EXTENSION_CONTEXTS.has(ctx) && isUpper(name.charCodeAt(0));
 }
 
-function identifierTerm(name: string, stack: Stack): number {
+function identifierTerm(name: string, stack: Stack, peek: Peek): number {
 	const ctx = frameOf(stack).ctx;
 	if (ctx !== null) {
 		const entry = resolveHeadKeyword(name, ctx);
@@ -104,19 +111,16 @@ function identifierTerm(name: string, stack: Stack): number {
 	}
 	if (UNITS.has(name) && stack.canShift(T.Unit)) return T.Unit;
 	if (SUPPLEMENT_KINDS.has(name) && stack.canShift(T.SupplementKind)) return T.SupplementKind;
+	if (ctx !== null && stack.canShift(T.kw) && startsLine(peek)) return T.UnknownWord;
 	return T.Identifier;
 }
 
-/** The word after a scenario prefix of `length` code units, skipping blanks. */
-function wordAfter(length: number, peek: (offset: number) => number): string {
-	let i = length;
-	for (let c = peek(i); c === 32 || (c >= 9 && c <= 13); c = peek(++i));
-	let s = '';
-	for (let c = peek(i); ; c = peek(++i)) {
-		const word = (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c === 95;
-		if (!word) return s;
-		s += String.fromCharCode(c);
-	}
+/** A string, by what TaskJuggler expands in it (props.ts records it on the node type). */
+function stringTerm(flags: number): number {
+	const macro = (flags & TokenFlag.Macro) !== 0;
+	const env = (flags & TokenFlag.Env) !== 0;
+	if (macro) return env ? T.macroEnvString : T.TemplateString;
+	return env ? T.envString : T.String;
 }
 
 /** A macro token: as a value when the statement can take one, else at the head of the next. */
@@ -126,12 +130,7 @@ function macroTerm(stack: Stack, value: number, head: number): number {
 }
 
 /** The grammar term for a scanned token (see TjpTermFor in tokens.ts). */
-export function termFor(
-	token: ScannedToken,
-	text: () => string,
-	stack: Stack,
-	peek: (offset: number) => number,
-): number {
+export function termFor(token: ScannedToken, text: () => string, stack: Stack, peek: Peek): number {
 	switch (token.kind) {
 		case 'Whitespace':
 			return T.whitespace;
@@ -144,12 +143,12 @@ export function termFor(
 		case 'Error':
 			return T.ScanError;
 		case 'Identifier':
-			return identifierTerm(text(), stack);
+			return identifierTerm(text(), stack, peek);
 		case 'ScenarioPrefix':
 			if (
 				stack.canShift(T.headPrefix) &&
 				(!stack.canShift(T.ScenarioPrefix) ||
-					isHeadWord(wordAfter(token.length, peek), frameOf(stack).ctx))
+					isHeadWord(readWord(peek, token.length, true), frameOf(stack).ctx))
 			) {
 				return T.headPrefix;
 			}
@@ -165,7 +164,7 @@ export function termFor(
 		case 'Integer':
 			return T.Integer;
 		case 'String':
-			return token.flags & (TokenFlag.Macro | TokenFlag.Env) ? T.TemplateString : T.String;
+			return stringTerm(token.flags);
 		case 'MacroBody':
 			return T.MacroBody;
 		case 'MacroCall':
