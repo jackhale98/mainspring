@@ -99,10 +99,16 @@ class StreamSource implements ScanSource {
 
 /**
  * Chooses the grammar term for a scanned token, or -1 to reject it. `text` reads the token's
- * text. The grammar uses this to map kinds and punctuation to its terms and to turn an
- * `Identifier` into a `Keyword` when the context allows (5.2).
+ * text, and `peek` the code unit at an offset from the token start (-1 at the end), for
+ * lookahead past the token. The grammar uses this to map kinds and punctuation to its terms and
+ * to turn an `Identifier` into a `Keyword` when the context allows (5.2).
  */
-export type TjpTermFor = (token: ScannedToken, text: () => string, stack: Stack) => number;
+export type TjpTermFor = (
+	token: ScannedToken,
+	text: () => string,
+	stack: Stack,
+	peek: (offset: number) => number,
+) => number;
 
 /** Options passed through to Lezer's `ExternalTokenizer`. */
 export type TjpTokenizerOptions = NonNullable<ConstructorParameters<typeof ExternalTokenizer>[1]>;
@@ -123,7 +129,12 @@ export function tjpExternalTokenizer(
 			const src = new StreamSource(input);
 			const t = scanToken(src, input.pos === 0);
 			if (!t) return;
-			const term = termFor(t, () => src.slice(0, t.length), stack);
+			const term = termFor(
+				t,
+				() => src.slice(0, t.length),
+				stack,
+				(offset) => src.peek(offset),
+			);
 			if (term >= 0) input.acceptToken(term, t.length);
 		},
 		{ contextual: true, ...options },

@@ -1,0 +1,314 @@
+// SPDX-License-Identifier: GPL-2.0-only
+//
+// Lezer grammar for TaskJuggler project files (.tjp, .tji), phase-1.md 5.2 and 5.3.
+// The typed statements follow TaskJuggler's TjpSyntaxRules.rb at 3b36c79 (rule_projectHeader,
+// rule_taskHeader, rule_interval, rule_dateCalcedOrNot, rule_workingDuration, rule_taskDep,
+// rule_allocate, rule_leave, rule_workinghours, rule_supplement and the attribute rules they
+// belong to), so this file is GPL-2.0-only (ADR-0001 addendum).
+// Built by scripts/build-grammar.mjs into parser.generated.ts and parser.terms.generated.ts.
+//
+// Every token comes from the external tokenizer in lexer.ts, which runs the port of
+// TaskJuggler's scanner (tokens.ts) and picks the term. Identifiers become keyword terms only
+// where the keyword table allows them in the current context (context.ts) and the parse state
+// can shift them, so the grammar itself has no keywords and no conflicts. Statement heads
+// (keywords, extension attributes, statement-level macro calls, unknown heads, scenario
+// prefixes) are terms of their own, so a statement ends where the next head starts.
+//
+// Typed statements cover the MVP keywords (5.3). Every other keyword gets an OpaqueStatement:
+// its arguments are any tokens, comma continuations, parenthesised groups and bodies. Any typed
+// value slot also accepts a macro call, a glued macro word or an environment reference.
+
+@top File { statement* }
+
+@skip { whitespace | LineComment | BlockComment | Bom }
+
+@context tjpContext from "./context"
+
+@external propSource tjpHighlighting from "./highlight"
+
+@external tokens tjpTokens from "./lexer" {
+  whitespace,
+  LineComment,
+  BlockComment,
+  Bom,
+  ScanError,
+  Identifier,
+  AbsoluteId,
+  ScenarioPrefix,
+  Date,
+  Time,
+  Float,
+  Integer,
+  String,
+  TemplateString,
+  MacroBody,
+  MacroCall,
+  MacroWord,
+  EnvRef,
+  OpenBrace,
+  ExprOpen[@name=OpenBrace],
+  CloseBrace,
+  OpenParen,
+  CloseParen,
+  Comma,
+  Bang,
+  Minus,
+  Plus,
+  Percent,
+  Punct,
+  Unit,
+  SupplementKind,
+  // Statement heads.
+  headPrefix[@name=ScenarioPrefix],
+  headMacro[@name=MacroCall],
+  headMacroWord[@name=MacroWord],
+  headEnvRef[@name=EnvRef],
+  headUnknown[@name=Identifier],
+  AttributeName,
+  kw[@name=Keyword],
+  kwArgs[@name=Keyword],
+  kwProject[@name=Keyword],
+  kwInclude[@name=Keyword],
+  kwMacro[@name=Keyword],
+  kwFlags[@name=Keyword],
+  kwLeaves[@name=Keyword],
+  kwVacation[@name=Keyword],
+  kwTimezone[@name=Keyword],
+  kwTimeformat[@name=Keyword],
+  kwCurrency[@name=Keyword],
+  kwNow[@name=Keyword],
+  kwDailyworkinghours[@name=Keyword],
+  kwWeekstartsmonday[@name=Keyword],
+  kwWorkinghours[@name=Keyword],
+  kwTask[@name=Keyword],
+  kwEffort[@name=Keyword],
+  kwLength[@name=Keyword],
+  kwDuration[@name=Keyword],
+  kwStart[@name=Keyword],
+  kwEnd[@name=Keyword],
+  kwMinstart[@name=Keyword],
+  kwMaxend[@name=Keyword],
+  kwScheduling[@name=Keyword],
+  kwMilestone[@name=Keyword],
+  kwPriority[@name=Keyword],
+  kwComplete[@name=Keyword],
+  kwNote[@name=Keyword],
+  kwResponsible[@name=Keyword],
+  kwDepends[@name=Keyword],
+  kwPrecedes[@name=Keyword],
+  kwGapduration[@name=Keyword],
+  kwGaplength[@name=Keyword],
+  kwOnstart[@name=Keyword],
+  kwOnend[@name=Keyword],
+  kwAllocate[@name=Keyword],
+  kwResource[@name=Keyword],
+  kwEfficiency[@name=Keyword],
+  kwRate[@name=Keyword],
+  kwEmail[@name=Keyword],
+  kwManagers[@name=Keyword],
+  kwSupplement[@name=Keyword]
+}
+
+statement {
+  ProjectStatement |
+  IncludeStatement |
+  MacroStatement |
+  FlagsStatement |
+  LeavesStatement |
+  VacationStatement |
+  TimezoneStatement |
+  TimeformatStatement |
+  CurrencyStatement |
+  NowStatement |
+  DailyworkinghoursStatement |
+  WeekstartsmondayStatement |
+  WorkinghoursStatement |
+  TaskStatement |
+  EffortStatement |
+  LengthStatement |
+  DurationStatement |
+  StartStatement |
+  EndStatement |
+  MinstartStatement |
+  MaxendStatement |
+  SchedulingStatement |
+  MilestoneStatement |
+  PriorityStatement |
+  CompleteStatement |
+  NoteStatement |
+  ResponsibleStatement |
+  DependsStatement |
+  PrecedesStatement |
+  GapdurationStatement |
+  GaplengthStatement |
+  OnstartStatement |
+  OnendStatement |
+  AllocateStatement |
+  ResourceStatement |
+  EfficiencyStatement |
+  RateStatement |
+  EmailStatement |
+  ManagersStatement |
+  SupplementStatement |
+  ExtensionStatement |
+  MacroCallStatement |
+  OpaqueStatement
+}
+
+prefix { headPrefix }
+
+Body { OpenBrace statement* CloseBrace }
+
+// Declarations.
+
+ProjectStatement { prefix? kwProject Id? Name Version? Interval Body? }
+
+TaskStatement { prefix? kwTask declHeader Body? }
+
+ResourceStatement { prefix? kwResource declHeader Body? }
+
+declHeader { Name | Id Name? }
+
+SupplementStatement { prefix? kwSupplement SupplementKind? Ref Body? }
+
+IncludeStatement { prefix? kwInclude stringValue Body? }
+
+MacroStatement { prefix? kwMacro (Identifier | macroToken) MacroBody }
+
+// Attributes with typed values.
+
+FlagsStatement { prefix? kwFlags Flag (Comma Flag)* }
+
+LeavesStatement { prefix? kwLeaves Leave (Comma Leave)* }
+
+VacationStatement { prefix? kwVacation Name? (Interval (Comma Interval)*)? }
+
+TimezoneStatement { prefix? kwTimezone stringValue }
+
+TimeformatStatement { prefix? kwTimeformat stringValue }
+
+CurrencyStatement { prefix? kwCurrency stringValue }
+
+NoteStatement { prefix? kwNote stringValue }
+
+EmailStatement { prefix? kwEmail stringValue }
+
+NowStatement { prefix? kwNow dateValue }
+
+StartStatement { prefix? kwStart dateValue }
+
+EndStatement { prefix? kwEnd dateValue }
+
+MinstartStatement { prefix? kwMinstart dateValue }
+
+MaxendStatement { prefix? kwMaxend dateValue }
+
+DailyworkinghoursStatement { prefix? kwDailyworkinghours numberValue }
+
+CompleteStatement { prefix? kwComplete numberValue }
+
+EfficiencyStatement { prefix? kwEfficiency numberValue }
+
+RateStatement { prefix? kwRate numberValue }
+
+PriorityStatement { prefix? kwPriority (Integer | macroToken) }
+
+WeekstartsmondayStatement { prefix? kwWeekstartsmonday }
+
+MilestoneStatement { prefix? kwMilestone }
+
+OnstartStatement { prefix? kwOnstart }
+
+OnendStatement { prefix? kwOnend }
+
+EffortStatement { prefix? kwEffort WorkingDuration }
+
+LengthStatement { prefix? kwLength WorkingDuration }
+
+GaplengthStatement { prefix? kwGaplength WorkingDuration }
+
+DurationStatement { prefix? kwDuration CalendarDuration }
+
+GapdurationStatement { prefix? kwGapduration CalendarDuration }
+
+SchedulingStatement { prefix? kwScheduling (Identifier | macroToken) }
+
+ResponsibleStatement { prefix? kwResponsible ResourceRef (Comma ResourceRef)* }
+
+ManagersStatement { prefix? kwManagers ResourceRef (Comma ResourceRef)* }
+
+DependsStatement { prefix? kwDepends DepItem (Comma DepItem)* }
+
+PrecedesStatement { prefix? kwPrecedes DepItem (Comma DepItem)* }
+
+AllocateStatement { prefix? kwAllocate AllocItem (Comma AllocItem)* }
+
+WorkinghoursStatement {
+  prefix? kwWorkinghours WeekdayRange (Comma WeekdayRange)* (Identifier | timeIntervals)?
+}
+
+// Statements outside the typed set.
+
+ExtensionStatement { prefix? AttributeName opaqueArgs? }
+
+MacroCallStatement { prefix? (headMacro | headMacroWord | headEnvRef) opaqueArgs? }
+
+OpaqueStatement { prefix? ((kw | headUnknown) opaqueArgs? | kwArgs opaqueArgs) }
+
+opaqueArgs { (atom | Body | Comma atom)+ }
+
+atom {
+  Identifier | AbsoluteId | ScenarioPrefix | Date | Time | Float | Integer | String |
+  TemplateString | MacroBody | macroToken | Bang | Minus | Plus | Percent | Punct | DateExpr |
+  Group
+}
+
+Group { OpenParen (atom | Comma | Body)* CloseParen }
+
+// Values.
+
+macroToken { MacroCall | MacroWord | EnvRef }
+
+stringValue { String | TemplateString | macroToken }
+
+numberValue { Integer | Float | macroToken }
+
+dateValue { Date | DateExpr | macroToken }
+
+Id { Identifier | macroToken }
+
+Name { String | TemplateString }
+
+Version { String | TemplateString }
+
+Ref { Identifier | AbsoluteId | macroToken }
+
+Flag { Identifier | macroToken }
+
+ResourceRef { Identifier | AbsoluteId | macroToken }
+
+TaskRef { Bang* (Identifier | AbsoluteId | macroToken) }
+
+DepItem { TaskRef Body? }
+
+AllocItem { ResourceRef Body? }
+
+DateExpr { Percent ExprOpen dateValue ((Plus | Minus) durationValue)? CloseBrace }
+
+Interval { dateValue ((Minus dateValue) | (Plus durationValue))? }
+
+durationValue { (Integer | Float) Unit | macroToken Unit? }
+
+WorkingDuration { durationValue }
+
+CalendarDuration { durationValue }
+
+Leave { LeaveType Name? Interval | macroToken }
+
+LeaveType { Identifier }
+
+WeekdayRange { (Identifier | macroToken) (Minus (Identifier | macroToken))? }
+
+timeIntervals { TimeInterval (Comma TimeInterval)* }
+
+TimeInterval { (Time | macroToken) (Minus (Time | macroToken))? }

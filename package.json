@@ -20,7 +20,7 @@
 		"golden:record": "node engine/golden/record-native.mjs",
 		"golden:verify": "node engine/golden/record-native.mjs --verify",
 		"golden:wasm": "node engine/golden/run-wasm.mjs",
-		"build:grammar": "node -e \"console.error('not implemented yet (T5)');process.exit(1)\" --",
+		"build:grammar": "node scripts/build-grammar.mjs",
 		"gen:keywords": "node scripts/gen-tjp-keywords.mjs",
 		"test:roundtrip": "node -e \"console.error('not implemented yet (T17)');process.exit(1)\" --",
 		"test:fidelity": "node -e \"console.error('not implemented yet (T18)');process.exit(1)\" --"

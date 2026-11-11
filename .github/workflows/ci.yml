@@ -23,6 +23,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run format:check
+      # The committed TJP parser must match src/lib/tjp/grammar/tjp.grammar.
+      - run: npm run build:grammar -- --check
       - run: npm run typecheck
       - run: npm run test:unit
       # Production dependencies that can reach the built site must be GPL-2.0 compatible (ADR-0001).
