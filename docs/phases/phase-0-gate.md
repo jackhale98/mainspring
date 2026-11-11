@@ -1,7 +1,7 @@
 # Phase 0 gate: Foundation and engine
 
 Status: **waiting for approval.** Evidence recorded 2026-11-11 on branch
-`claude/new-session-6tly46`. Spec: `docs/phases/phase-0.md`.
+`claude/new-session-6tly46` (also pushed to `main`). Spec: `docs/phases/phase-0.md`.
 
 ## Verdict
 
@@ -18,8 +18,8 @@ provisional input (the goldens were recorded on Ruby 3.3.6, not 3.4.x).
 1. **Approve the gate**, so Phase 1 can start.
 2. **Approve the engine-boot deviation** (spec section 11, item 18). On first load, V8 compiles
    the 30 MB ruby.wasm on every renderer thread-pool worker; raster work queues behind it, so a
-   frame that shows newly typed text waits about 100 ms (up to 2 such frames, 62 to 104 ms in
-   the runs below). The main thread itself is idle (about 1 ms of CPU). No web API limits compile
+   frame that shows newly typed text waits about 100 ms (0 to 2 such frames per first load, 62 to
+   105 ms in our runs). The main thread itself is idle (about 1 ms of CPU). No web API limits compile
    parallelism. The test caps each boot long task at 250 ms and asserts zero long tasks once the
    engine is ready. Mitigation planned for Phase 4: Chrome's wasm code cache through
    `WebAssembly.compileStreaming`, which removes the compile on repeat visits.
@@ -66,31 +66,36 @@ on a faster machine. Engine boot (download excluded): 1.3 to 1.8 s.
 
 `npm run test:responsiveness` (`tests/e2e/engine-responsiveness.spec.ts`, Chromium, plan
 `syn-20-scale-1000`, a CSS and a rAF animation running, a key typed every 100 ms). Three asserted
-runs plus a 4x CPU-throttled run (reported only). Second local run:
+runs plus a 4x CPU-throttled run (reported only). Final local run, on the merged code:
 
 | Run | Window | Long tasks (over 50 ms) | Trace max task ms (its CPU) | Max rAF gap ms | Max keystroke-to-paint ms (whole / after ready) | Worker scheduleMs |
 | --- | --- | --- | --- | ---: | --- | ---: |
-| 1 | cold | 1, during boot; 0 after ready | 103.7 (1.4) | 116.7 | 136 / 48 | 3762 |
-| 1 | warm | 0 | 6.5 (5.8) | 16.8 | 48 | 3687 |
-| 2 | cold | 2, during boot; 0 after ready | not traced | 100.0 | 144 / 48 | 3679 |
-| 2 | warm | 0 | not traced | 16.8 | 48 | 3841 |
-| 3 | cold | 0 | not traced | 33.3 | 64 / 48 | 4056 |
-| 3 | warm | 0 | not traced | 16.8 | 48 | 4099 |
-| 4x throttled | cold | 2, during boot; 0 after ready | not traced | 83.4 | 128 / 72 | 4373 |
-| 4x throttled | warm | 0 | not traced | 33.4 | 64 | 4435 |
+| 1 | cold | 0 | 28.9 (9.6) | 16.8 | 56 / 48 | 3541 |
+| 1 | warm | 0 | 16.4 (4.1) | 16.8 | 48 | 3381 |
+| 2 | cold | 0 | not traced | 33.3 | 80 / 64 | 3620 |
+| 2 | warm | 0 | not traced | 16.8 | 72 | 3502 |
+| 3 | cold | 0 | not traced | 49.9 | 88 / 48 | 3719 |
+| 3 | warm | 0 | not traced | 16.8 | 48 | 3831 |
+| 4x throttled | cold | 0 | not traced | 33.4 | 80 / 48 | 4101 |
+| 4x throttled | warm | 0 | not traced | 16.8 | 48 | 4257 |
 
-Assertions in every run: zero long tasks after the engine is ready and in the warm window; each
-boot long task at most 250 ms; keystroke-to-paint (Event Timing) at most 100 ms after ready and
+The engine-boot stall varies between runs. In the earlier runs on the same code, 0 to 2 boot long
+tasks of 62 to 105 ms appeared per cold window (whole-window keystroke-to-paint up to 144 ms),
+always with about 1 ms of main-thread CPU, and none after the engine was ready.
+
+Assertions in every run: zero long tasks after the engine is ready and in the warm window (a task
+counts as boot only if it ended more than 1 ms before the ready mark, because Chromium truncates
+long-task durations); each boot long task at most 250 ms; keystroke-to-paint (Event Timing) at most 100 ms after ready and
 in the warm window; result `ok` with 1,225 tasks and worker `scheduleMs` of at least 1,000. Run 1
 also records Chromium traces: the longest warm main-thread task must be at most 50 ms, and the
-cold trace must carry thread CPU time showing the boot task was blocked, not busy. CI runs this
+cold trace must carry thread CPU times, and no cold main-thread task may use over 50 ms of CPU. CI runs this
 suite in the `e2e` job and always uploads the report and traces.
 
 ## Phase deliverables
 
 | Plan bullet | Evidence |
 | --- | --- |
-| Scaffold from mycelium-web tooling; CI on every push | `ci.yml`: format, typecheck, 255 unit tests, e2e on desktop, Pixel 7 and iPhone 14 with axe, golden parity, responsiveness, engine build `--check`, no-Ruby check |
+| Scaffold from mycelium-web tooling; CI on every push | `ci.yml`: format, typecheck, 262 unit tests, e2e on desktop, Pixel 7 and iPhone 14 with axe, golden parity, responsiveness, engine build `--check`, no-Ruby check |
 | PoC engine in `engine/`, Web Worker, latest-wins queue, hashed bundle | `engine/bridge/`, `src/engine/` (queue and client with fast-check properties), `engine/build-bundle.mjs` (deterministic, `--check`) |
 | Golden corpus with committed native outputs | `engine/golden/manifest.json` (34 plans), `expected/`, `native-timings.json`, `record-native.mjs` |
 
