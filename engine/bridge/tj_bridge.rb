@@ -25,8 +25,9 @@
 # by the bridge (the final JSON.generate is not included); the worker may
 # replace it with its end-to-end time.
 #
-# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, time and parser-cache
-# patches on native Ruby too (the Intl time-zone patch needs a JS host and is
+# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time and
+# parser-cache patches on native Ruby too (the Intl time-zone patch needs a JS
+# host and is
 # never loaded natively). This exists only to check natively that the patches
 # change no results; the golden recorder never sets it.
 require 'json'
@@ -38,6 +39,7 @@ module TJBridge
 end
 
 require_relative 'wasm/tj_wasm_perf' if TJBridge::PATCHES
+require_relative 'wasm/tj_wasm_sort' if TJBridge::PATCHES
 require 'taskjuggler/TaskJuggler'
 require_relative 'wasm/tj_wasm_tz' if TJBridge::WASM
 require_relative 'wasm/tj_wasm_time' if TJBridge::PATCHES

@@ -80,10 +80,20 @@ Ruby, `tj3` or Bundler.
 With npm, pass options after `--`, for example `npm run golden:record -- --allow-ruby`.
 
 The script refuses to run when `engine/tj` is not the tree pinned in `engine/tj.pin.json`
-(modified, untracked and ignored files all count), when Ruby is not 3.4.x, or when
-`engine/bridge/` or `engine/golden/plans/` have uncommitted changes (goldens must come from
-committed inputs). Commit plan and bridge changes first, then record, then commit
-`expected/` and `native-timings.json`.
+(modified, untracked and ignored files all count), when Ruby is not 3.4.x, when native Ruby
+does not sort ties stably (see below), or when `engine/bridge/` or `engine/golden/plans/`
+have uncommitted changes (goldens must come from committed inputs). Commit plan and bridge
+changes first, then record, then commit `expected/` and `native-timings.json`.
+
+**Stable sorting.** TaskJuggler sorts with ties in places (for example the candidates of
+`select minallocated` are compared by criticalness only), so its result depends on how
+Ruby's `Array#sort` orders equal elements. Natively that is the C library's `qsort_r`:
+stable on Linux with glibc 2.39 or later (and 2.36 or earlier), not stable on macOS or with
+glibc 2.37 and 2.38. ruby.wasm has no `qsort_r` and uses Ruby's own unstable quicksort, so
+the browser bridge loads `engine/bridge/wasm/tj_wasm_sort.rb`, which makes `Array#sort`,
+`Array#sort!` and `Enumerable#sort` stable. The recorder runs a probe first and refuses to
+record where native Ruby is not stable, so every golden matches the browser engine. Before
+the patch, `syn-15-allocate-select` picked a different resource in ruby.wasm.
 
 The goldens committed now were recorded with Ruby 3.3.6 and `--allow-ruby`. They are
 provisional and must be re-recorded with Ruby 3.4.x before the Phase 0 gate.

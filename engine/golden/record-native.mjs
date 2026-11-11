@@ -83,8 +83,35 @@ function preflight(allowRuby) {
 		if (!allowRuby) throw new Refusal(`Ruby ${ruby}: recording needs Ruby 3.4.x to match ruby.wasm (--allow-ruby overrides, spec 11.7)`);
 		console.warn(`warning: recording with Ruby ${ruby}, not 3.4.x (--allow-ruby); native.ruby records it`);
 	}
+	const stable = run('bundle', ['exec', 'ruby', '-e', STABLE_SORT_PROBE]);
+	if (stable.stdout.trim() !== 'stable') {
+		throw new Refusal(`native Ruby does not sort stably here (${stable.stdout.trim() || stable.stderr.trim()}). ` +
+			'TaskJuggler sorts with ties, and the browser engine sorts stably (engine/bridge/wasm/tj_wasm_sort.rb), ' +
+			'so goldens must be recorded where Ruby sorts stably, e.g. Linux with glibc 2.39 or later');
+	}
 	return ruby;
 }
+
+// Sorts objects with many ties through Array#sort (with and without a block),
+// Array#sort! and Hash#sort, the methods engine/bridge/wasm/tj_wasm_sort.rb
+// makes stable; prints "stable" only if each keeps equal elements in order.
+const STABLE_SORT_PROBE = `
+key = Struct.new(:k, :i) do
+  include Comparable
+  def <=>(other) = k <=> other.k
+end
+by_k = ->(a, b) { a.k <=> b.k }
+[5, 40, 3000].each do |n|
+  items = Array.new(n) { |i| key.new((i * 7919) % 13, i) }
+  ref = items.group_by(&:k).keys.sort.flat_map { |k| items.select { |x| x.k == k } }
+  got = [items.sort(&by_k), items.sort, items.dup.sort!(&by_k),
+         items.each_with_index.to_h { |x, i| [i, x] }.sort { |a, b| by_k.(a[1], b[1]) }.map(&:last)]
+  next if got.all? { |g| g.map(&:i) == ref.map(&:i) }
+  print "unstable for #{n} elements"
+  exit
+end
+print 'stable'
+`;
 
 function loadManifest() {
 	const plans = JSON.parse(fs.readFileSync(path.join(GOLDEN, 'manifest.json'), 'utf8'));
