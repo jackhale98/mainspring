@@ -13,3 +13,5 @@ docs/phases/screenshots
 .claude
 docs
 CLAUDE.md
+# Grammar fixtures are byte-exact test inputs; never reformat them.
+tests/fixtures/tjp
