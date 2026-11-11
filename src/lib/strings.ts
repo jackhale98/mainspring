@@ -25,7 +25,11 @@ export const strings = {
 	},
 } as const;
 
-/** The placeholder shell's engine line, e.g. "Engine: not connected yet". */
-export function engineLine(): string {
-	return `${strings.engine.label}: ${strings.engine.notConnected}`;
+/**
+ * The shell's engine line, e.g. "Engine: Ready". Without a status (before the page script runs,
+ * or without JavaScript) it reads "Engine: not connected yet".
+ */
+export function engineLine(status?: EngineStatus): string {
+	const text = status === undefined ? strings.engine.notConnected : strings.engine.status[status];
+	return `${strings.engine.label}: ${text}`;
 }

@@ -15,7 +15,7 @@
 		"test:unit": "vitest run",
 		"test:e2e": "playwright test",
 		"build:engine": "node engine/build-bundle.mjs",
-		"test:golden": "node -e \"console.error('test:golden: not implemented yet (T11)'); process.exit(1)\"",
+		"test:golden": "node scripts/test-golden.mjs",
 		"golden:record": "node engine/golden/record-native.mjs",
 		"golden:verify": "node engine/golden/record-native.mjs --verify",
 		"golden:wasm": "node engine/golden/run-wasm.mjs"
