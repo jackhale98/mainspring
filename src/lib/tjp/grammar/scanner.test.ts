@@ -38,14 +38,28 @@ describe('trivia', () => {
 	it('keeps a leading BOM as trivia', () => {
 		expect(tokenizeTjp('\ufefftask').map((t) => t.kind)).toEqual(['Bom', 'Identifier']);
 	});
-	it('ends # and // comments before the line feed, keeping a CR', () => {
-		expect(lex('# a // b\nx // c\r\ny #')).toEqual([
+	it('ends # and // comments before the line break: \n, \r\n or a lone \r (native)', () => {
+		expect(lex('# a // b\nx // c\r\ny # c\r  effort 3d #')).toEqual([
 			'LineComment:# a // b',
 			'Identifier:x',
-			'LineComment:// c\r',
+			'LineComment:// c',
 			'Identifier:y',
+			'LineComment:# c',
+			'Identifier:effort',
+			'Integer:3',
+			'Identifier:d',
 			'LineComment:#',
 		]);
+	});
+	it('ends a block comment line at \r as well', () => {
+		expect(lex('/* a */ b\r*/ c')).toEqual([
+			'BlockComment:/* a */',
+			'Identifier:b',
+			'Punct:*',
+			'Punct:/',
+			'Identifier:c',
+		]);
+		expect(lex('/* a\rb */ c')).toEqual(['BlockComment:/* a\rb */', 'Identifier:c']);
 	});
 	it('makes a one-line block comment greedy to the last */ (native)', () => {
 		expect(lex('/* a */ b */ c\n/**/ d\n/*/ e */')).toEqual([
@@ -139,12 +153,27 @@ describe('macro bodies', () => {
 			['Identifier', 6, 7],
 		]);
 	});
-	it('does not close on ]\\r\\n, so CRLF macros run away (native)', () => {
+	it('closes on ] before \r\n or a lone \r, which TaskJuggler reads as \n (native)', () => {
 		expect(lex('macro a [x]\r\ntask\r\n')).toEqual([
 			'Identifier:macro',
 			'Identifier:a',
-			'Error:[x]\r\ntask\r\n!unterminated-macro-body',
+			'MacroBody:[x]',
+			'Identifier:task',
 		]);
+		expect(lex('macro a [\r\n  effort 3d\r\n]\r\nb')).toEqual([
+			'Identifier:macro',
+			'Identifier:a',
+			'MacroBody:[\r\n  effort 3d\r\n]',
+			'Identifier:b',
+		]);
+		expect(lex('macro a [x]\rb [\ry\r]\r')).toEqual([
+			'Identifier:macro',
+			'Identifier:a',
+			'MacroBody:[x]',
+			'Identifier:b',
+			'MacroBody:[\ry\r]',
+		]);
+		expect(lex('[x] \r]\r')).toEqual(['MacroBody:[x] \r]']);
 	});
 	it('reads [ on a last line without a line feed as punctuation (native)', () => {
 		expect(lex('a [b]')).toEqual(['Identifier:a', 'Punct:[', 'Identifier:b', 'Punct:]']);

@@ -4,8 +4,11 @@
  * A small lexer for value text, following TaskJuggler's ProjectFileScanner
  * (engine/tj/lib/taskjuggler/ProjectFileScanner.rb:24-152) for the tokens a value can hold:
  * patterns are tried in the scanner's order, anchored at the cursor, and never cross a line
- * where the scanner reads line by line. Whitespace is ASCII only (Ruby's `\s`), and `.` in a
- * Ruby pattern is `[^\n]` here (JavaScript's `.` would also stop at `\r`).
+ * where the scanner reads line by line. Whitespace is ASCII only (Ruby's `\s`). A line break is
+ * `\n`, `\r\n` or a lone `\r`: TaskJuggler reads files through `forceUTF8Encoding`
+ * (`encode('UTF-8', universal_newline: true)`, UTF8String.rb), which turns both `\r\n` and `\r`
+ * into `\n` before scanning, so `.` in a Ruby pattern is `[^\r\n]` here. String values keep the
+ * original break characters (TaskJuggler itself reads every break as `\n`).
  *
  * The full-file tokenizer is `grammar/tokens.ts` (T4). This one only has to lex the slice of
  * one value, so comments and strings are handled but macro calls, environment references and
@@ -46,7 +49,7 @@ const PATTERNS: ReadonlyArray<readonly [TokenKind, RegExp]> = [
 	['integer', /\d+/y],
 ];
 const CUT_END = /[ \t\n\v\f\r]*->8-/y;
-const CUT_START_OK = /-8<-[ \t\n\v\f\r]*\n$/;
+const CUT_START_OK = /-8<-[ \t\n\v\f\r]*[\r\n]$/;
 
 export class ValueLexer {
 	private pos = 0;
@@ -97,10 +100,26 @@ export class ValueLexer {
 		return at;
 	}
 
-	/** End of the line holding `p`, including its `\n`. */
+	/** End of the line holding `p`, including its break (`\n`, `\r\n` or `\r`). */
 	private lineEnd(p: number): number {
 		const nl = this.findNext('\n', p);
+		const cr = this.findNext('\r', p);
+		if (cr >= 0 && (nl < 0 || cr < nl)) return cr + 1 === nl ? nl + 1 : cr + 1;
 		return nl < 0 ? this.text.length : nl + 1;
+	}
+
+	/** Whether the line ending at `le` (from lineEnd) ends with a break. */
+	private broken(le: number): boolean {
+		const c = this.text[le - 1];
+		return c === '\n' || c === '\r';
+	}
+
+	/** End of the line ending at `le`, without its break. */
+	private contentEnd(le: number): number {
+		const t = this.text;
+		if (t[le - 1] === '\r') return le - 1;
+		if (t[le - 1] !== '\n') return le;
+		return t[le - 2] === '\r' ? le - 2 : le - 1;
 	}
 
 	/**
@@ -127,7 +146,7 @@ export class ValueLexer {
 				const close = t.lastIndexOf('*/', le - 2);
 				if (close >= this.pos + 2) {
 					this.pos = close + 2; // one-line comment, greedy to the last */ on the line
-				} else if (t[le - 1] === '\n') {
+				} else if (this.broken(le)) {
 					this.pos = le;
 					this.skipCommentLines();
 				} else {
@@ -179,7 +198,7 @@ export class ValueLexer {
 		}
 		const c = t[p];
 		if (c === '"' || c === "'") return this.quoted(p, c);
-		if (t.startsWith('-8<-', p) && t[le - 1] === '\n') return this.cutHere(p, le);
+		if (t.startsWith('-8<-', p) && this.broken(le)) return this.cutHere(p, le);
 		const two = t.slice(p, p + 2);
 		if (two === '<=' || two === '>=' || two === '!=') return this.tok('literal', p, p + 2);
 		const cp = t.codePointAt(p) ?? 0;
@@ -209,11 +228,14 @@ export class ValueLexer {
 				i += 2;
 			} else if (c === q) {
 				break;
+			} else if (c === '\r' || c === '\n') {
+				// A line break: `\n`, `\r\n` or a lone `\r`.
+				const n = c === '\r' && t[i + 1] === '\n' ? 2 : 1;
+				firstLine = false;
+				lastEscape = null;
+				value += t.slice(i, i + n);
+				i += n;
 			} else {
-				if (c === '\n') {
-					firstLine = false;
-					lastEscape = null;
-				}
 				// The scanner's in-string macro pattern (ProjectFileScanner.rb:63-66).
 				if (!firstLine && c === '$' && MACRO_AT.test(t.slice(i, this.lineEnd(i)))) {
 					raise('macro-call', this.base + p, this.base + this.lineEnd(i));
@@ -230,7 +252,7 @@ export class ValueLexer {
 		// startStringSZR's check is unanchored (`/-8<-\s*\n$/`, ProjectFileScanner.rb:259-266): any
 		// `-8<-` closing the line satisfies it, so `-8<-x-8<-` opens a string too.
 		if (!CUT_START_OK.test(t.slice(p, le))) {
-			raise('junk-after-cut', this.base + p, this.base + le - 1, 'junk_after_cut');
+			raise('junk-after-cut', this.base + p, this.base + this.contentEnd(le), 'junk_after_cut');
 		}
 		let line = le;
 		let indent: string | null = null;
@@ -240,12 +262,15 @@ export class ValueLexer {
 			const lineEnd = this.lineEnd(line);
 			const n = this.match(CUT_END, line, lineEnd);
 			if (n >= 0) return this.tok('string', p, line + n, { value, style: 'cut' });
+			if (MACRO_IN_TEXT.test(t.slice(line, lineEnd))) {
+				raise('macro-call', this.base + line, this.base + lineEnd);
+			}
+			if (!this.broken(lineEnd)) raise('unterminated', this.base + p, this.end);
 			const text = t.slice(line, lineEnd);
-			if (MACRO_IN_TEXT.test(text)) raise('macro-call', this.base + line, this.base + lineEnd);
-			if (!text.endsWith('\n')) raise('unterminated', this.base + p, this.end);
 			if (indent === null) {
-				// firstStringSZR: /(\s*)(.*\n)/ (ProjectFileScanner.rb:282-287)
-				const m = /^([ \t\n\v\f\r]*)([^\n]*\n)$/.exec(text);
+				// firstStringSZR: /(\s*)(.*\n)/ (ProjectFileScanner.rb:282-287); the indentation
+				// cannot hold the line's break.
+				const m = /^([ \t\v\f]*)([^\r\n]*(?:\r\n|\r|\n))$/.exec(text);
 				indent = m?.[1] ?? '';
 				value += m?.[2] ?? text;
 			} else {

@@ -1,0 +1,15 @@
+# Feature: a lone CR ends a line comment, so the text after it is read (# and //)
+# SPDX-License-Identifier: GPL-2.0-or-later
+project cc "CR comments" 2026-01-05 +2m
+
+resource ana "Ana"
+
+task t "T" {
+  allocate ana
+  # sizing follows  effort 3d
+}
+task u "U" {
+  allocate ana
+  // sizing follows  effort 2d
+  depends !t
+}
