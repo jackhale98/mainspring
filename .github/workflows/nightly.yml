@@ -8,13 +8,12 @@ on:
 permissions:
   contents: read
 
-# Results are recorded, not blocking.
+# Results are recorded, not blocking: every job is continue-on-error and none is a required check.
 jobs:
-  # enabled when T11 lands
   timings:
     name: Engine timings per golden plan
-    if: false
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -23,22 +22,34 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:engine
-      - run: npx playwright install --with-deps chromium
-      # Worker timings per plan are recorded against engine/golden/native-timings.json, never compared.
-      - run: npm run test:golden
-        continue-on-error: true
+      # Boots the built wasm engine in Node (no browser). Best of 3 runs per plan.
+      - name: Time the wasm engine per plan
+        run: |
+          mkdir -p test-results
+          node engine/golden/run-wasm.mjs --repeat 3 --json test-results/engine-timings.json
+      # Ratio of wasm to native per plan. Reporting only, never compared against a limit.
+      - name: Summarise against native timings
+        if: always()
+        run: |
+          if [ -f test-results/engine-timings.json ]; then
+            {
+              echo '## Engine timings: wasm vs native'
+              echo
+              node scripts/ci/timings-summary.mjs test-results/engine-timings.json
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No timings were produced.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: engine-timings
-          path: test-results/
-          if-no-files-found: ignore
+          path: test-results/engine-timings.json
+          if-no-files-found: warn
           retention-days: 30
 
-  # enabled when T12 lands
   golden-cross-browser:
     name: Golden plans (${{ matrix.browser }})
-    if: false
     runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
@@ -52,16 +63,76 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run build:engine
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
-      - run: npm run test:golden -- --project=${{ matrix.browser }}
-        continue-on-error: true
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ matrix.browser }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install ${{ matrix.browser }} and system dependencies
+        # Same retrying install as the e2e and golden jobs in ci.yml.
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps ${{ matrix.browser }} && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      # Builds the engine and the site with MAINSPRING_DEV_PAGES=1, then runs tests/golden/parity.spec.ts.
+      - run: npm run test:golden -- --browser=${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: golden-${{ matrix.browser }}
+          name: golden-report-${{ matrix.browser }}
           path: |
-            test-results/
-            playwright-report/
+            test-results/golden-report.md
+            test-results/golden-report.json
+          if-no-files-found: warn
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: golden-test-results-${{ matrix.browser }}
+          path: test-results/
           if-no-files-found: ignore
+          retention-days: 7
+
+  responsiveness:
+    name: Engine responsiveness (reporting only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      - run: npm run test:responsiveness
+      - name: Add the report to the step summary
+        if: always()
+        run: |
+          if [ -f test-results/responsiveness-report.md ]; then
+            cat test-results/responsiveness-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: responsiveness-report
+          path: |
+            test-results/responsiveness-report.md
+            test-results/responsiveness-report.json
+          if-no-files-found: warn
           retention-days: 30
