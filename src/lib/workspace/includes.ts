@@ -1,240 +1,318 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The include graph of a workspace (phase-1.md 5.2, 5.4 `include`, 6.2), walked in TaskJuggler's
- * parse order from the entry file.
+ * parse order from the entry file. References are to TjpSyntaxRules.rb (TSR) and
+ * ProjectFileParser.rb (PFP) at 3b36c79.
  *
- * Where `include` may stand, and the context its file is read in (TjpSyntaxRules.rb at 3b36c79):
- * - before the `project` header, at the top of the entry file or of a prolog file:
- *   `rule_prologInclude` (3525), the file is read as `projectProlog` → top 'prolog';
- * - in the `project` header body: `rule_projectBodyInclude` (3509), read as
- *   `projectBodyAttributes` → top 'project';
- * - at the top level after the header: `rule_propertiesInclude` (3685), read as `properties` →
- *   top 'global'. Only this form takes the `{ taskprefix … resourceprefix … }` body.
- * TaskJuggler accepts `include` nowhere else (ProjectFileParser.rb:485, "Include files can only
- * occur at global level or in the project header"), so includes in task or resource bodies are
- * not include statements in our tree either. Includes inside macro bodies are text-only (X1).
+ * Contexts. `include` may stand in three places, and its file is read in that context:
+ * - before the `project` header (top of the entry file, or of a prolog file): `rule_prologInclude`
+ *   (TSR 3525) → top 'prolog'. TaskJuggler 3.8.4 always rejects it: `rule_includeFile` (TSR 1940)
+ *   raises `include_before_project` while `@project` is nil. Such edges get the problem
+ *   'before-project'; the file is still followed so that the editor can parse it;
+ * - in the `project` header body: `rule_projectBodyInclude` (TSR 3509) → top 'project';
+ * - at the top level after the header: `rule_propertiesInclude` (TSR 3685) → top 'global'. Only
+ *   this form takes the `{ taskprefix … resourceprefix … }` body.
+ * TaskJuggler accepts `include` nowhere else (PFP 485), so includes in task or resource bodies are
+ * not include statements in our tree. Includes in macro bodies, or produced by a statement-level
+ * macro call (`${inc}`), are invisible here (5.4 X1); the engine's file list is the truth.
  *
- * Paths resolve as paths.ts says. Recursion is detected as `Scanner#include` does (Scanner.rb:
- * 327-334): a target that is already open further up the chain of including files. TaskJuggler
- * compares the unnormalised names, so it notices spelled-differently cycles only when the name
- * grows past what the file system accepts; it errors either way, and so do we.
+ * Visits. TaskJuggler reads a file once per include site: a template included under two task
+ * prefixes declares its tasks twice. Each file is parsed once (in the context of its first visit),
+ * but every followed site makes a visit, and the includes of a file are walked again on each
+ * visit. Edges are listed per visit, in parse order; `visitsOf` gives the visits of a file. A
+ * declaration in a file with several visits declares several engine ids (T8, T10).
+ * `contextConflicts` lists the visits whose context differs from the parse context.
  *
- * Prefixes: `taskprefix X` resolves X through `rule_taskId` (6134-6148), which prepends the
- * prefix already in force; an include without one keeps it (`pushFileStack`,
- * ProjectFileParser.rb:470-476, saves and restores the values without clearing them). So the
- * prefix that applies inside a file is the composition along its include chain. The same holds
- * for `resourceprefix` (4786, 7493).
+ * Paths resolve as paths.ts says. Recursion is detected as `Scanner#include` (Scanner.rb 327-334)
+ * does: a target already open further up the chain of including files.
  *
- * A file reached from several include sites is parsed once, in the context of the first one in
- * parse order, and walked once. Each edge keeps the context of its own site, so
- * `contextConflicts` lists the sites whose context differs from the one the file was parsed in.
+ * Prefixes. `taskprefix X` resolves X through `rule_taskId` (TSR 6134-6148), which prepends the
+ * prefix in force; an include without one keeps it (`pushFileStack`, PFP 470-476). So the prefix
+ * in force inside a file is the composition along its chain (`taskPrefix`). The same holds for
+ * `resourceprefix` (`rule_resourceId`, TSR 4786). A prefix written as a macro call, environment
+ * reference or templated string is unknown: the edge gets 'macro-prefix' and every visit below
+ * has `prefixUnknown`, so its declarations need engine hints.
+ *
+ * Parents. A top-level task gets `@property` as its parent when that is set, else the task named
+ * by `@taskprefix` (`rule_taskHeader`, TSR 6113-6117); after the block `@property` is that parent
+ * (`rule_task`, TSR 5910), and `popFileStack` (PFP 480-488) clears it when an include returns. So
+ * in a prefixed file, an include that follows a top-level task inherits `@property`: the included
+ * file's tasks go under the outer prefix, not under the composed one (native: `outer.leaf`, not
+ * `outer.mid.leaf`; fixture include-prefix-property). `IncludeVisit.property` records that
+ * inherited parent; it applies to the visit's top-level declarations before its first include.
+ * Resources work the same way (`rule_resourceHeader`, TSR 4796-4800); a resource inherited as
+ * parent of a task (or the reverse) is not modelled.
  */
 import type { SyntaxNode, Tree } from '@lezer/common';
 import type { TopContext } from '../tjp/document';
+import { MACRO_TOKENS } from '../tjp/grammar/parser';
 import { bodyOf, statementHead, statementsIn, type SourceRange } from '../tjp/tree';
 import { parseString } from '../tjp/values/string-literal';
 import { resolveIncludePath, type PathLookup, type WorkspacePath } from './paths';
 
+export { compareParseOrder, parseOrderKey, type VisitChoice } from './include-order';
+
 export type IncludeProblem =
+	/** Not followed: */
 	| 'not-found'
 	| 'outside-workspace'
 	| 'bad-suffix'
 	| 'recursive'
-	/** The name is a macro call, an environment reference or a templated string (5.4 X2/X3). */
-	| 'macro-path';
+	/** The name is a macro call, an environment reference or a templated string. */
+	| 'macro-path'
+	/** No file name, or one that does not parse as a string. */
+	| 'no-name'
+	/** More than VISIT_LIMIT visits. */
+	| 'visit-limit'
+	/** Followed: */
+	| 'before-project'
+	| 'macro-prefix';
 
 export interface IncludeEdge {
 	/** The including file. */
 	from: WorkspacePath;
 	/** The whole `include` statement. */
 	site: SourceRange;
-	/** The file name as TaskJuggler reads it (unquoted); the raw token text for a macro path. */
+	/** The file name as TaskJuggler reads it (unquoted); the raw token text otherwise. */
 	literal: string;
 	/** The resolved file; also set for a 'recursive' edge, which is not followed. */
 	target: WorkspacePath | null;
 	/** The context the site reads its file in. */
 	top: TopContext;
-	/** The task prefix in force inside the target (composed along the chain), or null. */
+	/** The task prefix in force inside the target on this visit, or null (none or unknown). */
 	taskPrefix: string | null;
-	/** The resource prefix in force inside the target (composed along the chain), or null. */
+	/** The resource prefix in force inside the target on this visit, or null. */
 	resourcePrefix: string | null;
 	/** The `taskprefix`/`resourceprefix` values as written in this site's body. */
 	written: { taskPrefix: SourceRange | null; resourcePrefix: SourceRange | null };
 	problem: IncludeProblem | null;
+	/** The visit of `from` this site was read in. */
+	parentVisit: number;
+	/** The visit it opened, or null when it was not followed. */
+	visit: number | null;
+}
+
+export interface IncludeVisit {
+	readonly index: number;
+	readonly file: WorkspacePath;
+	/** The edge that opened it; null for the entry. */
+	readonly edge: number | null;
+	/** The including visit; null for the entry. */
+	readonly parent: number | null;
+	readonly top: TopContext;
+	readonly taskPrefix: string | null;
+	readonly resourcePrefix: string | null;
+	/** A prefix on the chain is a macro call: ids declared here need engine hints. */
+	readonly prefixUnknown: boolean;
+	/** The `@property` inherited from the include site (module comment), or null. */
+	readonly property: { readonly kind: 'task' | 'resource'; readonly id: string | null } | null;
 }
 
 export interface IncludeGraph {
 	/** Files in parse order (first visit), starting with the entry. */
 	readonly order: readonly WorkspacePath[];
-	/** Include statements in parse order. */
+	/** Include statements per visit, in parse order. */
 	readonly edges: readonly IncludeEdge[];
-	/** The top context each visited file is parsed in. Files not visited are 'global'. */
+	/** Visits in parse order; visits[0] is the entry. */
+	readonly visits: readonly IncludeVisit[];
+	/** The top context each visited file is parsed in (its first visit's). Others are 'global'. */
 	readonly tops: ReadonlyMap<WorkspacePath, TopContext>;
 }
 
 export interface IncludeSource {
 	readonly lookup: PathLookup;
-	/**
-	 * The file's tree parsed with `top`, and a reader for its text. Called once per visited file.
-	 */
+	/** The file's tree parsed with `top`, and a reader for its text. Called once per file. */
 	parse(
 		path: WorkspacePath,
 		top: TopContext,
 	): { readonly tree: Tree; readonly read: (from: number, to: number) => string };
 }
 
-interface Prefixes {
-	task: string;
-	resource: string;
-}
+/** Visits beyond this many are not made (diamond-shaped includes can multiply them). */
+export const VISIT_LIMIT = 10_000;
+
+const FOLLOWED: ReadonlySet<IncludeProblem | null> = new Set([
+	null,
+	'before-project',
+	'macro-prefix',
+]);
+
+type Property = IncludeVisit['property'];
 
 /** Walks the include graph from `entry`, which is parsed as 'global'. */
 export function buildIncludeGraph(entry: WorkspacePath, source: IncludeSource): IncludeGraph {
 	const order: WorkspacePath[] = [entry];
 	const edges: IncludeEdge[] = [];
+	const visits: IncludeVisit[] = [];
 	const tops = new Map<WorkspacePath, TopContext>([[entry, 'global']]);
+	const parsed = new Map<WorkspacePath, ReturnType<IncludeSource['parse']>>();
 	let projectSeen = false;
 
-	const walk = (path: WorkspacePath, top: TopContext, chain: WorkspacePath[], pre: Prefixes) => {
-		const { tree, read } = source.parse(path, top);
+	const chainHas = (visit: IncludeVisit, file: WorkspacePath): boolean => {
+		for (
+			let v: IncludeVisit | undefined = visit;
+			v;
+			v = v.parent === null ? undefined : visits[v.parent]
+		) {
+			if (v.file === file) return true;
+		}
+		return false;
+	};
+
+	const walk = (visit: IncludeVisit): void => {
+		let doc = parsed.get(visit.file);
+		if (!doc) {
+			doc = source.parse(visit.file, tops.get(visit.file) ?? visit.top);
+			parsed.set(visit.file, doc);
+		}
+		const { tree, read } = doc;
+		let property: Property = visit.property;
 		const include = (stmt: SyntaxNode, siteTop: TopContext): void => {
-			const edge = includeEdge(path, stmt, read, siteTop, pre, source.lookup);
-			if (edge.target !== null && chain.includes(edge.target)) edge.problem = 'recursive';
+			const edge = includeEdge(visit, stmt, read, siteTop, source.lookup);
+			if (edge.target !== null && FOLLOWED.has(edge.problem) && chainHas(visit, edge.target)) {
+				edge.problem = 'recursive';
+			}
+			if (edge.target !== null && FOLLOWED.has(edge.problem) && visits.length >= VISIT_LIMIT) {
+				edge.problem = 'visit-limit';
+			}
 			edges.push(edge);
-			const target = edge.problem === null ? edge.target : null;
-			if (target === null || tops.has(target)) return;
-			tops.set(target, siteTop);
-			order.push(target);
-			walk(target, siteTop, [...chain, target], {
-				task: edge.taskPrefix ?? '',
-				resource: edge.resourcePrefix ?? '',
-			});
+			if (edge.target === null || !FOLLOWED.has(edge.problem)) return;
+			if (!tops.has(edge.target)) {
+				tops.set(edge.target, siteTop);
+				order.push(edge.target);
+			}
+			const child: IncludeVisit = {
+				index: visits.length,
+				file: edge.target,
+				edge: edges.length - 1,
+				parent: visit.index,
+				top: siteTop,
+				taskPrefix: edge.taskPrefix,
+				resourcePrefix: edge.resourcePrefix,
+				prefixUnknown: visit.prefixUnknown || edge.problem === 'macro-prefix',
+				property: siteTop === 'global' ? property : null,
+			};
+			edge.visit = child.index;
+			visits.push(child);
+			walk(child);
+			property = null;
 		};
 		for (const stmt of statementsIn(tree.topNode)) {
 			if (stmt.name === 'IncludeStatement') {
-				include(stmt, top === 'global' && !projectSeen ? 'prolog' : top);
-			} else if (stmt.name === 'ProjectStatement' && top === 'global') {
+				include(stmt, visit.top === 'global' && !projectSeen ? 'prolog' : visit.top);
+			} else if (stmt.name === 'ProjectStatement' && visit.top === 'global') {
 				const body = bodyOf(stmt);
 				if (body) {
 					for (const s of statementsIn(body))
 						if (s.name === 'IncludeStatement') include(s, 'project');
 				}
 				projectSeen = true;
+			} else if (visit.top === 'global' && stmt.name === 'TaskStatement') {
+				property ??= prefixProperty('task', visit.taskPrefix, visit.prefixUnknown);
+			} else if (visit.top === 'global' && stmt.name === 'ResourceStatement') {
+				property ??= prefixProperty('resource', visit.resourcePrefix, visit.prefixUnknown);
 			}
 		}
 	};
-	walk(entry, 'global', [entry], { task: '', resource: '' });
-	return { order, edges, tops };
+	const root: IncludeVisit = {
+		index: 0,
+		file: entry,
+		edge: null,
+		parent: null,
+		top: 'global',
+		taskPrefix: null,
+		resourcePrefix: null,
+		prefixUnknown: false,
+		property: null,
+	};
+	visits.push(root);
+	walk(root);
+	return { order, edges, visits, tops };
+}
+
+/** `@property` after a top-level declaration with no inherited parent: the prefix's property. */
+function prefixProperty(
+	kind: 'task' | 'resource',
+	prefix: string | null,
+	unknown: boolean,
+): Property {
+	if (unknown) return { kind, id: null };
+	return prefix === null ? null : { kind, id: prefix };
 }
 
 function includeEdge(
-	from: WorkspacePath,
+	visit: IncludeVisit,
 	stmt: SyntaxNode,
 	read: (from: number, to: number) => string,
 	top: TopContext,
-	pre: Prefixes,
 	lookup: PathLookup,
 ): IncludeEdge {
-	const site = { file: from, from: stmt.from, to: stmt.to };
+	const from = visit.file;
 	const head = statementHead(stmt);
 	const nameNode = head?.nextSibling ?? null;
 	const written = {
 		taskPrefix: null as SourceRange | null,
 		resourcePrefix: null as SourceRange | null,
 	};
+	let macroPrefix = false;
 	const body = bodyOf(stmt);
 	if (body) {
 		for (const s of statementsIn(body)) {
-			const head = statementHead(s);
-			const kw = head?.name === 'Keyword' ? read(head.from, head.to) : null;
-			const arg = head?.nextSibling ?? null;
+			const h = statementHead(s);
+			const kw = h?.name === 'Keyword' ? read(h.from, h.to) : null;
+			const arg = h?.nextSibling ?? null;
 			if (!arg || (kw !== 'taskprefix' && kw !== 'resourceprefix')) continue;
+			if (arg.name !== 'Identifier' && arg.name !== 'AbsoluteId') macroPrefix = true;
 			const at = { file: from, from: arg.from, to: arg.to };
 			if (kw === 'taskprefix') written.taskPrefix = at;
 			else written.resourcePrefix = at;
 		}
 	}
-	const compose = (outer: string, at: SourceRange | null): string | null => {
+	const compose = (outer: string | null, at: SourceRange | null): string | null => {
+		if (visit.prefixUnknown || macroPrefix) return null;
 		const own = at ? read(at.from, at.to) : '';
-		const full = own === '' ? outer : outer === '' ? own : `${outer}.${own}`;
+		const o = outer ?? '';
+		const full = own === '' ? o : o === '' ? own : `${o}.${own}`;
 		return full === '' ? null : full;
 	};
 	const edge: IncludeEdge = {
 		from,
-		site,
+		site: { file: from, from: stmt.from, to: stmt.to },
 		literal: nameNode ? read(nameNode.from, nameNode.to) : '',
 		target: null,
 		top,
-		taskPrefix: compose(pre.task, written.taskPrefix),
-		resourcePrefix: compose(pre.resource, written.resourcePrefix),
+		taskPrefix: compose(visit.taskPrefix, written.taskPrefix),
+		resourcePrefix: compose(visit.resourcePrefix, written.resourcePrefix),
 		written,
-		problem: 'macro-path',
+		problem: 'no-name',
+		parentVisit: visit.index,
+		visit: null,
 	};
-	if (nameNode?.name !== 'String') return edge;
+	if (!nameNode) return edge;
+	if (MACRO_TOKENS.has(nameNode.name)) {
+		edge.problem = 'macro-path';
+		return edge;
+	}
+	if (nameNode.name !== 'String') return edge;
 	const parsed = parseString(edge.literal);
 	if (!parsed.ok) return edge;
 	edge.literal = parsed.value;
 	const r = resolveIncludePath(from, parsed.value, lookup);
-	if (r.ok) {
-		edge.target = r.path;
-		edge.problem = null;
-	} else {
+	if (!r.ok) {
 		edge.problem = r.problem;
+		return edge;
 	}
+	edge.target = r.path;
+	edge.problem = top === 'prolog' ? 'before-project' : macroPrefix ? 'macro-prefix' : null;
 	return edge;
 }
 
-/** Edges whose site reads the target in another context than the one it was parsed in. */
-export function contextConflicts(graph: IncludeGraph): IncludeEdge[] {
-	return graph.edges.filter(
-		(e) => e.target !== null && e.problem === null && graph.tops.get(e.target) !== e.top,
-	);
+/** The visits of one file, in parse order. */
+export function visitsOf(graph: IncludeGraph, path: WorkspacePath): IncludeVisit[] {
+	return graph.visits.filter((v) => v.file === path);
 }
 
-/**
- * The position of `at` in TaskJuggler's reading order: the offsets of the include sites from the
- * entry down to its file, then its own offset. Null for a file the entry does not reach.
- */
-export function parseOrderKey(
-	graph: IncludeGraph,
-	at: { readonly file: WorkspacePath; readonly from: number },
-): number[] | null {
-	const visit = new Map<WorkspacePath, IncludeEdge>();
-	for (const e of graph.edges) {
-		if (e.problem === null && e.target !== null && !visit.has(e.target)) visit.set(e.target, e);
-	}
-	const key = [at.from];
-	let file = at.file;
-	const entry = graph.order[0];
-	for (let guard = 0; file !== entry; guard++) {
-		const e = visit.get(file);
-		if (!e || guard > graph.order.length) return null;
-		key.unshift(e.site.from);
-		file = e.from;
-	}
-	return key;
-}
-
-/**
- * Compares two positions in parse order (negative when `a` is read first). Positions in files
- * the entry does not reach come last, in path order. This is the order of 5.4's last-site rule
- * for single-valued attributes written in several `supplement` blocks.
- */
-export function compareParseOrder(
-	graph: IncludeGraph,
-	a: { readonly file: WorkspacePath; readonly from: number },
-	b: { readonly file: WorkspacePath; readonly from: number },
-): number {
-	const ka = parseOrderKey(graph, a);
-	const kb = parseOrderKey(graph, b);
-	if (!ka || !kb) {
-		if (ka) return -1;
-		if (kb) return 1;
-		return a.file < b.file ? -1 : a.file > b.file ? 1 : a.from - b.from;
-	}
-	for (let i = 0; i < Math.min(ka.length, kb.length); i++) {
-		const d = (ka[i] ?? 0) - (kb[i] ?? 0);
-		if (d !== 0) return d;
-	}
-	return ka.length - kb.length;
+/** Visits read in another context than the one their file was parsed in. */
+export function contextConflicts(graph: IncludeGraph): IncludeVisit[] {
+	return graph.visits.filter((v) => graph.tops.get(v.file) !== v.top);
 }

@@ -210,7 +210,7 @@ Unit tests for the recorder's pure helpers (`lib.mjs`) are in
 manifest plans with it, one long-lived engine for the whole corpus, in manifest order:
 
 ```
-node engine/golden/run-wasm.mjs [--only <id>]... [--repeat <n>] [--syntax] [--json <file>]
+node engine/golden/run-wasm.mjs [--only <id>]... [--repeat <n>] [--syntax] [--tokens] [--json <file>]
 npm run golden:wasm
 ```
 
@@ -224,3 +224,84 @@ difference. `--repeat` keeps the fastest of n runs; `--syntax` builds the syntax
 also shows they leave no state behind. Its exports (`bootNodeEngine`, `loadCorpus`,
 `planRequest`, `compareWithGolden`) are for other Node tools. The gating parity test
 (`npm run test:golden`, T11) runs in Chromium instead.
+
+`--tokens` first runs the token oracle (below) over every file of the selected plans and checks
+each stream with `checkTokenStream`; the goldens must still match afterwards, which shows the
+oracle leaves no state behind.
+
+## Token oracle (phase-1 T19)
+
+`engine/bridge/tokens.rb` (with `token_scanner.rb`) runs TaskJuggler's own `ProjectFileScanner`
+over one text and returns every token and trivia item with its offsets, so that the TypeScript
+port of the scanner (`src/lib/tjp/grammar/tokens.ts`) can be checked against it
+(`tests/grammar/scanner-diff.test.ts`). It is test-only and Node-only (spec 6.9):
+`bootNodeEngine()` returns a `NodeEngine` (`src/engine/runtime.ts`) whose `tokens(text)` calls
+`TJBridge.tokens`; the worker boots with `bootEngine`, whose `Engine` type has no `tokens`, and
+the worker protocol has no message for it. The bridge requires `tokens.rb` on the first call, so
+booting and scheduling do not load it. Types and `checkTokenStream` are in
+`src/engine/token-oracle.ts`; the header of `tokens.rb` is the full reference.
+
+The scanner runs unmodified: a subclass only observes its matches and replaces two hooks.
+Around it, the oracle scans the text the way TaskJuggler scans a workspace file (invalid UTF-8
+to U+FFFD, one leading BOM reported as a `bom` item and dropped as the bridge drops it, CRLF and
+CR to LF with TaskJuggler's `forceUTF8Encoding`), expands no macro and reads no environment
+variable, and reads dates in UTC (restoring the time zone afterwards).
+
+```text
+{ units: "utf16", tokens: Item[], scanError: null | { id, message, line, from, to } }
+Item       { kind: "token" | "whitespace" | "comment" | "bom", from, to, text }
+  token    + { type, value, line, macros: MacroRef[] }
+MacroRef   { kind: "macro" | "env", from, to, name, optional, args }
+```
+
+- `from`/`to` are UTF-16 offsets (JavaScript string indices) in the text as given, `to`
+  exclusive. The items tile the text from 0 to `scanError.from`, or to its end.
+- `text` is what the scanner read: the slice with CRLF and CR as LF, and each macro call as `_`.
+- `type`, `value` and `line` are TaskJuggler's: its token type, its value (unescaped string,
+  number, TIME in seconds, DATE in epoch seconds) and the line its `SourceFileInfo` reports.
+- `scanError` holds scanner errors only (`runaway_token`, `no_token_match`, `junk_after_cut`,
+  `time_error`, ...). Parser errors such as "Unexpected token" never appear.
+
+| Oracle `type` | Spec 5.1 token |
+| --- | --- |
+| `ID_WITH_COLON` | `ScenarioPrefix` (the colon is in `text`, not in `value`) |
+| `ABSOLUTE_ID`, `ID` | `AbsoluteId`, `Identifier` (or a keyword) |
+| `DATE`, `TIME`, `FLOAT`, `INTEGER` | `Date`, `Time`, `Float`, `Integer` |
+| `STRING` | `String`; templated when `macros` is not empty |
+| `MACRO` | `MacroBody` |
+| `LITERAL` | punctuation (`<=`, `>=`, `!=` or one character) |
+| any token with `macros` other than `STRING` | `MacroWord` (`EnvRef` when the call's kind is `env`) |
+
+How the scanner's modes show up, which matters when comparing with `tokens.ts`:
+
+- **Macro calls.** TaskJuggler splices a call's expansion after its glued prefix back into the
+  line and scans on. The oracle splices in the prefix and one `_`, so `t${major}`,
+  `${content}${major}` and `${?x}1d` each become one `ID` whose `macros` list the calls, and
+  `"${a} ${b}"` stays one `STRING` (value `_ _`). Where the spec's `MacroWord` rule differs from
+  what TaskJuggler would do with a word-like expansion, the streams differ: `${a}.b` is one
+  `ABSOLUTE_ID` here, and `a-${b}` is `ID`, `LITERAL`, `ID`. TaskJuggler drops an undefined
+  `${?x}` together with its prefix; the oracle never does, since it cannot know which macros
+  are defined.
+- **Comments.** `#` and `//` comments include their line break. A one-line `/* */` runs to the
+  last `*/` on its line; a multi-line comment is one item ending at the last `*/` on its closing
+  line.
+- **Strings.** Quoted and cut-here strings are one `STRING` each, across lines. A cut-here
+  string runs from `-8<-` to `->8-` (including the blanks before `->8-`), its value has the
+  first line's indentation removed, and its `line` is the line after `-8<-`.
+- **Whitespace and `MACRO`.** Whitespace runs are merged into one item. A `MACRO` ends after
+  the line break that follows its `]`.
+- **Lines.** A token right after a multi-line comment's `*/`, with no whitespace between, gets
+  the comment's first line, because TaskJuggler moves its token start only past whitespace and
+  one-line comments.
+
+Checks:
+
+| Command | What it does |
+| --- | --- |
+| `npx vitest run tests/engine/token-oracle-smoke.test.ts` | Smoke test in Node wasm on 14 fixtures: offsets slice back to each item's text, plus macro, CRLF, BOM, UTF-16 and error cases. Part of `npm run test:unit`; skipped when `public/engine` is not built, so it does not run in CI's `check` job (the Phase 1 `fidelity` job, which builds the engine, will run it) |
+| `node engine/golden/check-tokens.mjs [<path>]...` | Developer-only (needs native Ruby): native Ruby and the built engine must give identical results on every `.tjp`/`.tji` under `tests/fixtures/tjp`, `engine/golden/plans`, the manifest's files and TaskJuggler's `test/TestSuite/Syntax/{Correct,Errors}`, each result must pass `checkTokenStream`, and scanner errors must match the files' `# MARK: error` lines |
+| `node engine/golden/run-wasm.mjs --tokens` | The oracle over every golden plan file before the goldens run |
+
+Last native check: 247 files, 67,551 items, all identical between native Ruby 3.3.6 and
+ruby.wasm 3.4.1, all consistent; the 8 scanner errors in `Syntax/Errors` have the id and line
+of their `MARK`, and the other 86 marked files have no scanner error.

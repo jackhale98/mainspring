@@ -7,8 +7,10 @@
  *
  * Each sample loads lazily through dynamic `?raw` imports, so it costs nothing until picked. Vite
  * decodes `?raw` files as UTF-8 and keeps a BOM, as `decodeWorkspaceFile` does (ADR-0002 #13;
- * samples.test.ts checks that the texts match). The upstream examples are TaskJuggler's own
- * files, shipped unmodified under GPL-2.0 with the rest of `engine/tj/`.
+ * samples.test.ts checks that the texts match). The upstream examples ship unmodified, with
+ * the notices in their text: Tutorial is part of TaskJuggler (GPL-2.0-only); Fedora 20 is by
+ * John Poelstra and Robyn Bergeron under the MIT (Expat) license. THIRD_PARTY_NOTICES.md lists
+ * both.
  */
 import { strings } from '../strings';
 import type { WorkspacePath } from './paths';

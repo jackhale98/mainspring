@@ -1,0 +1,6 @@
+# Feature: prefixed include that declares a task before including another file
+# SPDX-License-Identifier: GPL-2.0-or-later
+task mid "Mid" {
+  start 2026-01-05
+}
+include "deep/b.tji" { taskprefix mid }

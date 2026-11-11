@@ -13,10 +13,16 @@
  *
  * `commit` takes the editor's transactions rather than only the new state (spec 6.2 shows a
  * state): the incremental reparse and `changesSince` need each transaction's change set.
+ *
+ * Editor extensions (T13) come from `opts.extensions(path, top)` and sit in a compartment. When a
+ * change moves a file to another parse context, the workspace reconfigures that file's state with
+ * the extensions for the new top and lists it in `ChangeInfo.reconfigured`; an editor showing that
+ * file then takes `state(path)` again.
  */
 import { history } from '@codemirror/commands';
 import {
 	Annotation,
+	Compartment,
 	EditorState,
 	type AnnotationType,
 	type ChangeSet,
@@ -35,7 +41,7 @@ import {
 import { buildIncludeGraph, type IncludeGraph } from './includes';
 import { assertWorkspacePath, pathLookup, type PathLookup, type WorkspacePath } from './paths';
 
-export type { IncludeEdge, IncludeGraph, IncludeProblem } from './includes';
+export type { IncludeEdge, IncludeGraph, IncludeProblem, IncludeVisit } from './includes';
 
 /** Annotates every transaction of one TjpEdit with its id (one undo step in Phase 2). */
 export const tjpEditId: AnnotationType<string> = Annotation.define<string>();
@@ -63,6 +69,8 @@ export interface ChangeInfo {
 	/** The files whose text changed. */
 	readonly paths: readonly WorkspacePath[];
 	readonly transactions: readonly Transaction[];
+	/** Files whose parse context changed, so their state was reconfigured (module comment). */
+	readonly reconfigured: readonly WorkspacePath[];
 }
 
 export type WorkspaceListener = (
@@ -92,8 +100,8 @@ export interface WorkspaceSeed {
 }
 
 export interface WorkspaceOptions {
-	/** Extra extensions for each file's EditorState (the TJP language, T13). */
-	extensions?: (path: WorkspacePath) => Extension;
+	/** Extra extensions for each file's EditorState (the TJP language, T13), per parse context. */
+	extensions?: (path: WorkspacePath, top: TopContext) => Extension;
 	/** How many change-log entries `changesSince` keeps (default 10,000). */
 	logLimit?: number;
 }
@@ -131,6 +139,7 @@ class MemoryWorkspace implements Workspace {
 	private version = 0;
 	private graph: IncludeGraph;
 	private snap: WorkspaceSnapshot | null = null;
+	private readonly editorExtensions = new Compartment();
 
 	constructor(
 		seed: WorkspaceSeed,
@@ -191,7 +200,7 @@ class MemoryWorkspace implements Workspace {
 		}
 		this.files.set(path, file);
 		this.states.set(path, state);
-		this.afterChange(origin, { paths: [path], transactions: list });
+		this.afterChange(origin, [path], list);
 	}
 
 	apply(edit: WorkspaceEdit): 'applied' | 'stale' {
@@ -222,10 +231,11 @@ class MemoryWorkspace implements Workspace {
 			this.states.set(path, tr.state);
 			this.record(path, tr.changes);
 		}
-		this.afterChange('intent', {
-			paths: changed.map((c) => c.path),
-			transactions: changed.map((c) => c.tr),
-		});
+		this.afterChange(
+			edit.intent.type === 'format' ? 'format' : 'intent',
+			changed.map((c) => c.path),
+			changed.map((c) => c.tr),
+		);
 		return 'applied';
 	}
 
@@ -293,10 +303,27 @@ class MemoryWorkspace implements Workspace {
 		return graph;
 	}
 
-	private afterChange(origin: ChangeOrigin, info: ChangeInfo): void {
+	private afterChange(
+		origin: ChangeOrigin,
+		paths: readonly WorkspacePath[],
+		transactions: readonly Transaction[],
+	): void {
+		const before = new Map([...this.files].map(([p, f]) => [p, f.top]));
 		this.graph = this.walk();
+		const reconfigured: WorkspacePath[] = [];
+		for (const [path, file] of this.files) {
+			if (before.get(path) === file.top) continue;
+			reconfigured.push(path);
+			const ext = this.opts.extensions;
+			if (!ext) continue;
+			const state = this.state(path).update({
+				effects: this.editorExtensions.reconfigure(ext(path, file.top)),
+			}).state;
+			this.states.set(path, state);
+		}
 		this.snap = null;
 		const snap = this.snapshot();
+		const info: ChangeInfo = { paths, transactions, reconfigured };
 		for (const l of [...this.listeners]) l(snap, origin, info);
 	}
 
@@ -306,7 +333,7 @@ class MemoryWorkspace implements Workspace {
 			extensions: [
 				EditorState.lineSeparator.of(LINE_SEPARATOR),
 				history(),
-				this.opts.extensions?.(path) ?? [],
+				this.editorExtensions.of(this.opts.extensions?.(path, file.top) ?? []),
 			],
 		});
 	}

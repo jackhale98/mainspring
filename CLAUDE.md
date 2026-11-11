@@ -67,6 +67,6 @@ Haiku-sized work (fixtures, test runs, log triage, docs formatting) in the main 
 ## Current status
 
 - Phase 0 approved 2026-11-11 (`docs/phases/phase-0-gate.md`).
-- Phase 1 in progress (`docs/phases/phase-1.md`, approved 2026-11-11; ADR-0003). Changes under
-  `engine/` wait until the goldens are re-recorded on Ruby 3.4 (ADR-0003 #5).
+- Phase 1 in progress (`docs/phases/phase-1.md`, approved 2026-11-11; ADR-0003). Goldens are
+  provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
 - `poc/` is the frozen proof of concept; see `poc/INVENTORY.md`. Never edit it.

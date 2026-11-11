@@ -6,6 +6,7 @@ import {
 	compareParseOrder,
 	contextConflicts,
 	parseOrderKey,
+	visitsOf,
 	type IncludeGraph,
 } from './includes';
 import { pathLookup } from './paths';
@@ -53,8 +54,8 @@ describe('include contexts (TjpSyntaxRules rule_prologInclude, rule_projectBodyI
 		]);
 		expect(g.order).toEqual([...g.tops.keys()]);
 		expect(g.edges.map((e) => [e.from, e.literal, e.target, e.top, e.problem])).toEqual([
-			['plan.tjp', 'macros.tji', 'macros.tji', 'prolog', null],
-			['macros.tji', 'more-macros.tji', 'more-macros.tji', 'prolog', null],
+			['plan.tjp', 'macros.tji', 'macros.tji', 'prolog', 'before-project'],
+			['macros.tji', 'more-macros.tji', 'more-macros.tji', 'prolog', 'before-project'],
 			['plan.tjp', 'head.tji', 'head.tji', 'project', null],
 			['head.tji', 'head2.tji', 'head2.tji', 'project', null],
 			['plan.tjp', 'body.tji', 'body.tji', 'global', null],
@@ -82,6 +83,8 @@ describe('include problems', () => {
 				'include "../a.tji"',
 				'include "missing.tji"',
 				'include "${dir}/a.tji"',
+				'include ${path}',
+				'include',
 				"include 'lib/a.tji'",
 				'',
 			].join('\n'),
@@ -95,6 +98,8 @@ describe('include problems', () => {
 			['../a.tji', null, 'outside-workspace'],
 			['missing.tji', null, 'not-found'],
 			['"${dir}/a.tji"', null, 'macro-path'],
+			['${path}', null, 'macro-path'],
+			['', null, 'no-name'],
 			['lib/a.tji', 'lib/a.tji', null],
 			['b.tji', 'lib/b.tji', null],
 			['../lib/a.tji', 'lib/a.tji', 'recursive'],
@@ -113,21 +118,21 @@ describe('include problems', () => {
 		expect(q.edges[0]?.target).toBe("it's.tji");
 	});
 
-	it('walks a file included twice once, in its first context, and lists the conflict', () => {
+	it('parses a file included twice once, in its first context, and lists the conflict', () => {
 		const g = graphOf({
 			'plan.tjp': `${HEADER} {\n  include "x.tji"\n}\ninclude "x.tji"\n`,
 			'x.tji': 'timezone "UTC"\n',
 		});
-		expect(g.edges.map((e) => [e.target, e.top])).toEqual([
-			['x.tji', 'project'],
-			['x.tji', 'global'],
+		expect(g.edges.map((e) => [e.target, e.top, e.visit])).toEqual([
+			['x.tji', 'project', 1],
+			['x.tji', 'global', 2],
 		]);
 		expect(g.tops.get('x.tji')).toBe('project');
 		expect(g.parsed).toEqual([
 			['plan.tjp', 'global'],
 			['x.tji', 'project'],
 		]);
-		expect(contextConflicts(g).map((e) => e.top)).toEqual(['global']);
+		expect(contextConflicts(g).map((v) => [v.file, v.top])).toEqual([['x.tji', 'global']]);
 	});
 
 	it('ignores include text in macro bodies and task bodies', () => {
@@ -160,6 +165,115 @@ describe('prefixes (rule_includeAttributesBody, rule_taskId)', () => {
 			'team',
 		);
 		expect(g.edges[2]?.written).toEqual({ taskPrefix: null, resourcePrefix: null });
+	});
+});
+
+describe('visits (TaskJuggler reads a file once per include site)', () => {
+	// Native: a template included under g1 and g2 declares g1.t and g2.t, and its nested include
+	// is read on both visits (tests/fixtures/tjp/include-prefix-property).
+	const plan = `${HEADER}\ntask g1 "G1"\ntask g2 "G2"\ninclude "t.tji" { taskprefix g1 }\ninclude "t.tji" { taskprefix g2 }\n`;
+	const g = graphOf({
+		'plan.tjp': plan,
+		't.tji': 'include "n.tji"\ntask t "T"\n',
+		'n.tji': 'task n "N"\n',
+	});
+
+	it('walks every site and each nested include again', () => {
+		expect(g.visits.map((v) => [v.index, v.file, v.parent, v.taskPrefix])).toEqual([
+			[0, 'plan.tjp', null, null],
+			[1, 't.tji', 0, 'g1'],
+			[2, 'n.tji', 1, 'g1'],
+			[3, 't.tji', 0, 'g2'],
+			[4, 'n.tji', 3, 'g2'],
+		]);
+		expect(g.edges.map((e) => [e.from, e.target, e.parentVisit, e.visit, e.taskPrefix])).toEqual([
+			['plan.tjp', 't.tji', 0, 1, 'g1'],
+			['t.tji', 'n.tji', 1, 2, 'g1'],
+			['plan.tjp', 't.tji', 0, 3, 'g2'],
+			['t.tji', 'n.tji', 3, 4, 'g2'],
+		]);
+		expect(g.order).toEqual(['plan.tjp', 't.tji', 'n.tji']);
+		expect(g.parsed.map(([p]) => p)).toEqual(['plan.tjp', 't.tji', 'n.tji']);
+		expect(visitsOf(g, 'n.tji').map((v) => v.index)).toEqual([2, 4]);
+		expect(contextConflicts(g)).toEqual([]);
+	});
+
+	it('orders positions through the first, the last or a given visit', () => {
+		const second = plan.lastIndexOf('include');
+		const first = plan.indexOf('include');
+		const nested = 0;
+		expect(parseOrderKey(g, { file: 'n.tji', from: 3 })).toEqual([second, nested, 3]);
+		expect(parseOrderKey(g, { file: 'n.tji', from: 3 }, 'first')).toEqual([first, nested, 3]);
+		expect(parseOrderKey(g, { file: 'n.tji', from: 3 }, 2)).toEqual([first, nested, 3]);
+		expect(parseOrderKey(g, { file: 'n.tji', from: 3 }, 1)).toBeNull();
+		// Last visit: n.tji is read after t.tji's own task on the first visit.
+		const tTask = { file: 't.tji', from: 'include "n.tji"\n'.length };
+		expect(compareParseOrder(g, { file: 'n.tji', from: 0 }, tTask)).toBeLessThan(0);
+		expect(
+			compareParseOrder(g, { file: 'n.tji', from: 0 }, { file: 'plan.tjp', from: first }),
+		).toBeGreaterThan(0);
+	});
+
+	it('stops at the visit limit', async () => {
+		const { VISIT_LIMIT } = await import('./includes');
+		// A chain of doubling includes: 2^14 visits would be made.
+		const files: Record<string, string> = { 'plan.tjp': `${HEADER}\ninclude "f0.tji"\n` };
+		for (let i = 0; i < 14; i++)
+			files[`f${i}.tji`] = `include "f${i + 1}.tji"\ninclude "f${i + 1}.tji"\n`;
+		files['f14.tji'] = '';
+		const big = graphOf(files);
+		expect(big.visits.length).toBe(VISIT_LIMIT);
+		expect(big.edges.some((e) => e.problem === 'visit-limit')).toBe(true);
+	});
+});
+
+describe('prefix details', () => {
+	it('marks a macro prefix unknown for every visit below it', () => {
+		const g = graphOf({
+			'plan.tjp': `macro pre [g1]\n${HEADER}\ntask g1 "G1"\ninclude "x.tji" { taskprefix ${'${pre}'} }\n`,
+			'x.tji': 'include "y.tji" { taskprefix t }\ntask t "T"\n',
+			'y.tji': '',
+		});
+		expect(g.edges.map((e) => [e.target, e.taskPrefix, e.problem, e.visit])).toEqual([
+			['x.tji', null, 'macro-prefix', 1],
+			['y.tji', null, null, 2],
+		]);
+		expect(g.visits.map((v) => v.prefixUnknown)).toEqual([false, true, true]);
+	});
+
+	it('records the @property a nested include inherits (rule_taskHeader)', () => {
+		// Native (fixture include-prefix-property): outer.leaf, outer.mid.leaf2.
+		const g = graphOf({
+			'plan.tjp': `${HEADER}\ntask outer "O"\ninclude "a.tji" { taskprefix outer }\ninclude "x.tji" { taskprefix outer }\n`,
+			'a.tji':
+				'task mid "M"\ninclude "b.tji" { taskprefix mid }\ninclude "b2.tji" { taskprefix mid }\n',
+			'x.tji': 'include "c.tji" { taskprefix mid }\n',
+			'b.tji': 'task leaf "L"\n',
+			'b2.tji': '',
+			'c.tji': 'task leaf2 "L2"\n',
+		});
+		expect(g.visits.map((v) => [v.file, v.taskPrefix, v.property])).toEqual([
+			['plan.tjp', null, null],
+			['a.tji', 'outer', null],
+			['b.tji', 'outer.mid', { kind: 'task', id: 'outer' }],
+			// popFileStack clears @property when b.tji returns.
+			['b2.tji', 'outer.mid', null],
+			['x.tji', 'outer', null],
+			['c.tji', 'outer.mid', null],
+		]);
+	});
+
+	it('keeps a resource @property for resources and none at the top without a prefix', () => {
+		const g = graphOf({
+			'plan.tjp': `${HEADER}\nresource r "R"\ninclude "a.tji" { resourceprefix r }\n`,
+			'a.tji': 'resource s "S"\ninclude "b.tji"\n',
+			'b.tji': '',
+		});
+		expect(g.visits.map((v) => [v.file, v.resourcePrefix, v.property])).toEqual([
+			['plan.tjp', null, null],
+			['a.tji', 'r', null],
+			['b.tji', 'r', { kind: 'resource', id: 'r' }],
+		]);
 	});
 });
 

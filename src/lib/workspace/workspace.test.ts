@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { undo } from '@codemirror/commands';
-import { EditorState, Transaction, type ChangeSet } from '@codemirror/state';
+import { EditorState, Facet, Transaction, type ChangeSet } from '@codemirror/state';
 import { describe, expect, it, vi } from 'vitest';
 import { serialize } from '../../../tests/grammar/corpus';
 import { changeSetOf, parseTjp, syntaxIssues } from '../tjp/document';
@@ -9,6 +9,7 @@ import {
 	decodeWorkspaceFile,
 	scheduleRequestOf,
 	tjpEditId,
+	type ChangeInfo,
 	type Workspace,
 	type WorkspaceEdit,
 } from './workspace';
@@ -92,7 +93,11 @@ describe('commit', () => {
 		expect(ws.state('x.tji')).toBe(tr.state);
 		expect(listener).toHaveBeenCalledOnce();
 		expect(listener.mock.calls[0]?.[1]).toBe('typing');
-		expect(listener.mock.calls[0]?.[2]).toEqual({ paths: ['x.tji'], transactions: [tr] });
+		expect(listener.mock.calls[0]?.[2]).toEqual({
+			paths: ['x.tji'],
+			transactions: [tr],
+			reconfigured: [],
+		});
 		off();
 		ws.commit('x.tji', typeAt(ws, 'x.tji', 0, '#'), 'format');
 		expect(listener).toHaveBeenCalledOnce();
@@ -176,6 +181,55 @@ describe('apply', () => {
 		expect(() => ws.apply({ ...e, changes: { 'x.tji': changeSetOf([], 1) } })).toThrow(RangeError);
 		expect(ws.apply({ ...e, changes: { 'x.tji': changeSetOf([], X.length) } })).toBe('applied');
 		expect(ws.snapshot().version).toBe(0);
+	});
+});
+
+describe('apply origins', () => {
+	it('reports format edits as format, others as intent', () => {
+		const ws = seed();
+		const origins: string[] = [];
+		ws.subscribe((_s, origin) => origins.push(origin));
+		ws.apply({ ...edit(ws, 'x.tji', '1d', '2d', 'f'), intent: { type: 'format' } });
+		ws.apply(edit(ws, 'x.tji', '2d', '3d', 'g'));
+		expect(origins).toEqual(['format', 'intent']);
+	});
+});
+
+describe('editor extensions per context', () => {
+	it('builds each state with the extensions for its top, and reconfigures on a change', () => {
+		const marker = Facet.define<string, string>({ combine: (v) => v.join(',') });
+		const calls: string[] = [];
+		const ws = createWorkspace(
+			{ entry: 'plan.tjp', files: { 'plan.tjp': PLAN, 'x.tji': 'timezone "UTC"\n' } },
+			{
+				extensions: (path, top) => {
+					calls.push(`${path}:${top}`);
+					return marker.of(top);
+				},
+			},
+		);
+		expect(ws.state('x.tji').facet(marker)).toBe('global');
+		const infos: ChangeInfo[] = [];
+		ws.subscribe((_s, _o, info) => infos.push(info));
+		const plan = ws.texts()['plan.tjp'] ?? '';
+		const from = plan.indexOf('include');
+		const cs = changeSetOf(
+			[
+				{ from, to: from + 'include "x.tji"\n'.length },
+				{ from: plan.indexOf('}'), insert: '  include "x.tji"\n' },
+			],
+			plan.length,
+		);
+		ws.apply({
+			id: 'm',
+			intent: { type: 'moveTask' },
+			base: { 'plan.tjp': 0 },
+			changes: { 'plan.tjp': cs },
+		});
+		expect(infos[0]?.reconfigured).toEqual(['x.tji']);
+		expect(ws.state('x.tji').facet(marker)).toBe('project');
+		expect(ws.state('x.tji').doc.toString()).toBe('timezone "UTC"\n');
+		expect(calls).toContain('x.tji:project');
 	});
 });
 

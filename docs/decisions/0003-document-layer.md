@@ -18,7 +18,9 @@ and 14).
    edited plans still schedule. Native Ruby still never runs in CI.
 4. **Edit API scope (13.4).** Phase 1 includes `setDependsGap` and `setAttr` for `complete`,
    because the Phase 2 gate covers every row of the direct-manipulation table.
-5. **Ruby 3.4 re-record (13.5).** The user re-records the goldens on a Debian or Ubuntu machine
+5. **Ruby 3.4 re-record (13.5), amended 2026-11-11 by the user: engine changes may merge before the
+   re-record; the goldens stay provisional (Ruby 3.3.6) until it is done, and it remains a Phase 1
+   gate item.** Original decision: The user re-records the goldens on a Debian or Ubuntu machine
    with Ruby 3.4. Until then, Phase 1 work that touches neither `engine/` nor the goldens may
    merge; changes under `engine/` wait for the re-record.
 6. **Required checks (13.6).** `fidelity`, `golden` and `e2e` should be required checks; the user

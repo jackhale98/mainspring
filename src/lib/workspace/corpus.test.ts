@@ -111,6 +111,18 @@ describe('contexts and prefixes of the corpus', () => {
 		expect(edges('include-taskprefix')).toEqual([
 			['plan.tjp', 'sub.tji', 'global', 'parent', null],
 		]);
+		const ipp = byName.get('include-prefix-property')?.includes.visits ?? [];
+		expect(ipp.map((v) => [v.file, v.taskPrefix, v.property?.id ?? null])).toEqual([
+			['plan.tjp', null, null],
+			['sub/a.tji', 'outer', null],
+			['sub/deep/b.tji', 'outer.mid', 'outer'],
+			['sub/x.tji', 'outer', null],
+			['sub/deep/c.tji', 'outer.mid', null],
+			['tmpl.tji', 'g1', null],
+			['n.tji', 'g1.t', 'g1'],
+			['tmpl.tji', 'g2', null],
+			['n.tji', 'g2.t', 'g2'],
+		]);
 		expect(edges('include-resourceprefix')).toEqual([
 			['plan.tjp', 'people.tji', 'global', null, 'team'],
 		]);
