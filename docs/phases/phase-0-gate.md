@@ -44,8 +44,9 @@ provisional input (the goldens were recorded on Ruby 3.3.6, not 3.4.x).
 - Native side: `npm run golden:verify -- --allow-ruby` reproduces all 34 committed goldens, and
   the independent cross-check against the real `tj3` CLI (CSV report, project frame, scenarios,
   messages) agrees on all 34.
-- CI: the `golden` job runs on every push (for example run 14,
-  https://github.com/jackhale98/mainspring/actions/runs/43075857637, all jobs green).
+- CI: the `golden` job runs on every push. Gate commit run 18, all jobs green (format, typecheck,
+  unit, engine build `--check`, golden parity, e2e on desktop, Pixel 7 and iPhone 14,
+  responsiveness, no-Ruby): https://github.com/jackhale98/mainspring/actions/runs/43081496764
 
 Timings (worker total ms, this machine, 4 vCPU; native from `engine/golden/native-timings.json`):
 
@@ -89,7 +90,8 @@ long-task durations); each boot long task at most 250 ms; keystroke-to-paint (Ev
 in the warm window; result `ok` with 1,225 tasks and worker `scheduleMs` of at least 1,000. Run 1
 also records Chromium traces: the longest warm main-thread task must be at most 50 ms, and the
 cold trace must carry thread CPU times, and no cold main-thread task may use over 50 ms of CPU. CI runs this
-suite in the `e2e` job and always uploads the report and traces.
+suite in the `e2e` job and always uploads the report and traces; it passed on GitHub's runners in
+run 18 (link above), its first CI run.
 
 ## Phase deliverables
 
