@@ -39,6 +39,41 @@ Astro 7.4.1 (MIT) adds no runtime of its own: the built pages contain no `astro-
 script. The Svelte license text is not yet reproduced in the built site; add it to `/engine/NOTICES.txt`
 or a site-level notices file before a public release.
 
+## Editor packages (from Phase 1)
+
+Phase 1's text mode bundles CodeMirror 6 and Lezer into the page scripts. All of them are MIT
+(checked in each package's `package.json` and `LICENSE`), which GPL-2.0 permits. Their license
+texts must also go into the site-level notices before a public release.
+
+| Package                    | Version | License |
+| -------------------------- | ------- | ------- |
+| `@codemirror/state`        | 6.7.6   | MIT     |
+| `@codemirror/view`         | 6.43.15 | MIT     |
+| `@codemirror/language`     | 6.13.1  | MIT     |
+| `@codemirror/autocomplete` | 6.20.4  | MIT     |
+| `@codemirror/lint`         | 6.9.7   | MIT     |
+| `@codemirror/commands`     | 6.11.1  | MIT     |
+| `@codemirror/search`       | 6.7.2   | MIT     |
+| `@codemirror/streamparser` | 6.0.0   | MIT     |
+| `@lezer/common`            | 1.5.3   | MIT     |
+| `@lezer/lr`                | 1.4.11  | MIT     |
+| `@lezer/highlight`         | 1.2.5   | MIT     |
+| `style-mod`                | 4.1.4   | MIT     |
+| `w3c-keyname`              | 2.2.8   | MIT     |
+| `crelt`                    | 1.0.7   | MIT     |
+
+`@codemirror/streamparser`, `style-mod`, `w3c-keyname` and `crelt` come in as dependencies of
+the packages above. `@lezer/generator` (MIT) is a development dependency: it generates the
+parser tables at build time and does not ship.
+
+## License check in CI
+
+`node scripts/ci/licenses.mjs` (CI `check` job) walks the production dependency tree in
+`package-lock.json` and fails on any license that is not GPL-2.0 compatible. Packages that run
+only in Node at build time (`sharp`, `lightningcss`, `typescript`, `aria-query`,
+`axobject-query`) are listed in the script with the reason each never reaches `dist/`. The
+OpenSSL inside ruby.wasm (below) is reported on every run as a known exception, not a failure.
+
 ## Open point: OpenSSL inside ruby.wasm
 
 Both binaries in `@ruby/3.4-wasm-wasi` 2.10.1 (`ruby.wasm` and `ruby+stdlib.wasm`) link OpenSSL
