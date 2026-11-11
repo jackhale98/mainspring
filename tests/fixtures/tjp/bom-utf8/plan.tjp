@@ -1,0 +1,10 @@
+﻿# Feature: leading UTF-8 BOM and non-ASCII names (U+FEFF round trip)
+# SPDX-License-Identifier: GPL-2.0-or-later
+project bom "BOM and ünicöde" 2026-01-05 +2m
+
+resource ana "Ana Ångström"
+
+task a "Tâche ☃" {
+  effort 2d
+  allocate ana
+}

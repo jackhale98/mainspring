@@ -1,0 +1,3 @@
+# Feature: included file defining resources under a resourceprefix
+# SPDX-License-Identifier: GPL-2.0-or-later
+resource dev "Dev"

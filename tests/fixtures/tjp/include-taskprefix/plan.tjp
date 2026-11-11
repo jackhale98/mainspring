@@ -1,0 +1,18 @@
+# Feature: include with taskprefix; task ids inside the .tji are prefixed
+# SPDX-License-Identifier: GPL-2.0-or-later
+project ipt "Include taskprefix" 2026-01-05 +2m
+
+resource ana "Ana"
+
+task parent "Parent" {
+  start 2026-01-05
+  allocate ana
+}
+
+include "sub.tji" { taskprefix parent }
+
+task after "After" {
+  effort 1d
+  depends parent.sub1
+  allocate ana
+}

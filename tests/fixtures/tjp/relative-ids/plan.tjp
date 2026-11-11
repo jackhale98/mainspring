@@ -1,0 +1,33 @@
+# Feature: relative ids (!sibling, !!parent), absolute dotted ids, dependency bodies
+# SPDX-License-Identifier: GPL-2.0-or-later
+project rel "Relative ids" 2026-01-05 +2m
+
+resource ana "Ana"
+
+task top "Top" {
+  task s1 "S1" {
+    effort 2d
+    allocate ana
+  }
+  task s2 "S2" {
+    effort 1d
+    depends !s1
+    allocate ana
+  }
+  task grp "Group" {
+    task g1 "G1" {
+      effort 1d
+      depends !!s2, top.s1 { gapduration 1d }
+      allocate ana
+    }
+    task g2 "G2" {
+      effort 1d
+      depends !g1 { onstart }, !!!other
+      allocate ana
+    }
+  }
+}
+task other "Other" {
+  effort 1d
+  allocate ana
+}

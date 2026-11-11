@@ -1,0 +1,14 @@
+# Feature: include with resourceprefix; prefixed resource ids in allocations
+# SPDX-License-Identifier: GPL-2.0-or-later
+project irp "Include resourceprefix" 2026-01-05 +2m
+
+resource team "Team" {
+  resource lead "Lead"
+}
+
+include "people.tji" { resourceprefix team }
+
+task t "T" {
+  effort 3d
+  allocate lead, dev
+}

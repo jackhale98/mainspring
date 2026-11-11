@@ -1,0 +1,29 @@
+# Feature: statement-level macro calls inside blocks, multi-line macro bodies, ] inside bodies
+# SPDX-License-Identifier: GPL-2.0-or-later
+project mstm "Macro statements" 2026-01-05 +2m
+
+macro alloc [ allocate ana ]
+macro twoLines [
+  priority 700
+  note "two lines"
+]
+macro phaseLen [4d]
+
+resource ana "Ana"
+resource bo "Bo"
+
+task a "A" {
+  effort ${phaseLen}
+  ${alloc}
+}
+task b "B" {
+  ${twoLines}
+  effort 2d
+  depends !a
+  allocate bo
+}
+task c "C" {
+  effort ${phaseLen}
+  allocate bo
+  ${?absent}
+}

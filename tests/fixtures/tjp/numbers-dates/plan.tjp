@@ -1,0 +1,24 @@
+# Feature: number and date tokens: 5d split, floats, full dates with times and zones
+# SPDX-License-Identifier: GPL-2.0-or-later
+project nd "Numbers and dates" 2026-01-05-09:00-+0000 +2m {
+  now 2026-01-05-09:00
+  timezone "UTC"
+  dailyworkinghours 8.0
+}
+
+resource ana "Ana" { efficiency .5 }
+
+task a "A" {
+  effort 5d
+  start 2026-01-06-09:00
+  allocate ana
+}
+task b "B" {
+  length 3d
+  depends !a
+  allocate ana
+}
+task c "C" {
+  duration 36h
+  start 2026-01-12
+}

@@ -1,0 +1,10 @@
+# Feature: NEGATIVE: junk after the -8<- cut mark (scanner error junk_after_cut)
+# SPDX-License-Identifier: GPL-2.0-or-later
+project neg2 "Junk after cut" 2026-01-05 +2m
+
+task a "A" {
+  effort 1d
+  note -8<- junk
+  text
+  ->8-
+}

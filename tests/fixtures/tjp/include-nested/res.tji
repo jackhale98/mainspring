@@ -1,0 +1,3 @@
+# Feature: include with resourceprefix after a taskprefix include
+# SPDX-License-Identifier: GPL-2.0-or-later
+resource deputy "Deputy"

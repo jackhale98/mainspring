@@ -1,0 +1,19 @@
+# Feature: CRLF with a multi-line string and a cut-here string
+# SPDX-License-Identifier: GPL-2.0-or-later
+project crs "CRLF strings" 2026-01-05 +2m
+
+resource ana "Ana"
+
+task a "A" {
+  effort 1d
+  allocate ana
+  note "line one
+line two"
+}
+task b "B" {
+  effort 1d
+  allocate ana
+  note -8<-
+  cut line
+  ->8-
+}

@@ -1,0 +1,16 @@
+# Feature: nested includes, macro defined in an include and used after it, both prefixes
+# SPDX-License-Identifier: GPL-2.0-or-later
+project inn "Nested include" 2026-01-05 +2m
+
+include "defs.tji"
+
+task root "Root"
+include "more.tji" { taskprefix root }
+include "res.tji" {
+  resourceprefix who
+}
+task last "Last" {
+  effort ${len}
+  depends root.child
+  allocate deputy
+}

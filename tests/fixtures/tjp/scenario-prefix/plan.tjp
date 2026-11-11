@@ -1,0 +1,22 @@
+# Feature: scenario-prefixed attributes (delayed:effort), scenario declarations
+# SPDX-License-Identifier: GPL-2.0-or-later
+project scn "Scenario prefix" 2026-01-05 +2m {
+  scenario plan "Plan" {
+    scenario delayed "Delayed"
+  }
+}
+
+resource ana "Ana"
+
+task a "A" {
+  effort 2d
+  delayed:effort 4d
+  allocate ana
+}
+task b "B" {
+  effort 1d
+  delayed:priority 800
+  delayed:depends !a
+  depends !a
+  allocate ana
+}

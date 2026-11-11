@@ -1,0 +1,22 @@
+# Feature: cut-here strings (-8<- ... ->8-), trailing blanks, comment-like and brace text inside
+# SPDX-License-Identifier: GPL-2.0-or-later
+project cut "Cut-here strings" 2026-01-05 +2m
+
+resource ana "Ana"
+
+task a "A" {
+  effort 2d
+  allocate ana
+  note -8<-
+This is # not a comment, nor // this, nor /* this */
+Braces { and } and "quotes" are literal.
+  ->8-
+}
+task b "B" {
+  effort 1d
+  allocate ana
+  note -8<-
+    indented ->8- inline is literal
+	->8-
+  depends !a
+}

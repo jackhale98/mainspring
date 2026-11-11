@@ -1,0 +1,3 @@
+# Feature: leaf include
+# SPDX-License-Identifier: GPL-2.0-or-later
+macro leafnote ["from leaf"]
