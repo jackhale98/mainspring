@@ -30,6 +30,43 @@ export function nowProblem(now) {
 	return null;
 }
 
+/** GoldenPlan kinds (docs/phases/phase-0.md, section 3.4). */
+export const PLAN_KINDS = ['upstream', 'poc', 'synthetic', 'bridge'];
+
+/**
+ * Problems with the manifest's GoldenPlan entries that can be found without
+ * the file system, as "id: problem" strings; empty when it is valid.
+ * @param {unknown} plans
+ * @returns {string[]}
+ */
+export function manifestProblems(plans) {
+	if (!Array.isArray(plans)) return ['manifest must be an array of GoldenPlan'];
+	/** @type {string[]} */
+	const out = [];
+	const ids = new Set();
+	for (const p of plans) {
+		const id = JSON.stringify(p?.id);
+		const bad = (/** @type {string} */ why) => out.push(`${id}: ${why}`);
+		if (typeof p?.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(p.id)) bad('id must be lower-case kebab');
+		else if (ids.has(p.id)) bad('duplicate id');
+		ids.add(p?.id);
+		if (!PLAN_KINDS.includes(p?.kind)) bad(`kind must be one of ${PLAN_KINDS.join(', ')}`);
+		for (const k of ['root', 'entry']) {
+			if (typeof p?.[k] !== 'string' || !p[k]) bad(`${k} must be a non-empty string`);
+		}
+		if (p?.now !== null) {
+			const why = nowProblem(p?.now);
+			if (why) bad(`now ${why}`);
+		}
+		if (p?.files !== undefined && !(Array.isArray(p.files) && p.files.length)) bad('files must be a non-empty array');
+		if (!Array.isArray(p?.features)) bad('features must be an array');
+		if (p?.timeoutMs !== undefined && !(Number.isInteger(p.timeoutMs) && p.timeoutMs > 0)) {
+			bad('timeoutMs must be a positive integer');
+		}
+	}
+	return out;
+}
+
 /**
  * A copy of `v` with object keys sorted recursively (JS default sort).
  * @param {unknown} v

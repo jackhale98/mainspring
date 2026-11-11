@@ -346,7 +346,7 @@
   },
   {
     "id": "bridge-header-only",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/header-only",
     "entry": "plan.tjp",
     "now": null,
@@ -360,7 +360,7 @@
   },
   {
     "id": "bridge-parse-failure",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/parse-failure",
     "entry": "plan.tjp",
     "now": null,
@@ -372,7 +372,7 @@
   },
   {
     "id": "bridge-schedule-error",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/schedule-error",
     "entry": "plan.tjp",
     "now": null,
@@ -385,7 +385,7 @@
   },
   {
     "id": "bridge-scenario-warning",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/scenario-warning",
     "entry": "plan.tjp",
     "now": null,
@@ -398,7 +398,7 @@
   },
   {
     "id": "bridge-include-subfolder",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/include-subfolder",
     "entry": "plan.tjp",
     "now": null,
@@ -412,7 +412,7 @@
   },
   {
     "id": "bridge-bom-invalid-utf8",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/bom-invalid-utf8",
     "entry": "plan.tjp",
     "now": null,
@@ -425,7 +425,7 @@
   },
   {
     "id": "bridge-now-option",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/now-option",
     "entry": "plan.tjp",
     "now": "2026-03-03T09:00:00Z",
@@ -437,7 +437,7 @@
   },
   {
     "id": "bridge-now-line",
-    "kind": "synthetic",
+    "kind": "bridge",
     "root": "engine/golden/plans/bridge/now-line",
     "entry": "plan.tjp",
     "now": "2026-01-05T09:00:00Z",

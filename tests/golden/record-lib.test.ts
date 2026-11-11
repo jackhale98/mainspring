@@ -12,6 +12,7 @@ import {
 	diffPaths,
 	expectedRows,
 	firstError,
+	manifestProblems,
 	messageDiffs,
 	minutesToIso,
 	normaliseMessages,
@@ -208,6 +209,52 @@ describe('workspace paths and messages', () => {
 		]);
 		expect(firstError(a)?.id).toBe('e');
 		expect(firstError([a[0]!])).toBeNull();
+	});
+});
+
+describe('manifestProblems', () => {
+	const plan = {
+		id: 'bridge-now-line',
+		kind: 'bridge',
+		root: 'engine/golden/plans/bridge/now-line',
+		entry: 'plan.tjp',
+		now: '2026-01-05T09:00:00Z',
+		features: ['bridge'],
+	};
+
+	it('accepts the committed manifest, including kind bridge', () => {
+		const manifest: unknown = JSON.parse(readFileSync('engine/golden/manifest.json', 'utf8'));
+		expect(manifestProblems(manifest)).toEqual([]);
+		const kinds = (manifest as { kind: string }[]).map((p) => p.kind);
+		expect(kinds).toHaveLength(34);
+		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(8);
+	});
+
+	it('accepts every plan kind', () => {
+		for (const kind of ['upstream', 'poc', 'synthetic', 'bridge']) {
+			expect(manifestProblems([{ ...plan, kind }])).toEqual([]);
+		}
+	});
+
+	it('reports bad entries', () => {
+		expect(manifestProblems({})).toEqual(['manifest must be an array of GoldenPlan']);
+		expect(
+			manifestProblems([
+				plan,
+				plan,
+				{ ...plan, id: 'Bad_Id', kind: 'other', now: '2026-01-05T09:30:00Z', features: 'x' },
+				{ ...plan, id: 'no-root', root: '', files: [], timeoutMs: 0 },
+			]),
+		).toEqual([
+			'"bridge-now-line": duplicate id',
+			'"Bad_Id": id must be lower-case kebab',
+			'"Bad_Id": kind must be one of upstream, poc, synthetic, bridge',
+			'"Bad_Id": now must be on a whole UTC hour',
+			'"Bad_Id": features must be an array',
+			'"no-root": root must be a non-empty string',
+			'"no-root": files must be a non-empty array',
+			'"no-root": timeoutMs must be a positive integer',
+		]);
 	});
 });
 

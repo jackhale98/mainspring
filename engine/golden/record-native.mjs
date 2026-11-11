@@ -27,8 +27,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
-	canonical, canonicalJson, csvRows, diffPaths, expectedRows, firstError, messageDiffs,
-	normaliseMessages, nowProblem, parseCsv, rowDiffs,
+	canonical, canonicalJson, csvRows, diffPaths, expectedRows, firstError, manifestProblems,
+	messageDiffs, normaliseMessages, parseCsv, rowDiffs,
 } from './lib.mjs';
 
 const GOLDEN = path.dirname(fileURLToPath(import.meta.url));
@@ -83,51 +83,75 @@ function preflight(allowRuby) {
 		if (!allowRuby) throw new Refusal(`Ruby ${ruby}: recording needs Ruby 3.4.x to match ruby.wasm (--allow-ruby overrides, spec 11.7)`);
 		console.warn(`warning: recording with Ruby ${ruby}, not 3.4.x (--allow-ruby); native.ruby records it`);
 	}
-	const stable = run('bundle', ['exec', 'ruby', '-e', STABLE_SORT_PROBE]);
-	if (stable.stdout.trim() !== 'stable') {
-		throw new Refusal(`native Ruby does not sort stably here (${stable.stdout.trim() || stable.stderr.trim()}). ` +
-			'TaskJuggler sorts with ties, and the browser engine sorts stably (engine/bridge/wasm/tj_wasm_sort.rb), ' +
-			'so goldens must be recorded where Ruby sorts stably, e.g. Linux with glibc 2.39 or later');
+	// Native Ruby must sort ties stably (the browser does, through
+	// engine/bridge/wasm/tj_wasm_sort.rb), and that patch, loaded natively,
+	// must give exactly the same orders as native Ruby without it.
+	const plain = run('bundle', ['exec', 'ruby', '-e', SORT_PROBE]);
+	if (plain.status !== 0 || !plain.stdout.endsWith('\nstable\n')) {
+		throw new Refusal(`native Ruby does not sort ties stably here (${plain.stdout.trim().split('\n').pop() ?? ''}${plain.stderr.trim()}). ` +
+			'TaskJuggler sorts with ties and the browser engine keeps tied elements in order, so record on a ' +
+			'glibc-based Linux such as Debian or Ubuntu (not Alpine or macOS)');
 	}
+	const patched = run('bundle', ['exec', 'ruby', '-r', path.join(REPO, 'engine', 'bridge', 'wasm', 'tj_wasm_sort.rb'),
+		'-e', SORT_PROBE]);
+	if (patched.stdout !== plain.stdout) {
+		const a = plain.stdout.split('\n');
+		const b = `${patched.stdout}${patched.stderr}`.split('\n');
+		const diffs = a.map((line, i) => (line === b[i] ? null : `native ${line}; patched ${b[i]}`)).filter(Boolean);
+		throw new Refusal(`engine/bridge/wasm/tj_wasm_sort.rb changes native sort results:\n  ${diffs.slice(0, 5).join('\n  ')}`);
+	}
+	console.warn('sort check: native Ruby keeps ties in order, and tj_wasm_sort.rb gives identical orders');
 	return ruby;
 }
 
-// Sorts objects with many ties through Array#sort (with and without a block),
-// Array#sort! and Hash#sort, the methods engine/bridge/wasm/tj_wasm_sort.rb
-// makes stable; prints "stable" only if each keeps equal elements in order.
-const STABLE_SORT_PROBE = `
+// Sorts elements with many ties through every path tj_wasm_sort.rb changes:
+// Array#sort with a block, with <=>, Array#sort!, Hash#sort, String elements
+// (no fast path) and Integer and Symbol elements (fast path). Prints a CRC of
+// each resulting order (positions in the input, by object identity), then
+// "stable" if every order of distinguishable elements kept ties in input
+// order, else "unstable".
+const SORT_PROBE = `
+require 'zlib'
 key = Struct.new(:k, :i) do
   include Comparable
   def <=>(other) = k <=> other.k
 end
 by_k = ->(a, b) { a.k <=> b.k }
-[5, 40, 3000].each do |n|
-  items = Array.new(n) { |i| key.new((i * 7919) % 13, i) }
-  ref = items.group_by(&:k).keys.sort.flat_map { |k| items.select { |x| x.k == k } }
-  got = [items.sort(&by_k), items.sort, items.dup.sort!(&by_k),
-         items.each_with_index.to_h { |x, i| [i, x] }.sort { |a, b| by_k.(a[1], b[1]) }.map(&:last)]
-  next if got.all? { |g| g.map(&:i) == ref.map(&:i) }
-  print "unstable for #{n} elements"
-  exit
+positions = lambda do |sorted, input|
+  pos = {}
+  input.each_with_index { |x, i| pos[x.object_id] = i }
+  sorted.map { |x| pos[x.object_id] }
 end
-print 'stable'
+stable = true
+[5, 40, 3000].each do |n|
+  ks = Array.new(n) { |i| (i * 7919) % 13 }
+  items = Array.new(n) { |i| key.new(ks[i], i) }
+  strs = ks.map { |k| +format('s%02d', k) }
+  ref = Array.new(n) { |i| i }.group_by { |i| ks[i] }.keys.sort.flat_map { |k| (0...n).select { |i| ks[i] == k } }
+  {
+    'block' => [items.sort(&by_k), items],
+    'cmp' => [items.sort, items],
+    'bang' => [items.dup.sort!(&by_k), items],
+    'hash' => [items.each_with_index.to_h { |x, i| [i, x] }.sort { |a, b| by_k.(a[1], b[1]) }.map(&:last), items],
+    'strings' => [strs.sort, strs]
+  }.each do |name, (sorted, input)|
+    order = positions.(sorted, input)
+    stable &&= order == ref
+    puts "#{name} #{n} #{Zlib.crc32(order.join(','))}"
+  end
+  puts "integers #{n} #{Zlib.crc32(ks.sort.join(','))}"
+  puts "symbols #{n} #{Zlib.crc32(ks.map { |k| :"k#{format('%02d', k)}" }.sort.join(','))}"
+end
+puts(stable ? 'stable' : 'unstable')
 `;
 
 function loadManifest() {
 	const plans = JSON.parse(fs.readFileSync(path.join(GOLDEN, 'manifest.json'), 'utf8'));
-	if (!Array.isArray(plans)) throw new Refusal('manifest.json must be an array of GoldenPlan');
-	const ids = new Set();
-	for (const p of plans) {
-		const bad = (why) => new Refusal(`manifest plan ${JSON.stringify(p.id)}: ${why}`);
-		if (typeof p.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(p.id)) throw bad('id must be lower-case kebab');
-		if (ids.has(p.id)) throw bad('duplicate id');
-		ids.add(p.id);
-		if (!['upstream', 'poc', 'synthetic'].includes(p.kind)) throw bad(`unknown kind ${p.kind}`);
-		if (!fs.existsSync(path.join(REPO, p.root, p.entry))) throw bad(`missing ${p.root}/${p.entry}`);
-		if (p.now !== null && nowProblem(p.now)) throw bad(`now ${nowProblem(p.now)}`);
-		if (p.files !== undefined && !(Array.isArray(p.files) && p.files.length)) throw bad('files must be a non-empty array');
-		if (!Array.isArray(p.features)) throw bad('features must be an array');
+	const problems = manifestProblems(plans);
+	for (const p of problems.length ? [] : plans) {
+		if (!fs.existsSync(path.join(REPO, p.root, p.entry))) problems.push(`${JSON.stringify(p.id)}: missing ${p.root}/${p.entry}`);
 	}
+	if (problems.length) throw new Refusal(`manifest.json:\n  ${problems.join('\n  ')}`);
 	return plans;
 }
 

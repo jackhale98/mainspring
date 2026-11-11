@@ -87,13 +87,20 @@ changes first, then record, then commit `expected/` and `native-timings.json`.
 
 **Stable sorting.** TaskJuggler sorts with ties in places (for example the candidates of
 `select minallocated` are compared by criticalness only), so its result depends on how
-Ruby's `Array#sort` orders equal elements. Natively that is the C library's `qsort_r`:
-stable on Linux with glibc 2.39 or later (and 2.36 or earlier), not stable on macOS or with
-glibc 2.37 and 2.38. ruby.wasm has no `qsort_r` and uses Ruby's own unstable quicksort, so
-the browser bridge loads `engine/bridge/wasm/tj_wasm_sort.rb`, which makes `Array#sort`,
-`Array#sort!` and `Enumerable#sort` stable. The recorder runs a probe first and refuses to
-record where native Ruby is not stable, so every golden matches the browser engine. Before
-the patch, `syn-15-allocate-select` picked a different resource in ruby.wasm.
+Ruby's `Array#sort` orders equal elements. Natively that is the C library's `qsort_r`.
+glibc's is a merge sort in every released version, so equal elements keep their order (its
+only unstable path is a fallback when the merge buffer cannot be allocated, far beyond plan
+sizes). macOS and musl (Alpine) are not stable. ruby.wasm has no `qsort_r` and uses Ruby's
+own unstable quicksort, so the browser bridge loads `engine/bridge/wasm/tj_wasm_sort.rb`,
+which makes `Array#sort`, `Array#sort!` and `Enumerable#sort` stable. Native recording
+stays unmodified TaskJuggler and never loads that patch: record on a glibc-based Linux such
+as Debian or Ubuntu (not Alpine or macOS).
+
+Before every record or verify run the script runs a tie probe twice natively: plain, where
+every order must keep ties in input order, and with `tj_wasm_sort.rb` loaded, where every
+order must be identical to the plain run. It refuses to run if either fails, so the patch is
+checked against native Ruby each time. Before the patch, `syn-15-allocate-select` picked a
+different resource in ruby.wasm.
 
 The goldens committed now were recorded with Ruby 3.3.6 and `--allow-ruby`. They are
 provisional and must be re-recorded with Ruby 3.4.x before the Phase 0 gate.
@@ -180,7 +187,7 @@ recorder sets `LANG=C.UTF-8`, passes `-EUTF-8` to Ruby, and the bridge sets
 
 ### Bridge fixtures
 
-`plans/bridge/` holds small plans for the bridge's own paths, so the parity test covers
+`plans/bridge/` holds small plans (manifest kind `bridge`) for the bridge's own paths, so the parity test covers
 them in the browser too. Each header says what it targets and expects.
 
 | id | Targets |
