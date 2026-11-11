@@ -1,0 +1,549 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-14-workinghours-resolution",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            780
+          ],
+          [
+            1980,
+            2220
+          ],
+          [
+            3420,
+            3660
+          ],
+          [
+            4860,
+            5100
+          ],
+          [
+            6300,
+            6540
+          ],
+          [
+            10620,
+            10860
+          ],
+          [
+            12060,
+            12300
+          ],
+          [
+            13500,
+            13620
+          ]
+        ],
+        "resource": "ola",
+        "scenario": "plan",
+        "task": "hours.first"
+      },
+      {
+        "intervals": [
+          [
+            16530,
+            16620
+          ],
+          [
+            20700,
+            20940
+          ],
+          [
+            22140,
+            22380
+          ],
+          [
+            23580,
+            23685
+          ]
+        ],
+        "resource": "ola",
+        "scenario": "plan",
+        "task": "hours.third"
+      },
+      {
+        "intervals": [
+          [
+            600,
+            720
+          ],
+          [
+            840,
+            960
+          ],
+          [
+            2040,
+            2160
+          ],
+          [
+            2280,
+            2400
+          ],
+          [
+            3480,
+            3600
+          ],
+          [
+            3720,
+            3840
+          ],
+          [
+            4920,
+            5040
+          ],
+          [
+            5160,
+            5280
+          ],
+          [
+            6360,
+            6480
+          ],
+          [
+            6600,
+            6720
+          ],
+          [
+            10680,
+            10800
+          ],
+          [
+            10920,
+            11040
+          ],
+          [
+            12120,
+            12240
+          ],
+          [
+            12360,
+            12480
+          ],
+          [
+            13560,
+            13680
+          ],
+          [
+            13800,
+            13920
+          ],
+          [
+            15000,
+            15120
+          ],
+          [
+            15240,
+            15360
+          ],
+          [
+            16440,
+            16530
+          ]
+        ],
+        "resource": "pavel",
+        "scenario": "plan",
+        "task": "hours.second"
+      },
+      {
+        "intervals": [
+          [
+            16530,
+            16560
+          ],
+          [
+            16680,
+            16800
+          ],
+          [
+            20760,
+            20880
+          ],
+          [
+            21000,
+            21120
+          ],
+          [
+            22200,
+            22320
+          ],
+          [
+            22440,
+            22560
+          ],
+          [
+            23640,
+            23685
+          ]
+        ],
+        "resource": "pavel",
+        "scenario": "plan",
+        "task": "hours.third"
+      },
+      {
+        "intervals": [
+          [
+            510,
+            750
+          ],
+          [
+            810,
+            1020
+          ],
+          [
+            1950,
+            2190
+          ],
+          [
+            2250,
+            2460
+          ],
+          [
+            3390,
+            3630
+          ],
+          [
+            3690,
+            3900
+          ],
+          [
+            4830,
+            5070
+          ],
+          [
+            5130,
+            5340
+          ],
+          [
+            6270,
+            6510
+          ],
+          [
+            10590,
+            10830
+          ],
+          [
+            10890,
+            11100
+          ],
+          [
+            12030,
+            12240
+          ]
+        ],
+        "resource": "quin",
+        "scenario": "plan",
+        "task": "hours.fourth"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            780
+          ],
+          [
+            7740,
+            7980
+          ],
+          [
+            10620,
+            10860
+          ],
+          [
+            17820,
+            18060
+          ],
+          [
+            20700,
+            20940
+          ],
+          [
+            27900,
+            28140
+          ],
+          [
+            30780,
+            31020
+          ],
+          [
+            37980,
+            38220
+          ],
+          [
+            40860,
+            41100
+          ],
+          [
+            48060,
+            48300
+          ],
+          [
+            50940,
+            51180
+          ],
+          [
+            58140,
+            58200
+          ]
+        ],
+        "resource": "rae",
+        "scenario": "plan",
+        "task": "hours.fifth"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "hours14",
+      "name": "Working hours",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 15,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "ola",
+        "name": "Ola",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      },
+      {
+        "group": false,
+        "id": "pavel",
+        "name": "Pavel",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 18
+        }
+      },
+      {
+        "group": false,
+        "id": "quin",
+        "name": "Quin",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 23
+        }
+      },
+      {
+        "group": false,
+        "id": "rae",
+        "name": "Rae",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 26
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "hours",
+        "milestone": false,
+        "name": "Working-hours work",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ola",
+              "pavel",
+              "quin",
+              "rae"
+            ],
+            "criticalness": 0,
+            "end": 58200,
+            "pathCriticalness": 59.55882352941176,
+            "scheduled": true,
+            "start": 510
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 34
+        }
+      },
+      {
+        "id": "hours.first",
+        "milestone": false,
+        "name": "First",
+        "parent": "hours",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ola"
+            ],
+            "criticalness": 20.974576271186443,
+            "end": 13620,
+            "pathCriticalness": 38.13559322033899,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 35
+        }
+      },
+      {
+        "id": "hours.second",
+        "milestone": false,
+        "name": "Second",
+        "parent": "hours",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "pavel"
+            ],
+            "criticalness": 30.985169491525426,
+            "end": 16530,
+            "pathCriticalness": 30.985169491525426,
+            "scheduled": true,
+            "start": 600
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 39
+        }
+      },
+      {
+        "id": "hours.third",
+        "milestone": false,
+        "name": "Third",
+        "parent": "hours",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ola",
+              "pavel"
+            ],
+            "criticalness": 17.161016949152543,
+            "end": 23685,
+            "pathCriticalness": 17.161016949152543,
+            "scheduled": true,
+            "start": 16530
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 43
+        }
+      },
+      {
+        "id": "hours.fourth",
+        "milestone": false,
+        "name": "Fourth",
+        "parent": "hours",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "quin"
+            ],
+            "criticalness": 20.04950495049505,
+            "end": 12240,
+            "pathCriticalness": 20.04950495049505,
+            "scheduled": true,
+            "start": 510
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 48
+        }
+      },
+      {
+        "id": "hours.fifth",
+        "milestone": false,
+        "name": "Fifth",
+        "parent": "hours",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "rae"
+            ],
+            "criticalness": 59.55882352941176,
+            "end": 58200,
+            "pathCriticalness": 59.55882352941176,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 52
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

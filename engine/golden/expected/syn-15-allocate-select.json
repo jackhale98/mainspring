@@ -1,0 +1,980 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-15-allocate-select",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ]
+        ],
+        "resource": "ada",
+        "scenario": "plan",
+        "task": "alloc.loads.load_ada"
+      },
+      {
+        "intervals": [
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            43740,
+            44220
+          ],
+          [
+            45180,
+            45660
+          ]
+        ],
+        "resource": "ada",
+        "scenario": "plan",
+        "task": "alloc.maxl"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ]
+        ],
+        "resource": "bea",
+        "scenario": "plan",
+        "task": "alloc.loads.load_bea"
+      },
+      {
+        "intervals": [
+          [
+            71100,
+            71580
+          ],
+          [
+            72540,
+            73020
+          ],
+          [
+            73980,
+            74460
+          ],
+          [
+            75420,
+            75900
+          ]
+        ],
+        "resource": "bea",
+        "scenario": "plan",
+        "task": "alloc.mina"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ]
+        ],
+        "resource": "cy",
+        "scenario": "plan",
+        "task": "alloc.loads.load_cy"
+      },
+      {
+        "intervals": [
+          [
+            81180,
+            81660
+          ],
+          [
+            82620,
+            83100
+          ],
+          [
+            84060,
+            84540
+          ],
+          [
+            85500,
+            85980
+          ],
+          [
+            86940,
+            87420
+          ],
+          [
+            91260,
+            91740
+          ],
+          [
+            92700,
+            93180
+          ],
+          [
+            94140,
+            94620
+          ],
+          [
+            95580,
+            96060
+          ],
+          [
+            97020,
+            97500
+          ],
+          [
+            101340,
+            101820
+          ],
+          [
+            102780,
+            103260
+          ],
+          [
+            104220,
+            104700
+          ],
+          [
+            105660,
+            106140
+          ],
+          [
+            107100,
+            107580
+          ]
+        ],
+        "resource": "cy",
+        "scenario": "plan",
+        "task": "alloc.loads.crit"
+      },
+      {
+        "intervals": [
+          [
+            61020,
+            61500
+          ],
+          [
+            62460,
+            62940
+          ],
+          [
+            63900,
+            64380
+          ],
+          [
+            65340,
+            65820
+          ]
+        ],
+        "resource": "cy",
+        "scenario": "plan",
+        "task": "alloc.minl"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ]
+        ],
+        "resource": "dev",
+        "scenario": "plan",
+        "task": "alloc.loads.load_dev"
+      },
+      {
+        "intervals": [
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            43740,
+            44220
+          ],
+          [
+            45180,
+            45660
+          ]
+        ],
+        "resource": "dev",
+        "scenario": "plan",
+        "task": "alloc.ordered"
+      },
+      {
+        "intervals": [
+          [
+            43740,
+            44220
+          ]
+        ],
+        "resource": "p1",
+        "scenario": "plan",
+        "task": "alloc.block"
+      },
+      {
+        "intervals": [
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            45180,
+            45660
+          ],
+          [
+            46620,
+            47100
+          ],
+          [
+            50940,
+            51420
+          ],
+          [
+            52380,
+            52860
+          ]
+        ],
+        "resource": "p1",
+        "scenario": "plan",
+        "task": "alloc.sticky"
+      },
+      {
+        "intervals": [
+          [
+            43740,
+            44220
+          ]
+        ],
+        "resource": "q1",
+        "scenario": "plan",
+        "task": "alloc.block"
+      },
+      {
+        "intervals": [
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            45180,
+            45660
+          ],
+          [
+            46620,
+            47100
+          ],
+          [
+            50940,
+            51420
+          ]
+        ],
+        "resource": "q1",
+        "scenario": "plan",
+        "task": "alloc.fluid"
+      },
+      {
+        "intervals": [
+          [
+            43740,
+            44220
+          ]
+        ],
+        "resource": "q2",
+        "scenario": "plan",
+        "task": "alloc.fluid"
+      },
+      {
+        "intervals": [
+          [
+            82620,
+            83100
+          ],
+          [
+            86940,
+            87420
+          ],
+          [
+            91260,
+            91740
+          ],
+          [
+            92700,
+            93180
+          ]
+        ],
+        "resource": "m1",
+        "scenario": "plan",
+        "task": "alloc.pair"
+      },
+      {
+        "intervals": [
+          [
+            82620,
+            83100
+          ],
+          [
+            86940,
+            87420
+          ],
+          [
+            91260,
+            91740
+          ],
+          [
+            92700,
+            93180
+          ]
+        ],
+        "resource": "m2",
+        "scenario": "plan",
+        "task": "alloc.pair"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "select15",
+      "name": "Allocation selection",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "ada",
+        "name": "Ada",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "group": false,
+        "id": "bea",
+        "name": "Bea",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "group": false,
+        "id": "cy",
+        "name": "Cy",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "group": false,
+        "id": "dev",
+        "name": "Dev",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 22
+        }
+      },
+      {
+        "group": false,
+        "id": "p1",
+        "name": "P1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 25
+        }
+      },
+      {
+        "group": false,
+        "id": "p2",
+        "name": "P2",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 28
+        }
+      },
+      {
+        "group": false,
+        "id": "q1",
+        "name": "Q1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 31
+        }
+      },
+      {
+        "group": false,
+        "id": "q2",
+        "name": "Q2",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 34
+        }
+      },
+      {
+        "group": false,
+        "id": "m1",
+        "name": "M1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 37
+        }
+      },
+      {
+        "group": false,
+        "id": "m2",
+        "name": "M2",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 41
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "alloc",
+        "milestone": false,
+        "name": "Allocation policies",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ada",
+              "bea",
+              "cy",
+              "dev",
+              "p1",
+              "q1",
+              "q2",
+              "m1",
+              "m2"
+            ],
+            "criticalness": 0,
+            "end": 107580,
+            "pathCriticalness": 40.67796610169491,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 44
+        }
+      },
+      {
+        "id": "alloc.loads",
+        "milestone": false,
+        "name": "Preloads",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ada",
+              "bea",
+              "cy",
+              "dev"
+            ],
+            "criticalness": 0,
+            "end": 107580,
+            "pathCriticalness": 40.67796610169491,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 45
+        }
+      },
+      {
+        "id": "alloc.loads.load_ada",
+        "milestone": false,
+        "name": "Load Ada",
+        "parent": "alloc.loads",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ada"
+            ],
+            "criticalness": 13.016949152542374,
+            "end": 13980,
+            "pathCriticalness": 13.016949152542374,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 47
+        }
+      },
+      {
+        "id": "alloc.loads.load_bea",
+        "milestone": false,
+        "name": "Load Bea",
+        "parent": "alloc.loads",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "bea"
+            ],
+            "criticalness": 8.135593220338983,
+            "end": 11100,
+            "pathCriticalness": 8.135593220338983,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 52
+        }
+      },
+      {
+        "id": "alloc.loads.load_cy",
+        "milestone": false,
+        "name": "Load Cy",
+        "parent": "alloc.loads",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "cy"
+            ],
+            "criticalness": 2.711864406779661,
+            "end": 1020,
+            "pathCriticalness": 2.711864406779661,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 57
+        }
+      },
+      {
+        "id": "alloc.loads.load_dev",
+        "milestone": false,
+        "name": "Load Dev",
+        "parent": "alloc.loads",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev"
+            ],
+            "criticalness": 8.135593220338983,
+            "end": 11100,
+            "pathCriticalness": 8.135593220338983,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 62
+        }
+      },
+      {
+        "id": "alloc.loads.crit",
+        "milestone": false,
+        "name": "Critical Cy",
+        "parent": "alloc.loads",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "cy"
+            ],
+            "criticalness": 40.67796610169491,
+            "end": 107580,
+            "pathCriticalness": 40.67796610169491,
+            "scheduled": true,
+            "start": 81180
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 67
+        }
+      },
+      {
+        "id": "alloc.maxl",
+        "milestone": false,
+        "name": "Pick max loaded",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ada"
+            ],
+            "criticalness": 7.0508474576271185,
+            "end": 45660,
+            "pathCriticalness": 7.0508474576271185,
+            "scheduled": true,
+            "start": 40860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 74
+        }
+      },
+      {
+        "id": "alloc.minl",
+        "milestone": false,
+        "name": "Pick min loaded",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "cy"
+            ],
+            "criticalness": 7.0508474576271185,
+            "end": 65820,
+            "pathCriticalness": 7.0508474576271185,
+            "scheduled": true,
+            "start": 61020
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 83
+        }
+      },
+      {
+        "id": "alloc.mina",
+        "milestone": false,
+        "name": "Pick min allocated",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "bea"
+            ],
+            "criticalness": 7.0508474576271185,
+            "end": 75900,
+            "pathCriticalness": 7.0508474576271185,
+            "scheduled": true,
+            "start": 71100
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 92
+        }
+      },
+      {
+        "id": "alloc.ordered",
+        "milestone": false,
+        "name": "Pick in order",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev"
+            ],
+            "criticalness": 7.0508474576271185,
+            "end": 45660,
+            "pathCriticalness": 7.0508474576271185,
+            "scheduled": true,
+            "start": 40860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 101
+        }
+      },
+      {
+        "id": "alloc.block",
+        "milestone": false,
+        "name": "Blocks p1 and q1",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "p1",
+              "q1"
+            ],
+            "criticalness": 1.0847457627118644,
+            "end": 44220,
+            "pathCriticalness": 1.0847457627118644,
+            "scheduled": true,
+            "start": 43740
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 110
+        }
+      },
+      {
+        "id": "alloc.sticky",
+        "milestone": false,
+        "name": "Persistent",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "p1"
+            ],
+            "criticalness": 2.847457627118644,
+            "end": 52860,
+            "pathCriticalness": 2.847457627118644,
+            "scheduled": true,
+            "start": 40860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 116
+        }
+      },
+      {
+        "id": "alloc.fluid",
+        "milestone": false,
+        "name": "Not persistent",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "q1",
+              "q2"
+            ],
+            "criticalness": 2.847457627118644,
+            "end": 51420,
+            "pathCriticalness": 2.847457627118644,
+            "scheduled": true,
+            "start": 40860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 125
+        }
+      },
+      {
+        "id": "alloc.pair",
+        "milestone": false,
+        "name": "Mandatory",
+        "parent": "alloc",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "m1",
+              "m2"
+            ],
+            "criticalness": 4.4151055605114475,
+            "end": 93180,
+            "pathCriticalness": 4.4151055605114475,
+            "scheduled": true,
+            "start": 82620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 133
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

@@ -1,0 +1,259 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-12-tz-unset",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "vera",
+        "scenario": "plan",
+        "task": "plain.kickoff"
+      },
+      {
+        "intervals": [
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            20940
+          ]
+        ],
+        "resource": "vera",
+        "scenario": "plan",
+        "task": "plain.finish"
+      },
+      {
+        "intervals": [
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ]
+        ],
+        "resource": "walt",
+        "scenario": "plan",
+        "task": "plain.middle"
+      },
+      {
+        "intervals": [
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            20940
+          ]
+        ],
+        "resource": "walt",
+        "scenario": "plan",
+        "task": "plain.finish"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-06-26T00:00:00Z",
+      "id": "utc12",
+      "name": "No timezone",
+      "now": "2026-05-20T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-05-04T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "vera",
+        "name": "Vera",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 7
+        }
+      },
+      {
+        "group": false,
+        "id": "walt",
+        "name": "Walt",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 10
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "plain",
+        "milestone": false,
+        "name": "Plain work",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "vera",
+              "walt"
+            ],
+            "criticalness": 0,
+            "end": 20940,
+            "pathCriticalness": 15.692307692307693,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "id": "plain.kickoff",
+        "milestone": false,
+        "name": "Kickoff",
+        "parent": "plain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "vera"
+            ],
+            "criticalness": 2.769230769230769,
+            "end": 3900,
+            "pathCriticalness": 15.692307692307693,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      },
+      {
+        "id": "plain.middle",
+        "milestone": false,
+        "name": "Middle",
+        "parent": "plain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "walt"
+            ],
+            "criticalness": 9.230769230769232,
+            "end": 15420,
+            "pathCriticalness": 12.923076923076923,
+            "scheduled": true,
+            "start": 4860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "id": "plain.finish",
+        "milestone": false,
+        "name": "Finish",
+        "parent": "plain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "vera",
+              "walt"
+            ],
+            "criticalness": 3.6923076923076925,
+            "end": 20940,
+            "pathCriticalness": 3.6923076923076925,
+            "scheduled": true,
+            "start": 16380
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

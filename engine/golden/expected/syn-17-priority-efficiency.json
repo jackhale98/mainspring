@@ -1,0 +1,627 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-17-priority-efficiency",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ]
+        ],
+        "resource": "fox",
+        "scenario": "plan",
+        "task": "contend.urgent"
+      },
+      {
+        "intervals": [
+          [
+            43740,
+            44220
+          ],
+          [
+            45180,
+            45660
+          ],
+          [
+            46620,
+            47100
+          ],
+          [
+            50940,
+            51420
+          ],
+          [
+            52380,
+            52860
+          ],
+          [
+            53820,
+            54300
+          ],
+          [
+            55260,
+            55740
+          ],
+          [
+            56700,
+            57180
+          ],
+          [
+            61020,
+            61500
+          ],
+          [
+            62460,
+            62940
+          ]
+        ],
+        "resource": "fox",
+        "scenario": "plan",
+        "task": "contend.normal"
+      },
+      {
+        "intervals": [
+          [
+            63900,
+            64380
+          ],
+          [
+            65340,
+            65820
+          ],
+          [
+            66780,
+            67260
+          ],
+          [
+            71100,
+            71580
+          ],
+          [
+            72540,
+            73020
+          ],
+          [
+            73980,
+            74460
+          ],
+          [
+            75420,
+            75900
+          ],
+          [
+            76860,
+            77340
+          ],
+          [
+            81180,
+            81660
+          ],
+          [
+            82620,
+            83100
+          ]
+        ],
+        "resource": "fox",
+        "scenario": "plan",
+        "task": "contend.low"
+      },
+      {
+        "intervals": [
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ],
+          [
+            23580,
+            24060
+          ],
+          [
+            25020,
+            25500
+          ],
+          [
+            26460,
+            26940
+          ],
+          [
+            30780,
+            31260
+          ],
+          [
+            32220,
+            32700
+          ],
+          [
+            33660,
+            34140
+          ],
+          [
+            35100,
+            35580
+          ],
+          [
+            36540,
+            37020
+          ],
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ]
+        ],
+        "resource": "fox",
+        "scenario": "plan",
+        "task": "contend.slow"
+      },
+      {
+        "intervals": [
+          [
+            4980,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13620
+          ]
+        ],
+        "resource": "gil",
+        "scenario": "plan",
+        "task": "contend.fast"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            4980
+          ]
+        ],
+        "resource": "gil",
+        "scenario": "plan",
+        "task": "contend.double"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            4980
+          ]
+        ],
+        "resource": "hana",
+        "scenario": "plan",
+        "task": "contend.double"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            10800
+          ],
+          [
+            10860,
+            11100
+          ],
+          [
+            12060,
+            12240
+          ],
+          [
+            12300,
+            12540
+          ],
+          [
+            13500,
+            13680
+          ],
+          [
+            13740,
+            13980
+          ],
+          [
+            14940,
+            15120
+          ],
+          [
+            15180,
+            15420
+          ]
+        ],
+        "resource": "hana",
+        "scenario": "plan",
+        "task": "contend.booked"
+      }
+    ],
+    "messages": [
+      {
+        "column": null,
+        "file": "plan.tjp",
+        "id": "overbooked_effort",
+        "level": "warning",
+        "line": 49,
+        "scenario": "plan",
+        "text": "The total effort (3.5d or 28.0h) of the provided bookings for task contend.booked exceeds the specified effort of 2.0d or 16.0h."
+      }
+    ],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "prio17",
+      "name": "Priority and efficiency",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "fox",
+        "name": "Fox",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 0.5
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 8
+        }
+      },
+      {
+        "group": false,
+        "id": "gil",
+        "name": "Gil",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1.5
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "group": false,
+        "id": "hana",
+        "name": "Hana",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "contend",
+        "milestone": false,
+        "name": "Contention",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "fox",
+              "gil",
+              "hana"
+            ],
+            "criticalness": 0,
+            "end": 83100,
+            "pathCriticalness": 35.23728813559322,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 20
+        }
+      },
+      {
+        "id": "contend.urgent",
+        "milestone": false,
+        "name": "Urgent",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "fox"
+            ],
+            "criticalness": 16.016949152542374,
+            "end": 16860,
+            "pathCriticalness": 35.23728813559322,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 21
+        }
+      },
+      {
+        "id": "contend.normal",
+        "milestone": false,
+        "name": "Normal",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "fox"
+            ],
+            "criticalness": 16.016949152542374,
+            "end": 62940,
+            "pathCriticalness": 16.016949152542374,
+            "scheduled": true,
+            "start": 43740
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 26
+        }
+      },
+      {
+        "id": "contend.low",
+        "milestone": false,
+        "name": "Low",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "fox"
+            ],
+            "criticalness": 16.016949152542374,
+            "end": 83100,
+            "pathCriticalness": 16.016949152542374,
+            "scheduled": true,
+            "start": 63900
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 30
+        }
+      },
+      {
+        "id": "contend.fast",
+        "milestone": false,
+        "name": "Fast worker",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "gil"
+            ],
+            "criticalness": 7.016949152542373,
+            "end": 13620,
+            "pathCriticalness": 8.016949152542374,
+            "scheduled": true,
+            "start": 4980
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 35
+        }
+      },
+      {
+        "id": "contend.slow",
+        "milestone": false,
+        "name": "Slow worker",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "fox"
+            ],
+            "criticalness": 19.220338983050848,
+            "end": 42780,
+            "pathCriticalness": 19.220338983050848,
+            "scheduled": true,
+            "start": 20700
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 39
+        }
+      },
+      {
+        "id": "contend.double",
+        "milestone": false,
+        "name": "Overloaded",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "gil",
+              "hana"
+            ],
+            "criticalness": 13.43879472693032,
+            "end": 4980,
+            "pathCriticalness": 13.43879472693032,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 44
+        }
+      },
+      {
+        "id": "contend.booked",
+        "milestone": false,
+        "name": "Overbooked",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "hana"
+            ],
+            "criticalness": 1.3333333333333333,
+            "end": 15420,
+            "pathCriticalness": 1.3333333333333333,
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 49
+        }
+      },
+      {
+        "id": "contend.fin",
+        "milestone": true,
+        "name": "Finish",
+        "parent": "contend",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 13620,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 13620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 58
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

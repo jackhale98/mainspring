@@ -1,0 +1,207 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "parts/deep/more.tji",
+    "parts/shared.tji",
+    "parts/tasks.tji",
+    "plan.tjp"
+  ],
+  "id": "bridge-include-subfolder",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ]
+        ],
+        "resource": "ann",
+        "scenario": "plan",
+        "task": "build"
+      },
+      {
+        "intervals": [
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "bob",
+        "scenario": "plan",
+        "task": "test"
+      }
+    ],
+    "messages": [
+      {
+        "column": null,
+        "file": "parts/deep/more.tji",
+        "id": "marco_redefinition",
+        "level": "warning",
+        "line": 3,
+        "scenario": null,
+        "text": "Redefining macro owner"
+      }
+    ],
+    "ok": true,
+    "project": {
+      "end": "2026-04-01T10:00:00Z",
+      "id": "inc",
+      "name": "Include subfolder",
+      "now": "2026-03-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-03-02T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": true,
+        "id": "team",
+        "name": "Team",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "group": false,
+        "id": "ann",
+        "name": "Ann",
+        "parent": "team",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      },
+      {
+        "group": false,
+        "id": "bob",
+        "name": "Bob",
+        "parent": "team",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 15
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "build",
+        "milestone": false,
+        "name": "Build",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ann"
+            ],
+            "criticalness": 1.4463276836158192,
+            "end": 2460,
+            "pathCriticalness": 2.8079096045197742,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "parts/tasks.tji",
+          "line": 2
+        }
+      },
+      {
+        "id": "test",
+        "milestone": false,
+        "name": "Test",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "bob"
+            ],
+            "criticalness": 0.3615819209039548,
+            "end": 3900,
+            "pathCriticalness": 1.3615819209039548,
+            "scheduled": true,
+            "start": 3420
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "parts/deep/more.tji",
+          "line": 4
+        }
+      },
+      {
+        "id": "ship",
+        "milestone": true,
+        "name": "Ship",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 3900,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 3900
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "parts/shared.tji",
+          "line": 2
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

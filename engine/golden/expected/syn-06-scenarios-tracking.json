@@ -1,0 +1,516 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-06-scenarios-tracking",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "jo",
+        "scenario": "plan",
+        "task": "proj.first"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            21180
+          ]
+        ],
+        "resource": "jo",
+        "scenario": "plan",
+        "task": "proj.second"
+      },
+      {
+        "intervals": [
+          [
+            22140,
+            22620
+          ],
+          [
+            23580,
+            24060
+          ],
+          [
+            25020,
+            25500
+          ],
+          [
+            26460,
+            26940
+          ]
+        ],
+        "resource": "kai",
+        "scenario": "plan",
+        "task": "proj.third"
+      },
+      {
+        "intervals": [
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            43740,
+            44220
+          ]
+        ],
+        "resource": "kai",
+        "scenario": "plan",
+        "task": "proj.fourth"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            720
+          ],
+          [
+            780,
+            1020
+          ],
+          [
+            1980,
+            2160
+          ],
+          [
+            2220,
+            2460
+          ],
+          [
+            3420,
+            3600
+          ],
+          [
+            3660,
+            3900
+          ],
+          [
+            4860,
+            5040
+          ],
+          [
+            5100,
+            5340
+          ],
+          [
+            6300,
+            6480
+          ],
+          [
+            6540,
+            6780
+          ],
+          [
+            61140,
+            61440
+          ]
+        ],
+        "resource": "jo",
+        "scenario": "actual",
+        "task": "proj.first"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            10800
+          ],
+          [
+            10860,
+            11100
+          ],
+          [
+            12060,
+            12240
+          ],
+          [
+            12300,
+            12540
+          ],
+          [
+            52380,
+            52860
+          ],
+          [
+            53820,
+            54300
+          ],
+          [
+            55260,
+            55740
+          ],
+          [
+            56700,
+            57180
+          ],
+          [
+            61020,
+            61140
+          ]
+        ],
+        "resource": "jo",
+        "scenario": "actual",
+        "task": "proj.second"
+      },
+      {
+        "intervals": [
+          [
+            61140,
+            61500
+          ],
+          [
+            62460,
+            62940
+          ],
+          [
+            63900,
+            64380
+          ],
+          [
+            65340,
+            65820
+          ],
+          [
+            66780,
+            66900
+          ]
+        ],
+        "resource": "kai",
+        "scenario": "actual",
+        "task": "proj.third"
+      },
+      {
+        "intervals": [
+          [
+            40860,
+            41040
+          ],
+          [
+            41100,
+            41340
+          ],
+          [
+            42300,
+            42480
+          ],
+          [
+            42540,
+            42780
+          ],
+          [
+            52380,
+            52860
+          ],
+          [
+            53820,
+            53940
+          ]
+        ],
+        "resource": "kai",
+        "scenario": "actual",
+        "task": "proj.fourth"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "track06",
+      "name": "Tracking",
+      "now": "2026-02-10T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan",
+          "parent": null
+        },
+        {
+          "active": true,
+          "id": "actual",
+          "name": "Actual",
+          "parent": "plan"
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "jo",
+        "name": "Jo",
+        "parent": null,
+        "scenarios": {
+          "actual": {
+            "efficiency": 1
+          },
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "group": false,
+        "id": "kai",
+        "name": "Kai",
+        "parent": null,
+        "scenarios": {
+          "actual": {
+            "efficiency": 1
+          },
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "proj",
+        "milestone": false,
+        "name": "Tracked project",
+        "parent": null,
+        "scenarios": {
+          "actual": {
+            "allocated": [
+              "jo",
+              "kai"
+            ],
+            "criticalness": 0,
+            "end": 66900,
+            "pathCriticalness": 13.898479358295395,
+            "scheduled": true,
+            "start": 540
+          },
+          "plan": {
+            "allocated": [
+              "jo",
+              "kai"
+            ],
+            "criticalness": 0,
+            "end": 44220,
+            "pathCriticalness": 12.745762711864408,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 22
+        }
+      },
+      {
+        "id": "proj.first",
+        "milestone": false,
+        "name": "First",
+        "parent": "proj",
+        "scenarios": {
+          "actual": {
+            "allocated": [
+              "jo"
+            ],
+            "criticalness": 8.321513002364066,
+            "end": 61440,
+            "pathCriticalness": 8.321513002364066,
+            "scheduled": true,
+            "start": 540
+          },
+          "plan": {
+            "allocated": [
+              "jo"
+            ],
+            "criticalness": 7.4576271186440675,
+            "end": 6780,
+            "pathCriticalness": 7.4576271186440675,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 23
+        }
+      },
+      {
+        "id": "proj.second",
+        "milestone": false,
+        "name": "Second",
+        "parent": "proj",
+        "scenarios": {
+          "actual": {
+            "allocated": [
+              "jo"
+            ],
+            "criticalness": 9.98581560283688,
+            "end": 61140,
+            "pathCriticalness": 13.898479358295395,
+            "scheduled": true,
+            "start": 10620
+          },
+          "plan": {
+            "allocated": [
+              "jo"
+            ],
+            "criticalness": 8.949152542372882,
+            "end": 21180,
+            "pathCriticalness": 12.745762711864408,
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 34
+        }
+      },
+      {
+        "id": "proj.third",
+        "milestone": false,
+        "name": "Third",
+        "parent": "proj",
+        "scenarios": {
+          "actual": {
+            "allocated": [
+              "kai"
+            ],
+            "criticalness": 3.912663755458515,
+            "end": 66900,
+            "pathCriticalness": 3.912663755458515,
+            "scheduled": true,
+            "start": 61140
+          },
+          "plan": {
+            "allocated": [
+              "kai"
+            ],
+            "criticalness": 3.7966101694915255,
+            "end": 26940,
+            "pathCriticalness": 3.7966101694915255,
+            "scheduled": true,
+            "start": 22140
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 42
+        }
+      },
+      {
+        "id": "proj.fourth",
+        "milestone": false,
+        "name": "Fourth",
+        "parent": "proj",
+        "scenarios": {
+          "actual": {
+            "allocated": [
+              "kai"
+            ],
+            "criticalness": 2.934497816593886,
+            "end": 53940,
+            "pathCriticalness": 2.934497816593886,
+            "scheduled": true,
+            "start": 40860
+          },
+          "plan": {
+            "allocated": [
+              "kai"
+            ],
+            "criticalness": 2.847457627118644,
+            "end": 44220,
+            "pathCriticalness": 2.847457627118644,
+            "scheduled": true,
+            "start": 40860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 48
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

@@ -1,0 +1,400 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-09-tz-dst-berlin",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            30720,
+            31200
+          ],
+          [
+            32160,
+            32640
+          ],
+          [
+            33600,
+            34080
+          ],
+          [
+            35040,
+            35520
+          ],
+          [
+            36480,
+            36960
+          ],
+          [
+            40740,
+            41220
+          ],
+          [
+            42180,
+            42660
+          ],
+          [
+            43620,
+            44100
+          ]
+        ],
+        "resource": "ute",
+        "scenario": "plan",
+        "task": "dst.spring"
+      },
+      {
+        "intervals": [
+          [
+            333060,
+            333540
+          ],
+          [
+            334500,
+            334980
+          ],
+          [
+            335940,
+            336420
+          ],
+          [
+            337380,
+            337860
+          ],
+          [
+            338820,
+            339300
+          ],
+          [
+            343200,
+            343680
+          ],
+          [
+            344640,
+            345120
+          ],
+          [
+            346080,
+            346560
+          ],
+          [
+            347520,
+            348000
+          ],
+          [
+            348960,
+            349440
+          ]
+        ],
+        "resource": "ute",
+        "scenario": "plan",
+        "task": "dst.autumn"
+      },
+      {
+        "intervals": [
+          [
+            181860,
+            182340
+          ],
+          [
+            183300,
+            183780
+          ],
+          [
+            184740,
+            185220
+          ],
+          [
+            186180,
+            186660
+          ],
+          [
+            187620,
+            188100
+          ],
+          [
+            191940,
+            192420
+          ],
+          [
+            193380,
+            193860
+          ],
+          [
+            194820,
+            195300
+          ],
+          [
+            196260,
+            196740
+          ],
+          [
+            197700,
+            198180
+          ],
+          [
+            202020,
+            202500
+          ],
+          [
+            203460,
+            203940
+          ],
+          [
+            204900,
+            205380
+          ],
+          [
+            206340,
+            206820
+          ],
+          [
+            207780,
+            208260
+          ]
+        ],
+        "resource": "vic",
+        "scenario": "plan",
+        "task": "dst.summer"
+      },
+      {
+        "intervals": [
+          [
+            333060,
+            333540
+          ],
+          [
+            334500,
+            334980
+          ],
+          [
+            335940,
+            336420
+          ],
+          [
+            337380,
+            337860
+          ],
+          [
+            338820,
+            339300
+          ],
+          [
+            343200,
+            343680
+          ],
+          [
+            344640,
+            345120
+          ],
+          [
+            346080,
+            346560
+          ],
+          [
+            347520,
+            348000
+          ],
+          [
+            348960,
+            349440
+          ]
+        ],
+        "resource": "vic",
+        "scenario": "plan",
+        "task": "dst.autumn"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-11-06T00:00:00Z",
+      "id": "berlin09",
+      "name": "Berlin DST",
+      "now": "2026-03-20T08:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-03-02T00:00:00Z",
+      "timezone": "Europe/Berlin",
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "ute",
+        "name": "Ute",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 9
+        }
+      },
+      {
+        "group": false,
+        "id": "vic",
+        "name": "Vic",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "dst",
+        "milestone": false,
+        "name": "DST span",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ute",
+              "vic"
+            ],
+            "criticalness": 0,
+            "end": 349440,
+            "pathCriticalness": 35.977653631284916,
+            "scheduled": true,
+            "start": 30720
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 15
+        }
+      },
+      {
+        "id": "dst.spring",
+        "milestone": false,
+        "name": "Across March change",
+        "parent": "dst",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ute"
+            ],
+            "criticalness": 6.435754189944134,
+            "end": 44100,
+            "pathCriticalness": 7.435754189944134,
+            "scheduled": true,
+            "start": 30720
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "id": "dst.summer",
+        "milestone": false,
+        "name": "Summer block",
+        "parent": "dst",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "vic"
+            ],
+            "criticalness": 16.75977653631285,
+            "end": 208260,
+            "pathCriticalness": 35.977653631284916,
+            "scheduled": true,
+            "start": 181860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 21
+        }
+      },
+      {
+        "id": "dst.autumn",
+        "milestone": false,
+        "name": "Across October change",
+        "parent": "dst",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ute",
+              "vic"
+            ],
+            "criticalness": 19.217877094972067,
+            "end": 349440,
+            "pathCriticalness": 19.217877094972067,
+            "scheduled": true,
+            "start": 333060
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 26
+        }
+      },
+      {
+        "id": "dst.handover",
+        "milestone": true,
+        "name": "Handover",
+        "parent": "dst",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 349440,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 349440
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 32
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

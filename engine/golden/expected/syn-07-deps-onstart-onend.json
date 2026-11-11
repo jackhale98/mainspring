@@ -1,0 +1,437 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-07-deps-onstart-onend",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "nina",
+        "scenario": "plan",
+        "task": "chain.a"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ]
+        ],
+        "resource": "nina",
+        "scenario": "plan",
+        "task": "chain.c"
+      },
+      {
+        "intervals": [
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ]
+        ],
+        "resource": "nina",
+        "scenario": "plan",
+        "task": "chain.e"
+      },
+      {
+        "intervals": [
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ]
+        ],
+        "resource": "nina",
+        "scenario": "plan",
+        "task": "chain.g"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ]
+        ],
+        "resource": "omar",
+        "scenario": "plan",
+        "task": "chain.b"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "omar",
+        "scenario": "plan",
+        "task": "chain.d"
+      },
+      {
+        "intervals": [
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "omar",
+        "scenario": "plan",
+        "task": "chain.f"
+      },
+      {
+        "intervals": [
+          [
+            22140,
+            22620
+          ]
+        ],
+        "resource": "omar",
+        "scenario": "plan",
+        "task": "chain.h"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "deps07",
+      "name": "Dependency targets",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "nina",
+        "name": "Nina",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 7
+        }
+      },
+      {
+        "group": false,
+        "id": "omar",
+        "name": "Omar",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 10
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "chain",
+        "milestone": false,
+        "name": "Chain",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "nina",
+              "omar"
+            ],
+            "criticalness": 0,
+            "end": 22620,
+            "pathCriticalness": 18.440677966101696,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "id": "chain.a",
+        "milestone": false,
+        "name": "A",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "nina"
+            ],
+            "criticalness": 8.135593220338983,
+            "end": 6780,
+            "pathCriticalness": 18.440677966101696,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      },
+      {
+        "id": "chain.b",
+        "milestone": false,
+        "name": "B",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "omar"
+            ],
+            "criticalness": 5.423728813559322,
+            "end": 15420,
+            "pathCriticalness": 10.305084745762713,
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "id": "chain.c",
+        "milestone": false,
+        "name": "C",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "nina"
+            ],
+            "criticalness": 4.88135593220339,
+            "end": 13980,
+            "pathCriticalness": 4.88135593220339,
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      },
+      {
+        "id": "chain.d",
+        "milestone": false,
+        "name": "D",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "omar"
+            ],
+            "criticalness": 4.067796610169491,
+            "end": 3900,
+            "pathCriticalness": 7.322033898305085,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 29
+        }
+      },
+      {
+        "id": "chain.e",
+        "milestone": false,
+        "name": "E",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "nina"
+            ],
+            "criticalness": 3.2542372881355934,
+            "end": 16860,
+            "pathCriticalness": 3.2542372881355934,
+            "scheduled": true,
+            "start": 14940
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 34
+        }
+      },
+      {
+        "id": "chain.f",
+        "milestone": false,
+        "name": "F",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "omar"
+            ],
+            "criticalness": 2.711864406779661,
+            "end": 6780,
+            "pathCriticalness": 2.711864406779661,
+            "scheduled": true,
+            "start": 4860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 39
+        }
+      },
+      {
+        "id": "chain.g",
+        "milestone": false,
+        "name": "G",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "nina"
+            ],
+            "criticalness": 3.2542372881355934,
+            "end": 22620,
+            "pathCriticalness": 3.2542372881355934,
+            "scheduled": true,
+            "start": 20700
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 44
+        }
+      },
+      {
+        "id": "chain.h",
+        "milestone": false,
+        "name": "H",
+        "parent": "chain",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "omar"
+            ],
+            "criticalness": 1.3559322033898304,
+            "end": 22620,
+            "pathCriticalness": 4.610169491525424,
+            "scheduled": true,
+            "start": 22140
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 49
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

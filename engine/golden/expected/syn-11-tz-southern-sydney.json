@@ -1,0 +1,447 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-11-tz-southern-sydney",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            130920,
+            131400
+          ],
+          [
+            132360,
+            132840
+          ],
+          [
+            133800,
+            134280
+          ],
+          [
+            135240,
+            135720
+          ],
+          [
+            136680,
+            137160
+          ],
+          [
+            141000,
+            141480
+          ],
+          [
+            142440,
+            142920
+          ],
+          [
+            143880,
+            144360
+          ],
+          [
+            145320,
+            145800
+          ],
+          [
+            146760,
+            147240
+          ],
+          [
+            151080,
+            151560
+          ],
+          [
+            152520,
+            153000
+          ],
+          [
+            153960,
+            154440
+          ],
+          [
+            155400,
+            155880
+          ],
+          [
+            156840,
+            157320
+          ]
+        ],
+        "resource": "tam",
+        "scenario": "plan",
+        "task": "southern.ferry"
+      },
+      {
+        "intervals": [
+          [
+            273480,
+            273960
+          ],
+          [
+            274920,
+            275400
+          ],
+          [
+            276360,
+            276840
+          ],
+          [
+            277800,
+            278280
+          ],
+          [
+            282180,
+            282660
+          ],
+          [
+            283620,
+            284100
+          ],
+          [
+            285060,
+            285540
+          ],
+          [
+            286500,
+            286980
+          ]
+        ],
+        "resource": "tam",
+        "scenario": "plan",
+        "task": "southern.aprwork"
+      },
+      {
+        "intervals": [
+          [
+            181320,
+            181800
+          ],
+          [
+            182760,
+            183240
+          ]
+        ],
+        "resource": "tam",
+        "scenario": "plan",
+        "task": "southern.audit"
+      },
+      {
+        "intervals": [
+          [
+            161160,
+            161640
+          ],
+          [
+            162600,
+            163080
+          ],
+          [
+            164040,
+            164520
+          ],
+          [
+            165480,
+            165960
+          ],
+          [
+            166920,
+            167400
+          ],
+          [
+            171240,
+            171720
+          ],
+          [
+            172680,
+            173160
+          ],
+          [
+            174120,
+            174600
+          ],
+          [
+            175560,
+            176040
+          ],
+          [
+            177000,
+            177480
+          ]
+        ],
+        "resource": "uma",
+        "scenario": "plan",
+        "task": "southern.summer"
+      },
+      {
+        "intervals": [
+          [
+            10020,
+            10500
+          ],
+          [
+            11460,
+            11940
+          ],
+          [
+            12900,
+            13380
+          ],
+          [
+            14340,
+            14820
+          ],
+          [
+            15780,
+            16260
+          ],
+          [
+            20040,
+            20520
+          ],
+          [
+            21480,
+            21960
+          ],
+          [
+            22920,
+            23400
+          ]
+        ],
+        "resource": "uma",
+        "scenario": "plan",
+        "task": "southern.octwork"
+      },
+      {
+        "intervals": [
+          [
+            181320,
+            181800
+          ],
+          [
+            182760,
+            183240
+          ]
+        ],
+        "resource": "uma",
+        "scenario": "plan",
+        "task": "southern.audit"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2027-05-28T00:00:00Z",
+      "id": "sydney11",
+      "name": "Southern DST",
+      "now": "2026-12-09T22:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-09-21T00:00:00Z",
+      "timezone": "Australia/Sydney",
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "tam",
+        "name": "Tam",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 8
+        }
+      },
+      {
+        "group": false,
+        "id": "uma",
+        "name": "Uma",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 11
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "southern",
+        "milestone": false,
+        "name": "Southern hemisphere",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "tam",
+              "uma"
+            ],
+            "criticalness": 0,
+            "end": 286980,
+            "pathCriticalness": 29.720670391061454,
+            "scheduled": true,
+            "start": 10020
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      },
+      {
+        "id": "southern.ferry",
+        "milestone": false,
+        "name": "Across year boundary",
+        "parent": "southern",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "tam"
+            ],
+            "criticalness": 16.75977653631285,
+            "end": 157320,
+            "pathCriticalness": 29.720670391061454,
+            "scheduled": true,
+            "start": 130920
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 15
+        }
+      },
+      {
+        "id": "southern.summer",
+        "milestone": false,
+        "name": "Summer work",
+        "parent": "southern",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "uma"
+            ],
+            "criticalness": 8.938547486033519,
+            "end": 177480,
+            "pathCriticalness": 12.960893854748603,
+            "scheduled": true,
+            "start": 161160
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 20
+        }
+      },
+      {
+        "id": "southern.octwork",
+        "milestone": false,
+        "name": "Across October change",
+        "parent": "southern",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "uma"
+            ],
+            "criticalness": 7.150837988826815,
+            "end": 23400,
+            "pathCriticalness": 7.150837988826815,
+            "scheduled": true,
+            "start": 10020
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 26
+        }
+      },
+      {
+        "id": "southern.aprwork",
+        "milestone": false,
+        "name": "Across April change",
+        "parent": "southern",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "tam"
+            ],
+            "criticalness": 8.938547486033519,
+            "end": 286980,
+            "pathCriticalness": 8.938547486033519,
+            "scheduled": true,
+            "start": 273480
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 31
+        }
+      },
+      {
+        "id": "southern.audit",
+        "milestone": false,
+        "name": "Audit",
+        "parent": "southern",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "tam",
+              "uma"
+            ],
+            "criticalness": 4.022346368715084,
+            "end": 183240,
+            "pathCriticalness": 4.022346368715084,
+            "scheduled": true,
+            "start": 181320
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 36
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

@@ -1,0 +1,723 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-04-limits-task-min-per-resource",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ]
+        ],
+        "resource": "pat",
+        "scenario": "plan",
+        "task": "minimums.a"
+      },
+      {
+        "intervals": [
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13560
+          ]
+        ],
+        "resource": "pat",
+        "scenario": "plan",
+        "task": "minimums.d"
+      },
+      {
+        "intervals": [
+          [
+            13560,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16440
+          ]
+        ],
+        "resource": "pat",
+        "scenario": "plan",
+        "task": "minimums.g"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "quy",
+        "scenario": "plan",
+        "task": "minimums.b"
+      },
+      {
+        "intervals": [
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "quy",
+        "scenario": "plan",
+        "task": "minimums.e"
+      },
+      {
+        "intervals": [
+          [
+            6300,
+            6420
+          ],
+          [
+            10620,
+            10740
+          ],
+          [
+            12060,
+            12180
+          ],
+          [
+            13500,
+            13560
+          ]
+        ],
+        "resource": "sol",
+        "scenario": "plan",
+        "task": "minimums.d"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            780
+          ],
+          [
+            10740,
+            10980
+          ]
+        ],
+        "resource": "sol",
+        "scenario": "plan",
+        "task": "minimums.g"
+      },
+      {
+        "intervals": [
+          [
+            660,
+            720
+          ],
+          [
+            2100,
+            2160
+          ],
+          [
+            3540,
+            3600
+          ],
+          [
+            4980,
+            5040
+          ],
+          [
+            6420,
+            6480
+          ],
+          [
+            10740,
+            10800
+          ],
+          [
+            12180,
+            12240
+          ],
+          [
+            13620,
+            13680
+          ],
+          [
+            15060,
+            15120
+          ],
+          [
+            16500,
+            16560
+          ],
+          [
+            20820,
+            20880
+          ],
+          [
+            22260,
+            22320
+          ],
+          [
+            23700,
+            23760
+          ],
+          [
+            25140,
+            25200
+          ],
+          [
+            26580,
+            26640
+          ],
+          [
+            30900,
+            30960
+          ],
+          [
+            32340,
+            32400
+          ],
+          [
+            33780,
+            33840
+          ],
+          [
+            35220,
+            35280
+          ],
+          [
+            36660,
+            36720
+          ],
+          [
+            40980,
+            41040
+          ],
+          [
+            42420,
+            42480
+          ],
+          [
+            43860,
+            43920
+          ],
+          [
+            45300,
+            45360
+          ]
+        ],
+        "resource": "rhea",
+        "scenario": "plan",
+        "task": "minimums.c"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            660
+          ],
+          [
+            1980,
+            2100
+          ],
+          [
+            3420,
+            3540
+          ],
+          [
+            4860,
+            4980
+          ],
+          [
+            6300,
+            6420
+          ],
+          [
+            10620,
+            10740
+          ],
+          [
+            12060,
+            12180
+          ],
+          [
+            13500,
+            13620
+          ],
+          [
+            14940,
+            15060
+          ],
+          [
+            16380,
+            16500
+          ],
+          [
+            20700,
+            20820
+          ],
+          [
+            22140,
+            22260
+          ],
+          [
+            23580,
+            23700
+          ],
+          [
+            25020,
+            25140
+          ],
+          [
+            26460,
+            26580
+          ],
+          [
+            30780,
+            30900
+          ],
+          [
+            32220,
+            32340
+          ],
+          [
+            33660,
+            33780
+          ],
+          [
+            35100,
+            35220
+          ],
+          [
+            36540,
+            36660
+          ],
+          [
+            40860,
+            40980
+          ],
+          [
+            42300,
+            42420
+          ],
+          [
+            43740,
+            43860
+          ],
+          [
+            45180,
+            45300
+          ],
+          [
+            46620,
+            46740
+          ],
+          [
+            50940,
+            51060
+          ],
+          [
+            52380,
+            52500
+          ],
+          [
+            53820,
+            53940
+          ],
+          [
+            55260,
+            55380
+          ],
+          [
+            56700,
+            56820
+          ],
+          [
+            61020,
+            61140
+          ],
+          [
+            62460,
+            62580
+          ],
+          [
+            63900,
+            64020
+          ],
+          [
+            65340,
+            65460
+          ],
+          [
+            66780,
+            66900
+          ],
+          [
+            71100,
+            71220
+          ],
+          [
+            72540,
+            72660
+          ],
+          [
+            73980,
+            74100
+          ],
+          [
+            75420,
+            75540
+          ],
+          [
+            76860,
+            76980
+          ]
+        ],
+        "resource": "rhea",
+        "scenario": "plan",
+        "task": "minimums.f"
+      }
+    ],
+    "messages": [
+      {
+        "column": null,
+        "file": "plan.tjp",
+        "id": "maxend",
+        "level": "warning",
+        "line": 65,
+        "scenario": "plan",
+        "text": "The end time (2026-02-27-11:00-+0000) of task minimums.f is too late. Must be before 2026-01-09-00:00-+0000."
+      }
+    ],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "min04",
+      "name": "Task minimum limits",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "pat",
+        "name": "Pat",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "group": false,
+        "id": "quy",
+        "name": "Quy",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "group": false,
+        "id": "sol",
+        "name": "Sol",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "group": false,
+        "id": "rhea",
+        "name": "Rhea",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 22
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "minimums",
+        "milestone": false,
+        "name": "Minimum limits",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "pat",
+              "quy",
+              "sol",
+              "rhea"
+            ],
+            "criticalness": 0,
+            "end": 76980,
+            "pathCriticalness": 17.627118644067796,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 28
+        }
+      },
+      {
+        "id": "minimums.a",
+        "milestone": false,
+        "name": "A: achievable minimum",
+        "parent": "minimums",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "pat"
+            ],
+            "criticalness": 4.067796610169491,
+            "end": 5340,
+            "pathCriticalness": 7.0508474576271185,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 29
+        }
+      },
+      {
+        "id": "minimums.b",
+        "milestone": false,
+        "name": "B: impossible minimum",
+        "parent": "minimums",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "quy"
+            ],
+            "criticalness": 2.0338983050847457,
+            "end": 3900,
+            "pathCriticalness": 3.389830508474576,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 36
+        }
+      },
+      {
+        "id": "minimums.c",
+        "milestone": false,
+        "name": "C: weekly minimum",
+        "parent": "minimums",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "rhea"
+            ],
+            "criticalness": 5.288135593220339,
+            "end": 45360,
+            "pathCriticalness": 5.288135593220339,
+            "scheduled": true,
+            "start": 660
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 43
+        }
+      },
+      {
+        "id": "minimums.d",
+        "milestone": false,
+        "name": "D: per-resource limits",
+        "parent": "minimums",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "pat",
+              "sol"
+            ],
+            "criticalness": 2.983050847457627,
+            "end": 13560,
+            "pathCriticalness": 2.983050847457627,
+            "scheduled": true,
+            "start": 6300
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 50
+        }
+      },
+      {
+        "id": "minimums.g",
+        "milestone": false,
+        "name": "G: weekly per-resource limit",
+        "parent": "minimums",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "pat",
+              "sol"
+            ],
+            "criticalness": 2.2372881355932206,
+            "end": 16440,
+            "pathCriticalness": 2.2372881355932206,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 58
+        }
+      },
+      {
+        "id": "minimums.f",
+        "milestone": false,
+        "name": "F: cannot fit the window",
+        "parent": "minimums",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "rhea"
+            ],
+            "criticalness": 17.627118644067796,
+            "end": 76980,
+            "pathCriticalness": 17.627118644067796,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 65
+        }
+      },
+      {
+        "id": "minimums.e",
+        "milestone": false,
+        "name": "E: after impossible",
+        "parent": "minimums",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "quy"
+            ],
+            "criticalness": 1.3559322033898304,
+            "end": 6780,
+            "pathCriticalness": 1.3559322033898304,
+            "scheduled": true,
+            "start": 4860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 73
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

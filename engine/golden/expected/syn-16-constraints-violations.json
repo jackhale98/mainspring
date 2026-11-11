@@ -1,0 +1,281 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-16-constraints-violations",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ]
+        ],
+        "resource": "sam",
+        "scenario": "plan",
+        "task": "limits.ok"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ],
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ]
+        ],
+        "resource": "tia",
+        "scenario": "plan",
+        "task": "limits.tight"
+      },
+      {
+        "intervals": [
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ],
+          [
+            23580,
+            24060
+          ]
+        ],
+        "resource": "tia",
+        "scenario": "plan",
+        "task": "limits.after"
+      }
+    ],
+    "messages": [
+      {
+        "column": null,
+        "file": "plan.tjp",
+        "id": "minstart",
+        "level": "warning",
+        "line": 24,
+        "scenario": "plan",
+        "text": "The start time (2026-01-05-09:00-+0000) of task limits.tight is too early. Must be after 2026-02-02-00:00-+0000."
+      }
+    ],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "viol16",
+      "name": "Constraint violations",
+      "now": "2026-02-02T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "sam",
+        "name": "Sam",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 10
+        }
+      },
+      {
+        "group": false,
+        "id": "tia",
+        "name": "Tia",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "limits",
+        "milestone": false,
+        "name": "Constraint cases",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "sam",
+              "tia"
+            ],
+            "criticalness": 0,
+            "end": 24060,
+            "pathCriticalness": 22.915254237288135,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "id": "limits.ok",
+        "milestone": false,
+        "name": "Satisfiable constraints",
+        "parent": "limits",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "sam"
+            ],
+            "criticalness": 3.389830508474576,
+            "end": 16860,
+            "pathCriticalness": 3.389830508474576,
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 17
+        }
+      },
+      {
+        "id": "limits.tight",
+        "milestone": false,
+        "name": "Impossible maxend",
+        "parent": "limits",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "tia"
+            ],
+            "criticalness": 17.627118644067796,
+            "end": 16860,
+            "pathCriticalness": 22.915254237288135,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      },
+      {
+        "id": "limits.after",
+        "milestone": false,
+        "name": "Depends on impossible",
+        "parent": "limits",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "tia"
+            ],
+            "criticalness": 5.288135593220339,
+            "end": 24060,
+            "pathCriticalness": 5.288135593220339,
+            "scheduled": true,
+            "start": 20700
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 30
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

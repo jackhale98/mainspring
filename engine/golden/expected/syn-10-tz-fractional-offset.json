@@ -1,0 +1,273 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "syn-10-tz-fractional-offset",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            195,
+            675
+          ],
+          [
+            1635,
+            2115
+          ],
+          [
+            3075,
+            3555
+          ]
+        ],
+        "resource": "raj",
+        "scenario": "plan",
+        "task": "fractional.survey"
+      },
+      {
+        "intervals": [
+          [
+            30450,
+            30915
+          ],
+          [
+            31875,
+            32010
+          ]
+        ],
+        "resource": "raj",
+        "scenario": "plan",
+        "task": "fractional.quarter"
+      },
+      {
+        "intervals": [
+          [
+            4515,
+            4995
+          ],
+          [
+            5955,
+            6435
+          ],
+          [
+            10275,
+            10755
+          ],
+          [
+            11715,
+            12195
+          ]
+        ],
+        "resource": "sita",
+        "scenario": "plan",
+        "task": "fractional.install"
+      },
+      {
+        "intervals": [
+          [
+            32010,
+            32355
+          ],
+          [
+            33315,
+            33450
+          ]
+        ],
+        "resource": "sita",
+        "scenario": "plan",
+        "task": "fractional.close"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-03-27T00:00:00Z",
+      "id": "kathmandu10",
+      "name": "Fractional offset",
+      "now": "2026-02-16T03:15:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-02-02T00:00:00Z",
+      "timezone": "Asia/Kathmandu",
+      "timingResolutionMin": 15,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "raj",
+        "name": "Raj",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 9
+        }
+      },
+      {
+        "group": false,
+        "id": "sita",
+        "name": "Sita",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "fractional",
+        "milestone": false,
+        "name": "Fractional offset",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "raj",
+              "sita"
+            ],
+            "criticalness": 0,
+            "end": 33450,
+            "pathCriticalness": 30.97435897435897,
+            "scheduled": true,
+            "start": 195
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 15
+        }
+      },
+      {
+        "id": "fractional.survey",
+        "milestone": false,
+        "name": "Survey",
+        "parent": "fractional",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "raj"
+            ],
+            "criticalness": 10.461538461538462,
+            "end": 3555,
+            "pathCriticalness": 30.97435897435897,
+            "scheduled": true,
+            "start": 195
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 16
+        }
+      },
+      {
+        "id": "fractional.install",
+        "milestone": false,
+        "name": "Install",
+        "parent": "fractional",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "sita"
+            ],
+            "criticalness": 16.41025641025641,
+            "end": 12195,
+            "pathCriticalness": 20.51282051282051,
+            "scheduled": true,
+            "start": 4515
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 21
+        }
+      },
+      {
+        "id": "fractional.quarter",
+        "milestone": false,
+        "name": "Quarter-hour work",
+        "parent": "fractional",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "raj"
+            ],
+            "criticalness": 4.3589743589743595,
+            "end": 32010,
+            "pathCriticalness": 4.3589743589743595,
+            "scheduled": true,
+            "start": 30450
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 26
+        }
+      },
+      {
+        "id": "fractional.close",
+        "milestone": false,
+        "name": "Close",
+        "parent": "fractional",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "sita"
+            ],
+            "criticalness": 4.102564102564102,
+            "end": 33450,
+            "pathCriticalness": 4.102564102564102,
+            "scheduled": true,
+            "start": 32010
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 31
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}
