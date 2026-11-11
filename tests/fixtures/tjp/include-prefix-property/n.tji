@@ -1,0 +1,5 @@
+# Feature: nested include of the template; tasks go under the inherited @property (g1.n, g2.n)
+# SPDX-License-Identifier: GPL-2.0-or-later
+task n "N" {
+  length 1d
+}

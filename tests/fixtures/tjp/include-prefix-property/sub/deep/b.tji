@@ -1,0 +1,5 @@
+# Feature: task under the inherited @property (outer.leaf)
+# SPDX-License-Identifier: GPL-2.0-or-later
+task leaf "Leaf" {
+  length 1d
+}

@@ -9,6 +9,7 @@ import {
 	textOnlyOf,
 	textOnlyRanges,
 	type TextOnly,
+	type TextOnlyOptions,
 } from './text-only';
 
 /** Each range as `reason:text`, in order. */
@@ -119,17 +120,25 @@ describe('text-only rules (5.4)', () => {
 });
 
 describe('blocks and findTextOnly', () => {
-	const r = { from: 10, to: 20 };
+	const r = { at: { from: 10, to: 20 }, within: { from: 5, to: 25 } };
+	const never = { at: { from: 10, to: 20 }, within: null };
 
-	it('blocks targets inside or crossing, not strictly containing', () => {
-		expect(blocks(r, 12, 15)).toBe(true);
-		expect(blocks(r, 10, 20)).toBe(true);
-		expect(blocks(r, 5, 15)).toBe(true);
-		expect(blocks(r, 15, 25)).toBe(true);
+	it('blocks overlapping targets unless they cover `within`', () => {
+		for (const [from, to] of [
+			[12, 15],
+			[10, 20],
+			[5, 15],
+			[15, 25],
+			[6, 24],
+		] as const) {
+			expect(blocks(r, from, to), `${from}-${to}`).toBe(true);
+		}
 		expect(blocks(r, 5, 25)).toBe(false);
-		expect(blocks(r, 10, 25)).toBe(false);
+		expect(blocks(r, 0, 30)).toBe(false);
 		expect(blocks(r, 0, 10)).toBe(false);
 		expect(blocks(r, 20, 30)).toBe(false);
+		expect(blocks(never, 0, 30)).toBe(true);
+		expect(blocks(never, 0, 10)).toBe(false);
 	});
 
 	it('blocks insertion points strictly inside', () => {
@@ -142,6 +151,7 @@ describe('blocks and findTextOnly', () => {
 		const at = (reason: TextOnly['reason'], from: number, to: number): TextOnly => ({
 			reason,
 			at: { file: 'a.tjp', from, to },
+			within: null,
 		});
 		const list = [at('opaque', 0, 50), at('macro-call', 10, 20), at('syntax-error', 30, 40)];
 		expect(findTextOnly(list, 'a.tjp', 12, 14)?.reason).toBe('macro-call');
@@ -151,14 +161,62 @@ describe('blocks and findTextOnly', () => {
 		expect(findTextOnly(list, 'b.tjp', 12, 14)).toBeNull();
 		expect(new Set(TEXT_ONLY_PRIORITY).size).toBe(8);
 	});
+});
 
-	it('lets an edit delete a block that holds a macro call, not rewrite the call', () => {
+describe('query contract: own ranges and widened deletion ranges', () => {
+	const ranges = (text: string, opts: TextOnlyOptions = {}) =>
+		textOnlyRanges('p.tjp', parseTjp(text), text, opts);
+	/** From the line of `find` through the line of `through`, newline included. */
+	const lines = (text: string, find: string, through = find): [number, number] => {
+		const from = text.lastIndexOf('\n', text.indexOf(find)) + 1;
+		const end = text.indexOf(through, text.indexOf(find)) + through.length;
+		const nl = text.indexOf('\n', end);
+		return [from, nl < 0 ? text.length : nl + 1];
+	};
+
+	it('lets a block holding a macro value go, not the value or its statement', () => {
 		const text = 'task a "A" {\n  effort ${len}\n}\n';
-		const list = textOnlyRanges('p.tjp', parseTjp(text), text);
-		expect(findTextOnly(list, 'p.tjp', 0, text.length - 1)).toBeNull();
+		const list = ranges(text);
+		expect(findTextOnly(list, 'p.tjp', 0, text.length)).toBeNull();
+		expect(findTextOnly(list, 'p.tjp', ...lines(text, 'task a', '\n}'))).toBeNull();
 		const v = text.indexOf('${len}');
 		expect(findTextOnly(list, 'p.tjp', v, v + 6)?.reason).toBe('macro-call');
-		const stmt = text.indexOf('effort');
-		expect(findTextOnly(list, 'p.tjp', stmt, v + 6)?.reason).toBe('macro-call');
+		const s = text.indexOf('effort');
+		expect(findTextOnly(list, 'p.tjp', s, v + 6)?.reason).toBe('macro-call');
+		// The X3 statement with its line, as removeAttr widens it.
+		expect(findTextOnly(list, 'p.tjp', ...lines(text, 'effort'))?.reason).toBe('macro-call');
+	});
+
+	it('never lets an unresolved macro-id block go, even with its leading comment', () => {
+		const text = 'task a "A" {\n  effort 1d\n}\n# about t\ntask ${t} "T" {\n  effort 1d\n}\n';
+		const list = ranges(text);
+		const [from, to] = lines(text, '# about t', '\n}');
+		expect(to).toBe(text.length);
+		expect(findTextOnly(list, 'p.tjp', from, to)?.reason).toBe('macro-id');
+		const own = text.indexOf('task ${t}');
+		expect(findTextOnly(list, 'p.tjp', own, text.length - 1)?.reason).toBe('macro-id');
+		// Its parent cannot go either.
+		const nested = 'task p "P" {\n  # c\n  task ${t} "T"\n}\n';
+		expect(findTextOnly(ranges(nested), 'p.tjp', 0, nested.length)?.reason).toBe('macro-id');
+		// Once the engine named it, the block may go; its id and name stay text-only.
+		const resolved = ranges(text, { resolved: () => true });
+		expect(findTextOnly(resolved, 'p.tjp', from, to)).toBeNull();
+		const id = text.indexOf('${t}');
+		expect(findTextOnly(resolved, 'p.tjp', id, id + 4)?.reason).toBe('macro-id');
+	});
+
+	it('never lets the parent of a statement-level macro call go, unless the index says so', () => {
+		const text = 'task p "P" {\n  ${children}\n}\n';
+		expect(findTextOnly(ranges(text), 'p.tjp', 0, text.length)?.reason).toBe('macro-call');
+		const safe = ranges(text, { safeMacro: () => true });
+		expect(findTextOnly(safe, 'p.tjp', 0, text.length)).toBeNull();
+		expect(findTextOnly(safe, 'p.tjp', ...lines(text, '${children}'))?.reason).toBe('macro-call');
+	});
+
+	it('lets a block holding an opaque statement go, not the statement', () => {
+		const text = 'task a "A" {\n  limits { dailymax 4h }\n}\n';
+		const list = ranges(text);
+		expect(findTextOnly(list, 'p.tjp', 0, text.length)).toBeNull();
+		expect(findTextOnly(list, 'p.tjp', ...lines(text, 'limits'))?.reason).toBe('opaque');
 	});
 });

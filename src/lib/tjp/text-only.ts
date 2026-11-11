@@ -4,31 +4,38 @@
  * reads it through macro expansion, the engine alone knows what it declares, or the layer cannot
  * type it. The rules computed here from one file's tree:
  *
- * | Rule | Range                                                                   | Reason            |
- * | ---- | ----------------------------------------------------------------------- | ----------------- |
- * | X1   | every `MacroBody` token                                                 | `macro-body`      |
- * | X2   | every `MacroCall`/`MacroWord` token, templated `String` with `${`       | `macro-call`      |
- * | X2   | every `EnvRef` token, templated `String` with only `$(NAME)`            | `env-var`         |
- * | X3   | a statement whose own tokens (prefix, keyword, values, not nested       | `macro-call`      |
- * |      | statements) include an X2 token: the whole statement; for `project`,    |                   |
- * |      | its header up to the body                                               |                   |
- * | X4   | a `task`/`resource` whose id is a macro token (`macro-id`) or missing   | `macro-id`        |
- * |      | (`auto-id`): the whole block, or only its id and name tokens once the   | `auto-id`         |
- * |      | engine has named it (`resolved`, from the index's engine hints, 6.4)    |                   |
- * | X6   | every error node; an empty one widens to its statement, else its line   | `syntax-error`    |
- * | X7   | every opaque statement (OPAQUE_STATEMENTS)                              | `opaque`          |
+ * | Rule | Range (`at`)                                                     | Reason          | `within`      |
+ * | ---- | ---------------------------------------------------------------- | --------------- | ------------- |
+ * | X1   | every `MacroBody` token                                          | `macro-body`    | parent decl.  |
+ * | X2   | every `MacroCall`/`MacroWord` token, templated `String` with `${` | `macro-call`   | its statement |
+ * | X2   | every `EnvRef` token, templated `String` with only `$(NAME)`     | `env-var`       | its statement |
+ * | X3   | a statement whose own tokens (prefix, keyword, values, not       | `macro-call`    | parent decl.  |
+ * |      | nested statements) include an X2 token; for `project`, its       |                 |               |
+ * |      | header up to the body                                            |                 |               |
+ * | X3   | a statement-level macro call (`${children}`), unless `safeMacro` | `macro-call`    | none          |
+ * | X4   | a `task`/`resource` whose id is a macro token or missing: the    | `macro-id`,     | none          |
+ * |      | whole block; once resolved (engine hints), its id and name only  | `auto-id`       | the decl.     |
+ * | X6   | every error node; an empty one widens to its statement or line   | `syntax-error`  | none          |
+ * | X7   | every opaque statement (OPAQUE_STATEMENTS)                       | `opaque`        | parent decl.  |
  *
- * X5 (`expanded-only`) needs the engine's task list and belongs to the index (T8).
+ * X5 (`expanded-only`, T8) has no `within`. Recovery nodes (`isRecoveryStatement`, §15.4) are
+ * opaque and in a syntax error, never statement-level macros.
  *
- * `findTextOnly` says whether an edit target is blocked: a range blocks a target that lies in it
- * or crosses it, but not a target that strictly contains it (deleting a block that holds a macro
- * call is fine; rewriting the call is not).
+ * Query contract (`findTextOnly`, `blocks`). Query with the element's own range (a value, a
+ * statement, a block) or with the widened range an edit removes (with its line, leading comments
+ * and separator). A range blocks a target that overlaps it, unless the target covers the range's
+ * `within`, the enclosing construct whose removal takes the text-only text away whole: deleting a
+ * task that holds `effort ${len}` is safe, removing that statement with its line is not. Ranges
+ * with no `within` block every overlapping target, so a block holding an unresolved
+ * `task ${t}`, an expanded-only declaration or a statement-level macro call, which may declare
+ * tasks the text cannot see, is never deleted or moved. An insertion point is blocked strictly
+ * inside a range.
  */
 import type { SyntaxNode, Tree } from '@lezer/common';
 import type { WorkspacePath } from '../../engine/protocol';
 import type { TjpFile } from './document';
-import { MACRO_TOKENS, OPAQUE_STATEMENTS } from './grammar/parser';
-import { TokenFlag, scanTokenAt } from './grammar/tokens';
+import { MACRO_TOKENS, OPAQUE_STATEMENTS, isRecoveryStatement } from './grammar/parser';
+import { stringTemplate } from './grammar/props';
 import { enclosingStatement, isStatement, someOwnLeaf, type SourceRange } from './tree';
 
 export type TextOnlyReason =
@@ -41,9 +48,16 @@ export type TextOnlyReason =
 	| 'syntax-error'
 	| 'opaque';
 
+export interface Span {
+	readonly from: number;
+	readonly to: number;
+}
+
 export interface TextOnly {
 	reason: TextOnlyReason;
 	at: SourceRange;
+	/** The construct a target must cover to remove this range safely; null: never (module comment). */
+	within: Span | null;
 }
 
 /** When several ranges block a target, the first reason in this order is reported. */
@@ -66,16 +80,28 @@ export interface TextOnlyOptions {
 	 * True for a `task`/`resource` statement (by its range) whose non-literal id the engine has
 	 * resolved (6.4 hints); only its id and name tokens then stay text-only (X4).
 	 */
-	resolved?: (decl: { readonly from: number; readonly to: number }) => boolean;
+	resolved?: (decl: Span) => boolean;
+	/**
+	 * True for a statement-level macro call the index knows to declare nothing (T8); it then
+	 * blocks like any X3 statement instead of blocking every enclosing edit.
+	 */
+	safeMacro?: (stmt: Span) => boolean;
 }
 
-/** The X2 reason of a leaf, or null when it is not expanded by TaskJuggler. */
-export function expansionReason(leaf: SyntaxNode, text: string): 'macro-call' | 'env-var' | null {
+/** The X2 reason of a leaf, or null when TaskJuggler does not expand it. */
+export function expansionReason(leaf: SyntaxNode): 'macro-call' | 'env-var' | null {
 	if (!MACRO_TOKENS.has(leaf.name)) return null;
 	if (leaf.name === 'EnvRef') return 'env-var';
 	if (leaf.name !== 'TemplateString') return 'macro-call';
-	const t = scanTokenAt(text.slice(leaf.from, leaf.to), 0);
-	return t && (t.flags & TokenFlag.Macro) === 0 ? 'env-var' : 'macro-call';
+	const t = leaf.type.prop(stringTemplate);
+	return t && !t.macro && t.env ? 'env-var' : 'macro-call';
+}
+
+type Add = (reason: TextOnlyReason, at: Span, within: Span | null) => void;
+
+/** The statement that holds statement `stmt` (its parent declaration), or null at the top. */
+function parentStatement(stmt: SyntaxNode): SyntaxNode | null {
+	return stmt.parent ? enclosingStatement(stmt.parent) : null;
 }
 
 /** The text-only ranges of one file, sorted by start (then by end, descending). */
@@ -86,21 +112,25 @@ export function textOnlyRanges(
 	opts: TextOnlyOptions = {},
 ): TextOnly[] {
 	const out: TextOnly[] = [];
-	const add = (reason: TextOnlyReason, from: number, to: number): void => {
-		out.push({ reason, at: { file: path, from, to } });
+	const add: Add = (reason, at, within) => {
+		out.push({
+			reason,
+			at: { file: path, from: at.from, to: at.to },
+			within: within && { from: within.from, to: within.to },
+		});
 	};
 	const cursor = tree.cursor();
 	for (;;) {
 		let descend = true;
 		const node = cursor.node;
 		if (cursor.type.isError) {
-			const r = errorRange(node, text);
-			add('syntax-error', r.from, r.to);
+			add('syntax-error', errorRange(node, text), null);
 			descend = false;
 		} else if (node.name === 'MacroBody') {
-			add('macro-body', node.from, node.to);
+			const stmt = enclosingStatement(node);
+			add('macro-body', node, stmt && parentStatement(stmt));
 		} else if (MACRO_TOKENS.has(node.name)) {
-			add(expansionReason(node, text) ?? 'macro-call', node.from, node.to);
+			add(expansionReason(node) ?? 'macro-call', node, enclosingStatement(node));
 		} else if (isStatement(node)) {
 			statementRules(node, opts, add);
 		}
@@ -113,33 +143,34 @@ export function textOnlyRanges(
 	}
 }
 
-function statementRules(
-	stmt: SyntaxNode,
-	opts: TextOnlyOptions,
-	add: (reason: TextOnlyReason, from: number, to: number) => void,
-): void {
-	if (OPAQUE_STATEMENTS.has(stmt.name)) add('opaque', stmt.from, stmt.to);
+function statementRules(stmt: SyntaxNode, opts: TextOnlyOptions, add: Add): void {
+	const parent = parentStatement(stmt);
+	if (OPAQUE_STATEMENTS.has(stmt.name)) add('opaque', stmt, parent);
+	if (isRecoveryStatement(stmt)) return;
+	if (stmt.name === 'MacroCallStatement') {
+		add('macro-call', stmt, opts.safeMacro?.(stmt) ? parent : null);
+		return;
+	}
 	if (DECLARATIONS.has(stmt.name)) {
 		const id = stmt.getChild('Id');
-		const literal = id?.firstChild?.name === 'Identifier';
-		if (literal) return;
+		if (id?.firstChild?.name === 'Identifier') return;
 		const reason = id ? 'macro-id' : 'auto-id';
 		if (opts.resolved?.(stmt)) {
-			if (id) add(reason, id.from, id.to);
+			if (id) add(reason, id, stmt);
 			const name = stmt.getChild('Name');
-			if (name) add(reason, name.from, name.to);
+			if (name) add(reason, name, stmt);
 		} else {
-			add(reason, stmt.from, stmt.to);
+			add(reason, stmt, null);
 		}
 		return;
 	}
 	if (!someOwnLeaf(stmt, (leaf) => MACRO_TOKENS.has(leaf.name))) return;
 	const body = stmt.name === 'ProjectStatement' ? stmt.getChild('Body') : null;
-	add('macro-call', stmt.from, body ? body.from : stmt.to);
+	add('macro-call', { from: stmt.from, to: body ? body.from : stmt.to }, parent);
 }
 
 /** An error node's range; an empty one widens to its statement, or to its line at the top. */
-function errorRange(node: SyntaxNode, text: string): { from: number; to: number } {
+function errorRange(node: SyntaxNode, text: string): Span {
 	if (node.to > node.from) return node;
 	const stmt = node.parent ? enclosingStatement(node.parent) : null;
 	if (stmt && stmt.to > stmt.from) return stmt;
@@ -161,23 +192,24 @@ export function textOnlyOf(file: TjpFile): readonly TextOnly[] {
 }
 
 /**
- * Whether range `r` blocks an edit of [from, to): the target lies in it or crosses it, and does
- * not strictly contain it. An insertion point (from == to) is blocked strictly inside `r`.
+ * Whether a text-only range blocks an edit of [from, to) (module comment): it overlaps the
+ * target, and the target does not cover its `within`. An insertion point (from == to) is blocked
+ * strictly inside the range.
  */
 export function blocks(
-	r: { readonly from: number; readonly to: number },
+	r: { readonly at: Span; readonly within: Span | null },
 	from: number,
 	to: number,
 ): boolean {
-	if (from === to) return r.from < from && from < r.to;
-	if (to <= r.from || from >= r.to) return false;
-	const strictlyContains = from <= r.from && r.to <= to && (from < r.from || r.to < to);
-	return !strictlyContains;
+	const { at, within } = r;
+	if (from === to) return at.from < from && from < at.to;
+	if (to <= at.from || from >= at.to) return false;
+	return !(within && from <= within.from && within.to <= to);
 }
 
 /**
  * The text-only range that blocks an edit of [from, to) in `file` (by TEXT_ONLY_PRIORITY), or
- * null when the target is editable. `ranges` are one file's ranges.
+ * null when the target is editable. `ranges` may hold several files' ranges.
  */
 export function findTextOnly(
 	ranges: readonly TextOnly[],
@@ -189,7 +221,7 @@ export function findTextOnly(
 	let rank = TEXT_ONLY_PRIORITY.length;
 	for (const t of ranges) {
 		if (t.at.file !== file || t.at.from > to) continue;
-		if (!blocks(t.at, from, to)) continue;
+		if (!blocks(t, from, to)) continue;
 		const k = TEXT_ONLY_PRIORITY.indexOf(t.reason);
 		if (k < rank) {
 			best = t;

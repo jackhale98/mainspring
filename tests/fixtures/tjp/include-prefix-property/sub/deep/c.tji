@@ -1,0 +1,5 @@
+# Feature: task under the composed prefix (outer.mid.leaf2)
+# SPDX-License-Identifier: GPL-2.0-or-later
+task leaf2 "Leaf 2" {
+  length 1d
+}
