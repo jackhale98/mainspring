@@ -51,5 +51,7 @@ results are dropped. Writing the Phase 0 spec raised four points the plan leaves
 10. **Nullable fields.** TaskJuggler never records source columns, so `SourceRef.column` is
     `number | null`. `pathCriticalness` is `number | null`, because scheduling can stop before
     it is computed.
-11. **`now` resolution.** `options.now` is rounded down to the whole hour, as TaskJuggler does
-    with its own clock. Golden plans set `now` on the hour.
+11. **`now` resolution.** `options.now` must be a valid ISO 8601 UTC instant with seconds, on a
+    whole UTC hour (TaskJuggler aligns its own clock default to the hour). Any other value is
+    rejected with `invalid-request` rather than silently rounded. A `now` line written in the
+    plan is passed to TaskJuggler unchanged.
