@@ -3,7 +3,9 @@
  * TaskJuggler's reading order across the files of a workspace (phase-1.md 5.4): a position in an
  * included file is read at its include site. A file with several visits is read several times,
  * so a position is placed through one of its visits: the first, the last (the default, which is
- * what 5.4's last-site rule for single-valued attributes needs) or a given visit index.
+ * what 5.4's last-site rule for single-valued attributes needs) or a given visit index. Each
+ * position may name its own visit (`ParsePosition.visit`), since a visit index belongs to one
+ * file; the `which` argument applies to positions that do not.
  */
 import type { IncludeGraph, IncludeVisit } from './includes';
 import type { WorkspacePath } from './paths';
@@ -11,9 +13,11 @@ import type { WorkspacePath } from './paths';
 /** Which visit of a file places a position: 'first', 'last' or a visit index. */
 export type VisitChoice = 'first' | 'last' | number;
 
-interface Position {
+export interface ParsePosition {
 	readonly file: WorkspacePath;
 	readonly from: number;
+	/** The visit of `file` that places this position; overrides the `which` argument. */
+	readonly visit?: VisitChoice;
 }
 
 function chosenVisit(
@@ -40,11 +44,11 @@ function chosenVisit(
  */
 export function parseOrderKey(
 	graph: IncludeGraph,
-	at: Position,
+	at: ParsePosition,
 	which: VisitChoice = 'last',
 ): number[] | null {
 	const key = [at.from];
-	let v = chosenVisit(graph, at.file, which);
+	let v = chosenVisit(graph, at.file, at.visit ?? which);
 	if (!v) return null;
 	while (v.edge !== null && v.parent !== null) {
 		const e = graph.edges[v.edge];
@@ -58,14 +62,14 @@ export function parseOrderKey(
 
 /**
  * Compares two positions in reading order (negative when `a` is read first), each placed through
- * the chosen visit of its file. Positions in files the entry does not reach come last, in path
- * order.
+ * its own `visit`, else through `which` ('first' or 'last'). Positions in files the entry does
+ * not reach come last, in path order.
  */
 export function compareParseOrder(
 	graph: IncludeGraph,
-	a: Position,
-	b: Position,
-	which: VisitChoice = 'last',
+	a: ParsePosition,
+	b: ParsePosition,
+	which: 'first' | 'last' = 'last',
 ): number {
 	const ka = parseOrderKey(graph, a, which);
 	const kb = parseOrderKey(graph, b, which);
