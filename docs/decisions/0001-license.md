@@ -24,5 +24,11 @@ GPL-2.0-only.
   tools that are not shipped (TypeScript, Playwright) are not affected.
 - Open issue: Dexie (D1, used from Phase 4) is Apache-2.0. Before it ships, either replace it
   with a compatible IndexedDB wrapper or record a decision that accepts it.
+- Open issue, blocks any public release: the ruby.wasm binaries in `@ruby/3.4-wasm-wasi`
+  2.10.1 statically link OpenSSL 3.2.0 (Apache-2.0, about 154 `ossl_*` symbols). Mainspring
+  never loads it, but the code ships inside `public/engine/ruby.*.wasm.gz`. The options are to
+  build a custom ruby.wasm without the openssl extension (`rbwasm build` with a custom
+  profile; recommended) or to record a decision that accepts it. See
+  `THIRD_PARTY_NOTICES.md`.
 - Mycelium modules copied in Phase 4 must be relicensed to GPL-2.0-or-later first. That is
   possible only if their sole author agrees, so check for outside contributions before copying.

@@ -10,8 +10,10 @@
  * - `schedule` replies `scheduled`, or `failed` with the request's revision. `syntax` replies
  *   `syntax`, or `failed` with its id. Error kinds follow failure.ts.
  * - `cancel` is a no-op (ADR-0002, decision 6): the client never has more than one request here.
- * - A message that is not a well-formed ToWorker gets `failed` with kind `invalid-request` when
- *   it names a revision or id to answer, and is otherwise dropped.
+ * - A message that is not a well-formed ToWorker is dropped when it is not an object or its type
+ *   is unknown. A `schedule` whose request has no valid numeric revision gets `failed` with kind
+ *   `invalid-request` and no revision (the client never sends this); one with a revision but a
+ *   malformed body gets `failed` with that revision. A `syntax` without a numeric id is dropped.
  */
 import { EngineFailure, toEngineError } from './failure.ts';
 import type {
@@ -116,12 +118,14 @@ export function startDispatcher(
 		},
 	);
 	return (message) => {
-		chain = chain.then(() => {
+		const step = (): void => {
 			const reply = engine
 				? handleMessage(engine, message)
 				: bootError && bootFailureReply(message, bootError);
 			if (reply) deliver(reply, post);
-		});
+		};
+		// If a step throws, the queue must not stall: later messages still run.
+		chain = chain.then(step, step).catch(() => {});
 	};
 }
 

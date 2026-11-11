@@ -33,10 +33,10 @@ export function sha256Hex(bytes) {
  */
 export function gzipDeterministic(bytes) {
 	const gz = new Uint8Array(gzipSync(bytes, { level: 9 }));
-	// RFC 1952 header: ID1 ID2 CM FLG MTIME(4) XFL OS. Node writes no FNAME and mtime 0, but
-	// set both explicitly so the format does not rest on zlib defaults.
+	// RFC 1952 header: ID1 ID2 CM FLG MTIME(4) XFL OS. Node writes no FNAME and mtime 0; assert FLG
+	// is 0 (a zlib that wrote FEXTRA or FNAME would shift the fixed header), and fix mtime and OS.
 	if (gz[0] !== 0x1f || gz[1] !== 0x8b || gz[2] !== 8) throw new Error('zlib wrote no gzip header');
-	gz[3] = 0;
+	if (gz[3] !== 0) throw new Error(`zlib wrote gzip header flags 0x${gz[3].toString(16)}, expected 0`);
 	gz.fill(0, 4, 8);
 	gz[9] = GZIP_OS_UNKNOWN;
 	return gz;

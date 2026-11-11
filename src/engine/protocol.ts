@@ -144,7 +144,7 @@ export interface SyntaxDocs {
 }
 /** Filled from TaskJuggler's own keyword documentation. Phase 1 may extend it. */
 export interface KeywordDoc {
-	/** E.g. "effort" or "limits.dailymax". */
+	/** The keyword itself, e.g. "effort" or "dailymax"; `contexts` says where it is valid (e.g. "limits", "limits.resource", "limits.task"). */
 	keyword: string;
 	contexts: string[];
 	syntax: string;
