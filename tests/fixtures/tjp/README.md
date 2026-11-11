@@ -39,8 +39,7 @@ Notes found while validating, useful for the tests that use these files:
   possible, so nesting appears in macro bodies only.
 - A `${?x}` glued after a number (`1d${?x}`) breaks the native scanner, so the optional call
   is placed before the value.
-- A macro call inside a string next to other text works only when it is the sole kind of
-  macro text in that string.
+- An optional call in a string after other macro calls derailed the native scanner in a trial, so it is only used as a value.
 - `allocate` takes leaf resource ids even under `resourceprefix`.
 - An `include` that carries both `taskprefix` and `resourceprefix` and defines tasks crashes
   native TaskJuggler, so the two prefixes are in separate includes.
