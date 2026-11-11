@@ -14,10 +14,11 @@
 # - task and booking dates as integer minutes since project start (UTC);
 #   project start, end and now as ISO 8601 UTC with 'Z';
 # - per-task results for active scenarios only, keyed by scenario id;
-# - bookings: every scoreboard allocation per scenario, resource and task,
-#   from ResourceScenario#getBookings (the call TaskJuggler's own `export`
-#   report uses), contiguous slots merged, sorted by scenario, resource and
-#   task pre-order, then first interval start;
+# - bookings: every scoreboard allocation per scenario, resource and task
+#   (the slots ResourceScenario#getBookings, which TaskJuggler's own `export`
+#   report uses, returns; read slot by slot, see #bookings), contiguous slots
+#   merged, sorted by scenario, resource and task pre-order, then first
+#   interval start;
 # - messages in emission order, paths workspace-relative, no ANSI codes.
 #
 # TaskJuggler 3.8.4 tracks line numbers only: every SourceFileInfo has column
@@ -73,7 +74,7 @@ module MainspringBridge
 
       out['tasks'] = tasks.map { |t| task(t) }
       out['resources'] = resources.map { |r| resource(r) }
-      out['bookings'] = bookings(resources)
+      out['bookings'] = bookings(project, resources)
       out
     end
 
@@ -137,29 +138,64 @@ module MainspringBridge
       }
     end
 
-    def bookings(resources)
+    # Every booked scoreboard slot, grouped by resource and task. This yields
+    # what ResourceScenario#getBookings yields once contiguous slots are
+    # merged: getBookings walks the slots from the first to the last booked
+    # one and cuts an interval wherever the task changes, and every Task in a
+    # scoreboard is written by ResourceScenario#book, which keeps those first
+    # and last slots. getBookings itself is not used because its scan compares
+    # each Integer slot value with nil through Integer#!=, which takes Ruby's
+    # recursion guard; under ruby.wasm's setjmp emulation that made the
+    # 1,000-task golden spend 4.7 s in getBookings, against about 0.25 s for
+    # this scan. The output is unchanged (golden:verify and the wasm golden
+    # run both match).
+    def bookings(project, resources)
       out = []
+      size = project.scoreboardSize
       @active.each do |scenarioId, idx|
         resources.each do |r|
-          # Container resources have no scoreboard; getBookings returns {}.
-          byTask = r.getBookings(idx, nil, true)
-          next if byTask.nil? || byTask.empty?
+          # Only leaf resources hold bookings. ResourceScenario#book adds the
+          # task to the resource's duties before it books a slot, so a leaf
+          # without duties has no booked slot (and maybe no scoreboard).
+          next if r.container? || r['duties', idx].empty?
 
-          byTask.keys.sort_by { |t| @taskRank[t] }.each do |t|
+          runs = slot_runs(r.data[idx], size)
+          runs.keys.sort_by { |t| @taskRank[t] }.each do |t|
+            pairs = runs[t].map do |s, e|
+              [minutes(project.idxToDate(s)), minutes(project.idxToDate(e))]
+            end
             out << { 'scenario' => scenarioId, 'resource' => r.fullId,
-                     'task' => t.fullId,
-                     'intervals' => merge(byTask[t].intervals) }
+                     'task' => t.fullId, 'intervals' => merge(pairs) }
           end
         end
       end
       out
     end
 
-    # TimeIntervals to ascending [start, end] minute pairs; touching or
-    # overlapping intervals are merged.
-    def merge(intervals)
-      pairs = intervals.map { |iv| [minutes(iv.start), minutes(iv.end)] }
-      pairs.sort!
+    # The maximal runs of slots booked for one task, as
+    # { task => [[firstSlot, lastSlot + 1], ...] } in ascending order.
+    # _rs_ is a ResourceScenario; bookedTask returns the Task or nil.
+    def slot_runs(rs, size)
+      runs = {}
+      current = nil
+      first = 0
+      i = 0
+      while i < size
+        task = rs.bookedTask(i)
+        unless task.equal?(current)
+          (runs[current] ||= []) << [first, i] if current
+          current = task
+          first = i
+        end
+        i += 1
+      end
+      (runs[current] ||= []) << [first, size] if current
+      runs
+    end
+
+    # _pairs_ ([start, end] minutes, ascending by start) with touching or
+    # overlapping pairs merged. slot_runs already returns ascending runs.
+    def merge(pairs)
       merged = []
       pairs.each do |s, e|
         if (last = merged.last) && s <= last[1]

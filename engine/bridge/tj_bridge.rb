@@ -8,17 +8,25 @@
 # TaskJuggler classes, so they load after it. The worker must put TaskJuggler's
 # lib/ and engine/stubs/ on $LOAD_PATH before requiring this file.
 #
-# Contract with the worker (src/engine/worker.ts):
+# Contract with the worker (src/engine/runtime.ts):
 #
 #   TJBridge.schedule(request_json) -> String (JSON)
+#   TJBridge.syntax -> String (JSON)
+#   TJBridge.versions -> String (JSON) { "tj", "ruby" }
 #
 # request_json is a ScheduleRequest: { files, entry, revision, options? }.
 # The bridge replaces WORKSPACE (default /workspace, which the worker must
 # provide as a writable directory) with `files`, parses /workspace/<entry> and
 # schedules it. The reply is either a ScheduleResult (TaskJuggler errors are
 # messages with ok: false) or, for a malformed request or a bridge/TaskJuggler
-# crash, { "error": { "kind": "invalid-request" | "internal", "message",
-# "detail" } }, which the worker turns into a `failed` message.
+# crash, { "error": { "kind": "invalid-request" | "internal" | "crash",
+# "message", "detail" } }, which the worker turns into a `failed` message.
+# NoMemoryError and SystemStackError are "crash": the client then replaces the
+# worker, since the VM may not recover from either.
+#
+# TJBridge.syntax returns SyntaxDocs (syntax.rb, required on first use so that
+# booting does not pay for it) or the same { "error": ... } shape. The result
+# is cached for the life of the VM.
 #
 # timings: writeFsMs (request JSON parse and workspace write), parseMs,
 # scheduleMs and serializeMs are measured here. totalMs is their sum as seen
@@ -77,10 +85,32 @@ module TJBridge
       timings['totalMs'] = (MainspringBridge.clock_ms - t0).round(1)
       result['timings'] = timings
       JSON.generate(result)
-    rescue StandardError, NoMemoryError, SystemStackError => e
-      failure('internal', "#{e.class}: #{e.message}",
-              (e.backtrace || []).first(20).join("\n"))
+    rescue NoMemoryError, SystemStackError => e
+      exception_failure('crash', e)
+    rescue StandardError => e
+      exception_failure('internal', e)
     end
+  end
+
+  def syntax
+    @syntax ||= begin
+      require_relative 'syntax'
+      JSON.generate(MainspringBridge::SyntaxDocs.build)
+    end
+  rescue NoMemoryError, SystemStackError => e
+    exception_failure('crash', e)
+  rescue StandardError, ScriptError => e
+    exception_failure('internal', e)
+  end
+
+  def versions
+    require 'taskjuggler/version'
+    JSON.generate({ 'tj' => ::VERSION, 'ruby' => RUBY_VERSION })
+  end
+
+  def exception_failure(kind, err)
+    failure(kind, "#{err.class}: #{err.message}",
+            (err.backtrace || []).first(20).join("\n"))
   end
 
   def failure(kind, message, detail = nil)

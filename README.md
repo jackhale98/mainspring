@@ -10,4 +10,5 @@ Status: Phase 0 (foundation and engine). See `docs/BUILD_PLAN.md` and `docs/phas
 
 Mainspring is licensed under the GNU General Public License, version 2 or (at your option) any
 later version (`GPL-2.0-or-later`); see `LICENSE`. It bundles TaskJuggler
-(`engine/tj/`), which is licensed under GPL version 2 only; see `engine/tj/COPYING`.
+(`engine/tj/`), which is licensed under GPL version 2 only; see `engine/tj/COPYING`. The other
+third-party code in the built site is listed in `THIRD_PARTY_NOTICES.md`.
