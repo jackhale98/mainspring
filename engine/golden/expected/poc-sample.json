@@ -1,0 +1,659 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "poc-sample",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            840,
+            1320
+          ],
+          [
+            2280,
+            2760
+          ],
+          [
+            3720,
+            4200
+          ]
+        ],
+        "resource": "jack",
+        "scenario": "plan",
+        "task": "spike.compile"
+      },
+      {
+        "intervals": [
+          [
+            5160,
+            5640
+          ],
+          [
+            6600,
+            7080
+          ],
+          [
+            10920,
+            11400
+          ],
+          [
+            12360,
+            12840
+          ]
+        ],
+        "resource": "jack",
+        "scenario": "plan",
+        "task": "spike.perf"
+      },
+      {
+        "intervals": [
+          [
+            13800,
+            14280
+          ],
+          [
+            21000,
+            21480
+          ],
+          [
+            22440,
+            22920
+          ],
+          [
+            23880,
+            24360
+          ],
+          [
+            25320,
+            25800
+          ],
+          [
+            26760,
+            27240
+          ]
+        ],
+        "resource": "jack",
+        "scenario": "plan",
+        "task": "app.gantt"
+      },
+      {
+        "intervals": [
+          [
+            31080,
+            31560
+          ],
+          [
+            32520,
+            33000
+          ],
+          [
+            33960,
+            34440
+          ],
+          [
+            35400,
+            35880
+          ]
+        ],
+        "resource": "jack",
+        "scenario": "plan",
+        "task": "app.roundtrip"
+      },
+      {
+        "intervals": [
+          [
+            52680,
+            53160
+          ],
+          [
+            54120,
+            54600
+          ],
+          [
+            61320,
+            61800
+          ],
+          [
+            62760,
+            63240
+          ],
+          [
+            64200,
+            64680
+          ],
+          [
+            65640,
+            66120
+          ]
+        ],
+        "resource": "jack",
+        "scenario": "plan",
+        "task": "github.diff"
+      },
+      {
+        "intervals": [
+          [
+            13800,
+            14280
+          ],
+          [
+            21000,
+            21480
+          ],
+          [
+            22440,
+            22920
+          ],
+          [
+            23880,
+            24360
+          ],
+          [
+            25320,
+            25800
+          ]
+        ],
+        "resource": "ana",
+        "scenario": "plan",
+        "task": "app.editor"
+      },
+      {
+        "intervals": [
+          [
+            31080,
+            31560
+          ],
+          [
+            32520,
+            33000
+          ],
+          [
+            33960,
+            34440
+          ],
+          [
+            35400,
+            35880
+          ]
+        ],
+        "resource": "ana",
+        "scenario": "plan",
+        "task": "app.roundtrip"
+      },
+      {
+        "intervals": [
+          [
+            26760,
+            27240
+          ],
+          [
+            36840,
+            37320
+          ],
+          [
+            41160,
+            41640
+          ]
+        ],
+        "resource": "ana",
+        "scenario": "plan",
+        "task": "github.auth"
+      },
+      {
+        "intervals": [
+          [
+            42600,
+            43080
+          ],
+          [
+            44040,
+            44520
+          ],
+          [
+            45480,
+            45960
+          ],
+          [
+            46920,
+            47400
+          ],
+          [
+            51240,
+            51720
+          ]
+        ],
+        "resource": "ana",
+        "scenario": "plan",
+        "task": "github.branches"
+      },
+      {
+        "intervals": [
+          [
+            71400,
+            71880
+          ],
+          [
+            72840,
+            73320
+          ],
+          [
+            74280,
+            74760
+          ]
+        ],
+        "resource": "rev",
+        "scenario": "plan",
+        "task": "review"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2027-04-17T02:00:00Z",
+      "id": "tjweb",
+      "name": "TaskJuggler web front end",
+      "now": "2026-11-16T05:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-11-16T00:00:00Z",
+      "timezone": "America/New_York",
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": true,
+        "id": "dev",
+        "name": "Developers",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 11
+        }
+      },
+      {
+        "group": false,
+        "id": "jack",
+        "name": "Jack",
+        "parent": "dev",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "group": false,
+        "id": "ana",
+        "name": "Ana",
+        "parent": "dev",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "group": false,
+        "id": "rev",
+        "name": "Reviewer",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 15
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "spike",
+        "milestone": false,
+        "name": "Wasm spike",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack"
+            ],
+            "criticalness": 0,
+            "end": 12840,
+            "pathCriticalness": 43.13333333333333,
+            "scheduled": true,
+            "start": 840
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 17
+        }
+      },
+      {
+        "id": "spike.compile",
+        "milestone": false,
+        "name": "Compile tj3 to ruby.wasm",
+        "parent": "spike",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack"
+            ],
+            "criticalness": 5.257142857142857,
+            "end": 4200,
+            "pathCriticalness": 43.13333333333333,
+            "scheduled": true,
+            "start": 840
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 18
+        }
+      },
+      {
+        "id": "spike.perf",
+        "milestone": false,
+        "name": "Fix wasm slow paths",
+        "parent": "spike",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack"
+            ],
+            "criticalness": 7.0095238095238095,
+            "end": 12840,
+            "pathCriticalness": 37.87619047619047,
+            "scheduled": true,
+            "start": 5160
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 22
+        }
+      },
+      {
+        "id": "app",
+        "milestone": false,
+        "name": "PWA",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack",
+              "ana"
+            ],
+            "criticalness": 0,
+            "end": 35880,
+            "pathCriticalness": 30.866666666666667,
+            "scheduled": true,
+            "start": 13800
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 29
+        }
+      },
+      {
+        "id": "app.editor",
+        "milestone": false,
+        "name": "Source editor",
+        "parent": "app",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ana"
+            ],
+            "criticalness": 6.476190476190476,
+            "end": 25800,
+            "pathCriticalness": 30.866666666666667,
+            "scheduled": true,
+            "start": 13800
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 31
+        }
+      },
+      {
+        "id": "app.gantt",
+        "milestone": false,
+        "name": "Gantt view",
+        "parent": "app",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack"
+            ],
+            "criticalness": 10.514285714285714,
+            "end": 27240,
+            "pathCriticalness": 22.714285714285715,
+            "scheduled": true,
+            "start": 13800
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 35
+        }
+      },
+      {
+        "id": "app.roundtrip",
+        "milestone": false,
+        "name": "Graphical edits patch source",
+        "parent": "app",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack",
+              "ana"
+            ],
+            "criticalness": 12.19047619047619,
+            "end": 35880,
+            "pathCriticalness": 24.39047619047619,
+            "scheduled": true,
+            "start": 31080
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 39
+        }
+      },
+      {
+        "id": "github",
+        "milestone": false,
+        "name": "GitHub sync",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack",
+              "ana"
+            ],
+            "criticalness": 0,
+            "end": 66120,
+            "pathCriticalness": 8.161904761904761,
+            "scheduled": true,
+            "start": 26760
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 46
+        }
+      },
+      {
+        "id": "github.auth",
+        "milestone": false,
+        "name": "Sign in with a GitHub App",
+        "parent": "github",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ana"
+            ],
+            "criticalness": 3.885714285714286,
+            "end": 41640,
+            "pathCriticalness": 12.047619047619047,
+            "scheduled": true,
+            "start": 26760
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 47
+        }
+      },
+      {
+        "id": "github.branches",
+        "milestone": false,
+        "name": "Branches and pull requests",
+        "parent": "github",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ana"
+            ],
+            "criticalness": 6.476190476190476,
+            "end": 51720,
+            "pathCriticalness": 8.161904761904761,
+            "scheduled": true,
+            "start": 42600
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 52
+        }
+      },
+      {
+        "id": "github.diff",
+        "milestone": false,
+        "name": "Schedule diff between branches",
+        "parent": "github",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "jack"
+            ],
+            "criticalness": 10.514285714285714,
+            "end": 66120,
+            "pathCriticalness": 12.2,
+            "scheduled": true,
+            "start": 52680
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 57
+        }
+      },
+      {
+        "id": "review",
+        "milestone": false,
+        "name": "Code review",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "rev"
+            ],
+            "criticalness": 0.6857142857142857,
+            "end": 74760,
+            "pathCriticalness": 1.6857142857142857,
+            "scheduled": true,
+            "start": 71400
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 64
+        }
+      },
+      {
+        "id": "release",
+        "milestone": true,
+        "name": "v0.1 on GitHub Pages",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 74760,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 74760
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 70
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

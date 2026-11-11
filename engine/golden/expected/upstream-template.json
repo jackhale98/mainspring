@@ -1,0 +1,342 @@
+{
+  "entry": "template.tjp",
+  "files": [
+    "template.tjp"
+  ],
+  "id": "upstream-template",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2012-03-11T21:00:00Z",
+      "id": "your_project_id",
+      "name": "Your Project Title",
+      "now": "2011-12-24T05:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2011-11-11T05:00:00Z",
+      "timezone": "America/New_York",
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "r1",
+        "name": "Resource 1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 91
+        }
+      },
+      {
+        "group": true,
+        "id": "t1",
+        "name": "Team 1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 92
+        }
+      },
+      {
+        "group": false,
+        "id": "r2",
+        "name": "Resource 2",
+        "parent": "t1",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 94
+        }
+      },
+      {
+        "group": false,
+        "id": "r3",
+        "name": "Resource 3",
+        "parent": "t1",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 95
+        }
+      },
+      {
+        "group": false,
+        "id": "s1",
+        "name": "System 1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 99
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "project",
+        "milestone": false,
+        "name": "Project",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 0,
+            "pathCriticalness": 3,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 104
+        }
+      },
+      {
+        "id": "project.wp1",
+        "milestone": false,
+        "name": "Workpackage 1",
+        "parent": "project",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 0,
+            "pathCriticalness": 3,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 105
+        }
+      },
+      {
+        "id": "project.wp1.t1",
+        "milestone": true,
+        "name": "Task 1",
+        "parent": "project.wp1",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 0,
+            "pathCriticalness": 3,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 106
+        }
+      },
+      {
+        "id": "project.wp1.t2",
+        "milestone": true,
+        "name": "Task 2",
+        "parent": "project.wp1",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 0,
+            "pathCriticalness": 3,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 107
+        }
+      },
+      {
+        "id": "project.wp2",
+        "milestone": false,
+        "name": "Work package 2",
+        "parent": "project",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 0,
+            "pathCriticalness": 2,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 109
+        }
+      },
+      {
+        "id": "project.wp2.t1",
+        "milestone": true,
+        "name": "Task 1",
+        "parent": "project.wp2",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 0,
+            "pathCriticalness": 2,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 111
+        }
+      },
+      {
+        "id": "project.wp2.t2",
+        "milestone": true,
+        "name": "Task 2",
+        "parent": "project.wp2",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 0,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 112
+        }
+      },
+      {
+        "id": "project.deliveries",
+        "milestone": false,
+        "name": "Deliveries",
+        "parent": "project",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 0,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 114
+        }
+      },
+      {
+        "id": "project.deliveries._Task_9",
+        "milestone": true,
+        "name": "Item 1",
+        "parent": "project.deliveries",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 0,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 115
+        }
+      },
+      {
+        "id": "project.deliveries._Task_10",
+        "milestone": true,
+        "name": "Item 2",
+        "parent": "project.deliveries",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 0,
+            "pathCriticalness": 1,
+            "scheduled": true,
+            "start": 0
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "template.tjp",
+          "line": 118
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

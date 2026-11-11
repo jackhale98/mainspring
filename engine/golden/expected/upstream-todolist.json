@@ -1,0 +1,198 @@
+{
+  "entry": "todolist.tjp",
+  "files": [
+    "todolist.tjp"
+  ],
+  "id": "upstream-todolist",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2015-12-31T00:00:00Z",
+      "id": "prj",
+      "name": "My TODO List",
+      "now": "2011-12-20T00:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2011-01-01T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [],
+    "tasks": [
+      {
+        "id": "_Task_1",
+        "milestone": false,
+        "name": "Errands",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 512640,
+            "pathCriticalness": 0.014,
+            "scheduled": true,
+            "start": 498240
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "todolist.tjp",
+          "line": 7
+        }
+      },
+      {
+        "id": "_Task_1._Task_2",
+        "milestone": true,
+        "name": "By some milk",
+        "parent": "_Task_1",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0.014,
+            "end": 498240,
+            "pathCriticalness": 0.014,
+            "scheduled": true,
+            "start": 498240
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "todolist.tjp",
+          "line": 10
+        }
+      },
+      {
+        "id": "_Task_1._Task_3",
+        "milestone": true,
+        "name": "Pickup Jacket from dry cleaner",
+        "parent": "_Task_1",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0.01,
+            "end": 505440,
+            "pathCriticalness": 0.01,
+            "scheduled": true,
+            "start": 505440
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "todolist.tjp",
+          "line": 15
+        }
+      },
+      {
+        "id": "_Task_1._Task_4",
+        "milestone": true,
+        "name": "Buy present for wife",
+        "parent": "_Task_1",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0.01,
+            "end": 512640,
+            "pathCriticalness": 0.01,
+            "scheduled": true,
+            "start": 512640
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "todolist.tjp",
+          "line": 20
+        }
+      },
+      {
+        "id": "_Task_5",
+        "milestone": false,
+        "name": "Long term projects",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 1182240,
+            "pathCriticalness": 0.012,
+            "scheduled": true,
+            "start": 187200
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "todolist.tjp",
+          "line": 27
+        }
+      },
+      {
+        "id": "_Task_5._Task_6",
+        "milestone": true,
+        "name": "Buy new car",
+        "parent": "_Task_5",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0.012,
+            "end": 187200,
+            "pathCriticalness": 0.012,
+            "scheduled": true,
+            "start": 187200
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "todolist.tjp",
+          "line": 30
+        }
+      },
+      {
+        "id": "_Task_5._Task_7",
+        "milestone": true,
+        "name": "Build boat",
+        "parent": "_Task_5",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0.006,
+            "end": 1182240,
+            "pathCriticalness": 0.006,
+            "scheduled": true,
+            "start": 1182240
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "todolist.tjp",
+          "line": 35
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

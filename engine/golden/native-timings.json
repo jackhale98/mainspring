@@ -1,0 +1,55 @@
+{
+  "note": "Native wall-clock times in ms from golden:record (minimum of the two runs). Never compared. parse/schedule/serialize/total are measured inside Ruby; processMs includes Ruby and TaskJuggler start-up.",
+  "platform": "linux-x64",
+  "ruby": "3.3.6",
+  "plans": {
+    "upstream-tutorial": {
+      "tasks": 15,
+      "parseMs": 134.3,
+      "scheduleMs": 36,
+      "serializeMs": 5.7,
+      "totalMs": 176.1,
+      "processMs": 599.8
+    },
+    "upstream-fedora-20": {
+      "tasks": 414,
+      "parseMs": 331.1,
+      "scheduleMs": 290.8,
+      "serializeMs": 6.4,
+      "totalMs": 628.9,
+      "processMs": 1049.4
+    },
+    "upstream-template": {
+      "tasks": 10,
+      "parseMs": 82.1,
+      "scheduleMs": 3.2,
+      "serializeMs": 0.2,
+      "totalMs": 85.5,
+      "processMs": 482.8
+    },
+    "upstream-scrum": {
+      "tasks": 18,
+      "parseMs": 67.9,
+      "scheduleMs": 13.9,
+      "serializeMs": 1.1,
+      "totalMs": 83.2,
+      "processMs": 479
+    },
+    "upstream-todolist": {
+      "tasks": 7,
+      "parseMs": 58.6,
+      "scheduleMs": 88.5,
+      "serializeMs": 0.2,
+      "totalMs": 147.4,
+      "processMs": 559.5
+    },
+    "poc-sample": {
+      "tasks": 13,
+      "parseMs": 55.9,
+      "scheduleMs": 12.9,
+      "serializeMs": 0.8,
+      "totalMs": 69.7,
+      "processMs": 465.3
+    }
+  }
+}
