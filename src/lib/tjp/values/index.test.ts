@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+import { describe, expect, it } from 'vitest';
+import {
+	KEYWORD_VALUE_KIND,
+	checkValue,
+	keepOrPrint,
+	parseValue,
+	printValue,
+	projectContext,
+	sameValue,
+	utcSeconds,
+	type TypedValue,
+	type ValueKind,
+} from './index';
+
+const parsed = (kind: ValueKind, text: string): TypedValue => {
+	const r = parseValue(kind, text);
+	if (!r.ok) throw new Error(`${kind} ${text}: ${r.error.code}`);
+	return r.value;
+};
+
+const SAMPLES: ReadonlyArray<readonly [ValueKind, string, string]> = [
+	['duration', '5 d', '5d'],
+	['date', '2026-1-5-9:00', '2026-01-05-09:00'],
+	['interval', '2026-01-05-2026-01-09', '2026-01-05 - 2026-01-09'],
+	['intervals', '2026-01-05,2026-02-01 +1w', '2026-01-05, 2026-02-01 +1w'],
+	['number', '.5', '0.5'],
+	['integer', '0500', '500'],
+	['string', "'x'", '"x"'],
+	['id', 'ana', 'ana'],
+	['idList', 'ana,bob', 'ana, bob'],
+	['taskRef', '! !a.b', '!!a.b'],
+	['scheduling', 'alap', 'alap'],
+	['workinghours', 'mon-fri 9:00-17:00', 'mon - fri 9:00 - 17:00'],
+	['leaves', 'holiday "x" 2026-11-26+2d', 'holiday "x" 2026-11-26 +2d'],
+	['vacation', '"x" 2026-02-23', '"x" 2026-02-23'],
+];
+
+describe('parseValue and printValue', () => {
+	it.each(SAMPLES)('%s: %s prints as %s and means the same', (kind, text, canon) => {
+		const v = parsed(kind, text);
+		expect(v.kind).toBe(kind);
+		expect(printValue(v)).toEqual({ ok: true, value: canon });
+		expect(sameValue(parsed(kind, canon), v)).toBe(true);
+	});
+
+	it('refuses other scheduling words', () => {
+		expect(parseValue('scheduling', 'asapx')).toMatchObject({
+			ok: false,
+			error: { code: 'unexpected-token' },
+		});
+	});
+
+	it('tells different values apart', () => {
+		expect(sameValue(parsed('duration', '5d'), parsed('duration', '5.0d'))).toBe(false);
+		expect(sameValue(parsed('duration', '5d'), parsed('number', '5'))).toBe(false);
+		expect(sameValue(parsed('idList', 'a, b'), parsed('idList', 'b, a'))).toBe(false);
+	});
+});
+
+describe('keepOrPrint', () => {
+	it("keeps the user's spelling when the value is unchanged", () => {
+		expect(keepOrPrint('5 d', parsed('duration', '5d'))).toEqual({
+			ok: true,
+			value: { text: '5 d', changed: false },
+		});
+		expect(keepOrPrint("'Ana'", parsed('string', '"Ana"'))).toEqual({
+			ok: true,
+			value: { text: "'Ana'", changed: false },
+		});
+		expect(keepOrPrint('2026-1-5', parsed('date', '2026-01-05-00:00'))).toMatchObject({
+			value: { changed: false },
+		});
+	});
+
+	it('writes canonical text when the value changes', () => {
+		expect(keepOrPrint('5 d', parsed('duration', '6d'))).toEqual({
+			ok: true,
+			value: { text: '6d', changed: true },
+		});
+		expect(keepOrPrint(null, parsed('duration', '6d'))).toEqual({
+			ok: true,
+			value: { text: '6d', changed: true },
+		});
+		expect(keepOrPrint('${len}', parsed('duration', '6d'))).toMatchObject({
+			value: { changed: true },
+		});
+	});
+});
+
+describe('checkValue', () => {
+	const ctx = projectContext({
+		start: utcSeconds({ year: 2026, month: 1, day: 5, hour: 0, minute: 0, second: 0 }),
+		end: utcSeconds({ year: 2026, month: 3, day: 1, hour: 0, minute: 0, second: 0 }),
+	});
+	const span = { from: 7, to: 9 };
+
+	it('runs the keyword checks and places errors on the span', () => {
+		expect(checkValue('effort', parsed('duration', '5d'), ctx).ok).toBe(true);
+		expect(checkValue('effort', parsed('duration', '0d'), ctx, span)).toMatchObject({
+			ok: false,
+			error: { tj: 'effort_zero', from: 7, to: 9 },
+		});
+		expect(checkValue('gapduration', parsed('duration', '30min'), ctx)).toMatchObject({
+			ok: false,
+		});
+		expect(checkValue('start', parsed('date', '2026-04-01'), ctx)).toMatchObject({
+			ok: false,
+			error: { tj: 'date_in_range' },
+		});
+		expect(checkValue('now', parsed('date', '2026-04-01'), ctx).ok).toBe(true);
+		expect(checkValue('complete', parsed('number', '101'), ctx)).toMatchObject({
+			ok: false,
+			error: { tj: 'task_complete' },
+		});
+		expect(checkValue('priority', parsed('integer', '1001'), ctx)).toMatchObject({
+			ok: false,
+			error: { tj: 'task_priority' },
+		});
+		expect(
+			checkValue('leaves', parsed('leaves', 'holiday 2026-01-05 - 2026-01-05'), ctx),
+		).toMatchObject({ ok: false });
+		expect(checkValue('vacation', parsed('vacation', '2026-01-05 +0d'), ctx)).toMatchObject({
+			ok: false,
+		});
+		expect(checkValue('interval', parsed('interval', '2026-01-05 +1d'), ctx).ok).toBe(true);
+		expect(checkValue('note', parsed('string', '"x"'), ctx).ok).toBe(true);
+	});
+
+	it('maps every MVP keyword to a value kind', () => {
+		for (const k of [
+			'effort',
+			'length',
+			'duration',
+			'start',
+			'end',
+			'now',
+			'priority',
+			'complete',
+			'note',
+			'flags',
+			'workinghours',
+			'leaves',
+		]) {
+			expect(KEYWORD_VALUE_KIND[k]).toBeDefined();
+		}
+	});
+});
