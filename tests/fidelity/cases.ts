@@ -11,6 +11,7 @@ import { buildIndex } from '../../src/lib/tjp/index';
 import { createWorkspace } from '../../src/lib/workspace/workspace';
 import { loadCorpus as loadGoldens, REPO } from '../golden/corpus';
 import { realApply, type Case } from './harness';
+import type { Drawn } from './families/types';
 import type { Aim } from './families/types';
 import { ENFORCED, familyOf } from './families';
 import { semOf, type Facts, type Sem } from './gen/facts';
@@ -156,46 +157,55 @@ export const corpusPlans = (): CorpusPlan[] =>
 const hash = (s: string): number =>
 	[...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 
+function corpusOf(p: CorpusPlan, seed: number, type: IntentType, drawn: Drawn): Case {
+	return {
+		seed,
+		source: 'corpus',
+		name: p.id,
+		type,
+		entry: p.entry,
+		files: p.files,
+		facts: p.facts,
+		sem: p.sem,
+		drawn,
+		family: familyOf(type),
+		now: p.now,
+		result: p.result,
+	};
+}
+
 /**
- * A corpus case: a golden plan and an intent drawn against its index facts. The plan is `pin` when given
- * (and offers a target), else chosen from the per-push list by the seed; a plan that offers none passes the
- * turn to the next. The intent is drawn from a stream of (seed, plan), so replaying with the plan a case
- * ran on (`replayLine`) reproduces it.
+ * A corpus case: a golden plan and an intent drawn against its index facts. The intent is drawn from a stream
+ * of (seed, plan), so replaying with the plan a case ran on (`replayLine`) reproduces it.
+ *
+ * Without a pin the plan is chosen from the per-push list by the seed, and a plan that offers no target passes
+ * the turn to the next. With a pin (the nightly set pins Tutorial and Fedora) the case stays on that plan: no
+ * plan can offer a target for every intent type, so the type moves on to the next one the plan has a target
+ * for (the case reports the type it ran), and a plan that has none for any type, or no indexable task, fails
+ * loudly instead of falling through to other plans.
  */
 export function corpusCase(seed: number, type: IntentType, pin?: string): Case {
-	const family = familyOf(type);
-	const list = CORPUS.push;
-	const start = seed % list.length;
-	const order = [
-		...(pin ? [pin] : []),
-		...list.map((_, i) => list[(start + i) % list.length] as string),
-	];
 	if (pin) {
 		const p = corpusPlan(pin);
 		if (!p) throw new Error(`the pinned corpus plan ${pin} has no task the index can name`);
-		if (!family.draw(type, p.facts, p.sem, new Rng(mixSeed(seed, hash(pin))))) {
-			throw new Error(`the pinned corpus plan ${pin} offers no target for ${type} (seed ${seed})`);
+		const at = Math.max(0, ENFORCED.indexOf(type));
+		for (let i = 0; i < ENFORCED.length; i++) {
+			const t = ENFORCED[(at + i) % ENFORCED.length] as IntentType;
+			const drawn = familyOf(t).draw(t, p.facts, p.sem, new Rng(mixSeed(seed, hash(pin))));
+			if (drawn) return corpusOf(p, seed, t, drawn);
 		}
+		throw new Error(
+			`the pinned corpus plan ${pin} offers no target for any intent type (seed ${seed})`,
+		);
 	}
-	for (const id of order) {
+	const list = CORPUS.push;
+	const start = seed % list.length;
+	for (let i = 0; i < list.length; i++) {
+		const id = list[(start + i) % list.length] as string;
 		const p = corpusPlan(id);
 		if (!p) continue;
-		const drawn = family.draw(type, p.facts, p.sem, new Rng(mixSeed(seed, hash(id))));
-		if (!drawn) continue;
-		return {
-			seed,
-			source: 'corpus',
-			name: p.id,
-			type,
-			entry: p.entry,
-			files: p.files,
-			facts: p.facts,
-			sem: p.sem,
-			drawn,
-			family,
-			now: p.now,
-			result: p.result,
-		};
+		const drawn = familyOf(type).draw(type, p.facts, p.sem, new Rng(mixSeed(seed, hash(id))));
+		if (drawn) return corpusOf(p, seed, type, drawn);
 	}
 	throw new Error(`no corpus plan offered a target for ${type} (seed ${seed})`);
 }

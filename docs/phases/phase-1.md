@@ -1336,6 +1336,15 @@ them.
       `totalMs` under 500 ms, measured with `node engine/golden/run-wasm.mjs --repeat 3` and committed
       with the numbers) and the plans the nightly run adds, Tutorial and Fedora with 20 cases each. Nothing
       depends on a golden report, native timings or the environment.
+    - **Corpus hints and pins.** Corpus plans are indexed with the engine hints of their golden result (as
+      `tests/index` and `task-tree.fedora.test.ts` do), and the text after an edit with the hints mapped through
+      the edit, so Fedora's macro-id tasks are indexed and the nightly's 20 Fedora cases run (they pass,
+      with Tutorial's 20). A pinned plan never falls through to other plans: the case moves on to the next
+      intent type the plan has a target for and reports that type, and a plan with no target for any type fails
+      loudly. `fidelity-merge.mjs` requires every shard 0..n-1 exactly once (`--shards 4` in the nightly job),
+      at least 5 edits per type over all shards, and P4 cases in each shard; the merged report adds the
+      tolerated ids and the regression replays. The report says that six in seven ordinary cases are redrawn
+      until the API makes an edit, so edit counts are not natural rates.
     - **TaskJuggler facts the generator had to respect** (each found by running the engine on generated
       plans): a leaf with only `depends` is underspecified, so milestones carry `milestone`;
       scenario-prefixed statements come last, since a later top-scenario criterion resets another
