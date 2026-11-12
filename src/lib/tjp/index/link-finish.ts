@@ -155,7 +155,8 @@ const QUOTED = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
  * folds a call into the opaque statement before it (`journalentry … ${close}`) or reads it as
  * a value, and TaskJuggler splices it all the same. Each `MacroCall`/`MacroWord` token (the X2
  * ranges, strings aside: a call inside a string expands inside the string) whose macro is risky,
- * or could be redefined, blocks to the end of its file or line as `reach` says.
+ * or could be redefined, blocks to the end of its file or line as `reach` says; one whose macro
+ * may declare something blocks every enclosing edit (no `within`).
  */
 function riskyMacroTokens(s: LinkState, redefines: boolean): void {
 	for (const file of s.visitsOfFile.keys()) {
@@ -167,15 +168,37 @@ function riskyMacroTokens(s: LinkState, redefines: boolean): void {
 			const text = s.textAt(r.at).replace(QUOTED, '""');
 			if (!text.startsWith('$') && !/^\w/.test(text)) continue;
 			const risks = new Set<MacroDef['structural']>();
+			let declares = false;
 			for (const m of text.matchAll(CALL_IN_TOKEN)) {
-				for (const d of s.macros.get(m[1] ?? '') ?? []) risks.add(d.structural);
+				const name = m[1] ?? '';
+				for (const d of s.macros.get(name) ?? []) risks.add(d.structural);
+				declares ||= declaring(s, name, new Set());
 			}
 			if (redefines) risks.add('unterminated');
 			risks.delete(null);
 			if (risks.size > 0)
 				s.addExtraRange({ reason: 'macro-call', at: reach(s, r.at, risks), within: null });
+			else if (declares) s.addExtraRange({ reason: 'macro-call', at: r.at, within: null });
 		}
 	}
+}
+
+/**
+ * Whether a call of `name` may declare something: a definition's body holds a declaring
+ * keyword, directly or through the macros it calls (native: `priority ${p}` with
+ * `p` = `5 task z "Z"` declares `a.z`). Such a token then blocks every enclosing edit, as an
+ * unsafe statement-level call does.
+ */
+function declaring(s: LinkState, name: string, seen: Set<string>): boolean {
+	if (seen.has(name)) return false;
+	seen.add(name);
+	for (const d of s.macros.get(name) ?? []) {
+		if (DECLARING.some((w) => d.words.has(w))) return true;
+		for (const m of d.text.matchAll(CALL_IN_TOKEN)) {
+			if (declaring(s, m[1] ?? '', seen)) return true;
+		}
+	}
+	return false;
 }
 
 function reach(
