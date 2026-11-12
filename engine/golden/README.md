@@ -8,6 +8,17 @@ The manifest holds 39 plans: the five upstream examples (read in place from
 `engine/tj/examples/`), the PoC sample, the 22 synthetic plans below, the 8 bridge fixtures
 (see "Bridge fixtures" further down), and the three Gantt plans (see "Gantt fixtures" below).
 
+Every golden holds result schema 2 (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in
+`lib.mjs`): the phase-0 fields plus the bridge v2 fields of `docs/phases/phase-2.md` 6.1, decided
+in `docs/decisions/0007-engine-data-and-derived-display-data.md` (see "Fields worth knowing").
+A golden of another schema fails the parity test with one line that says to re-record it.
+
+Cross-check limits: tj3's task report (`cross-check.tji`) checks task dates, dependencies (the
+other task and which ends each edge joins) and every `complete` the plan sets, but TaskJuggler
+has no report column for dependency gaps, the scheduling direction, the project's working time
+or `dailyworkinghours` (details in "What a run does", step 4). Only parity and the fixtures
+cover those four.
+
 ## Gantt fixtures
 
 Phase 2 (T3). `gantt-manipulation` is the workspace `tests/fixtures/gantt/manipulation/` (a
@@ -29,11 +40,6 @@ Deviations from the phase-2 spec (T3):
   manifest id is `gantt-manipulation`.
 - Only effort leaves carry allocations. Length and duration leaves with allocations gave native
   `allocate_no_assigned` warnings whose lines the hand-written diagnostics table cannot express.
-
-The goldens hold result schema 2 (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in
-`lib.mjs`): the phase-0 fields plus the bridge v2 fields of `docs/phases/phase-2.md` 6.1 (see
-"Fields worth knowing"). A golden of another schema fails the parity test with one line that
-says to re-record it.
 
 ## Synthetic plans
 

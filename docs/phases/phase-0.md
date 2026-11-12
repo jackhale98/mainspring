@@ -204,7 +204,7 @@ The queue lives on the client, so the worker stays single-flight. `queue.ts` is 
 
 ```ts
 export interface GoldenFile {
-  schemaVersion: 1;
+  schemaVersion: 2;                   // 1 in Phase 0; 2 since bridge schema v2 (ADR-0007)
   id: string;                         // manifest id
   entry: WorkspacePath;
   files: WorkspacePath[];             // sorted list of files loaded
