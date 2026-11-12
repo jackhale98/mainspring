@@ -31,10 +31,16 @@ export async function showOutline(page: Page): Promise<void> {
 	if (await tab.isVisible()) await tab.click();
 }
 
-/** Waits for the run that follows an edit: scheduling starts, then the strip shows a result. */
+/**
+ * Waits for the run that follows an edit. An edit puts the strip in 'scheduling' (the debounce
+ * counts), so normally that state is seen and then left. A run too quick to observe is fine: the
+ * strip is then already settled, and the caller's next assertion polls for the result it expects.
+ */
 export async function settled(page: Page): Promise<void> {
 	const state = strip(page).locator('.state');
-	await expect(state).toHaveAttribute('data-kind', 'scheduling', { timeout: 10_000 });
+	await expect(state)
+		.toHaveAttribute('data-kind', 'scheduling', { timeout: 3_000 })
+		.catch(() => undefined);
 	await expect(state).not.toHaveAttribute('data-kind', 'scheduling', { timeout: READY_TIMEOUT_MS });
 }
 

@@ -27,7 +27,9 @@ test.describe('text mode', () => {
 		await openApp(page);
 		await cursorAtEndOf(page, page.locator('.cm-line', { hasText: 'depends !ready' }));
 		await page.keyboard.press('Enter');
-		// Wait for the new line, so the next keys are not typed onto the old one.
+		// Under EditContext (Pixel 7) CodeMirror holds Enter until the next animation frame
+		// (delayAndroidKey in @codemirror/view); a transaction dispatched before then drops it
+		// silently. Wait for the new, new line before typing; do not remove this.
 		await expect(page.locator('.cm-activeLine')).not.toContainText('depends');
 		await page.keyboard.insertText('depends nosuchtask');
 		// The 300 ms pause, then the run, then the engine's message lands on the line.
@@ -51,11 +53,12 @@ test.describe('text mode', () => {
 		await page.keyboard.press('Backspace');
 		await page.keyboard.press('Backspace');
 		await page.keyboard.insertText('40d');
+		await expect(page.locator('.cm-activeLine')).toHaveText('    effort 40d');
 		await settled(page);
 		await expect(strip(page)).toContainText('No problems');
-		const later = await finish(page).getAttribute('datetime');
-		expect(later).not.toBe(before);
-		expect(new Date(later ?? '').getTime()).toBeGreaterThan(new Date(before ?? '').getTime());
+		await expect
+			.poll(async () => new Date((await finish(page).getAttribute('datetime')) ?? '').getTime())
+			.toBeGreaterThan(new Date(before ?? '').getTime());
 		await page.keyboard.press('ControlOrMeta+z');
 		await settled(page);
 		await expect(finish(page)).toHaveAttribute('datetime', before ?? '');
@@ -69,7 +72,10 @@ test.describe('text mode', () => {
 		await openApp(page);
 		await cursorAtEndOf(page, page.locator('.cm-line', { hasText: 'allocate mira' }));
 		await page.keyboard.press('Enter');
-		await expect(page.locator('.cm-activeLine')).not.toContainText('allocate');
+		// Under EditContext (Pixel 7) CodeMirror holds Enter until the next animation frame
+		// (delayAndroidKey in @codemirror/view); a transaction dispatched before then drops it
+		// silently. Wait for the new, empty line before typing; do not remove this.
+		await expect(page.locator('.cm-activeLine')).toHaveText(/^\s*$/);
 		await page.keyboard.type('effort');
 		const list = page.locator('.cm-tooltip-autocomplete');
 		await expect(list).toBeVisible();
@@ -77,7 +83,7 @@ test.describe('text mode', () => {
 			.getByRole('option')
 			.filter({ has: page.locator('.cm-completionLabel', { hasText: /^effort$/ }) });
 		await expect(option).toHaveCount(1);
-		await expect(option.locator('.cm-completionDetail')).toHaveText(table.syntax);
+		await expect(option.locator('.cm-completionDetail')).toHaveText(engine.syntax);
 		// Beside the list, the engine's full documentation (the summary until it has loaded).
 		await expect(page.locator('.cm-completionInfo')).toHaveText(engine.doc, { timeout: 10_000 });
 		await page.keyboard.press('Escape');
@@ -102,7 +108,7 @@ test.describe('text mode', () => {
 			await expect(tip.locator('.cm-tjp-hover-body')).toHaveText(engine.doc, { timeout: 1_000 });
 		}).toPass({ timeout: 30_000 });
 		await expect(tip.locator('.cm-tjp-hover-title')).toHaveText(table.name);
-		await expect(tip.locator('.cm-tjp-hover-code')).toHaveText(table.syntax);
+		await expect(tip.locator('.cm-tjp-hover-code')).toHaveText(engine.syntax);
 	});
 
 	test('the Docs sheet shows the engine documentation for the keyword at the cursor', async ({
@@ -118,7 +124,7 @@ test.describe('text mode', () => {
 			await expect(sheet.locator('.body')).toHaveText(engine.doc, { timeout: 1_000 });
 		}).toPass({ timeout: 30_000 });
 		await expect(sheet.getByRole('heading', { level: 3 })).toHaveText(table.name);
-		await expect(sheet.locator('.code')).toHaveText(table.syntax);
+		await expect(sheet.locator('.code')).toHaveText(engine.syntax);
 		await page.keyboard.press('Escape');
 		await expect(sheet).toBeHidden();
 	});
@@ -199,7 +205,10 @@ test.describe('text mode', () => {
 					.analyze();
 			await cursorAtEndOf(page, page.locator('.cm-line', { hasText: 'allocate mira' }));
 			await page.keyboard.press('Enter');
-			await expect(page.locator('.cm-activeLine')).not.toContainText('allocate');
+			// Under EditContext (Pixel 7) CodeMirror holds Enter until the next animation frame
+			// (delayAndroidKey in @codemirror/view); a transaction dispatched before then drops it
+			// silently. Wait for the new, empty line before typing; do not remove this.
+			await expect(page.locator('.cm-activeLine')).toHaveText(/^\s*$/);
 			await page.keyboard.type('eff');
 			await expect(page.locator('.cm-tooltip-autocomplete')).toBeVisible();
 			expect((await axe()).violations, 'completion list').toEqual([]);
