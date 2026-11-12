@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * Dependency intents (phase-1.md 7.1 `addDepends`, `removeDepends`; `setDependsGap` is in
+ * deps-gap.ts, the link helpers in deps-links.ts). `task` is the successor, `target` the
+ * predecessor.
+ *
+ * addDepends:
+ * - refuses `unknown-target` (either task missing), `text-only` (a task declared only through
+ *   macro expansion), and `cycle` for a dependency on the task itself, on an ancestor or on a
+ *   descendant (TaskJuggler's task_depend_self/parent/child) or one that makes TaskJuggler's loop
+ *   check fail in some scenario, or a cycle of start and end times that check misses but the
+ *   scheduler cannot resolve (dep-graph.ts, dep-loops.ts), unnamed declarations included;
+ * - noop `already-linked` when an unprefixed (or top-scenario) item already links the two: the
+ *   successor's `depends`, the predecessor's `precedes`, or such a list inherited from a parent
+ *   (a second `depends` on the same task is task_depend_multi natively);
+ * - refuses `conflicting-attribute` when only a scenario-prefixed `depends` names the
+ *   predecessor (an unprefixed one would apply to that scenario too, twice), or when a child
+ *   declared after the new item already depends on the predecessor (it inherits the item), or
+ *   when the item would make a sized task with a fixed `end` ASAP (task_overspecified);
+ * - appends `, ref` to the successor's last own unprefixed `depends`, else inserts
+ *   `depends ref` by 7.2 order (before any child task, lists.ts). `ref` is `!id` for a sibling,
+ *   else the absolute id (refs.ts `taskRefText`, ADR-0003 #7).
+ *
+ * removeDepends removes every item that links the two, in any scenario: the successor's
+ * `depends` items naming the predecessor and the predecessor's `precedes` items naming the
+ * successor, each with its `{ … }` body and one comma, or the statement when it was the only
+ * item. Noop `not-present`; `inherited` when the link only comes from a parent's list.
+ *
+ * Both change list items, so they are refused in shared files (15.16, `sameInEveryVisit` false).
+ */
+import { compareParseOrder } from '../../workspace/include-order';
+import { lastSite, type SourceRange, type TaskId } from '../index';
+import type { IntentHandlers } from './apply';
+import { newLoop, stateReader, type ExtraDep } from './dep-graph';
+import { orphanDeps } from './dep-orphans';
+import { setDependsGapPlan } from './deps-gap';
+import {
+	inheritedItems,
+	inheritedLink,
+	isAncestor,
+	linkItems,
+	linkTasks,
+	rangeKey,
+	unprefixed,
+} from './deps-links';
+import { appendOrInsert, removeItems } from './lists';
+import { subtree, taskRefText } from './refs';
+import {
+	noop,
+	refused,
+	type EditContext,
+	type EditOp,
+	type IntentOf,
+	type IntentPlan,
+	type Refused,
+} from './types';
+
+/**
+ * `depends` items on `pred` in the descendants of `succ` declared after `at`: they would inherit
+ * the new item and have it twice (task_depend_multi), named or not (dep-orphans.ts).
+ */
+function inheritedTwice(
+	ctx: EditContext,
+	succ: TaskId,
+	pred: TaskId,
+	at: { file: string; from: number },
+): SourceRange[] {
+	const { index, ws } = ctx;
+	const after = (r: SourceRange): boolean => compareParseOrder(ws.includes, at, r, 'first') < 0;
+	const out: SourceRange[] = [];
+	for (const id of subtree(index, 'task', succ).slice(1)) {
+		const sym = index.tasks.get(id);
+		if (!sym || !after(sym.decl.block)) continue;
+		for (const d of linkItems(index, id, pred)) if (d.form === 'depends') out.push(d.item);
+	}
+	for (const o of orphanDeps(ws, index)) {
+		if (o.form !== 'depends' || o.target !== pred || o.within === null) continue;
+		const below = o.within === succ || isAncestor(index, succ, o.within);
+		if (below && after(o.site.statement)) out.push(o.site.item);
+	}
+	return out;
+}
+
+export function addDependsPlan(ctx: EditContext, intent: IntentOf<'addDepends'>): IntentPlan {
+	const { index, ws } = ctx;
+	const tasks = linkTasks(ctx, intent.task, intent.target);
+	if ('status' in tasks) return tasks;
+	const { succ, pred } = tasks;
+	const ends = [succ.decl.header, pred.decl.header];
+	const related =
+		succ.id === pred.id ||
+		isAncestor(index, succ.id, pred.id) ||
+		isAncestor(index, pred.id, succ.id);
+	if (related) return refused('cycle', ends);
+	const items = linkItems(index, succ.id, pred.id);
+	if (items.some((d) => unprefixed(index, d.scenario))) return noop('already-linked');
+	if (inheritedLink(ctx, succ.id, pred.id)) return noop('already-linked');
+	const clash = items.filter((d) => d.form === 'depends');
+	if (clash.length > 0) {
+		const at = clash.map((d) => d.item);
+		return refused('conflicting-attribute', at);
+	}
+	const last = lastSite(succ.attrs, 'depends', null, index.scenarios[0]?.id ?? null);
+	const ref = taskRefText(succ.id, pred.id);
+	const r = appendOrInsert(
+		(p) => ws.files.get(p),
+		last?.statement ?? null,
+		succ.decl.block,
+		'depends',
+		ref,
+	);
+	if ('status' in r) return r;
+	const twice = inheritedTwice(ctx, succ.id, pred.id, r.at);
+	if (twice.length > 0) return refused('conflicting-attribute', twice);
+	const extra = [
+		{ owner: succ.id, form: 'depends', target: pred.id, onEnd: true, at: r.at },
+	] as const;
+	const over = overspecified(ctx, succ.id, extra);
+	if (over) return over;
+	return newLoop(ws, index, extra) === null ? r.ops : refused('cycle', ends);
+}
+
+/**
+ * `conflicting-attribute` when the new item makes a sized leaf with a fixed `end` scheduled
+ * ASAP from a start dependency: TaskJuggler's task_overspecified (TaskScenario.rb:371-380;
+ * `depends` sets the task ASAP). Checked in every scenario.
+ */
+function overspecified(ctx: EditContext, task: TaskId, extra: readonly ExtraDep[]): Refused | null {
+	const { ws, index } = ctx;
+	const sym = index.tasks.get(task);
+	if (!sym || sym.children.length > 0 || sym.attrs.some((a) => a.keyword === 'scheduled')) {
+		return null;
+	}
+	const scenarios = index.scenarios.length > 0 ? index.scenarios.map((s) => s.id) : ['plan'];
+	for (const sc of scenarios) {
+		const st = stateReader(ws, index, sc, extra)(task).state;
+		if (st.sizing && !st.milestone && st.end && st.forward) {
+			const at = sym.attrs.filter((a) => a.keyword === 'end').map((a) => a.statement);
+			return refused('conflicting-attribute', at);
+		}
+	}
+	return null;
+}
+
+export function removeDependsPlan(ctx: EditContext, intent: IntentOf<'removeDepends'>): IntentPlan {
+	const { index, ws } = ctx;
+	const tasks = linkTasks(ctx, intent.task, intent.target);
+	if ('status' in tasks) return tasks;
+	const { succ, pred } = tasks;
+	const items = linkItems(index, succ.id, pred.id);
+	if (items.length === 0) {
+		return inheritedLink(ctx, succ.id, pred.id)
+			? refused('inherited', inheritedItems(index, succ.id, pred.id))
+			: noop('not-present');
+	}
+	const byStatement = new Map<string, { statement: SourceRange; gone: SourceRange[] }>();
+	for (const d of items) {
+		const k = rangeKey(d.statement);
+		const g = byStatement.get(k) ?? { statement: d.statement, gone: [] };
+		g.gone.push(d.item);
+		byStatement.set(k, g);
+	}
+	const ops: EditOp[] = [];
+	for (const { statement, gone } of byStatement.values()) {
+		const file = ws.files.get(statement.file);
+		if (!file) return refused('unknown-target', [statement]);
+		const r = removeItems(file, statement, gone);
+		if ('status' in r) return r;
+		ops.push(...r);
+	}
+	return ops;
+}
+
+export const DEPENDENCY_HANDLERS: IntentHandlers = {
+	addDepends: { plan: addDependsPlan },
+	removeDepends: { plan: removeDependsPlan },
+	setDependsGap: { plan: setDependsGapPlan },
+};

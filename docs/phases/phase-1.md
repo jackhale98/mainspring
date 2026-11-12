@@ -887,3 +887,37 @@ them.
     intents (`addTask`, `deleteTask`, `moveTask`, `addDepends`/`removeDepends`, allocation changes
     that add or remove lines or items) are always refused there with `shared-declaration`, whose
     `affects` lists every visit's ids (for top-level text, every id the file declares).
+
+17. **Dependency and allocation intents (T11c).** Handlers in `edit/deps.ts`, `edit/deps-gap.ts`
+    and `edit/allocation.ts`, registered in `HANDLERS`; none is `sameInEveryVisit`, and the plan's
+    function names are in `edit/link-intents.ts`. Rules beyond the 7.1 rows, all from TaskJuggler
+    3.8.4 behaviour:
+    - `cycle` covers a dependency on the task itself, an ancestor or a descendant
+      (task_depend_self/parent/child), a loop TaskJuggler's own check finds (a port of
+      `TaskScenario#checkForLoops`, with scheduling direction, milestones, containers,
+      inheritance and scenarios, `edit/dep-loops.ts`), and a cycle of start and end times that
+      check misses but the scheduler cannot resolve (on the Tutorial golden it overflows the
+      stack). Items in declarations the index cannot name (auto ids) take part through the
+      named task around them (`edit/dep-orphans.ts`). Only loops the edit adds are refused.
+    - `already-linked` includes links inherited from a parent's list; adding an unprefixed link
+      where only a scenario-prefixed `depends` exists, or above children that already depend on
+      the target (they inherit it: task_depend_multi), or one that makes a sized task with a
+      fixed `end` ASAP (task_overspecified), is `conflicting-attribute`.
+    - New `depends` and `allocate` statements never go after a child task (`container_attribute`).
+    - A new `depends` statement makes its task ASAP, as in TaskJuggler (rule_depends sets
+      `forward`), also under an earlier `scheduling alap` or an ALAP parent. The edit does not
+      compensate; the loop and overspecification checks read the direction after the edit.
+    - A body macro call whose definition may write the list (mentions the keyword, has nested
+      calls, or is not defined) refuses the intent with `macro-in-body`.
+    - `removeDepends` removes every item of the link, prefixed ones included; `setDependsGap` sets
+      the gap on all unprefixed items of the link and leaves exactly one gap statement per body.
+    - Allocation intents work on unprefixed lists; inherited resources count as allocated
+      (`inherited` to remove one); items with a body are `unsupported-form`. A resource must be
+      declared before the allocation and writable under the file's `resourceprefix`
+      (`unknown-target`, `unsupported-form`). Removing an effort task's last allocation
+      (effort_no_allocations) and allocating to a task that would stop being an implicit
+      milestone without both ends (task_underspecified), container children included, are
+      `conflicting-attribute`.
+    - Errors that depend on the computed schedule (a fixed start before a new predecessor's end,
+      a resource left short after a removal) cannot be foreseen without scheduling and are not
+      refused; the engine check (`edit/links.engine.test.ts`) counts them separately.
