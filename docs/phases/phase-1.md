@@ -1111,3 +1111,58 @@ them.
       resolution against the zone's offset, misaligned dates) are made instead of skipped as
       uncheckable. The app passes `createTimeZoneHost()`, now in `src/engine/timezone.ts` (and
       re-exported by `runtime.ts`), so the main thread does not bundle the Ruby VM for it.
+
+22. **Task tree intents (T11b).** `edit/task-tree.ts` holds the wrappers; the handlers are in
+    `edit/task-tree-plan.ts` (registered in `HANDLERS`), with placement (`task-place.ts`), moved
+    text (`task-text.ts`), references (`task-refs.ts`), parse-order checks (`task-order.ts`),
+    attributes of new tasks (`task-add-attrs.ts`), engine errors the text decides
+    (`task-semantics.ts`) and a re-index check (`task-verify.ts`, `task-hints.ts`).
+    - **Index.** `index` is the position among the new parent's children with the moved task left
+      out (its final position). Index `i > 0` goes right after sibling `i-1`'s block at that
+      block's level (so into a supplement body or a prefixed include when that sibling is declared
+      there); index 0 goes directly above the first sibling and its attached comments; with no
+      siblings, at the end of the parent's body, or of the entry file for a root. A reorder to the
+      same place is noop `already-set`.
+    - **Blank lines (7.2).** A new or moved block gets a blank line before it when its previous
+      sibling has one above it; at index 0, the separation between the first two siblings is
+      copied between the block and the old first sibling. Removing a block never removes blank
+      lines, so a move can leave two blank lines where the block was.
+    - **Moved text.** Re-indenting follows format's line rules (absolute lines: base + unit ×
+      depth below the block; continuations keep their offset). Quoted strings, block comments and
+      macro text stay as written. A cut-here string moves with its statement: its first inner
+      line's indentation (which TaskJuggler strips from every line) becomes the statement's new
+      indentation plus the old extra, in destination units when the extra is whole source units;
+      when an inner line does not start with it, the string stays as written. Breaks become the
+      destination's; a lone `\r` inside a line is copied as written. Comments after the block's
+      last `}` on its line move with it. A multi-line block going into a one-line body
+      (`{ task b "B" }`) opens it: the block gets its own lines.
+    - **`addTask` attributes** go through `setAttr` (T11a, 15.20) one by one on the workspace with
+      the bare block inserted, and the change sets are composed: values are TaskJuggler text
+      (`note` too), printed canonically, in the 7.2 order, with T11a's checks and refusals
+      (`undeclared-flag` for a flag declared after the block, `invalid-value` for `responsible`
+      outside the file's `resourceprefix`, `conflicting-attribute` for overspecified timing).
+    - **Refusals added to 7.1.** `cycle` also for a move that would make a task depend on its own
+      ancestor or descendant (native `task_depend_parent`/`task_depend_child`) or that adds a
+      dependency loop through the new parent's inherited dependencies (dep-graph.ts
+      `graphLoops`). `conflicting-attribute` for adding or moving a child under a leaf with its
+      own sizing or `milestone` (`container_duration`), and for an `effort` task that loses its
+      inherited allocations or a new `effort` task without any (`effort_no_allocations`).
+      `needs-schedule` when the destination parent has a child whose id only the engine knows (a
+      macro or automatic id without hints), since a new id could collide with it. `id-collision`
+      also for an unresolved declaration with the same id there. `unfixable-reference` also for
+      an unresolved reference the move could change, for opaque statements or called macros with
+      a `!` inside a block whose ids change, and for supplement paths that cannot name the new id
+      below their base.
+    - **Re-index check.** Every plan is applied to a copy of the snapshot and indexed again, with
+      the engine hints of the edit's own index carried through the edit by the line rules of 15.18
+      (ids mapped by the intent; a header line the edit changes or moves loses its hint). The
+      tree, the destination order and every resolved reference (mapped) must come out as
+      intended; ids resolved only through a dropped hint are not compared. A late declaration
+      gets its own reason: a moved block that would use a flag before its declaration is
+      `undeclared-flag`, an `allocate` before its resource's declaration `unknown-target` (as
+      T11c), a supplement before the declaration it names `unfixable-reference` at the
+      supplement; other mismatches are `unfixable-reference` (`unsupported-form` for `addTask`).
+    - **Automatic ids** (`_Task_12`) count declarations, so TaskJuggler renumbers them when tasks
+      are added, deleted or reordered before them; no text names them, so nothing is refused.
+    - **Not refused:** deleting the only task (native `no_tasks`), and a container that loses its
+      last child and so becomes a leaf.
