@@ -10,6 +10,7 @@ import { depsFamily } from './deps';
 import { flagsFamily } from './flags';
 import { formatFamily } from './format';
 import { renameFamily } from './rename';
+import { resourcesFamily } from './resources';
 import type { Family } from './types';
 
 export const FAMILIES: readonly Family[] = [
@@ -19,6 +20,7 @@ export const FAMILIES: readonly Family[] = [
 	depsFamily,
 	allocFamily,
 	formatFamily,
+	resourcesFamily,
 ];
 
 /** The 7.1 intents whose edit code has not merged: listed as skipped, not enforced. */
@@ -26,12 +28,6 @@ export const PENDING: ReadonlyArray<{ type: IntentType; task: string }> = [
 	{ type: 'addTask', task: 'T11b' },
 	{ type: 'deleteTask', task: 'T11b' },
 	{ type: 'moveTask', task: 'T11b' },
-	{ type: 'addResource', task: 'T11d' },
-	{ type: 'deleteResource', task: 'T11d' },
-	{ type: 'moveResource', task: 'T11d' },
-	{ type: 'renameResource', task: 'T11d' },
-	{ type: 'setResourceAttr', task: 'T11d' },
-	{ type: 'removeResourceAttr', task: 'T11d' },
 	{ type: 'setProjectHeader', task: 'T11d' },
 	{ type: 'setProjectAttr', task: 'T11d' },
 	{ type: 'removeProjectAttr', task: 'T11d' },

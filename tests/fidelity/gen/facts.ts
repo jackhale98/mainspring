@@ -82,6 +82,8 @@ export interface TaskF {
 	readonly body: BodyF | null;
 	/** Own statements of the declaration and its supplements, in reading order. */
 	readonly stmts: readonly StmtF[];
+	/** `supplement` blocks of a resource or task, when the source knows them. */
+	readonly suppBlocks?: readonly Rg[];
 	/** Words of the macros called as statements in the declaration bodies. */
 	readonly macroWords: ReadonlySet<string>;
 }
@@ -211,7 +213,7 @@ export function bodyInsertZone(b: BodyF, rank: number, table = RANK): Rg {
 }
 
 /** Where removing statement `s` may change text: the statement, its horizontal space, its line. */
-export function removeZone(f: Facts, s: StmtF): Rg[] {
+export function removeZone(f: Facts, s: { range: Rg }): Rg[] {
 	const file = s.range.file;
 	const text = textOf(f, file);
 	let from = s.range.from;

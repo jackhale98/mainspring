@@ -6,6 +6,7 @@ import {
 	effectiveIds,
 	insertZone,
 	normValue,
+	RANK,
 	rg,
 	SIZING,
 	stmtZone,
@@ -13,6 +14,7 @@ import {
 	type Rg,
 	type Sem,
 	type StmtF,
+	type TaskF,
 } from '../gen/facts';
 import type { Rng } from '../gen/rng';
 import type { Drawn, Family, Region } from './types';
@@ -55,11 +57,12 @@ const isSizing = (a: TaskAttr): boolean => (SIZING as readonly string[]).include
 /** Where a new statement may go: its rank, or before another scenario's statement of the same kind (15.20). */
 export function insertZones(
 	f: Facts,
-	t: ReturnType<typeof task>,
+	t: TaskF,
 	key: string,
 	kinds: readonly string[],
+	table: Readonly<Record<string, number>> = RANK,
 ): Rg[] {
-	const zones = insertZone(f, t, key);
+	const zones = insertZone(f, t, key, table);
 	const b = t.body;
 	if (b) {
 		const i = b.elems.findIndex(

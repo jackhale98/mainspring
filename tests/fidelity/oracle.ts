@@ -253,6 +253,7 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 				: attachedFrom(texts[r.decl.block.file] ?? '', r.decl.block.from),
 			body,
 			stmts: r.attrs.map((a) => stmtOf(r, a, body)),
+			suppBlocks: r.supplements.map((d) => rgOf(d.block)),
 			macroWords: new Set(),
 		});
 	}
