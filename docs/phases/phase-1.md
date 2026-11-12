@@ -1343,7 +1343,12 @@ them.
       go to the entry file; `+Nm` is N months of 365/12 days; `end` makes a task ALAP and a task with
       `end` or `precedes` takes no dependency; a `depends` item may not repeat across scenarios.
     - **Open-ended allocated work.** A leaf with no size, a start and an allocation (own or inherited) is
-      valid TaskJuggler: it runs from its start to the project end and books its resource. So
+      valid TaskJuggler: it runs from its start to the project end and books its resource (the `milestone` doc,
+      TjpSyntaxRules.rb:6549, promotes a task with only a start or an end to a milestone, but `markAsMilestone`,
+      TaskScenario.rb:2288-2289, skips that when the task has an `allocate` or a booking, so it is a
+      `:startEndTask`; `scheduleSlot`, TaskScenario.rb:1803-1815, books the resource in every slot up to the end
+      index, here the project end; tasks that then do not fit are marked runaway, :2252, and the run reports
+      `sched_runaway`, :446; who loses follows the scheduling order, priority then path criticalness then index). So
       `setAttr milestone=false` on a milestone with such an allocation is accepted, as 15.19 and 15.24 say, and
       a sibling that needs the resource at a lower priority may no longer fit (`sched_runaway`), which depends
       on the schedule. Two regression seeds first read as an edit-API bug; the engine showed `ship` booked on
