@@ -7,6 +7,7 @@ import {
 	createScheduleRunner,
 	IDLE_FALLBACK_MS,
 	IDLE_TIMEOUT_MS,
+	TYPING_PAUSE_MS,
 	type ScheduleRunner,
 } from './schedule-runner';
 import { FakeEngineClient, flush, message } from './testing/fake-engine-client';
@@ -103,23 +104,32 @@ describe('derived state while typing', () => {
 		type('# a\n');
 		type('task c "C" {\n', { line: 10 });
 		type('# b\n');
-		expect(log.calls).toEqual([IDLE_TIMEOUT_MS]);
-		expect(runner.state).toMatchObject({ version: 3, indexVersion: 0 });
+		// No idle task during a burst of typing: it is requested after a pause.
+		vi.advanceTimersByTime(TYPING_PAUSE_MS - 1);
+		type('# b2\n');
+		vi.advanceTimersByTime(TYPING_PAUSE_MS - 1);
+		expect(log.calls).toEqual([]);
+		expect(runner.state).toMatchObject({ version: 4, indexVersion: 0 });
 		expect(runner.state.diagnostics.some((d) => d.source === 'syntax')).toBe(true);
+		vi.advanceTimersByTime(1);
+		expect(log.calls).toEqual([IDLE_TIMEOUT_MS]);
 		vi.advanceTimersByTime(20);
-		expect(runner.state).toMatchObject({ version: 3, indexVersion: 3, pending: true });
+		expect(runner.state).toMatchObject({ version: 4, indexVersion: 4, pending: true });
 		expect(runner.state.index.tasks.has('c')).toBe(true);
 		type('# c\n');
+		vi.advanceTimersByTime(TYPING_PAUSE_MS);
 		expect(log.calls).toHaveLength(2);
 	});
 
 	it('derives everything at once for intents and results, cancelling a waiting refresh', async () => {
 		const log = idleTimers();
 		type('# a\n');
+		vi.advanceTimersByTime(TYPING_PAUSE_MS);
 		applyEdit(ws, 'setAttr', 'effort 2d', 'effort 3d');
 		expect(runner.state).toMatchObject({ version: 2, indexVersion: 2 });
 		expect(log.cancelled).toBe(1);
 		type('# b\n');
+		vi.advanceTimersByTime(TYPING_PAUSE_MS);
 		client.done(1, { tasks: TASKS });
 		await flush();
 		expect(runner.state).toMatchObject({ version: 3, indexVersion: 3 });
@@ -154,7 +164,7 @@ describe('derived state while typing', () => {
 		});
 		broken = true;
 		type('# a\n');
-		vi.advanceTimersByTime(IDLE_FALLBACK_MS);
+		vi.advanceTimersByTime(TYPING_PAUSE_MS + IDLE_FALLBACK_MS);
 		spy.mockRestore();
 		expect(other).toBe(1);
 		expect(thrown).toEqual([new Error('broken'), new Error('broken')]);

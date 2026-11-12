@@ -63,6 +63,33 @@ export const tjpEditorTheme = EditorView.theme({
 	'.cm-lintRange-info': underline('color-diagnostic-info'),
 	// Stale marks keep the text in full colour (WCAG 1.4.3); only the underline turns dotted.
 	[`.cm-lintRange.${STALE_CLASS}`]: { textDecorationStyle: 'dotted' },
+	// Visually hidden, still read: the live region that says the problem under the cursor.
+	'.cm-tjp-announce': {
+		position: 'absolute',
+		width: '1px',
+		height: '1px',
+		overflow: 'hidden',
+		clip: 'rect(0 0 0 0)',
+		whiteSpace: 'nowrap',
+	},
+	// The diagnostics panel in the app's colours (CodeMirror's are fixed light and dark greys, and
+	// its focused row uses the system highlight colours), with a close button of at least 24 px
+	// (WCAG 2.5.8).
+	'.cm-panels': {
+		backgroundColor: v('color-surface-sunken'),
+		color: v('color-text'),
+		borderColor: v('color-border'),
+	},
+	'.cm-panel.cm-panel-lint ul [aria-selected], .cm-panel.cm-panel-lint ul:focus [aria-selected]': {
+		backgroundColor: v('color-row-selected'),
+		color: v('color-text'),
+	},
+	'.cm-panel.cm-panel-lint [name=close]': {
+		color: v('color-text'),
+		minWidth: '1.75rem',
+		minHeight: '1.75rem',
+		cursor: 'pointer',
+	},
 	'.cm-tooltip': {
 		backgroundColor: v('color-surface'),
 		color: v('color-text'),
@@ -87,7 +114,13 @@ export const tjpEditorTheme = EditorView.theme({
 	'.cm-diagnostic-error': { borderLeftColor: v('color-diagnostic-error') },
 	'.cm-diagnostic-warning': { borderLeftColor: v('color-diagnostic-warning') },
 	'.cm-diagnostic-info': { borderLeftColor: v('color-diagnostic-info') },
-	'.cm-diagnosticSource': { color: v('color-text-muted') },
+	// @codemirror/lint dims the source label to 70% strength at 70% size, which fails AA contrast
+	// (WCAG 1.4.3) and is small to read; the doubled class outranks its rule in the tooltip and the panel.
+	'.cm-diagnosticSource.cm-diagnosticSource': {
+		color: v('color-text-muted'),
+		opacity: '1',
+		fontSize: '85%',
+	},
 });
 
 /** The editor theme and the TJP highlight style. */

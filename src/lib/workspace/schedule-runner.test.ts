@@ -5,7 +5,12 @@
 // schedule-runner.states.test.ts, latest-wins through the real client in
 // schedule-runner.client.test.ts, the real engine in schedule-runner.engine.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createScheduleRunner, IDLE_FALLBACK_MS, type ScheduleRunner } from './schedule-runner';
+import {
+	createScheduleRunner,
+	IDLE_FALLBACK_MS,
+	TYPING_PAUSE_MS,
+	type ScheduleRunner,
+} from './schedule-runner';
 import { FakeEngineClient, flush, message, task } from './testing/fake-engine-client';
 import { applyEdit, PLAN, sliceOf, TASKS, typeInto, type TypeAt } from './testing/runner-fixture';
 import { createWorkspace, type Workspace } from './workspace';
@@ -24,7 +29,7 @@ const apply = (intent: string, find: string, insert: string): void =>
 const textOf = (d: { from: number; to: number }): string => sliceOf(ws, d);
 /** Lets the idle refresh run (Node has no requestIdleCallback: the setTimeout fallback). */
 const idle = (): void => {
-	vi.advanceTimersByTime(IDLE_FALLBACK_MS);
+	vi.advanceTimersByTime(TYPING_PAUSE_MS + IDLE_FALLBACK_MS);
 };
 
 beforeEach(() => {

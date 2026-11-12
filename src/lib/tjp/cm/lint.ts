@@ -151,14 +151,81 @@ export function setTjpDiagnostics(
 	return { effects: [...add, push, ...effectsOf(setDiagnostics(state, lintDiagnostics(after)))] };
 }
 
+/** True when a push of `list` would draw exactly what the channel draws now. */
+function unchanged(
+	state: EditorState,
+	list: readonly TjpDiagnostic[],
+	channel: DiagnosticChannel,
+): boolean {
+	const before = state.field(tjpDiagnosticsField, false);
+	if (!before || (channel === 'engine' && before.dirty)) return false;
+	const old = before[channel];
+	const kept = drawable(state, list);
+	return (
+		old.length === kept.length &&
+		kept.every((d, i) => {
+			const o = old[i];
+			// `revision` differs on every result and changes nothing that is drawn.
+			const keys = Object.keys(d) as Array<keyof TjpDiagnostic>;
+			return o !== undefined && keys.every((k) => k === 'revision' || o[k] === d[k]);
+		})
+	);
+}
+
+/**
+ * True while CodeMirror holds back an Android Enter or Backspace until the next animation frame
+ * (`delayAndroidKey`). A transaction dispatched meanwhile drops that key, so the app's own
+ * dispatches wait. `observer` is not public API; where it is missing this is false.
+ */
+export function androidKeyPending(view: EditorView): boolean {
+	const o = (view as unknown as { observer?: { delayedAndroidKey?: unknown } }).observer;
+	return !!o?.delayedAndroidKey;
+}
+
+const RETRY_MS = 16;
+type Latest = Partial<Record<DiagnosticChannel, readonly TjpDiagnostic[]>>;
+/** The newest list per channel waiting for a pending Android key to be handled. */
+const waiting = new WeakMap<EditorView, Latest>();
+
+/**
+ * Pushes a channel's list unless it changes nothing, and not while an Android key is pending: the
+ * newest list per channel then goes in a frame later, against the then-current state.
+ */
+function push(view: EditorView, list: readonly TjpDiagnostic[], channel: DiagnosticChannel): void {
+	const queued = waiting.get(view);
+	if (queued || androidKeyPending(view)) {
+		const q = queued ?? {};
+		q[channel] = list;
+		if (queued) return;
+		waiting.set(view, q);
+		const retry = (): void => {
+			if (!view.dom.isConnected) return void waiting.delete(view);
+			if (androidKeyPending(view)) {
+				setTimeout(retry, RETRY_MS);
+				return;
+			}
+			const latest = waiting.get(view) ?? {};
+			waiting.delete(view);
+			for (const c of ['engine', 'local'] as const) {
+				const l = latest[c];
+				if (l) push(view, l, c);
+			}
+		};
+		setTimeout(retry, RETRY_MS);
+		return;
+	}
+	if (unchanged(view.state, list, channel)) return;
+	view.dispatch(setTjpDiagnostics(view.state, list, channel));
+}
+
 /** Pushes the engine's diagnostics into a view (spec 6.7). */
 export function setEngineDiagnostics(view: EditorView, d: readonly TjpDiagnostic[]): void {
-	view.dispatch(setTjpDiagnostics(view.state, d, 'engine'));
+	push(view, d, 'engine');
 }
 
 /** Pushes local diagnostics into a view. */
 export function setLocalDiagnostics(view: EditorView, d: readonly TjpDiagnostic[]): void {
-	view.dispatch(setTjpDiagnostics(view.state, d, 'local'));
+	push(view, d, 'local');
 }
 
 /** The spec that redraws the marks from the field, so stale ones are dimmed. */
@@ -177,17 +244,57 @@ const staleRedraw = ViewPlugin.fromClass(
 
 		update(u: ViewUpdate): void {
 			if (!u.docChanged || !(u.state.field(tjpDiagnosticsField, false)?.dirty ?? false)) return;
+			this.arm(STALE_REDRAW_MS);
+		}
+
+		private arm(ms: number): void {
 			if (this.timer !== null) clearTimeout(this.timer);
 			this.timer = setTimeout(() => {
 				this.timer = null;
-				if (this.view.state.field(tjpDiagnosticsField, false)?.dirty) {
-					this.view.dispatch(redrawDiagnostics(this.view.state));
-				}
-			}, STALE_REDRAW_MS);
+				if (!this.view.state.field(tjpDiagnosticsField, false)?.dirty) return;
+				// Not while an Android key is pending (see `androidKeyPending`).
+				if (androidKeyPending(this.view)) this.arm(RETRY_MS);
+				else this.view.dispatch(redrawDiagnostics(this.view.state));
+			}, ms);
 		}
 
 		destroy(): void {
 			if (this.timer !== null) clearTimeout(this.timer);
+		}
+	},
+);
+
+/**
+ * Says the problem under the cursor when the cursor moves onto one (F8, the status strip's "next
+ * problem" button, the arrow keys): the marks and the hover tooltip are visual only, so a screen
+ * reader would otherwise hear the line and nothing about what is wrong with it. A polite live
+ * region inside the editor, set once per problem and cleared when the cursor leaves it.
+ */
+const announceProblem = ViewPlugin.fromClass(
+	class {
+		private readonly region: HTMLElement;
+		private spoken = '';
+
+		constructor(view: EditorView) {
+			this.region = view.dom.ownerDocument.createElement('div');
+			this.region.className = 'cm-tjp-announce';
+			this.region.setAttribute('role', 'status');
+			this.region.setAttribute('aria-live', 'polite');
+			view.dom.appendChild(this.region);
+		}
+
+		update(u: ViewUpdate): void {
+			if (u.docChanged || !u.selectionSet) return;
+			const head = u.state.selection.main.head;
+			const hit = drawnDiagnostics(u.state).find((d) => d.from <= head && head <= d.to);
+			const text = hit ? S.lint.announce(hit.severity, hit.message) : '';
+			if (text === this.spoken) return;
+			this.spoken = text;
+			this.region.textContent = text;
+		}
+
+		destroy(): void {
+			this.region.remove();
 		}
 	},
 );
@@ -200,6 +307,7 @@ export function tjpLint(opts: { gutter?: boolean } = {}): Extension {
 	return [
 		tjpDiagnosticsField,
 		staleRedraw,
+		announceProblem,
 		keymap.of(lintKeymap),
 		opts.gutter === false ? [] : lintGutter(),
 	];

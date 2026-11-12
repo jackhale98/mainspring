@@ -120,7 +120,12 @@ export interface ScheduleRunnerOptions {
 }
 
 export const DEFAULT_DEBOUNCE_MS = 300;
-/** The longest the index waits behind the text while typing. */
+/**
+ * A pause in typing that must pass before the index follows the text. Rebuilding it after every
+ * keystroke put a 15 to 40 ms task between keystrokes on large plans (T21 audit).
+ */
+export const TYPING_PAUSE_MS = 150;
+/** The longest the index then waits for an idle moment. */
 export const IDLE_TIMEOUT_MS = 100;
 export const IDLE_FALLBACK_MS = 50;
 

@@ -22,7 +22,8 @@ describe('tjpTheme', () => {
 	});
 
 	it('never dims text (stale diagnostics change only the underline style)', () => {
-		expect(THEME).not.toMatch(/opacity/);
+		// Only `opacity: '1'` is allowed: it undoes @codemirror/lint's dimmed diagnostic source label.
+		expect(THEME.replace(/opacity: '1'/g, '')).not.toMatch(/opacity/);
 	});
 
 	it('uses tokens that tokens.css defines, colours in both light and dark', () => {

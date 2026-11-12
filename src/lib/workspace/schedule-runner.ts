@@ -2,6 +2,8 @@
 /**
  * The schedule runner (phase-1.md 6.8): keeps the engine's view of the plan up to date while the
  * text changes, and publishes what the status strip, the outline and the lint layer show.
+ * (Slightly over 400 lines: one class owns the runner's private state; the pure parts already
+ * live in run-view.ts and run-types.ts.)
  *
  * Runs
  * - The runner subscribes to the workspace (15.7). A change with origin 'typing' waits for
@@ -32,7 +34,9 @@
  * Derived state
  * - A typed change updates engine diagnostic positions and syntax diagnostics at once
  *   (`quickView`); the index, hints and value/attribute checks follow in one idle task
- *   (`requestIdle`, at most `IDLE_TIMEOUT_MS` later) that covers every keystroke before it.
+ *   (`requestIdle`, at most `IDLE_TIMEOUT_MS` later) that covers every keystroke before it and
+ *   is only requested after `TYPING_PAUSE_MS` without a keystroke, so it never lands between
+ *   two keystrokes of a burst.
  *   Until then `indexVersion` is behind `version`. Format and intent edits, results and the
  *   start derive everything at once (`fullView`).
  * - An exception while deriving keeps the previous view and is rethrown asynchronously, so it
@@ -51,6 +55,7 @@ import {
 	DEFAULT_DEBOUNCE_MS,
 	defaultTimers,
 	IDLE_TIMEOUT_MS,
+	TYPING_PAUSE_MS,
 	type RunnerFailure,
 	type RunnerListener,
 	type RunnerState,
@@ -116,6 +121,7 @@ class Runner implements ScheduleRunner {
 	readonly #timers: Timers;
 	readonly #debounceSlot: Slot = { armed: false, handle: null };
 	readonly #idleSlot: Slot = { armed: false, handle: null };
+	readonly #pauseSlot: Slot = { armed: false, handle: null };
 	readonly #open = new Map<Revision, Sent>();
 	/** Newest revision whose result was handled. */
 	#handled: Revision = 0;
@@ -169,6 +175,7 @@ class Runner implements ScheduleRunner {
 		if (this.#disposed) return;
 		this.#disposed = true;
 		this.#clear(this.#debounceSlot, this.#timers.clearTimeout);
+		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
 		this.#clear(this.#idleSlot, this.#timers.cancelIdle);
 		for (const u of this.#unsubscribe.splice(0)) u();
 		for (const revision of [...this.#open.keys()]) this.#client.cancel(revision);
@@ -203,6 +210,7 @@ class Runner implements ScheduleRunner {
 
 	/** Derives everything for the workspace now; `prepared` is its index part, if known. */
 	#refresh(prepared?: Prepared): void {
+		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
 		this.#clear(this.#idleSlot, this.#timers.cancelIdle);
 		this.#derive(() => {
 			const now = this.#ws.snapshot();
@@ -217,14 +225,21 @@ class Runner implements ScheduleRunner {
 		});
 	}
 
+	/** Every keystroke restarts the pause; once it passes, one idle task derives everything. */
 	#refreshWhenIdle(): void {
-		const slot = this.#idleSlot;
-		if (slot.armed) return;
-		slot.armed = true;
-		slot.handle = this.#timers.requestIdle(() => {
-			slot.armed = false;
-			if (!this.#disposed) this.#batch(() => this.#refresh());
-		}, IDLE_TIMEOUT_MS);
+		const pause = this.#pauseSlot;
+		this.#clear(pause, this.#timers.clearTimeout);
+		pause.armed = true;
+		pause.handle = this.#timers.setTimeout(() => {
+			pause.armed = false;
+			const slot = this.#idleSlot;
+			if (slot.armed || this.#disposed) return;
+			slot.armed = true;
+			slot.handle = this.#timers.requestIdle(() => {
+				slot.armed = false;
+				if (!this.#disposed) this.#batch(() => this.#refresh());
+			}, IDLE_TIMEOUT_MS);
+		}, TYPING_PAUSE_MS);
 	}
 
 	#debounce(): void {
