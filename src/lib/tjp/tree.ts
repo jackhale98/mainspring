@@ -9,6 +9,7 @@
 import type { Text } from '@codemirror/state';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import type { WorkspacePath } from '../../engine/protocol';
+import { TjLines } from './lines';
 
 /** A range in one workspace file, in UTF-16 offsets. */
 export interface SourceRange {
@@ -71,17 +72,19 @@ export function printTree(tree: Tree, text: string): string {
 export interface SyntaxIssue {
 	from: number;
 	to: number;
-	/** 1-based line of `from`. */
+	/** 1-based line of `from`, as TaskJuggler counts lines (lines.ts). */
 	line: number;
 }
 
 /** The error nodes of a tree, outermost only, in document order. */
 export function syntaxIssues(tree: Tree, text: Text): SyntaxIssue[] {
 	const out: SyntaxIssue[] = [];
+	let lines: TjLines | null = null;
 	tree.iterate({
 		enter(n) {
 			if (!n.type.isError) return;
-			out.push({ from: n.from, to: n.to, line: text.lineAt(n.from).number });
+			lines ??= new TjLines(text);
+			out.push({ from: n.from, to: n.to, line: lines.lineOf(n.from) });
 			return false;
 		},
 	});

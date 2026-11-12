@@ -59,11 +59,34 @@ describe('reparse', () => {
 		const text = tasks(200);
 		const tree = tjpGlobalParser.parse(text);
 		const at = text.indexOf('task t100');
-		const edited = `${text.slice(0, at)}#${text.slice(at)}`;
-		const change = [{ fromA: at, toA: at, fromB: at, toB: at + 1 }];
+		const edited = `${text.slice(0, at)}# c\n${text.slice(at)}`;
+		const change = [{ fromA: at, toA: at, fromB: at, toB: at + 4 }];
 		const result = reparse(tjpGlobalParser, edited, tree, change);
 		const covered = result.fragments.reduce((n, f) => n + (f.to - f.from), 0);
 		expect(covered).toBeGreaterThan(text.length * 0.9);
 		expect(result.tree.toString()).toBe(tjpGlobalParser.parse(edited).toString());
+	});
+
+	describe('when the edit creates an error next to reused text', () => {
+		// `#` comments out a task header, so its body's attributes stand at the top level.
+		const text = tasks(200);
+		const tree = tjpGlobalParser.parse(text);
+		const at = text.indexOf('task t100');
+		const edited = `${text.slice(0, at)}#${text.slice(at)}`;
+		const change = [{ fromA: at, toA: at, fromB: at, toB: at + 1 }];
+		const fresh = serialize(tjpGlobalParser.parse(edited));
+
+		it('cuts the error region and still reuses the rest', () => {
+			const result = reparse(tjpGlobalParser, edited, tree, change);
+			expect(serialize(result.tree)).toEqual(fresh);
+			const covered = result.fragments.reduce((n, f) => n + (f.to - f.from), 0);
+			expect(covered).toBeGreaterThan(text.length * 0.9);
+		});
+
+		it('parses afresh once the rounds run out', () => {
+			const result = reparse(tjpGlobalParser, edited, tree, change, undefined, 1);
+			expect(result.fragments).toEqual([]);
+			expect(serialize(result.tree)).toEqual(fresh);
+		});
 	});
 });
