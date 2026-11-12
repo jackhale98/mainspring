@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * List statements of a task body (`depends`, `precedes`, `allocate`) for deps.ts and
- * allocation.ts, on top of the layout helpers (7.2 list rules):
+ * List statements of a task or resource body (`depends`, `precedes`, `allocate`, and the
+ * `responsible` and `managers` lists the resource intents edit) for deps.ts, allocation.ts and
+ * resource-tree.ts, on top of the layout helpers (7.2 list rules):
  *
  * - `itemSpans`: the items of a list statement as the tree has them, so items the index could
  *   not resolve (macro tokens) keep their place.
@@ -35,9 +36,14 @@ const ITEM: Readonly<Record<string, string>> = {
 	DependsStatement: 'DepItem',
 	PrecedesStatement: 'DepItem',
 	AllocateStatement: 'AllocItem',
+	ResponsibleStatement: 'ResourceRef',
+	ManagersStatement: 'ResourceRef',
 };
 
-/** The items of a `depends`, `precedes` or `allocate` statement, in order; null if it is not one. */
+/**
+ * The items of a `depends`, `precedes`, `allocate`, `responsible` or `managers` statement, in
+ * order; null if it is not one.
+ */
 export function itemSpans(file: TjpFile, statement: Span): Span[] | null {
 	const node = statementNode(file, statement);
 	const name = node ? ITEM[node.name] : undefined;
@@ -123,7 +129,7 @@ const CALL = /^\$\{(\?)?\s*([A-Za-z_]\w*)/;
 export function checkBodyMacros(
 	ws: WorkspaceSnapshot,
 	index: SymbolIndex,
-	task: TaskSymbol,
+	task: Pick<TaskSymbol, 'bodyMacroCalls'>,
 	keywords: readonly string[],
 ): Refused | null {
 	const at: SourceRange[] = [];
