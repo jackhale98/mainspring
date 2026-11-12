@@ -51,7 +51,11 @@ export function task(
 	};
 }
 
-export function message(level: EngineMessage['level'], line: number | null, text = 'msg'): EngineMessage {
+export function message(
+	level: EngineMessage['level'],
+	line: number | null,
+	text = 'msg',
+): EngineMessage {
 	return { level, id: 'test_msg', text, file: 'plan.tjp', line, column: null, scenario: null };
 }
 

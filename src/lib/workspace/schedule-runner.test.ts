@@ -85,7 +85,11 @@ describe('runs', () => {
 		vi.advanceTimersByTime(1);
 		expect(client.requests).toHaveLength(2);
 		const r = client.lastRequest;
-		expect(r).toEqual({ files: { 'plan.tjp': `# b\n# a\n${PLAN}` }, entry: 'plan.tjp', revision: 2 });
+		expect(r).toEqual({
+			files: { 'plan.tjp': `# b\n# a\n${PLAN}` },
+			entry: 'plan.tjp',
+			revision: 2,
+		});
 		expect('options' in r).toBe(false);
 	});
 
@@ -191,7 +195,10 @@ describe('results', () => {
 		client.fail(3, { kind: 'timeout', message: 'slow' });
 		await flush();
 		expect(runner.state).toMatchObject({ status: 'failed', outdated: true, lastGood: good });
-		expect(runner.state.failure).toEqual({ revision: 3, error: { kind: 'timeout', message: 'slow' } });
+		expect(runner.state.failure).toEqual({
+			revision: 3,
+			error: { kind: 'timeout', message: 'slow' },
+		});
 	});
 });
 
@@ -278,6 +285,9 @@ describe('mapping through later edits', () => {
 			['t1', 4],
 			['b', 7],
 		]);
+		expect(runner.state.index.tasks.get('t1')?.idSource).toBe('engine');
+		// Enter at the end of the header line leaves the header as it was.
+		type('\n  # note', { after: '"Macro task" {' });
 		expect(runner.state.index.tasks.get('t1')?.idSource).toBe('engine');
 		type(' renamed', { after: '"Macro task' });
 		expect(runner.state.hints.tasks.map((h) => h.id)).toEqual(['b']);

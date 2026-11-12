@@ -61,7 +61,9 @@ describe('finishMinutes', () => {
 	it('is null without a project or a scheduled task', () => {
 		expect(finishMinutes(result(1))).toBeNull();
 		expect(finishMinutes(result(1, { project: null, tasks: [task('a', 1, 60)] }))).toBeNull();
-		expect(finishMinutes(result(1, { tasks: [task('a', 1, 60, { scheduled: false })] }))).toBeNull();
+		expect(
+			finishMinutes(result(1, { tasks: [task('a', 1, 60, { scheduled: false })] })),
+		).toBeNull();
 	});
 
 	it('reads the goldens', () => {

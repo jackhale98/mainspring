@@ -72,7 +72,10 @@ export function finishOf(r: ScheduleResult, previous: Finish | null = null): Fin
 		timezone: r.project.timezone,
 		revision: r.revision,
 	};
-	return { ...base, delta: previous === null ? null : finishDelta(previous, { ...base, delta: null }) };
+	return {
+		...base,
+		delta: previous === null ? null : finishDelta(previous, { ...base, delta: null }),
+	};
 }
 
 /**

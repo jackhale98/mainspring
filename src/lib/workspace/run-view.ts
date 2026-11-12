@@ -23,7 +23,13 @@ import {
 	mergeDiagnostics,
 	type TjpDiagnostic,
 } from '../tjp/diagnostics';
-import { buildIndex, hintsFromResult, NO_HINTS, type EngineHints, type SymbolIndex } from '../tjp/index';
+import {
+	buildIndex,
+	hintsFromResult,
+	NO_HINTS,
+	type EngineHints,
+	type SymbolIndex,
+} from '../tjp/index';
 import { lineMap } from './run-lines';
 import type { Workspace, WorkspaceSnapshot } from './workspace';
 
