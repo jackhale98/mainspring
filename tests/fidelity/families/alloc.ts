@@ -32,9 +32,11 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 		return { intent: { type: 'allocate', task: t.id, resources: wanted } };
 	}
 	if (type === 'addAllocation') {
-		return {
-			intent: { type: 'addAllocation', task: rng.pick(leaves).id, resource: rng.pick(res) },
-		};
+		const t = rng.pick(leaves);
+		const have = new Set(effectiveIds(f, t, 'allocate'));
+		const fresh = res.filter((r) => !have.has(r));
+		const pool = fresh.length > 0 && rng.chance(0.85) ? fresh : res;
+		return { intent: { type: 'addAllocation', task: t.id, resource: rng.pick(pool) } };
 	}
 	const withOwn = leaves.filter((t) => ownIds(f, t.id).length > 0);
 	if (withOwn.length === 0) return null;

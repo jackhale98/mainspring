@@ -211,6 +211,7 @@ export function resourceStatements(rng: Rng, plan: MPlan): void {
 	if (rng.chance(0.25)) p.push(mk('currency', '"EUR"'));
 	if (rng.chance(0.2)) p.push(mk('dailyworkinghours', '8'));
 	if (rng.chance(0.15)) p.push(mk('workinghours', 'sat off'));
+	if (rng.chance(0.15)) p.push(mk('weekstartsmonday', null));
 	if (rng.chance(0.2)) p.reverse();
 }
 

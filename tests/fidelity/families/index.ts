@@ -6,9 +6,11 @@
 import type { IntentType } from '../../../src/lib/tjp/edit/types';
 import { allocFamily } from './alloc';
 import { attrFamily } from './attr';
+import { calendarFamily } from './calendar';
 import { depsFamily } from './deps';
 import { flagsFamily } from './flags';
 import { formatFamily } from './format';
+import { projectFamily } from './project';
 import { renameFamily } from './rename';
 import { resourcesFamily } from './resources';
 import type { Family } from './types';
@@ -21,6 +23,8 @@ export const FAMILIES: readonly Family[] = [
 	allocFamily,
 	formatFamily,
 	resourcesFamily,
+	projectFamily,
+	calendarFamily,
 ];
 
 /** The 7.1 intents whose edit code has not merged: listed as skipped, not enforced. */
@@ -28,13 +32,6 @@ export const PENDING: ReadonlyArray<{ type: IntentType; task: string }> = [
 	{ type: 'addTask', task: 'T11b' },
 	{ type: 'deleteTask', task: 'T11b' },
 	{ type: 'moveTask', task: 'T11b' },
-	{ type: 'setProjectHeader', task: 'T11d' },
-	{ type: 'setProjectAttr', task: 'T11d' },
-	{ type: 'removeProjectAttr', task: 'T11d' },
-	{ type: 'setWorkingHours', task: 'T11d' },
-	{ type: 'addLeave', task: 'T11d' },
-	{ type: 'updateLeave', task: 'T11d' },
-	{ type: 'removeLeave', task: 'T11d' },
 ];
 
 /** Every intent type the suite enforces, in family order. */
