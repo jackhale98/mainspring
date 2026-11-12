@@ -38,6 +38,9 @@ const SCHEDULE_DEPENDENT = new Set([
 	'task_start_in_parent',
 	'task_end_in_parent',
 	'start_after_end',
+	// Bookings are opaque text, so a calendar change of the booked resource (15.22) can only be seen here.
+	'booking_no_duty',
+	'booking_on_vacation',
 ]);
 
 const errorsOf = (r: ScheduleResult): Map<string, number> => {

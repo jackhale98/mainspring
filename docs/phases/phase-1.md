@@ -1310,7 +1310,10 @@ them.
       `FIDELITY_SEED`), so there is no shrinking: a failure prints the case and its replay line
       (`FIDELITY_CASE=generated:<seed>:<type>[:text-only]` or `corpus:<seed>:<type>:<plan>`, which names
       everything the case needs). `regressions.json` replays on every run in both the text-only
-      file and P4 and every entry must pass: there is no known-failure mark.
+      file and P4 and every entry must pass: there is no known-failure mark. An entry pins a generated case to its plan attempt
+      (`@N`), so the edit API's answers cannot move it (edit-seeking draws depend on the API), and stores the
+      intent it draws and, for a fixed bug, the answer it must now get; a seed that no longer draws the
+      recorded intent fails loudly.
     - **Oracle.** Generated plans are printed from a model and the printer records every range and
       value (`gen/printer.ts`, `gen/print-plan.ts`); corpus plans and the text after an edit are read from the
       index and the tree (`oracle.ts`). One set of zone functions (`gen/facts.ts`, written from 7.1 and
@@ -1340,7 +1343,8 @@ them.
       go to the entry file; `+Nm` is N months of 365/12 days; `end` makes a task ALAP and a task with
       `end` or `precedes` takes no dependency; a `depends` item may not repeat across scenarios.
     - **P4.** `bootNodeEngine`, one boot per file. For corpus plans the errors that depend on the computed
-      schedule (15.19, the same ids as `links.engine.test.ts`) are counted and listed, not failed; for
+      schedule (15.19, the same ids as `links.engine.test.ts`, and `booking_no_duty` and `booking_on_vacation` after calendar
+      changes, 15.22) are counted and listed, not failed; for
       generated plans nothing is tolerated and the old schedule must be clean. P4 fails if it ran on no case.
     - **Time.** Plans are mostly small (5 to 16 tasks in nine of ten, 40 at most), and plans with two scenarios
       have at most 16 tasks, since a scenario doubles the schedule time. Measured on the default run (200
