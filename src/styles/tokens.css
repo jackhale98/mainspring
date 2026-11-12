@@ -15,6 +15,21 @@
 	--color-focus: #0b5cad;
 	--color-status-neutral: #51585e;
 
+	/* Code editor (src/lib/tjp/cm/theme.ts). AA contrast on --color-surface. */
+	--color-syntax-keyword: #0b5cad;
+	--color-syntax-definition: #7a2e8e;
+	--color-syntax-reference: #1b1d1f;
+	--color-syntax-string: #1f6f35;
+	--color-syntax-literal: #8f4700;
+	--color-syntax-comment: #5c6369;
+	--color-syntax-macro: #a3216b;
+	--color-syntax-invalid: #b3261e;
+	--color-diagnostic-error: #b3261e;
+	--color-diagnostic-warning: #8a5a00;
+	--color-diagnostic-info: #0b5cad;
+	--color-editor-selection: #d9e8f9;
+	--color-editor-active-line: #f0f4f8;
+
 	/* Type */
 	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 	--font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
@@ -49,6 +64,19 @@
 		--color-accent-text: #0a1722;
 		--color-focus: #6cb2f2;
 		--color-status-neutral: #aab1b7;
+		--color-syntax-keyword: #6cb2f2;
+		--color-syntax-definition: #d39af0;
+		--color-syntax-reference: #eceef0;
+		--color-syntax-string: #86d39a;
+		--color-syntax-literal: #f0a35e;
+		--color-syntax-comment: #9aa2a9;
+		--color-syntax-macro: #f08ac0;
+		--color-syntax-invalid: #ff8a80;
+		--color-diagnostic-error: #ff8a80;
+		--color-diagnostic-warning: #e8c15a;
+		--color-diagnostic-info: #6cb2f2;
+		--color-editor-selection: #203447;
+		--color-editor-active-line: #22262a;
 	}
 }
 

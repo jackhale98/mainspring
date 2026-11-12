@@ -56,6 +56,97 @@ export const diagnosticStrings = {
 	didYouMean: (keyword: string) => `Did you mean ${keyword}?`,
 } as const;
 
+/** The TJP editor extensions (src/lib/tjp/cm/). */
+export const editorStrings = {
+	lint: {
+		/** Shown as the diagnostic's source in the tooltip and panel. */
+		source: {
+			engine: 'TaskJuggler',
+			syntax: 'Syntax',
+			value: 'Value',
+			attribute: 'Custom attribute',
+		},
+		/** The message with its hint, if any. */
+		message: (message: string, hint: string | null) =>
+			hint === null ? message : `${message} ${hint}`,
+		/** A diagnostic from a run made before the latest edits. */
+		staleMessage: (message: string) =>
+			`${message} (From the last run. The text has changed since.)`,
+	},
+	hover: {
+		task: 'Task',
+		resource: 'Resource',
+		macro: 'Macro',
+		/** "Task app.editor “Editor”". */
+		symbolTitle: (kind: string, id: string, name: string | null) =>
+			name ? `${kind} ${id} “${name}”` : `${kind} ${id}`,
+		scenarioSpecific: 'Takes a scenario prefix, such as plan:',
+		docsLoading: 'The full documentation appears once the scheduler has started.',
+		seeAlso: (keywords: readonly string[]) => `See also: ${keywords.join(', ')}`,
+		declaredAt: (file: string, line: number) => `Declared in ${file}, line ${line}`,
+		unknownTarget: (written: string) => `${written} is not declared.`,
+		noDocs: 'No documentation here. Put the cursor on a keyword or an id.',
+	},
+	completion: {
+		scenario: 'Scenario prefix',
+		task: 'Task',
+		resource: 'Resource',
+	},
+	format: {
+		formatted: 'Formatted.',
+		unchanged: 'Already formatted.',
+		refused: 'Fix the syntax errors before formatting.',
+		stale: 'The file changed while formatting. Try again.',
+	},
+	/** Editor commands, for buttons, menus and the help page; shortcuts as shown per platform. */
+	commands: {
+		format: { label: 'Format file', mac: '⇧⌥⌘F', other: 'Shift+Alt+F' },
+		showDocs: { label: 'Show documentation', mac: '⌘K ⌘I', other: 'Ctrl+K Ctrl+I' },
+		nextDiagnostic: { label: 'Next problem', mac: 'F8', other: 'F8' },
+		openDiagnostics: { label: 'List problems', mac: '⇧⌘M', other: 'Ctrl+Shift+M' },
+	},
+} as const;
+
+/**
+ * CodeMirror's own interface text (`EditorState.phrases`), so it is translated here with the
+ * rest. Keys are CodeMirror's English phrases.
+ */
+export const codemirrorPhrases: Readonly<Record<string, string>> = {
+	// @codemirror/view
+	'Control character': 'Control character',
+	// @codemirror/language (folding)
+	'Folded lines': 'Folded lines',
+	'Unfolded lines': 'Unfolded lines',
+	to: 'to',
+	'folded code': 'folded code',
+	unfold: 'unfold',
+	'Fold line': 'Fold line',
+	'Unfold line': 'Unfold line',
+	// @codemirror/search
+	'Go to line': 'Go to line',
+	go: 'go',
+	Find: 'Find',
+	Replace: 'Replace',
+	next: 'next',
+	previous: 'previous',
+	all: 'all',
+	'match case': 'match case',
+	'by word': 'by word',
+	regexp: 'regexp',
+	replace: 'replace',
+	'replace all': 'replace all',
+	close: 'close',
+	'current match': 'current match',
+	'replaced $ matches': 'replaced $ matches',
+	'replaced match on line $': 'replaced match on line $',
+	'on line': 'on line',
+	// @codemirror/autocomplete
+	Completions: 'Completions',
+	// @codemirror/lint
+	Diagnostics: 'Diagnostics',
+	'No diagnostics': 'No diagnostics',
+};
+
 export const engineStatusLabels = {
 	booting: 'Starting the scheduler',
 	idle: 'Ready',
