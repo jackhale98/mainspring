@@ -280,7 +280,9 @@ const DURATION_USE: Readonly<Record<string, DurationUse>> = {
 /**
  * TaskJuggler's context-dependent checks for a keyword's value; `span` places the error.
  * Dates of `start`, `end`, `minstart` and `maxend` must lie in the project frame (`valDate`);
- * a `timezone` must be 'UTC' or a known `Region/City` zone (`bad_time_zone`, needs `ctx.zones`).
+ * a `timezone` must be 'UTC' or a known `Region/City` zone (`bad_time_zone`, needs `ctx.zones`);
+ * a `timingresolution` must be allowed and at most the cap of the zone in force
+ * (`too_large_timing_res`, needs `ctx.zones` for a zone other than UTC).
  */
 export function checkValue(
 	keyword: string,
@@ -319,7 +321,7 @@ export function checkValue(
 		case 'integer':
 			return keyword === 'priority' ? done(checkPriority(v.value)) : ok(true);
 		case 'timingresolution':
-			return done(checkTimingResolution(v.value));
+			return done(checkTimingResolution(v.value, ctx));
 		case 'string':
 			return keyword === 'timezone' ? done(checkZoneName(v.value, ctx.zones)) : ok(true);
 		default:

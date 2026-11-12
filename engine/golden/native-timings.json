@@ -211,6 +211,22 @@
       "totalMs": 2099.8,
       "processMs": 2640
     },
+    "syn-21-tz-dst-edges-newyork": {
+      "tasks": 14,
+      "parseMs": 69.5,
+      "scheduleMs": 57.7,
+      "serializeMs": 1.9,
+      "totalMs": 137.2,
+      "processMs": 549.5
+    },
+    "syn-22-tz-kathmandu-resolution": {
+      "tasks": 0,
+      "parseMs": 46.9,
+      "scheduleMs": 0,
+      "serializeMs": 0.1,
+      "totalMs": 47,
+      "processMs": 458.6
+    },
     "bridge-header-only": {
       "tasks": 0,
       "parseMs": 43.9,

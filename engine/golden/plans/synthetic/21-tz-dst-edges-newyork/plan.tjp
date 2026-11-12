@@ -1,0 +1,91 @@
+# Feature: timezone America/New_York (west of UTC); local times at the exact DST edges: the autumn overlap (2025-11-02 01:00-02:00 happens twice) and the spring gap (2026-03-08 02:00-03:00 does not exist)
+# Binding: native Ruby reads an overlap time as the later instant (01:00 is 06:00Z, EST) and a gap time with the offset in force before the change (02:00 is 07:00Z, shown as 03:00 EDT); task starts and ends, leaves, working hours and now sit on those edges
+# The two days are the closest pair of NY changes, to keep the plan short (30-minute slots over five months).
+# SPDX-License-Identifier: GPL-2.0-or-later
+project ny21 "New York DST edges" 2025-10-26 - 2026-03-22 {
+  timezone "America/New_York"
+  timingresolution 30min
+  now 2026-03-08-02:00
+}
+
+# Works only on Sunday nights: 7 h on 2025-11-02 (01:00-02:00 twice), 5 h on 2026-03-08 (no 02:00-03:00).
+resource night "Sunday nights" {
+  workinghours mon - sat off
+  workinghours sun 0:00 - 6:00
+  limits { dailymax 4h }
+}
+
+# Working hours that start or end at the edges: 3 h on 2025-11-02, only 01:00-02:00 on 2026-03-08.
+resource edge "Edge hours" {
+  workinghours mon - sat off
+  workinghours sun 1:00 - 3:00
+}
+
+# Leaves that start or end on the overlap and inside the gap.
+resource leaver "Leaves at the edges" {
+  workinghours mon - sat off
+  workinghours sun 0:00 - 6:00
+  leaves annual 2025-11-02-01:00 - 2025-11-02-01:30
+  leaves special 2026-03-08-01:30 - 2026-03-08-02:30
+}
+
+task autumn "Autumn overlap 2025-11-02" {
+  task at_overlap "Starts at 01:00 (overlap start)" {
+    start 2025-11-02-01:00
+    effort 2h
+    allocate night
+  }
+  task in_overlap "Starts at 01:30 (inside the overlap)" {
+    start 2025-11-02-01:30
+    effort 1h
+    allocate edge
+  }
+  task alap "Ends at 01:30, as late as possible, before the leave" {
+    end 2025-11-02-01:30
+    scheduling alap
+    effort 1h
+    allocate leaver
+  }
+  task window "Fixed 00:30 to 01:30" {
+    start 2025-11-02-00:30
+    end 2025-11-02-01:30
+  }
+  task overlap_end "Starts at 02:00 (overlap end)" {
+    start 2025-11-02-02:00
+    duration 1h
+  }
+  task mark "Milestone at 01:30" {
+    start 2025-11-02-01:30
+    milestone
+  }
+}
+
+task spring "Spring gap 2026-03-08" {
+  task at_gap "Starts at 02:00 (gap start)" {
+    start 2026-03-08-02:00
+    effort 2h
+    allocate night
+  }
+  task in_gap "Starts at 02:30 (inside the gap)" {
+    start 2026-03-08-02:30
+    effort 1h
+    allocate edge
+  }
+  task through_leave "Starts at 01:00, works around the leave" {
+    start 2026-03-08-01:00
+    effort 3h
+    allocate leaver
+  }
+  task window "Fixed 01:00 to 02:30" {
+    start 2026-03-08-01:00
+    end 2026-03-08-02:30
+  }
+  task gap_end "Starts at 03:00 (gap end)" {
+    start 2026-03-08-03:00
+    duration 1h
+  }
+  task mark "Milestone at 02:30" {
+    start 2026-03-08-02:30
+    milestone
+  }
+}
