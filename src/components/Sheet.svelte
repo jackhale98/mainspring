@@ -47,7 +47,18 @@
 				<h2 id="sheet-title-{side}">{title}</h2>
 				<button type="button" class="close" onclick={() => dialog?.close()}>{closeLabel}</button>
 			</header>
-			<div class="content">
+			<!--
+				The bottom sheet holds plain text that can scroll. Safari does not make a scrolling
+				element keyboard-reachable on its own (axe scrollable-region-focusable), so it is a
+				named, focusable region. The drawer's content is an interactive tree and needs no stop.
+			-->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<div
+				class="content"
+				role={side === 'bottom' ? 'region' : undefined}
+				aria-labelledby={side === 'bottom' ? `sheet-title-${side}` : undefined}
+				tabindex={side === 'bottom' ? 0 : undefined}
+			>
 				{@render children()}
 			</div>
 		</div>
@@ -117,6 +128,10 @@
 		min-block-size: 0;
 		overflow: auto;
 		padding: var(--space-3) var(--space-4) var(--space-6);
+	}
+	.content:focus-visible {
+		outline: 2px solid var(--color-focus);
+		outline-offset: -2px;
 	}
 	.sheet[data-side='start'] .content {
 		padding: 0;
