@@ -11,8 +11,9 @@
  * - Finding references: `references` over the index's `ReferenceSite`s of a kind (all files,
  *   all include visits), `dependenciesNaming` for the depends/precedes items that name tasks.
  * - References the edit API cannot fix (`unfixable-reference`): mentions in macro bodies and
- *   opaque statements (`SymbolIndex.mentions`), references in text-only text, and `taskprefix` /
- *   `resourceprefix` uses, except inside ranges the edit removes whole (`ignore`).
+ *   opaque statements (`SymbolIndex.mentions`), references whose token `SymbolIndex.blocking`
+ *   blocks, and `taskprefix` / `resourceprefix` uses, except inside ranges the edit removes whole
+ *   (`ignore`).
  */
 import type {
 	DependencySite,
@@ -108,7 +109,8 @@ export function unfixableReferences(
 	const out: SourceRange[] = [];
 	for (const id of set) for (const m of index.mentions(kind, id)) out.push(m.at);
 	for (const r of references(index, kind, set)) {
-		if (r.textOnly || r.via === 'taskprefix' || r.via === 'resourceprefix') out.push(r.at);
+		const fixed = r.via !== 'taskprefix' && r.via !== 'resourceprefix';
+		if (!fixed || index.blocking(r.at.file, r.at.from, r.at.to)) out.push(r.at);
 	}
 	const seen = new Set<string>();
 	return out.filter((r) => {

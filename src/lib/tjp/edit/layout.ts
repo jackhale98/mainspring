@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * Layout rules for inserted and removed text (phase-1.md 7.2). Every helper returns one `EditOp`
+ * Layout rules for inserted and removed text (phase-1.md 7.2). Every helper returns `EditOp`s
  * (types.ts) in the file's pre-edit coordinates, or a refusal when the tree around the target is
- * not the shape it expects; apply.ts checks the ops and builds the edit.
+ * not the shape it expects; apply.ts checks the ops and builds the edit. Removal and list-item
+ * removal live in remove.ts, line and node primitives in lines.ts; both are re-exported here.
  *
  * - Lines break as TaskJuggler reads them (`universal_newline`, 15.14): `\n`, `\r\n` or a lone
  *   `\r`. Inserted text uses the break of the line it lands next to (else the file's most common
@@ -16,12 +17,14 @@
  *   one, and then above the comment lines attached to it; with no ranked statement, at the end.
  * - Bodies: a header without a body gets ` {`, the statement on its own line and `}` at the
  *   header's indentation; inline (` { stmt }`) when the header shares its line with other text.
- *   In a one-line body the statement is added inline.
- * - Removal (`removeStatement`): the statement's lines go when nothing else is on them; a trailing
- *   comment stays (with the indentation); on a shared line only the statement and the blanks on
- *   one side go. Never adds blank lines.
+ *   A trailing comment stays on the header line: ` {` goes before it, the rest after it. In a
+ *   one-line body the statement is added inline.
+ * - Blank lines are never added here. Copying the previous sibling's blank-line separation for a
+ *   new or moved block (7.2) is the block intents' job (T11b, `blankLineBefore`).
+ * - Macros: the helpers place text by layout only; refuse.ts refuses insertion points next to
+ *   macro calls (whose expansion could join the new text) and edits of macro names.
  * - Lists: items are separated by `, `; an append lands after the last item, so a wrapped list
- *   keeps its continuation indentation; a removal takes one adjacent separator.
+ *   keeps its continuation indentation; removal is in remove.ts.
  * - Values: `replaceValue` keeps the written spelling when it already means the new value
  *   (`keepOrPrint`), which is the `already-set` no-op.
  */
@@ -36,7 +39,6 @@ import {
 	breakLength,
 	fileText,
 	indentUnit,
-	isBlank,
 	isBlankChar,
 	isBreak,
 	lineBreakNear,
@@ -51,6 +53,7 @@ import {
 import { noop, refused, type EditOp, type Noop, type Refused, type Span } from './types';
 
 export * from './lines';
+export * from './remove';
 
 // --- Order -------------------------------------------------------------------------------------
 
@@ -164,7 +167,7 @@ export function insertStatement(
 	stmt: string,
 	place: Placement,
 	opts: InsertOptions = {},
-): EditOp | Refused {
+): EditOp[] | Refused {
 	const text = fileText(file);
 	const unit = indentUnit(file);
 	const node = owner ? statementNode(file, owner) : null;
@@ -172,7 +175,7 @@ export function insertStatement(
 	if (owner && !node) return refused('unknown-target', at);
 	const firstLine = stmt.split('\n')[0] ?? '';
 	const sel = opts.select ?? { from: 0, to: firstLine.length };
-	const op = (pos: number, before: string, body: string, after: string): EditOp => ({
+	const one = (pos: number, before: string, body: string, after: string): EditOp => ({
 		file: file.path,
 		from: pos,
 		to: pos,
@@ -180,18 +183,27 @@ export function insertStatement(
 		element: { from: pos, to: pos },
 		select: { from: before.length + sel.from, to: before.length + sel.to },
 	});
+	const op = (pos: number, before: string, body: string, after: string): EditOp[] => [
+		one(pos, before, body, after),
+	];
 	const eol = lineBreakNear(text, node?.from ?? text.length);
 	if (node && !bodyOf(node)) {
 		const indent = lineIndent(text, node.from);
 		const own = startsLine(text, node.from) && trailingEnd(file, node.to) !== null;
 		if (!own) return op(node.to, ' { ', renderStatement(stmt, indent + unit, unit, eol), ' }');
 		const inner = indent + unit;
-		return op(
-			node.to,
-			` {${eol}${inner}`,
-			renderStatement(stmt, inner, unit, eol),
-			eol + indent + '}',
-		);
+		const rest = renderStatement(stmt, inner, unit, eol);
+		const end = trailingEnd(file, node.to) ?? node.to;
+		if (end === node.to) return op(node.to, ` {${eol}${inner}`, rest, eol + indent + '}');
+		// Keep the header's trailing comment on its line: ` {` before it, the body after it.
+		const brace: EditOp = {
+			file: file.path,
+			from: node.to,
+			to: node.to,
+			insert: ' {',
+			element: { from: node.to, to: node.to },
+		};
+		return [brace, one(lineEnd(text, end), eol + inner, rest, eol + indent + '}')];
 	}
 	const container = node ? bodyOf(node) : file.tree.topNode;
 	if (!container) return refused('unknown-target', at);
@@ -229,39 +241,6 @@ export function insertStatement(
 	}
 	const ends = text.length === 0 || isBreak(text[text.length - 1]);
 	return op(text.length, ends ? '' : eol, body, eol);
-}
-
-// --- Remove ------------------------------------------------------------------------------------
-
-export interface RemoveOptions {
-	/** Comment lines attached above the statement (`DeclSite.leadingComments`), removed with it. */
-	readonly leading?: Span | null;
-}
-
-/** Removes a statement with its line (module comment). */
-export function removeStatement(file: TjpFile, stmt: Span, opts: RemoveOptions = {}): EditOp {
-	const text = fileText(file);
-	const start = opts.leading ? Math.min(opts.leading.from, stmt.from) : stmt.from;
-	const ls = lineStart(text, start);
-	const trail = trailingEnd(file, stmt.to);
-	const op = (from: number, to: number): EditOp => ({
-		file: file.path,
-		from,
-		to,
-		insert: '',
-		element: { from: stmt.from, to: stmt.to },
-	});
-	let next = stmt.to;
-	while (isBlankChar(text[next])) next++;
-	if (trail === null) return op(start, next);
-	if (!isBlank(text.slice(ls, start))) {
-		let prev = start;
-		while (prev > ls && isBlankChar(text[prev - 1])) prev--;
-		return op(prev, stmt.to);
-	}
-	if (next < text.length && !isBreak(text[next])) return op(start, next);
-	const le = lineEnd(text, stmt.to);
-	return op(ls, le + breakLength(text, le));
 }
 
 // --- Replace -----------------------------------------------------------------------------------
@@ -317,28 +296,5 @@ export function appendListItem(
 		insert: `, ${item}`,
 		element: { from: statement.from, to: statement.to },
 		select: { from: 2, to: 2 + item.length },
-	};
-}
-
-/**
- * Removes item `index` of a list with one adjacent separator, or returns null when it is the only
- * item (the caller removes the statement instead).
- */
-export function removeListItem(
-	file: TjpFile,
-	items: readonly Span[],
-	index: number,
-): EditOp | null {
-	const item = items[index];
-	if (!item || items.length < 2) return null;
-	const next = items[index + 1];
-	const prev = items[index - 1];
-	const [from, to] = next ? [item.from, next.from] : [prev?.to ?? item.from, item.to];
-	return {
-		file: file.path,
-		from,
-		to,
-		insert: '',
-		element: { from: item.from, to: item.to },
 	};
 }

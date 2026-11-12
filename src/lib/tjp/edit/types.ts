@@ -3,11 +3,11 @@
  * Types of the edit API (phase-1.md 6.5). Additions to the spec's interface, for T11 and Phase 2:
  *
  * - `LeaveRef` names a leave by its item range (`LeaveSite.items`), which the spec leaves open.
- * - RefusalReason gains `stale` (the index was built from another workspace version than the
- *   snapshot) and `shared-declaration` (the target lies in a file TaskJuggler reads in several
- *   include visits, so one text change edits several engine ids; 15.8). The second can be
- *   confirmed: `EditOptions.confirmShared` lets the same intent through, and the refusal lists
- *   the ids it would change in `affects`.
+ * - RefusalReason gains `stale` (the index was not built from this snapshot) and
+ *   `shared-declaration` (the target lies in a file TaskJuggler reads in several include visits,
+ *   so one text change edits several engine ids; 15.8, 15.15). The refusal lists those ids in
+ *   `affects`. `EditOptions.confirmShared` lets the intent through only when its handler declares
+ *   the change the same in every visit (`IntentHandler.sameInEveryVisit`, apply.ts).
  * - A refusal may carry the blocking text-only reason (`textOnly`).
  * - `TjpEdit` is a `WorkspaceEdit`, so `Workspace.apply` takes it as it is.
  * - `EditOp`: one change an intent asks for, built by layout.ts and checked by apply.ts.

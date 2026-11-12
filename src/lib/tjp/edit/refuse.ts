@@ -3,18 +3,22 @@
  * The refusal pipeline every edit goes through (phase-1.md 5.4, 7.1; 15.8, 15.10). `checkOps`
  * runs, in this order, and the first refusal wins:
  *
- * 1. Freshness: the index must be built from the snapshot (`stale`). Base versions are recorded
- *    in the edit; `Workspace.apply` answers 'stale' when one has moved since.
+ * 1. Freshness: the index must be built from this very snapshot (`SymbolIndex.isFor`: same
+ *    version, entry and file objects), else `stale`. Base versions are recorded in the edit;
+ *    `Workspace.apply` answers 'stale' when one has moved since.
  * 2. For each op: its file exists (`unknown-target`); neither its element (a value, statement,
  *    item, block or insertion point) nor its change range (the element widened by its line,
  *    leading comments or separator) is blocked by a text-only range (`text-only`, or
  *    `syntax-error` for an X6 range); the innermost statement around the element holds no error
  *    node (`syntax-error`; an insertion point counts the statement whose body it is in); and the
- *    op leaves the line break after a macro body's `]` alone (grammar/scanner.ts: it closes the
- *    body), unless it removes the body with it (`text-only`, `macro-body`).
- * 3. Shared text: an op in a file TaskJuggler reads in several include visits (15.8) edits every
- *    declaration that text gives, so it is refused (`shared-declaration`, with the ids in
- *    `affects`) unless the caller confirms with `EditOptions.confirmShared`.
+ *    macro rules of refuse-macro.ts hold (no text joins a macro call's expansion, macro names and
+ *    the line break after a macro body's `]` stay as they are).
+ * 3. Shared text (15.8, 15.15): an op in a file TaskJuggler reads in several include visits edits
+ *    every declaration that text gives. Only intents whose change means the same in every visit
+ *    (`sameInEveryVisit`: value rewrites, name strings) may go through, and only when the caller
+ *    confirms with `EditOptions.confirmShared`; all others are refused (`shared-declaration`).
+ *    `affects` lists the ids of every visit: those of the enclosing declarations, or, for text at
+ *    the top level of the file, every id the file declares.
  *
  * Helpers for intents: `validValue` (parse and check a keyword's value text against the project
  * context at the target) and `checkSafeText` (names and other inserted strings).
@@ -23,7 +27,8 @@ import type { SyntaxNode } from '@lezer/common';
 import type { TjpFile } from '../document';
 import { isStatement } from '../tree';
 import { KEYWORD_VALUE_KIND, checkValue, parseValue, type TypedValue } from '../values';
-import { breakLength, fileText } from './lines';
+export { checkMacroAdjacency, checkMacroBreaks, nextSignificant } from './refuse-macro';
+import { checkMacroAdjacency, checkMacroBreaks } from './refuse-macro';
 import {
 	refused,
 	type EditContext,
@@ -42,9 +47,9 @@ export function opTarget(op: EditOp): Span {
 	return { from: Math.min(op.element.from, op.from), to: Math.max(op.element.to, op.to) };
 }
 
-/** `stale` when the index was built from another workspace version than the snapshot. */
+/** `stale` when the index was not built from this snapshot. */
 export function checkFresh(ctx: EditContext): Refused | null {
-	return ctx.index.version === ctx.ws.version ? null : refused('stale');
+	return ctx.index.version === ctx.ws.version && ctx.index.isFor(ctx.ws) ? null : refused('stale');
 }
 
 /** The text-only range that blocks editing `span` in `file`, as a refusal. */
@@ -104,31 +109,6 @@ export function checkStatementErrors(file: TjpFile, span: Span): Refused | null 
 	return err ? refused('syntax-error', [range(file.path, err)]) : null;
 }
 
-/**
- * Refuses an op that touches the line break closing a macro body: text inserted between the `]`
- * and its break, or the break removed or replaced, unless the op removes the whole body with it.
- */
-export function checkMacroBreaks(file: TjpFile, op: EditOp): Refused | null {
-	const text = fileText(file);
-	let bad: SyntaxNode | null = null;
-	file.tree.iterate({
-		from: Math.max(0, op.from - 1),
-		to: Math.min(text.length, op.to + 1),
-		enter(ref) {
-			if (bad || ref.name !== 'MacroBody') return;
-			const p = ref.to;
-			const n = breakLength(text, p);
-			if (n === 0) return;
-			const clear = op.to < p || op.from >= p + n || (op.to === p && op.from < p);
-			const whole = op.from <= ref.from && op.to >= p + n;
-			if (!clear && !whole) bad = ref.node;
-		},
-	});
-	if (!bad) return null;
-	const at = range(file.path, bad);
-	return refused('text-only', [at], { textOnly: 'macro-body' });
-}
-
 /** The checks of step 2 for one op. */
 export function checkOp(ctx: EditContext, op: EditOp): Refused | null {
 	const file = ctx.ws.files.get(op.file);
@@ -142,7 +122,8 @@ export function checkOp(ctx: EditContext, op: EditOp): Refused | null {
 			? null
 			: checkTextOnly(ctx, op.file, op)) ??
 		checkStatementErrors(file, op.element) ??
-		checkMacroBreaks(file, op)
+		checkMacroBreaks(file, op) ??
+		checkMacroAdjacency(ctx, file, op)
 	);
 }
 
@@ -156,38 +137,49 @@ function visitCounts(ctx: EditContext): Map<WorkspacePath, number> {
 const within = (outer: SourceRange, file: WorkspacePath, s: Span): boolean =>
 	outer.file === file && outer.from <= s.from && s.to <= outer.to;
 
-/** Step 3: `shared-declaration` for ops in files read in several visits, unless confirmed. */
-export function checkShared(ctx: EditContext, ops: readonly EditOp[]): Refused | null {
-	if (ctx.opts.confirmShared) return null;
+/** Step 3 (module comment): `shared-declaration` unless confirmed and the same in every visit. */
+export function checkShared(
+	ctx: EditContext,
+	ops: readonly EditOp[],
+	sameInEveryVisit = false,
+): Refused | null {
+	if (ctx.opts.confirmShared && sameInEveryVisit) return null;
 	const counts = visitCounts(ctx);
 	const at: SourceRange[] = [];
 	const affects = new Set<string>();
+	const syms = [...ctx.index.tasks.values(), ...ctx.index.resources.values()];
 	for (const op of ops) {
 		if ((counts.get(op.file) ?? 0) < 2) continue;
 		const t = opTarget(op);
 		at.push(range(op.file, t));
-		for (const map of [ctx.index.tasks, ctx.index.resources]) {
-			for (const sym of map.values()) {
-				const blocks = [sym.decl.block, ...sym.supplements.map((s) => s.block)];
-				if (!blocks.some((b) => within(b, op.file, t))) continue;
-				affects.add(sym.id);
-				for (const id of sym.sharedWith) affects.add(id);
-			}
+		let enclosed = false;
+		for (const sym of syms) {
+			const blocks = [sym.decl.block, ...sym.supplements.map((s) => s.block)];
+			if (!blocks.some((b) => within(b, op.file, t))) continue;
+			enclosed = true;
+			affects.add(sym.id);
+			for (const id of sym.sharedWith) affects.add(id);
 		}
+		if (enclosed) continue;
+		for (const sym of syms) if (sym.decl.block.file === op.file) affects.add(sym.id);
 	}
 	if (at.length === 0) return null;
 	return refused('shared-declaration', at, { affects: [...affects] });
 }
 
 /** The whole pipeline (module comment) over an intent's ops. */
-export function checkOps(ctx: EditContext, ops: readonly EditOp[]): Refused | null {
+export function checkOps(
+	ctx: EditContext,
+	ops: readonly EditOp[],
+	sameInEveryVisit = false,
+): Refused | null {
 	const fresh = checkFresh(ctx);
 	if (fresh) return fresh;
 	for (const op of ops) {
 		const r = checkOp(ctx, op);
 		if (r) return r;
 	}
-	return checkShared(ctx, ops);
+	return checkShared(ctx, ops, sameInEveryVisit);
 }
 
 /** `unsafe-text` for inserted strings that would expand macros or break lines (7.1 renameTask). */

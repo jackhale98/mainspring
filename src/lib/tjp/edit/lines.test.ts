@@ -10,6 +10,7 @@ import {
 	lineEnd,
 	lineIndent,
 	lineStart,
+	quoteAfter,
 	renderStatement,
 	startsLine,
 	statementNode,
@@ -41,6 +42,20 @@ describe('lines as TaskJuggler reads them', () => {
 		expect(lineBreakNear(t, 7)).toBe('\n');
 		expect(lineBreakNear(t, t.length)).toBe('\n');
 		expect(lineBreakNear('a\r\nb', 4)).toBe('\r\n');
+	});
+
+	it('tracks quotes across lines', () => {
+		expect(quoteAfter('note "a', null)).toBe('"');
+		expect(quoteAfter('b \\" c', '"')).toBe('"');
+		expect(quoteAfter('b"', '"')).toBeNull();
+		expect(quoteAfter("x # 'not a string", null)).toBeNull();
+		expect(quoteAfter("note 'it''", null)).toBe("'");
+	});
+
+	it('leaves lines that start inside strings alone', () => {
+		expect(renderStatement('note "a\n\tb"\n\tx 1', '  ', '    ', '\r\n')).toBe(
+			'note "a\n\tb"\r\n      x 1',
+		);
 	});
 
 	it('renders statement text with the unit, indentation and break', () => {

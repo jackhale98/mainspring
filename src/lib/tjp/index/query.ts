@@ -113,6 +113,15 @@ export class IndexImpl implements SymbolIndex {
 		return this.#ctx.at(v ?? -1, pos);
 	}
 
+	isFor(ws: WorkspaceSnapshot): boolean {
+		const own = this.#ws;
+		if (ws === own) return true;
+		if (ws.version !== own.version || ws.entry !== own.entry) return false;
+		if (ws.files.size !== own.files.size) return false;
+		for (const [path, file] of ws.files) if (own.files.get(path) !== file) return false;
+		return true;
+	}
+
 	mentions(kind: PropertyKind, id: string): readonly TextOnly[] {
 		return findMentions(this.#ws, this.#facts.values(), kind, id);
 	}

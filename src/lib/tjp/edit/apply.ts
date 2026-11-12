@@ -15,13 +15,18 @@
  *
  * Every file's ChangeSet shares one edit id; `Workspace.apply` dispatches one transaction per
  * file with `tjpEditId.of(id)` and `userEvent` `input.tjp.<type>`, all or nothing ('stale' when a
- * base version moved). Phase 2 groups them into one undo step with `undoEdit`.
+ * base version moved). `applyEdit` does that and records the file versions the apply produced;
+ * `undoEdit` builds the inverse edit only while those versions are still current (Phase 2 groups
+ * the per-file transactions into one undo step).
+ *
+ * A handler declares whether its change means the same in every include visit of a shared file
+ * (`sameInEveryVisit`, 15.15): only then can `EditOptions.confirmShared` let it through.
  *
  * `formatFile(ws, file)` wraps format.ts (7.3); it skips the text-only checks (format re-indents
  * opaque and auto-id blocks on purpose, 15.13) and refuses only `syntax-error`.
  */
 import type { ChangeSet } from '@codemirror/state';
-import type { WorkspaceSnapshot } from '../../workspace/workspace';
+import { tjpEditId, type Workspace, type WorkspaceSnapshot } from '../../workspace/workspace';
 import { changeSetOf, updateFile } from '../document';
 import { formatFile as formatChanges, type FormatOptions } from '../format';
 import type { SymbolIndex } from '../index';
@@ -45,10 +50,22 @@ import {
 	type WorkspacePath,
 } from './types';
 
-export type IntentHandler<K extends IntentType> = (
-	ctx: EditContext,
-	intent: IntentOf<K>,
-) => IntentPlan;
+export interface IntentHandler<K extends IntentType> {
+	/** The ops of the intent, built with the layout helpers, or a refusal or no-op. */
+	readonly plan: (ctx: EditContext, intent: IntentOf<K>) => IntentPlan;
+	/**
+	 * True when the text change means the same in every include visit of a file read several times
+	 * (a value rewrite, a name string), so a confirmed `shared-declaration` may go through. Structural
+	 * changes (blocks, references, list lines, new ids) leave it false: they are always refused there.
+	 */
+	readonly sameInEveryVisit?: boolean | ((intent: IntentOf<K>) => boolean);
+}
+
+/** A handler with its intent type erased, as `applyIntent` calls it. */
+interface AnyHandler {
+	readonly plan: (ctx: EditContext, intent: EditIntent) => IntentPlan;
+	readonly sameInEveryVisit?: boolean | ((intent: EditIntent) => boolean);
+}
 export type IntentHandlers = { readonly [K in Exclude<IntentType, 'format'>]?: IntentHandler<K> };
 
 /** One handler per intent type; T11a to T11d add theirs. `format` goes through `formatFile`. */
@@ -72,17 +89,26 @@ export function applyIntent(
 	handlers: IntentHandlers = HANDLERS,
 ): EditResult {
 	if (intent.type === 'format') return formatFile(ws, intent.file, opts);
-	const handler = handlers[intent.type] as
-		((ctx: EditContext, i: EditIntent) => IntentPlan) | undefined;
+	const handler = handlers[intent.type] as AnyHandler | undefined;
 	if (!handler) throw new Error(`no edit handler for intent ${intent.type}`);
 	const ctx: EditContext = { ws, index, opts };
-	return finishPlan(ctx, intent, handler(ctx, intent));
+	const same = handler.sameInEveryVisit;
+	const sameEverywhere = typeof same === 'function' ? same(intent) : (same ?? false);
+	return finishPlan(ctx, intent, handler.plan(ctx, intent), sameEverywhere);
 }
 
-/** The refusal pipeline and `buildEdit` over a handler's plan. */
-export function finishPlan(ctx: EditContext, intent: EditIntent, plan: IntentPlan): EditResult {
+/**
+ * The refusal pipeline and `buildEdit` over a handler's plan; `sameInEveryVisit` as the handler
+ * declares it.
+ */
+export function finishPlan(
+	ctx: EditContext,
+	intent: EditIntent,
+	plan: IntentPlan,
+	sameInEveryVisit = false,
+): EditResult {
 	if (isRefused(plan) || isNoop(plan)) return plan;
-	const r = checkOps(ctx, plan);
+	const r = checkOps(ctx, plan, sameInEveryVisit);
 	return r ?? buildEdit(ctx.ws, intent, plan, ctx.opts);
 }
 
@@ -213,21 +239,53 @@ export function formatFile(
 	return buildEdit(ws, { type: 'format', file }, ops, { ...opts, checkParse: false });
 }
 
+/** An edit `applyEdit` applied, with the version of each changed file right after it. */
+export interface AppliedEdit {
+	readonly edit: TjpEdit;
+	readonly versions: Readonly<Record<WorkspacePath, number>>;
+}
+
 /**
- * The edit that undoes `edit` on `after`, the snapshot right after `Workspace.apply(edit)`: its
- * changes are `edit.inverse`, its targets their ranges. Null when a changed file is missing or no
- * longer has the edited length (something else changed it).
+ * `Workspace.apply`, recording the file versions the apply produced (from the snapshot the
+ * workspace announces with this edit's transactions, so listeners that edit in turn do not count).
+ */
+export function applyEdit(workspace: Workspace, edit: TjpEdit): AppliedEdit | 'stale' {
+	let versions: Record<WorkspacePath, number> | null = null;
+	const off = workspace.subscribe((snap, _origin, info) => {
+		if (versions || !info.transactions.some((t) => t.annotation(tjpEditId) === edit.id)) return;
+		const v: Record<WorkspacePath, number> = {};
+		for (const path of Object.keys(edit.changes)) v[path] = snap.files.get(path)?.version ?? -1;
+		versions = v;
+	});
+	let r: 'applied' | 'stale';
+	try {
+		r = workspace.apply(edit);
+	} finally {
+		off();
+	}
+	if (r === 'stale') return 'stale';
+	return { edit, versions: versions ?? { ...edit.base } };
+}
+
+/**
+ * The edit that undoes an applied edit on `now`: its changes are `edit.inverse`, its targets their
+ * ranges. Null unless every changed file still has exactly the version the apply produced (any
+ * later change, even one of the same length, makes the inverse wrong).
  */
 export function undoEdit(
-	edit: TjpEdit,
-	after: WorkspaceSnapshot,
+	applied: AppliedEdit,
+	now: WorkspaceSnapshot,
 	opts: EditOptions = {},
 ): TjpEdit | null {
+	const { edit, versions } = applied;
 	const base: Record<WorkspacePath, number> = {};
 	const targets: Record<WorkspacePath, SourceRange[]> = {};
 	for (const [path, inv] of Object.entries(edit.inverse)) {
-		const f = after.files.get(path);
-		if (!f || f.text.length !== inv.length) return null;
+		const f = now.files.get(path);
+		const v = versions[path];
+		const b = edit.base[path];
+		if (!f || v === undefined || b === undefined || v <= b) return null;
+		if (f.version !== v || f.text.length !== inv.length) return null;
 		base[path] = f.version;
 		const list: SourceRange[] = [];
 		inv.iterChangedRanges((fromA, toA) => list.push(sourceRange(path, fromA, toA)));

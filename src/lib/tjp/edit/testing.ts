@@ -9,7 +9,7 @@ import type { TjpFile } from '../document';
 import { buildIndex, type SymbolIndex } from '../index';
 import { statementAt } from '../tree';
 import { fileText } from './lines';
-import type { EditContext, EditOptions, EditResult, Span } from './types';
+import type { EditContext, EditOp, EditOptions, EditResult, Noop, Refused, Span } from './types';
 
 export interface Setup {
 	readonly workspace: Workspace;
@@ -77,4 +77,12 @@ export function textsAfter(snap: WorkspaceSnapshot, r: EditResult): Record<strin
 		out[path] = cs ? cs.apply(file.text).toString() : file.text.toString();
 	}
 	return out;
+}
+
+/** The ops of a layout helper; throws on a refusal or no-op. */
+export function ops(x: readonly EditOp[] | EditOp | Refused | Noop): EditOp[] {
+	if (Array.isArray(x)) return [...(x as readonly EditOp[])];
+	const one = x as EditOp | Refused | Noop;
+	if ('status' in one) throw new Error(`expected ops, got ${JSON.stringify(one)}`);
+	return [one];
 }

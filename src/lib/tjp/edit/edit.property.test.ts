@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Edit core properties over the corpora (phase-1.md 9.3 P1, P2, P5, P6, text only): random ops
-// built from the layout helpers on golden plans and T16 fixtures, run through the refusal
-// pipeline and buildEdit. For every edit: (a) every changed range lies inside a target region
-// computed here, independently of the helpers, from the pre-edit index; (b) the inverse restores
-// the base text byte for byte; (c) the new text, parsed from scratch, has no more error nodes
-// than the old. Ops whose element is text-only are always refused, and refusals change nothing.
+// built from the layout helpers on golden plans and T16 fixtures (CRLF, lone CR, tabs, CRLF macro
+// bodies), run through the refusal pipeline and buildEdit, alone and several at once across files.
+// For every edit, checked with the oracles of oracle.ts, not the helpers:
+// - locality: every changed range lies in a region computed from the pre-edit index (a statement's
+//   lines, a block with its leading comments, a value); an insertion is pure, lands in its block
+//   and puts the statement where 7.2 orders it; an append adds exactly `, id` after the last item;
+//   a list removal leaves exactly the other items;
+// - no change touches or joins a macro node (P5), and ops on text-only elements are refused;
+// - the inverse restores the base byte for byte; a fresh parse has no new error nodes.
 import fs from 'node:fs';
 import path from 'node:path';
 import fc from 'fast-check';
@@ -13,17 +17,26 @@ import { CORPORA, ROOT, readTjp } from '../../../../tests/grammar/corpus';
 import { createWorkspace, type WorkspaceSnapshot } from '../../workspace/workspace';
 import { createFile, syntaxIssues, type TjpFile } from '../document';
 import { buildIndex, type SymbolIndex } from '../index';
-import { parseValue, type TypedValue } from '../values';
+import { statementsIn } from '../tree';
+import { parseValue } from '../values';
 import { finishPlan } from './apply';
 import {
 	appendListItem,
 	insertStatement,
-	removeListItem,
+	removeListItems,
 	removeStatement,
 	replaceValue,
 	type OrderScope,
 } from './layout';
-import type { EditContext, EditOp, IntentPlan, Span } from './types';
+import { inOrder, lineRegion, listItems, touchedMacro } from './oracle';
+import {
+	isNoop,
+	isRefused,
+	type EditContext,
+	type EditOp,
+	type IntentPlan,
+	type Span,
+} from './types';
 
 interface Corpus {
 	readonly name: string;
@@ -61,30 +74,29 @@ function corpora(): Corpus[] {
 }
 
 const CORPUS = corpora();
+/** Corpora with several files, so multi-op cases span files. */
+const MULTI_FILE = CORPUS.map((c, i) => (c.snap.files.size > 1 ? i : -1)).filter((i) => i >= 0);
 
-type Kind = 'remove' | 'insert' | 'replace' | 'append' | 'removeItem';
-const KINDS: readonly Kind[] = ['remove', 'insert', 'replace', 'append', 'removeItem'];
+type Kind = 'remove' | 'removeBlock' | 'insert' | 'replace' | 'append' | 'removeItems';
+const KINDS: readonly Kind[] = [
+	'remove',
+	'removeBlock',
+	'insert',
+	'replace',
+	'append',
+	'removeItems',
+];
 
-/** One generated case: the op (or a plan from the helper) and its oracle target region. */
+/** Checks that hold only for the op alone, on the new text of its file. */
+type Extra = (newText: string, newTree: TjpFile['tree'], cs: Changes) => void;
+type Changes = Array<{ fromA: number; toA: number; inserted: string }>;
+
+/** One case: a plan, its file, the oracle region every change must lie in, and extra checks. */
 interface Case {
 	readonly plan: IntentPlan;
 	readonly file: string;
 	readonly region: Span;
-	/** For insertions: the statement text the inserted text must hold. */
-	readonly inserted?: string;
-}
-
-// --- Oracle helpers, written independently of lines.ts ------------------------------------------
-
-/** From the start of `from`'s line through the break after `to`'s line. */
-function lineRegion(text: string, from: number, to: number): Span {
-	let a = from;
-	while (a > 0 && text[a - 1] !== '\n' && text[a - 1] !== '\r') a--;
-	let b = to;
-	while (b < text.length && text[b] !== '\n' && text[b] !== '\r') b++;
-	if (text.startsWith('\r\n', b)) b += 2;
-	else if (b < text.length) b++;
-	return { from: a, to: b };
+	readonly extra?: Extra;
 }
 
 const NEW_VALUES: Readonly<Record<string, string>> = {
@@ -116,60 +128,91 @@ function fileOf(c: Corpus, p: string): TjpFile {
 	return f;
 }
 
+const plan = (x: readonly EditOp[] | EditOp | IntentPlan): IntentPlan =>
+	Array.isArray(x) ? x : isRefused(x) || isNoop(x) ? x : [x as EditOp];
+
 /** The candidate cases of one kind in one corpus workspace. */
-function candidates(c: Corpus, kind: Kind): Array<() => Case> {
+function candidates(c: Corpus, kind: Kind, pick: number): Array<() => Case> {
 	const out: Array<() => Case> = [];
-	const syms = [...c.index.tasks.values(), ...c.index.resources.values()];
 	const text = (p: string): string => fileOf(c, p).text.toString();
+	const syms = [...c.index.tasks.values(), ...c.index.resources.values()];
 	if (kind === 'remove' || kind === 'replace') {
-		for (const s of syms) {
-			for (const a of s.attrs) {
-				const f = fileOf(c, a.statement.file);
-				if (kind === 'remove') {
-					out.push(() => ({
-						plan: [removeStatement(f, a.statement)],
-						file: f.path,
-						region: lineRegion(text(f.path), a.statement.from, a.statement.to),
-					}));
-					continue;
-				}
-				const kindName = a.parsed?.kind;
-				const next = kindName && NEW_VALUES[kindName];
-				if (!a.value || !next || !kindName) continue;
-				const v = parseValue(kindName, next);
-				if (!v.ok) continue;
-				const value = a.value;
+		for (const a of syms.flatMap((s) => s.attrs)) {
+			const f = fileOf(c, a.statement.file);
+			if (kind === 'remove') {
 				out.push(() => ({
-					plan: planOf(replaceValue(f, value, v.value as TypedValue)),
+					plan: [removeStatement(f, a.statement)],
 					file: f.path,
-					region: value,
+					region: lineRegion(text(f.path), a.statement.from, a.statement.to),
 				}));
+				continue;
 			}
+			const k = a.parsed?.kind;
+			const next = k && NEW_VALUES[k];
+			const v = k && next ? parseValue(k, next) : null;
+			const value = a.value;
+			if (!v?.ok || !value) continue;
+			out.push(() => ({
+				plan: plan(replaceValue(f, value, v.value)),
+				file: f.path,
+				region: value,
+			}));
+		}
+	}
+	if (kind === 'removeBlock') {
+		for (const s of syms) {
+			const f = fileOf(c, s.decl.block.file);
+			const lead = s.decl.leadingComments;
+			const from = lead ? lead.from : s.decl.block.from;
+			out.push(() => ({
+				plan: [removeStatement(f, s.decl.block, { leading: lead })],
+				file: f.path,
+				region: lineRegion(text(f.path), from, s.decl.block.to),
+			}));
 		}
 	}
 	if (kind === 'insert') {
 		const owners: Array<[OrderScope, Span & { file: string }]> = [
-			...[...c.index.tasks.values()].map(
-				(t) => ['task', t.decl.block] as [OrderScope, typeof t.decl.block],
-			),
-			...[...c.index.resources.values()].map(
-				(r) => ['resource', r.decl.block] as [OrderScope, typeof r.decl.block],
-			),
+			...[...c.index.tasks.values()].map((t): [OrderScope, typeof t.decl.block] => [
+				'task',
+				t.decl.block,
+			]),
+			...[...c.index.resources.values()].map((r): [OrderScope, typeof r.decl.block] => [
+				'resource',
+				r.decl.block,
+			]),
 		];
 		if (c.index.project) owners.push(['project', c.index.project.decl.block]);
 		for (const [scope, block] of owners) {
 			const f = fileOf(c, block.file);
 			for (const [keyword, stmt] of INSERTS[scope]) {
+				const first = stmt.split('\n')[0] ?? '';
 				out.push(() => ({
-					plan: planOf(insertStatement(f, block, stmt, { scope, keyword })),
+					plan: plan(insertStatement(f, block, stmt, { scope, keyword })),
 					file: f.path,
-					region: { from: block.from, to: block.to },
-					inserted: stmt,
+					// The block, through a trailing comment on its last line (the body goes after it).
+					region: { from: block.from, to: lineRegion(text(f.path), block.from, block.to).to },
+					extra: (newText, newTree, cs) => {
+						expect(cs.every((x) => x.fromA === x.toA)).toBe(true);
+						const host = cs.find((x) => x.inserted.includes(first));
+						expect(host, 'the statement is inserted').toBeDefined();
+						if (!host) return;
+						const before = cs.filter((x) => x.fromA < host.fromA);
+						const shift = before.reduce((n, x) => n + x.inserted.length, 0);
+						const at = host.fromA + shift + host.inserted.indexOf(first);
+						let n = newTree.resolveInner(at, 1);
+						while (n.parent && !(n.from === at && n.name.endsWith('Statement'))) n = n.parent;
+						expect(n.from).toBe(at);
+						const body = n.parent;
+						expect(body?.name).toBe('Body');
+						expect(body?.parent?.from, 'inserted into its owner').toBe(block.from);
+						if (body) expect(inOrder(scope, n, statementsIn(body), newText)).toBe(true);
+					},
 				}));
 			}
 		}
 	}
-	if (kind === 'append' || kind === 'removeItem') {
+	if (kind === 'append' || kind === 'removeItems') {
 		const lists = new Map<string, { file: string; statement: Span; items: Span[] }>();
 		for (const d of [...c.index.dependencies, ...c.index.allocations]) {
 			const key = `${d.statement.file}:${d.statement.from}`;
@@ -182,123 +225,167 @@ function candidates(c: Corpus, kind: Kind): Array<() => Case> {
 			const items = [...l.items].sort((x, y) => x.from - y.from);
 			const last = items[items.length - 1];
 			if (!last) continue;
+			const region = { from: l.statement.from, to: l.statement.to };
 			if (kind === 'append') {
 				out.push(() => ({
-					plan: planOf(appendListItem(f, l.statement, items, 'prop_id')),
+					plan: plan(appendListItem(f, l.statement, items, 'prop_id')),
 					file: f.path,
 					region: { from: last.to, to: last.to },
-					inserted: ', prop_id',
+					extra: (_t, _tree, cs) =>
+						expect(cs).toEqual([{ fromA: last.to, toA: last.to, inserted: ', prop_id' }]),
 				}));
 				continue;
 			}
-			items.forEach((item, i) => {
-				const op = removeListItem(f, items, i);
-				if (!op) return;
-				const prev = items[i - 1];
-				const next = items[i + 1];
-				out.push(() => ({
-					plan: [op],
-					file: f.path,
-					region: {
-						from: next ? item.from : (prev?.to ?? item.from),
-						to: next ? next.from : item.to,
-					},
-				}));
-			});
+			if (items.length < 2) continue;
+			// A random proper subset of the items, from `pick`.
+			const gone = items.map((_, i) => i).filter((i) => ((pick >> i) & 1) === 1);
+			if (gone.length === 0 || gone.length === items.length) continue;
+			const old = text(f.path);
+			const kept = items.filter((_, i) => !gone.includes(i)).map((s) => old.slice(s.from, s.to));
+			const r = removeListItems(f, items, gone);
+			if (!r) continue;
+			out.push(() => ({
+				plan: r,
+				file: f.path,
+				region,
+				extra: (newText, newTree) =>
+					expect(listItems(newTree, newText, l.statement.from)).toEqual(kept),
+			}));
 		}
 	}
 	return out;
 }
 
-function planOf(x: EditOp | IntentPlan): IntentPlan {
-	return 'status' in x ? x : 'file' in x ? [x as EditOp] : x;
+const INTENT = { type: 'declareFlag', flag: 'property' } as const;
+const overlaps = (a: Span, b: Span): boolean => a.from <= b.to && b.from <= a.to;
+
+/** Runs one or several cases together and checks the properties (module comment). */
+function check(
+	c: Corpus,
+	cases: readonly Case[],
+	counts: Map<string, number>,
+	label: string,
+): void {
+	const ops = cases.flatMap((k) => (Array.isArray(k.plan) ? (k.plan as EditOp[]) : []));
+	const solo = cases.length === 1 ? cases[0] : undefined;
+	const ctx: EditContext = { ws: c.snap, index: c.index, opts: {} };
+	const r = solo ? finishPlan(ctx, INTENT, solo.plan) : finishPlan(ctx, INTENT, ops);
+	counts.set(`${label}:${r.status}`, (counts.get(`${label}:${r.status}`) ?? 0) + 1);
+	for (const op of ops) {
+		if (c.index.blocking(op.file, op.element.from, op.element.to)) {
+			expect(r.status, `${c.name} ${label} text-only element`).toBe('refused');
+		}
+	}
+	if (r.status !== 'edit') return;
+	const e = r.edit;
+	for (const [p, cs] of Object.entries(e.changes)) {
+		const file = fileOf(c, p);
+		const inv = e.inverse[p];
+		if (!inv) throw new Error('missing inverse');
+		const regions = cases.filter((k) => k.file === p).map((k) => k.region);
+		const list: Changes = [];
+		cs.iterChanges((fromA, toA, _fromB, _toB, ins) => {
+			list.push({ fromA, toA, inserted: ins.toString() });
+			const inside = regions.some((g) => g.from <= fromA && toA <= g.to);
+			expect(inside, `${c.name} ${label}: change ${fromA}-${toA} outside its region`).toBe(true);
+		});
+		const base = file.text.toString();
+		const after = cs.apply(file.text);
+		expect(inv.apply(after).toString()).toBe(base);
+		const fresh = createFile(file.path, after.toString(), file.top);
+		const errors = syntaxIssues(fresh.tree, fresh.text).length;
+		expect(errors, `${c.name} ${label}`).toBeLessThanOrEqual(
+			syntaxIssues(file.tree, file.text).length,
+		);
+		expect(touchedMacro(file.tree, base, fresh.tree, cs), `${c.name} ${label}`).toBeNull();
+		if (base.includes('\r\n') && !/(^|[^\r])\n/.test(base)) {
+			for (const x of list) expect(x.inserted).not.toMatch(/(^|[^\r])\n/);
+		}
+		if (solo?.extra) solo.extra(after.toString(), fresh.tree, list);
+	}
 }
 
 const cache = new Map<string, Array<() => Case>>();
-function cases(ci: number, kind: Kind): Array<() => Case> {
-	const key = `${ci}:${kind}`;
+function cases(ci: number, kind: Kind, pick: number): Array<() => Case> {
+	const key = `${ci}:${kind}:${kind === 'removeItems' ? pick % 64 : 0}`;
 	let list = cache.get(key);
 	if (!list) {
 		const c = CORPUS[ci];
-		list = c ? candidates(c, kind) : [];
+		list = c ? candidates(c, kind, pick % 64) : [];
 		cache.set(key, list);
 	}
 	return list;
 }
 
-const INTENT = { type: 'declareFlag', flag: 'property' } as const;
-
 describe('edit core properties on corpus files', () => {
-	it('loads the corpora', () => {
+	it('loads corpora with CRLF and lone-CR macro bodies', () => {
 		expect(CORPUS.length).toBeGreaterThan(40);
+		const bodies = CORPUS.flatMap((c) =>
+			[...c.snap.files.values()].map((f) => {
+				const t = f.text.toString();
+				const ends: string[] = [];
+				f.tree.iterate({
+					enter(n) {
+						if (n.name === 'MacroBody') ends.push(t.slice(n.to, n.to + 2));
+					},
+				});
+				return ends;
+			}),
+		).flat();
+		expect(bodies).toContain('\r\n');
 	});
 
-	it('changes only targets, inverts exactly and adds no error nodes', () => {
-		const counts = new Map<string, number>();
-		const bump = (k: string): void => void counts.set(k, (counts.get(k) ?? 0) + 1);
+	const counts = new Map<string, number>();
+	const caseArb = fc.record({
+		ci: fc.nat(CORPUS.length - 1),
+		kind: fc.constantFrom(...KINDS),
+		pick: fc.nat(),
+	});
+
+	it('single ops change only targets, invert exactly and add no error nodes', () => {
 		fc.assert(
-			fc.property(
-				fc.nat(CORPUS.length - 1),
-				fc.constantFrom(...KINDS),
-				fc.nat(),
-				(ci, kind, pick) => {
-					const list = cases(ci, kind);
-					if (list.length === 0) return;
-					const make = list[pick % list.length];
-					const c = CORPUS[ci];
-					if (!make || !c) return;
-					const k = make();
-					const ctx: EditContext = { ws: c.snap, index: c.index, opts: {} };
-					const r = finishPlan(ctx, INTENT, k.plan);
-					bump(`${kind}:${r.status}`);
-					if (Array.isArray(k.plan)) {
-						for (const op of k.plan as EditOp[]) {
-							const blocked = c.index.blocking(op.file, op.element.from, op.element.to);
-							if (blocked) expect(r.status, `${c.name} ${kind}`).toBe('refused');
-						}
-					}
-					if (r.status !== 'edit') return;
-					const e = r.edit;
-					expect(Object.keys(e.changes)).toEqual([k.file]);
-					const file = fileOf(c, k.file);
-					const cs = e.changes[k.file];
-					const inv = e.inverse[k.file];
-					if (!cs || !inv) throw new Error('missing change set');
-					// (a) locality against the oracle region.
-					cs.iterChanges((fromA, toA, fromB, toB, ins) => {
-						expect(fromA, `${c.name} ${kind}`).toBeGreaterThanOrEqual(k.region.from);
-						expect(toA, `${c.name} ${kind}`).toBeLessThanOrEqual(k.region.to);
-						if (k.inserted !== undefined) {
-							const added = ins.toString();
-							expect(toA).toBe(fromA);
-							expect(added).toContain(k.inserted.split('\n')[0] ?? '');
-							const rest = added.replace(k.inserted.split('\n')[0] ?? '', '');
-							expect(rest).toMatch(/^[\s{}a-zA-Z_0-9."]*$/);
-						}
-						// CRLF files stay CRLF: no bare line feed is added to a file without one.
-						const base = file.text.toString();
-						if (base.includes('\r\n') && !/(^|[^\r])\n/.test(base)) {
-							expect(ins.toString()).not.toMatch(/(^|[^\r])\n/);
-						}
-						void fromB;
-						void toB;
-					});
-					// (b) the inverse restores the base byte for byte.
-					const after = cs.apply(file.text);
-					expect(inv.apply(after).toString()).toBe(file.text.toString());
-					// (c) a fresh parse has no new error nodes.
-					const fresh = createFile(file.path, after.toString(), file.top);
-					const before = syntaxIssues(file.tree, file.text).length;
-					expect(
-						syntaxIssues(fresh.tree, fresh.text).length,
-						`${c.name} ${kind}`,
-					).toBeLessThanOrEqual(before);
-				},
-			),
+			fc.property(caseArb, ({ ci, kind, pick }) => {
+				const list = cases(ci, kind, pick);
+				const make = list[pick % Math.max(1, list.length)];
+				const c = CORPUS[ci];
+				if (make && c) check(c, [make()], counts, kind);
+			}),
 			{ numRuns: 600 },
 		);
 		for (const kind of KINDS) {
 			expect(counts.get(`${kind}:edit`) ?? 0, `${kind} edits`).toBeGreaterThanOrEqual(5);
 		}
+	});
+
+	it('several ops at once, across files, keep the same properties', () => {
+		let multiFile = 0;
+		fc.assert(
+			fc.property(
+				fc.oneof(fc.nat(CORPUS.length - 1), fc.constantFrom(...MULTI_FILE)),
+				fc.array(fc.record({ kind: fc.constantFrom(...KINDS), pick: fc.nat() }), {
+					minLength: 2,
+					maxLength: 4,
+				}),
+				(ci, picks) => {
+					const c = CORPUS[ci];
+					if (!c) return;
+					const chosen: Case[] = [];
+					for (const { kind, pick } of picks) {
+						const list = cases(ci, kind, pick);
+						const k = list[pick % Math.max(1, list.length)]?.();
+						if (!k || !Array.isArray(k.plan)) continue;
+						const clash = chosen.some((o) => o.file === k.file && overlaps(o.region, k.region));
+						if (!clash) chosen.push(k);
+					}
+					if (chosen.length < 2) return;
+					if (new Set(chosen.map((k) => k.file)).size > 1) multiFile++;
+					check(c, chosen, counts, 'multi');
+				},
+			),
+			{ numRuns: 300 },
+		);
+		if (process.env['EDIT_PROPERTY_REPORT']) console.info([...counts].sort(), { multiFile });
+		expect(counts.get('multi:edit') ?? 0).toBeGreaterThanOrEqual(5);
+		expect(multiFile).toBeGreaterThan(0);
 	});
 });

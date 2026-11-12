@@ -113,9 +113,31 @@ export function lineBreakNear(text: string, pos: number): LineBreak {
 	return dominantBreak(text);
 }
 
+type Quote = '"' | "'";
+
+/**
+ * The quote still open at the end of `line` when it starts inside `open` (null outside strings).
+ * `\"` and `\'` are the only escapes; `#` and `//` outside strings end the line.
+ */
+export function quoteAfter(line: string, open: Quote | null): Quote | null {
+	let q = open;
+	for (let i = 0; i < line.length; i++) {
+		const c = line[i];
+		if (q) {
+			if (c === '\\' && line[i + 1] === q) i++;
+			else if (c === q) q = null;
+		} else if (c === '"' || c === "'") q = c;
+		else if (c === '#' || (c === '/' && line[i + 1] === '/')) break;
+	}
+	return q;
+}
+
 /**
  * Statement text in the file's layout: `\n` becomes `eol`, each line after the first starts with
- * `indent`, and leading tabs become indent units.
+ * `indent`, and leading tabs become indent units, except for lines that start inside a `"` or `'`
+ * string: those and the break before them stay exactly as given (they are part of the value).
+ * Cut-here strings are re-indented with the rest; TaskJuggler strips their first line's
+ * indentation from every line, so a uniform shift keeps the value.
  */
 export function renderStatement(
 	stmt: string,
@@ -123,14 +145,18 @@ export function renderStatement(
 	unit: string,
 	eol: LineBreak,
 ): string {
-	return stmt
-		.split('\n')
-		.map((line, i) => {
+	let out = '';
+	let quote: Quote | null = null;
+	stmt.split('\n').forEach((line, i) => {
+		if (quote) out += '\n' + line;
+		else {
 			let n = 0;
 			while (line[n] === '\t') n++;
-			return (i === 0 ? '' : indent) + unit.repeat(n) + line.slice(n);
-		})
-		.join(eol);
+			out += (i === 0 ? '' : eol + indent) + unit.repeat(n) + line.slice(n);
+		}
+		quote = quoteAfter(line, quote);
+	});
+	return out;
 }
 
 // --- Nodes -------------------------------------------------------------------------------------

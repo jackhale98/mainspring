@@ -20,15 +20,17 @@ import {
 	type Noop,
 	type Span,
 } from './types';
-import { setup, span, stmt, textsAfter } from './testing';
+import { ops, setup, span, stmt, textsAfter } from './testing';
 
 const HEAD = 'project p "P" 2026-01-05 +2m\nresource r "R"\n';
 
-/** The entry file's text after one op (through the refusal pipeline). */
-function run(text: string, op: (s: ReturnType<typeof setup>) => EditOp | Refused | Noop): string {
+type Made = readonly EditOp[] | EditOp | Refused | Noop;
+
+/** The entry file's text after the ops (through the refusal pipeline). */
+function run(text: string, op: (s: ReturnType<typeof setup>) => Made): string {
 	const s = setup(text);
 	const o = op(s);
-	const r: EditResult = isRefused(o) || isNoop(o) ? o : finishPlan(s.ctx, FAKE, [o]);
+	const r: EditResult = isRefused(o) || isNoop(o) ? o : finishPlan(s.ctx, FAKE, ops(o));
 	return textsAfter(s.snap, r)['plan.tjp'] ?? '';
 }
 const FAKE = { type: 'declareFlag', flag: 'x' } as const;
@@ -126,7 +128,7 @@ describe('insertStatement by attribute order', () => {
 		expect(insert(HEAD + 'task a "A"', null, 'flags f', 'end')).toBe(HEAD + 'task a "A"\nflags f');
 		const s = setup(HEAD + 'task a "A"\n');
 		const op = insertStatement(s.file(), null, 'flags f', { before: stmt(s.file(), 'task a') });
-		expect(textsAfter(s.snap, finishPlan(s.ctx, FAKE, [op as EditOp]))['plan.tjp']).toBe(
+		expect(textsAfter(s.snap, finishPlan(s.ctx, FAKE, ops(op)))['plan.tjp']).toBe(
 			HEAD + 'flags f\ntask a "A"\n',
 		);
 	});
@@ -137,7 +139,7 @@ describe('insertStatement by attribute order', () => {
 		const op = insertStatement(s.file(), stmt(s.file(), 'task a'), 'task x "X"', {
 			after: stmt(s.file(), 'task b'),
 		});
-		const r = finishPlan(s.ctx, FAKE, [op as EditOp]);
+		const r = finishPlan(s.ctx, FAKE, ops(op));
 		const out = textsAfter(s.snap, r)['plan.tjp'] ?? '';
 		expect(out).toBe(HEAD + 'task a "A" {\n  task b "B"\n  task x "X"\n  task c "C"\n}\n');
 		const sel = r.status === 'edit' ? r.edit.select : null;
@@ -160,47 +162,40 @@ describe('insertStatement by attribute order', () => {
 		expect(rankOf('resource', 'resource')).toBe(7);
 		expect(rankOf('project', 'workinghours')).toBe(6);
 	});
+
+	it('keeps a header trailing comment on the header line when creating a body', () => {
+		const p = HEAD + 'task a "A" # why\ntask b "B"\n';
+		expect(insert(p, 'task a', 'effort 5d', byRank('effort'))).toBe(
+			HEAD + 'task a "A" { # why\n  effort 5d\n}\ntask b "B"\n',
+		);
+		const crlf = p.replace(/\n/g, '\r\n');
+		expect(insert(crlf, 'task a', 'effort 5d', byRank('effort'))).toBe(
+			(HEAD + 'task a "A" { # why\n  effort 5d\n}\ntask b "B"\n').replace(/\n/g, '\r\n'),
+		);
+	});
 });
 
-describe('removeStatement', () => {
-	const remove = (text: string, needle: string, leading?: string): string =>
-		run(text, (s) =>
-			removeStatement(s.file(), stmt(s.file(), needle), {
-				leading: leading ? span(s.file(), leading) : null,
-			}),
+describe('strings in inserted statements', () => {
+	const note = 'note "first\n\tsecond \\" still\nthird"';
+
+	it('never re-indents or converts breaks inside a multi-line string (LF, CRLF)', () => {
+		const lf = HEAD + 'task a "A" {\n  effort 5d\n}\n';
+		expect(insert(lf, 'task a', note, byRank('note'))).toBe(
+			HEAD + 'task a "A" {\n  ' + note + '\n  effort 5d\n}\n',
 		);
-
-	it('removes the line when nothing else is on it', () => {
-		const p = HEAD + 'task a "A" {\n  effort 5d\n  start 2026-01-05\n}\n';
-		expect(remove(p, 'effort')).toBe(HEAD + 'task a "A" {\n  start 2026-01-05\n}\n');
-	});
-
-	it('keeps a trailing comment', () => {
-		const p = HEAD + 'task a "A" {\n  effort 5d # why\n}\n';
-		expect(remove(p, 'effort')).toBe(HEAD + 'task a "A" {\n  # why\n}\n');
-	});
-
-	it('removes only the statement on a shared line', () => {
-		const p = HEAD + 'task a "A" { effort 5d start 2026-01-05 }\n';
-		expect(remove(p, 'effort')).toBe(HEAD + 'task a "A" { start 2026-01-05 }\n');
-		expect(remove(p, 'start 2026-01-05')).toBe(HEAD + 'task a "A" { effort 5d }\n');
-		expect(remove(HEAD + 'task a "A" {\n  effort 5d }\n', 'effort')).toBe(
-			HEAD + 'task a "A" {\n  }\n',
-		);
-		expect(remove(HEAD + 'task a "A" { effort 5d # c\n}\n', 'effort')).toBe(
-			HEAD + 'task a "A" { # c\n}\n',
+		const crlf = lf.replace(/\n/g, '\r\n');
+		expect(insert(crlf, 'task a', note, byRank('note'))).toBe(
+			crlf.replace('{\r\n', '{\r\n  ' + note + '\r\n'),
 		);
 	});
 
-	it('removes a block with its attached comments', () => {
-		const p = HEAD + 'task k "K"\n\n# about b\n# more\ntask b "B" {\n  effort 1d\n}\n';
-		expect(remove(p, 'task b', '# about b\n# more')).toBe(HEAD + 'task k "K"\n\n');
-	});
-
-	it('handles the last line without a break and CRLF', () => {
-		expect(remove(HEAD + 'task k "K"\ntask b "B"', 'task b')).toBe(HEAD + 'task k "K"\n');
-		const crlf = (HEAD + 'task a "A" {\r\n  effort 5d\r\n}\r\n').replace(/\n(?!\r)/g, '\n');
-		expect(remove(crlf, 'effort')).toBe(HEAD + 'task a "A" {\r\n}\r\n');
+	it('keeps single-quoted string lines in tab files', () => {
+		const tabs = HEAD + 'task a "A" {\n\teffort 5d\n}\n';
+		const child = "task c 'C' {\n\tnote 'x\n\ty'\n\tlength 1d\n}";
+		expect(insert(tabs, 'task a', child, byRank('task'))).toBe(
+			HEAD +
+				"task a \"A\" {\n\teffort 5d\n\ttask c 'C' {\n\t\tnote 'x\n\ty'\n\t\tlength 1d\n\t}\n}\n",
+		);
 	});
 });
 

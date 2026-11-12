@@ -2,10 +2,18 @@
 import { describe, expect, it } from 'vitest';
 import { tjpEditId, type ChangeOrigin, type ChangeInfo } from '../../workspace/workspace';
 import { buildIndex } from '../index';
-import { applyIntent, buildEdit, finishPlan, formatFile, newEditId, undoEdit } from './apply';
+import {
+	applyEdit,
+	applyIntent,
+	buildEdit,
+	finishPlan,
+	formatFile,
+	newEditId,
+	undoEdit,
+} from './apply';
 import { insertStatement, removeStatement, replaceSpan } from './layout';
 import { noop, refused, type EditIntent, type EditOp, type TjpEdit } from './types';
-import { setup, span, stmt, textsAfter } from './testing';
+import { ops, setup, span, stmt, textsAfter } from './testing';
 
 const HEAD = 'project p "P" 2026-01-05 +2m\nresource r "R"\n';
 const INTENT: EditIntent = { type: 'setAttr', task: 'a', attr: 'effort', value: '2d' };
@@ -24,12 +32,12 @@ describe('buildEdit', () => {
 		const s = setup(FILES);
 		const a = s.file();
 		const b = s.file('b.tji');
-		const ops: EditOp[] = [
+		const list: EditOp[] = [
 			replaceSpan(a, span(a, '5d'), '2d'),
-			insertStatement(a, stmt(a, 'task a'), 'note "n"', 'start') as EditOp,
+			...ops(insertStatement(a, stmt(a, 'task a'), 'note "n"', 'start')),
 			removeStatement(b, stmt(b, 'effort')),
 		];
-		const e = edit(buildEdit(s.snap, INTENT, ops, { id: 'e1' }));
+		const e = edit(buildEdit(s.snap, INTENT, list, { id: 'e1' }));
 		expect(e.id).toBe('e1');
 		expect(Object.keys(e.changes).sort()).toEqual(['b.tji', 'plan.tjp']);
 		expect(e.base).toEqual({ 'plan.tjp': a.version, 'b.tji': b.version });
@@ -109,7 +117,7 @@ describe('applyIntent and finishPlan', () => {
 			INTENT,
 			{},
 			{
-				setAttr: (_ctx, i) => [replaceSpan(a, span(a, '5d'), String(i.value))],
+				setAttr: { plan: (_ctx, i) => [replaceSpan(a, span(a, '5d'), String(i.value))] },
 			},
 		);
 		expect(textsAfter(s.snap, r)['plan.tjp']).toContain('effort 2d');
@@ -172,16 +180,55 @@ describe('Workspace.apply integration', () => {
 		const a = s.file();
 		const e = edit(
 			finishPlan(s.ctx, INTENT, [
-				insertStatement(a, stmt(a, 'task a'), 'note "n"', 'start') as EditOp,
+				...ops(insertStatement(a, stmt(a, 'task a'), 'note "n"', 'start')),
 			]),
 		);
-		s.workspace.apply(e);
-		const undo = undoEdit(e, s.workspace.snapshot());
+		const applied = applyEdit(s.workspace, e);
+		if (applied === 'stale') throw new Error('stale');
+		expect(applied.versions['plan.tjp']).toBe((e.base['plan.tjp'] ?? 0) + 1);
+		const undo = undoEdit(applied, s.workspace.snapshot());
 		expect(undo).not.toBeNull();
 		if (undo) expect(s.workspace.apply(undo)).toBe('applied');
 		expect(s.workspace.texts()).toEqual(original);
 		// The undo was applied, so the edit's inverse no longer fits.
-		expect(undoEdit(e, s.workspace.snapshot())).toBeNull();
+		expect(undoEdit(applied, s.workspace.snapshot())).toBeNull();
+	});
+
+	it('refuses to undo after a same-length change (M4)', () => {
+		const s = setup(FILES);
+		const a = s.file();
+		const e = edit(finishPlan(s.ctx, INTENT, [replaceSpan(a, span(a, '5d'), '2d')]));
+		const applied = applyEdit(s.workspace, e);
+		if (applied === 'stale') throw new Error('stale');
+		const st = s.workspace.state('plan.tjp');
+		const p = s.workspace.texts()['plan.tjp']?.indexOf('"A"') ?? 0;
+		s.workspace.commit(
+			'plan.tjp',
+			st.update({ changes: { from: p + 1, to: p + 2, insert: 'B' } }),
+			'typing',
+		);
+		expect(s.workspace.snapshot().files.get('plan.tjp')?.text.length).toBe(
+			e.inverse['plan.tjp']?.length,
+		);
+		expect(undoEdit(applied, s.workspace.snapshot())).toBeNull();
+		expect(applyEdit(s.workspace, e)).toBe('stale');
+	});
+
+	it('records versions even when a listener edits in turn', () => {
+		const s = setup(FILES);
+		const a = s.file();
+		const e = edit(finishPlan(s.ctx, INTENT, [replaceSpan(a, span(a, '5d'), '2d')]));
+		let once = false;
+		s.workspace.subscribe(() => {
+			if (once) return;
+			once = true;
+			const st = s.workspace.state('b.tji');
+			s.workspace.commit('b.tji', st.update({ changes: { from: 0, insert: '# x\n' } }), 'typing');
+		});
+		const applied = applyEdit(s.workspace, e);
+		if (applied === 'stale') throw new Error('stale');
+		expect(applied.versions['plan.tjp']).toBe((e.base['plan.tjp'] ?? 0) + 1);
+		expect(undoEdit(applied, s.workspace.snapshot())).not.toBeNull();
 	});
 
 	it('reports format edits with origin format', () => {
