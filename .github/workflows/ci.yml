@@ -59,6 +59,11 @@ jobs:
       - run: npx vitest run src/lib/tjp/format.schedule.test.ts
         env:
           FORMAT_SCHEDULE: '1'
+      # The schedule runner against this engine: edit, schedule, diagnostics and finish date
+      # (phase-1 spec 6.8). SCHEDULE_RUNNER_ENGINE=1 makes it fail, not skip, without the engine.
+      - run: npx vitest run src/lib/workspace/schedule-runner.engine.test.ts
+        env:
+          SCHEDULE_RUNNER_ENGINE: '1'
       # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
       # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
       # engine build hash alone (bridge-only changes) prints a note and passes.
