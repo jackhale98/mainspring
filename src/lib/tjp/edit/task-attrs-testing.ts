@@ -118,9 +118,24 @@ export function intentFor(c: AttrCorpus, kind: number, pick: number, value: numb
 		case 1:
 			return { type: 'setAttr', task, attr: 'milestone', value: value % 2 === 0 };
 		case 2: {
-			// Mostly an attribute the task has, so that removals are not all no-ops.
-			const sym = c.index.tasks.get(task);
-			const present = REMOVABLE.filter((a) => sym?.attrs.some((s) => s.keyword === a));
+			// Mostly an attribute the task has, so that removals are not all no-ops. Half of them go to
+			// a task (from `pick` on) with an attribute other than a size: removing the last size of an
+			// allocated leaf is often refused (it would be underspecified), and corpus tasks seldom
+			// have anything else to remove.
+			const sizes = new Set(['effort', 'length', 'duration', 'milestone']);
+			const has = (t: string, a: string): boolean =>
+				c.index.tasks.get(t)?.attrs.some((s) => s.keyword === a) ?? false;
+			const others = REMOVABLE.filter((a) => !sizes.has(a));
+			if (value % 2 === 0) {
+				for (let i = 0; i < c.tasks.length; i++) {
+					const t = c.tasks[(pick + i) % c.tasks.length] ?? '';
+					const there = others.filter((a) => has(t, a));
+					if (there.length > 0) {
+						return { type: 'removeAttr', task: t, attr: there[value % there.length] ?? 'note' };
+					}
+				}
+			}
+			const present = REMOVABLE.filter((a) => has(task, a));
 			const from = present.length > 0 && value % 4 !== 0 ? present : REMOVABLE;
 			return { type: 'removeAttr', task, attr: from[value % from.length] ?? 'note' };
 		}
