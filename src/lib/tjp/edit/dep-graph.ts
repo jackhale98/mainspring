@@ -320,6 +320,24 @@ function scenarios(index: SymbolIndex): string[] {
 	return index.scenarios.length > 0 ? index.scenarios.map((s) => s.id) : ['plan'];
 }
 
+/**
+ * Per scenario, whether the declared graph has a loop TaskJuggler's check finds (`loop`) and a
+ * cycle of time points (`cycle`), as `newLoop` tests them; for comparing two snapshots (a task
+ * moved to another parent, task-semantics.ts).
+ */
+export function graphLoops(
+	ws: WorkspaceSnapshot,
+	index: SymbolIndex,
+): Map<string, { loop: boolean; cycle: boolean }> {
+	const g = new Graph(ws, index, []);
+	const out = new Map<string, { loop: boolean; cycle: boolean }>();
+	for (const sc of scenarios(index)) {
+		const n = g.nodes(sc);
+		out.set(sc, { loop: hasLoop(n), cycle: hasCycle(n) });
+	}
+	return out;
+}
+
 /** The first scenario where `extra` makes a loop the declared graph does not have, or null. */
 export function newLoop(
 	ws: WorkspaceSnapshot,

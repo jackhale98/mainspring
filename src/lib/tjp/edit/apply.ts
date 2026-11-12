@@ -35,6 +35,7 @@ import { ALLOCATION_HANDLERS } from './allocation';
 import { DEPENDENCY_HANDLERS } from './deps';
 import { checkOps, opTarget } from './refuse';
 import { TASK_ATTR_HANDLERS } from './task-attrs';
+import { TASK_TREE_HANDLERS } from './task-tree-plan';
 import {
 	isNoop,
 	isRefused,
@@ -76,6 +77,7 @@ export const HANDLERS: IntentHandlers = {
 	...DEPENDENCY_HANDLERS,
 	...ALLOCATION_HANDLERS,
 	...TASK_ATTR_HANDLERS,
+	...TASK_TREE_HANDLERS,
 };
 
 let seq = 0;
