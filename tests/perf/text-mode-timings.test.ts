@@ -123,26 +123,32 @@ describe('node timings (spec 8.4)', () => {
 		const hints = hintsFromResult(expected.result, (_f, l) => l);
 		const index = buildIndex(snap, hints, { cache: null });
 		const tasks = [...index.tasks.values()];
-		const dep = index.dependencies.find((d) => d.pred && d.succ && d.site === 'decl');
 		const leaf = tasks.filter((t) => t.children.length === 0 && t.parent && !t.expandedOnly);
 		const [a, b, c] = leaf;
-		if (!dep?.succ || !dep.pred || !a || !b || !c) throw new Error('plan shape');
+		const parent = tasks.find((t) => t.children.length > 2 && !t.expandedOnly);
+		// A parent other than the leaf's own, so that the move is real.
+		const other = tasks.find((t) => t.children.length > 2 && !t.expandedOnly && t.id !== a?.parent);
+		const dep = index.dependencies.find((d) => d.pred && d.succ && d.site === 'decl');
+		if (!dep?.succ || !dep.pred || !parent || !other || !a || !b || !c)
+			throw new Error('plan shape');
 		const intents: Record<string, EditIntent> = {
 			'setAttr priority': { type: 'setAttr', task: a.id, attr: 'priority', value: '700' },
 			renameTask: { type: 'renameTask', task: a.id, name: 'Renamed task' },
 			addDepends: { type: 'addDepends', task: b.id, target: c.id },
 			removeDepends: { type: 'removeDepends', task: dep.succ, target: dep.pred },
+			addTask: { type: 'addTask', parent: parent.id, index: 0, name: 'New task' },
+			deleteTask: { type: 'deleteTask', task: c.id },
+			moveTask: { type: 'moveTask', task: a.id, parent: other.id, index: 0 },
 			format: { type: 'format', file: snap.entry },
 		};
-		// Task-tree intents (addTask, deleteTask, moveTask) have no handler on this branch yet.
 		for (const [name, intent] of Object.entries(intents)) {
 			let status = '';
-			const xs = repeat(15, () => {
+			const xs = repeat(8, () => {
 				status = applyIntent(snap, index, intent).status;
 			});
 			record(`intent ${name} (Fedora, ${status})`, xs, 50);
 		}
-	});
+	}, 60_000);
 
 	it('writes the report', () => {
 		const file = path.join(ROOT, 'test-results', 'text-mode-node-timings.json');

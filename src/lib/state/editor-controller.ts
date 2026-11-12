@@ -110,13 +110,13 @@ export class EditorController {
 	/** Pushes the engine's diagnostics (the engine channel) to the open file's marks. */
 	setEngine(list: readonly TjpDiagnostic[]): void {
 		this.sync();
-		setEngineDiagnostics(this.view, list);
+		setEngineDiagnostics(this.view, list, () => this.sync());
 	}
 
 	/** Pushes the document layer's diagnostics (the local channel). */
 	setLocal(list: readonly TjpDiagnostic[]): void {
 		this.sync();
-		setLocalDiagnostics(this.view, list);
+		setLocalDiagnostics(this.view, list, () => this.sync());
 	}
 
 	/** Runs the format command on the open file. */

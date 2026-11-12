@@ -125,6 +125,8 @@ export const DEFAULT_DEBOUNCE_MS = 300;
  * keystroke put a 15 to 40 ms task between keystrokes on large plans (T21 audit).
  */
 export const TYPING_PAUSE_MS = 150;
+/** The index follows the text at least this often during typing that never pauses. */
+export const MAX_TYPING_WAIT_MS = 1000;
 /** The longest the index then waits for an idle moment. */
 export const IDLE_TIMEOUT_MS = 100;
 export const IDLE_FALLBACK_MS = 50;

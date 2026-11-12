@@ -34,9 +34,10 @@
  * Derived state
  * - A typed change updates engine diagnostic positions and syntax diagnostics at once
  *   (`quickView`); the index, hints and value/attribute checks follow in one idle task
- *   (`requestIdle`, at most `IDLE_TIMEOUT_MS` later) that covers every keystroke before it and
- *   is only requested after `TYPING_PAUSE_MS` without a keystroke, so it never lands between
- *   two keystrokes of a burst.
+ *   (`requestIdle`, at most `IDLE_TIMEOUT_MS` later) that covers every keystroke before it. It
+ *   is requested after `TYPING_PAUSE_MS` without a keystroke, or `MAX_TYPING_WAIT_MS` after the
+ *   first keystroke of a burst that never pauses; so in ordinary typing it falls in a pause, and
+ *   in a continuous burst it can still land between two keystrokes, once a second.
  *   Until then `indexVersion` is behind `version`. Format and intent edits, results and the
  *   start derive everything at once (`fullView`).
  * - An exception while deriving keeps the previous view and is rethrown asynchronously, so it
@@ -55,6 +56,7 @@ import {
 	DEFAULT_DEBOUNCE_MS,
 	defaultTimers,
 	IDLE_TIMEOUT_MS,
+	MAX_TYPING_WAIT_MS,
 	TYPING_PAUSE_MS,
 	type RunnerFailure,
 	type RunnerListener,
@@ -122,6 +124,8 @@ class Runner implements ScheduleRunner {
 	readonly #debounceSlot: Slot = { armed: false, handle: null };
 	readonly #idleSlot: Slot = { armed: false, handle: null };
 	readonly #pauseSlot: Slot = { armed: false, handle: null };
+	/** Caps the pause: set at the first keystroke of a burst, cleared when the index refreshes. */
+	readonly #capSlot: Slot = { armed: false, handle: null };
 	readonly #open = new Map<Revision, Sent>();
 	/** Newest revision whose result was handled. */
 	#handled: Revision = 0;
@@ -176,6 +180,7 @@ class Runner implements ScheduleRunner {
 		this.#disposed = true;
 		this.#clear(this.#debounceSlot, this.#timers.clearTimeout);
 		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
+		this.#clear(this.#capSlot, this.#timers.clearTimeout);
 		this.#clear(this.#idleSlot, this.#timers.cancelIdle);
 		for (const u of this.#unsubscribe.splice(0)) u();
 		for (const revision of [...this.#open.keys()]) this.#client.cancel(revision);
@@ -211,6 +216,7 @@ class Runner implements ScheduleRunner {
 	/** Derives everything for the workspace now; `prepared` is its index part, if known. */
 	#refresh(prepared?: Prepared): void {
 		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
+		this.#clear(this.#capSlot, this.#timers.clearTimeout);
 		this.#clear(this.#idleSlot, this.#timers.cancelIdle);
 		this.#derive(() => {
 			const now = this.#ws.snapshot();
@@ -225,21 +231,31 @@ class Runner implements ScheduleRunner {
 		});
 	}
 
-	/** Every keystroke restarts the pause; once it passes, one idle task derives everything. */
+	/**
+	 * Every keystroke restarts the pause; once it passes, or `MAX_TYPING_WAIT_MS` after the first
+	 * keystroke of a burst, one idle task derives everything.
+	 */
 	#refreshWhenIdle(): void {
 		const pause = this.#pauseSlot;
 		this.#clear(pause, this.#timers.clearTimeout);
 		pause.armed = true;
-		pause.handle = this.#timers.setTimeout(() => {
-			pause.armed = false;
-			const slot = this.#idleSlot;
-			if (slot.armed || this.#disposed) return;
-			slot.armed = true;
-			slot.handle = this.#timers.requestIdle(() => {
-				slot.armed = false;
-				if (!this.#disposed) this.#batch(() => this.#refresh());
-			}, IDLE_TIMEOUT_MS);
-		}, TYPING_PAUSE_MS);
+		pause.handle = this.#timers.setTimeout(() => this.#requestIdleRefresh(), TYPING_PAUSE_MS);
+		const cap = this.#capSlot;
+		if (cap.armed) return;
+		cap.armed = true;
+		cap.handle = this.#timers.setTimeout(() => this.#requestIdleRefresh(), MAX_TYPING_WAIT_MS);
+	}
+
+	#requestIdleRefresh(): void {
+		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
+		this.#clear(this.#capSlot, this.#timers.clearTimeout);
+		const slot = this.#idleSlot;
+		if (slot.armed || this.#disposed) return;
+		slot.armed = true;
+		slot.handle = this.#timers.requestIdle(() => {
+			slot.armed = false;
+			if (!this.#disposed) this.#batch(() => this.#refresh());
+		}, IDLE_TIMEOUT_MS);
 	}
 
 	#debounce(): void {

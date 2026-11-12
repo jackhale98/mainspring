@@ -151,7 +151,13 @@ export function setTjpDiagnostics(
 	return { effects: [...add, push, ...effectsOf(setDiagnostics(state, lintDiagnostics(after)))] };
 }
 
-/** True when a push of `list` would draw exactly what the channel draws now. */
+/**
+ * True when a push of `list` would draw exactly what the channel draws now. Ranges are compared as
+ * the field holds them, that is mapped through every edit since the last push: if an edit deleted
+ * the text a problem marked, the old entry is a point range, and a result that also places it at
+ * that point is the same drawing (skipped), while a result that places it elsewhere, or no longer
+ * has it, differs and is pushed. A stale old entry never equals a fresh one (`stale` is compared).
+ */
 function unchanged(
 	state: EditorState,
 	list: readonly TjpDiagnostic[],
@@ -183,32 +189,46 @@ export function androidKeyPending(view: EditorView): boolean {
 }
 
 const RETRY_MS = 16;
+const ANNOUNCE_DELAY_MS = 30;
+/** About 500 ms; then the push goes in anyway, so a key stuck as pending cannot stall the marks. */
+const MAX_RETRIES = 30;
 type Latest = Partial<Record<DiagnosticChannel, readonly TjpDiagnostic[]>>;
 /** The newest list per channel waiting for a pending Android key to be handled. */
-const waiting = new WeakMap<EditorView, Latest>();
+const waiting = new WeakMap<EditorView, Latest & { before?: () => void }>();
 
 /**
  * Pushes a channel's list unless it changes nothing, and not while an Android key is pending: the
  * newest list per channel then goes in a frame later, against the then-current state.
  */
-function push(view: EditorView, list: readonly TjpDiagnostic[], channel: DiagnosticChannel): void {
+function push(
+	view: EditorView,
+	list: readonly TjpDiagnostic[],
+	channel: DiagnosticChannel,
+	before?: () => void,
+	force = false,
+): void {
 	const queued = waiting.get(view);
-	if (queued || androidKeyPending(view)) {
+	if (queued || (!force && androidKeyPending(view))) {
 		const q = queued ?? {};
 		q[channel] = list;
+		// `before` brings the view up to date with the workspace (EditorController.sync): a pending
+		// push may find it behind by the time it runs.
+		if (before) q.before = before;
 		if (queued) return;
 		waiting.set(view, q);
+		let tries = 0;
 		const retry = (): void => {
 			if (!view.dom.isConnected) return void waiting.delete(view);
-			if (androidKeyPending(view)) {
+			if (androidKeyPending(view) && ++tries < MAX_RETRIES) {
 				setTimeout(retry, RETRY_MS);
 				return;
 			}
 			const latest = waiting.get(view) ?? {};
 			waiting.delete(view);
+			latest.before?.();
 			for (const c of ['engine', 'local'] as const) {
 				const l = latest[c];
-				if (l) push(view, l, c);
+				if (l) push(view, l, c, undefined, true);
 			}
 		};
 		setTimeout(retry, RETRY_MS);
@@ -219,13 +239,21 @@ function push(view: EditorView, list: readonly TjpDiagnostic[], channel: Diagnos
 }
 
 /** Pushes the engine's diagnostics into a view (spec 6.7). */
-export function setEngineDiagnostics(view: EditorView, d: readonly TjpDiagnostic[]): void {
-	push(view, d, 'engine');
+export function setEngineDiagnostics(
+	view: EditorView,
+	d: readonly TjpDiagnostic[],
+	before?: () => void,
+): void {
+	push(view, d, 'engine', before);
 }
 
 /** Pushes local diagnostics into a view. */
-export function setLocalDiagnostics(view: EditorView, d: readonly TjpDiagnostic[]): void {
-	push(view, d, 'local');
+export function setLocalDiagnostics(
+	view: EditorView,
+	d: readonly TjpDiagnostic[],
+	before?: () => void,
+): void {
+	push(view, d, 'local', before);
 }
 
 /** The spec that redraws the marks from the field, so stale ones are dimmed. */
@@ -239,11 +267,13 @@ export function redrawDiagnostics(state: EditorState): TransactionSpec {
 const staleRedraw = ViewPlugin.fromClass(
 	class {
 		private timer: ReturnType<typeof setTimeout> | null = null;
+		private retries = 0;
 
 		constructor(private readonly view: EditorView) {}
 
 		update(u: ViewUpdate): void {
 			if (!u.docChanged || !(u.state.field(tjpDiagnosticsField, false)?.dirty ?? false)) return;
+			this.retries = 0;
 			this.arm(STALE_REDRAW_MS);
 		}
 
@@ -252,8 +282,8 @@ const staleRedraw = ViewPlugin.fromClass(
 			this.timer = setTimeout(() => {
 				this.timer = null;
 				if (!this.view.state.field(tjpDiagnosticsField, false)?.dirty) return;
-				// Not while an Android key is pending (see `androidKeyPending`).
-				if (androidKeyPending(this.view)) this.arm(RETRY_MS);
+				// Not while an Android key is pending (see `androidKeyPending`), for about 500 ms.
+				if (androidKeyPending(this.view) && ++this.retries < MAX_RETRIES) this.arm(RETRY_MS);
 				else this.view.dispatch(redrawDiagnostics(this.view.state));
 			}, ms);
 		}
@@ -273,7 +303,9 @@ const staleRedraw = ViewPlugin.fromClass(
 const announceProblem = ViewPlugin.fromClass(
 	class {
 		private readonly region: HTMLElement;
+		/** The problems last spoken, as ranges and messages. */
 		private spoken = '';
+		private pending: ReturnType<typeof setTimeout> | null = null;
 
 		constructor(view: EditorView) {
 			this.region = view.dom.ownerDocument.createElement('div');
@@ -286,14 +318,25 @@ const announceProblem = ViewPlugin.fromClass(
 		update(u: ViewUpdate): void {
 			if (u.docChanged || !u.selectionSet) return;
 			const head = u.state.selection.main.head;
-			const hit = drawnDiagnostics(u.state).find((d) => d.from <= head && head <= d.to);
-			const text = hit ? S.lint.announce(hit.severity, hit.message) : '';
-			if (text === this.spoken) return;
-			this.spoken = text;
-			this.region.textContent = text;
+			const hits = drawnDiagnostics(u.state).filter((d) => d.from <= head && head <= d.to);
+			// Keyed on the problems, not the words: F8 between two problems with the same message
+			// must speak again.
+			const key = hits.map((d) => `${d.from}:${d.to}:${d.message}`).join('\n');
+			if (key === this.spoken) return;
+			this.spoken = key;
+			if (this.pending !== null) clearTimeout(this.pending);
+			this.region.textContent = '';
+			if (hits.length === 0) return;
+			const text = hits.map((d) => S.lint.announce(d.severity, d.message)).join(' ');
+			// Cleared first and set a moment later, so that the same words are announced again.
+			this.pending = setTimeout(() => {
+				this.pending = null;
+				this.region.textContent = text;
+			}, ANNOUNCE_DELAY_MS);
 		}
 
 		destroy(): void {
+			if (this.pending !== null) clearTimeout(this.pending);
 			this.region.remove();
 		}
 	},

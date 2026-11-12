@@ -92,16 +92,70 @@ describe('pushing diagnostics', () => {
 		expect(dispatched).toBe(0);
 	});
 
-	it('says the problem under the cursor once, and clears it when the cursor leaves', () => {
+	it('pushes anyway when a key stays pending for about 500 ms', () => {
+		holdKey(true);
+		setEngineDiagnostics(view, [diag()]);
+		vi.advanceTimersByTime(300);
+		expect(dispatched).toBe(0);
+		vi.advanceTimersByTime(400);
+		expect(dispatched).toBe(1);
+	});
+
+	it('runs the caller’s sync before a waiting push', () => {
+		holdKey(true);
+		const order: string[] = [];
+		setEngineDiagnostics(view, [diag()], () => order.push('sync'));
+		holdKey(false);
+		vi.advanceTimersByTime(20);
+		expect(order).toEqual(['sync']);
+		expect(dispatched).toBe(1);
+	});
+
+	it('compares ranges as mapped through edits: a deleted marked text is a point', () => {
+		setEngineDiagnostics(view, [diag()]);
+		const from = DOC.indexOf('zz');
+		view.dispatch({ changes: { from, to: from + 2 } });
+		const n = dispatched;
+		// Stale (the text changed): a fresh result is pushed even if it places the problem at the point.
+		setEngineDiagnostics(view, [diag({ from, to: from, revision: 2 })]);
+		expect(dispatched).toBe(n + 1);
+		// The same list again draws the same thing.
+		setEngineDiagnostics(view, [diag({ from, to: from, revision: 3 })]);
+		expect(dispatched).toBe(n + 1);
+	});
+
+	it('says the problems under the cursor once, and clears when the cursor leaves', () => {
 		setEngineDiagnostics(view, [diag()]);
 		const region = () => view.dom.querySelector('.cm-tjp-announce')?.textContent;
 		expect(region()).toBe('');
 		const at = DOC.indexOf('zz');
 		view.dispatch({ selection: { anchor: at + 1 } });
+		vi.advanceTimersByTime(50);
 		expect(region()).toBe("Error: Task 'zz' is unknown.");
 		view.dispatch({ selection: { anchor: at } });
+		vi.advanceTimersByTime(50);
 		expect(region()).toBe("Error: Task 'zz' is unknown.");
 		view.dispatch({ selection: { anchor: 0 } });
 		expect(region()).toBe('');
+	});
+
+	it('speaks again for another problem with the same words, and joins problems at the cursor', () => {
+		const at = DOC.indexOf('zz');
+		const other = DOC.indexOf('effort');
+		const same = { message: 'Same.' };
+		setEngineDiagnostics(view, [
+			diag({ ...same }),
+			diag({ ...same, from: other, to: other + 6 }),
+			diag({ message: 'Second.', severity: 'warning', from: other, to: other + 3 }),
+		]);
+		const region = () => view.dom.querySelector('.cm-tjp-announce')?.textContent;
+		view.dispatch({ selection: { anchor: at } });
+		vi.advanceTimersByTime(50);
+		expect(region()).toBe('Error: Same.');
+		view.dispatch({ selection: { anchor: other + 1 } });
+		// Cleared at once, set a moment later.
+		expect(region()).toBe('');
+		vi.advanceTimersByTime(50);
+		expect(region()).toBe('Warning: Second. Error: Same.');
 	});
 });

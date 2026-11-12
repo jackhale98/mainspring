@@ -7,6 +7,7 @@ import {
 	createScheduleRunner,
 	IDLE_FALLBACK_MS,
 	IDLE_TIMEOUT_MS,
+	MAX_TYPING_WAIT_MS,
 	TYPING_PAUSE_MS,
 	type ScheduleRunner,
 } from './schedule-runner';
@@ -119,6 +120,20 @@ describe('derived state while typing', () => {
 		type('# c\n');
 		vi.advanceTimersByTime(TYPING_PAUSE_MS);
 		expect(log.calls).toHaveLength(2);
+	});
+
+	it('brings the index along during a burst that never pauses, at most MAX_TYPING_WAIT_MS late', () => {
+		const log = idleTimers();
+		let caughtUpAt = -1;
+		for (let i = 0; i < 30; i++) {
+			type('# k\n');
+			vi.advanceTimersByTime(TYPING_PAUSE_MS - 50);
+			if (caughtUpAt < 0 && runner.state.indexVersion > 0)
+				caughtUpAt = (i + 1) * (TYPING_PAUSE_MS - 50);
+		}
+		expect(log.calls.length).toBeGreaterThan(0);
+		expect(caughtUpAt).toBeGreaterThan(0);
+		expect(caughtUpAt).toBeLessThanOrEqual(MAX_TYPING_WAIT_MS + TYPING_PAUSE_MS);
 	});
 
 	it('derives everything at once for intents and results, cancelling a waiting refresh', async () => {

@@ -30,7 +30,10 @@ import { REPO } from '../golden/corpus';
 const READY_TIMEOUT_MS = 120_000;
 const ROUNDS = 3;
 const KEYS = 60;
+/** Between keys. Below the runner's typing pause (150 ms), so the index refresh waits; see SLOW_GAP_MS. */
 const GAP_MS = 90;
+/** A slow typist: longer than the typing pause, so the index refresh runs between keys. */
+const SLOW_GAP_MS = 200;
 const COLD_RUNS = 5;
 const EDITOR = /^Editor for /;
 
@@ -83,7 +86,7 @@ async function settled(page: Page): Promise<void> {
 }
 
 /** Types `KEYS` keys at the end of the open file and returns what the page observed. */
-async function typeAndObserve(page: Page): Promise<Samples & { reported: number }> {
+async function typeAndObserve(page: Page, gap: number): Promise<Samples & { reported: number }> {
 	await page.evaluate(() => {
 		const perf: Samples = { interactions: {}, frames: [], longTasks: [] };
 		window.__perf = perf;
@@ -117,7 +120,7 @@ async function typeAndObserve(page: Page): Promise<Samples & { reported: number 
 	});
 	for (let i = 0; i < KEYS; i++) {
 		await page.keyboard.press(i % 7 === 6 ? 'Space' : 'KeyA');
-		await page.waitForTimeout(GAP_MS);
+		await page.waitForTimeout(gap);
 	}
 	await page.waitForTimeout(500);
 	const perf = await page.evaluate(
@@ -159,7 +162,13 @@ async function openScale1000(page: Page): Promise<void> {
 	await settled(page);
 }
 
-async function keystrokes(browser: Browser, baseURL: string, open: Open, cpuSlowdown = 1) {
+async function keystrokes(
+	browser: Browser,
+	baseURL: string,
+	open: Open,
+	cpuSlowdown = 1,
+	gap = GAP_MS,
+) {
 	const interactions: number[] = [];
 	const frames: number[] = [];
 	const longTasks: number[] = [];
@@ -173,7 +182,7 @@ async function keystrokes(browser: Browser, baseURL: string, open: Open, cpuSlow
 			await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuSlowdown });
 		}
 		await open(page);
-		const r = await typeAndObserve(page);
+		const r = await typeAndObserve(page, gap);
 		await context.close();
 		keys += KEYS;
 		reported += r.reported;
@@ -187,6 +196,7 @@ async function keystrokes(browser: Browser, baseURL: string, open: Open, cpuSlow
 		keys,
 		reportedKeys: reported,
 		cpuSlowdown,
+		gapMs: gap,
 		interaction: summary(all),
 		frames: summary(frames),
 		longTasks: summary(longTasks),
@@ -198,13 +208,16 @@ async function coldLoad(context: BrowserContext) {
 	const js: Array<{ url: string; raw: number; gzip: number }> = [];
 	page.on('response', (res) => {
 		if (!/\.m?js(\?|$)/.test(res.url())) return;
-		void res.body().then((b) => {
-			js.push({
-				url: new URL(res.url()).pathname,
-				raw: b.length,
-				gzip: zlib.gzipSync(b, { level: 9 }).length,
-			});
-		});
+		void res
+			.body()
+			.then((b) => {
+				js.push({
+					url: new URL(res.url()).pathname,
+					raw: b.length,
+					gzip: zlib.gzipSync(b, { level: 9 }).length,
+				});
+			})
+			.catch(() => {});
 	});
 	await page.addInitScript(() => {
 		const marks: Record<string, number> = {};
@@ -301,14 +314,27 @@ test.describe('text mode performance', () => {
 		expect(r.firstScheduleShownMs.p90).toBeLessThan(MAX_ENGINE_READY_MS);
 	});
 
-	const CASES: Array<[string, string, Open, number]> = [
-		['upstream-fedora-20', 'Fedora 20 sample (414 tasks)', openFedora, 1],
-		['upstream-fedora-20-cpu4x', 'Fedora 20 sample, CPU throttled 4x', openFedora, 4],
-		['syn-20-scale-1000', 'scale-1000 pasted in (1,000 tasks, 5,628 lines)', openScale1000, 1],
+	const CASES: Array<[string, string, Open, number, number]> = [
+		['upstream-fedora-20', 'Fedora 20 sample (414 tasks)', openFedora, 1, GAP_MS],
+		['upstream-fedora-20-cpu4x', 'Fedora 20 sample, CPU throttled 4x', openFedora, 4, GAP_MS],
+		[
+			'syn-20-scale-1000',
+			'scale-1000 pasted in (1,000 tasks, 5,628 lines)',
+			openScale1000,
+			1,
+			GAP_MS,
+		],
+		[
+			'syn-20-scale-1000-gap200',
+			`scale-1000 pasted in, a key every ${SLOW_GAP_MS} ms`,
+			openScale1000,
+			1,
+			SLOW_GAP_MS,
+		],
 	];
-	for (const [key, title, open, slowdown] of CASES) {
+	for (const [key, title, open, slowdown, gap] of CASES) {
 		test(`keystroke to paint: ${title}`, async ({ browser, baseURL }, info) => {
-			const r = await keystrokes(browser, baseURL ?? 'http://localhost:4321/', open, slowdown);
+			const r = await keystrokes(browser, baseURL ?? 'http://localhost:4321/', open, slowdown, gap);
 			results[key] = r;
 			console.log(key, JSON.stringify(r));
 			await info.attach(`perf-${key}`, {
