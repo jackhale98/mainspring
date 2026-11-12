@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { isSafeText, parseString, printString, printStringPreferring } from './string-literal';
 
@@ -39,6 +40,37 @@ describe('parseString', () => {
 	});
 });
 
+describe('line breaks', () => {
+	const fixture = (name: string): string =>
+		readFileSync(
+			new URL(`../../../../tests/fixtures/tjp/${name}/plan.tjp`, import.meta.url),
+			'utf8',
+		);
+	/** The literal starting at `start` in `text`, through `end` (inclusive). */
+	const literal = (text: string, start: string, end: string): string => {
+		const from = text.indexOf(start);
+		return text.slice(from, text.indexOf(end, from + start.length) + end.length);
+	};
+
+	it('reads CRLF and lone-CR breaks as \\n, matching TaskJuggler’s values (crlf-strings, cr-only)', () => {
+		// Native values: the T19 token oracle on crlf-strings, and an export of cr-only.
+		const crlf = fixture('crlf-strings');
+		expect(read(literal(crlf, '"line one', 'two"')).value).toBe('line one\nline two');
+		expect(read(literal(crlf, '-8<-', '->8-')).value).toBe('cut line\n');
+		const cr = fixture('cr-only');
+		expect(literal(cr, '"two', 'lines"')).toBe('"two\rlines"');
+		expect(read(literal(cr, '"two', 'lines"')).value).toBe('two\nlines');
+	});
+
+	it('prints app values with \\n; reading a source with other breaks gives the same value', () => {
+		const p = printString('two\nlines');
+		expect(p.ok && read(p.value).value).toBe('two\nlines');
+		for (const src of ['"two\r\nlines"', '"two\rlines"', "'two\r\nlines'"]) {
+			expect(read(src).value).toBe('two\nlines');
+		}
+	});
+});
+
 describe('printString', () => {
 	it('escapes the quote of the chosen style', () => {
 		expect(printString('say "hi"')).toEqual({ ok: true, value: String.raw`"say \"hi\""` });
@@ -51,7 +83,7 @@ describe('printString', () => {
 	});
 
 	it('reads back what it prints', () => {
-		for (const v of ['', 'x', '"', String.raw`\"`, String.raw`a\b`, "'", 'é ✓ 🎉', 'a\r\nb']) {
+		for (const v of ['', 'x', '"', String.raw`\"`, String.raw`a\b`, "'", 'é ✓ 🎉', 'a\nb']) {
 			for (const style of ['double', 'single'] as const) {
 				const p = printString(v, { style });
 				expect(p.ok && read(p.value).value).toBe(v);

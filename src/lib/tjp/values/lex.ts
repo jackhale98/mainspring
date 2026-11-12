@@ -7,8 +7,8 @@
  * where the scanner reads line by line. Whitespace is ASCII only (Ruby's `\s`). A line break is
  * `\n`, `\r\n` or a lone `\r`: TaskJuggler reads files through `forceUTF8Encoding`
  * (`encode('UTF-8', universal_newline: true)`, UTF8String.rb), which turns both `\r\n` and `\r`
- * into `\n` before scanning, so `.` in a Ruby pattern is `[^\r\n]` here. String values keep the
- * original break characters (TaskJuggler itself reads every break as `\n`).
+ * into `\n` before scanning, so `.` in a Ruby pattern is `[^\r\n]` here, and a string's value has
+ * `\n` for every break, as TaskJuggler reads it (the source text keeps its own breaks).
  *
  * The full-file tokenizer is `grammar/tokens.ts` (T4). This one only has to lex the slice of
  * one value, so comments and strings are handled but macro calls, environment references and
@@ -229,12 +229,11 @@ export class ValueLexer {
 			} else if (c === q) {
 				break;
 			} else if (c === '\r' || c === '\n') {
-				// A line break: `\n`, `\r\n` or a lone `\r`.
-				const n = c === '\r' && t[i + 1] === '\n' ? 2 : 1;
+				// A line break: `\n`, `\r\n` or a lone `\r`, read as `\n`.
 				firstLine = false;
 				lastEscape = null;
-				value += t.slice(i, i + n);
-				i += n;
+				value += '\n';
+				i += c === '\r' && t[i + 1] === '\n' ? 2 : 1;
 			} else {
 				// The scanner's in-string macro pattern (ProjectFileScanner.rb:63-66).
 				if (!firstLine && c === '$' && MACRO_AT.test(t.slice(i, this.lineEnd(i)))) {
@@ -266,11 +265,12 @@ export class ValueLexer {
 				raise('macro-call', this.base + line, this.base + lineEnd);
 			}
 			if (!this.broken(lineEnd)) raise('unterminated', this.base + p, this.end);
-			const text = t.slice(line, lineEnd);
+			// TaskJuggler sees the line with its break read as `\n`.
+			const text = t.slice(line, this.contentEnd(lineEnd)) + '\n';
 			if (indent === null) {
 				// firstStringSZR: /(\s*)(.*\n)/ (ProjectFileScanner.rb:282-287); the indentation
 				// cannot hold the line's break.
-				const m = /^([ \t\v\f]*)([^\r\n]*(?:\r\n|\r|\n))$/.exec(text);
+				const m = /^([ \t\v\f]*)([^\r\n]*\n)$/.exec(text);
 				indent = m?.[1] ?? '';
 				value += m?.[2] ?? text;
 			} else {
