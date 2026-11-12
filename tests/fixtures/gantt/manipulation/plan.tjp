@@ -1,8 +1,12 @@
 # Feature: gantt-manipulation - shapes for the direct-manipulation rows R1 to R10 (phase-2 section 7.1)
-# Covers: effort, length and duration leaves; ASAP and ALAP; depends with gaplength, gapduration,
-# onstart and onend; allocations (one and several people); milestones; containers; complete;
-# an open-ended allocated leaf (spike: a start and an allocation, no size; it runs to the project
-# end, native exit 0); a macro-built task (checks in lib/build.tji); included files (lib/*.tji).
+# Covers: effort, length and duration leaves; ASAP and ALAP (docs is anchored by an end, so R2 can
+# insert one); depends with gaplength, gapduration, onstart and onend; allocations (one and several
+# people, and a container allocation inherited by a leaf in support); milestones; containers;
+# complete; a task with start and end (launch); a responsible person; an open-ended allocated leaf
+# (spike: a start and an allocation, no size; it runs to the project end, native exit 0; it sits at
+# the top level so that design stays sized and can be a link target); a sized leaf with a plain
+# depends (hotfix); macro calls that declare a task with depends and a statement in a body
+# (lib/build.tji); included files (lib/*.tji).
 # SPDX-License-Identifier: GPL-2.0-or-later
 project ganttm "Gantt manipulation" 2026-03-02 - 2026-06-30 {
   now 2026-03-09-09:00
@@ -10,7 +14,7 @@ project ganttm "Gantt manipulation" 2026-03-02 - 2026-06-30 {
 
 include "lib/resources.tji"
 
-# Container with ASAP leaves, a dependency gap, onstart, onend and an ALAP leaf.
+# Container with ASAP leaves, a dependency gap, onstart, onend and an ALAP leaf anchored by an end.
 task design "Design" {
   task research "Research" {
     effort 3d
@@ -26,20 +30,38 @@ task design "Design" {
     duration 2d
     depends !sketch { onstart }
   }
-  task spike "Spike" {
-    start 2026-03-23
-    allocate dev3
-  }
   task docs "Write docs" {
     scheduling alap
+    end 2026-03-27
     effort 2d
     allocate dev1, dev2
-    depends !review { gapduration 1d }
   }
   task gate "Design gate" {
     milestone
     depends !review { onend }
     depends !docs
+  }
+}
+
+# Open-ended allocated leaf: a start and an allocation, no size.
+task spike "Spike" {
+  start 2026-03-23
+  allocate dev3
+}
+
+# Start and end on one task, and a responsible person.
+task launch "Launch" {
+  start 2026-05-04
+  end 2026-05-08
+  responsible dev1
+}
+
+# Container allocation: hotfix inherits ops1 and has a plain depends on a task in design.
+task support "Support" {
+  allocate ops1
+  task hotfix "Hotfix" {
+    effort 1d
+    depends design.gate
   }
 }
 

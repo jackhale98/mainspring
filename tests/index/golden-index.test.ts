@@ -136,13 +136,25 @@ describe.each(CASES)('$id', ({ golden, files, snap }) => {
 					last: lines(u.decl.block.file).lineOf(u.decl.block.to),
 				}));
 			totalsDeclared.unresolvedBlocks += blocks.length;
+			// A macro call or macro body the index marks text-only also covers its engine line: the
+			// engine reports the line of the call (or of the body that declares the task).
+			const inMacro = (file: string, line: number): boolean =>
+				bare.textOnly(file as never).some((r) => {
+					if (r.reason !== 'macro-call' && r.reason !== 'macro-body') return false;
+					const f = lines(file);
+					return f.lineOf(r.at.from) <= line && line <= f.lineOf(r.at.to);
+				});
 			for (const t of expected) {
 				if (map.has(t.id)) continue;
 				const line = t.source?.line ?? -1;
+				const file = t.source?.file ?? '';
 				const inside = blocks.some(
 					(b) => b.file === t.source?.file && b.first <= line && line <= b.last,
 				);
-				expect(inside, `${kind} ${t.id} lies in an unresolved declaration`).toBe(true);
+				expect(
+					inside || inMacro(file, line),
+					`${kind} ${t.id} lies in an unresolved declaration or a text-only macro call`,
+				).toBe(true);
 			}
 		}
 	});

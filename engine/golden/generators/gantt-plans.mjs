@@ -154,8 +154,16 @@ export function ganttPlan(n, resources, seed) {
   const text = out.join('\n') + '\n';
   const taskCount = text.split('\n').filter((l) => /^\s*task\s/.test(l)).length;
   if (taskCount !== n) throw new Error(`gantt-${n}: wrote ${taskCount} tasks, expected ${n}`);
+  const milestones = new Set(phases.map((p) => p.index));
   for (const m of text.matchAll(/depends p(\d+)\.p\1k(\d+)\.t(\d+)/g)) {
     if (!declared.has(Number(m[3]))) throw new Error(`gantt-${n}: dangling reference t${m[3]}`);
+  }
+  // Relative `!tN` names a sibling leaf, and `pX.msX` a phase milestone; both must be declared.
+  for (const m of text.matchAll(/!t(\d+)\b/g)) {
+    if (!declared.has(Number(m[1]))) throw new Error(`gantt-${n}: dangling relative reference t${m[1]}`);
+  }
+  for (const m of text.matchAll(/depends p(\d+)\.ms(\d+)\b/g)) {
+    if (!milestones.has(Number(m[2]))) throw new Error(`gantt-${n}: dangling milestone reference p${m[1]}.ms${m[2]}`);
   }
   return text;
 }
