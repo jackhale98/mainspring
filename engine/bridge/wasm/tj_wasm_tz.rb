@@ -1,25 +1,55 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # tj_wasm_tz.rb - real time zones for TaskJuggler under ruby.wasm (ported
-# unchanged in behaviour from poc/bridge/tj_wasm_tz.rb). Wasm only.
+# from poc/bridge/tj_wasm_tz.rb; Time.local now resolves DST gaps and
+# overlaps like native Ruby, see local_to_utc). Wasm only.
 #
 # WASI's C library only knows UTC, so ENV['TZ'] is ignored and every
-# Time.local / Time#localtime silently becomes UTC. TaskJuggler relies on TZ
-# for all local-time math, so these calls are routed through the host's Intl
-# time-zone database. The worker must define globalThis.tjTz with:
+# Time.local / Time#localtime / Time#getlocal silently becomes UTC.
+# TaskJuggler relies on TZ for all local-time math, so these calls are routed
+# through the host's Intl time-zone database. The worker must define
+# globalThis.tjTz with:
 #
 #   offset(zone: string, epochSeconds: number) -> number
 #       UTC offset in seconds of `zone` at that UTC instant
 #   valid(zone: string) -> boolean
 #
-# (see poc/web/tj-runtime.mjs for the reference implementation).
+# (src/engine/runtime.ts, createTimeZoneHost, is the implementation).
 #
 # TjTime.checkTimeZone is replaced by an Intl-based check. It keeps upstream's
 # rules that 'UTC' is valid and that other zones need a '/'; upstream's
 # ENV['TZ'] probe cannot work without zoneinfo.
+#
+# Audit of engine/tj/lib (TaskJuggler 3.8.4) for Time methods that read the
+# process zone, and what reaches them here:
+#
+# - Time.local / Time.mktime (TjTime#initialize, #parse, #beginOfWeek and
+#   the calendar methods through TjTime.new([...])): routed, local_to_utc.
+# - Time#localtime without an argument (TjTime#localtime, used by every
+#   local field: to_a, wday, secondsOfDay, strftime, to_s, midnight, ...):
+#   routed. The result has a fixed offset, so utc_offset / gmt_offset and
+#   strftime %z, %H, %d and so on are right.
+# - Time#getlocal without an argument (Project.maxScheduleGranularity, which
+#   caps `timingresolution` after `timezone`): routed like localtime. With an
+#   argument, both keep Ruby's behaviour (the argument names the offset).
+# - Time#zone and strftime %Z: NOT routed. Intl does not expose tzdata's
+#   abbreviations (Berlin is "CET" in tzdata, "GMT+1" in Intl), so a fixed-
+#   offset Time gives nil and "" where native gives "EST", "CEST" or
+#   "+0545". TaskJuggler reads them only in TjTime.checkTimeZone (replaced
+#   below), and %Z only appears if a plan's own `timeformat` asks for it
+#   (${today}, report and journal text).
+# - Time.now / Time.new / Time.at: used only as instants (TjTime.new, the
+#   default `now`, which the bridge replaces with options.now, and
+#   MessageHandler#log, which needs a log file the bridge never sets); every
+#   local field is read through TjTime#localtime. Time.new with date
+#   arguments is not used.
+# - TjTime#to_s reads @time.sec directly; it differs only for offsets with
+#   seconds, which since 1970 means Africa/Monrovia until 1972-01-07.
 require 'js'
 
 module TJWasmTZ
+  DAY = 86_400
+
   @cache = {}
 
   def self.zone
@@ -28,13 +58,70 @@ module TJWasmTZ
   end
 
   # UTC offset in seconds of +zone+ at UTC instant +epoch+, cached per
-  # 15-minute block of UTC time. The cache assumes every offset change in a
-  # zone falls on a 15-minute UTC boundary. That holds for the zones and years
-  # in the golden corpus (2026 to 2028), but not for every historical rule
-  # (local mean time offsets, for example, have odd minutes and seconds).
+  # 15-minute block of UTC time. The key and the value come from the same
+  # instant, so the cache is right whatever the caller means by +epoch+
+  # (local_to_utc probes at a wall-clock value plus or minus a day, read as
+  # an instant). The cache assumes every offset change in a zone falls on a
+  # 15-minute UTC boundary.
+  # That holds for every zone in tzdata 2026e from 2023 to 2037, so for the
+  # golden corpus (2026 to 2028), but not for every historical rule: local
+  # mean time offsets have odd minutes and seconds, and some changes happened
+  # off the quarter hour (the latest: Antarctica/Casey, 2020 to 2022, at
+  # hh:01 UTC).
   def self.offset(zone, epoch)
     key = [zone, epoch.to_i.div(900)]
     @cache[key] ||= JS.global[:tjTz].call(:offset, zone, epoch.to_i.to_f).to_f.to_i
+  end
+
+  # The UTC instant of a local wall-clock time in +zone+, and the zone's
+  # offset at that instant, as [epoch, offset]. +wall+ is the local date and
+  # time counted as if it were UTC (Time.utc(*args).to_i).
+  #
+  # It resolves wall-clock times the way native Ruby's Time.local does
+  # (find_time_t in time.c, the same in Ruby 3.3 and 3.4; it searches with
+  # localtime_r and never calls mktime):
+  #
+  # - a time that exists once is that instant;
+  # - a time repeated by a backward change (overlap) is the later instant,
+  #   the one after the change: New York 2026-11-01 01:00 is 06:00Z (EST);
+  # - a time skipped by a forward change (gap) is read with the offset in
+  #   force before the change, so it lands as far after the change as it is
+  #   after the gap's start: New York 2026-03-08 02:30 is 07:30Z (03:30 EDT).
+  #
+  # The offsets one day before and after +wall+ are the offsets on both sides
+  # of any change near it (offsets stay within -12 h to +14 h, and no zone
+  # changes twice within two days in that range), so the candidates are
+  # wall - before and wall - after.
+  #
+  # engine/golden/tz-patch-sweep.rb (developer only) loads this file in
+  # native Ruby with glibc's offsets standing in for Intl and compares
+  # Time.local with native around every change of every tzdata zone, 1970 to
+  # 2037 by default. With Ruby 3.3.6 and tzdata 2026e the only differences
+  # are changes off a quarter hour (the cache, see offset) and one overlap
+  # longer than two hours (Antarctica/Rothera, 1976-12-01): Ruby looks only
+  # two hours ahead for the later instant, so in the first hour of that
+  # three-hour overlap it returns the earlier one.
+  #
+  # The previous version (from the PoC) applied the offset at wall, then the
+  # offset at wall minus that. That matched native for the corpus zones east
+  # of UTC (Berlin, Sydney, Kathmandu), where wall counted as UTC is later
+  # than the instant, but west of UTC it chose the earlier instant in an
+  # overlap and the offset after the change in a gap (New York 02:00 on
+  # 2026-03-08 became 06:00Z, not 07:00Z).
+  def self.local_to_utc(zone, wall)
+    before = offset(zone, wall - DAY)
+    after = offset(zone, wall + DAY)
+    return [wall - before, before] if before == after
+
+    # Valid with the offset after the change: the unique instant, or the
+    # later of two in an overlap.
+    t = wall - after
+    return [t, after] if offset(zone, t) == after
+
+    # Valid with the offset before the change, or a gap: read with the offset
+    # before the change, which lands after it.
+    t = wall - before
+    [t, offset(zone, t)]
   end
 
   def self.valid?(zone)
@@ -49,10 +136,8 @@ class Time
       zone = TJWasmTZ.zone
       return __tj_utc_local(*args) unless zone
 
-      base = Time.utc(*args).to_i
-      off = TJWasmTZ.offset(zone, base)
-      off = TJWasmTZ.offset(zone, base - off)
-      Time.at(base - off).__tj_localtime(off)
+      t, off = TJWasmTZ.local_to_utc(zone, Time.utc(*args).to_i)
+      Time.at(t).__tj_localtime(off)
     end
     alias_method :mktime, :local
   end
@@ -63,6 +148,19 @@ class Time
 
     zone = TJWasmTZ.zone
     zone ? __tj_localtime(TJWasmTZ.offset(zone, to_i)) : __tj_localtime
+  end
+
+  # Ruby's getlocal converts in C and never calls #localtime, so it needs its
+  # own route. Project.maxScheduleGranularity reads
+  # Time.gm(2000, 1, 1).getlocal.min: under UTC it said 60 minutes for every
+  # zone, so `timingresolution 30min` was accepted for Asia/Kathmandu
+  # (+05:45), where native allows at most 15 (too_large_timing_res).
+  alias_method :__tj_getlocal, :getlocal
+  def getlocal(*args)
+    return __tj_getlocal(*args) unless args.empty?
+
+    zone = TJWasmTZ.zone
+    zone ? __tj_getlocal(TJWasmTZ.offset(zone, to_i)) : __tj_getlocal
   end
 end
 

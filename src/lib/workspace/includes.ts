@@ -31,7 +31,9 @@
  * in force inside a file is the composition along its chain (`taskPrefix`). The same holds for
  * `resourceprefix` (`rule_resourceId`, TSR 4786). A prefix written as a macro call, environment
  * reference or templated string is unknown: the edge gets 'macro-prefix' and every visit below
- * has `prefixUnknown`, so its declarations need engine hints.
+ * has `taskPrefixUnknown` or `resourcePrefixUnknown` (each prefix on its own), so the ids it
+ * declares of that kind need engine hints. Any other non-id argument (a string, say) is a syntax
+ * error, reported by the tree; that prefix is unknown too, with no problem on the edge.
  *
  * Parents. A top-level task gets `@property` as its parent when that is set, else the task named
  * by `@taskprefix` (`rule_taskHeader`, TSR 6113-6117); after the block `@property` is that parent
@@ -50,7 +52,12 @@ import { bodyOf, statementHead, statementsIn, type SourceRange } from '../tjp/tr
 import { parseString } from '../tjp/values/string-literal';
 import { resolveIncludePath, type PathLookup, type WorkspacePath } from './paths';
 
-export { compareParseOrder, parseOrderKey, type VisitChoice } from './include-order';
+export {
+	compareParseOrder,
+	parseOrderKey,
+	type ParsePosition,
+	type VisitChoice,
+} from './include-order';
 
 export type IncludeProblem =
 	/** Not followed: */
@@ -102,9 +109,18 @@ export interface IncludeVisit {
 	readonly top: TopContext;
 	readonly taskPrefix: string | null;
 	readonly resourcePrefix: string | null;
-	/** A prefix on the chain is a macro call: ids declared here need engine hints. */
-	readonly prefixUnknown: boolean;
-	/** The `@property` inherited from the include site (module comment), or null. */
+	/** A task prefix on the chain is not a literal id: task ids declared here need engine hints. */
+	readonly taskPrefixUnknown: boolean;
+	/** The same for resource prefixes and resource ids. */
+	readonly resourcePrefixUnknown: boolean;
+	/**
+	 * The `@property` inherited from the include site (module comment), or null; `id` is null when
+	 * the prefix it comes from is unknown. Notes for the index (T8):
+	 * - natively `@project.task(@taskprefix)` can be nil (the prefix names no task), and then the
+	 *   tasks are top-level; `@project.resource(@resourceprefix)` likewise;
+	 * - the inherited `@property` also changes how `supplement task x` resolves: `rule_taskId`
+	 *   (TSR 6137-6139) prepends `@property.fullId` instead of `@taskprefix` while it is a task.
+	 */
 	readonly property: { readonly kind: 'task' | 'resource'; readonly id: string | null } | null;
 }
 
@@ -168,7 +184,7 @@ export function buildIncludeGraph(entry: WorkspacePath, source: IncludeSource): 
 		const { tree, read } = doc;
 		let property: Property = visit.property;
 		const include = (stmt: SyntaxNode, siteTop: TopContext): void => {
-			const edge = includeEdge(visit, stmt, read, siteTop, source.lookup);
+			const { edge, unknown } = includeEdge(visit, stmt, read, siteTop, source.lookup);
 			if (edge.target !== null && FOLLOWED.has(edge.problem) && chainHas(visit, edge.target)) {
 				edge.problem = 'recursive';
 			}
@@ -189,7 +205,8 @@ export function buildIncludeGraph(entry: WorkspacePath, source: IncludeSource): 
 				top: siteTop,
 				taskPrefix: edge.taskPrefix,
 				resourcePrefix: edge.resourcePrefix,
-				prefixUnknown: visit.prefixUnknown || edge.problem === 'macro-prefix',
+				taskPrefixUnknown: unknown.task,
+				resourcePrefixUnknown: unknown.resource,
 				property: siteTop === 'global' ? property : null,
 			};
 			edge.visit = child.index;
@@ -208,9 +225,9 @@ export function buildIncludeGraph(entry: WorkspacePath, source: IncludeSource): 
 				}
 				projectSeen = true;
 			} else if (visit.top === 'global' && stmt.name === 'TaskStatement') {
-				property ??= prefixProperty('task', visit.taskPrefix, visit.prefixUnknown);
+				property ??= prefixProperty('task', visit.taskPrefix, visit.taskPrefixUnknown);
 			} else if (visit.top === 'global' && stmt.name === 'ResourceStatement') {
-				property ??= prefixProperty('resource', visit.resourcePrefix, visit.prefixUnknown);
+				property ??= prefixProperty('resource', visit.resourcePrefix, visit.resourcePrefixUnknown);
 			}
 		}
 	};
@@ -222,7 +239,8 @@ export function buildIncludeGraph(entry: WorkspacePath, source: IncludeSource): 
 		top: 'global',
 		taskPrefix: null,
 		resourcePrefix: null,
-		prefixUnknown: false,
+		taskPrefixUnknown: false,
+		resourcePrefixUnknown: false,
 		property: null,
 	};
 	visits.push(root);
@@ -246,7 +264,7 @@ function includeEdge(
 	read: (from: number, to: number) => string,
 	top: TopContext,
 	lookup: PathLookup,
-): IncludeEdge {
+): { edge: IncludeEdge; unknown: { task: boolean; resource: boolean } } {
 	const from = visit.file;
 	const head = statementHead(stmt);
 	const nameNode = head?.nextSibling ?? null;
@@ -255,6 +273,7 @@ function includeEdge(
 		resourcePrefix: null as SourceRange | null,
 	};
 	let macroPrefix = false;
+	const unknown = { task: visit.taskPrefixUnknown, resource: visit.resourcePrefixUnknown };
 	const body = bodyOf(stmt);
 	if (body) {
 		for (const s of statementsIn(body)) {
@@ -262,14 +281,24 @@ function includeEdge(
 			const kw = h?.name === 'Keyword' ? read(h.from, h.to) : null;
 			const arg = h?.nextSibling ?? null;
 			if (!arg || (kw !== 'taskprefix' && kw !== 'resourceprefix')) continue;
-			if (arg.name !== 'Identifier' && arg.name !== 'AbsoluteId') macroPrefix = true;
+			const literal = arg.name === 'Identifier' || arg.name === 'AbsoluteId';
+			if (MACRO_TOKENS.has(arg.name)) macroPrefix = true;
 			const at = { file: from, from: arg.from, to: arg.to };
-			if (kw === 'taskprefix') written.taskPrefix = at;
-			else written.resourcePrefix = at;
+			if (kw === 'taskprefix') {
+				written.taskPrefix = at;
+				if (!literal) unknown.task = true;
+			} else {
+				written.resourcePrefix = at;
+				if (!literal) unknown.resource = true;
+			}
 		}
 	}
-	const compose = (outer: string | null, at: SourceRange | null): string | null => {
-		if (visit.prefixUnknown || macroPrefix) return null;
+	const compose = (
+		outer: string | null,
+		at: SourceRange | null,
+		isUnknown: boolean,
+	): string | null => {
+		if (isUnknown) return null;
 		const own = at ? read(at.from, at.to) : '';
 		const o = outer ?? '';
 		const full = own === '' ? o : o === '' ? own : `${o}.${own}`;
@@ -281,30 +310,30 @@ function includeEdge(
 		literal: nameNode ? read(nameNode.from, nameNode.to) : '',
 		target: null,
 		top,
-		taskPrefix: compose(visit.taskPrefix, written.taskPrefix),
-		resourcePrefix: compose(visit.resourcePrefix, written.resourcePrefix),
+		taskPrefix: compose(visit.taskPrefix, written.taskPrefix, unknown.task),
+		resourcePrefix: compose(visit.resourcePrefix, written.resourcePrefix, unknown.resource),
 		written,
 		problem: 'no-name',
 		parentVisit: visit.index,
 		visit: null,
 	};
-	if (!nameNode) return edge;
+	if (!nameNode) return { edge, unknown };
 	if (MACRO_TOKENS.has(nameNode.name)) {
 		edge.problem = 'macro-path';
-		return edge;
+		return { edge, unknown };
 	}
-	if (nameNode.name !== 'String') return edge;
+	if (nameNode.name !== 'String') return { edge, unknown };
 	const parsed = parseString(edge.literal);
-	if (!parsed.ok) return edge;
+	if (!parsed.ok) return { edge, unknown };
 	edge.literal = parsed.value;
 	const r = resolveIncludePath(from, parsed.value, lookup);
 	if (!r.ok) {
 		edge.problem = r.problem;
-		return edge;
+		return { edge, unknown };
 	}
 	edge.target = r.path;
 	edge.problem = top === 'prolog' ? 'before-project' : macroPrefix ? 'macro-prefix' : null;
-	return edge;
+	return { edge, unknown };
 }
 
 /** The visits of one file, in parse order. */

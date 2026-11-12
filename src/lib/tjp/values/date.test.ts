@@ -17,6 +17,7 @@ import {
 	type TjDate,
 } from './date';
 import { int } from './number';
+import { TZ_TABLE, caseEpoch, caseFields } from './testing/tz-table';
 
 const zones = createTimeZoneHost();
 const date = (text: string): DateExpr => {
@@ -294,5 +295,25 @@ describe('dateFromEpoch and minutes', () => {
 		const start = utc(2026, 3, 2);
 		expect(minutesSince(utc(2026, 3, 3, 9), start)).toBe(33 * 60);
 		expect(epochAt(33 * 60, start)).toBe(utc(2026, 3, 3, 9));
+	});
+});
+
+describe('engine/golden/tz-edge-cases.json through dates', () => {
+	it.each(TZ_TABLE.cases)('$zone $local ($kind) resolves and prints back', (c) => {
+		const ctx = projectContext({ zone: c.zone, zones, granularity: 900 });
+		expect(resolveDate(date(c.local), ctx)).toEqual({ ok: true, value: caseEpoch(c) });
+		const back = dateFromEpoch(caseEpoch(c), ctx);
+		if (back === null) throw new Error('no date');
+		// The canonical text names the instant again, whatever the kind.
+		expect(resolveDate({ kind: 'date', date: back }, ctx)).toEqual({
+			ok: true,
+			value: caseEpoch(c),
+		});
+		// An overlap time always carries its offset; nothing else needs one.
+		expect(back.zone !== null).toBe(c.kind === 'overlap');
+		// The wall time is the case's, except in a gap, where it is the time after the change.
+		const { zone: _zone, ...fields } = back;
+		if (c.kind === 'gap') expect(fields).not.toEqual(caseFields(c));
+		else expect(fields).toEqual(caseFields(c));
 	});
 });

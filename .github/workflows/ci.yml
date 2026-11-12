@@ -42,6 +42,11 @@ jobs:
       - run: npm ci
       - run: npm run build:engine
       - run: npm run build:engine -- --check
+      # Formatted golden plans must still match their goldens on this engine (phase-1 spec 7.3).
+      # FORMAT_SCHEDULE=1 makes the test fail, not skip, if public/engine is missing.
+      - run: npx vitest run src/lib/tjp/format.schedule.test.ts
+        env:
+          FORMAT_SCHEDULE: '1'
       # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
       # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
       # engine build hash alone (bridge-only changes) prints a note and passes.
