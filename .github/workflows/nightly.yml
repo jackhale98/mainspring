@@ -48,6 +48,84 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  fidelity-nightly:
+    name: Patch fidelity (shard ${{ matrix.shard }} of 4)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    env:
+      # 5,000 generated and 500 corpus cases in all, split over four shards of the same sequence
+      # (phase-1.md 9.3). The seed changes every night, so the run explores new plans; every shard
+      # uses the same one. FIDELITY_CORPUS=nightly adds Tutorial and Fedora with 20 cases each (tests/fidelity/corpus.json).
+      FIDELITY_RUNS: '5000'
+      FIDELITY_CORPUS_RUNS: '500'
+      FIDELITY_CORPUS: nightly
+      FIDELITY_SEED: ${{ github.run_number }}
+      FIDELITY_SHARD: ${{ matrix.shard }}/4
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:engine
+      - run: npm run gen:keywords -- --check
+      - run: npm run test:fidelity
+      - name: Add the report to the step summary
+        if: always()
+        run: |
+          if [ -f test-results/fidelity-report.md ]; then
+            cat test-results/fidelity-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-report-shard-${{ matrix.shard }}
+          path: |
+            test-results/fidelity-report.md
+            test-results/fidelity-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  fidelity-merge:
+    name: Patch fidelity (all shards)
+    needs: fidelity-nightly
+    if: always()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: fidelity-report-shard-*
+          path: shard-reports
+      # One per-intent table over the shards (gate evidence); fails when an intent type has fewer than
+      # 5 edits in all, P4 ran on no case, or a shard reported a failure.
+      - run: node scripts/ci/fidelity-merge.mjs shard-reports --shards 4 --out test-results
+      - name: Add the merged report to the step summary
+        if: always()
+        run: |
+          if [ -f test-results/fidelity-report-merged.md ]; then
+            cat test-results/fidelity-report-merged.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-report-merged
+          path: |
+            test-results/fidelity-report-merged.md
+            test-results/fidelity-report-merged.json
+          if-no-files-found: warn
+          retention-days: 30
+
   golden-cross-browser:
     name: Golden plans (${{ matrix.browser }})
     runs-on: ubuntu-latest

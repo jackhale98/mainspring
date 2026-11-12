@@ -1316,3 +1316,81 @@ them.
     - **Not refused:** deleting the only task (native `no_tasks`). A container that loses its last
       child is refused only when it becomes underspecified (above); other leaf errors that need the
       schedule are left to the engine.
+
+25. **Patch-fidelity suite (T18, T22 fidelity jobs).** `tests/fidelity/`, run by `npm run test:fidelity`
+    (`vitest.fidelity.config.ts`); the text-only properties also run in `test:unit`. Decisions:
+    - **Seeds and RNG.** Every case is a function of one integer seed. The generator uses its own
+      small RNG (`gen/rng.ts`, mulberry32); fast-check only supplies the seeds (`fc.sample` from
+      `FIDELITY_SEED`), so there is no shrinking: a failure prints the case and its replay line
+      (`FIDELITY_CASE=generated:<seed>:<type>[:text-only]` or `corpus:<seed>:<type>:<plan>`, which names
+      everything the case needs). `regressions.json` replays on every run in both the text-only
+      file and P4 and every entry must pass: there is no known-failure mark. An entry pins a generated case to its plan attempt
+      (`@N`), so the edit API's answers cannot move it (edit-seeking draws depend on the API), and stores the
+      intent it draws and, for a fixed bug, the answer it must now get; a seed that no longer draws the
+      recorded intent fails loudly.
+    - **Oracle.** Generated plans are printed from a model and the printer records every range and
+      value (`gen/printer.ts`, `gen/print-plan.ts`); corpus plans and the text after an edit are read from the
+      index and the tree (`oracle.ts`). One set of zone functions (`gen/facts.ts`, written from 7.1 and
+      7.2, never importing `edit/`) runs over both, and `oracle.test.ts` checks that the printer's record and
+      the index agree on every range. P1 has two checks with distinct labels: `P1-region` (the oracle)
+      and `P1-targets` (the edit's own declared targets). The mutants widen `edit.targets`, so only
+      `P1-region` can catch them.
+    - **Families.** One module per intent family (`families/`): draw an intent, its region, its model
+      update. `families/index.ts` lists them and `PENDING` (empty since T11b merged: all 28 intents of 7.1 are
+      enforced); a test requires every key of `HANDLERS` to be enforced and nothing pending to have a
+      handler. Moves and adds are drawn under parents that give no `flags`, `responsible` or `allocate`, so the
+      effective lists of the moved or new tasks stay as they were. The run
+      fails unless each enforced type produced 5 edits (for a run of 8 cases per type or more; the
+      merged nightly report applies the rule over all shards, `scripts/ci/fidelity-merge.mjs`), and unless
+      intents aimed at text-only text were all refused (at least 10 as `text-only` and 8 as
+      `macro-in-body`). Types cycle over the cases of a shard, so each shard covers every type. Six
+      cases in seven are drawn until the API makes an edit; the rest keep refusals and
+      no-ops. 40 extra cases (`FIDELITY_TEXTONLY_RUNS`) use plans rich in macros and aim at text-only text.
+    - **Corpus.** `tests/fidelity/corpus.json` lists the golden plans a push run draws from (worker
+      `totalMs` under 500 ms, measured with `node engine/golden/run-wasm.mjs --repeat 3` and committed
+      with the numbers) and the plans the nightly run adds, Tutorial and Fedora with 20 cases each. Nothing
+      depends on a golden report, native timings or the environment.
+    - **Corpus hints and pins.** Corpus plans are indexed with the engine hints of their golden result (as
+      `tests/index` and `task-tree.fedora.test.ts` do), and the text after an edit with the hints mapped through
+      the edit, so Fedora's macro-id tasks are indexed and the nightly's 20 Fedora cases run (they pass,
+      with Tutorial's 20). A pinned plan never falls through to other plans: the case moves on to the next
+      intent type the plan has a target for and reports that type, and a plan with no target for any type fails
+      loudly. `fidelity-merge.mjs` requires every shard 0..n-1 exactly once (`--shards 4` in the nightly job),
+      at least 5 edits per type over all shards, and P4 cases in each shard; the merged report adds the
+      tolerated ids and the regression replays. The report says that six in seven ordinary cases are redrawn
+      until the API makes an edit, so edit counts are not natural rates.
+    - **TaskJuggler facts the generator had to respect** (each found by running the engine on generated
+      plans): a leaf with only `depends` is underspecified, so milestones carry `milestone`;
+      scenario-prefixed statements come last, since a later top-scenario criterion resets another
+      scenario's (15.20); `supplement task` ids read under a `taskprefix` are prefixed, so those supplements
+      go to the entry file; `+Nm` is N months of 365/12 days; `end` makes a task ALAP and a task with
+      `end` or `precedes` takes no dependency; a `depends` item may not repeat across scenarios.
+    - **Open-ended allocated work.** A leaf with no size, a start and an allocation (own or inherited) is
+      valid TaskJuggler: it runs from its start to the project end and books its resource (the `milestone` doc,
+      TjpSyntaxRules.rb:6549, promotes a task with only a start or an end to a milestone, but `markAsMilestone`,
+      TaskScenario.rb:2288-2289, skips that when the task has an `allocate` or a booking, so it is a
+      `:startEndTask`; `scheduleSlot`, TaskScenario.rb:1803-1815, books the resource in every slot up to the end
+      index, here the project end; tasks that then do not fit are marked runaway, :2252, and the run reports
+      `sched_runaway`, :446; who loses follows the scheduling order, priority then path criticalness then index). So
+      `setAttr milestone=false` on a milestone with such an allocation is accepted, as 15.19 and 15.24 say, and
+      a sibling that needs the resource at a lower priority may no longer fit (`sched_runaway`), which depends
+      on the schedule. Two regression seeds first read as an edit-API bug; the engine showed `ship` booked on
+      its resource to the project end while the competitors went unscheduled, and the same plan with a size or
+      another resource schedules. `open-ended.engine.test.ts` documents it, and the generator draws
+      `milestone=false` only where the leaf has no allocation or booking, so no tolerance is needed.
+    - **P4.** `bootNodeEngine`, one boot per file. For corpus plans the errors that depend on the computed
+      schedule (15.19, the same ids as `links.engine.test.ts`, and `booking_no_duty` and `booking_on_vacation` after calendar
+      changes, 15.22) are counted and listed, not failed; for
+      generated plans nothing is tolerated and the old schedule must be clean. P4 fails if it ran on no case.
+    - **Time.** Plans are mostly small (5 to 16 tasks in nine of ten, 40 at most), and plans with two scenarios
+      have at most 16 tasks, since a scenario doubles the schedule time. Measured on the default run (200
+      generated and 50 corpus cases, one machine, nothing else running): 227 edited cases, 436 engine
+      runs, 70 s of wall time, p95 467 ms per case. That is over the 300 ms target of 9.3 and smaller plans
+      do not fix it: a case runs the engine twice (old and new plan), and one run costs about 60 to
+      120 ms of parse and set-up even for a 5-task plan (fixed per-run overhead of the worker), plus about 4
+      ms per task. The 5,000-case nightly splits over four shards that each take about 11 minutes with four
+      shards sharing four cores; the text-only properties take 36 s per shard. The 300 ms stays a
+      target: the 15-minute job limit is met (the default run takes 75 s).
+    - **Mutation meta-test.** Five faulty wrappers (a byte outside the target, a required change skipped, an
+      insertion at the wrong place, one reference fix of a deleteTask or moveTask skipped, an inverse change
+      dropped) must be caught by `P1-region`, `P3` or `P6` within 200 cases.

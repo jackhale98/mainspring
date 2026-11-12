@@ -1,0 +1,65 @@
+{
+	"$comment": "Failing fidelity cases, replayed on every run by both the text-only properties and P4 (phase-1.md 9.3). Every entry must pass. A case is a function of source, seed, type and, for a generated case, its plan attempt (which pins the plan and the draw whatever the edit API does) or, for a corpus case, its plan; FIDELITY_CASE=<source>:<seed>:<type>[:<plan>|:@<attempt>] replays it. Each entry stores a fingerprint, the intent the case draws, and the run fails loudly when the generator no longer draws it, so an entry cannot drift. `status` and `answer` record what the edit API must answer for a fixed bug. Seeds found on the old API were checked to fail P4 there.",
+	"cases": [
+		{
+			"source": "generated",
+			"seed": 379,
+			"type": "removeAttr",
+			"attempt": 4,
+			"intent": {
+				"type": "removeAttr",
+				"task": "demo.docs.polish.setup",
+				"attr": "start"
+			},
+			"status": "refused",
+			"answer": "conflicting-attribute",
+			"reason": "Edit API bug, found by P4 and fixed (dep-anchors.ts): removeAttr start on a task that another task's `precedes` names leaves it without an anchor, so the engine deadlocks (not_scheduled, ok true to false). It is now refused conflicting-attribute. Pinned to its plan attempt, so it replays on the old API too (checked: fails P4 on 5b4dbfb2).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "generated",
+			"seed": 845,
+			"type": "removeAttr",
+			"attempt": 0,
+			"intent": {
+				"type": "removeAttr",
+				"task": "audit",
+				"attr": "start"
+			},
+			"status": "refused",
+			"answer": "conflicting-attribute",
+			"reason": "Edit API bug, found by P4 and fixed (dep-anchors.ts): removeAttr start on a task that another task's `precedes` names leaves it without an anchor, so the engine deadlocks (not_scheduled, ok true to false). It is now refused conflicting-attribute. Pinned to its plan attempt, so it replays on the old API too (checked: fails P4 on 5b4dbfb2).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "corpus",
+			"seed": 396,
+			"type": "setAttr",
+			"plan": "syn-09-tz-dst-berlin",
+			"intent": {
+				"type": "setAttr",
+				"task": "dst.summer",
+				"attr": "minstart",
+				"value": "2026-04-24"
+			},
+			"reason": "Oracle bug in the suite, fixed: a drawn minstart date lay outside the corpus plan's project frame (date_in_range, found by P4). Dates are now drawn inside the frame; this seed draws a minstart on the same plan (the original seed no longer draws it).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "corpus",
+			"seed": 21,
+			"type": "setAttr",
+			"plan": "syn-18-structure-include-macro",
+			"intent": {
+				"type": "setAttr",
+				"task": "rollout.ready",
+				"attr": "effort",
+				"value": "2d"
+			},
+			"status": "refused",
+			"answer": "text-only",
+			"reason": "Oracle bug in the suite, fixed: a setAttr aimed at a statement written with a macro used a value that failed validation, so it was refused invalid-value instead of text-only. This seed aims at the macro-written effort of a corpus task and must be refused text-only.",
+			"found": "2026-11-12"
+		}
+	]
+}

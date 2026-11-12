@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
@@ -15,5 +15,12 @@ export default defineConfig({
 	},
 	test: {
 		include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+		// P4 of the patch-fidelity suite boots the engine; `npm run test:fidelity` runs it
+		// (vitest.fidelity.config.ts). Its text-only properties run here.
+		exclude: [
+			...configDefaults.exclude,
+			'tests/fidelity/schedule.property.test.ts',
+			'tests/fidelity/open-ended.engine.test.ts',
+		],
 	},
 });
