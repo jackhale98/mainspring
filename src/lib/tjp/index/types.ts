@@ -14,6 +14,7 @@
  *   ProjectContext for `checkValue`.
  */
 import type { WorkspacePath } from '../../../engine/protocol';
+import type { WorkspaceSnapshot } from '../../workspace/workspace';
 import type { TextOnly, TextOnlyReason } from '../text-only';
 import type { SourceRange } from '../tree';
 import type { ProjectContext, TypedValue } from '../values';
@@ -316,6 +317,8 @@ export interface SymbolIndex {
 	blocking(file: WorkspacePath, from: number, to: number): TextOnly | null;
 	/** The project settings in force at a position (its first visit, unless `visit` is given). */
 	contextAt(file: WorkspacePath, pos: number, visit?: number): IndexContext;
+	/** Whether the index was built from this snapshot: same version, entry and file objects. */
+	isFor(ws: WorkspaceSnapshot): boolean;
 }
 
 /** Engine ids for declarations the text cannot name (X4, X5). Lines are mapped to the current text. */

@@ -82,3 +82,16 @@ describe('textOnly and blocking', () => {
 		expect(without.tasks.size).toBe(0);
 	});
 });
+
+describe('isFor', () => {
+	it('matches only the snapshot the index was built from', () => {
+		const ws = inline({ 'plan.tjp': text });
+		const snap = ws.snapshot();
+		const idx = buildIndex(snap, undefined, { cache: null });
+		expect(idx.isFor(snap)).toBe(true);
+		expect(idx.isFor({ ...snap, files: new Map(snap.files) })).toBe(true);
+		const other = inline({ 'plan.tjp': text }).snapshot();
+		expect(other.version).toBe(snap.version);
+		expect(idx.isFor(other)).toBe(false);
+	});
+});
