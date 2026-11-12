@@ -2,6 +2,7 @@
 // Unit tests of the fidelity harness pieces: range coverage, the format region, the report, and the
 // registry of families (every enforced type has a family, pending types are listed and not enforced).
 import { describe, expect, it } from 'vitest';
+import { HANDLERS } from '../../src/lib/tjp/edit/apply';
 import { covered } from './harness';
 import { ENFORCED, FAMILIES, PENDING } from './families';
 import { formatAllows } from './families/format';
@@ -64,6 +65,15 @@ describe('the families', () => {
 		expect(new Set(ENFORCED).size).toBe(ENFORCED.length);
 		for (const p of PENDING) expect(ENFORCED).not.toContain(p.type);
 		expect(FAMILIES.flatMap((f) => f.types)).toEqual(ENFORCED);
+	});
+	it('cover every intent the edit API has a handler for, and no pending one', () => {
+		const handled = Object.keys(HANDLERS);
+		const known = new Set<string>([...ENFORCED, ...PENDING.map((p) => p.type)]);
+		// An intent with a handler must be enforced here, or the suite does not test it.
+		expect(handled.filter((t) => !ENFORCED.includes(t as never) && !known.has(t))).toEqual([]);
+		expect(handled.filter((t) => PENDING.some((p) => p.type === t))).toEqual([]);
+		// `format` is produced by formatFile only, so it has no handler.
+		expect(ENFORCED.filter((t) => t !== 'format' && !handled.includes(t))).toEqual([]);
 	});
 	it('list every 7.1 intent as enforced or pending', () => {
 		const all = [

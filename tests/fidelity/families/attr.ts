@@ -27,6 +27,7 @@ import {
 	isLeaf,
 	leafResources,
 	own,
+	hasSizing,
 	parentOf,
 	sorted,
 	task,
@@ -125,6 +126,7 @@ function drawSet(f: Facts, sem: Sem, rng: Rng, aim?: Aim): Drawn | null {
 		'note',
 		'complete',
 		'start',
+		'end',
 		'minstart',
 		'maxend',
 		'scheduling',
@@ -169,14 +171,25 @@ function drawSet(f: Facts, sem: Sem, rng: Rng, aim?: Aim): Drawn | null {
 		case 'start': {
 			const t = pick(
 				leaves.filter(
-					(x) =>
-						own(x, 'depends').length === 0 &&
-						own(x, 'end', 'precedes').length === 0 &&
-						parentOf(f, x) !== undefined,
+					(x) => own(x, 'depends').length === 0 && own(x, 'end', 'precedes').length === 0,
 				),
 			);
 			const d = dateValue(rng, f);
 			return t && d ? set(t, 'start', d) : null;
+		}
+		case 'end': {
+			// A fixed end makes the task ALAP: it takes no dependency, start or other direction.
+			const t = pick(
+				leaves.filter(
+					(x) =>
+						hasSizing(x) &&
+						!x.stmts.some((y) =>
+							['depends', 'start', 'precedes', 'scheduling', 'milestone'].includes(y.key),
+						),
+				),
+			);
+			const d = dateValue(rng, f);
+			return t && d ? set(t, 'end', d) : null;
 		}
 		case 'minstart': {
 			const t = pick(leaves);
