@@ -200,7 +200,9 @@ export const calendarFamily: Family = {
 				: (f.resById
 						.get((intent.scope as { resource: string }).resource)
 						?.stmts.filter((s) => ['leaves', 'vacation'].includes(s.key)) ?? []);
-			const last = stmts[stmts.length - 1];
+			// A `vacation` is not a `leaves` list: the item goes to the last `leaves` statement.
+			const lists = stmts.filter((s) => s.key === 'leaves');
+			const last = lists[lists.length - 1];
 			if (last) return [listEndZone(last)];
 			if (!global) {
 				const r = f.resById.get((intent.scope as { resource: string }).resource);
@@ -244,7 +246,17 @@ export const calendarFamily: Family = {
 					? out.leaves
 					: out.resources.find((r) => r.id === (intent.scope as { resource: string }).resource)
 							?.leaves;
-			list?.push(leaveText(intent.leave));
+			const stmts =
+				intent.scope.kind === 'global'
+					? f.globalLeaves
+					: (f.resById.get((intent.scope as { resource: string }).resource)?.stmts ?? []);
+			const mine = stmts.filter((x) => ['leaves', 'vacation'].includes(x.key));
+			const lists = mine.filter((x) => x.key === 'leaves');
+			const last = lists[lists.length - 1];
+			const index = last
+				? mine.filter((x) => x.seq <= last.seq).reduce((n, x) => n + (x.items?.length ?? 0), 0)
+				: (list?.length ?? 0);
+			list?.splice(index, 0, leaveText(intent.leave));
 		} else if (intent.type === 'updateLeave' || intent.type === 'removeLeave') {
 			const ref = intent.leave.item;
 			const hit = leaves(f).find(
