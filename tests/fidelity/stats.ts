@@ -45,6 +45,12 @@ export function deliberateCounts(outcomes: readonly Outcome[]): Record<string, n
 	return out;
 }
 
+export function corpusCounts(outcomes: readonly Outcome[]): Record<string, number> {
+	const out: Record<string, number> = {};
+	for (const o of outcomes) if (o.plan) out[o.plan] = (out[o.plan] ?? 0) + 1;
+	return out;
+}
+
 export function percentile(xs: readonly number[], p: number): number {
 	if (xs.length === 0) return 0;
 	const s = [...xs].sort((a, b) => a - b);
@@ -58,6 +64,8 @@ export interface TextPart {
 	shard: string;
 	corpusBasis: string;
 	corpusPlans: string[];
+	/** Corpus cases that ran, per golden plan (the nightly set must show Tutorial and Fedora). */
+	corpusCases: Record<string, number>;
 	wallMs: number;
 	p50Ms: number;
 	p95Ms: number;
@@ -113,7 +121,7 @@ export function renderReport(
 	if (text) {
 		out.push(
 			`Seed ${text.seed} (FIDELITY_SEED), ${text.runs} generated and ${text.corpusRuns} corpus cases, shard ${text.shard}. ` +
-				`Replay one case with FIDELITY_CASE=generated:<seed>:<type>.`,
+				`Replay one case with FIDELITY_CASE=generated:<seed>:<type>[:text-only][:@<attempt>] or FIDELITY_CASE=corpus:<seed>:<type>:<plan> (the failure message prints the exact line).`,
 			'',
 			`Wall time ${(text.wallMs / 1000).toFixed(1)} s for the text-only properties (P1, P2, P3, P5, P6); per case p50 ${ms(text.p50Ms)} ms, p95 ${ms(text.p95Ms)} ms, max ${ms(text.maxMs)} ms.`,
 			'',
@@ -126,8 +134,18 @@ export function renderReport(
 				.join(', ');
 			out.push(`| ${s.type} | ${s.cases} | ${s.edits} | ${s.noops} | ${s.refusals} | ${why} |`);
 		}
+		out.push(
+			'',
+			'Six in seven ordinary generated cases are drawn again until the edit API makes an edit, so the edit counts are not natural rates, and the no-op and refusal counts come from the remaining one in seven, the corpus cases and the cases aimed at text-only text.',
+		);
 		for (const p of text.pending) out.push(`| ${p.type} | skipped, pending ${p.task} | | | | |`);
 		out.push(
+			'',
+			`Corpus cases per plan: ${
+				Object.entries(text.corpusCases ?? {})
+					.map(([k, v]) => `${k} ${v}`)
+					.join(', ') || 'none'
+			}.`,
 			'',
 			`Corpus plans (${text.corpusPlans.length}, from tests/fidelity/corpus.json; times: ${text.corpusBasis}): ${text.corpusPlans.join(', ')}.`,
 			'',

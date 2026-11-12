@@ -14,7 +14,8 @@ import {
 } from '../../src/lib/workspace/workspace';
 import { canonSem, semOf, type Facts, type Rg, type Sem } from './gen/facts';
 import type { Change, Drawn, Family } from './families/types';
-import { factsFromIndex } from './oracle';
+import { factsFromIndex, goldenHints } from './oracle';
+import type { ScheduleResult } from '../../src/engine/protocol';
 
 /** The edit API as the property tests call it; mutation.test.ts wraps it with faulty versions. */
 export type ApplyFn = (
@@ -39,6 +40,8 @@ export interface Case {
 	readonly family: Family;
 	/** For a corpus plan: the golden's `now`. */
 	readonly now: string | null;
+	/** For a corpus plan: the golden result, for the engine hints of ids the text cannot name. */
+	readonly result?: Omit<ScheduleResult, 'revision' | 'timings'>;
 	/** For a generated case: the plan attempt it was drawn on (replay pins it). */
 	readonly attempt?: number;
 	/** Set when the case aims at text-only text (a generated plan rich in macros). */
@@ -48,6 +51,8 @@ export interface Case {
 export interface Outcome {
 	readonly type: IntentType;
 	readonly source: Case['source'];
+	/** For a corpus case: the golden plan it ran on. */
+	readonly plan?: string;
 	readonly status: EditResult['status'];
 	readonly reason: string | null;
 	readonly failures: string[];
@@ -113,6 +118,7 @@ export function runCase(c: Case, apply: ApplyFn = realApply, load = loadWorkspac
 		return {
 			type: c.type,
 			source: c.source,
+			...(c.source === 'corpus' ? { plan: c.name } : {}),
 			status: 'refused',
 			reason: 'threw',
 			failures: [`throw: ${stack.split('\n').slice(0, 4).join(' | ')}`],
@@ -130,12 +136,15 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 	const fail = (p: string, msg: string): void => void failures.push(`${p}: ${msg}`);
 	const ws = load(c);
 	const snap0 = ws.snapshot();
-	const index0 = buildIndex(snap0, undefined, { cache: null });
+	const index0 = buildIndex(snap0, c.result ? goldenHints(c.result, snap0) : undefined, {
+		cache: null,
+	});
 	const before = texts(snap0);
 	const r = apply(snap0, index0, c.drawn.intent);
 	const done = (after: Record<string, string> | null, changes = 0): Outcome => ({
 		type: c.type,
 		source: c.source,
+		...(c.source === 'corpus' ? { plan: c.name } : {}),
 		status: r.status,
 		reason: r.status === 'edit' ? null : r.reason,
 		failures,
@@ -210,7 +219,11 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 	if (errs1 > errs0 || (c.source === 'generated' && errs1 > 0))
 		fail('P2', `error nodes ${errs0} -> ${errs1}`);
 	// P3: the rebuilt index reads what the model says.
-	const index1 = buildIndex(snap1, undefined, { cache: null });
+	const index1 = buildIndex(
+		snap1,
+		c.result ? goldenHints(c.result, snap0, { snap: snap1, changes: edit.changes }) : undefined,
+		{ cache: null },
+	);
 	const sem1 = semOf(factsFromIndex(snap1, index1));
 	const expected = c.family.expect(c.sem, c.facts, c.drawn.intent);
 	if (JSON.stringify(canonSem(sem1)) !== JSON.stringify(canonSem(expected))) {

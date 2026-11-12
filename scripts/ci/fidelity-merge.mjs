@@ -6,6 +6,10 @@
 //
 //   node scripts/ci/fidelity-merge.mjs <dir> [--out test-results]
 //
+// With --shards N the run must have exactly N shards; without it the shard count each report names (its
+// `text.shard`, "i/n") is used. Either way every index 0..n-1 must be present exactly once, so a missing or
+// repeated shard report fails the merge.
+//
 // <dir> holds one subdirectory (or file prefix) per shard with its fidelity-report.json, as the
 // download-artifact step lays them out. Writes fidelity-report-merged.{md,json} to --out and exits 1 when a
 // rule fails.
@@ -26,11 +30,15 @@ function reports(dir) {
 	return out.sort();
 }
 
-export function merge(parts) {
+export function merge(parts, { shards } = {}) {
 	const types = new Map();
 	const deliberate = {};
 	const p4 = { runs: 0, cases: 0, okBefore: 0, okKept: 0, newErrors: 0, wallMs: 0, p95Ms: 0 };
 	const problems = [];
+	const tolerated = {};
+	let replays = 0;
+	const indexes = [];
+	const counts = new Set();
 	const seeds = new Set();
 	let pending = [];
 	let wall = 0;
@@ -39,6 +47,12 @@ export function merge(parts) {
 		const { text, p4: engine, mutation } = report;
 		if (!text) return void problems.push(`${file}: no text-only results`);
 		seeds.add(`${text.seed} (shard ${text.shard})`);
+		const m = /^(\d+)\/(\d+)$/.exec(String(text.shard));
+		if (m) {
+			indexes.push(Number(m[1]));
+			counts.add(Number(m[2]));
+		} else problems.push(`${file}: no shard "i/n" in the report`);
+		replays = Math.max(replays, text.regressions?.replayed ?? 0);
 		pending = text.pending ?? pending;
 		wall = Math.max(wall, text.wallMs);
 		p95 = Math.max(p95, text.p95Ms);
@@ -65,6 +79,8 @@ export function merge(parts) {
 		else {
 			if (engine.cases === 0) problems.push(`${file}: P4 ran on no case`);
 			for (const k of ['runs', 'cases', 'okBefore', 'okKept', 'newErrors']) p4[k] += engine[k];
+			for (const [k, v] of Object.entries(engine.toleratedIds ?? {}))
+				tolerated[k] = (tolerated[k] ?? 0) + v;
 			p4.wallMs = Math.max(p4.wallMs, engine.wallMs);
 			p4.p95Ms = Math.max(p4.p95Ms, engine.p95Ms);
 			for (const f of engine.failures ?? []) problems.push(`${file}: ${f.split('\n')[0]}`);
@@ -74,6 +90,23 @@ export function merge(parts) {
 				...mutation.mutants.filter((m) => !m.caught).map((m) => `mutant not caught: ${m.name}`),
 			);
 	});
+	// Every shard of the run reported, once each.
+	const expected = shards ?? (counts.size === 1 ? [...counts][0] : undefined);
+	if (counts.size > 1)
+		problems.push(`the reports name different shard counts: ${[...counts].join(', ')}`);
+	if (expected === undefined) problems.push('the shard count is unknown: pass --shards N');
+	else {
+		if (shards !== undefined && counts.size > 0 && ![...counts].every((c) => c === shards)) {
+			problems.push(`the reports are for ${[...counts].join(', ')} shards, expected ${shards}`);
+		}
+		for (let i = 0; i < expected; i++) {
+			const n = indexes.filter((x) => x === i).length;
+			if (n === 0) problems.push(`shard ${i}/${expected} did not report`);
+			if (n > 1) problems.push(`shard ${i}/${expected} reported ${n} times`);
+		}
+		for (const i of indexes)
+			if (i >= expected) problems.push(`shard ${i} is outside 0..${expected - 1}`);
+	}
 	const rows = [...types.values()];
 	for (const r of rows)
 		if (r.edits < MIN_EDITS)
@@ -84,6 +117,8 @@ export function merge(parts) {
 		rows,
 		deliberate,
 		p4,
+		tolerated,
+		replays,
 		pending,
 		problems,
 		shards: parts.length,
@@ -119,6 +154,15 @@ export function render(m) {
 		}.`,
 		'',
 	);
+	const tol = Object.entries(m.tolerated);
+	out.push(
+		`Regression replays per shard (text-only properties and P4): ${m.replays}, all passed unless listed below. Tolerated schedule-dependent ids (corpus plans, 15.19 and 15.22): ${tol.map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}.`,
+		'',
+	);
+	out.push(
+		'Six in seven ordinary generated cases are drawn again until the edit API makes an edit, so edit counts are not natural rates; no-op and refusal counts come from the remaining one in seven, the corpus and the aimed cases.',
+		'',
+	);
 	const p = m.p4;
 	out.push(
 		'## P4: still schedules',
@@ -137,7 +181,7 @@ export function render(m) {
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop() ?? '')) {
 	const { values, positionals } = parseArgs({
 		allowPositionals: true,
-		options: { out: { type: 'string', default: 'test-results' } },
+		options: { out: { type: 'string', default: 'test-results' }, shards: { type: 'string' } },
 	});
 	const dir = positionals[0];
 	if (!dir || !existsSync(dir)) {
@@ -152,7 +196,7 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop()
 		console.error(`no fidelity-report.json below ${dir}`);
 		process.exit(1);
 	}
-	const merged = merge(parts);
+	const merged = merge(parts, values.shards ? { shards: Number(values.shards) } : {});
 	mkdirSync(values.out, { recursive: true });
 	writeFileSync(join(values.out, 'fidelity-report-merged.md'), render(merged));
 	writeFileSync(

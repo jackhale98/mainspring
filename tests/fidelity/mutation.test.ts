@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The meta-test of phase-1.md 9.3: the properties must have teeth. Faulty wrappers around the edit API
-// (one byte touched outside the target, one required change skipped, one inverse change dropped) must
-// each make P1, P3 or P6 fail within 200 generated cases, or the suite would pass a broken edit API.
-// When T11b (deleteTask, moveTask) merges, its module can add the literal "reference fix skipped"
-// mutant; until then the skipped change is the last change of any edit with several (a removed site,
-// list item or statement).
+// The meta-test of phase-1.md 9.3: the properties must have teeth. Five faulty wrappers around the edit API
+// must each make P1 (the oracle region: the mutants widen `edit.targets`, so the edit's own targets cannot
+// catch them), P3 or P6 fail within 200 generated cases, or the suite would pass a broken edit API:
+// - one byte touched outside the target (P1-region);
+// - one required change skipped, the last change of any edit with several: a removed site, item or statement (P3);
+// - an inserted statement written at the wrong place, the top of its file (P1-region);
+// - one reference fix of a deleteTask or moveTask skipped, the smallest change of such an edit (P3);
+// - one change of the inverse dropped (P6).
 import type { ChangeSet, Text } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 import { changeSetOf } from '../../src/lib/tjp/document';

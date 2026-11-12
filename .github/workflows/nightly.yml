@@ -109,7 +109,7 @@ jobs:
           path: shard-reports
       # One per-intent table over the shards (gate evidence); fails when an intent type has fewer than
       # 5 edits in all, P4 ran on no case, or a shard reported a failure.
-      - run: node scripts/ci/fidelity-merge.mjs shard-reports --out test-results
+      - run: node scripts/ci/fidelity-merge.mjs shard-reports --shards 4 --out test-results
       - name: Add the merged report to the step summary
         if: always()
         run: |

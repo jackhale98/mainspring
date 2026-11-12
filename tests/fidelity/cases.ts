@@ -17,7 +17,8 @@ import { semOf, type Facts, type Sem } from './gen/facts';
 import { genPlan } from './gen/model';
 import { printPlan } from './gen/print-plan';
 import { mixSeed, Rng } from './gen/rng';
-import { factsFromIndex } from './oracle';
+import { factsFromIndex, goldenHints } from './oracle';
+import type { ScheduleResult } from '../../src/engine/protocol';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -95,6 +96,8 @@ export interface CorpusPlan {
 	readonly sem: Sem;
 	readonly now: string | null;
 	readonly workerMs: number;
+	/** The golden result: its engine hints name tasks the text cannot (Fedora's macro ids). */
+	readonly result: Omit<ScheduleResult, 'revision' | 'timings'>;
 }
 
 interface CorpusList {
@@ -127,7 +130,8 @@ export function corpusPlan(id: string): CorpusPlan | null {
 	for (const f of golden.files)
 		files[f] = decoder.decode(fs.readFileSync(path.join(REPO, plan.root, f)));
 	const snap = createWorkspace({ entry: golden.entry, files }).snapshot();
-	const facts = factsFromIndex(snap, buildIndex(snap, undefined, { cache: null }));
+	const hints = goldenHints(golden.result, snap);
+	const facts = factsFromIndex(snap, buildIndex(snap, hints, { cache: null }));
 	const out =
 		facts.tasks.length === 0
 			? null
@@ -139,6 +143,7 @@ export function corpusPlan(id: string): CorpusPlan | null {
 					sem: semOf(facts),
 					now: golden.options.now,
 					workerMs: CORPUS.measuredMs[id] ?? 0,
+					result: golden.result,
 				};
 	loaded.set(id, out);
 	return out;
@@ -165,6 +170,13 @@ export function corpusCase(seed: number, type: IntentType, pin?: string): Case {
 		...(pin ? [pin] : []),
 		...list.map((_, i) => list[(start + i) % list.length] as string),
 	];
+	if (pin) {
+		const p = corpusPlan(pin);
+		if (!p) throw new Error(`the pinned corpus plan ${pin} has no task the index can name`);
+		if (!family.draw(type, p.facts, p.sem, new Rng(mixSeed(seed, hash(pin))))) {
+			throw new Error(`the pinned corpus plan ${pin} offers no target for ${type} (seed ${seed})`);
+		}
+	}
 	for (const id of order) {
 		const p = corpusPlan(id);
 		if (!p) continue;
@@ -182,6 +194,7 @@ export function corpusCase(seed: number, type: IntentType, pin?: string): Case {
 			drawn,
 			family,
 			now: p.now,
+			result: p.result,
 		};
 	}
 	throw new Error(`no corpus plan offered a target for ${type} (seed ${seed})`);

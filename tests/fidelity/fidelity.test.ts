@@ -9,7 +9,14 @@ import { CORPUS } from './cases';
 import { ENFORCED, PENDING } from './families';
 import { runCase, type Outcome } from './harness';
 import { buildCase, describeFailure, guarded, REGRESSIONS, regressionProblem } from './shared';
-import { deliberateCounts, percentile, tally, writePart, type TextPart } from './stats';
+import {
+	corpusCounts,
+	deliberateCounts,
+	percentile,
+	tally,
+	writePart,
+	type TextPart,
+} from './stats';
 
 const outcomes: Outcome[] = [];
 const failures: string[] = [];
@@ -117,6 +124,7 @@ afterAll(() => {
 		maxMs: Math.max(0, ...times),
 		perType: tally(outcomes, ENFORCED),
 		deliberate: deliberateCounts(outcomes),
+		corpusCases: corpusCounts(outcomes),
 		pending: PENDING.map((p) => ({ type: p.type, task: p.task })),
 		failures,
 		regressions: { replayed },

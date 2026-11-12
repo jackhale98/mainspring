@@ -135,6 +135,7 @@ describe('the report', () => {
 			pending: [{ type: 'addTask', task: 'T11b' }],
 			failures: [],
 			deliberate: {},
+			corpusCases: {},
 			regressions: { replayed: 1 },
 		};
 		const md = renderReport(part, null, null);

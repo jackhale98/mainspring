@@ -7,7 +7,16 @@
 import type { SyntaxNode } from '@lezer/common';
 import { compareParseOrder } from '../../src/lib/workspace/include-order';
 import type { WorkspaceSnapshot } from '../../src/lib/workspace/workspace';
-import type { ResourceSymbol, SourceRange, SymbolIndex, TaskSymbol } from '../../src/lib/tjp/index';
+import type { ChangeSet } from '@codemirror/state';
+import type { ScheduleResult } from '../../src/engine/protocol';
+import { hintsFromResult } from '../../src/lib/tjp/index';
+import type {
+	EngineHints,
+	ResourceSymbol,
+	SourceRange,
+	SymbolIndex,
+	TaskSymbol,
+} from '../../src/lib/tjp/index';
 
 type PropSymbol = TaskSymbol | ResourceSymbol;
 import { bodyOf, statementKeyword, statementsIn } from '../../src/lib/tjp/tree';
@@ -385,4 +394,38 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 				? { start: index.project.start, end: index.project.end }
 				: null,
 	};
+}
+
+/**
+ * The engine's hints for a plan (ids the text cannot name: macros, automatic ids), from the golden result of
+ * the text that was scheduled. For the text after an edit, `changes` maps each hint's line through the edit;
+ * a line the edit touched loses its hint, and a hint is only used while its line reads as it was scheduled.
+ */
+export function goldenHints(
+	result: Omit<ScheduleResult, 'revision' | 'timings'>,
+	before: WorkspaceSnapshot,
+	after?: { snap: WorkspaceSnapshot; changes: Readonly<Record<string, ChangeSet>> },
+): EngineHints {
+	const lines = (snap: WorkspaceSnapshot, file: string): string[] =>
+		snap.files.get(file)?.text.toString().split('\n') ?? [];
+	const mapLine = (file: string, line: number): number | null => {
+		if (!after) return line;
+		const cs = after.changes[file];
+		if (!cs) return line;
+		const old = lines(before, file);
+		let touched = false;
+		const from = old.slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0);
+		const to = from + (old[line - 1]?.length ?? 0);
+		cs.iterChangedRanges((a, b) => {
+			if (a <= to && b >= from) touched = true;
+		});
+		if (touched) return null;
+		const pos = cs.mapPos(from, 1);
+		return after.snap.files.get(file)?.text.lineAt(pos).number ?? null;
+	};
+	return hintsFromResult(
+		result as ScheduleResult,
+		mapLine,
+		(file, line) => lines(before, file)[line - 1] ?? null,
+	);
 }
