@@ -55,6 +55,26 @@ describe('removing the last size of an allocated leaf', () => {
 		});
 	});
 
+	it('allows a start-only leaf a `depends … { onstart }` names, on it or its parent (S1, P3)', () => {
+		const s1 =
+			'task t "T" { start 2026-01-12 allocate ana effort 1d }\n' +
+			'task s "S" { depends t { onstart } length 1d }\n';
+		expect(run(s1, { type: 'removeAttr', task: 't', attr: 'effort' })).toMatchObject({
+			status: 'edit',
+		});
+		const p3 =
+			'task q "Q" {\n  task t "T" { start 2026-01-12 allocate ana effort 1d }\n}\n' +
+			'task s "S" { depends q { onstart } length 1d }\n';
+		expect(run(p3, { type: 'removeAttr', task: 'q.t', attr: 'effort' })).toMatchObject({
+			status: 'edit',
+		});
+		// `{ onend }` (the default) still waits on the end.
+		const onend = s1.replace('{ onstart }', '{ onend }');
+		expect(run(onend, { type: 'removeAttr', task: 't', attr: 'effort' })).toMatchObject({
+			reason: 'conflicting-attribute',
+		});
+	});
+
 	it('allows open-ended allocated work: one end and nothing waiting on the other', () => {
 		// q3: from its start to the project end.
 		const q3 = 'task t "T" { start 2026-01-12 allocate ana effort 2d }\n';

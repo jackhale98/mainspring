@@ -16,6 +16,9 @@
  *   of them while a dependency waits on the open one): a new or moved leaf, an old parent left
  *   without children (by a move or a delete), or the leaves of a task that loses a dependency to
  *   a delete (an inherited dependency reaches every leaf below it);
+ * - `conflicting-attribute` when a task is left unanchored (dep-anchors.ts `isUnanchored`: an ASAP
+ *   task a `precedes` names without its own `start` or a `depends`, or the ALAP mirror), checked
+ *   for the same tasks, containers included (`checkAnchors`, also used by deps.ts);
  * - `cycle` when the edited graph has a dependency loop or time-point cycle in a scenario that the
  *   old one did not (dep-graph.ts `graphLoops`; dependencies are inherited from the new parent).
  *
@@ -23,7 +26,8 @@
  * dependencies and allocations).
  */
 import type { SourceRange, SymbolIndex, TaskId, TaskSymbol } from '../index';
-import { dependentsOf, graphLoops, isUnderspecified, stateReader } from './dep-graph';
+import { anchorsOf, dependentsOf, isUnanchored, isUnderspecified, namedBy } from './dep-anchors';
+import { graphLoops, stateReader } from './dep-graph';
 import { SIZING, bookingsOf, isContainer } from './task-attrs-checks';
 import type { Edited } from './task-verify';
 import { refused, type EditContext, type Refused } from './types';
@@ -110,6 +114,30 @@ export function checkEdited(ctx: EditContext, edited: Edited, t: EditedTasks): R
 		if (was !== null && under(ctx, old, was)) continue;
 		const sym = was === null ? undefined : ctx.index.tasks.get(was);
 		return refused('conflicting-attribute', sym ? [sym.decl.header] : t.at);
+	}
+	return checkAnchors(ctx, edited, candidates, t.at);
+}
+
+/**
+ * `conflicting-attribute` when the edit leaves one of `pairs` (old id or null, new id)
+ * unanchored that was not (dep-anchors.ts `isUnanchored`; leaves and containers), at its header,
+ * else at `at`. Shared with the dependency intents (deps.ts).
+ */
+export function checkAnchors(
+	ctx: EditContext,
+	edited: Edited,
+	pairs: ReadonlyArray<readonly [TaskId | null, TaskId]>,
+	at: readonly SourceRange[],
+): Refused | null {
+	const old = stateReader(ctx.ws, ctx.index);
+	const next = stateReader(edited.snap, edited.index);
+	const loose = (ws: Edited['snap'], index: SymbolIndex, read: typeof next, id: TaskId): boolean =>
+		index.tasks.has(id) && isUnanchored(anchorsOf(read(id).state), namedBy(ws, index, id));
+	for (const [was, now] of pairs) {
+		if (!loose(edited.snap, edited.index, next, now)) continue;
+		if (was !== null && loose(ctx.ws, ctx.index, old, was)) continue;
+		const sym = was === null ? undefined : ctx.index.tasks.get(was);
+		return refused('conflicting-attribute', sym ? [sym.decl.header] : at);
 	}
 	return null;
 }

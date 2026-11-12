@@ -19,6 +19,8 @@
  *   or its `precedes`; one with only an end that is ASAP and has no start dependency gets the
  *   project or parent start. Both differ from the written date (checked natively).
  * - `booking_forward_only`, `alap_booking`: an ALAP task may have bookings only when scheduled.
+ * - `not_scheduled` (dep-anchors.ts `isUnanchored`): an ASAP task a `precedes` names needs its own
+ *   `start` or a `depends`, an ALAP task a `depends` names its own `end` or a `precedes`.
  *
  * `timingConflicts` compares the task before and after a change and returns the sites of the
  * first check that only the change breaks.
@@ -36,6 +38,7 @@ import {
 	type AncestorStep,
 } from './task-attrs-checks';
 import { readBefore } from './task-attrs-value';
+import { isUnanchored, namedBy } from './dep-anchors';
 import type { EditContext } from './types';
 
 /** A change to one attribute of a task, placed where TaskJuggler reads it. */
@@ -199,6 +202,7 @@ function checks(
 	const timingSites = (): SourceRange[] => ranges(ownSites(ctx, sym, TIMING));
 	const bookings = bookingsOf(ctx, sym);
 	const child = sym.parent !== null;
+	const named = namedBy(ctx.ws, ctx.index, sym.id);
 	return [
 		[
 			(s) =>
@@ -218,6 +222,8 @@ function checks(
 			timingSites,
 		],
 		[(s) => bookings.length > 0 && !s.forward && !s.scheduled, () => bookings],
+		// A dependency chain that waits on the side the task would compute from (not_scheduled).
+		[(s) => isUnanchored(s, named), timingSites],
 	];
 }
 
