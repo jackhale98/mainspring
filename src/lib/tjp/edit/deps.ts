@@ -58,6 +58,8 @@ import {
 } from './deps-links';
 import { appendOrInsert, removeItems } from './lists';
 import { subtree, taskRefText } from './refs';
+import { checkAnchors } from './task-semantics';
+import { afterEdit } from './task-verify';
 import {
 	noop,
 	refused,
@@ -132,7 +134,25 @@ export function addDependsPlan(ctx: EditContext, intent: IntentOf<'addDepends'>)
 	] as const;
 	const over = overspecified(ctx, succ.id, extra);
 	if (over) return over;
-	return newLoop(ws, index, extra) === null ? r.ops : refused('cycle', ends);
+	if (newLoop(ws, index, extra) !== null) return refused('cycle', ends);
+	return anchored(ctx, r.ops, [succ.id, pred.id], ends) ?? r.ops;
+}
+
+/**
+ * `conflicting-attribute` when the edit leaves a task of the two subtrees unanchored (15.24,
+ * dep-anchors.ts `isUnanchored`): a new `depends` names an ALAP task that has no `end` or
+ * `precedes`, or a removed item was the only anchor of a task another item names.
+ */
+function anchored(
+	ctx: EditContext,
+	ops: readonly EditOp[],
+	roots: readonly TaskId[],
+	at: readonly SourceRange[],
+): Refused | null {
+	const same = (id: TaskId): TaskId => id;
+	const ids = [...new Set(roots.flatMap((r) => subtree(ctx.index, 'task', r)))];
+	const pairs = ids.map((id): readonly [TaskId, TaskId] => [id, id]);
+	return checkAnchors(ctx, afterEdit(ctx, ops, same), pairs, at);
 }
 
 /**
@@ -194,7 +214,7 @@ export function removeDependsPlan(ctx: EditContext, intent: IntentOf<'removeDepe
 		if ('status' in r) return r;
 		ops.push(...r);
 	}
-	return ops;
+	return anchored(ctx, ops, [succ.id, pred.id], [succ.decl.header, pred.decl.header]) ?? ops;
 }
 
 export const DEPENDENCY_HANDLERS: IntentHandlers = {

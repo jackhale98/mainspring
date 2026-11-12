@@ -22,8 +22,9 @@
  *   (`unknown-target`; `unsupported-form` for the prefix).
  * - Scheduling: leaving an effort leaf without allocations (effort_no_allocations: the task
  *   itself, or for a container a leaf declared after the removed item, which inherited it) and
- *   allocating to a task TaskJuggler would otherwise make a milestone, without both a start and
- *   an end, are refused (`conflicting-attribute`).
+ *   allocating to a task TaskJuggler would otherwise make a milestone when that leaves it
+ *   underspecified (dep-graph.ts `isUnderspecified`: neither a start nor an end, or only one while
+ *   a dependency waits on the other) are refused (`conflicting-attribute`).
  *
  * All four change list items, so they are refused in shared files (15.16).
  */
@@ -31,6 +32,7 @@ import { compareParseOrder } from '../../workspace/include-order';
 import type { AllocationSite, AttrSite, ResourceId, SourceRange, TaskSymbol } from '../index';
 import { isId } from '../values';
 import type { IntentHandlers } from './apply';
+import { dependentsOf, isUnderspecified } from './dep-anchors';
 import { isMilestone, stateReader, taskState, topScenario } from './dep-graph';
 import { rangeKey, unprefixed } from './deps-links';
 import { replaceSpan } from './layout';
@@ -167,8 +169,8 @@ function effortLeft(
 
 /**
  * task_underspecified (module comment, "Scheduling"): a container's new allocation reaches the
- * children declared after it, so every leaf of the subtree that would stop being an implicit
- * milestone needs both ends.
+ * children declared after it, so a leaf of the subtree that would stop being an implicit
+ * milestone must not be left underspecified (dep-graph.ts `isUnderspecified`).
  */
 function milestoneLost(ctx: EditContext, own: Own): Refused | null {
 	const { ws, index } = ctx;
@@ -178,9 +180,10 @@ function milestoneLost(ctx: EditContext, own: Own): Refused | null {
 		if (!sym || sym.children.length > 0) continue;
 		const st = read(id).state;
 		if (st.allocs.length > 0 || st.milestone || !isMilestone(st, false)) continue;
-		const hasStart = st.start || st.depends.length > 0;
-		const hasEnd = st.end || st.precedes.length > 0;
-		if (!(hasStart && hasEnd)) return refused('conflicting-attribute', [sym.decl.header]);
+		const allocated = { ...st, allocs: [...st.allocs, null] };
+		if (isUnderspecified(allocated, dependentsOf(ws, index, id))) {
+			return refused('conflicting-attribute', [sym.decl.header]);
+		}
 	}
 	return null;
 }
