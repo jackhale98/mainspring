@@ -4,8 +4,11 @@
  * (resource-tree.ts), each an error TaskJuggler reports, refused as `conflicting-attribute`:
  *
  * - a leaf that must stay one gets a child: it is a manager (manager_is_group), has bookings
- *   (booking_group), or opaque text or a macro body names it, as a task's `limits { resources …
- *   }` does (leaf_resource_id_expected);
+ *   (booking_group), opaque text or a macro body names it, as a task's `limits { resources …
+ *   }` does (leaf_resource_id_expected), or a supplement assigns it shifts: `shifts` read after
+ *   a resource has children is container_attribute (checkContainer). The child goes at the end
+ *   of the leaf's declaration body (blocks.ts), so `shifts` there is read before it and stays
+ *   valid; every supplement is read after it;
  * - the moved subtree assigns shifts under a parent chain that does too: children inherit shift
  *   assignments, which may not overlap (shift_assignment_overlap);
  * - the new parent chain lists a resource of the subtree as manager: the subtree inherits
@@ -36,10 +39,16 @@ function chain(ctx: EditContext, parent: ResourceSymbol | null): ResourceSymbol[
 	return out;
 }
 
+const SHIFTS: ReadonlySet<string> = new Set(['shifts', 'shift']);
+
+const shiftSites = (r: ResourceSymbol): SourceRange[] =>
+	r.attrs.filter((a) => SHIFTS.has(a.keyword)).map((a) => a.statement);
+
 /**
  * `conflicting-attribute` when `parent` is a leaf that must stay one: some resource has it as
- * manager (manager_is_group), it has bookings (booking_group), or opaque text or a macro body
- * names it, as a `limits` resource list does (leaf_resource_id_expected).
+ * manager (manager_is_group), it has bookings (booking_group), opaque text or a macro body
+ * names it, as a `limits` resource list does (leaf_resource_id_expected), or a supplement read
+ * after the new child assigns it shifts (container_attribute).
  */
 function leafBecomesGroup(ctx: EditContext, parent: ResourceSymbol | null): Refused | null {
 	if (!parent || parent.children.length > 0) return null;
@@ -48,11 +57,13 @@ function leafBecomesGroup(ctx: EditContext, parent: ResourceSymbol | null): Refu
 		.map((r) => r.at);
 	at.push(...parent.attrs.filter((a) => a.keyword === 'booking').map((a) => a.statement));
 	for (const m of ctx.index.mentions('resource', parent.id)) at.push(m.at);
+	at.push(
+		...parent.attrs
+			.filter((a) => SHIFTS.has(a.keyword) && a.site === 'supplement')
+			.map((a) => a.statement),
+	);
 	return at.length > 0 ? refused('conflicting-attribute', at) : null;
 }
-
-const shiftSites = (r: ResourceSymbol): SourceRange[] =>
-	r.attrs.filter((a) => a.keyword === 'shifts').map((a) => a.statement);
 
 /**
  * `conflicting-attribute` when the moved subtree assigns shifts and the new parent or one of its

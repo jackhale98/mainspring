@@ -282,6 +282,18 @@ describe('moveResource', () => {
 		const s = setup(PLAN);
 		expect(moveResource(s.snap, s.index, 'bob', 'team', 1).status).toBe('noop');
 	});
+
+	it('places a first root before an include read under a resourceprefix', () => {
+		const files = {
+			'plan.tjp':
+				'project p "P" 2026-01-05 +1m\nmacro x [g]\ninclude "t.tji" { resourceprefix ${x} }\n',
+			't.tji': 'task t "T" { duration 2d }\n',
+		};
+		const { s, r } = run({ type: 'addResource', parent: null, index: 0, name: 'Root' }, files);
+		const out = textsAfter(s.snap, r);
+		expect(out['plan.tjp']).toContain('resource root "Root"\ninclude "t.tji"');
+		expect(out['t.tji']).toBe(files['t.tji']);
+	});
 });
 
 describe('renameResource', () => {

@@ -15,6 +15,9 @@
  *   after the scope's last own `workinghours` statement, or, with none, inserted by the 7.2
  *   order (before another scenario's `workinghours` of the same body, props.ts). Noop
  *   `already-set` when the rewritten statement already says so.
+ * - In the project scope, a `timezone` or `timingresolution` statement resets the working hours
+ *   (Project#[]=), so statements before the last such statement no longer count: they are not
+ *   rewritten, and a new statement goes after the last of them (or after the reset statement).
  * - A resource with no own working hours starts from the project's (`WorkingHours.new(project
  *   working hours)`), so a statement for some days keeps the project's other days.
  * - The project's working hours are the default of every later resource and give the weekly
@@ -34,6 +37,7 @@ import {
 	macroWritten,
 	otherScenarioSites,
 	ownSites,
+	readBefore,
 	resourceOf,
 } from './props';
 import { checkValuesAfter } from './revalidate';
@@ -57,7 +61,12 @@ export interface ScopeSites {
 	/** All blocks of the scope: the declaration and its supplements. */
 	readonly blocks: readonly SourceRange[];
 	readonly order: 'project' | 'resource';
+	/** Project statements that reset the working hours (`timezone`, `timingresolution`). */
+	readonly resets: readonly AttrSite[];
 }
+
+/** Project#[]= rebuilds the project working hours when one of these is set (Project.rb:520). */
+const RESETS: ReadonlySet<string> = new Set(['timezone', 'timingresolution']);
 
 /** The scope's own sites of `keyword` (module comment), or a refusal. */
 export function scopeSites(ctx: EditContext, scope: Scope, keyword: string): ScopeSites | Refused {
@@ -67,7 +76,9 @@ export function scopeSites(ctx: EditContext, scope: Scope, keyword: string): Sco
 		const hidden = projectMacros(ctx, p, [keyword]);
 		if (hidden) return hidden;
 		const sites = p.attrs.filter((a) => a.keyword === keyword && a.scenario === null);
-		return { sites, others: [], block: p.decl.block, blocks: [p.decl.block], order: 'project' };
+		const resets = p.attrs.filter((a) => RESETS.has(a.keyword));
+		const block = p.decl.block;
+		return { sites, others: [], block, blocks: [block], order: 'project', resets };
 	}
 	const sym = resourceOf(ctx, scope.resource);
 	if (isRefused(sym)) return sym;
@@ -79,6 +90,7 @@ export function scopeSites(ctx: EditContext, scope: Scope, keyword: string): Sco
 		block: sym.decl.block,
 		blocks: [sym.decl.block, ...sym.supplements.map((s) => s.block)],
 		order: 'resource',
+		resets: [],
 	};
 }
 
@@ -120,7 +132,10 @@ function placeWorkingHours(
 	wh: WorkingHours,
 	stmt: string,
 ): IntentPlan {
-	const { sites } = s;
+	const reset = s.resets[s.resets.length - 1];
+	const sites = reset
+		? s.sites.filter((x) => readBefore(ctx, reset.statement, x.statement))
+		: s.sites;
 	for (let i = sites.length - 1; i >= 0; i--) {
 		const site = sites[i] as AttrSite;
 		const days = daysOf(site);
@@ -134,7 +149,7 @@ function placeWorkingHours(
 		}
 		if (days.some((d) => wh.days.includes(d))) break;
 	}
-	const last = sites[sites.length - 1];
+	const last = sites[sites.length - 1] ?? reset;
 	const select = { from: 'workinghours '.length, to: stmt.length };
 	if (!last) return insertAttr(ctx, s.block, s.order, 'workinghours', stmt, s.others);
 	const file = fileOf(ctx, last.statement);

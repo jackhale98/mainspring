@@ -98,6 +98,17 @@ describe('setResourceAttr and removeResourceAttr', () => {
 		expect(set('cid', 'zzz')).toBe('refused:invalid-value');
 	});
 
+	it('refuses managers in the resource own subtree (case grpself: manager_is_self)', () => {
+		const s = setup(PLAN);
+		const set = (r: string, v: string | string[]): string =>
+			status(setResourceAttr(s.snap, s.index, r, 'managers', v));
+		// A group's managers apply to its children: bob would manage himself.
+		expect(set('team', 'bob')).toBe('refused:invalid-value');
+		expect(set('team', ['cid', 'ann'])).toBe('refused:invalid-value');
+		// cid is outside, but cid manages ann, who would inherit cid: a loop.
+		expect(set('team', 'cid')).toBe('refused:cycle');
+	});
+
 	it('refuses inherited values, invalid values, macro bodies and text-only sites', () => {
 		const s = setup(PLAN);
 		expect(status(removeResourceAttr(s.snap, s.index, 'ann', 'efficiency'))).toBe(

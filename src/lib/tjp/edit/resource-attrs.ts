@@ -14,12 +14,13 @@
  *   resource. The value is the resource's whole list: inherited ids must stay (`inherited`); the
  *   last own list is rewritten to the value and the other own lists are removed, or `managers`
  *   is inserted; noop when own and inherited ids are already the value. Every id must name a
- *   leaf resource other than this one (`invalid-value`: TaskJuggler reports
- *   resource_id_expected, manager_is_group and manager_is_self, ResourceScenario.rb:92-105).
+ *   leaf resource outside this one's subtree (`invalid-value`: TaskJuggler reports
+ *   resource_id_expected, manager_is_group and manager_is_self, ResourceScenario.rb:92-105; a
+ *   group's managers apply to its children, so a child named on the group manages itself).
  *   Managers may be declared later (rule_undefResourceId resolves them after parsing). Ids are
  *   written relative to the file's `resourceprefix`; one outside it cannot be written there
- *   (`invalid-value`). A loop of managers is not an error when scheduling (only a report checks
- *   `manager_loop`), so it is not refused.
+ *   (`invalid-value`). A value that adds an edge leading to a loop of managers is `cycle`
+ *   (manager-loops.ts: TaskJuggler recurses through the loop until the stack overflows).
  * - `removeResourceAttr` removes every own site (with its line); with none it is `inherited`
  *   when an ancestor sets an inheritable attribute (efficiency, rate, managers) before the
  *   resource was created, else noop `not-present`.
@@ -34,6 +35,7 @@ import { isId, parseValue, printValue, KEYWORD_VALUE_KIND, type TypedValue } fro
 import type { IntentHandler } from './apply';
 import { replaceValue } from './layout';
 import { checkBodyMacros } from './lists';
+import { managerLoop } from './manager-loops';
 import {
 	fileOf,
 	inheritedSites,
@@ -45,6 +47,7 @@ import {
 	removeSites,
 	resourceOf,
 } from './props';
+import { subtree } from './refs';
 import {
 	isRefused,
 	noop,
@@ -115,11 +118,19 @@ function managerIds(
 	if (typeof value === 'boolean') return refused('invalid-value', at);
 	const ids = [...new Set(typeof value === 'string' ? [value] : value)];
 	if (ids.length === 0 || !ids.every(isId)) return refused('invalid-value', at);
+	const own = new Set(subtree(ctx.index, 'resource', sym.id));
 	for (const id of ids) {
 		const r = ctx.index.resources.get(id);
-		if (!r || id === sym.id || r.children.length > 0) return refused('invalid-value', at);
+		if (!r || own.has(id) || r.children.length > 0) return refused('invalid-value', at);
 	}
 	return ids;
+}
+
+/** The manager ids an `addResource` attribute list gives (as written; checked later). */
+export function managersIn(attrs: ReadonlyArray<readonly [ResourceAttr, AttrValue]>): string[] {
+	return attrs.flatMap(([a, v]) =>
+		a !== 'managers' || typeof v === 'boolean' ? [] : typeof v === 'string' ? [v] : [...v],
+	);
 }
 
 const sameSet = (a: ReadonlySet<string>, b: readonly string[]): boolean =>
@@ -133,6 +144,8 @@ function planManagers(ctx: EditContext, sym: ResourceSymbol, value: AttrValue): 
 	const at = [last?.value ?? sym.decl.header];
 	const ids = managerIds(ctx, sym, value, at);
 	if (isRefused(ids)) return ids;
+	const loop = managerLoop(ctx.index, { own: new Map([[sym.id, ids]]) });
+	if (loop) return loop;
 	const up = inheritedSites(ctx, sym, 'managers', true);
 	const upIds = new Set(up.flatMap((s) => siteIds(ctx, s)));
 	const lost = up.filter((s) => siteIds(ctx, s).some((id) => !ids.includes(id)));

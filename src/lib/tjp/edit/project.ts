@@ -9,7 +9,8 @@
  *   duration from the start in whole days, hours or minutes. A start alone leaves the end text as
  *   it is (a duration end then moves with the start, as TaskJuggler reads it). `invalid-value`
  *   when the end is not after the start (TaskJuggler's start_before_end; the header is read in UTC
- *   before any setting), or when the new frame leaves a date outside it (revalidate.ts).
+ *   before any setting), or when the new frame leaves a date outside it (revalidate.ts; dates in
+ *   opaque statements and macro bodies by frame-dates.ts).
  * - `setProjectAttr` rewrites the value of the last site of the project body (and files included
  *   there), keeping the written spelling (noop `already-set`), else inserts `attr value` in the
  *   header body by the 7.2 project order (a body is created when there is none). Values are
@@ -32,7 +33,9 @@
  *   the `now` and `workinghours` statements: TaskJuggler reads later dates in the zone and resets
  *   the project working hours at a `timezone` statement (Project#[]=).
  * - `removeProjectAttr` removes every site (for `weekstartsmonday` both keywords), noop
- *   `not-present` without one, and is re-checked as above.
+ *   `not-present` without one, and is re-checked as above. Removing `now` while a `${now}` or
+ *   `${today}` call is written outside a comment is `unfixable-reference` at the calls: they
+ *   would read the clock.
  * - A statement-level macro call in the project body whose expansion may hold the keyword is
  *   `macro-in-body`.
  */
@@ -56,6 +59,7 @@ import {
 } from '../values';
 import type { IntentHandler } from './apply';
 import { insertStatement, replaceSpan, replaceValue, statementNode } from './layout';
+import { checkUntypedDates } from './frame-dates';
 import { checkBodyMacros } from './lists';
 import { fileOf, insertAttr, macroWritten, removeSites } from './props';
 import { checkSafeText, checkTextOnly } from './refuse';
@@ -205,7 +209,31 @@ export function planRemoveProjectAttr(
 	if (own.length === 0) return noop('not-present');
 	const written = macroWritten(own);
 	if (written) return written;
+	if (intent.attr === 'now') {
+		const clock = clockMacroUses(ctx);
+		if (clock.length > 0) return refused('unfixable-reference', clock);
+	}
 	return rechecked(ctx, intent.attr, removeSites(ctx, own));
+}
+
+/**
+ * Calls of the `now` and `today` macros outside comments. TaskJuggler defines them from the `now`
+ * statement, and without one from the clock (ProjectFileParser#setGlobalMacros), so removing
+ * `now` would make their dates change from run to run (and leave the frame: date_in_range).
+ */
+function clockMacroUses(ctx: EditContext): SourceRange[] {
+	const out: SourceRange[] = [];
+	const re = /\$\{\s*(?:now|today)(?![\w-])/g;
+	for (const [path, file] of ctx.ws.files) {
+		const text = file.text.toString();
+		re.lastIndex = 0;
+		for (let m = re.exec(text); m; m = re.exec(text)) {
+			const node = file.tree.resolveInner(m.index, 1).name;
+			if (node === 'LineComment' || node === 'BlockComment') continue;
+			out.push({ file: path, from: m.index, to: m.index + m[0].length });
+		}
+	}
+	return out;
 }
 
 /** `+Nd`, `+Nh` or `+Nmin` for a span of seconds, or null when it is not whole minutes. */
@@ -311,7 +339,10 @@ function planInterval(
 			}
 		}
 	}
-	return resolveInterval(next, env).ok ? ops : refused('invalid-value', at);
+	const after = resolveInterval(next, env);
+	if (!after.ok) return refused('invalid-value', at);
+	const before = resolveInterval(cur.value, env);
+	return (before.ok ? checkUntypedDates(ctx, before.value, after.value) : null) ?? ops;
 }
 
 export const PROJECT_HANDLERS: {

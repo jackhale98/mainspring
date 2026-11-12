@@ -4,9 +4,10 @@
 // - Random intents (fast-check, fixed seed) on every golden plan that schedules (the two slowest
 //   are left to the nightly fidelity job), indexed with the engine's time-zone data: each edit
 //   must keep `ok` and add no new error or fatal message id, except errors that depend on the
-//   computed schedule (or on opaque bookings, or the clock), each admitted only by a narrow
-//   predicate for its id (settings-engine.ts `scheduleDependent`) and logged with its id;
-//   `renameResource` must leave the schedule equal apart from names.
+//   computed schedule (or on opaque bookings), each admitted only by a narrow predicate for its
+//   id (settings-engine.ts `scheduleDependent`) and logged with its id; `renameResource` must
+//   leave the schedule equal apart from names. Every run passes the golden manifest's
+//   `options.now` (ADR-0002 #1), so a plan without a `now` line does not read the clock.
 // - Effects, on fixed cases: a leave removes availability (the task it covers ends later, and
 //   earlier again once the leave is removed); shorter working hours spread the effort (the task
 //   ends later); a time zone shifts the instant of local dates as TaskJuggler reads them (Berlin
@@ -45,8 +46,20 @@ const texts = (c: LinkCorpus): Record<string, string> => {
 	return out;
 };
 
+/** The manifest's `now` per golden plan (ADR-0002 #1). */
+const NOW: Readonly<Record<string, string>> = Object.fromEntries(
+	(
+		JSON.parse(fs.readFileSync(path.join(ROOT, 'engine/golden/manifest.json'), 'utf8')) as Array<{
+			id: string;
+			now: string | null;
+		}>
+	).flatMap((p) => (p.now ? [[p.id, p.now]] : [])),
+);
+
 function schedule(engine: Engine, c: LinkCorpus, files: Record<string, string>): ScheduleResult {
-	return engine.schedule({ files, entry: c.snap.entry, revision: ++revision, options: {} });
+	const now = c.golden === null ? undefined : NOW[c.golden];
+	const options = now ? { now } : {};
+	return engine.schedule({ files, entry: c.snap.entry, revision: ++revision, options });
 }
 
 /** Schedules the edit of `intent` on `c`; throws unless the intent gives an edit. */

@@ -74,6 +74,31 @@ describe('setWorkingHours', () => {
 		);
 	});
 
+	it('places project hours after a timezone or timingresolution that resets them (case whtz)', () => {
+		const tz =
+			'project p "P" 2026-01-05 - 2026-03-27 {\n  workinghours mon 10:00 - 12:00\n' +
+			'  timezone "UTC"\n}\nresource a "A"\ntask t "T" { effort 2d allocate a }\n';
+		const tue: EditIntent = {
+			type: 'setWorkingHours',
+			scope: { kind: 'project' },
+			days: ['tue'],
+			hours: 'off',
+		};
+		expect(run(tue, tz).text).toContain(
+			'  workinghours mon 10:00 - 12:00\n  timezone "UTC"\n  workinghours tue off\n}',
+		);
+		// The statement before the reset no longer counts: a new one is written after it.
+		const mon: EditIntent = { ...tue, days: ['mon'], hours: [['8:00', '9:00']] };
+		expect(run(mon, tz).text).toContain('  timezone "UTC"\n  workinghours mon 8:00 - 9:00\n}');
+		const res = tz.replace('  timezone "UTC"\n', '  timingresolution 30min\n  now 2026-02-02\n');
+		expect(run(tue, res).text).toContain(
+			'  timingresolution 30min\n  workinghours tue off\n  now 2026-02-02\n}',
+		);
+		// A statement after the reset is rewritten as before.
+		const after = tz.replace('  timezone "UTC"\n', '').replace('{\n', '{\n  timezone "UTC"\n');
+		expect(run(mon, after).text).toContain('  timezone "UTC"\n  workinghours mon 8:00 - 9:00\n}');
+	});
+
 	it('inserts a resource statement by 7.2 order, opening a body', () => {
 		expect(
 			run({

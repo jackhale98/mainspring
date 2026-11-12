@@ -50,16 +50,25 @@ function takesTime(intent: EditIntent): boolean {
 	}
 }
 
-/** The resource whose calendar an intent changes; null for the project or global scope. */
-function calendarOf(intent: EditIntent): string | null | undefined {
+/**
+ * The resource whose calendar an intent changes; null for the project or global scope (every
+ * resource); undefined when the intent changes no calendar. An updated leave is found by its item.
+ */
+function calendarOf(c: LinkCorpus, intent: EditIntent): string | null | undefined {
 	if (intent.type === 'setWorkingHours')
 		return intent.scope.kind === 'resource' ? intent.scope.resource : null;
 	if (intent.type === 'addLeave')
 		return intent.scope.kind === 'resource' ? intent.scope.resource : null;
+	if (intent.type === 'updateLeave') {
+		const at = intent.leave.item;
+		const site = c.index.leaves.find((l) =>
+			l.items.some((i) => i.file === at.file && i.from === at.from && i.to === at.to),
+		);
+		if (!site) return undefined;
+		return site.scope.kind === 'resource' ? site.scope.resource : null;
+	}
 	return undefined;
 }
-
-const TODAY = new Date().toISOString().slice(0, 10);
 
 /**
  * Whether a new error depends on the computed schedule or on things the edit API cannot see
@@ -69,11 +78,11 @@ const TODAY = new Date().toISOString().slice(0, 10);
  *   date can no longer follow or precede a task that now takes longer), for intents that take
  *   working time away;
  * - `booking_no_duty` and `booking_on_vacation` for calendar changes of the booked resource (or
- *   of every resource): bookings are opaque statements the edit API does not read;
- * - `date_in_range` naming today's date for removing `now`: TaskJuggler then reads the clock.
+ *   of every resource, for the project or global scope): bookings are opaque statements the edit
+ *   API does not read.
  */
 export function scheduleDependent(
-	_c: LinkCorpus,
+	c: LinkCorpus,
 	intent: EditIntent,
 	m: EngineMessage,
 	all: readonly EngineMessage[] = [],
@@ -87,12 +96,10 @@ export function scheduleDependent(
 			return takesTime(intent) && all.some((x) => x.id === 'sched_runaway');
 		case 'booking_no_duty':
 		case 'booking_on_vacation': {
-			const r = calendarOf(intent);
-			if (r === undefined) return intent.type === 'updateLeave';
+			const r = calendarOf(c, intent);
+			if (r === undefined) return false;
 			return r === null || new RegExp(`\\b${r}\\b`).test(m.text);
 		}
-		case 'date_in_range':
-			return intent.type === 'removeProjectAttr' && intent.attr === 'now' && m.text.includes(TODAY);
 		default:
 			return false;
 	}

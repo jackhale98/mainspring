@@ -231,6 +231,21 @@ describe('removeProjectAttr', () => {
 		);
 	});
 
+	it('refuses removing now while ${now} or ${today} is used (case rmnow)', () => {
+		const rm: EditIntent = { type: 'removeProjectAttr', attr: 'now' };
+		const t = plan('  now 2026-02-16\n', 'start ${now}');
+		const { r } = run(t, rm);
+		expect(status(r)).toBe('refused:unfixable-reference');
+		expect(r.status === 'refused' && r.at.map((a) => t.slice(a.from, a.to))).toEqual(['${now']);
+		const today = plan('  now 2026-02-16\n', 'start ${ today }');
+		expect(status(run(today, rm).r)).toBe('refused:unfixable-reference');
+		const inMacro = plan('  now 2026-02-16\n') + 'macro d [ ${now} ]\n';
+		expect(status(run(inMacro, rm).r)).toBe('refused:unfixable-reference');
+		// Comments and other macro names do not count.
+		const other = plan('  now 2026-02-16\n') + '# ${now}\n/* ${today} */\nmacro nowx [1]\n';
+		expect(status(run(other + 'macro n [ ${nowx} ]\n', rm).r)).toBe('edit');
+	});
+
 	it('the wrappers build the intents', () => {
 		const s = setup(plan('  now 2026-02-16\n'));
 		expect(setProjectAttr(s.snap, s.index, 'now', '2026-02-16').status).toBe('noop');

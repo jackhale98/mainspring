@@ -6,8 +6,9 @@
  * reference. Placement and re-indenting are in blocks.ts.
  *
  * - `addResource` inserts `resource <id> "<name>"`, with a body for `attrs` (7.2 resource order),
- *   at the child place (blocks.ts); a first root goes before the first top-level task, else at the
- *   end of the entry file. The id is the given one (`id-collision` when any resource has it,
+ *   at the child place (blocks.ts); a first root goes before the first top-level task (before the
+ *   include statement when that task is read under a `resourceprefix`), else at the end of the
+ *   entry file. The id is the given one (`id-collision` when any resource has it,
  *   TaskJuggler's resource_exists; `invalid-value` when it is not an id) or a slug of the name
  *   with an `_n` suffix on collision. Names holding `${`, `$(` or a line break are `unsafe-text`.
  *   Attribute values are checked as `setResourceAttr` checks them.
@@ -20,11 +21,14 @@
  *   allocation intents refuse it).
  * - `moveResource` cuts the block and inserts it re-indented at the child place, possibly in
  *   another file. Refused: `cycle` into its own subtree; noop at the same place; across files with
- *   different `resourceprefix` (the ids in the block would read differently) `unsupported-form`;
- *   moving it later in reading order past an allocation of its subtree (TaskJuggler resolves
- *   `allocate` ids while it parses), or with a mention the edit cannot see, `unfixable-reference`.
+ *   different `resourceprefix` (the ids in the block would read differently; an unknown prefix
+ *   equals none) `unsupported-form`; a use read before its declaration after the move, either
+ *   way in reading order, `unfixable-reference` (resource-order.ts).
+ * - A new or moved resource inherits its new parent chain's `managers`: an added edge that leads
+ *   to a loop of managers is `cycle` (manager-loops.ts).
  * - A new parent must be able to take the child (resource-checks.ts: manager_is_group,
- *   booking_group, leaf_resource_id_expected, shift_assignment_overlap, manager_is_self):
+ *   booking_group, leaf_resource_id_expected, container_attribute, shift_assignment_overlap,
+ *   manager_is_self):
  *   `conflicting-attribute`.
  * - `renameResource` rewrites the name string only, in its quote style (a cut-here name becomes
  *   double-quoted), escaping that quote; `unsafe-text` as above; noop for the same name.
@@ -33,10 +37,9 @@
  */
 import type { TjpFile } from '../document';
 import type { ResourceSymbol, SourceRange } from '../index';
-import { compareParseOrder } from '../../workspace/include-order';
 import { isId, parseString, printString, printStringPreferring, slugId } from '../values';
 import type { IntentHandler } from './apply';
-import { childPlace, insertBlock, movedText, targetIndent, type ChildPlace } from './blocks';
+import { childPlace, insertBlock, movedText, targetIndent } from './blocks';
 import { stateReader } from './dep-graph';
 import { rangeKey } from './deps-links';
 import {
@@ -52,8 +55,10 @@ import { removeItems } from './lists';
 import { fileOf, resourceOf } from './props';
 import { checkReferences, subtree } from './refs';
 import { checkSafeText, checkTextOnly } from './refuse';
-import { attrStatements } from './resource-attrs';
+import { managerLoop } from './manager-loops';
+import { attrStatements, managersIn } from './resource-attrs';
 import { checkNewParent, insideAny, symbols } from './resource-checks';
+import { checkMoveOrder } from './resource-order';
 import {
 	isRefused,
 	noop,
@@ -65,10 +70,20 @@ import {
 	type Refused,
 } from './types';
 
-/** Where a first root resource goes: before the first top-level task, else at the end. */
+/**
+ * Where a first root resource goes: before the first top-level task, else at the end of the
+ * entry. A task read in a file included with a `resourceprefix` (known or not) would make the
+ * new resource a child of the prefix, so the place moves up to the include statement.
+ */
 function firstRoot(ctx: EditContext): { file: TjpFile; place: Placement } | Refused {
-	const task = ctx.index.taskRoots.map((id) => ctx.index.tasks.get(id)).find((t) => t && !t.parent);
-	const block = task?.decl.block;
+	const { index } = ctx;
+	const task = index.taskRoots.map((id) => index.tasks.get(id)).find((t) => t && !t.parent);
+	let block: SourceRange | null = task?.decl.block ?? null;
+	for (let v = task ? index.visits[task.visit] : undefined; v && block;) {
+		if (v.resourcePrefix.kind === 'none') break;
+		block = v.site;
+		v = v.parent === null ? undefined : index.visits[v.parent];
+	}
 	const file = ctx.ws.files.get(block?.file ?? ctx.ws.entry);
 	if (!file) return refused('unknown-target');
 	return { file, place: block ? { before: block } : 'end' };
@@ -113,6 +128,9 @@ export function planAddResource(ctx: EditContext, intent: IntentOf<'addResource'
 	if (isRefused(where)) return where;
 	const body = attrStatements(ctx, id, intent.attrs ?? [], where.file.path, at);
 	if (isRefused(body)) return body;
+	const own = managersIn(intent.attrs ?? []);
+	const loop = managerLoop(ctx.index, { added: { id, parent: parent?.id ?? null, own } });
+	if (loop) return loop;
 	const header = `resource ${id} ${name.value}`;
 	const text = body.length > 0 ? `${header} {\n${body.map((l) => `\t${l}`).join('\n')}\n}` : header;
 	const indent = targetIndent(where.file, where.owner);
@@ -223,35 +241,10 @@ function listStatement(ctx: EditContext, at: SourceRange, via: string): SourceRa
 	return s?.statement ?? null;
 }
 
-/** The written resource prefix of a file's first visit. */
+/** The written resource prefix of a file's first visit; an unknown one equals no other. */
 function prefixKey(ctx: EditContext, file: string): string {
 	const p = ctx.index.visits.find((v) => v.file === file)?.resourcePrefix ?? { kind: 'none' };
-	return p.kind === 'id' ? `id:${p.id}` : p.kind;
-}
-
-/** `unfixable-reference` when the new place is later than uses of the subtree (module comment). */
-function readsLater(
-	ctx: EditContext,
-	sym: ResourceSymbol,
-	ids: ReadonlySet<string>,
-	where: ChildPlace,
-): Refused | null {
-	const anchor = where.place;
-	const pos =
-		typeof anchor === 'object' && 'after' in anchor
-			? { file: where.file.path, from: anchor.after.to }
-			: typeof anchor === 'object' && 'before' in anchor
-				? { file: where.file.path, from: anchor.before.from }
-				: { file: where.file.path, from: where.owner?.to ?? fileText(where.file).length };
-	const old = { file: sym.decl.block.file, from: sym.decl.block.from };
-	if (compareParseOrder(ctx.ws.includes, pos, old, 'first') <= 0) return null;
-	const at = ctx.index.allocations
-		.filter((a) => a.resource !== null && ids.has(a.resource))
-		.filter((a) => compareParseOrder(ctx.ws.includes, a.item, pos, 'first') < 0)
-		.map((a) => a.item);
-	for (const id of ids) for (const m of ctx.index.mentions('resource', id)) at.push(m.at);
-	const outside = at.filter((r) => !insideAny(r, [sym.decl.block]));
-	return outside.length > 0 ? refused('unfixable-reference', outside) : null;
+	return p.kind === 'id' ? `id:${p.id}` : p.kind === 'none' ? 'none' : `unknown:${file}`;
 }
 
 export function planMoveResource(ctx: EditContext, intent: IntentOf<'moveResource'>): IntentPlan {
@@ -267,14 +260,16 @@ export function planMoveResource(ctx: EditContext, intent: IntentOf<'moveResourc
 	if (sym.parent === (parent?.id ?? null) && before === i) return noop('already-set');
 	const group = checkNewParent(ctx, parent, ids);
 	if (group) return group;
+	const loop = managerLoop(ctx.index, { parent: new Map([[sym.id, parent?.id ?? null]]) });
+	if (loop) return loop;
 	const where = childPlace(ctx, parent, siblings, i, () => firstRoot(ctx));
 	if (isRefused(where)) return where;
 	const src = fileOf(ctx, sym.decl.block);
 	if (isRefused(src)) return src;
 	if (src.path !== where.file.path && prefixKey(ctx, src.path) !== prefixKey(ctx, where.file.path))
 		return refused('unsupported-form', [sym.decl.header]);
-	const later = readsLater(ctx, sym, new Set(ids), where);
-	if (later) return later;
+	const order = checkMoveOrder(ctx, sym, ids, where);
+	if (order) return order;
 	const indent = targetIndent(where.file, where.owner);
 	if (indent === null) return refused('unknown-target', where.owner ? [where.owner] : []);
 	const eol = lineBreakNear(fileText(where.file), where.owner?.from ?? 0);

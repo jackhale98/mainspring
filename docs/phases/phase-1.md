@@ -1121,30 +1121,50 @@ them.
     TaskJuggler 3.8.4 behaviour (each refusal checked natively or by the engine check):
     - Resource ids are global (14.9): `addResource` refuses an id any resource has
       (`id-collision`, resource_exists); a slug from the name gets `_n` on collision. A first root
-      goes before the first top-level task. A new or moved block copies its previous sibling's
+      goes before the first top-level task, or before the include statement when that task is read
+      under a `resourceprefix` (known or not). A new or moved block copies its previous sibling's
       blank-line separation (before the first sibling, it takes that sibling's separation after
       it).
     - Making a leaf a group (`addResource`, `moveResource` under it) is `conflicting-attribute`
       when it must stay a leaf: it is someone's manager (manager_is_group), has bookings
-      (booking_group) or is named in opaque text or a macro body, as `limits { resources … }`
-      (leaf_resource_id_expected).
+      (booking_group), is named in opaque text or a macro body, as `limits { resources … }`
+      (leaf_resource_id_expected), or a supplement assigns it `shifts` (container_attribute:
+      `shifts` read after the resource has children; the child goes at the end of the
+      declaration body, so `shifts` there stays valid).
     - `deleteResource` removes the subtree's `supplement resource` blocks and `allocate`,
       `responsible` and `managers` items; mentions it cannot fix (bookings, limits, reports,
       allocation alternatives, macro bodies) and `resourceprefix` uses are
       `unfixable-reference`; leaving an effort leaf without allocations is
       `conflicting-attribute` (effort_no_allocations, as 15.19).
     - `moveResource` across files with different `resourceprefix` is `unsupported-form` (ids in
-      the block would read differently). Under a new parent chain that assigns `shifts` too, a
-      subtree with its own `shifts` is `conflicting-attribute` (inherited assignments overlap:
-      shift_assignment_overlap), and so is a subtree holding a resource the chain's `managers`
-      names (it would inherit itself: manager_is_self); both checked natively. A move later in
-      reading order past an allocation of the subtree (TaskJuggler resolves `allocate` ids while
-      parsing) or with a mention outside the block is `unfixable-reference`.
+      the block would read differently; an unknown prefix equals no other). Under a new parent
+      chain that assigns `shifts` too, a subtree with its own `shifts` is `conflicting-attribute`
+      (inherited assignments overlap: shift_assignment_overlap), and so is a subtree holding a
+      resource the chain's `managers` names (it would inherit itself: manager_is_self); both
+      checked natively. The overlap refusal is conservative: TaskJuggler rejects only assignments
+      whose intervals overlap, and the edit API does not read shift intervals.
+    - Reading order (`edit/resource-order.ts`), `unfixable-reference` at the use. A move later
+      in reading order: uses of the subtree outside the block read before the new place, that is
+      allocations (TaskJuggler resolves `allocate` ids while parsing), `supplement resource`
+      blocks (not a defined resource), includes whose `resourceprefix` names it, and opaque
+      mentions (a task's `booking`); mentions in macro bodies count wherever they are; opaque
+      mentions read after the new place (a report) do not. A move earlier: uses in the block of
+      something declared between the two places, that is every `booking` (conservative), opaque
+      mentions of tasks and resources declared there, flags declared there, `shifts` when a
+      `shift` statement lies there (shifts are not indexed) and calls of macros defined there.
+    - Manager loops (`edit/manager-loops.ts`): TaskJuggler follows `managers` recursively for
+      every resource (ResourceScenario#setReports_i from Project#prepareScenario), so a loop
+      overflows the stack (natively `stack level too deep`; the wasm worker dies). A resource's
+      managers are its own and every ancestor's (conservative: also an ancestor's statements read
+      after the child). An intent that adds an edge leading to any loop (closing one, or reaching
+      one already there) is `cycle`: `setResourceAttr managers`, `addResource` (with `managers`
+      or under a group with managers) and `moveResource` (inheriting the new chain's managers).
     - Resource attribute values are TaskJuggler text, as `setAttr` (`'1.5'`, `'"a@b.c"'`); the
       number rule has no sign, so negative values are `invalid-value`. `managers` is the whole
       accumulating list, as T11a's `responsible`: inherited ids stay (`inherited`), every id a leaf
-      other than the resource (`invalid-value`: resource_id_expected, manager_is_group,
-      manager_is_self); manager loops are not refused (only a report checks them). Value rewrites
+      outside the resource's subtree (`invalid-value`: resource_id_expected, manager_is_group,
+      manager_is_self; a group's managers apply to its children); a value that leads to a manager
+      loop is `cycle` (above). Value rewrites
       of `efficiency`, `rate`, `email`, project settings, leave items and names are
       `sameInEveryVisit`; `managers` and every structural change are not (15.16).
     - New statements of a top-scenario attribute go before another scenario's prefixed site of the
@@ -1154,9 +1174,14 @@ them.
       `workinghours` (TaskJuggler reads later dates in the zone and resets the project working
       hours at it). `dailyworkinghours` must be above 0 (0 is a fatal division natively).
       `weekstartsmonday` takes a boolean; `weekstartssunday` is opaque, so `true` after it inserts
-      `weekstartsmonday` and removing it is `text-only`. `setProjectHeader` keeps the end's style
+      `weekstartsmonday` and removing it is `text-only`. Removing `now` while `${now}` or
+      `${today}` is called outside a comment is `unfixable-reference` at the calls (TaskJuggler
+      would define them from the clock). `setProjectHeader` keeps the end's style
       (`- date` or `+duration`, a new end date becoming whole days, hours or minutes) and writes
-      no `version` (7.1 names only the name and the interval).
+      no `version` (7.1 names only the name and the interval). A narrowed frame also refuses
+      (`invalid-value`) dates written in opaque statements and macro bodies (a `journalentry`, a
+      `booking`) that may fall in the removed part (`edit/frame-dates.ts`; conservative: every
+      date token, read as UTC with a day of margin, on the sides that shrink).
     - Re-checking (`revalidate.ts`): a change of the frame, `timezone`, `now`,
       `dailyworkinghours` or the project working hours is applied to a copy of the snapshot, the
       index rebuilt with the same zone data, and the value diagnostics compared: any new one is
@@ -1164,13 +1189,15 @@ them.
       zone misaligns, and a `timingresolution` after the `timezone` statement above the new zone's
       cap (too_large_timing_res, 15 min for Asia/Kathmandu). A `timingresolution` read before the
       `timezone` statement is not capped (natively accepted), so not refused. **Zone data:** the
-      runner (15.18) builds its index without `zones`, so in the app zone-dependent checks are
-      skipped as uncheckable; passing the engine's `TimeZoneHost` to `buildIndex` there turns
-      them on (follow-up for T14/T15).
+      zones come from `ctx.index`; the runner builds its index with the engine's zones (15.21), so
+      these refusals happen in the app (`edit/settings.zones.test.ts` applies intents to the
+      runner's index).
     - Working hours: the last own statement with exactly the intent's days is rewritten only when
       no later own statement sets one of them; otherwise a new statement goes after the scope's
       last one (later statements override day by day). A resource's first statement starts from
-      the project's hours (`WorkingHours.new`).
+      the project's hours (`WorkingHours.new`). In the project scope a `timezone` or
+      `timingresolution` statement resets the working hours (Project#[]=): statements before the
+      last of them are not rewritten, and a new statement goes after it.
     - Leaves: the project scope means the global one; a new global `leaves` goes after the project
       header; a vacation interval can only become another unnamed (or same-named) `holiday`
       interval (`unsupported-form`); leaves outside the frame are not refused (TaskJuggler ignores
@@ -1178,5 +1205,6 @@ them.
     - Not foreseen (engine check `edit/settings.engine.test.ts`, admitted only by per-id
       predicates and logged): `sched_runaway` (with `not_scheduled`), `task_pred_before` and
       `task_succ_after` after intents that take working time away; `booking_no_duty` and
-      `booking_on_vacation` after calendar changes of a booked resource (bookings are opaque);
-      `date_in_range` naming today after removing `now` (TaskJuggler then reads the clock).
+      `booking_on_vacation` after calendar changes of the booked resource (for `updateLeave`, the
+      leave's resource; every resource for the project or global scope), since bookings are
+      opaque. Runs pass the golden manifest's `options.now` (ADR-0002 #1).
