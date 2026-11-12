@@ -887,6 +887,7 @@ them.
     intents (`addTask`, `deleteTask`, `moveTask`, `addDepends`/`removeDepends`, allocation changes
     that add or remove lines or items) are always refused there with `shared-declaration`, whose
     `affects` lists every visit's ids (for top-level text, every id the file declares).
+
 17. **CodeMirror extensions (T13; ADR-0004).** `src/lib/tjp/cm/`; `tjp(opts)` is the full set for
     one file and `workspaceExtensions(opts)` is the `createWorkspace` `extensions` factory.
     - **Interface.** `contextAt(tree, pos, top, text)` returns `ContextId | null` and takes a text
@@ -968,3 +969,50 @@ them.
     was sent. Do not call `changed('now')` for workspace edits: the runner sees every commit and
     apply, and the call would skip the typing debounce. `subscribe` follows the Svelte store
     contract.
+
+19. **Dependency and allocation intents (T11c).** Handlers in `edit/deps.ts`, `edit/deps-gap.ts`
+    and `edit/allocation.ts`, registered in `HANDLERS`; none is `sameInEveryVisit`, and the plan's
+    function names are in `edit/link-intents.ts`. Rules beyond the 7.1 rows, all from TaskJuggler
+    3.8.4 behaviour:
+    - `cycle` covers a dependency on the task itself, an ancestor or a descendant
+      (task_depend_self/parent/child), a loop TaskJuggler's own check finds (a port of
+      `TaskScenario#checkForLoops`, with scheduling direction, milestones, containers,
+      inheritance and scenarios, `edit/dep-loops.ts`), and a cycle of start and end times that
+      check misses and TaskJuggler then cannot handle: on the Tutorial golden it recurses in
+      `calcPathCriticalness` (TaskScenario.rb:897, :2415), which runs after the loop check and
+      before scheduling, until the stack overflows. Items in declarations the index cannot name
+      (auto ids) take part through the named task around them (`edit/dep-orphans.ts`). Only
+      loops the edit adds are refused.
+    - `already-linked` includes links inherited from a parent's list; adding an unprefixed link
+      where only a scenario-prefixed `depends` exists, or above children that already depend on
+      the target (they inherit it: task_depend_multi), or one that makes a sized leaf with a
+      fixed `end` ASAP (task_overspecified: the task, or a container's children declared after
+      the new item, which inherit it and the direction), is `conflicting-attribute`.
+    - New `depends` and `allocate` statements never go after a child task (`container_attribute`).
+    - A new `depends` statement makes its task ASAP, as in TaskJuggler (rule_depends sets
+      `forward` and drops the clash silently). When that would override the task's own
+      `scheduling alap` (no own ASAP setting after it, and no own direction setting after the new
+      item), also for a container whose later children would inherit ASAP, `addDepends` is
+      `conflicting-attribute` at that `scheduling alap` statement. An ALAP inherited from a parent
+      or set only by `end` or `precedes` is overridden as TaskJuggler documents; the edit does not
+      compensate, and the loop and overspecification checks read the direction after the edit.
+    - A body macro call whose definition may write the list (mentions the keyword, has nested
+      calls, or is not defined) refuses the intent with `macro-in-body`.
+    - `removeDepends` (no scenario) removes every item of the link, prefixed ones included, when
+      an unprefixed (or top-scenario) item exists. A link only in scenario-prefixed items exists
+      only in those scenarios: `conflicting-attribute` at those items, as `addDepends` treats the
+      same link (`not-present` would say there is no link). `setDependsGap` sets the gap on all
+      unprefixed items of the link and leaves exactly one gap statement per body; on a link
+      inherited from a parent's list it is `inherited`.
+    - Allocation intents work on unprefixed lists; inherited resources count as allocated
+      (`inherited` to remove one); items with a body are `unsupported-form`. A resource must be
+      declared before the allocation and writable under the file's `resourceprefix`
+      (`unknown-target`, `unsupported-form`). Leaving an effort leaf without allocations
+      (effort_no_allocations: the task, or a container's children declared after the removed
+      item, which inherited it) and allocating to a task that would stop being an implicit
+      milestone without both ends (task_underspecified), container children included, are
+      `conflicting-attribute`.
+    - Errors that depend on the computed schedule (a fixed start before a new predecessor's end,
+      a resource left short after a removal) cannot be foreseen without scheduling and are not
+      refused; the engine check (`edit/links.engine.test.ts`) counts and logs them by message id
+      (`not_scheduled` only next to `sched_runaway`).
