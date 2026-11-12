@@ -116,7 +116,8 @@ What is known:
 This needs the user's decision (and an ADR) before a public release. Options: accept it on the
 grounds that ruby.wasm is a separate program that runs TaskJuggler as interpreted code; or build
 a ruby.wasm without the `openssl` extension (ruby.wasm's `rbwasm build` with a custom profile)
-and ship that. Phase 0 uses the PoC's binary unchanged.
+and ship that. Phase 0 uses the PoC's binary unchanged. The GitHub Pages preview ships it too,
+under ADR-0006, which covers the preview only; the point stays open for the real release.
 
 ## Development only
 

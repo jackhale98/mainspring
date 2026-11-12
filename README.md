@@ -6,6 +6,22 @@ control.
 
 Status: Phase 0 (foundation and engine). See `docs/BUILD_PLAN.md` and `docs/phases/`.
 
+## Run locally / Preview
+
+Needs Node.js 22 (see `.nvmrc`).
+
+```sh
+npm ci
+npm run build:engine   # packs ruby.wasm and TaskJuggler into public/engine/
+npm run dev
+```
+
+Then open <http://localhost:4321/app>.
+
+A public preview of `main` runs on GitHub Pages: <https://jackhale98.github.io/mainspring/>
+(ADR-0006). It is built with `MAINSPRING_BASE=/mainspring/`; `npm run test:base-path` checks
+that build locally.
+
 ## License
 
 Mainspring is licensed under the GNU General Public License, version 2 or (at your option) any

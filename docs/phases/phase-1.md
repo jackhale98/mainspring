@@ -1111,3 +1111,16 @@ them.
       resolution against the zone's offset, misaligned dates) are made instead of skipped as
       uncheckable. The app passes `createTimeZoneHost()`, now in `src/engine/timezone.ts` (and
       re-exported by `runtime.ts`), so the main thread does not bundle the Ruby VM for it.
+
+23. **GitHub Pages preview (out of phase; approved by the user 2026-11-12, ADR-0006).** A public
+    preview at `https://jackhale98.github.io/mainspring/`, deployed from `main` by
+    `.github/workflows/pages.yml`. It ships the stock `@ruby/3.4-wasm-wasi` binary with OpenSSL
+    3.2.0 linked in; the ADR-0001 open issue stays open and still blocks the real (Cloudflare)
+    release. The site's base path comes from `MAINSPRING_BASE` (default `/`, so dev, CI, the
+    end-to-end tests and golden parity are unchanged). Pages link with `sitePath()`
+    (`src/lib/site-path.ts`), and the worker finds the engine at `<base>engine/` from
+    `import.meta.env.BASE_URL` (`src/engine/engine-url.ts`); no runtime URL may be root-absolute.
+    `npm run test:base-path` (CI job `base-path`) builds under `/mainspring/`, scans the output
+    for root-absolute URLs, serves it as Pages does (`scripts/serve-pages.mjs`) and checks in
+    Chromium that the engine reaches Ready, a sample schedules and nothing is requested outside
+    the base. The user sets Settings → Pages → Source: GitHub Actions once.
