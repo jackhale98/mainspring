@@ -15,7 +15,7 @@ import { REPO } from '../golden/corpus';
 import { CONFIG, plannedCases } from './config';
 import { runCase } from './harness';
 import { percentile, writePart, type P4Part } from './stats';
-import { buildCase, describeFailure } from './shared';
+import { buildCase, describeFailure, knownP4 } from './shared';
 
 type Engine = Awaited<ReturnType<typeof bootNodeEngine>>;
 
@@ -92,7 +92,7 @@ function schedule(
 const failures: string[] = [];
 const times: number[] = [];
 const tolerated: Record<string, number> = {};
-const stats = { runs: 0, cases: 0, okBefore: 0, okKept: 0, newErrors: 0 };
+const stats = { runs: 0, cases: 0, okBefore: 0, okKept: 0, newErrors: 0, known: 0 };
 const started = performance.now();
 
 beforeAll(async () => {
@@ -126,14 +126,16 @@ describe('patch fidelity P4: the edited plan still schedules', () => {
 			}
 			if (before.ok) stats.okBefore++;
 			if (before.ok && after.ok) stats.okKept++;
-			else if (before.ok) bad.push('ok went from true to false');
 			const added = newErrors(before, after);
+			const known = added.length > 0 && knownP4(c, added) !== null;
+			if (known) stats.known++;
+			else if (before.ok && !after.ok) bad.push('ok went from true to false');
 			const fine =
 				c.source === 'corpus' &&
 				added.length > 0 &&
 				added.every((k) => SCHEDULE_DEPENDENT.has(k.split(':')[1] ?? ''));
 			if (fine) for (const k of added) tolerated[k] = (tolerated[k] ?? 0) + 1;
-			else if (added.length > 0) {
+			else if (added.length > 0 && !known) {
 				stats.newErrors += added.length;
 				bad.push(`new error ids: ${added.join(', ')}`);
 			}

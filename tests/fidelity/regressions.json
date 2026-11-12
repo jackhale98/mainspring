@@ -2,6 +2,30 @@
 	"$comment": "Failing fidelity cases, replayed on every run (phase-1.md 9.3). A 'regression' entry is a fixed bug and must pass; a 'known-failure' entry is a bug in the edit API that its owner has not fixed: it is replayed but does not fail the run, and the report says whether it still fails. A case is a function of source, seed and type (FIDELITY_CASE=<source>:<seed>:<type> replays it). Seeds are only stable while the generator and the family drawing code are unchanged, so an entry also keeps its reason.",
 	"cases": [
 		{
+			"source": "generated",
+			"seed": 2147483638,
+			"type": "setAttr",
+			"status": "known-failure",
+			"reason": "Edit API bug (task attribute intents, T11a): setAttr milestone=false on `task db \"Db\" { milestone depends !x }` removes the milestone statement, leaving a leaf with no size and one bound, so the engine reports task_underspecified (ok true -> false). It should be refused conflicting-attribute. P4 treats later cases of the same shape as this known failure.",
+			"found": "2026-11-12",
+			"match": {
+				"intent": { "type": "setAttr", "attr": "milestone", "value": false },
+				"errors": ["error:task_underspecified"]
+			}
+		},
+		{
+			"source": "generated",
+			"seed": 1352997558,
+			"type": "setAttr",
+			"status": "known-failure",
+			"reason": "Same bug as seed 2147483638 (milestone=false on a milestone with only a dependency).",
+			"found": "2026-11-12",
+			"match": {
+				"intent": { "type": "setAttr", "attr": "milestone", "value": false },
+				"errors": ["error:task_underspecified"]
+			}
+		},
+		{
 			"source": "corpus",
 			"seed": 20,
 			"type": "setAttr",

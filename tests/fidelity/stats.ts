@@ -64,6 +64,8 @@ export interface P4Part {
 	okKept: number;
 	okBefore: number;
 	newErrors: number;
+	/** Failures that repeat a known edit-API bug (regressions.json). */
+	known: number;
 	cases: number;
 	wallMs: number;
 	p95Ms: number;
@@ -142,7 +144,7 @@ export function renderReport(
 		out.push(
 			'## P4: still schedules',
 			'',
-			`${p4.runs} engine runs over ${p4.cases} edited cases (old and new workspace); ok kept in ${p4.okKept} of ${p4.okBefore} cases that scheduled ok before; new error or fatal ids: ${p4.newErrors}. ` +
+			`${p4.runs} engine runs over ${p4.cases} edited cases (old and new workspace); ok kept in ${p4.okKept} of ${p4.okBefore} cases that scheduled ok before; new error or fatal ids: ${p4.newErrors}, plus ${p4.known} repeats of known failures. ` +
 				`Wall time ${(p4.wallMs / 1000).toFixed(1)} s, p95 ${ms(p4.p95Ms)} ms per case.`,
 			'',
 		);

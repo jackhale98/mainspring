@@ -15,6 +15,8 @@ export interface Regression {
 	status: 'regression' | 'known-failure';
 	reason: string;
 	found: string;
+	/** A known failure's shape: intent fields and the new error ids, so P4 can skip its repeats. */
+	match?: { intent: Record<string, unknown>; errors: string[] };
 }
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -36,4 +38,19 @@ export function describeFailure(
 ): string {
 	const head = `${c.source} seed ${c.seed} ${c.type} on ${c.name}: ${JSON.stringify(c.drawn.intent).slice(0, 300)} -> ${o.status}${o.reason ? ` (${o.reason})` : ''}`;
 	return `${head}\n${extra.map((f) => `    ${f}`).join('\n')}\n    replay: FIDELITY_CASE=${c.source}:${c.seed}:${c.type}`;
+}
+
+/** The known failure a P4 failure repeats (same intent fields, only the listed new error ids). */
+export function knownP4(c: Case, newErrors: readonly string[]): Regression | null {
+	const intent = c.drawn.intent as unknown as Record<string, unknown>;
+	return (
+		REGRESSIONS.find(
+			(r) =>
+				r.status === 'known-failure' &&
+				r.match &&
+				Object.entries(r.match.intent).every(([k, v]) => intent[k] === v) &&
+				newErrors.length > 0 &&
+				newErrors.every((e) => r.match?.errors.includes(e)),
+		) ?? null
+	);
 }
