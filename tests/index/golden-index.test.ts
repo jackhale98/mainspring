@@ -150,13 +150,13 @@ describe.each(CASES)('$id', ({ golden, files, snap }) => {
 
 describe('totals', () => {
 	it('compares every plan the engine read, and states the count', () => {
-		expect(totals.plans).toBe(36);
+		expect(totals.plans).toBe(39);
 		expect(totals.skipped.sort()).toEqual([
 			'bridge-parse-failure',
 			'syn-19-errors-parse',
 			'syn-22-tz-kathmandu-resolution',
 		]);
-		expect(totals.compared).toBe(33);
+		expect(totals.compared).toBe(36);
 		expect(totals.tasks).toBeGreaterThan(1500);
 		// Ids only the engine can give (macro ids, expanded-only declarations) were resolved by hints.
 		expect(totals.hinted).toBeGreaterThan(0);
