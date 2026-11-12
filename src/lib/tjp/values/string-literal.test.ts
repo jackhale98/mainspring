@@ -62,6 +62,15 @@ describe('line breaks', () => {
 		expect(read(literal(cr, '"two', 'lines"')).value).toBe('two\nlines');
 	});
 
+	it('writes \\r\\n and lone \\r in a value as \\n, in every style', () => {
+		for (const style of ['double', 'single', 'cut'] as const) {
+			const p = printString('a\r\nb\rc\n', { style });
+			expect(p.ok && p.value.includes('\r')).toBe(false);
+			expect(p.ok && read(p.value).value).toBe('a\nb\nc\n');
+		}
+		expect(printString('a\r\nb')).toEqual({ ok: true, value: '"a\nb"' });
+	});
+
 	it('prints app values with \\n; reading a source with other breaks gives the same value', () => {
 		const p = printString('two\nlines');
 		expect(p.ok && read(p.value).value).toBe('two\nlines');
