@@ -1,0 +1,20 @@
+# Feature: a resource and tasks declared only through statement-level macro calls (X5)
+# SPDX-License-Identifier: GPL-2.0-or-later
+project mexp "Macro expanded" 2026-01-05 +2m
+
+macro mk [ task ${1} "${2}" { length 1d } ]
+macro people [ resource ${1} "${1}" ]
+
+${people "ana"}
+task top "Top" {
+  ${mk "q1" "Q one"}
+  task lit "Literal" {
+    length 1d
+  }
+  ${mk "q2" "Q two"}
+}
+task after "After" {
+  length 1d
+  depends top.q2
+  allocate ana
+}

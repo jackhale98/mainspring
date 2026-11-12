@@ -76,9 +76,9 @@ export class IndexImpl implements SymbolIndex {
 		this.version = ws.version;
 		this.visits = s.visits;
 		this.project = s.project;
-		this.tasks = ordered<TaskSymbol>(s.taskRoots, s.tasks);
+		this.tasks = ordered(s.taskRoots, s.tasks);
 		this.taskRoots = s.taskRoots;
-		this.resources = ordered<ResourceSymbol>(s.resourceRoots, s.resources);
+		this.resources = ordered(s.resourceRoots, s.resources);
 		this.resourceRoots = s.resourceRoots;
 		this.dependencies = s.dependencies;
 		this.allocations = s.allocations;
@@ -191,19 +191,25 @@ export class IndexImpl implements SymbolIndex {
 
 /**
  * The site TaskJuggler keeps for a single-valued attribute: the last of `attrs` with this
- * keyword and scenario in reading order (5.4), or null. A symbol's `attrs` are listed in the
- * order the link walk reads them, visit by visit, which is the order `compareParseOrder`
- * (workspace/include-order.ts) gives for positions read once; for a file read in several visits
- * it is exact where one visit choice for both positions is not.
+ * keyword and scenario in reading order (5.4), or null. A prefix naming the top scenario
+ * (`topScenario`, `SymbolIndex.scenarios[0]`) is the same as none: `start 2026-01-06
+ * plan:start 2026-01-08` keeps 01-08 (native). A symbol's `attrs` are in the order the link
+ * walk reads them, visit by visit, which is the order `compareParseOrder`
+ * (workspace/include-order.ts) gives. Sizing attributes cannot have two sites: TaskJuggler
+ * rejects a second sizing criterion for a task, so this matters for the others.
  */
 export function lastSite(
 	attrs: readonly AttrSite[],
 	keyword: string,
 	scenario: string | null = null,
+	topScenario: string | null = null,
 ): AttrSite | null {
+	const norm = (sc: string | null): string | null =>
+		sc !== null && sc === topScenario ? null : sc;
+	const want = norm(scenario);
 	for (let i = attrs.length - 1; i >= 0; i--) {
 		const a = attrs[i];
-		if (a && a.keyword === keyword && a.scenario === scenario) return a;
+		if (a && a.keyword === keyword && norm(a.scenario) === want) return a;
 	}
 	return null;
 }

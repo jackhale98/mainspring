@@ -2,9 +2,10 @@
 /**
  * Attributes inside task, resource and supplement bodies (link.ts): own sites (with the X4 reason
  * of an enclosing unresolved declaration), list references, leaves, working hours and custom
- * attribute uses. `allocate` resolves as it is read (rule_allocationHeader needs the resource
- * already declared, with `resourceprefix` applied, TjpSyntaxRules.rb:372, 4784); dependencies,
- * `responsible` and `managers` wait for the end of the walk (link-finish.ts).
+ * attribute uses. References wait for the end of the walk (link-finish.ts), so that they also
+ * reach declarations only expansion makes (X5). `allocate` looks the resource up with
+ * `resourceprefix` applied (rule_allocationHeader, TjpSyntaxRules.rb:372, 4784); TaskJuggler
+ * needs it declared before the allocation, which the index does not check.
  */
 import type { AttrFact, ListItemFact } from './facts';
 import type { LinkState, Scope } from './link-state';
@@ -53,31 +54,8 @@ export function declAttr(
 			return;
 		case 'allocate':
 			if (owner.kind !== 'task') return;
-			for (const it of fact.items) {
-				const l = lookup(it);
-				const resource = l !== null && s.resources.has(l) ? l : null;
-				const textOnly = stronger(it.textOnly, x4);
-				s.allocations.push({
-					task: owner.id,
-					resource,
-					written: it.written,
-					item: it.item,
-					ref: it.ref,
-					statement: site.statement,
-					body: it.body,
-					scenario: site.scenario,
-					site: site.site,
-					textOnly,
-				});
-				s.references.push({
-					kind: 'resource',
-					target: resource,
-					written: it.written,
-					at: it.ref,
-					via: 'allocate',
-					owner: owner.id,
-					textOnly,
-				});
+			for (const item of fact.items) {
+				s.pendingResourceRefs.push({ item, lookup: lookup(item), owner, via: kw, x4, attr: site });
 			}
 			return;
 		case 'responsible':

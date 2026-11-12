@@ -15,13 +15,20 @@
  */
 import { enclosingStatement } from '../tree';
 import { resolveTaskRef } from '../values';
+import { fresh } from './hints';
+import { stronger } from './ranges';
 import type { LinkState, MutableSymbol } from './link-state';
-import type { HintEntry, PropertyKind, SourceRange } from './types';
+import type { HintEntry, MacroDef, PropertyKind, SourceRange } from './types';
 
 export function finishLink(s: LinkState): void {
+	unsafeMacroCalls(s);
+	// Before references: a dependency may name a declaration only expansion makes (X5).
+	expandedOnly(s, 'task', s.hints.hints.tasks);
+	expandedOnly(s, 'resource', s.hints.hints.resources);
 	resolveDependencies(s);
 	for (const p of s.pendingResourceRefs) {
 		const target = p.lookup !== null && s.resources.has(p.lookup) ? p.lookup : null;
+		const textOnly = stronger(p.item.textOnly, p.x4);
 		s.references.push({
 			kind: 'resource',
 			target,
@@ -29,15 +36,25 @@ export function finishLink(s: LinkState): void {
 			at: p.item.ref,
 			via: p.via,
 			owner: p.owner.id,
-			textOnly: p.item.textOnly ?? p.x4,
+			textOnly,
+		});
+		if (!p.attr) continue;
+		s.allocations.push({
+			task: p.owner.id,
+			resource: target,
+			written: p.item.written,
+			item: p.item.item,
+			ref: p.item.ref,
+			statement: p.attr.statement,
+			body: p.item.body,
+			scenario: p.attr.scenario,
+			site: p.attr.site,
+			textOnly,
 		});
 	}
 	for (const u of s.customAttributeUses) {
 		u.declared = s.customAttributes.some((a) => a.scope === u.scope && a.id === u.name);
 	}
-	unsafeMacroCalls(s);
-	expandedOnly(s, 'task', s.hints.hints.tasks);
-	expandedOnly(s, 'resource', s.hints.hints.resources);
 	sharedTexts(s);
 }
 
@@ -55,7 +72,7 @@ function resolveDependencies(s: LinkState): void {
 		}
 		const target = full !== null && s.tasks.has(full) ? full : null;
 		const self = own !== null && s.tasks.has(own) ? own : null;
-		const textOnly = it.textOnly ?? p.x4;
+		const textOnly = stronger(it.textOnly, p.x4);
 		s.dependencies.push({
 			pred: p.form === 'depends' ? target : self,
 			succ: p.form === 'depends' ? self : target,
@@ -85,13 +102,21 @@ const CALL = /^\$\{(\?)?\s*([A-Za-z_]\w*)/;
 const DECLARING: readonly string[] = ['task', 'resource', 'supplement', 'include', 'macro'];
 
 /**
- * A statement-level macro call (`${children}`) may declare tasks the text cannot see, so it
- * blocks every enclosing edit (text-only.ts X3, no `within`), unless it is known to declare
- * nothing: its macro is defined exactly once, with no nested calls or arguments and none of
- * the declaring keywords in its body, or it is an optional call (`${?x}`) of a macro defined
- * nowhere.
+ * A statement-level macro call (`${children}`) may declare tasks the text cannot see or reshape
+ * the text around it, so it blocks every enclosing edit (text-only.ts X3, no `within`), unless
+ * it is known to be harmless: its macro is defined exactly once, with no nested calls or
+ * arguments, none of the declaring keywords in its body and no structural risk (scan-items.ts);
+ * or it is an optional call (`${?x}`) of a macro defined nowhere. A macro body that defines a
+ * macro can redefine any name when it is called (MacroTable#add overwrites), so then no call is
+ * safe.
+ *
+ * How far the text-only range reaches: a body with unbalanced braces or an unterminated token
+ * changes the structure of everything after the call, so the range runs to the end of the
+ * file; a line comment in the body comments out the rest of the call's line (native: `${c}`
+ * with `c` = `#` drops `length 5d`). Otherwise it is the call statement.
  */
 function unsafeMacroCalls(s: LinkState): void {
+	const redefines = [...s.macros.values()].some((defs) => defs.some((d) => d.words.has('macro')));
 	const seen = new Set<string>();
 	for (const at of s.macroCalls) {
 		const key = `${at.file}\0${at.from}`;
@@ -99,14 +124,28 @@ function unsafeMacroCalls(s: LinkState): void {
 		seen.add(key);
 		const m = CALL.exec(s.textAt(at));
 		const defs = m ? (s.macros.get(m[2] ?? '') ?? []) : null;
+		const harmless = (d: MacroDef): boolean =>
+			!d.nestedCalls && d.structural === null && DECLARING.every((w) => !d.words.has(w));
 		const safe =
+			!redefines &&
 			defs !== null &&
-			(defs.length === 0
-				? m?.[1] === '?'
-				: defs.length === 1 &&
-					defs.every((d) => !d.nestedCalls && DECLARING.every((w) => !d.words.has(w))));
-		if (!safe) s.addExtraRange({ reason: 'macro-call', at, within: null });
+			(defs.length === 0 ? m?.[1] === '?' : defs.length === 1 && defs.every(harmless));
+		if (safe) continue;
+		const risks = new Set((defs ?? []).map((d) => d.structural));
+		s.addExtraRange({ reason: 'macro-call', at: reach(s, at, risks), within: null });
 	}
+}
+
+function reach(
+	s: LinkState,
+	at: SourceRange,
+	risks: ReadonlySet<MacroDef['structural']>,
+): SourceRange {
+	const doc = s.ws.files.get(at.file)?.text;
+	if (!doc) return at;
+	if (risks.has('braces') || risks.has('unterminated')) return { ...at, to: doc.length };
+	if (risks.has('comment')) return { ...at, to: Math.max(at.to, doc.lineAt(at.from).to) };
+	return at;
 }
 
 /** The reading sequence of `offset` in the file's first visit (fractional, after the item). */
@@ -138,13 +177,22 @@ function callSite(s: LinkState, e: HintEntry): SourceRange | null {
 
 function expandedOnly(s: LinkState, kind: PropertyKind, hints: readonly HintEntry[]): void {
 	const map = s.map(kind);
+	// Only a line with a statement-level macro call can inject a declaration; a leftover hint
+	// anywhere else is stale and dropped.
+	const callLines = new Set<string>();
+	for (const at of s.macroCalls) {
+		const n = s.ws.files.get(at.file)?.text.lineAt(at.from).number;
+		if (n !== undefined) callLines.add(`${at.file}\0${n}`);
+	}
 	let k = 0;
 	for (const e of hints) {
-		if (map.has(e.id)) continue;
+		if (map.has(e.id) || !callLines.has(`${e.file}\0${e.line}`)) continue;
 		const visit = s.visitsOfFile.get(e.file)?.[0];
 		if (visit === undefined) continue;
 		const facts = s.factsOf(e.file);
 		if (!facts || facts.headerLines.has(`${kind}:${e.line}`)) continue;
+		const doc = s.ws.files.get(e.file)?.text;
+		if (!doc || !fresh(e, doc)) continue;
 		if (e.parent !== null && !map.has(e.parent)) continue;
 		const at = callSite(s, e);
 		if (!at) continue;

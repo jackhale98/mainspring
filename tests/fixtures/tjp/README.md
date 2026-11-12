@@ -14,6 +14,7 @@ sources under `engine/` on the load path, `--no-reports --silent plan.tjp`, `TZ=
 | --- | --- | --- |
 | `macro-ids` | Macro calls as task and resource ids (`task ${tid}`, `${who}2`), templated names, macro in `depends`/`allocate` (X2, X4) | accepted (exit 0) |
 | `macro-statements` | Statement-level macro calls in task bodies, multi-line macro body, `${?absent}` as a statement (`macro-in-body`) | accepted (exit 0) |
+| `macro-expanded` | A resource and tasks declared only through statement-level macro calls with arguments (X5), a dependency and an allocation naming them | accepted (exit 0); ids `top`, `top.q1`, `top.lit`, `top.q2`, `after` and resource `ana` checked with temporary `taskreport`/`resourcereport` in a scratch copy; the wasm engine records lines 9, 10, 11, 14, 16 and 8 (the call lines) |
 | `macro-args-nested` | Macro arguments `${1}`, quoted call args, optional `${?x}` (before a value), nested calls inside macro bodies, glued id `t${major}`, `${content}${major}` | accepted (exit 0) |
 | `crlf-plan` | Whole file CRLF, header comment included | accepted (exit 0) |
 | `crlf-strings` | CRLF with a multi-line string and a cut-here string | accepted (exit 0) |
