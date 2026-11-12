@@ -9,6 +9,7 @@ import type { Finish } from '../schedule/finish';
 import type { TjpDiagnostic } from '../tjp/diagnostics';
 import type { EngineHints, SymbolIndex } from '../tjp/index';
 import type { DiagnosticCounts, RunnerStatus } from './run-view';
+import type { ZoneOffsets } from '../tjp/values';
 import type { Workspace } from './workspace';
 
 export interface RunTimings {
@@ -108,6 +109,12 @@ export interface ScheduleRunnerOptions {
 	 * `requestIdleCallback`, or where there is none to `setTimeout` with `IDLE_FALLBACK_MS`.
 	 */
 	timers?: Partial<Timers>;
+	/**
+	 * Time-zone data for the symbol index (the engine's `createTimeZoneHost()` fits). Without it
+	 * the index cannot check zone names or zone-dependent values (timing resolution against a
+	 * zone's offset, aligned dates) and skips those checks as uncheckable; the app passes it.
+	 */
+	zones?: ZoneOffsets;
 	/** Schedule the workspace at once when the runner starts; default true. */
 	runAtStart?: boolean;
 }

@@ -30,6 +30,20 @@ The ruby.wasm binary statically links further libraries. Its own `NOTICE` (repro
 | wasi-vfs (packs the Ruby standard library) | Apache-2.0 WITH LLVM-exception                                                  | Yes: the LLVM exception waives the terms that conflict with GPL-2.0 |
 | OpenSSL                                    | Apache-2.0 (version 3.2.0)                                                      | **No** (see below)                                                  |
 
+## Shipped as fonts
+
+The app self-hosts two variable fonts (Latin subset, `dist/_astro/*.woff2`), under ADR-0005.
+Fonts are data files that the page loads; they are not linked into Mainspring's code, so the
+combination stays GPL-2.0. Their license texts ship at `/fonts/NOTICES.txt`
+(`public/fonts/NOTICES.txt`; `tests/ci/fonts.test.ts` checks it against the packages).
+
+| Component                                             | Version | Use                 | License                               |
+| ----------------------------------------------------- | ------- | ------------------- | ------------------------------------- |
+| Inter, `@fontsource-variable/inter`                   | 5.3.0   | UI text             | SIL Open Font License 1.1 (`OFL-1.1`) |
+| JetBrains Mono, `@fontsource-variable/jetbrains-mono` | 5.3.0   | Source text and ids | SIL Open Font License 1.1 (`OFL-1.1`) |
+
+`scripts/ci/licenses.mjs` accepts `OFL-1.1` only for these two named packages (`FONT_PACKAGES`).
+
 ## Shipped in the page scripts
 
 The site's own scripts in `dist/_astro/` are bundled by Vite. Checked on a build with

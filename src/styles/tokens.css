@@ -14,6 +14,13 @@
 	--color-accent-text: #ffffff;
 	--color-focus: #0b5cad;
 	--color-status-neutral: #51585e;
+	--color-surface-sunken: #eef0f2;
+	--color-badge-bg: #e4e7ea;
+	--color-badge-text: #2f353a;
+	--color-status-ok: #1f6f35;
+	--color-overlay: rgb(10 14 18 / 0.5);
+	--color-row-hover: #eef2f6;
+	--color-row-selected: #d9e8f9;
 
 	/* Code editor (src/lib/tjp/cm/theme.ts). AA contrast on --color-surface. */
 	--color-syntax-keyword: #0b5cad;
@@ -31,13 +38,17 @@
 	--color-editor-active-line: #f0f4f8;
 
 	/* Type */
-	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-	--font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+	--font-sans:
+		'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		sans-serif;
+	--font-mono:
+		'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 	--text-sm: 0.875rem;
 	--text-md: 1rem;
 	--text-lg: 1.25rem;
 	--text-xl: clamp(1.5rem, 1.2rem + 1.5vw, 2.25rem);
 	--leading: 1.5;
+	--text-xs: 0.8125rem;
 
 	/* Spacing */
 	--space-1: 0.25rem;
@@ -46,6 +57,18 @@
 	--space-4: 1rem;
 	--space-6: 1.5rem;
 	--space-8: 2rem;
+
+	/* Layout */
+	--size-topbar: 3.25rem;
+	--size-tabbar: 3.5rem;
+	--size-tap: 2.75rem;
+	--size-row: 2.25rem;
+	--size-outline: 20rem;
+
+	/* Motion: 150 to 200 ms for panels and sheets; off when the user asks for less motion */
+	--motion-fast: 150ms;
+	--motion-base: 200ms;
+	--shadow-raised: 0 4px 20px rgb(10 14 18 / 0.18);
 
 	/* Shape */
 	--radius-sm: 4px;
@@ -64,6 +87,13 @@
 		--color-accent-text: #0a1722;
 		--color-focus: #6cb2f2;
 		--color-status-neutral: #aab1b7;
+		--color-surface-sunken: #171a1d;
+		--color-badge-bg: #2c3237;
+		--color-badge-text: #d5dade;
+		--color-status-ok: #86d39a;
+		--color-overlay: rgb(0 0 0 / 0.6);
+		--color-row-hover: #262b30;
+		--color-row-selected: #203447;
 		--color-syntax-keyword: #6cb2f2;
 		--color-syntax-definition: #d39af0;
 		--color-syntax-reference: #eceef0;
@@ -77,6 +107,19 @@
 		--color-diagnostic-info: #6cb2f2;
 		--color-editor-selection: #203447;
 		--color-editor-active-line: #22262a;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--motion-fast: 0ms;
+		--motion-base: 0ms;
+	}
+}
+
+@media (pointer: coarse) {
+	:root {
+		--size-row: var(--size-tap);
 	}
 }
 
