@@ -5,7 +5,7 @@
 // schedule-runner.states.test.ts, latest-wins through the real client in
 // schedule-runner.client.test.ts, the real engine in schedule-runner.engine.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createScheduleRunner, type ScheduleRunner } from './schedule-runner';
+import { createScheduleRunner, IDLE_FALLBACK_MS, type ScheduleRunner } from './schedule-runner';
 import { FakeEngineClient, flush, message, task } from './testing/fake-engine-client';
 import { applyEdit, PLAN, sliceOf, TASKS, typeInto, type TypeAt } from './testing/runner-fixture';
 import { createWorkspace, type Workspace } from './workspace';
@@ -22,6 +22,10 @@ const type = (insert: string, at?: TypeAt): void => typeInto(ws, insert, at);
 const apply = (intent: string, find: string, insert: string): void =>
 	applyEdit(ws, intent, find, insert);
 const textOf = (d: { from: number; to: number }): string => sliceOf(ws, d);
+/** Lets the idle refresh run (Node has no requestIdleCallback: the setTimeout fallback). */
+const idle = (): void => {
+	vi.advanceTimersByTime(IDLE_FALLBACK_MS);
+};
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -96,7 +100,7 @@ describe('runs', () => {
 		runner.changed('now');
 		await flush();
 		expect(runner.state.status).toBe('failed');
-		expect(runner.state.failure?.error.kind).toBe('invalid-request');
+		expect(runner.state.failure?.error.kind).toBe('internal');
 	});
 });
 
@@ -243,6 +247,10 @@ describe('mapping through later edits', () => {
 		client.done(1, { tasks: TASKS });
 		await flush();
 		type('# shift\n');
+		// The index follows the text in an idle task.
+		expect(runner.state).toMatchObject({ version: 1, indexVersion: 0 });
+		idle();
+		expect(runner.state).toMatchObject({ version: 1, indexVersion: 1 });
 		expect(runner.state.hints.tasks.map((h) => [h.id, h.line])).toEqual([
 			['t1', 4],
 			['b', 7],
@@ -250,11 +258,28 @@ describe('mapping through later edits', () => {
 		expect(runner.state.index.tasks.get('t1')?.idSource).toBe('engine');
 		// Enter at the end of the header line leaves the header as it was.
 		type('\n  # note', { after: '"Macro task" {' });
+		idle();
 		expect(runner.state.index.tasks.get('t1')?.idSource).toBe('engine');
 		type(' renamed', { after: '"Macro task' });
+		idle();
 		expect(runner.state.hints.tasks.map((h) => h.id)).toEqual(['b']);
 		expect(runner.state.index.tasks.has('t1')).toBe(false);
 		expect(runner.state.index.unresolved.length).toBeGreaterThan(0);
+	});
+
+	it('drops every hint once a macro definition changed', async () => {
+		start();
+		client.done(1, { tasks: TASKS });
+		await flush();
+		// `task ${tid}` reads as before, but now declares zz.
+		type('z', { after: '[t1' });
+		idle();
+		expect(runner.state.hints).toEqual({ tasks: [], resources: [] });
+		expect(runner.state.index.tasks.has('t1')).toBe(false);
+		apply('setAttr', '[t1z]', '[zz]');
+		expect(runner.state.hints).toEqual({ tasks: [], resources: [] });
+		expect(runner.state.index.tasks.has('t1')).toBe(false);
+		expect(runner.state.index.tasks.get('b')?.idSource).toBe('text');
 	});
 
 	it('includes local syntax diagnostics at once, before any result', () => {

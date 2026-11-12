@@ -889,20 +889,40 @@ them.
     `affects` lists every visit's ids (for top-level text, every id the file declares).
 17. **Schedule runner (T14).** `createScheduleRunner({ workspace, client, debounceMs?, timers?,
     runAtStart? })` subscribes to the workspace (15.7): origin `'typing'` waits 300 ms of quiet,
-    `'format'` and `'intent'` run at once, and so does the workspace at start. `changed(kind)` stays
-    for callers outside the workspace (a retry button). Revisions increase per engine client across
-    runners; a workspace version is not sent twice while its run is open; `options.now` is never
-    sent. `RunnerState` adds to 6.8: `status` (`idle | scheduling | ok | errors | failed`;
+    `'format'` and `'intent'` run at once, and so does the workspace at start. The runner is the
+    only caller of `schedule` on its client: revisions count up per client (runners on the same
+    client, one after another, continue the count); a workspace version is not sent twice while
+    its run is open; `options.now` is never sent; a rejected `schedule()` is a failure of kind
+    `'internal'`. `RunnerState` adds to 6.8: `status` (`idle | scheduling | ok | errors | failed`;
     `scheduling` while a debounce or run is open, so a `latest: false` result updates everything
     but keeps it), `outdated` (the newest outcome is not `lastGood`: dim it), `diagnostics` (engine
-    diagnostics placed in the sent snapshot, mapped through later edits as stale, merged with
-    `localDiagnostics` of the current text), `counts`, `hints` and `index` (the current snapshot's
-    index with the engine hints mapped by `workspace/run-lines.ts`), `finish` (`lastGood`'s, from
+    diagnostics placed in the sent snapshot, mapped through later edits as stale, merged with the
+    local diagnostics), `counts`, `hints` and `index` (the index with the engine hints mapped by
+    `workspace/run-lines.ts`), `version` and `indexVersion`, `finish` (`lastGood`'s, from
     `schedule/finish.ts`: minutes, ISO date for `Intl` display, time zone, delta against the
     previous good finish), `timings` (engine, round trip, processing) and `failure`. A line keeps
     its hint while no change falls inside it and it is still a whole line (Enter at either end,
-    lines added or removed next to it keep it). A result that stopped while parsing (ok false, no
-    task or resource) is no hint source: the earlier hints stay. The runner does not retry a failed
-    run itself. Derived state is recomputed synchronously per change (Fedora: about 16 ms for the
-    index and local diagnostics; the incremental reparse is the workspace's), so the UI (T15) reads
-    `state.index` rather than building its own. `subscribe` follows the Svelte store contract.
+    lines added or removed next to it keep it); every hint is dropped once a change touches a
+    `macro` definition, since a header can then read the same and declare another id. A result
+    that stopped while parsing (ok false, no task or resource) is no hint source: the earlier hints
+    stay. The runner does not retry a failed run itself.
+    **Derived state.** A typed change updates engine diagnostic positions and syntax diagnostics
+    (cached per file version) at once, and keeps the previous index, hints and value/attribute
+    checks (the checks mapped through the edits, marked stale) until one idle task
+    (`requestIdleCallback`, timeout 100 ms; `setTimeout` 50 ms where there is none; injectable
+    through `timers`) derives them for every keystroke before it; until then `indexVersion` is
+    behind `version`. Format and intent edits, results and the start derive everything at once.
+    A result reuses an index whose version and hints are unchanged, and builds the sent
+    snapshot's index for message refinement only when the result has messages and no index of
+    that version with those hints exists. An exception while deriving keeps the previous view and
+    is rethrown asynchronously, so `Workspace.commit` and other subscribers carry on. Measured per
+    keystroke (commit and runner, Node, median/p90): Fedora 16.1/24.6 ms before, 5.3/11.9 ms
+    after; `scale-1000` 34.7/51.3 ms before, 6.6/12.6 ms after; the idle task takes 12/24 ms on
+    Fedora and 25/32 ms on `scale-1000`.
+    **For T15.** Read `state.index` rather than building another index, and compare
+    `indexVersion` with `version` to know when it lags (an edit intent needs an index of the
+    current snapshot: `SymbolIndex.isFor`). Render `state.diagnostics`, never
+    `lastGood.diagnostics` or `latest.diagnostics`, which are in the coordinates of the text that
+    was sent. Do not call `changed('now')` for workspace edits: the runner sees every commit and
+    apply, and the call would skip the typing debounce. `subscribe` follows the Svelte store
+    contract.

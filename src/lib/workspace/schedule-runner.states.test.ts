@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Schedule runner (phase-1.md 6.8) against a fake EngineClient with fake timers: failures,
-// restarts and a failed engine; the store contract, listener errors and dispose.
+// restarts and a failed engine; derived state while typing (the idle index refresh) and
+// exceptions while deriving; the store contract, listener errors and dispose.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createScheduleRunner, type ScheduleRunner } from './schedule-runner';
-import { FakeEngineClient, flush } from './testing/fake-engine-client';
-import { PLAN, TASKS, typeInto } from './testing/runner-fixture';
+import {
+	createScheduleRunner,
+	IDLE_FALLBACK_MS,
+	IDLE_TIMEOUT_MS,
+	type ScheduleRunner,
+} from './schedule-runner';
+import { FakeEngineClient, flush, message } from './testing/fake-engine-client';
+import { applyEdit, PLAN, TASKS, typeInto, type TypeAt } from './testing/runner-fixture';
 import { createWorkspace, type Workspace } from './workspace';
 
 let ws: Workspace;
@@ -15,7 +21,7 @@ function start(): void {
 	runner = createScheduleRunner({ workspace: ws, client });
 }
 
-const type = (insert: string): void => typeInto(ws, insert);
+const type = (insert: string, at?: TypeAt): void => typeInto(ws, insert, at);
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -68,6 +74,95 @@ describe('engine states', () => {
 		start();
 		client.setState('failed');
 		expect(runner.state).toMatchObject({ status: 'failed', engine: 'failed', pending: true });
+	});
+});
+
+describe('derived state while typing', () => {
+	/** Idle requests the runner made, run with a 20 ms timer here. */
+	function idleTimers(): { calls: number[]; cancelled: number } {
+		const log = { calls: [] as number[], cancelled: 0 };
+		runner = createScheduleRunner({
+			workspace: ws,
+			client,
+			timers: {
+				requestIdle: (fn, timeoutMs) => {
+					log.calls.push(timeoutMs);
+					return setTimeout(fn, 20);
+				},
+				cancelIdle: (h) => {
+					log.cancelled++;
+					clearTimeout(h as ReturnType<typeof setTimeout>);
+				},
+			},
+		});
+		return log;
+	}
+
+	it('shows syntax at once and brings the index along in one idle task', () => {
+		const log = idleTimers();
+		type('# a\n');
+		type('task c "C" {\n', { line: 10 });
+		type('# b\n');
+		expect(log.calls).toEqual([IDLE_TIMEOUT_MS]);
+		expect(runner.state).toMatchObject({ version: 3, indexVersion: 0 });
+		expect(runner.state.diagnostics.some((d) => d.source === 'syntax')).toBe(true);
+		vi.advanceTimersByTime(20);
+		expect(runner.state).toMatchObject({ version: 3, indexVersion: 3, pending: true });
+		expect(runner.state.index.tasks.has('c')).toBe(true);
+		type('# c\n');
+		expect(log.calls).toHaveLength(2);
+	});
+
+	it('derives everything at once for intents and results, cancelling a waiting refresh', async () => {
+		const log = idleTimers();
+		type('# a\n');
+		applyEdit(ws, 'setAttr', 'effort 2d', 'effort 3d');
+		expect(runner.state).toMatchObject({ version: 2, indexVersion: 2 });
+		expect(log.cancelled).toBe(1);
+		type('# b\n');
+		client.done(1, { tasks: TASKS });
+		await flush();
+		expect(runner.state).toMatchObject({ version: 3, indexVersion: 3 });
+		expect(log.cancelled).toBe(2);
+	});
+
+	it('keeps the previous view when deriving throws; commit and other subscribers go on', async () => {
+		let broken = false;
+		const failing = new Proxy(ws, {
+			get(target, p) {
+				if (p === 'changesSince' && broken) {
+					return () => {
+						throw new Error('broken');
+					};
+				}
+				const v: unknown = Reflect.get(target, p, target);
+				return typeof v === 'function' ? v.bind(target) : v;
+			},
+		});
+		runner = createScheduleRunner({ workspace: failing, client });
+		client.done(1, { tasks: TASKS, messages: [message('warning', 7)] });
+		await flush();
+		let other = 0;
+		ws.subscribe(() => other++);
+		const thrown: unknown[] = [];
+		const spy = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((fn) => {
+			try {
+				fn();
+			} catch (e) {
+				thrown.push(e);
+			}
+		});
+		broken = true;
+		type('# a\n');
+		vi.advanceTimersByTime(IDLE_FALLBACK_MS);
+		spy.mockRestore();
+		expect(other).toBe(1);
+		expect(thrown).toEqual([new Error('broken'), new Error('broken')]);
+		expect(runner.state).toMatchObject({ version: 0, indexVersion: 0, pending: true });
+		broken = false;
+		type('# b\n');
+		expect(runner.state.version).toBe(2);
+		expect(runner.state.diagnostics[0]).toMatchObject({ line: 9, stale: true });
 	});
 });
 

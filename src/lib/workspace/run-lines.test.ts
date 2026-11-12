@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
 import { textOf } from '../tjp/document';
-import { changesInside, lineMap, wholeLine } from './run-lines';
+import { changesInside, changesMacroDefinition, lineMap, wholeLine } from './run-lines';
 import { createWorkspace, type Workspace, type WorkspaceSnapshot } from './workspace';
 
 const TEXT = 'line one\nline two\nline three\nline four\n';
@@ -36,6 +36,36 @@ describe('changesInside', () => {
 		expect(changesInside(ranges, 6, 11)).toBe(true);
 		expect(changesInside(ranges, 11, 20)).toBe(true);
 		expect(changesInside(ranges, 12, 20)).toBe(false);
+	});
+});
+
+describe('changesMacroDefinition', () => {
+	const PLAN = 'macro tid [t1]\nproject p "P" 2026-01-05 +1m\ntask ${tid} "T"\n';
+	const touched = (from: number, to: number, insert: string): boolean => {
+		const ws = createWorkspace({ entry: 'a.tjp', files: { 'a.tjp': PLAN } });
+		const sent = ws.snapshot();
+		edit(ws, from, to, insert);
+		return changesMacroDefinition(sent, ws.snapshot(), ws.changesSince(sent.version));
+	};
+	const at = (s: string): number => PLAN.indexOf(s);
+
+	it('sees a change inside a definition, a removed one and an added one', () => {
+		expect(touched(at('t1]'), at('t1]') + 2, 'zz')).toBe(true);
+		expect(touched(at('tid ['), at('tid [') + 3, 'tix')).toBe(true);
+		expect(touched(at('[t1]') + 2, at('[t1]') + 2, '9')).toBe(true);
+		expect(touched(0, at('project'), '')).toBe(true);
+		expect(touched(at('task'), at('task'), 'macro x [y]\n')).toBe(true);
+	});
+
+	it('ignores changes next to a definition or elsewhere', () => {
+		expect(touched(0, 0, '# above\n')).toBe(false);
+		expect(touched(at('project'), at('project'), '# below\n')).toBe(false);
+		// A macro body ends at a `]` that ends its line, so text after it is part of the body.
+		expect(touched(at('\nproject'), at('\nproject'), ' # after')).toBe(true);
+		expect(touched(at('"T"'), at('"T"') + 3, '"U"')).toBe(false);
+		const ws = createWorkspace({ entry: 'a.tjp', files: { 'a.tjp': PLAN } });
+		const s = ws.snapshot();
+		expect(changesMacroDefinition(s, s, new Map())).toBe(false);
 	});
 });
 

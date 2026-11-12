@@ -14,6 +14,9 @@
  *   way; the two agree unless a file has a lone `\r`).
  * - `sentLine` returns that CodeMirror line's text as it was sent, the fingerprint `fresh()`
  *   (index/hints.ts) compares with the current line.
+ * - `changesMacroDefinition` tells whether a change touched a `macro` definition. Then a header
+ *   line can read as it did while its expansion, and so its id, changed (`task ${tid}` after
+ *   `macro tid [t1]` became `[t2]`), so the caller drops every hint.
  */
 import type { ChangeSet, Text } from '@codemirror/state';
 import type { WorkspacePath } from '../../engine/protocol';
@@ -89,6 +92,49 @@ export function wholeLine(doc: Text, from: number, to: number): boolean {
 	const starts = from === 0 || before === '\n' || (before === '\r' && charAt(doc, from) !== '\n');
 	const after = charAt(doc, to);
 	return starts && (to === doc.length || after === '\n' || after === '\r');
+}
+
+/**
+ * Whether a `MacroStatement` of `file` has text inside [from, to], or for an empty range,
+ * strictly around `from`. Text next to a definition does not count.
+ */
+export function macroIn(file: TjpFile | undefined, from: number, to: number): boolean {
+	if (!file) return false;
+	let found = false;
+	file.tree.iterate({
+		from,
+		to,
+		enter: (node) => {
+			if (found) return false;
+			if (node.name !== 'MacroStatement') return undefined;
+			found = from === to ? node.from < from && from < node.to : node.from < to && node.to > from;
+			return false;
+		},
+	});
+	return found;
+}
+
+/**
+ * Whether a change touched a macro definition: it replaced, deleted or inserted text inside one
+ * in the sent text, or the text it inserted is part of one in the current text (a definition
+ * added or rewritten).
+ */
+export function changesMacroDefinition(
+	sent: FileSet,
+	current: FileSet,
+	changes: ReadonlyMap<WorkspacePath, ChangeSet>,
+): boolean {
+	for (const [path, cs] of changes) {
+		if (cs.empty) continue;
+		const before = sent.files.get(path);
+		const after = current.files.get(path);
+		let hit = false;
+		cs.iterChanges((fromA, toA, fromB, toB) => {
+			hit ||= macroIn(before, fromA, toA) || macroIn(after, fromB, toB);
+		});
+		if (hit) return true;
+	}
+	return false;
 }
 
 interface FileMap {
