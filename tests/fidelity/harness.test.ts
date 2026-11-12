@@ -3,6 +3,8 @@
 // registry of families (every enforced type has a family, pending types are listed and not enforced).
 import { describe, expect, it } from 'vitest';
 import { HANDLERS } from '../../src/lib/tjp/edit/apply';
+import { generatedCase } from './cases';
+import { allocated } from './families/util';
 import { covered } from './harness';
 import { ENFORCED, FAMILIES, PENDING } from './families';
 import { formatAllows } from './families/format';
@@ -143,5 +145,20 @@ describe('the report', () => {
 	it('computes percentiles', () => {
 		expect(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.95)).toBe(10);
 		expect(percentile([], 0.5)).toBe(0);
+	});
+});
+
+describe('the generator keeps sizing consistent', () => {
+	it('draws milestone=false only for a leaf with no allocation (15.24, open-ended.engine.test.ts)', () => {
+		let seen = 0;
+		for (let seed = 1; seed <= 600; seed++) {
+			const c = generatedCase(seed, 'setAttr');
+			const i = c.drawn.intent;
+			if (i.type !== 'setAttr' || i.attr !== 'milestone' || i.value !== false) continue;
+			seen++;
+			const t = c.facts.byId.get(i.task);
+			expect(t && allocated(c.facts, t), `${seed} ${i.task}`).toEqual([]);
+		}
+		expect(seen).toBeGreaterThan(0);
 	});
 });

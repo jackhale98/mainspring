@@ -32,34 +32,6 @@
 			"found": "2026-11-12"
 		},
 		{
-			"source": "generated",
-			"seed": 990,
-			"type": "setAttr",
-			"attempt": 0,
-			"intent": {
-				"type": "setAttr",
-				"task": "docs.polish.audit.data",
-				"attr": "milestone",
-				"value": false
-			},
-			"reason": "Edit API bug, found by P4 and fixed (T11b task_underspecified rule): setAttr milestone=false on a milestone whose only timing is a dependency or a start removed the statement and left a leaf with one bound, so the engine reports task_underspecified (ok true to false). Pinned to its plan attempt (checked: fails P4 on 5b4dbfb2).",
-			"found": "2026-11-12"
-		},
-		{
-			"source": "generated",
-			"seed": 2048,
-			"type": "setAttr",
-			"attempt": 0,
-			"intent": {
-				"type": "setAttr",
-				"task": "qa.ship",
-				"attr": "milestone",
-				"value": false
-			},
-			"reason": "Edit API bug, found by P4 and fixed (T11b task_underspecified rule): setAttr milestone=false on a milestone whose only timing is a dependency or a start removed the statement and left a leaf with one bound, so the engine reports task_underspecified (ok true to false). Pinned to its plan attempt (checked: fails P4 on 5b4dbfb2).",
-			"found": "2026-11-12"
-		},
-		{
 			"source": "corpus",
 			"seed": 396,
 			"type": "setAttr",

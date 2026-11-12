@@ -213,8 +213,16 @@ function drawSet(f: Facts, sem: Sem, rng: Rng, aim?: Aim): Drawn | null {
 			return t && set(t, 'scheduling', 'asap');
 		}
 		case 'milestone': {
+			// Sizing stays consistent (9.3): dropping `milestone` leaves a leaf without a size, which is
+			// valid TaskJuggler (15.24) but runs to the project end when it is allocated or booked, and
+			// the contention that causes depends on the schedule (15.19). So only a leaf with no
+			// allocation, own or inherited, and no booking loses its milestone.
 			const t = pick(
-				leaves.filter((x) => own(x, 'milestone').length > 0 || !own(x, ...SIZING).length),
+				leaves.filter((x) =>
+					own(x, 'milestone').length > 0
+						? allocated(f, x).length === 0 && !x.stmts.some((y) => y.key === 'booking')
+						: !own(x, ...SIZING).length,
+				),
 			);
 			if (!t) return null;
 			return set(t, 'milestone', own(t, 'milestone').length === 0);

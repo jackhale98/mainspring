@@ -38,10 +38,11 @@ const SCHEDULE_DEPENDENT = new Set([
 	'task_start_in_parent',
 	'task_end_in_parent',
 	'start_after_end',
-	// Bookings are opaque text, so a calendar change of the booked resource (15.22) can only be seen here.
-	'booking_no_duty',
-	'booking_on_vacation',
 ]);
+
+/** Bookings are opaque text, so a calendar change of the booked resource (15.22) can only be seen here. */
+const CALENDAR_DEPENDENT = new Set(['booking_no_duty', 'booking_on_vacation']);
+const CALENDAR_INTENTS = new Set(['setWorkingHours', 'addLeave', 'updateLeave', 'removeLeave']);
 
 const errorsOf = (r: ScheduleResult): Map<string, number> => {
 	const out = new Map<string, number>();
@@ -139,7 +140,13 @@ function checkP4(c: Case, o: Outcome): string[] {
 	const fine =
 		c.source === 'corpus' &&
 		added.length > 0 &&
-		added.every((k) => SCHEDULE_DEPENDENT.has(k.split(':')[1] ?? ''));
+		added.every((k) => {
+			const id = k.split(':')[1] ?? '';
+			return (
+				SCHEDULE_DEPENDENT.has(id) ||
+				(CALENDAR_DEPENDENT.has(id) && CALENDAR_INTENTS.has(intent.type))
+			);
+		});
 	if (before.ok && after.ok) stats.okKept++;
 	else if (before.ok && !fine) bad.push('ok went from true to false');
 	if (fine) for (const k of added) tolerated[k] = (tolerated[k] ?? 0) + 1;

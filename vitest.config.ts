@@ -17,6 +17,10 @@ export default defineConfig({
 		include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
 		// P4 of the patch-fidelity suite boots the engine; `npm run test:fidelity` runs it
 		// (vitest.fidelity.config.ts). Its text-only properties run here.
-		exclude: [...configDefaults.exclude, 'tests/fidelity/schedule.property.test.ts'],
+		exclude: [
+			...configDefaults.exclude,
+			'tests/fidelity/schedule.property.test.ts',
+			'tests/fidelity/open-ended.engine.test.ts',
+		],
 	},
 });

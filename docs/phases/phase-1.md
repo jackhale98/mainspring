@@ -1342,6 +1342,14 @@ them.
       scenario's (15.20); `supplement task` ids read under a `taskprefix` are prefixed, so those supplements
       go to the entry file; `+Nm` is N months of 365/12 days; `end` makes a task ALAP and a task with
       `end` or `precedes` takes no dependency; a `depends` item may not repeat across scenarios.
+    - **Open-ended allocated work.** A leaf with no size, a start and an allocation (own or inherited) is
+      valid TaskJuggler: it runs from its start to the project end and books its resource. So
+      `setAttr milestone=false` on a milestone with such an allocation is accepted, as 15.19 and 15.24 say, and
+      a sibling that needs the resource at a lower priority may no longer fit (`sched_runaway`), which depends
+      on the schedule. Two regression seeds first read as an edit-API bug; the engine showed `ship` booked on
+      its resource to the project end while the competitors went unscheduled, and the same plan with a size or
+      another resource schedules. `open-ended.engine.test.ts` documents it, and the generator draws
+      `milestone=false` only where the leaf has no allocation or booking, so no tolerance is needed.
     - **P4.** `bootNodeEngine`, one boot per file. For corpus plans the errors that depend on the computed
       schedule (15.19, the same ids as `links.engine.test.ts`, and `booking_no_duty` and `booking_on_vacation` after calendar
       changes, 15.22) are counted and listed, not failed; for
