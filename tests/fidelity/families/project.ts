@@ -46,7 +46,8 @@ const ATTRS: readonly ProjectAttr[] = [
 export const projectFamily: Family = {
 	name: 'project',
 	types: ['setProjectHeader', 'setProjectAttr', 'removeProjectAttr'],
-	draw(type, f, _sem, rng): Drawn | null {
+	draw(type, f, _sem, rng, aim): Drawn | null {
+		if (aim) return null;
 		const p = f.project;
 		if (!p) return null;
 		if (type === 'setProjectHeader') {

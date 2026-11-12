@@ -122,6 +122,7 @@ describe('the report', () => {
 			perType: tally(outcomes, ['setAttr']),
 			pending: [{ type: 'addTask', task: 'T11b' }],
 			failures: [],
+			deliberate: {},
 			regressions: { replayed: 1 },
 		};
 		const md = renderReport(part, null, null);

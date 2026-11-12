@@ -19,9 +19,10 @@ const UNSAFE = ['cost ${total}', 'call $(NAME)', 'two\nlines'];
 export const renameFamily: Family = {
 	name: 'rename',
 	types: ['renameTask'],
-	draw(_type, f, _sem, rng) {
+	draw(_type, f, _sem, rng, aim) {
 		const templated = f.tasks.filter((t) => t.nameMacro);
-		if (templated.length > 0 && rng.chance(0.15)) {
+		if (aim && templated.length === 0) return null;
+		if (templated.length > 0 && (aim || rng.chance(0.15))) {
 			return {
 				intent: { type: 'renameTask', task: rng.pick(templated).id, name: rng.pick(NAMES) },
 				mustRefuse: ['text-only'],

@@ -9,7 +9,8 @@ const NEW = ['wip', 'done', 'extra', 'review', 'frozen', 'spare'];
 export const flagsFamily: Family = {
 	name: 'flags',
 	types: ['declareFlag'],
-	draw(_type, _f, sem, rng) {
+	draw(_type, _f, sem, rng, aim) {
+		if (aim) return null;
 		const fresh = NEW.filter((x) => !sem.flags.includes(x));
 		const flag = sem.flags.length > 0 && rng.chance(0.15) ? rng.pick(sem.flags) : rng.pick(fresh);
 		return { intent: { type: 'declareFlag', flag } };

@@ -15,6 +15,8 @@ export interface Regression {
 	type: PlannedCase['type'];
 	/** For a corpus case: the golden plan it ran on. */
 	plan?: string;
+	/** Set for a generated case aimed at text-only text. */
+	aim?: 'text-only';
 	reason: string;
 	found: string;
 }
@@ -27,15 +29,15 @@ export const REGRESSIONS: Regression[] = (
 	}
 ).cases;
 
-export function buildCase(p: Pick<PlannedCase, 'source' | 'seed' | 'type' | 'plan'>): Case {
+export function buildCase(p: Pick<PlannedCase, 'source' | 'seed' | 'type' | 'plan' | 'aim'>): Case {
 	return p.source === 'generated'
-		? generatedCase(p.seed, p.type)
+		? generatedCase(p.seed, p.type, p.aim)
 		: corpusCase(p.seed, p.type, p.plan);
 }
 
 /** Everything needed to replay a case: source, seed, type and, for a corpus case, its plan. */
-export const replayLine = (c: Pick<Case, 'source' | 'seed' | 'type' | 'name'>): string =>
-	`FIDELITY_CASE=${c.source}:${c.seed}:${c.type}${c.source === 'corpus' ? `:${c.name}` : ''}`;
+export const replayLine = (c: Pick<Case, 'source' | 'seed' | 'type' | 'name' | 'aim'>): string =>
+	`FIDELITY_CASE=${c.source}:${c.seed}:${c.type}${c.source === 'corpus' ? `:${c.name}` : c.aim ? `:${c.aim}` : ''}`;
 
 export function describeFailure(
 	c: Case,
@@ -48,7 +50,7 @@ export function describeFailure(
 
 /** Runs `fn`; a throw (in the generator, the edit API or the harness) becomes a failure with its replay line. */
 export function guarded<T>(
-	p: Pick<PlannedCase, 'source' | 'seed' | 'type' | 'plan'>,
+	p: Pick<PlannedCase, 'source' | 'seed' | 'type' | 'plan' | 'aim'>,
 	fn: () => T,
 ): { value: T } | { failure: string } {
 	try {
@@ -57,7 +59,7 @@ export function guarded<T>(
 		const stack = error instanceof Error ? (error.stack ?? error.message) : String(error);
 		const name = p.plan ?? '';
 		return {
-			failure: `${p.source} seed ${p.seed} ${p.type}: threw ${stack.split('\n').slice(0, 4).join(' | ')}\n    replay: ${replayLine({ ...p, name })}`,
+			failure: `${p.source} seed ${p.seed} ${p.type}: threw ${stack.split('\n').slice(0, 4).join(' | ')}\n    replay: ${replayLine({ ...p, name, ...(p.aim ? { aim: p.aim } : {}) })}`,
 		};
 	}
 }

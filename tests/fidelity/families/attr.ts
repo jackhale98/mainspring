@@ -17,7 +17,7 @@ import {
 	type TaskF,
 } from '../gen/facts';
 import type { Rng } from '../gen/rng';
-import type { Drawn, Family, Region } from './types';
+import type { Aim, Drawn, Family, Region } from './types';
 import {
 	allocated,
 	dateValue,
@@ -91,13 +91,13 @@ function validValue(attr: TaskAttr, f: Facts, rng: Rng): AttrValue {
 	return dateValue(rng, f) ?? '2026-02-02';
 }
 
-function drawSet(f: Facts, sem: Sem, rng: Rng): Drawn | null {
+function drawSet(f: Facts, sem: Sem, rng: Rng, aim?: Aim): Drawn | null {
 	const tasks = f.tasks;
 	const leaves = tasks.filter(isLeaf);
 	const pick = <T>(xs: readonly T[]): T | null => (xs.length > 0 ? rng.pick(xs) : null);
 	// Text-only targets: a statement written with a macro (X3), and a keyword a statement-level macro
 	// call in the body writes (macro-in-body). Both kinds are drawn when the plan has them.
-	if (rng.chance(0.15)) {
+	if (aim || rng.chance(0.15)) {
 		const hit = tasks.find((t) => macroStmt(t));
 		const stmt = hit && macroStmt(hit);
 		const call = tasks.find((t) => t.macroWords.has('priority'));
@@ -116,6 +116,7 @@ function drawSet(f: Facts, sem: Sem, rng: Rng): Drawn | null {
 			});
 		}
 		if (options.length > 0) return rng.pick(options);
+		if (aim) return null;
 	}
 	const kind = rng.pick([
 		'sizing',
@@ -230,21 +231,14 @@ const REMOVABLE: readonly TaskAttr[] = [
 	'responsible',
 ];
 
-function drawRemove(f: Facts, _sem: Sem, rng: Rng): Drawn | null {
+function drawRemove(f: Facts, _sem: Sem, rng: Rng, aim?: Aim): Drawn | null {
 	const rm = (id: string, attr: TaskAttr): Drawn => ({
 		intent: { type: 'removeAttr', task: id, attr },
 	});
 	// A mode with no candidate in this plan returns null, so the case is redrawn on another plan.
-	const mode = rng.pick([
-		'macro',
-		'absent',
-		'inherited',
-		'multi',
-		'multi',
-		'plain',
-		'plain',
-		'plain',
-	]);
+	const mode = aim
+		? 'macro'
+		: rng.pick(['macro', 'absent', 'inherited', 'multi', 'multi', 'plain', 'plain', 'plain']);
 	if (mode === 'macro') {
 		const t = f.tasks.find((x) => macroStmt(x));
 		const s = t && macroStmt(t);
@@ -297,8 +291,8 @@ function drawRemove(f: Facts, _sem: Sem, rng: Rng): Drawn | null {
 export const attrFamily: Family = {
 	name: 'attr',
 	types: ['setAttr', 'removeAttr'],
-	draw(type, f, sem, rng) {
-		return type === 'setAttr' ? drawSet(f, sem, rng) : drawRemove(f, sem, rng);
+	draw(type, f, sem, rng, aim) {
+		return type === 'setAttr' ? drawSet(f, sem, rng, aim) : drawRemove(f, sem, rng, aim);
 	},
 	region(intent: EditIntent, f: Facts): Region {
 		if (intent.type === 'setAttr') {

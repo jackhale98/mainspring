@@ -27,12 +27,19 @@ export interface Drawn {
 	readonly mustRefuse?: readonly string[];
 }
 
+/** What a case aims at: ordinary edits, or text-only text that must be refused. */
+export type Aim = 'text-only';
+
 export interface Family {
 	readonly name: string;
 	/** The intent types it covers. */
 	readonly types: readonly IntentType[];
-	/** An intent of `type` over this plan, or null when the plan has no fitting target. */
-	draw(type: IntentType, f: Facts, sem: Sem, rng: Rng): Drawn | null;
+	/**
+	 * An intent of `type` over this plan, or null when the plan has no fitting target. With `aim` set
+	 * ('text-only') only an intent aimed at text-only text is drawn, or none: a family without such a
+	 * target returns null.
+	 */
+	draw(type: IntentType, f: Facts, sem: Sem, rng: Rng, aim?: Aim): Drawn | null;
 	/** Where an edit of `intent` may change text (7.1 "Targets"), from the pre-edit facts. */
 	region(intent: EditIntent, f: Facts): Region;
 	/** The semantics after an edit of `intent` that applied (the model update). */

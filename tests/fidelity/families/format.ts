@@ -29,7 +29,8 @@ export function formatAllows(c: Change, f: Facts): boolean {
 export const formatFamily: Family = {
 	name: 'format',
 	types: ['format'],
-	draw(_type, f, _sem, rng) {
+	draw(_type, f, _sem, rng, aim) {
+		if (aim) return null;
 		return { intent: { type: 'format', file: rng.pick(Object.keys(f.texts)) } };
 	},
 	region: () => formatAllows,

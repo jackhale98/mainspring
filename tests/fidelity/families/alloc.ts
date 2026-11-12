@@ -14,19 +14,24 @@ import {
 	type Sem,
 } from '../gen/facts';
 import type { Rng } from '../gen/rng';
-import type { Drawn, Family, Region } from './types';
+import type { Aim, Drawn, Family, Region } from './types';
 import { hasSizing, isLeaf, leafResources, own, parentOf, sorted, task } from './util';
 
 const ownIds = (f: Facts, id: string): string[] =>
 	own(task(f, id), 'allocate').flatMap((s) => (s.items ?? []).map((i) => i.target ?? i.written));
 
-function draw(type: string, f: Facts, rng: Rng): Drawn | null {
+function draw(type: string, f: Facts, rng: Rng, aim?: Aim): Drawn | null {
 	const res = leafResources(f);
 	const leaves = f.tasks.filter((t) => isLeaf(t) && hasSizing(t) && !t.stmts.some((s) => s.macro));
 	if (leaves.length === 0 || res.length === 0) return null;
 	// A statement-level macro call that writes `allocate` makes the task's allocation text-only.
 	const called = leaves.filter((t) => t.macroWords.has('allocate'));
-	if ((type === 'allocate' || type === 'addAllocation') && called.length > 0 && rng.chance(0.25)) {
+	if (aim && !((type === 'allocate' || type === 'addAllocation') && called.length > 0)) return null;
+	if (
+		(type === 'allocate' || type === 'addAllocation') &&
+		called.length > 0 &&
+		(aim || rng.chance(0.25))
+	) {
 		const t = rng.pick(called);
 		const intent: EditIntent =
 			type === 'allocate'
@@ -68,7 +73,7 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 export const allocFamily: Family = {
 	name: 'alloc',
 	types: ['allocate', 'addAllocation', 'removeAllocation', 'replaceAllocation'],
-	draw: (type, f, _sem, rng) => draw(type, f, rng),
+	draw: (type, f, _sem, rng, aim) => draw(type, f, rng, aim),
 	region(intent, f): Region {
 		if (!('task' in intent)) return [];
 		const t = task(f, intent.task);

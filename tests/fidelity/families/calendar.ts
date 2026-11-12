@@ -177,7 +177,7 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 export const calendarFamily: Family = {
 	name: 'calendar',
 	types: ['setWorkingHours', 'addLeave', 'updateLeave', 'removeLeave'],
-	draw: (type, f, _sem, rng) => draw(type, f, rng),
+	draw: (type, f, _sem, rng, aim) => (aim ? null : draw(type, f, rng)),
 	region(intent, f): Region {
 		if (intent.type === 'setWorkingHours') {
 			const t = ownerOf(f, intent.scope);

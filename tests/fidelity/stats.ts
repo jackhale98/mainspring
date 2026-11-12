@@ -34,6 +34,17 @@ export function tally(outcomes: readonly Outcome[], types: readonly IntentType[]
 	});
 }
 
+/** Deliberate text-only intents by refusal reason (a missing reason counts as `accepted`). */
+export function deliberateCounts(outcomes: readonly Outcome[]): Record<string, number> {
+	const out: Record<string, number> = {};
+	for (const o of outcomes) {
+		if (!o.deliberate) continue;
+		const k = o.status === 'refused' ? (o.reason ?? 'refused') : 'accepted';
+		out[k] = (out[k] ?? 0) + 1;
+	}
+	return out;
+}
+
 export function percentile(xs: readonly number[], p: number): number {
 	if (xs.length === 0) return 0;
 	const s = [...xs].sort((a, b) => a - b);
@@ -52,6 +63,8 @@ export interface TextPart {
 	p95Ms: number;
 	maxMs: number;
 	perType: TypeStats[];
+	/** Intents aimed at text-only text on purpose, by the reason they were refused for. */
+	deliberate: Record<string, number>;
 	pending: Array<{ type: string; task: string }>;
 	failures: string[];
 	regressions: { replayed: number };

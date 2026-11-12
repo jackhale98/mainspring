@@ -6,11 +6,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { IntentType } from '../../src/lib/tjp/edit/types';
+import type { EditIntent, IntentType } from '../../src/lib/tjp/edit/types';
 import { buildIndex } from '../../src/lib/tjp/index';
 import { createWorkspace } from '../../src/lib/workspace/workspace';
 import { loadCorpus as loadGoldens, REPO } from '../golden/corpus';
-import type { Case } from './harness';
+import { realApply, type Case } from './harness';
+import type { Aim } from './families/types';
 import { ENFORCED, familyOf } from './families';
 import { semOf, type Facts, type Sem } from './gen/facts';
 import { genPlan } from './gen/model';
@@ -25,18 +26,44 @@ export const NOW = '2026-01-05T09:00:00Z';
 /** The intent type of case number `n`. */
 export const typeOfCase = (n: number): IntentType => ENFORCED[n % ENFORCED.length] as IntentType;
 
-/** A generated case; plans that offer no target for the type are redrawn with the next attempt. */
-export function generatedCase(seed: number, type: IntentType): Case {
+/** The types a case aimed at text-only text can have (the families that write such targets). */
+export const TEXT_ONLY_TYPES: readonly IntentType[] = [
+	'setAttr',
+	'removeAttr',
+	'renameTask',
+	'addDepends',
+	'allocate',
+	'addAllocation',
+];
+
+/** Whether the edit API makes an edit of this intent on these files (a probe for `generatedCase`). */
+function edits(entry: string, files: Record<string, string>, intent: EditIntent): boolean {
+	const snap = createWorkspace({ entry, files }).snapshot();
+	return realApply(snap, buildIndex(snap, undefined, { cache: null }), intent).status === 'edit';
+}
+
+/**
+ * A generated case; plans that offer no target for the type are redrawn with the next attempt. Three
+ * cases in four are drawn until the edit API makes an edit, so that every type gets edits to check; the
+ * fourth keeps whatever the draw gave, which is where the no-ops and ordinary refusals come from. With
+ * `aim` the plan is rich in macros and the intent aims at text-only text.
+ */
+export function generatedCase(seed: number, type: IntentType, aim?: Aim): Case {
 	const family = familyOf(type);
+	const seek = !aim && mixSeed(seed, 5) % 4 !== 0;
+	let fallback: Case | null = null;
 	for (let attempt = 0; attempt < 40; attempt++) {
 		const rng = new Rng(mixSeed(seed, attempt));
-		const plan = genPlan(rng, type === 'format' ? { sloppy: true } : {});
+		const plan = genPlan(rng, {
+			...(type === 'format' ? { sloppy: true } : {}),
+			...(aim ? { rich: true } : {}),
+		});
 		plan.seed = seed;
 		const { files, facts } = printPlan(plan, rng);
 		const sem = semOf(facts);
-		const drawn = family.draw(type, facts, sem, rng);
+		const drawn = family.draw(type, facts, sem, rng, aim);
 		if (!drawn) continue;
-		return {
+		const made: Case = {
 			seed,
 			source: 'generated',
 			name: `plan ${seed}.${attempt}`,
@@ -48,8 +75,12 @@ export function generatedCase(seed: number, type: IntentType): Case {
 			drawn,
 			family,
 			now: NOW,
+			...(aim ? { aim } : {}),
 		};
+		if (!seek || drawn.mustRefuse || edits(facts.entry, files, drawn.intent)) return made;
+		fallback ??= made;
 	}
+	if (fallback) return fallback;
 	throw new Error(`no plan offered a target for ${type} (seed ${seed})`);
 }
 

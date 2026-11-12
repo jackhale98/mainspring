@@ -14,7 +14,7 @@ import {
 	type StmtF,
 } from '../gen/facts';
 import type { Rng } from '../gen/rng';
-import type { Drawn, Family, Region } from './types';
+import type { Aim, Drawn, Family, Region } from './types';
 import { isLeaf, own, task } from './util';
 
 type LinkIntent = Extract<EditIntent, { type: 'addDepends' | 'removeDepends' | 'setDependsGap' }>;
@@ -34,15 +34,22 @@ const holdingPrecedes = (f: Facts, succ: string, pred: string): StmtF[] =>
 		? own(task(f, pred), 'precedes').filter((s) => s.items?.some((i) => i.target === succ))
 		: [];
 
-function drawLink(type: LinkIntent['type'], f: Facts, rng: Rng): Drawn | null {
+function drawLink(type: LinkIntent['type'], f: Facts, rng: Rng, aim?: Aim): Drawn | null {
 	const order = f.tasks;
 	if (type === 'addDepends') {
 		// A successor whose `depends` is written with a macro is text-only: no item can be added to it.
 		const macroDep = order.find((t) => own(t, 'depends').some((s) => s.macro));
-		if (macroDep && rng.chance(0.2)) {
+		if (aim && !(macroDep && type === 'addDepends')) return null;
+		if (macroDep && (aim || rng.chance(0.2))) {
 			const idx = order.indexOf(macroDep);
 			const anc = ancestorIds(f, macroDep.id);
-			const prior = order.slice(0, idx).filter((p) => !anc.has(p.id));
+			// Not a task another scenario's `depends` already names: that is a conflict of its own.
+			const named = new Set(
+				macroDep.stmts
+					.filter((x) => x.key === 'depends')
+					.flatMap((x) => (x.items ?? []).map((i) => i.target)),
+			);
+			const prior = order.slice(0, idx).filter((p) => !anc.has(p.id) && !named.has(p.id));
 			if (prior.length > 0) {
 				return {
 					intent: { type, task: macroDep.id, target: rng.pick(prior).id },
@@ -97,7 +104,7 @@ const entry = (succ: string, pred: string, scn = '', gap = ''): string =>
 export const depsFamily: Family = {
 	name: 'deps',
 	types: ['addDepends', 'removeDepends', 'setDependsGap'],
-	draw: (type, f, _sem, rng) => drawLink(type as LinkIntent['type'], f, rng),
+	draw: (type, f, _sem, rng, aim) => drawLink(type as LinkIntent['type'], f, rng, aim),
 	region(intent, f): Region {
 		if (intent.type === 'addDepends') {
 			const t = task(f, intent.task);

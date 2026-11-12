@@ -192,7 +192,7 @@ export const resourcesFamily: Family = {
 		'setResourceAttr',
 		'removeResourceAttr',
 	],
-	draw: (type, f, _sem, rng) => draw(type, f, rng),
+	draw: (type, f, _sem, rng, aim) => (aim ? null : draw(type, f, rng)),
 	region(intent, f): Region {
 		switch (intent.type) {
 			case 'addResource':

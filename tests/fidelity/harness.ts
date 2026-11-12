@@ -39,6 +39,8 @@ export interface Case {
 	readonly family: Family;
 	/** For a corpus plan: the golden's `now`. */
 	readonly now: string | null;
+	/** Set when the case aims at text-only text (a generated plan rich in macros). */
+	readonly aim?: 'text-only';
 }
 
 export interface Outcome {
@@ -48,6 +50,8 @@ export interface Outcome {
 	readonly reason: string | null;
 	readonly failures: string[];
 	readonly changes: number;
+	/** The intent aimed at text-only text on purpose and had to be refused, with the reasons allowed. */
+	readonly deliberate: readonly string[] | null;
 	readonly ms: number;
 	/** The texts after the edit (edits only). */
 	readonly after: Record<string, string> | null;
@@ -111,6 +115,7 @@ export function runCase(c: Case, apply: ApplyFn = realApply, load = loadWorkspac
 			reason: 'threw',
 			failures: [`throw: ${stack.split('\n').slice(0, 4).join(' | ')}`],
 			changes: 0,
+			deliberate: c.drawn.mustRefuse ?? null,
 			ms: performance.now() - t0,
 			after: null,
 		};
@@ -133,6 +138,7 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 		reason: r.status === 'edit' ? null : r.reason,
 		failures,
 		changes,
+		deliberate: c.drawn.mustRefuse ?? null,
 		ms: performance.now() - t0,
 		after,
 	});

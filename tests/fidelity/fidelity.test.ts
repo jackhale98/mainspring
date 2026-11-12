@@ -9,7 +9,7 @@ import { CORPUS } from './cases';
 import { ENFORCED, PENDING } from './families';
 import { runCase, type Outcome } from './harness';
 import { buildCase, describeFailure, guarded, REGRESSIONS } from './shared';
-import { percentile, tally, writePart, type TextPart } from './stats';
+import { deliberateCounts, percentile, tally, writePart, type TextPart } from './stats';
 
 const outcomes: Outcome[] = [];
 const failures: string[] = [];
@@ -72,6 +72,17 @@ describe('patch fidelity (text only)', () => {
 		LONG,
 	);
 
+	it('enough intents aimed at text-only text were refused, as text-only and as macro-in-body', () => {
+		const aimed = outcomes.filter((o) => o.deliberate !== null);
+		// Like the edit counts, only a run big enough to cover them: 30 aimed cases or more.
+		if (CONFIG.only || aimed.length < 30) return;
+		const by = deliberateCounts(outcomes);
+		const accepted = by['accepted'] ?? 0;
+		expect(accepted, 'an intent aimed at text-only text was not refused').toBe(0);
+		expect(by['text-only'] ?? 0, 'refused as text-only').toBeGreaterThanOrEqual(10);
+		expect(by['macro-in-body'] ?? 0, 'refused as macro-in-body').toBeGreaterThanOrEqual(8);
+	});
+
 	it('every enforced intent type produced at least 5 edits', () => {
 		const stats = tally(outcomes, ENFORCED);
 		// Too few cases (a replay, a debugging run, a small shard) cannot cover every type; the merged
@@ -101,6 +112,7 @@ afterAll(() => {
 		p95Ms: percentile(times, 0.95),
 		maxMs: Math.max(0, ...times),
 		perType: tally(outcomes, ENFORCED),
+		deliberate: deliberateCounts(outcomes),
 		pending: PENDING.map((p) => ({ type: p.type, task: p.task })),
 		failures,
 		regressions: { replayed },
