@@ -860,7 +860,7 @@ them.
     (file trees), not a text lookup, and ignores an index whose version does not match. Line and
     column follow TaskJuggler's line breaks (`\n`, `\r\n`, lone `\r`).
 
-15. **Edit core (T10).** Intents are handlers in `edit/apply.ts` `HANDLERS` (`{ plan,
+16. **Edit core (T10).** Intents are handlers in `edit/apply.ts` `HANDLERS` (`{ plan,
     sameInEveryVisit }`) whose `plan` returns `EditOp`s (one change each, with the element it
     edits) built by `edit/layout.ts`, or a refusal or no-op; `applyIntent` then runs the refusal
     pipeline (`edit/refuse.ts`) and `buildEdit`. The pipeline checks the index is built from this
