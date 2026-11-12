@@ -87,9 +87,14 @@ describe('addAllocation', () => {
 		expect(addAllocation(s.snap, s.index, 't', 'qa')).toMatchObject({ reason: 'unsupported-form' });
 	});
 
-	it('refuses a task TaskJuggler would make a milestone without both ends', () => {
+	it('refuses a task TaskJuggler would make a milestone when that leaves it underspecified', () => {
+		// Start-only: it runs to the project end, unless something depends on its open end.
 		const plan = HEAD + 'task a "A" { effort 1d allocate ana }\ntask m "M" { depends !a }\n';
-		expect(run(plan, addA('m', 'bo'))).toMatchObject({ reason: 'conflicting-attribute' });
+		expect(run(plan, addA('m', 'bo'))).toMatchObject({ status: 'edit' });
+		const waited = plan + 'task s "S" { depends m length 1d }\n';
+		expect(run(waited, addA('m', 'bo'))).toMatchObject({ reason: 'conflicting-attribute' });
+		const none = HEAD + 'task m "M"\n';
+		expect(run(none, addA('m', 'bo'))).toMatchObject({ reason: 'conflicting-attribute' });
 		const both = HEAD + 'task m "M" { start 2026-01-06 end 2026-01-09 }\n';
 		expect(run(both, addA('m', 'bo'))).toMatchObject({ status: 'edit' });
 	});

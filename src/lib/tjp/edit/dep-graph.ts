@@ -315,9 +315,97 @@ export function isMilestone(st: TaskState, container: boolean): boolean {
 	);
 }
 
+/**
+ * What depends on a task or one of its ancestors, as `isUnderspecified` reads it (all scenarios,
+ * also items of declarations the index cannot name): `end` when a `depends` item names one of them
+ * (a successor waits for the end), `start` when a `precedes` item that targets a start names one
+ * of them (a predecessor fixes the start).
+ */
+export interface Dependents {
+	readonly end: boolean;
+	readonly start: boolean;
+}
+
+const orphanCache = new WeakMap<SymbolIndex, OrphanDep[]>();
+
+/** `orphanDeps` once per index (the semantic checks ask for many tasks of one snapshot). */
+function orphansOf(ws: WorkspaceSnapshot, index: SymbolIndex): OrphanDep[] {
+	let o = orphanCache.get(index);
+	if (!o) {
+		o = orphanDeps(ws, index);
+		orphanCache.set(index, o);
+	}
+	return o;
+}
+
+/** The dependents of `task` and its ancestors in `index` (module comment of `Dependents`). */
+export function dependentsOf(ws: WorkspaceSnapshot, index: SymbolIndex, task: TaskId): Dependents {
+	const chain = new Set<TaskId>();
+	for (let x: TaskId | null = task; x !== null; x = index.tasks.get(x)?.parent ?? null)
+		chain.add(x);
+	let end = false;
+	let start = false;
+	for (const d of index.dependencies) {
+		if (d.form === 'depends' && d.pred !== null && chain.has(d.pred)) end = true;
+		if (d.form === 'precedes' && d.succ !== null && chain.has(d.succ) && !depOnEnd(ws, d)) {
+			start = true;
+		}
+		if (end && start) return { end, start };
+	}
+	// Items of declarations the index cannot name (`task "Item 2" { depends !!wp2 }`).
+	for (const o of orphansOf(ws, index)) {
+		if (!chain.has(o.target)) continue;
+		if (o.form === 'depends') end = true;
+		else if (!o.onEnd) start = true;
+	}
+	return { end, start };
+}
+
+/**
+ * `task_underspecified` (TaskScenario.rb:345) and "has not been marked as scheduled" for a leaf
+ * with no sizing criterion or `milestone` and an allocation (own or inherited) or a booking, which
+ * keeps it from being promoted to a milestone (`markAsMilestone`, :2288). `start` and `end` are
+ * not inherited (Project.rb:273, :327); dependencies are. Checked in native tj3 3.8.4:
+ *
+ * - with a start (own `start` or a `depends`) and an end (own `end` or a `precedes`) it schedules;
+ * - with neither it fails;
+ * - with only a start it runs from there to the project end, and fails when a `depends` names it
+ *   or an ancestor (`dependents.end`); a `precedes` on it, also `{ onend }`, does not matter;
+ * - with only an end it runs from the project start, and fails when a `precedes` that targets a
+ *   start names it or an ancestor (`dependents.start`); a `depends` on it, also `{ onstart }`,
+ *   does not matter.
+ */
+export function isUnderspecified(st: TaskState, dependents: Dependents): boolean {
+	if (st.sizing || st.milestone) return false;
+	if (st.allocs.length === 0 && !st.booking) return false;
+	const hasStart = st.start || st.depends.length > 0;
+	const hasEnd = st.end || st.precedes.length > 0;
+	if (hasStart && hasEnd) return false;
+	if (!hasStart && !hasEnd) return true;
+	return hasStart ? dependents.end : dependents.start;
+}
+
 /** The scenarios the loop check runs in: every declared one (TaskJuggler's default: 'plan'). */
 function scenarios(index: SymbolIndex): string[] {
 	return index.scenarios.length > 0 ? index.scenarios.map((s) => s.id) : ['plan'];
+}
+
+/**
+ * Per scenario, whether the declared graph has a loop TaskJuggler's check finds (`loop`) and a
+ * cycle of time points (`cycle`), as `newLoop` tests them; for comparing two snapshots (a task
+ * moved to another parent, task-semantics.ts).
+ */
+export function graphLoops(
+	ws: WorkspaceSnapshot,
+	index: SymbolIndex,
+): Map<string, { loop: boolean; cycle: boolean }> {
+	const g = new Graph(ws, index, []);
+	const out = new Map<string, { loop: boolean; cycle: boolean }>();
+	for (const sc of scenarios(index)) {
+		const n = g.nodes(sc);
+		out.set(sc, { loop: hasLoop(n), cycle: hasCycle(n) });
+	}
+	return out;
 }
 
 /** The first scenario where `extra` makes a loop the declared graph does not have, or null. */
