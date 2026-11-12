@@ -1,27 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Schedule runner (phase-1.md 6.8) against a fake EngineClient with fake timers: debounce and
-// immediate runs, latest-wins interplay, stale mapping, hints on untouched lines only, lastGood
-// on errors, failures and restarts. Latest-wins through the real client is in
+// immediate runs, results and lastGood on errors, latest-wins interplay, stale mapping and hints
+// on untouched lines only. Engine states and the store contract are in
+// schedule-runner.states.test.ts, latest-wins through the real client in
 // schedule-runner.client.test.ts, the real engine in schedule-runner.engine.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { changeSetOf } from '../tjp/document';
 import { createScheduleRunner, type ScheduleRunner } from './schedule-runner';
 import { FakeEngineClient, flush, message, task } from './testing/fake-engine-client';
+import { applyEdit, PLAN, sliceOf, TASKS, typeInto, type TypeAt } from './testing/runner-fixture';
 import { createWorkspace, type Workspace } from './workspace';
-
-const PLAN = [
-	'macro tid [t1]', // 1
-	'project p "P" 2026-01-05 +1m', // 2
-	'task ${tid} "Macro task" {', // 3
-	'  effort 1d', // 4
-	'}', // 5
-	'task b "B" {', // 6
-	'  effort 2d', // 7
-	'}', // 8
-	'',
-].join('\n');
-
-const TASKS = [task('t1', 3, 600), task('b', 6, 1500)];
 
 let ws: Workspace;
 let client: FakeEngineClient;
@@ -31,35 +18,10 @@ function start(opts: { debounceMs?: number; runAtStart?: boolean } = {}): void {
 	runner = createScheduleRunner({ workspace: ws, client, ...opts });
 }
 
-/** Types `insert` into plan.tjp: at an offset, the start of a line, or right after some text. */
-function type(insert: string, at: number | { line: number } | { after: string } = 0): void {
-	const state = ws.state('plan.tjp');
-	const pos =
-		typeof at === 'number'
-			? at
-			: 'line' in at
-				? state.doc.line(at.line).from
-				: state.doc.toString().indexOf(at.after) + at.after.length;
-	ws.commit('plan.tjp', state.update({ changes: { from: pos, insert } }), 'typing');
-}
-
-/** Applies a one-change edit with the given intent type ('format' gives origin 'format'). */
-function apply(intent: string, find: string, insert: string): void {
-	const file = ws.snapshot().files.get('plan.tjp');
-	if (!file) throw new Error('no plan.tjp');
-	const from = file.text.toString().indexOf(find);
-	const changes = changeSetOf({ from, to: from + find.length, insert }, file.text.length);
-	const r = ws.apply({
-		id: `e-${intent}`,
-		intent: { type: intent },
-		base: { 'plan.tjp': file.version },
-		changes: { 'plan.tjp': changes },
-	});
-	expect(r).toBe('applied');
-}
-
-const textOf = (d: { from: number; to: number }): string =>
-	ws.snapshot().files.get('plan.tjp')?.text.sliceString(d.from, d.to) ?? '';
+const type = (insert: string, at?: TypeAt): void => typeInto(ws, insert, at);
+const apply = (intent: string, find: string, insert: string): void =>
+	applyEdit(ws, intent, find, insert);
+const textOf = (d: { from: number; to: number }): string => sliceOf(ws, d);
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -300,104 +262,5 @@ describe('mapping through later edits', () => {
 		type('task c "C" {\n', { line: 9 });
 		expect(runner.state.counts.errors).toBeGreaterThan(0);
 		expect(runner.state.diagnostics.every((d) => d.source !== 'engine')).toBe(true);
-	});
-});
-
-describe('engine states', () => {
-	it('follows a crash and restart, and runs again on the next change', async () => {
-		start();
-		client.done(1, { tasks: TASKS });
-		await flush();
-		type('# a\n');
-		vi.advanceTimersByTime(300);
-		client.setState('busy');
-		client.fail(2, { kind: 'crash', message: 'trap' });
-		client.setState('booting');
-		await flush();
-		expect(runner.state).toMatchObject({ status: 'failed', engine: 'booting', outdated: true });
-		expect(runner.state.failure?.error.kind).toBe('crash');
-		expect(runner.state.lastGood?.revision).toBe(1);
-		client.setState('idle');
-		expect(runner.state).toMatchObject({ status: 'failed', engine: 'idle' });
-		vi.advanceTimersByTime(10_000);
-		expect(client.requests).toHaveLength(2);
-		type('# b\n');
-		vi.advanceTimersByTime(300);
-		client.done(3, { tasks: TASKS });
-		await flush();
-		expect(runner.state).toMatchObject({ status: 'ok', failure: null, outdated: false });
-	});
-
-	it('keeps the failure of a run when an older one fails later', async () => {
-		start();
-		type('# a\n');
-		vi.advanceTimersByTime(300);
-		client.fail(2, { kind: 'internal', message: 'two' });
-		client.fail(1, { kind: 'internal', message: 'one' });
-		await flush();
-		expect(runner.state.failure?.revision).toBe(2);
-	});
-
-	it('is failed while the engine is failed for good', () => {
-		start();
-		client.setState('failed');
-		expect(runner.state).toMatchObject({ status: 'failed', engine: 'failed', pending: true });
-	});
-});
-
-describe('store contract and dispose', () => {
-	it('calls a subscriber at once and on every change, until it unsubscribes', async () => {
-		start();
-		const seen: string[] = [];
-		const off = runner.subscribe((s) => seen.push(s.status));
-		client.done(1);
-		await flush();
-		off();
-		type('# a\n');
-		expect(seen).toEqual(['scheduling', 'ok']);
-	});
-
-	it('publishes once per change and rethrows listener errors after every listener ran', async () => {
-		start();
-		const thrown: unknown[] = [];
-		const spy = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((fn) => {
-			try {
-				fn();
-			} catch (e) {
-				thrown.push(e);
-			}
-		});
-		const calls: number[] = [];
-		runner.subscribe(() => calls.push(1));
-		let first = true;
-		runner.subscribe(() => {
-			if (first) first = false;
-			else throw new Error('listener');
-		});
-		const calls2: number[] = [];
-		runner.subscribe(() => calls2.push(1));
-		type('# a\n');
-		spy.mockRestore();
-		expect(calls).toEqual([1, 1]);
-		expect(calls2).toEqual([1, 1]);
-		expect(thrown).toEqual([new Error('listener')]);
-	});
-
-	it('cancels open runs and stops listening on dispose', async () => {
-		start();
-		type('# a\n');
-		runner.dispose();
-		expect(client.cancelled).toEqual([1]);
-		expect(client.listenerCount).toBe(0);
-		vi.advanceTimersByTime(1000);
-		type('# b\n');
-		vi.advanceTimersByTime(1000);
-		await flush();
-		expect(client.requests).toHaveLength(1);
-		const seen: unknown[] = [];
-		runner.subscribe((s) => seen.push(s));
-		expect(seen).toHaveLength(1);
-		runner.changed('now');
-		expect(client.requests).toHaveLength(1);
 	});
 });

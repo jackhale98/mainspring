@@ -887,3 +887,22 @@ them.
     intents (`addTask`, `deleteTask`, `moveTask`, `addDepends`/`removeDepends`, allocation changes
     that add or remove lines or items) are always refused there with `shared-declaration`, whose
     `affects` lists every visit's ids (for top-level text, every id the file declares).
+17. **Schedule runner (T14).** `createScheduleRunner({ workspace, client, debounceMs?, timers?,
+    runAtStart? })` subscribes to the workspace (15.7): origin `'typing'` waits 300 ms of quiet,
+    `'format'` and `'intent'` run at once, and so does the workspace at start. `changed(kind)` stays
+    for callers outside the workspace (a retry button). Revisions increase per engine client across
+    runners; a workspace version is not sent twice while its run is open; `options.now` is never
+    sent. `RunnerState` adds to 6.8: `status` (`idle | scheduling | ok | errors | failed`;
+    `scheduling` while a debounce or run is open, so a `latest: false` result updates everything
+    but keeps it), `outdated` (the newest outcome is not `lastGood`: dim it), `diagnostics` (engine
+    diagnostics placed in the sent snapshot, mapped through later edits as stale, merged with
+    `localDiagnostics` of the current text), `counts`, `hints` and `index` (the current snapshot's
+    index with the engine hints mapped by `workspace/run-lines.ts`), `finish` (`lastGood`'s, from
+    `schedule/finish.ts`: minutes, ISO date for `Intl` display, time zone, delta against the
+    previous good finish), `timings` (engine, round trip, processing) and `failure`. A line keeps
+    its hint while no change falls inside it and it is still a whole line (Enter at either end,
+    lines added or removed next to it keep it). A result that stopped while parsing (ok false, no
+    task or resource) is no hint source: the earlier hints stay. The runner does not retry a failed
+    run itself. Derived state is recomputed synchronously per change (Fedora: about 16 ms for the
+    index and local diagnostics; the incremental reparse is the workspace's), so the UI (T15) reads
+    `state.index` rather than building its own. `subscribe` follows the Svelte store contract.
