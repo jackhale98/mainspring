@@ -39,6 +39,8 @@ export interface Case {
 	readonly family: Family;
 	/** For a corpus plan: the golden's `now`. */
 	readonly now: string | null;
+	/** For a generated case: the plan attempt it was drawn on (replay pins it). */
+	readonly attempt?: number;
 	/** Set when the case aims at text-only text (a generated plan rich in macros). */
 	readonly aim?: 'text-only';
 }

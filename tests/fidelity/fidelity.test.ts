@@ -8,7 +8,7 @@ import { CONFIG, plannedCases, type PlannedCase } from './config';
 import { CORPUS } from './cases';
 import { ENFORCED, PENDING } from './families';
 import { runCase, type Outcome } from './harness';
-import { buildCase, describeFailure, guarded, REGRESSIONS } from './shared';
+import { buildCase, describeFailure, guarded, REGRESSIONS, regressionProblem } from './shared';
 import { deliberateCounts, percentile, tally, writePart, type TextPart } from './stats';
 
 const outcomes: Outcome[] = [];
@@ -46,7 +46,11 @@ describe('patch fidelity (text only)', () => {
 				});
 				replayed++;
 				if ('failure' in g) bad.push(g.failure);
-				else if (g.value.o.failures.length > 0) bad.push(describeFailure(g.value.c, g.value.o));
+				else {
+					const wrong = regressionProblem(r, g.value.c, g.value.o);
+					const failures = wrong ? [wrong, ...g.value.o.failures] : g.value.o.failures;
+					if (failures.length > 0) bad.push(describeFailure(g.value.c, g.value.o, failures));
+				}
 			}
 			expect(bad.join('\n')).toBe('');
 		},

@@ -1,39 +1,92 @@
 {
-	"$comment": "Failing fidelity cases, replayed on every run by both the text-only properties and P4 (phase-1.md 9.3). Every entry must pass; a failing seed is added when it is found and stays after the fix. A case is a function of source, seed, type and, for a corpus case, its plan (FIDELITY_CASE=<source>:<seed>:<type>[:<plan>] replays it). Seeds are only stable while the generator and the family drawing code are unchanged, so an entry also keeps its reason.",
+	"$comment": "Failing fidelity cases, replayed on every run by both the text-only properties and P4 (phase-1.md 9.3). Every entry must pass. A case is a function of source, seed, type and, for a generated case, its plan attempt (which pins the plan and the draw whatever the edit API does) or, for a corpus case, its plan; FIDELITY_CASE=<source>:<seed>:<type>[:<plan>|:@<attempt>] replays it. Each entry stores a fingerprint, the intent the case draws, and the run fails loudly when the generator no longer draws it, so an entry cannot drift. `status` and `answer` record what the edit API must answer for a fixed bug. Seeds found on the old API were checked to fail P4 there.",
 	"cases": [
 		{
-			"source": "corpus",
-			"seed": 20,
-			"type": "setAttr",
-			"reason": "Oracle bug in the suite, fixed: a drawn minstart date lay outside the corpus plan's project frame (date_in_range, found by P4). Dates are now drawn inside the frame.",
-			"found": "2026-11-12"
-		},
-		{
-			"source": "corpus",
-			"seed": 27,
-			"type": "setAttr",
-			"reason": "Oracle bug in the suite, fixed: a setAttr aimed at a statement written with a macro used a value that failed validation, so it was refused as invalid-value instead of text-only. The value is now valid for its attribute.",
-			"found": "2026-11-12"
-		},
-		{
 			"source": "generated",
-			"seed": 1528,
-			"type": "setAttr",
-			"reason": "Edit API bug (T11a task attribute intents), found by P4: setAttr milestone=false on `task t \"T\" { milestone depends !x }` removes the milestone statement and leaves a leaf with no size and one bound, so the engine reports task_underspecified (ok true to false). It should be refused as conflicting-attribute. Fails until T11b's fix merges.",
-			"found": "2026-11-12"
-		},
-		{
-			"source": "generated",
-			"seed": 1719,
-			"type": "setAttr",
-			"reason": "Edit API bug (T11a task attribute intents), found by P4: setAttr milestone=false on `task t \"T\" { milestone depends !x }` removes the milestone statement and leaves a leaf with no size and one bound, so the engine reports task_underspecified (ok true to false). It should be refused as conflicting-attribute. Fails until T11b's fix merges.",
-			"found": "2026-11-12"
-		},
-		{
-			"source": "generated",
-			"seed": 1573606886,
+			"seed": 379,
 			"type": "removeAttr",
-			"reason": "Edit API bug (T11a/T11b timing rules), found by P4: removeAttr start on a task that another task's `precedes` names leaves it without an anchor, and the engine deadlocks (not_scheduled, ok true to false). Minimal: `task a { effort 1d allocate r precedes b }` and `task b { effort 1d allocate r start 2026-02-02 }`, then removeAttr task=b attr=start is an edit; it should be refused conflicting-attribute. Fails until fixed.",
+			"attempt": 4,
+			"intent": {
+				"type": "removeAttr",
+				"task": "demo.docs.polish.setup",
+				"attr": "start"
+			},
+			"status": "refused",
+			"answer": "conflicting-attribute",
+			"reason": "Edit API bug, found by P4 and fixed (dep-anchors.ts): removeAttr start on a task that another task's `precedes` names leaves it without an anchor, so the engine deadlocks (not_scheduled, ok true to false). It is now refused conflicting-attribute. Pinned to its plan attempt, so it replays on the old API too (checked: fails P4 on 5b4dbfb2).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "generated",
+			"seed": 845,
+			"type": "removeAttr",
+			"attempt": 0,
+			"intent": {
+				"type": "removeAttr",
+				"task": "audit",
+				"attr": "start"
+			},
+			"status": "refused",
+			"answer": "conflicting-attribute",
+			"reason": "Edit API bug, found by P4 and fixed (dep-anchors.ts): removeAttr start on a task that another task's `precedes` names leaves it without an anchor, so the engine deadlocks (not_scheduled, ok true to false). It is now refused conflicting-attribute. Pinned to its plan attempt, so it replays on the old API too (checked: fails P4 on 5b4dbfb2).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "generated",
+			"seed": 990,
+			"type": "setAttr",
+			"attempt": 0,
+			"intent": {
+				"type": "setAttr",
+				"task": "docs.polish.audit.data",
+				"attr": "milestone",
+				"value": false
+			},
+			"reason": "Edit API bug, found by P4 and fixed (T11b task_underspecified rule): setAttr milestone=false on a milestone whose only timing is a dependency or a start removed the statement and left a leaf with one bound, so the engine reports task_underspecified (ok true to false). Pinned to its plan attempt (checked: fails P4 on 5b4dbfb2).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "generated",
+			"seed": 2048,
+			"type": "setAttr",
+			"attempt": 0,
+			"intent": {
+				"type": "setAttr",
+				"task": "qa.ship",
+				"attr": "milestone",
+				"value": false
+			},
+			"reason": "Edit API bug, found by P4 and fixed (T11b task_underspecified rule): setAttr milestone=false on a milestone whose only timing is a dependency or a start removed the statement and left a leaf with one bound, so the engine reports task_underspecified (ok true to false). Pinned to its plan attempt (checked: fails P4 on 5b4dbfb2).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "corpus",
+			"seed": 396,
+			"type": "setAttr",
+			"plan": "syn-09-tz-dst-berlin",
+			"intent": {
+				"type": "setAttr",
+				"task": "dst.summer",
+				"attr": "minstart",
+				"value": "2026-04-24"
+			},
+			"reason": "Oracle bug in the suite, fixed: a drawn minstart date lay outside the corpus plan's project frame (date_in_range, found by P4). Dates are now drawn inside the frame; this seed draws a minstart on the same plan (the original seed no longer draws it).",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "corpus",
+			"seed": 21,
+			"type": "setAttr",
+			"plan": "syn-18-structure-include-macro",
+			"intent": {
+				"type": "setAttr",
+				"task": "rollout.ready",
+				"attr": "effort",
+				"value": "2d"
+			},
+			"status": "refused",
+			"answer": "text-only",
+			"reason": "Oracle bug in the suite, fixed: a setAttr aimed at a statement written with a macro used a value that failed validation, so it was refused invalid-value instead of text-only. This seed aims at the macro-written effort of a corpus task and must be refused text-only.",
 			"found": "2026-11-12"
 		}
 	]

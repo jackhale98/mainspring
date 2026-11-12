@@ -48,11 +48,13 @@ function edits(entry: string, files: Record<string, string>, intent: EditIntent)
  * seventh keeps whatever the draw gave, which is where the no-ops and ordinary refusals come from. With
  * `aim` the plan is rich in macros and the intent aims at text-only text.
  */
-export function generatedCase(seed: number, type: IntentType, aim?: Aim): Case {
+export function generatedCase(seed: number, type: IntentType, aim?: Aim, pin?: number): Case {
 	const family = familyOf(type);
-	const seek = !aim && mixSeed(seed, 5) % 7 !== 0;
+	// A pinned attempt is the plan and draw of that attempt as they are, whatever the edit API does with
+	// them, so a recorded case replays the same intent on any version of the API.
+	const seek = pin === undefined && !aim && mixSeed(seed, 5) % 7 !== 0;
 	let fallback: Case | null = null;
-	for (let attempt = 0; attempt < 40; attempt++) {
+	for (let attempt = pin ?? 0; attempt < (pin === undefined ? 40 : pin + 1); attempt++) {
 		const rng = new Rng(mixSeed(seed, attempt));
 		const plan = genPlan(rng, {
 			...(type === 'format' ? { sloppy: true } : {}),
@@ -75,6 +77,7 @@ export function generatedCase(seed: number, type: IntentType, aim?: Aim): Case {
 			drawn,
 			family,
 			now: NOW,
+			attempt,
 			...(aim ? { aim } : {}),
 		};
 		if (!seek || drawn.mustRefuse || edits(facts.entry, files, drawn.intent)) return made;

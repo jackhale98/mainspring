@@ -36,6 +36,8 @@ export interface PlannedCase {
 	readonly plan?: string;
 	/** A generated case aimed at text-only text (macros), which the edit API must refuse. */
 	readonly aim?: 'text-only';
+	/** A generated case replayed on exactly this plan attempt. */
+	readonly attempt?: number;
 }
 
 /** The nightly set gives Tutorial and Fedora their own corpus cases, in blocks at the start of the sequence. */
@@ -54,20 +56,22 @@ export function plannedCases(kind: 'generated' | 'corpus' | 'all' = 'all'): Plan
 	const draw = (count: number, seed: number): number[] =>
 		fc.sample(fc.integer({ min: 1, max: 0x7fffffff }), { numRuns: count, seed });
 	if (CONFIG.only) {
-		const [source, seed, type, extra] = CONFIG.only.split(':') as [
+		const [source, seed, type, ...extra] = CONFIG.only.split(':') as [
 			PlannedCase['source'],
 			string,
 			PlannedCase['type'],
-			string | undefined,
+			...string[],
 		];
+		const at = extra.find((x) => x.startsWith('@'));
 		const more =
 			source === 'corpus'
-				? extra
-					? { plan: extra }
+				? extra[0]
+					? { plan: extra[0] }
 					: {}
-				: extra === 'text-only'
-					? { aim: 'text-only' as const }
-					: {};
+				: {
+						...(extra.includes('text-only') ? { aim: 'text-only' as const } : {}),
+						...(at ? { attempt: Number(at.slice(1)) } : {}),
+					};
 		return [{ n: 0, source, seed: Number(seed), type, ...more }];
 	}
 	const out: PlannedCase[] = [];

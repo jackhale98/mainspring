@@ -15,7 +15,14 @@ import { REPO } from '../golden/corpus';
 import { CONFIG, plannedCases, type PlannedCase } from './config';
 import { runCase, type Case, type Outcome } from './harness';
 import { percentile, writePart, type P4Part } from './stats';
-import { buildCase, describeFailure, guarded, REGRESSIONS, type Regression } from './shared';
+import {
+	buildCase,
+	describeFailure,
+	guarded,
+	REGRESSIONS,
+	regressionProblem,
+	type Regression,
+} from './shared';
 
 type Engine = Awaited<ReturnType<typeof bootNodeEngine>>;
 
@@ -156,7 +163,8 @@ function runP4(p: PlannedCase | Regression): string | null {
 	const r = guarded(p, () => {
 		const c = buildCase(p);
 		const o = runCase(c);
-		return { c, o, bad: checkP4(c, o) };
+		const wrong = 'intent' in p ? regressionProblem(p, c, o) : null;
+		return { c, o, bad: [...(wrong ? [wrong] : []), ...checkP4(c, o)] };
 	});
 	times.push(performance.now() - t0);
 	if ('failure' in r) return r.failure;
