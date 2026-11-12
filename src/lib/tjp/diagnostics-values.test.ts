@@ -54,6 +54,14 @@ describe('statementValueError', () => {
 		]);
 	});
 
+	it('skips checks that read an unknown setting, not parse errors', () => {
+		const ctx = { ...DEFAULT_CONTEXT, unknown: new Set(['granularity', 'frame']) };
+		expect(errors(ctx)).toEqual([null, null, null, null, null, null]);
+		const bad = createFile('plan.tjp', 'task a "A" {\n  start 2026-13-01\n}\n');
+		const [stmt] = checkedStatements(bad);
+		expect(stmt && statementValueError(bad, stmt, ctx)?.code).toBe('month-range');
+	});
+
 	it('follows the context it is given', () => {
 		const fine = projectContext({ granularity: 1800 });
 		expect(errors(fine)[3]).toBeNull();

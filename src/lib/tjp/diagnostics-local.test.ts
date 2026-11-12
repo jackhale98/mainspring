@@ -96,6 +96,17 @@ describe('value diagnostics', () => {
 		).toEqual([]);
 	});
 
+	it('skips checks that read a project setting written with a macro', () => {
+		const plan = (h: string) =>
+			`macro h [8]\nproject p "P" 2026-01-05 +1m {\n  dailyworkinghours ${h}\n}\ntask a "A" {\n  effort 0d\n  scheduling foo\n  priority 5000\n}\n`;
+		const ids = (h: string) => {
+			const s = inline({ 'plan.tjp': plan(h) }).snapshot();
+			return localDiagnostics(s, buildIndex(s)).map((d) => d.messageId);
+		};
+		expect(ids('8')).toEqual(['effort_zero', 'value:unexpected-token', 'task_priority']);
+		expect(ids('${h}')).toEqual(['value:unexpected-token', 'task_priority']);
+	});
+
 	it('leaves values in error regions to the syntax diagnostics', () => {
 		expect(local('task a "A" {\n  effort 2dd\n}\n').map((d) => d[0])).toEqual([
 			'syntax:unexpected',
