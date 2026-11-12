@@ -12,9 +12,10 @@
  *   only as a placeholder (`IndexContext.unknown`, written with a macro) is skipped, as the value
  *   diagnostics do; so are errors that only say the value cannot be checked here (no time-zone
  *   data).
- * - `checkIdList`: `flags` ids must be declared (`undeclared-flag`) and `responsible` ids must be
- *   resources (`invalid-value`), both read before the statement in reading order (TaskJuggler
- *   looks them up while it parses: rule_flags, rule_resourceList).
+ * - `checkIdList`: `flags` ids must be declared before the statement in reading order
+ *   (`undeclared-flag`; rule_flag looks them up while it parses) and `responsible` ids must be
+ *   resources (`invalid-value`), declared anywhere: rule_undefResourceId only keeps the id, with
+ *   the `resourceprefix` in force, and TaskJuggler resolves it after parsing.
  */
 import { compareParseOrder } from '../../workspace/include-order';
 import type { ContextSetting, SourceRange } from '../index';
@@ -89,9 +90,8 @@ export function checkIdList(
 		if (keyword === 'flags') {
 			const decl = ctx.index.flags.get(id);
 			if (!decl || !readBefore(ctx, decl, pos)) return refused('undeclared-flag', at);
-		} else {
-			const res = ctx.index.resources.get(id);
-			if (!res || !readBefore(ctx, res.decl.header, pos)) return refused('invalid-value', at);
+		} else if (!ctx.index.resources.has(id)) {
+			return refused('invalid-value', at);
 		}
 	}
 	return ids;

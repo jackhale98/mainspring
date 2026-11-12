@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * Task attribute intents (phase-1.md 7.1, T11a): `setAttr` and `removeAttr` here, `renameTask`
- * and `declareFlag` in task-attrs-names.ts, all registered as `TASK_ATTR_HANDLERS` in apply.ts
+ * Task attribute intents (phase-1.md 7.1, T11a; section 15, T11a entry): `setAttr` and
+ * `removeAttr` here, `flags`/`responsible` lists in task-attrs-ids.ts, `renameTask` and
+ * `declareFlag` in task-attrs-names.ts, all registered as `TASK_ATTR_HANDLERS` in apply.ts
  * `HANDLERS`. Values are checked in task-attrs-value.ts, combinations TaskJuggler rejects in
- * task-attrs-checks.ts; the plan's function names are in task-attrs-api.ts.
+ * task-attrs-checks.ts and task-attrs-timing.ts; the plan's function names are in
+ * task-attrs-api.ts.
  *
  * Sites. A task's own sites are its `attrs` (declaration and supplement bodies, in reading
  * order). An unprefixed site and one prefixed with the top scenario (`plan:effort`) are the same
@@ -11,25 +13,28 @@
  *
  * - `setAttr` rewrites the value of the last own site, keeping the written spelling when it
  *   already means the new value (noop `already-set`), else inserts `attr value` into the
- *   declaration body by the 7.2 order. A body with statement-level macro calls is refused
- *   (`macro-in-body`): the call may set the attribute later, so the last site is not known.
+ *   declaration body by the 7.2 order, but before the first statement of another scenario that
+ *   sets the attribute (for sizing and `milestone`: any sizing or `milestone` statement): a
+ *   top-scenario value read later is copied over the other scenario's
+ *   (PropertyTreeNode#[]=), and a sizing statement resets the others (setDurationAttribute).
+ * - A statement-level macro call in the task's bodies refuses an edit (`macro-in-body`) unless
+ *   it cannot hold the keywords the edit reads (task-attrs-checks.ts `macroInBody`, 5.4).
  * - Sizing (`effort`, `length`, `duration`): TaskJuggler rejects a second sizing criterion of a
  *   task, even in a supplement (`multiple_durations`), so the last own sizing statement is
  *   rewritten, its keyword with it when it differs, and the task's other own sizing statements
  *   are removed; a statement is inserted only when there is none. `conflicting-attribute` for a
- *   milestone, a container, or a task the criterion would overspecify.
+ *   milestone or a container.
  * - `milestone`: `true` inserts `milestone` (`conflicting-attribute` with a sizing statement, a
  *   child, or a start and end that differ; noop when present), `false` removes every own site
  *   (noop `not-present`).
- * - `start`, `end`: `conflicting-attribute` when they would overspecify the task, or differ on a
- *   milestone. `scheduling alap`: `conflicting-attribute` for a task with bookings, or one it
- *   would overspecify.
- * - `flags`, `responsible`: the id list of the last own site is rewritten, else inserted; ids
- *   checked as task-attrs-value.ts says (`undeclared-flag`, `invalid-value`).
- * - `removeAttr` removes every own site with its line (a trailing comment stays). With none, it
- *   is `inherited` when an ancestor sets an attribute TaskJuggler inherits (Project.rb task
- *   attributes: flags, scheduling, maxend, minstart, priority, responsible), `macro-in-body`
- *   when a statement-level macro call could set it, else noop `not-present`.
+ * - `start`, `end` on a milestone: `conflicting-attribute` when they would differ.
+ * - Every change to a timing attribute (sizing, `milestone`, `start`, `end`, `scheduling`) is
+ *   `conflicting-attribute` when it breaks a timing check task-attrs-timing.ts models
+ *   (`task_overspecified`, `milestone_start_end`, bookings of an ALAP task).
+ * - `removeAttr` removes every own site with its line (a trailing comment stays); a site written
+ *   with a macro is `text-only`. With none, it is `inherited` when an ancestor sets, before the
+ *   task is created, an attribute TaskJuggler inherits (Project.rb task attributes: flags,
+ *   scheduling, maxend, minstart, priority, responsible), else noop `not-present`.
  *
  * Shared files (15.16): value rewrites and inserts of value attributes, `milestone` and the name
  * string mean the same in every include visit (`sameInEveryVisit`); the id-valued `flags` and
@@ -48,20 +53,26 @@ import {
 	type Removal,
 } from './layout';
 import {
+	INHERITED,
 	SIZING,
-	bookingsOf,
 	fileOf,
 	fixedBounds,
+	inheritedSites,
 	isContainer,
 	lastOwn,
-	overspecifiedBy,
+	macroInBody,
+	macroWritten,
+	otherScenarioSites,
 	ownSites,
 	ranges,
 	taskOf,
 } from './task-attrs-checks';
+import { planIdList } from './task-attrs-ids';
 import { planDeclareFlag, planRenameTask } from './task-attrs-names';
-import { checkAttrValue, checkIdList, parseAttrValue } from './task-attrs-value';
+import { timingConflicts, type TimingChange } from './task-attrs-timing';
+import { checkAttrValue, parseAttrValue } from './task-attrs-value';
 import {
+	isNoop,
 	isRefused,
 	noop,
 	refused,
@@ -70,37 +81,63 @@ import {
 	type IntentOf,
 	type IntentPlan,
 	type Refused,
-	type TaskAttr,
 } from './types';
 
 const ID_LISTS: ReadonlySet<string> = new Set(['flags', 'responsible']);
-/** Task attributes TaskJuggler inherits from the parent task (Project.rb, `Inh.` column). */
-const INHERITED: ReadonlySet<string> = new Set([
-	'flags',
+const SIZE_OR_MILESTONE: ReadonlySet<string> = new Set([...SIZING, 'milestone']);
+/** Attributes whose changes the timing checks read, and the keywords those checks read. */
+const TIMING_ATTRS: ReadonlySet<string> = new Set([
+	...SIZE_OR_MILESTONE,
+	'start',
+	'end',
 	'scheduling',
-	'maxend',
-	'minstart',
-	'priority',
-	'responsible',
+]);
+const TIMING_READS: ReadonlySet<string> = new Set([
+	...TIMING_ATTRS,
+	'depends',
+	'precedes',
+	'scheduled',
+	'booking',
 ]);
 
-const macroInBody = (sym: TaskSymbol): Refused | null =>
-	sym.bodyMacroCalls.length > 0 ? refused('macro-in-body', sym.bodyMacroCalls) : null;
+/** The keywords a macro call must not hold for an edit of `attr`. */
+const reads = (attr: string): ReadonlySet<string> =>
+	TIMING_ATTRS.has(attr) ? TIMING_READS : new Set([attr]);
 
 const conflict = (sym: TaskSymbol, at: readonly SourceRange[] | null): Refused | null =>
 	at ? refused('conflicting-attribute', at.length > 0 ? at : [sym.decl.header]) : null;
 
-/** Inserts `text` (keyword first) into the declaration body by the 7.2 order. */
+const inside = (r: SourceRange, o: SourceRange): boolean =>
+	r.file === o.file && o.from <= r.from && r.to <= o.to;
+
+/** Where the last op of an insertion is read, as a point. */
+function pointOf(ops: readonly EditOp[]): SourceRange | null {
+	const last = ops[ops.length - 1];
+	return last ? { file: last.file, from: last.from, to: last.from } : null;
+}
+
+/**
+ * Inserts `text` (keyword first) into the declaration body by the 7.2 order, but before the
+ * first declaration-body statement of another scenario that sets the same attribute (module
+ * comment).
+ */
 function insertAttr(
 	ctx: EditContext,
 	sym: TaskSymbol,
 	keyword: string,
 	text: string,
 ): EditOp[] | Refused {
-	const file = fileOf(ctx, sym.decl.block);
+	const block = sym.decl.block;
+	const file = fileOf(ctx, block);
 	if (isRefused(file)) return file;
 	const select = { from: text === keyword ? 0 : keyword.length + 1, to: text.length };
-	return insertStatement(file, sym.decl.block, text, { scope: 'task', keyword }, { select });
+	const ops = insertStatement(file, block, text, { scope: 'task', keyword }, { select });
+	if (isRefused(ops)) return ops;
+	const guard = SIZE_OR_MILESTONE.has(keyword) ? SIZE_OR_MILESTONE : keyword;
+	const first = otherScenarioSites(ctx, sym, guard).find((s) => inside(s.statement, block));
+	const at = pointOf(ops);
+	if (!first || !at || at.from <= first.statement.from) return ops;
+	return insertStatement(file, block, text, { before: first.statement }, { select });
 }
 
 /** Removes sites with their lines, file by file. */
@@ -134,6 +171,8 @@ function rewriteValue(
 	v: TypedValue,
 ): IntentPlan {
 	const at = [site.value ?? site.statement];
+	const written = macroWritten([site]);
+	if (written) return written;
 	if (!site.value) return refused('unsupported-form', at);
 	const file = fileOf(ctx, site.value);
 	if (isRefused(file)) return file;
@@ -154,21 +193,37 @@ function insertValue(
 	if (text === null) return refused('invalid-value', at);
 	const ops = insertAttr(ctx, sym, keyword, `${keyword} ${text}`);
 	if (isRefused(ops)) return ops;
-	const last = ops[ops.length - 1];
-	const pos = last ? { file: last.file, from: last.from, to: last.from } : sym.decl.block;
+	const pos = pointOf(ops) ?? sym.decl.block;
 	return checkAttrValue(ctx, keyword, v, pos, at) ?? ops;
+}
+
+/** The plan's ops, unless the change breaks a timing check (task-attrs-timing.ts). */
+function timed(
+	ctx: EditContext,
+	sym: TaskSymbol,
+	plan: IntentPlan,
+	change: (ops: readonly EditOp[]) => TimingChange,
+): IntentPlan {
+	if (isRefused(plan) || isNoop(plan)) return plan;
+	return conflict(sym, timingConflicts(ctx, sym, change(plan))) ?? plan;
 }
 
 function planSizing(ctx: EditContext, sym: TaskSymbol, attr: string, v: TypedValue): IntentPlan {
 	const milestones = ownSites(ctx, sym, 'milestone');
 	if (milestones.length > 0) return refused('conflicting-attribute', ranges(milestones));
 	if (isContainer(ctx, sym)) return refused('conflicting-attribute', [sym.decl.header]);
-	const over = conflict(sym, overspecifiedBy(ctx, sym, { attr, value: v }));
-	if (over) return over;
 	const sizing = ownSites(ctx, sym, SIZING);
+	const written = macroWritten(sizing);
+	if (written) return written;
 	const last = sizing[sizing.length - 1];
-	if (!last) return insertValue(ctx, sym, attr, v);
-	if (last.keyword === attr) return rewriteValue(ctx, last, attr, v);
+	const change = (ops: readonly EditOp[]): TimingChange => ({
+		attr,
+		value: v,
+		at: last?.statement ?? pointOf(ops),
+		replaces: sizing,
+	});
+	if (!last) return timed(ctx, sym, insertValue(ctx, sym, attr, v), change);
+	if (last.keyword === attr) return timed(ctx, sym, rewriteValue(ctx, last, attr, v), change);
 	// Another criterion: rewrite the last statement's keyword and value, drop the other ones.
 	const at = [last.statement];
 	const file = fileOf(ctx, last.statement);
@@ -183,65 +238,42 @@ function planSizing(ctx: EditContext, sym: TaskSymbol, attr: string, v: TypedVal
 	});
 	const others = removeSites(ctx, sizing.slice(0, -1));
 	if (isRefused(others)) return others;
-	return checkAttrValue(ctx, attr, v, last.value, at) ?? [op, ...others];
+	const plan = checkAttrValue(ctx, attr, v, last.value, at) ?? [op, ...others];
+	return timed(ctx, sym, plan, change);
 }
 
 function planMilestone(ctx: EditContext, sym: TaskSymbol, value: boolean): IntentPlan {
 	const own = ownSites(ctx, sym, 'milestone');
-	if (!value) return own.length === 0 ? noop('not-present') : removeSites(ctx, own);
+	if (!value) {
+		if (own.length === 0) return noop('not-present');
+		const written = macroWritten(own);
+		if (written) return written;
+		const removal = { attr: 'milestone', value: null, at: null, replaces: own };
+		return timed(ctx, sym, removeSites(ctx, own), () => removal);
+	}
 	if (own.length > 0) return noop('already-set');
 	const sizing = ownSites(ctx, sym, SIZING);
 	if (sizing.length > 0) return refused('conflicting-attribute', ranges(sizing));
 	if (isContainer(ctx, sym)) return refused('conflicting-attribute', [sym.decl.header]);
-	return conflict(sym, fixedBounds(ctx, sym)) ?? insertAttr(ctx, sym, 'milestone', 'milestone');
-}
-
-function planIdList(
-	ctx: EditContext,
-	sym: TaskSymbol,
-	attr: 'flags' | 'responsible',
-	value: IntentOf<'setAttr'>['value'],
-): IntentPlan {
-	const site = lastOwn(ctx, sym, attr);
-	const at = [site?.value ?? sym.decl.header];
-	const ids = checkIdList(ctx, attr, value, site?.statement ?? sym.decl.block, at);
-	if (isRefused(ids)) return ids;
-	if (!site) return insertAttr(ctx, sym, attr, `${attr} ${ids.join(', ')}`);
-	const file = fileOf(ctx, site.statement);
-	if (isRefused(file)) return file;
-	if (!site.value) return refused('unsupported-form', at);
-	const op = replaceValue(file, site.value, { kind: 'idList', value: ids });
-	return 'status' in op ? op : [op];
-}
-
-/** The checks of a value attribute's new value against the rest of the task. */
-function valueConflicts(
-	ctx: EditContext,
-	sym: TaskSymbol,
-	attr: string,
-	v: TypedValue,
-): Refused | null {
-	if (attr === 'start' || attr === 'end' || attr === 'scheduling') {
-		const over = conflict(sym, overspecifiedBy(ctx, sym, { attr, value: v }));
-		if (over) return over;
-	}
-	if ((attr === 'start' || attr === 'end') && lastOwn(ctx, sym, 'milestone')) {
-		return conflict(sym, fixedBounds(ctx, sym, { keyword: attr, value: v }));
-	}
-	if (attr === 'scheduling' && v.kind === 'scheduling' && v.value === 'alap') {
-		const bookings = bookingsOf(ctx, sym);
-		if (bookings.length > 0) return refused('conflicting-attribute', bookings);
-	}
-	return null;
+	const bounds = conflict(sym, fixedBounds(ctx, sym));
+	if (bounds) return bounds;
+	return timed(ctx, sym, insertAttr(ctx, sym, 'milestone', 'milestone'), (ops) => ({
+		attr: 'milestone',
+		value: true,
+		at: pointOf(ops),
+		replaces: [],
+	}));
 }
 
 function planSetAttr(ctx: EditContext, intent: IntentOf<'setAttr'>): IntentPlan {
 	const sym = taskOf(ctx, intent.task);
 	if (isRefused(sym)) return sym;
 	const { attr, value } = intent;
-	if (attr === 'flags' || attr === 'responsible') return planIdList(ctx, sym, attr, value);
-	const blocked = macroInBody(sym);
+	const blocked = macroInBody(ctx, sym, reads(attr));
 	if (blocked) return blocked;
+	if (attr === 'flags' || attr === 'responsible') {
+		return planIdList(ctx, sym, attr, value, insertAttr, removeSites);
+	}
 	if (attr === 'milestone') {
 		return typeof value === 'boolean'
 			? planMilestone(ctx, sym, value)
@@ -251,32 +283,36 @@ function planSetAttr(ctx: EditContext, intent: IntentOf<'setAttr'>): IntentPlan 
 	const v = parseAttrValue(attr, value, [site?.value ?? sym.decl.header]);
 	if (isRefused(v)) return v;
 	if (SIZING.has(attr)) return planSizing(ctx, sym, attr, v);
-	const conflicts = valueConflicts(ctx, sym, attr, v);
-	if (conflicts) return conflicts;
-	return site ? rewriteValue(ctx, site, attr, v) : insertValue(ctx, sym, attr, v);
-}
-
-/** Own sites of `attr` set by the nearest ancestor that sets it, for `inherited`. */
-function inheritedSites(ctx: EditContext, sym: TaskSymbol, attr: TaskAttr): AttrSite[] {
-	if (!INHERITED.has(attr)) return [];
-	for (let p = sym.parent; p !== null;) {
-		const up = ctx.index.tasks.get(p);
-		if (!up) break;
-		const own = ownSites(ctx, up, attr);
-		if (own.length > 0) return own;
-		p = up.parent;
+	if ((attr === 'start' || attr === 'end') && lastOwn(ctx, sym, 'milestone')) {
+		const bounds = conflict(sym, fixedBounds(ctx, sym, { keyword: attr, value: v }));
+		if (bounds) return bounds;
 	}
-	return [];
+	const plan = site ? rewriteValue(ctx, site, attr, v) : insertValue(ctx, sym, attr, v);
+	if (!TIMING_ATTRS.has(attr)) return plan;
+	return timed(ctx, sym, plan, (ops) => ({
+		attr,
+		value: v,
+		at: site?.statement ?? pointOf(ops),
+		replaces: site ? [site] : [],
+	}));
 }
 
 function planRemoveAttr(ctx: EditContext, intent: IntentOf<'removeAttr'>): IntentPlan {
 	const sym = taskOf(ctx, intent.task);
 	if (isRefused(sym)) return sym;
-	const own = ownSites(ctx, sym, intent.attr);
-	if (own.length > 0) return removeSites(ctx, own);
-	const up = inheritedSites(ctx, sym, intent.attr);
-	if (up.length > 0) return refused('inherited', ranges(up));
-	return macroInBody(sym) ?? noop('not-present');
+	const { attr } = intent;
+	const blocked = macroInBody(ctx, sym, reads(attr));
+	if (blocked) return blocked;
+	const own = ownSites(ctx, sym, attr);
+	const written = macroWritten(own);
+	if (written) return written;
+	if (own.length > 0) {
+		const ops = removeSites(ctx, own);
+		if (!TIMING_ATTRS.has(attr)) return ops;
+		return timed(ctx, sym, ops, () => ({ attr, value: null, at: null, replaces: own }));
+	}
+	const up = INHERITED.has(attr) ? inheritedSites(ctx, sym, attr) : [];
+	return up.length > 0 ? refused('inherited', ranges(up)) : noop('not-present');
 }
 
 export const TASK_ATTR_HANDLERS: {

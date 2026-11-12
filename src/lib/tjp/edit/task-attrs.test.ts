@@ -111,10 +111,27 @@ describe('setAttr values', () => {
 		expect(after(src, set('a', 'priority', '650'))).toBe(src.replace('600', '650'));
 	});
 
-	it('refuses a body with statement-level macro calls', () => {
+	it('refuses a body with statement-level macro calls that may set the attribute', () => {
 		const src = 'macro m [ priority 300 ]\n' + HEAD + 'task a "A" {\n  ${m}\n}\n';
 		const s = setup(src);
 		expect(run(s, set('a', 'priority', '400'))).toMatchObject({ reason: 'macro-in-body' });
+		expect(run(s, set('a', 'note', '"n"')).status).toBe('edit');
+		const rm = setup(src.replace('  ${m}', '  priority 200\n  ${m}'));
+		expect(run(rm, { type: 'removeAttr', task: 'a', attr: 'priority' })).toMatchObject({
+			reason: 'macro-in-body',
+		});
+	});
+
+	it("allows edits next to Tutorial's ${allocate_developers}", () => {
+		const s = setup(readTjp('engine/tj/examples/Tutorial/tutorial.tjp'), {}, 'tutorial.tjp');
+		expect(s.index.tasks.get('AcSo.spec')?.bodyMacroCalls).toHaveLength(1);
+		for (const intent of [
+			set('AcSo.spec', 'priority', '600'),
+			set('AcSo.spec', 'effort', '25d'),
+			{ type: 'removeAttr', task: 'AcSo.spec', attr: 'effort' },
+		] as const) {
+			expect(run(s, intent).status, JSON.stringify(intent)).toBe('edit');
+		}
 	});
 
 	it('refuses values written with macros and unknown tasks', () => {
@@ -187,27 +204,39 @@ describe('setAttr milestone', () => {
 	});
 });
 
-describe('setAttr flags and responsible', () => {
-	const plan = HEAD + 'task a "A" {\n  flags hot\n  effort 1d\n}\n';
+describe('other scenarios', () => {
+	// Each insertion lands before the other scenario's statement; inserted after it, the
+	// top-scenario value is copied over it (checked natively: late keeps 800, 2026-01-12,
+	// length 2d, the milestone).
+	const head =
+		'project p "P" 2026-01-05 +2m {\n  scenario plan "Plan" {\n    scenario late "Late"\n  }\n}\n' +
+		'resource r "R"\n';
+	const task = (body: string): string => `${head}task a "A" {\n${body}  allocate r\n}\n`;
 
-	it('rewrites the id list or inserts one', () => {
-		expect(after(plan, set('a', 'flags', ['hot', 'cold']))).toBe(
-			plan.replace('  flags hot', '  flags hot, cold'),
+	it('inserts a value before the other scenario sets it', () => {
+		const src = task('  late:priority 800\n  start 2026-01-06\n  effort 1d\n');
+		expect(after(src, set('a', 'priority', '650'))).toBe(
+			src.replace('  late:priority', '  priority 650\n  late:priority'),
 		);
-		expect(after(plan, set('a', 'responsible', ['r', 'q']))).toBe(
-			plan.replace('  effort', '  responsible r, q\n  effort'),
+		const start = task('  late:start 2026-01-12\n  effort 1d\n');
+		expect(after(start, set('a', 'start', '2026-01-06'))).toBe(
+			start.replace('  late:start', '  start 2026-01-06\n  late:start'),
 		);
-		const s = setup(plan);
-		expect(run(s, set('a', 'flags', ['hot']))).toMatchObject({ reason: 'already-set' });
 	});
 
-	it('refuses undeclared flags and unknown or later resources', () => {
-		const src = plan + 'resource late "Late"\n';
-		const s = setup(src);
-		expect(run(s, set('a', 'flags', ['warm']))).toMatchObject({ reason: 'undeclared-flag' });
-		expect(run(s, set('a', 'responsible', ['zz']))).toMatchObject({ reason: 'invalid-value' });
-		expect(run(s, set('a', 'responsible', ['late']))).toMatchObject({ reason: 'invalid-value' });
-		expect(run(s, set('a', 'flags', []))).toMatchObject({ reason: 'invalid-value' });
+	it('inserts a criterion before any criterion or milestone of another scenario', () => {
+		const len = task('  start 2026-01-06\n  late:length 2d\n');
+		expect(after(len, set('a', 'effort', '1d'))).toBe(
+			len.replace('  late:length', '  effort 1d\n  late:length'),
+		);
+		const ms = task('  start 2026-01-06\n  late:milestone\n');
+		expect(after(ms, set('a', 'effort', '2d'))).toBe(
+			ms.replace('  late:milestone', '  effort 2d\n  late:milestone'),
+		);
+		const eff = task('  start 2026-01-06\n  late:effort 2d\n');
+		expect(after(eff, set('a', 'milestone', true))).toBe(
+			eff.replace('  late:effort', '  milestone\n  late:effort'),
+		);
 	});
 });
 
@@ -230,6 +259,25 @@ describe('removeAttr', () => {
 		expect(r).toMatchObject({ status: 'refused', reason: 'inherited' });
 		expect(removeAttr(s.snap, s.index, 'p.c', 'note')).toMatchObject({ reason: 'not-present' });
 		expect(removeAttr(s.snap, s.index, 'p.c', 'start')).toMatchObject({ reason: 'not-present' });
+	});
+
+	it('refuses statements written with macros', () => {
+		const src = 'macro len [3d]\n' + HEAD + 'task a "A" {\n  effort ${len}\n}\n';
+		const s = setup(src);
+		expect(removeAttr(s.snap, s.index, 'a', 'effort')).toMatchObject({ reason: 'text-only' });
+	});
+
+	it('inherits only what the parent wrote before the child (checked natively)', () => {
+		const src =
+			HEAD +
+			'task p "P" {\n  task c "C" { start 2026-01-06 }\n  priority 300\n  flags hot\n}\n' +
+			'supplement task p {\n  scheduling alap\n}\n';
+		const s = setup(src);
+		for (const attr of ['priority', 'flags', 'scheduling'] as const) {
+			expect(removeAttr(s.snap, s.index, 'p.c', attr), attr).toMatchObject({
+				reason: 'not-present',
+			});
+		}
 	});
 
 	it('leaves other scenarios alone', () => {

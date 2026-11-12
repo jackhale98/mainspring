@@ -47,7 +47,9 @@ describe('task attribute values', () => {
 			reason: 'undeclared-flag',
 		});
 		expect(checkIdList(s.ctx, 'responsible', 'r', pos, [pos])).toEqual(['r']);
-		expect(checkIdList(s.ctx, 'responsible', ['q'], pos, [pos])).toMatchObject({
+		// Resolved after parsing: a resource declared later is fine (rule_undefResourceId).
+		expect(checkIdList(s.ctx, 'responsible', ['q'], pos, [pos])).toEqual(['q']);
+		expect(checkIdList(s.ctx, 'responsible', ['zz'], pos, [pos])).toMatchObject({
 			reason: 'invalid-value',
 		});
 		expect(checkIdList(s.ctx, 'responsible', ['no way'], pos, [pos])).toMatchObject({

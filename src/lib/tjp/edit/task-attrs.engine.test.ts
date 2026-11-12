@@ -16,11 +16,19 @@ import type { ScheduleResult, TaskScenarioResult } from '../../../engine/protoco
 import { bootNodeEngine } from '../../../../engine/golden/run-wasm.mjs';
 import { ROOT } from '../../../../tests/grammar/corpus';
 import { applyIntent } from './apply';
-import { attrCorpora, filesAfter, intentFor, type AttrCorpus } from './task-attrs-testing';
+import {
+	attrCorpora,
+	filesAfter,
+	intentFor,
+	loadCorpus,
+	type AttrCorpus,
+} from './task-attrs-testing';
 import type { EditIntent } from './types';
 
 const ENGINE = path.join(ROOT, 'public/engine/manifest.json');
 const REQUIRED = process.env['TJP_EDIT_ENGINE'] === '1';
+/** A fixed fast-check seed (CI sets FC_SEED), else a random one. */
+const SEED = process.env['FC_SEED'] === undefined ? {} : { seed: Number(process.env['FC_SEED']) };
 /** Plans too slow for many runs (the scale plan and the Fedora schedule). */
 const SLOW = new Set(['syn-20-scale-1000', 'upstream-fedora-20']);
 
@@ -73,26 +81,61 @@ function scheduled(c: AttrCorpus): ScheduleResult {
 	return r;
 }
 
-/**
- * Error ids that only say the changed plan no longer fits its constraints (a shorter task lets a
- * `precedes` chain run before the project start; a task without its effort and with one bound
- * cannot be placed; an effort needs an allocation, which a later edit adds): the edit is right,
- * the plan is incomplete or tighter. Only random sizing and scheduling
- * changes may add them, and they are counted, not failed.
- */
-const CONSEQUENCES: ReadonlySet<string> = new Set([
-	'error:sched_runaway',
-	'error:not_scheduled',
-	'error:task_underspecified',
-	'error:effort_no_allocations',
-	'error:impossible_end_dep',
-	'error:impossible_start_dep',
-]);
-let consequences = 0;
-
+const SIZING: readonly string[] = ['effort', 'length', 'duration'];
 const timing = (i: EditIntent): boolean =>
 	(i.type === 'setAttr' || i.type === 'removeAttr') &&
-	['effort', 'length', 'duration', 'scheduling', 'milestone'].includes(i.attr);
+	[...SIZING, 'scheduling', 'milestone'].includes(i.attr);
+
+/** Whether the task or an ancestor has a top-scenario `allocate` the index can read. */
+function allocated(c: AttrCorpus, task: string): boolean {
+	const top = c.index.scenarios[0]?.id ?? null;
+	const up = new Set<string>();
+	for (let t: string | null = task; t !== null; t = c.index.tasks.get(t)?.parent ?? null) {
+		up.add(t);
+	}
+	return c.index.allocations.some(
+		(a) => a.task !== null && up.has(a.task) && (a.scenario === null || a.scenario === top),
+	);
+}
+
+/** Whether the task depends on another task's start (`depends x { onstart }`). */
+function onStartDepends(c: AttrCorpus, task: string): boolean {
+	return c.index.dependencies.some((d) => {
+		if (d.form !== 'depends' || d.succ !== task || !d.body) return false;
+		const text = c.snap.files.get(d.body.file)?.text.sliceString(d.body.from, d.body.to) ?? '';
+		return /\bonstart\b/.test(text);
+	});
+}
+
+/**
+ * Error ids that only say the changed plan no longer fits its constraints, each with the intents
+ * that may add it: the edit is right, the plan is incomplete or tighter. They are counted, not
+ * failed.
+ *
+ * - A shorter or longer task, or one scheduled the other way, can push a chain past the project
+ *   frame or leave it unplaceable (`sched_runaway`, `not_scheduled`, `impossible_*_dep`).
+ * - Removing the sizing criterion leaves a task with one bound (`task_underspecified`).
+ * - An effort needs an allocation, which a later edit adds (`effort_no_allocations`): only for a
+ *   task with no own or inherited `allocate`.
+ * - A length or duration task on another task's start (`depends x { onstart }`) starts at the
+ *   midnight of that start, while an effort predecessor's start moves to its first booked slot
+ *   (syn-07 chain.d, checked natively): `task_pred_before` depends on the schedule, not on the
+ *   text, so the edit API cannot refuse it.
+ */
+const TOLERATED: Readonly<Record<string, (c: AttrCorpus, i: EditIntent) => boolean>> = {
+	'error:sched_runaway': (_, i) => timing(i),
+	'error:not_scheduled': (_, i) => timing(i),
+	'error:impossible_end_dep': (_, i) => timing(i),
+	'error:impossible_start_dep': (_, i) => timing(i),
+	'error:task_underspecified': (_, i) => i.type === 'removeAttr' && SIZING.includes(i.attr),
+	'error:effort_no_allocations': (c, i) =>
+		i.type === 'setAttr' && i.attr === 'effort' && !allocated(c, i.task),
+	'error:task_pred_before': (c, i) =>
+		i.type === 'setAttr' &&
+		(i.attr === 'length' || i.attr === 'duration') &&
+		onStartDepends(c, i.task),
+};
+let consequences = 0;
 
 /** Applies an intent, schedules the result and checks P4; the new result, or null when no edit. */
 function editAndSchedule(
@@ -106,7 +149,8 @@ function editAndSchedule(
 	const after = schedule(c, filesAfter(c.snap, r));
 	const label = `${c.name} ${JSON.stringify(intent)}`;
 	const added = newErrors(before, after);
-	if (tolerant && timing(intent) && added.length > 0 && added.every((id) => CONSEQUENCES.has(id))) {
+	const tolerated = (id: string): boolean => TOLERATED[id]?.(c, intent) ?? false;
+	if (tolerant && added.length > 0 && added.every(tolerated)) {
 		consequences++;
 		return after;
 	}
@@ -170,8 +214,19 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('task attribute edits sched
 		expect(renamed?.tasks.find((t) => t.id === 'app.gantt')?.name).toBe('Timeline "view"');
 		const strip = (r: ScheduleResult | null): unknown => r?.tasks.map((t) => ({ ...t, name: '' }));
 		expect(strip(renamed)).toEqual(strip(scheduled(c)));
-		const flagged = editAndSchedule(c, { type: 'declareFlag', flag: 'urgent' });
-		expect(flagged).not.toBeNull();
+		const declare: EditIntent = { type: 'declareFlag', flag: 'urgent' };
+		expect(editAndSchedule(c, declare)).not.toBeNull();
+		// The declared flag can then be set on a task.
+		const files = filesAfter(c.snap, applyIntent(c.snap, c.index, declare));
+		const d = loadCorpus(`${c.name}+urgent`, c.snap.entry, files);
+		const flag: EditIntent = {
+			type: 'setAttr',
+			task: 'app.gantt',
+			attr: 'flags',
+			value: ['urgent'],
+		};
+		const flagged = editAndSchedule(d, flag);
+		expect(flagged?.ok).toBe(true);
 		for (const name of ['poc-sample', 'syn-17-priority-efficiency', 'upstream-tutorial']) {
 			const x = get(name);
 			const t = x.tasks.find((id) => x.index.tasks.get(id)?.children.length === 0) ?? '';
@@ -215,7 +270,8 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('task attribute edits sched
 			fc.property(
 				fc.record({
 					ci: fc.nat(small.length - 1),
-					kind: fc.nat(4),
+					// No dates (kind 5): a new start or end may rightly conflict with the plan.
+					kind: fc.constantFrom(0, 1, 2, 3, 4, 6),
 					pick: fc.nat(),
 					value: fc.nat(1000),
 				}),
@@ -225,7 +281,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('task attribute edits sched
 					if (editAndSchedule(c, intentFor(c, kind, pick, value), true)) edits++;
 				},
 			),
-			{ numRuns: Number(process.env['TJP_EDIT_ENGINE_RUNS'] ?? 60) },
+			{ numRuns: Number(process.env['TJP_EDIT_ENGINE_RUNS'] ?? 60), ...SEED },
 		);
 		console.log(
 			`task attribute engine check: ${edits} edits scheduled, ${consequences} tighter plans`,

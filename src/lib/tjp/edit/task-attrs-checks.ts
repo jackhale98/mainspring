@@ -1,26 +1,34 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * What the task attribute intents (task-attrs.ts) read about a task: the task itself, its own
- * sites in the top scenario, and the `conflicting-attribute` checks for the combinations TaskJuggler rejects
- * (TaskScenario.rb prepareScenario and markAsMilestone, ProjectFileParser.rb
- * setDurationAttribute):
+ * sites in the top scenario, what it inherits, the statement-level macro rule, and the
+ * `conflicting-attribute` checks that need no timing model (TaskScenario.rb prepareScenario and
+ * markAsMilestone; the timing checks are in task-attrs-timing.ts):
  *
  * - `isContainer`: a container may have no sizing criterion and may not be a milestone
  *   (`container_duration`, `container_milestone`); children the index cannot name (auto ids)
  *   count.
  * - `fixedBounds`: a milestone's start and end must be identical (`milestone_start_end`).
- * - `bookingsOf`: only forward scheduled tasks may have bookings (`booking_forward_only`); the
- *   bookings may sit in the task's bodies or in resource bodies naming it.
- * - `overspecifiedBy`: a task with a sizing criterion may not also have a start and an end, an end
- *   with start dependencies when scheduled forward, or a start with end dependencies when
- *   scheduled backward (`task_overspecified`). The check compares the task before and after the
- *   change and refuses only a change that makes it overspecified. Dependencies are read from the
- *   index (`depends` inherited from ancestors, `precedes` items naming the task, successors), as
- *   TaskJuggler wires them both ways; `scheduling` is inherited.
+ * - `bookingsOf`: the bookings of a task, in its bodies or in resource bodies naming it.
+ * - Inheritance (`inheritedSites`, `inheritedIds`): TaskJuggler copies a parent's inheritable
+ *   attributes into a child when it creates the child (PropertyTreeNode#inheritAttributes), so
+ *   only the parent's sites read before the child's header count, and the parent's own value at
+ *   that point includes what it inherited itself. Single-valued attributes take the nearest such
+ *   ancestor; `flags` and `responsible` accumulate along the chain.
+ * - `macroInBody` (5.4): a statement-level macro call in the task's bodies blocks an edit of
+ *   `keywords` unless the macro is defined once, its body has no nested calls or arguments, and
+ *   none of its words is one of `keywords`.
  */
 import type { TjpFile } from '../document';
-import { lastSite, type AttrSite, type SourceRange, type TaskSymbol } from '../index';
+import {
+	lastSite,
+	type AttrSite,
+	type ReferenceVia,
+	type SourceRange,
+	type TaskSymbol,
+} from '../index';
 import { sameValue, type TypedValue } from '../values';
+import { readBefore } from './task-attrs-value';
 import { refused, type EditContext, type Refused } from './types';
 
 export const SIZING: ReadonlySet<string> = new Set(['effort', 'length', 'duration']);
@@ -40,7 +48,10 @@ export function taskOf(ctx: EditContext, id: string): TaskSymbol | Refused {
 	return sym;
 }
 
-const topOf = (ctx: EditContext): string | null => ctx.index.scenarios[0]?.id ?? null;
+export const topOf = (ctx: EditContext): string | null => ctx.index.scenarios[0]?.id ?? null;
+
+const has = (keywords: ReadonlySet<string> | string, k: string): boolean =>
+	typeof keywords === 'string' ? k === keywords : keywords.has(k);
 
 /** The task's own sites of these keywords in the top scenario, in reading order. */
 export function ownSites(
@@ -49,9 +60,21 @@ export function ownSites(
 	keywords: ReadonlySet<string> | string,
 ): AttrSite[] {
 	const top = topOf(ctx);
-	const has = (k: string): boolean =>
-		typeof keywords === 'string' ? k === keywords : keywords.has(k);
-	return sym.attrs.filter((a) => has(a.keyword) && (a.scenario === null || a.scenario === top));
+	return sym.attrs.filter(
+		(a) => has(keywords, a.keyword) && (a.scenario === null || a.scenario === top),
+	);
+}
+
+/** The task's sites of these keywords in other scenarios (`late:effort`), in reading order. */
+export function otherScenarioSites(
+	ctx: EditContext,
+	sym: TaskSymbol,
+	keywords: ReadonlySet<string> | string,
+): AttrSite[] {
+	const top = topOf(ctx);
+	return sym.attrs.filter(
+		(a) => has(keywords, a.keyword) && a.scenario !== null && a.scenario !== top,
+	);
 }
 
 /** The last own site of `keyword` in the top scenario (`lastSite`). */
@@ -104,63 +127,112 @@ export function fixedBounds(
 	return sites.flatMap((s) => (s ? [s.statement] : []));
 }
 
-function ancestors(ctx: EditContext, sym: TaskSymbol): string[] {
-	const out: string[] = [];
-	for (let p = sym.parent; p !== null; p = ctx.index.tasks.get(p)?.parent ?? null) out.push(p);
+// --- Inheritance -------------------------------------------------------------------------------
+
+/** One ancestor step: the ancestor and the position its child was created at. */
+export interface AncestorStep {
+	readonly task: TaskSymbol;
+	readonly before: SourceRange;
+}
+
+/** The ancestors, nearest first, each with the header of the child on the path to `sym`. */
+export function ancestorSteps(ctx: EditContext, sym: TaskSymbol): AncestorStep[] {
+	const out: AncestorStep[] = [];
+	let child = sym;
+	for (let p = sym.parent; p !== null;) {
+		const up = ctx.index.tasks.get(p);
+		if (!up) break;
+		out.push({ task: up, before: child.decl.header });
+		child = up;
+		p = up.parent;
+	}
 	return out;
 }
 
-/** Whether the task is scheduled forward: its own or an ancestor's `scheduling` (default asap). */
-function forward(ctx: EditContext, sym: TaskSymbol): boolean {
-	for (
-		let t: TaskSymbol | undefined = sym;
-		t;
-		t = t.parent ? ctx.index.tasks.get(t.parent) : undefined
-	) {
-		const s = lastOwn(ctx, t, 'scheduling');
-		if (s?.parsed?.kind === 'scheduling') return s.parsed.value === 'asap';
+/** Own top-scenario sites of `keyword` of an ancestor read before its child was created. */
+export function sitesBefore(ctx: EditContext, step: AncestorStep, keyword: string): AttrSite[] {
+	return ownSites(ctx, step.task, keyword).filter((s) => readBefore(ctx, s.statement, step.before));
+}
+
+/**
+ * The sites `sym` inherits `keyword` from: the nearest ancestor's own sites read before its
+ * child on the path was created; for the accumulating `flags` and `responsible`, those of every
+ * ancestor.
+ */
+export function inheritedSites(ctx: EditContext, sym: TaskSymbol, keyword: string): AttrSite[] {
+	const out: AttrSite[] = [];
+	for (const step of ancestorSteps(ctx, sym)) {
+		const own = sitesBefore(ctx, step, keyword);
+		if (own.length === 0) continue;
+		if (!ACCUMULATING.has(keyword)) return own;
+		out.push(...own);
 	}
-	return true;
+	return out;
 }
 
-/** A change to one attribute: its new value, or null when it goes. */
-export interface TimingChange {
-	readonly attr: string;
-	readonly value: TypedValue | null;
+/** Task attributes TaskJuggler inherits from the parent task (Project.rb, `Inh.` column). */
+export const INHERITED: ReadonlySet<string> = new Set([
+	'flags',
+	'scheduling',
+	'maxend',
+	'minstart',
+	'priority',
+	'responsible',
+]);
+
+/** List attributes whose statements add to the value instead of replacing it. */
+export const ACCUMULATING: ReadonlySet<string> = new Set(['flags', 'responsible']);
+
+/** The ids a `flags` or `responsible` site gives (resolved resource ids, flag names). */
+export function siteIds(ctx: EditContext, site: AttrSite): string[] {
+	const via = site.keyword as ReferenceVia;
+	return ctx.index.references
+		.filter((r) => r.via === via && inside(r.at, site.statement))
+		.map((r) => r.target ?? r.written);
 }
 
-/** The sites that make the task overspecified after `change` but not before, or null. */
-export function overspecifiedBy(
+/** The ids `sym` inherits for a list attribute, each with the sites that give it. */
+export function inheritedIds(
 	ctx: EditContext,
 	sym: TaskSymbol,
-	change: TimingChange,
-): SourceRange[] | null {
-	const top = topOf(ctx);
-	const up = new Set(ancestors(ctx, sym));
-	const deps = ctx.index.dependencies.filter((d) => d.scenario === null || d.scenario === top);
-	const startDeps = deps.some(
-		(d) => d.succ === sym.id || (d.form === 'depends' && d.succ !== null && up.has(d.succ)),
-	);
-	const endDeps = deps.some(
-		(d) => d.pred === sym.id || (d.form === 'precedes' && d.pred !== null && up.has(d.pred)),
-	);
-	const state = (after: boolean) => {
-		const has = (keys: ReadonlySet<string> | string): boolean => {
-			const own = ownSites(ctx, sym, keys).length > 0;
-			if (!after) return own;
-			const hit = typeof keys === 'string' ? keys === change.attr : keys.has(change.attr);
-			return hit ? change.value !== null : own;
-		};
-		const fwd =
-			after && change.attr === 'scheduling'
-				? !(change.value?.kind === 'scheduling' && change.value.value === 'alap')
-				: forward(ctx, sym);
-		const start = has('start');
-		const end = has('end');
-		return (
-			has(SIZING) && ((start && end) || (startDeps && fwd && end) || (endDeps && !fwd && start))
-		);
-	};
-	if (state(false) || !state(true)) return null;
-	return ranges(ownSites(ctx, sym, new Set(['start', 'end', 'scheduling', ...SIZING])));
+	keyword: 'flags' | 'responsible',
+): Map<string, AttrSite[]> {
+	const out = new Map<string, AttrSite[]>();
+	for (const site of inheritedSites(ctx, sym, keyword)) {
+		for (const id of siteIds(ctx, site)) out.set(id, [...(out.get(id) ?? []), site]);
+	}
+	return out;
+}
+
+/**
+ * `text-only` (5.4 X1 to X4) at the first of the sites an edit rewrites or removes that is
+ * written with a macro or lies in a declaration the index cannot name, or null.
+ */
+export function macroWritten(sites: readonly AttrSite[]): Refused | null {
+	const s = sites.find((x) => x.textOnly !== null);
+	return s?.textOnly ? refused('text-only', [s.statement], { textOnly: s.textOnly.reason }) : null;
+}
+
+// --- Statement-level macro calls ---------------------------------------------------------------
+
+const CALL_NAME = /^\$\{\??\s*([A-Za-z_]\w*)\s*\}$/;
+
+/**
+ * `macro-in-body` (module comment) for an edit of `keywords`: the calls in the task's bodies
+ * whose expansion could hold one of them, or null when there are none.
+ */
+export function macroInBody(
+	ctx: EditContext,
+	sym: TaskSymbol,
+	keywords: ReadonlySet<string>,
+): Refused | null {
+	const bad = sym.bodyMacroCalls.filter((call) => {
+		const text = ctx.ws.files.get(call.file)?.text.sliceString(call.from, call.to).trim() ?? '';
+		const name = CALL_NAME.exec(text)?.[1];
+		const defs = name === undefined ? undefined : ctx.index.macros.get(name);
+		const def = defs?.length === 1 ? defs[0] : undefined;
+		if (!def || def.nestedCalls) return true;
+		return [...keywords].some((k) => def.words.has(k));
+	});
+	return bad.length > 0 ? refused('macro-in-body', bad) : null;
 }
