@@ -274,26 +274,18 @@ describe('formatFile', () => {
 		expect(fmt(text, { unit: '  ' }, 'project')).toBe(L('timezone "UTC"', 'now 2026-01-05', ''));
 	});
 
-	it('refuses with the new error ranges if the result would not parse', () => {
-		// With the 24-unit line-start limit of grammar/chars.ts, re-indenting `xyz` made it an
-		// unknown word starting a line (an error). Either the result parses cleanly, or format
-		// refuses and points at that line in the file as it is.
+	it('re-indents a deeply indented continuation line and the result still parses', () => {
+		// Parsing does not depend on indentation, so moving `xyz` (an argument of `columns`)
+		// from 26 blanks to its aligned place keeps the file free of errors.
 		const deep = `${' '.repeat(26)}xyz`;
 		const text = L('taskreport r "" {', '      columns name', deep, '}', '');
 		const file = createFile('p.tjp', text);
 		expect(analyzeLines(file)[2]?.kind).toBe('continuation');
 		const r = formatFile(file, { unit: '  ' });
-		if (r.status === 'format') {
-			const next = changeSetOf([...r.changes], file.text.length).apply(file.text);
-			expect(syntaxIssues(createFile('q.tjp', next).tree, next)).toEqual([]);
-		} else {
-			expect(r.reason).toBe('syntax-error');
-			const line = text.indexOf(deep);
-			for (const at of r.at) {
-				expect(at.from).toBeGreaterThanOrEqual(line);
-				expect(at.to).toBeLessThanOrEqual(line + deep.length + 1);
-			}
-		}
+		expect(r.status).toBe('format');
+		if (r.status !== 'format') return;
+		const next = changeSetOf([...r.changes], file.text.length).apply(file.text);
+		expect(syntaxIssues(createFile('q.tjp', next).tree, next)).toEqual([]);
 	});
 
 	it('rejects an indent unit that is not a tab or spaces', () => {
