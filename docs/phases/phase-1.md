@@ -851,4 +851,12 @@ them.
     lone `\r` are line breaks (Scanner.rb:174, UTF8String.rb:131). The tokenizer and grammar treat all
     three as line breaks while keeping offsets on the original text. This corrects section 5.1 and the
     earlier note that CRLF macro bodies run to the end of the file.
+15. **Diagnostics interface (T9).** `TjpDiagnostic.precision` is `'token' | 'statement' | 'line' |
+    'none'`; `'none'` marks an engine message with no usable location (placed on the entry file's
+    project header) and must not be drawn as a squiggle by the lint layer (T13), only listed in the
+    status strip. `source` also takes `'value'` and `'attribute'`; diagnostics carry an optional
+    `hint` (for example "did you mean `effort`?") and a `stale` flag (mapped through edits since the
+    result's revision). `engineDiagnostics(result, sent, index?)` takes the sent workspace snapshot
+    (file trees), not a text lookup, and ignores an index whose version does not match. Line and
+    column follow TaskJuggler's line breaks (`\n`, `\r\n`, lone `\r`).
 
