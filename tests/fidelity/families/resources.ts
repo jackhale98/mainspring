@@ -19,7 +19,7 @@ import type { Rng } from '../gen/rng';
 import { insertZones } from './attr';
 import { gapZone, slotZone } from './res-zones';
 import type { Drawn, Family, Region } from './types';
-import { own, sorted } from './util';
+import { own, placeIn as place, sorted, subtreeOf as subtreeSem } from './util';
 
 const NAMES = ['Gus Gray', "Hal O'Neil", 'Ida', 'Joe "J" Kim', 'Kim'];
 const FRESH = ['gus', 'hal', 'ida', 'joe', 'kim', 'lou'];
@@ -35,38 +35,6 @@ const subtree = (f: Facts, id: string): string[] => {
 	const r = f.resById.get(id);
 	return r ? [id, ...r.children.flatMap((c) => subtree(f, c))] : [];
 };
-const subtreeSem = (list: readonly ResSem[], id: string): string[] => [
-	id,
-	...list.filter((r) => r.parent === id).flatMap((r) => subtreeSem(list, r.id)),
-];
-
-/** The list with `item` placed as child number `index` of `parent`, after removing it from where it was. */
-function place(
-	list: readonly ResSem[],
-	item: ResSem,
-	parent: string | null,
-	index: number,
-): ResSem[] {
-	const gone = new Set(subtreeSem(list, item.id));
-	const moved = list.filter((r) => gone.has(r.id));
-	const rest = list.filter((r) => !gone.has(r.id));
-	const sibs = rest.filter((r) => r.parent === parent);
-	const block = moved.length > 0 ? moved.map((r) => (r.id === item.id ? item : r)) : [item];
-	const end = (id: string): number => {
-		const sub = new Set(subtreeSem(rest, id));
-		return rest.reduce((n, r, i) => (sub.has(r.id) ? i + 1 : n), 0);
-	};
-	let at: number;
-	const target = sibs[index];
-	if (target) at = rest.indexOf(target);
-	else {
-		const last = sibs[sibs.length - 1];
-		const par = parent === null ? undefined : rest.find((r) => r.id === parent);
-		at = last ? end(last.id) : par ? rest.indexOf(par) + 1 : rest.length;
-	}
-	return [...rest.slice(0, at), ...block, ...rest.slice(at)];
-}
-
 const hasManagers = (f: Facts, r: TaskF | null): boolean => {
 	for (let x = r; x; x = x.parent === null ? null : (f.resById.get(x.parent) ?? null)) {
 		if (own(x, 'managers').length > 0) return true;

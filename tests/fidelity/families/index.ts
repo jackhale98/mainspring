@@ -13,6 +13,7 @@ import { formatFamily } from './format';
 import { projectFamily } from './project';
 import { renameFamily } from './rename';
 import { resourcesFamily } from './resources';
+import { taskTreeFamily } from './task-tree';
 import type { Family } from './types';
 
 export const FAMILIES: readonly Family[] = [
@@ -25,14 +26,11 @@ export const FAMILIES: readonly Family[] = [
 	resourcesFamily,
 	projectFamily,
 	calendarFamily,
+	taskTreeFamily,
 ];
 
 /** The 7.1 intents whose edit code has not merged: listed as skipped, not enforced. */
-export const PENDING: ReadonlyArray<{ type: IntentType; task: string }> = [
-	{ type: 'addTask', task: 'T11b' },
-	{ type: 'deleteTask', task: 'T11b' },
-	{ type: 'moveTask', task: 'T11b' },
-];
+export const PENDING: ReadonlyArray<{ type: IntentType; task: string }> = [];
 
 /** Every intent type the suite enforces, in family order. */
 export const ENFORCED: readonly IntentType[] = FAMILIES.flatMap((f) => f.types);

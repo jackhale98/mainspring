@@ -331,6 +331,7 @@ export class Printer {
 			const added = t.supp.map((s) => this.stmt(b, 1, s, t, null, 'supp'));
 			rec.stmts = [...rec.stmts, ...added];
 			b.put(`}${this.eol}`);
+			rec.suppBlocks = [...(rec.suppBlocks ?? []), this.rg(b, from, b.pos - this.eol.length)];
 			b.tops.push({
 				kind: 'block',
 				key: 'supplement',

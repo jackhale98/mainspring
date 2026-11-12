@@ -58,3 +58,39 @@ export const hoursValue = (rng: Rng): string =>
 	rng.chance(0.3) ? `${rng.int(1, 2)}d` : `${rng.int(2, 16)}h`;
 
 export const sorted = (xs: Iterable<string>): string[] => [...new Set(xs)].sort();
+
+/** The ids of a subtree in a flat pre-order list of `{ id, parent }`. */
+export const subtreeOf = (
+	list: readonly { id: string; parent: string | null }[],
+	id: string,
+): string[] => [id, ...list.filter((r) => r.parent === id).flatMap((r) => subtreeOf(list, r.id))];
+
+/**
+ * The list with `item` (and its subtree, when it is already in the list) placed as child number `index` of
+ * `parent`, counted with the item left out, in pre-order.
+ */
+export function placeIn<T extends { id: string; parent: string | null }>(
+	list: readonly T[],
+	item: T,
+	parent: string | null,
+	index: number,
+): T[] {
+	const gone = new Set(subtreeOf(list, item.id));
+	const moved = list.filter((r) => gone.has(r.id));
+	const rest = list.filter((r) => !gone.has(r.id));
+	const sibs = rest.filter((r) => r.parent === parent);
+	const block = moved.length > 0 ? moved.map((r) => (r.id === item.id ? item : r)) : [item];
+	const end = (id: string): number => {
+		const sub = new Set(subtreeOf(rest, id));
+		return rest.reduce((n, r, i) => (sub.has(r.id) ? i + 1 : n), 0);
+	};
+	let at: number;
+	const target = sibs[index];
+	if (target) at = rest.indexOf(target);
+	else {
+		const last = sibs[sibs.length - 1];
+		const par = parent === null ? undefined : rest.find((r) => r.id === parent);
+		at = last ? end(last.id) : par ? rest.indexOf(par) + 1 : rest.length;
+	}
+	return [...rest.slice(0, at), ...block, ...rest.slice(at)];
+}
