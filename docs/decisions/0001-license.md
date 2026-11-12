@@ -29,7 +29,9 @@ GPL-2.0-only.
   never loads it, but the code ships inside `public/engine/ruby.*.wasm.gz`. The options are to
   build a custom ruby.wasm without the openssl extension (`rbwasm build` with a custom
   profile; recommended) or to record a decision that accepts it. See
-  `THIRD_PARTY_NOTICES.md`.
+  `THIRD_PARTY_NOTICES.md`. ADR-0006 (2026-11-12) lets the GitHub Pages preview ship the stock
+  binary; that exception covers the preview only, and this issue still blocks the real release
+  on Cloudflare.
 - Mycelium modules copied in Phase 4 must be relicensed to GPL-2.0-or-later first. That is
   possible only if their sole author agrees, so check for outside contributions before copying.
 

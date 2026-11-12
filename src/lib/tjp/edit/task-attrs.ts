@@ -44,6 +44,7 @@ import type { AttrSite, SourceRange, TaskSymbol } from '../index';
 import { statementHead } from '../tree';
 import { printValue, type TypedValue } from '../values';
 import type { IntentHandler } from './apply';
+import { dependentsOf, isUnderspecified, taskState } from './dep-graph';
 import {
 	insertStatement,
 	removeStatements,
@@ -242,6 +243,25 @@ function planSizing(ctx: EditContext, sym: TaskSymbol, attr: string, v: TypedVal
 	return timed(ctx, sym, plan, change);
 }
 
+/**
+ * `conflicting-attribute` at `removed` when removing them leaves the leaf without any size or
+ * `milestone` while an allocation or booking keeps it from becoming a milestone, and it has neither
+ * a start nor an end, or only one while a dependency waits on the other (dep-graph.ts
+ * `isUnderspecified`; native `task_underspecified`).
+ */
+function sizeLost(ctx: EditContext, sym: TaskSymbol, removed: readonly AttrSite[]): Refused | null {
+	if (isContainer(ctx, sym)) return null;
+	const gone = new Set(removed);
+	const left = ownSites(ctx, sym, SIZE_OR_MILESTONE).filter((s) => !gone.has(s));
+	if (left.length > 0) return null;
+	const st = taskState(ctx.ws, ctx.index, sym.id).state;
+	const after = { ...st, sizing: false, milestone: false };
+	const dependents = dependentsOf(ctx.ws, ctx.index, sym.id);
+	return isUnderspecified(after, dependents)
+		? refused('conflicting-attribute', ranges(removed))
+		: null;
+}
+
 function planMilestone(ctx: EditContext, sym: TaskSymbol, value: boolean): IntentPlan {
 	const own = ownSites(ctx, sym, 'milestone');
 	if (!value) {
@@ -249,7 +269,7 @@ function planMilestone(ctx: EditContext, sym: TaskSymbol, value: boolean): Inten
 		const written = macroWritten(own);
 		if (written) return written;
 		const removal = { attr: 'milestone', value: null, at: null, replaces: own };
-		return timed(ctx, sym, removeSites(ctx, own), () => removal);
+		return sizeLost(ctx, sym, own) ?? timed(ctx, sym, removeSites(ctx, own), () => removal);
 	}
 	if (own.length > 0) return noop('already-set');
 	const sizing = ownSites(ctx, sym, SIZING);
@@ -307,6 +327,8 @@ function planRemoveAttr(ctx: EditContext, intent: IntentOf<'removeAttr'>): Inten
 	const written = macroWritten(own);
 	if (written) return written;
 	if (own.length > 0) {
+		const lost = SIZE_OR_MILESTONE.has(attr) ? sizeLost(ctx, sym, own) : null;
+		if (lost) return lost;
 		const ops = removeSites(ctx, own);
 		if (!TIMING_ATTRS.has(attr)) return ops;
 		return timed(ctx, sym, ops, () => ({ attr, value: null, at: null, replaces: own }));

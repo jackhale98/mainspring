@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * The engine Web Worker entry (phase-0 spec 3.2). It fetches `/engine/manifest.json` and the
+ * The engine Web Worker entry (phase-0 spec 3.2). It fetches `<base>engine/manifest.json` and the
  * hashed assets it names, boots TaskJuggler on ruby.wasm (runtime.ts) and answers the client's
- * messages one at a time (dispatch.ts). transport.ts starts it as a module worker.
+ * messages one at a time (dispatch.ts). transport.ts starts it as a module worker. `<base>` is the
+ * site's base path, "/" unless the build sets MAINSPRING_BASE (engine-url.ts, ADR-0006).
  *
  * manifest.json is revalidated on every boot; the hashed assets never change under their names,
  * so the HTTP cache may serve them.
  */
 import { startDispatcher } from './dispatch.ts';
+import { engineDirUrl } from './engine-url.ts';
 import type { FromWorker } from './protocol';
 import { bootEngine } from './runtime.ts';
 
@@ -19,7 +21,7 @@ interface WorkerScope {
 }
 
 const scope = self as unknown as WorkerScope;
-const engineDir = new URL('/engine/', scope.location.href);
+const engineDir = engineDirUrl(import.meta.env.BASE_URL, scope.location.href);
 
 async function fetchAsset(path: string): Promise<Uint8Array> {
 	const response = await fetch(new URL(path, engineDir), {

@@ -17,6 +17,7 @@
 		"build:engine": "node engine/build-bundle.mjs",
 		"test:responsiveness": "node scripts/test-responsiveness.mjs",
 		"test:golden": "node scripts/test-golden.mjs",
+		"test:base-path": "node scripts/test-base-path.mjs",
 		"golden:record": "node engine/golden/record-native.mjs",
 		"golden:verify": "node engine/golden/record-native.mjs --verify",
 		"golden:wasm": "node engine/golden/run-wasm.mjs",

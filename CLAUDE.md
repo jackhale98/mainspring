@@ -69,4 +69,5 @@ Haiku-sized work (fixtures, test runs, log triage, docs formatting) in the main 
 - Phase 0 approved 2026-11-11 (`docs/phases/phase-0-gate.md`).
 - Phase 1 in progress (`docs/phases/phase-1.md`, approved 2026-11-11; ADR-0003). Goldens are
   provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
+- Public preview on GitHub Pages from `main` (ADR-0006); the OpenSSL issue in ADR-0001 still blocks a real release.
 - `poc/` is the frozen proof of concept; see `poc/INVENTORY.md`. Never edit it.
