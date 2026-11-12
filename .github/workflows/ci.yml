@@ -186,6 +186,42 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  base-path:
+    name: Pages base path (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        # Same retrying install as the e2e job.
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      # Builds the engine and the site as pages.yml does (MAINSPRING_BASE=/mainspring/, ADR-0006),
+      # scans it for root-absolute URLs, serves it under /mainspring/ as GitHub Pages does and runs
+      # tests/base-path/: the engine reaches Ready and nothing is requested outside the base.
+      - run: npm run test:base-path
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: base-path-test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   no-ruby:
     name: No Ruby invoked
     runs-on: ubuntu-latest
