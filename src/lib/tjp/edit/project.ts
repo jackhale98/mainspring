@@ -16,7 +16,9 @@
  *   TaskJuggler text (`'"Europe/Berlin"'`, `'2026-03-02-09:00'`, `'7.5'`, `'"%Y-%m-%d"'`).
  *   `weekstartsmonday` takes a boolean: `true` writes `weekstartsmonday`, `false`
  *   `weekstartssunday`, rewriting the last of the two (noop when it already says so, or for
- *   `true` with neither: TaskJuggler's default is Monday).
+ *   `true` with neither: TaskJuggler's default is Monday). `weekstartssunday` is an opaque
+ *   statement in the grammar, which edits never touch: `true` after it inserts
+ *   `weekstartsmonday` after it, and removing it is `text-only`.
  * - Checks: `timezone` must be 'UTC' or a zone the time-zone data knows (bad_time_zone; without
  *   zone data in the index only a name without '/' is refused); `dailyworkinghours` must be above
  *   zero (TaskJuggler divides by it: 0 is a fatal error, checked natively); and every change of
@@ -53,7 +55,7 @@ import {
 	type TypedValue,
 } from '../values';
 import type { IntentHandler } from './apply';
-import { replaceSpan, replaceValue, statementNode } from './layout';
+import { insertStatement, replaceSpan, replaceValue, statementNode } from './layout';
 import { checkBodyMacros } from './lists';
 import { fileOf, insertAttr, macroWritten, removeSites } from './props';
 import { checkSafeText, checkTextOnly } from './refuse';
@@ -142,12 +144,20 @@ function planWeekStart(ctx: EditContext, p: ProjectSymbol, value: unknown): Inte
 	if (now === value) return noop('already-set');
 	const kw = value ? 'weekstartsmonday' : 'weekstartssunday';
 	if (!last) return insertAttr(ctx, p.decl.block, 'project', 'weekstartsmonday', kw, []);
-	const written = macroWritten([last]);
-	if (written) return written;
 	const file = fileOf(ctx, last.statement);
 	if (isRefused(file)) return file;
+	// `weekstartssunday` is an opaque statement, which edits never touch: a later statement wins.
+	if (last.textOnly?.reason === 'opaque') {
+		const block = within(last.statement, p.decl.block) ? p.decl.block : null;
+		return insertStatement(file, block, kw, { after: last.statement });
+	}
+	const written = macroWritten([last]);
+	if (written) return written;
 	return [replaceSpan(file, last.statement, kw)];
 }
+
+const within = (r: SourceRange, o: SourceRange): boolean =>
+	r.file === o.file && o.from <= r.from && r.to <= o.to;
 
 function rechecked(ctx: EditContext, attr: ProjectAttr, plan: IntentPlan): IntentPlan {
 	if (isRefused(plan) || isNoop(plan) || !RECHECK.has(attr)) return plan;
