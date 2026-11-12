@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The index against every golden plan (phase-1.md 9.2, T8): with hints from the golden result,
-// task and resource ids, parents, pre-order and declaration file and line equal the engine's;
-// without hints, every declaration the text names matches and the rest lie in unresolved
-// declarations; dependency targets agree with the schedule where it shows them.
+// The index against every golden plan (phase-1.md 9.2, T8): with hints from the golden result
+// (fingerprinted with the golden text), task and resource ids, parents, pre-order, declaration
+// file and line, names and milestones equal the engine's; without hints, every declaration the
+// text names matches and the rest lie in unresolved declarations; dependency targets agree with
+// the schedule where it shows them. Plans the engine stopped reading before any declaration are
+// skipped (3 of 36: syn-19, bridge-parse-failure, syn-22), and the totals say how many were
+// compared.
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -56,15 +59,31 @@ function lineOf(
 	return { file: at.file, line: before.split('\n').length, parent: sym.parent };
 }
 
-const totals = { tasks: 0, resources: 0, engineIds: 0, depsObserved: 0, depsResolved: 0 };
+const totals = {
+	plans: 0,
+	compared: 0,
+	tasks: 0,
+	resources: 0,
+	names: 0,
+	milestones: 0,
+	engineIds: 0,
+	depsObserved: 0,
+	depsResolved: 0,
+};
 
 describe.each(CASES)('$id', ({ golden, seed }) => {
 	const snap = createWorkspace(seed).snapshot();
 	const text = (f: string): string => snap.files.get(f)?.text.toString() ?? '';
-	const hints = hintsFromResult(golden.result, (_f, line) => line);
+	const hints = hintsFromResult(
+		golden.result,
+		(_f, line) => line,
+		(f, line) => text(f).split('\n')[line - 1] ?? null,
+	);
 	const withHints = buildIndex(snap, hints, { cache: null });
 	const without = buildIndex(snap, undefined, { cache: null });
 	const skip = stoppedEarly(golden, without);
+	totals.plans++;
+	if (!skip) totals.compared++;
 
 	it.skipIf(skip)('with hints: ids, parents, pre-order and source lines equal the engine', () => {
 		for (const kind of ['task', 'resource'] as const) {
@@ -85,6 +104,27 @@ describe.each(CASES)('$id', ({ golden, seed }) => {
 			(s) => s.idSource === 'engine',
 		).length;
 		expect(withHints.unresolved).toEqual([]);
+	});
+
+	it.skipIf(skip)('with hints: names and milestones equal the engine', () => {
+		for (const t of golden.result.tasks) {
+			const sym = withHints.tasks.get(t.id);
+			if (sym?.name !== null && sym?.name !== undefined) {
+				expect(sym.name, `task ${t.id}`).toBe(t.name);
+				totals.names++;
+			}
+			const milestone = sym?.attrs.some((a) => a.keyword === 'milestone' && a.scenario === null);
+			if (milestone) {
+				expect(t.milestone, `milestone ${t.id}`).toBe(true);
+				totals.milestones++;
+			}
+		}
+		for (const r of golden.result.resources) {
+			const sym = withHints.resources.get(r.id);
+			if (sym?.name === null || sym?.name === undefined) continue;
+			expect(sym.name, `resource ${r.id}`).toBe(r.name);
+			totals.names++;
+		}
 	});
 
 	it.skipIf(skip)('without hints: literal declarations match, the rest are unresolved', () => {
@@ -153,6 +193,8 @@ describe.each(CASES)('$id', ({ golden, seed }) => {
 describe('corpus totals', () => {
 	it('reports agreement numbers', () => {
 		console.log(`index golden agreement: ${JSON.stringify(totals)}`);
+		expect(totals.compared).toBe(totals.plans - 3);
 		expect(totals.tasks).toBeGreaterThan(1500);
+		expect(totals.names).toBeGreaterThan(1900);
 	});
 });

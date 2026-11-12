@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * The state the link walk (link.ts) fills: symbols, sites and pending references, and the
- * handlers for attributes inside declarations. References whose targets may be declared later
- * (dependencies, `responsible`, `managers`) are resolved after the walk (link-finish.ts), as
- * TaskJuggler resolves them after parsing; `allocate` and `flags` resolve as they are read, as
- * rule_allocationHeader and rule_flag do.
+ * The state the link walk (link.ts) fills: symbols, sites and pending references. Task and
+ * resource references (dependencies, `allocate`, `responsible`, `managers`) are resolved after
+ * the walk (link-finish.ts), once the declarations only expansion makes (X5) are in; `flags`
+ * resolve as they are read, as rule_flag does.
  */
 import type { WorkspacePath } from '../../../engine/protocol';
 import type { WorkspaceSnapshot } from '../../workspace/workspace';
@@ -97,6 +96,8 @@ export interface PendingResourceRef {
 	owner: Prop;
 	via: ReferenceVia;
 	x4: TextOnly | null;
+	/** For `allocate`: the statement, for the AllocationSite. */
+	attr?: AttrSite;
 }
 
 export class LinkState {
@@ -184,34 +185,37 @@ export class LinkState {
 
 	/**
 	 * The id of a declaration from its text and the parent (`undefined` when unknown), or from a
-	 * unique engine hint on its header line.
+	 * unique engine hint on its header line. `disagrees`: fresh hints exist for the line but none
+	 * names the id the text gives, so the engine read the line differently (a macro spliced in
+	 * braces or a comment, Scanner.rb:78-90) and the declaration must not be edited.
 	 */
 	resolveId(
 		facts: FileFacts,
 		fact: DeclFact,
 		parent: string | null | undefined,
-	): { id: string; parent: string | null; source: 'text' | 'engine' } | null {
+	): { id: string; parent: string | null; source: 'text' | 'engine'; disagrees: boolean } | null {
 		this.lastCandidates = 0;
-		const local = fact.localId;
-		if (local !== null && fact.kind === 'task' && parent !== undefined) {
-			return { id: parent === null ? local : `${parent}.${local}`, parent, source: 'text' };
+		const { kind, line, localId: local } = fact;
+		const path = facts.file.path;
+		const doc = facts.file.text;
+		const onLine = this.hints.onLine(kind, path, line, doc);
+		const disagrees = (id: string): boolean =>
+			onLine.length > 0 && !onLine.some((e) => e.id === id);
+		if (local !== null && kind === 'task' && parent !== undefined) {
+			const id = parent === null ? local : `${parent}.${local}`;
+			return { id, parent, source: 'text', disagrees: disagrees(id) };
 		}
-		const taken = (id: string): boolean => this.has(fact.kind, id);
-		const cands = this.hints.candidates(
-			fact.kind,
-			facts.file.path,
-			fact.line,
-			parent,
-			local,
-			taken,
-		);
+		const others = facts.headerLiterals.get(`${kind}:${line}`) ?? [];
+		const taken = (id: string): boolean => this.has(kind, id);
+		const cands = this.hints.candidates(kind, path, line, doc, parent, local, others, taken);
 		this.lastCandidates = cands.length;
 		const only = cands.length === 1 ? cands[0] : undefined;
-		if (local !== null && fact.kind === 'resource') {
-			return { id: local, parent: parent ?? only?.parent ?? null, source: 'text' };
+		if (local !== null && kind === 'resource') {
+			const p = parent ?? only?.parent ?? null;
+			return { id: local, parent: p, source: 'text', disagrees: disagrees(local) };
 		}
 		if (!only) return null;
-		return { id: only.id, parent: parent ?? only.parent, source: 'engine' };
+		return { id: only.id, parent: parent ?? only.parent, source: 'engine', disagrees: false };
 	}
 
 	addSymbol(
@@ -257,6 +261,7 @@ export class LinkState {
 			text: m.text,
 			nestedCalls: m.nestedCalls,
 			words: m.words,
+			structural: m.structural,
 			visit,
 		};
 		const list = this.macros.get(m.name);

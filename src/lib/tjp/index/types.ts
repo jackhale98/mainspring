@@ -165,6 +165,11 @@ export interface MacroDef {
 	nestedCalls: boolean;
 	/** Identifier-like words of the body (conservative: strings and comments included). */
 	words: ReadonlySet<string>;
+	/**
+	 * Why splicing the body can reshape the text around a call (unbalanced braces, a comment
+	 * start, an unterminated string, cut-here string or macro), or null.
+	 */
+	structural: 'braces' | 'comment' | 'unterminated' | null;
 	visit: number;
 }
 
@@ -251,9 +256,25 @@ export type SymbolHit =
 	| { kind: 'reference'; ref: ReferenceSite }
 	| { kind: 'macro'; name: string; at: SourceRange };
 
+/** A project setting the index may not know. */
+export type ContextSetting =
+	| 'zone'
+	| 'granularity'
+	| 'dailyWorkingHours'
+	| 'yearlyWorkingDays'
+	| 'weeklyWorkingHours'
+	| 'frame';
+
 /** ProjectContext at one position, plus the scenarios declared before it. */
 export interface IndexContext extends ProjectContext {
 	readonly scenarios: readonly string[];
+	/**
+	 * Settings written as macro calls or env references before this position (or a header
+	 * frame that is): their values here are placeholders, so a caller must not refuse a value
+	 * on a check that depends on them. An unknown zone or resolution also sets `granularity` to
+	 * 60 s, so alignment checks pass.
+	 */
+	readonly unknown: ReadonlySet<ContextSetting>;
 }
 
 export interface SymbolIndex {
@@ -302,4 +323,6 @@ export interface HintEntry {
 	readonly parent: string | null;
 	readonly file: WorkspacePath;
 	readonly line: number;
+	/** The line's text as it was scheduled; the hint applies only while it reads the same. */
+	readonly text?: string;
 }

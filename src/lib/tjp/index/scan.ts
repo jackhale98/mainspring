@@ -25,6 +25,7 @@ export interface ScanCtx {
 	readonly text: string;
 	readonly ranges: RangeIndex;
 	readonly headerLines: Map<string, number>;
+	readonly headerLiterals: Map<string, string[]>;
 	range(n: { readonly from: number; readonly to: number }): SourceRange;
 	slice(n: { readonly from: number; readonly to: number }): string;
 }
@@ -43,6 +44,7 @@ export function scanFile(file: TjpFile): FileFacts {
 		text,
 		ranges,
 		headerLines: new Map(),
+		headerLiterals: new Map(),
 		range: (n) => ({ file: file.path, from: n.from, to: n.to }),
 		slice: (n) => text.slice(n.from, n.to),
 	};
@@ -54,6 +56,7 @@ export function scanFile(file: TjpFile): FileFacts {
 		items,
 		ranges,
 		headerLines: ctx.headerLines,
+		headerLiterals: ctx.headerLiterals,
 		opaque: outermost(base.filter((t) => t.reason === 'opaque' || t.reason === 'macro-body')),
 	};
 }
@@ -182,6 +185,11 @@ function declFact(ctx: ScanCtx, stmt: SyntaxNode, kind: PropertyKind): DeclFact 
 	const line = ctx.file.text.lineAt(keyword.from).number;
 	const key = `${kind}:${line}`;
 	ctx.headerLines.set(key, (ctx.headerLines.get(key) ?? 0) + 1);
+	if (literal && id) {
+		const list = ctx.headerLiterals.get(key);
+		if (list) list.push(ctx.slice(id));
+		else ctx.headerLiterals.set(key, [ctx.slice(id)]);
+	}
 	const body = kids.get('Body');
 	return {
 		t: 'decl',

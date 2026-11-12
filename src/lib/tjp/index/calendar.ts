@@ -21,7 +21,15 @@ import {
 	weeklyWorkingHours,
 	type WeekTable,
 } from '../values';
-import type { AttrSite, IndexContext } from './types';
+import type { AttrSite, ContextSetting, IndexContext } from './types';
+
+const UNKNOWN_FIELD: Readonly<Record<string, ContextSetting>> = {
+	timezone: 'zone',
+	timingresolution: 'granularity',
+	dailyworkinghours: 'dailyWorkingHours',
+	yearlyworkingdays: 'yearlyWorkingDays',
+	workinghours: 'weeklyWorkingHours',
+};
 
 interface Marks {
 	offsets: number[];
@@ -35,7 +43,7 @@ export class ContextTracker {
 	private current = 0;
 
 	constructor(zones: ZoneOffsets | undefined) {
-		const base: IndexContext = { ...DEFAULT_CONTEXT, scenarios: [] };
+		const base: IndexContext = { ...DEFAULT_CONTEXT, scenarios: [], unknown: new Set() };
 		this.states = [zones ? { ...base, zones } : base];
 	}
 
@@ -76,9 +84,20 @@ export class ContextTracker {
 		return this.states[i ?? 0] as IndexContext;
 	}
 
+	/** Marks settings unknown from `offset` on (a macro call where their value is written). */
+	private unknownFrom(visit: number, offset: number, fields: readonly ContextSetting[]): void {
+		const unknown = new Set(this.context.unknown);
+		for (const f of fields) unknown.add(f);
+		const lax = unknown.has('zone') || unknown.has('granularity');
+		this.change(visit, offset, lax ? { unknown, granularity: 60 } : { unknown });
+	}
+
 	/** The project header's interval, read in the context before it. */
 	header(visit: number, offset: number, intervalText: string | null): [number, number] | null {
-		if (intervalText === null) return null;
+		if (intervalText === null) {
+			this.unknownFrom(visit, offset, ['frame']);
+			return null;
+		}
 		const iv = parseInterval(intervalText);
 		if (!iv.ok) return null;
 		const r = resolveInterval(iv.value, this.context);
@@ -94,8 +113,13 @@ export class ContextTracker {
 	/** A project-level attribute; settings that change how values read update the context. */
 	projectAttr(visit: number, attr: AttrSite, valueText: string | null): void {
 		const end = attr.statement.to;
-		// Opaque settings (`timingresolution`, `yearlyworkingdays`) count unless a macro is in them.
-		if (attr.textOnly !== null && attr.textOnly.reason !== 'opaque') return;
+		// Opaque settings (`timingresolution`, `yearlyworkingdays`) count unless a macro is in them;
+		// a setting written with a macro makes its field unknown from here on.
+		if (attr.textOnly !== null && attr.textOnly.reason !== 'opaque') {
+			const field = UNKNOWN_FIELD[attr.keyword];
+			if (field && attr.scenario === null) this.unknownFrom(visit, end, [field]);
+			return;
+		}
 		switch (attr.keyword) {
 			case 'timezone': {
 				const v = attr.parsed;
