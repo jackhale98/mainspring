@@ -188,7 +188,14 @@ function drawSet(f: Facts, sem: Sem, rng: Rng, aim?: Aim): Drawn | null {
 						),
 				),
 			);
-			const d = dateValue(rng, f);
+			// Nobody may wait for it, and the date leaves room before it for the work.
+			const named = new Set(
+				f.tasks.flatMap((x) => x.stmts.flatMap((y) => (y.items ?? []).map((i) => i.target))),
+			);
+			const free = t && !named.has(t.id) && f.frame;
+			const d = free
+				? new Date((f.frame.start + 86400 * rng.int(45, 70)) * 1000).toISOString().slice(0, 10)
+				: null;
 			return t && d ? set(t, 'end', d) : null;
 		}
 		case 'minstart': {

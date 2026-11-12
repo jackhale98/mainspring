@@ -124,13 +124,14 @@ function checkP4(c: Case, o: Outcome): string[] {
 		);
 	}
 	if (before.ok) stats.okBefore++;
-	if (before.ok && after.ok) stats.okKept++;
-	else if (before.ok) bad.push('ok went from true to false');
 	const added = newErrors(before, after);
+	// Errors that depend on the computed schedule (15.19) are counted, not failed, for corpus plans.
 	const fine =
 		c.source === 'corpus' &&
 		added.length > 0 &&
 		added.every((k) => SCHEDULE_DEPENDENT.has(k.split(':')[1] ?? ''));
+	if (before.ok && after.ok) stats.okKept++;
+	else if (before.ok && !fine) bad.push('ok went from true to false');
 	if (fine) for (const k of added) tolerated[k] = (tolerated[k] ?? 0) + 1;
 	else if (added.length > 0) {
 		stats.newErrors += added.length;

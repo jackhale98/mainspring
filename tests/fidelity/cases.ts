@@ -43,14 +43,14 @@ function edits(entry: string, files: Record<string, string>, intent: EditIntent)
 }
 
 /**
- * A generated case; plans that offer no target for the type are redrawn with the next attempt. Three
- * cases in four are drawn until the edit API makes an edit, so that every type gets edits to check; the
- * fourth keeps whatever the draw gave, which is where the no-ops and ordinary refusals come from. With
+ * A generated case; plans that offer no target for the type are redrawn with the next attempt. Six
+ * cases in seven are drawn until the edit API makes an edit, so that every type gets edits to check; the
+ * seventh keeps whatever the draw gave, which is where the no-ops and ordinary refusals come from. With
  * `aim` the plan is rich in macros and the intent aims at text-only text.
  */
 export function generatedCase(seed: number, type: IntentType, aim?: Aim): Case {
 	const family = familyOf(type);
-	const seek = !aim && mixSeed(seed, 5) % 4 !== 0;
+	const seek = !aim && mixSeed(seed, 5) % 7 !== 0;
 	let fallback: Case | null = null;
 	for (let attempt = 0; attempt < 40; attempt++) {
 		const rng = new Rng(mixSeed(seed, attempt));
