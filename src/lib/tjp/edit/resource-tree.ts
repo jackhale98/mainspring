@@ -23,8 +23,13 @@
  *   different `resourceprefix` (the ids in the block would read differently) `unsupported-form`;
  *   moving it later in reading order past an allocation of its subtree (TaskJuggler resolves
  *   `allocate` ids while it parses), or with a mention the edit cannot see, `unfixable-reference`.
- * - `addResource` and `moveResource` under a resource that is some resource's manager would make
- *   it a group: `conflicting-attribute` at those `managers` items (manager_is_group).
+ * - `addResource` and `moveResource` under a leaf resource make it a group: `conflicting-attribute`
+ *   when it must stay a leaf, because a resource has it as manager (manager_is_group), it has
+ *   bookings (booking_group), or opaque text names it, as a task's `limits { resources … }` does
+ *   (leaf_resource_id_expected; all three seen in the engine check).
+ * - `moveResource` of a subtree that assigns `shifts` under a parent whose chain assigns shifts too
+ *   is `conflicting-attribute`: children inherit shift assignments, and overlapping ones are an
+ *   error (shift_assignment_overlap).
  * - `renameResource` rewrites the name string only, in its quote style (a cut-here name becomes
  *   double-quoted), escaping that quote; `unsafe-text` as above; noop for the same name.
  *
@@ -78,12 +83,43 @@ function firstRoot(ctx: EditContext): { file: TjpFile; place: Placement } | Refu
 	return { file, place: block ? { before: block } : 'end' };
 }
 
-/** `conflicting-attribute` when `parent` is a leaf that some resource has as manager. */
-function managerBecomesGroup(ctx: EditContext, parent: ResourceSymbol | null): Refused | null {
+/**
+ * `conflicting-attribute` when `parent` is a leaf that must stay one: some resource has it as
+ * manager (manager_is_group), it has bookings (booking_group), or opaque text or a macro body
+ * names it, as a `limits` resource list does (leaf_resource_id_expected).
+ */
+function leafBecomesGroup(ctx: EditContext, parent: ResourceSymbol | null): Refused | null {
 	if (!parent || parent.children.length > 0) return null;
 	const at = ctx.index.references
 		.filter((r) => r.kind === 'resource' && r.via === 'managers' && r.target === parent.id)
 		.map((r) => r.at);
+	at.push(...parent.attrs.filter((a) => a.keyword === 'booking').map((a) => a.statement));
+	for (const m of ctx.index.mentions('resource', parent.id)) at.push(m.at);
+	return at.length > 0 ? refused('conflicting-attribute', at) : null;
+}
+
+const shiftSites = (r: ResourceSymbol): SourceRange[] =>
+	r.attrs.filter((a) => a.keyword === 'shifts').map((a) => a.statement);
+
+/**
+ * `conflicting-attribute` when the moved subtree assigns shifts and the new parent or one of its
+ * ancestors does too: a child inherits its parent's shift assignments, and TaskJuggler rejects
+ * overlapping ones (shift_assignment_overlap, seen in the engine check).
+ */
+function shiftsOverlap(
+	ctx: EditContext,
+	parent: ResourceSymbol | null,
+	ids: readonly string[],
+): Refused | null {
+	let inherits = false;
+	for (
+		let p = parent;
+		p;
+		p = p.parent === null ? null : (ctx.index.resources.get(p.parent) ?? null)
+	)
+		if (shiftSites(p).length > 0) inherits = true;
+	if (!inherits) return null;
+	const at = symbols(ctx, ids).flatMap(shiftSites);
 	return at.length > 0 ? refused('conflicting-attribute', at) : null;
 }
 
@@ -118,7 +154,7 @@ export function planAddResource(ctx: EditContext, intent: IntentOf<'addResource'
 		const other = ctx.index.resources.get(id);
 		if (other) return refused('id-collision', [other.decl.header]);
 	} else id = slugId(intent.name, taken);
-	const group = managerBecomesGroup(ctx, parent);
+	const group = leafBecomesGroup(ctx, parent);
 	if (group) return group;
 	const where = childPlace(ctx, parent, siblingsOf(ctx, parent), intent.index, () =>
 		firstRoot(ctx),
@@ -281,7 +317,7 @@ export function planMoveResource(ctx: EditContext, intent: IntentOf<'moveResourc
 	const before = siblingsOf(ctx, parent).findIndex((s) => s.id === sym.id);
 	const i = Math.max(0, Math.min(intent.index, siblings.length));
 	if (sym.parent === (parent?.id ?? null) && before === i) return noop('already-set');
-	const group = managerBecomesGroup(ctx, parent);
+	const group = leafBecomesGroup(ctx, parent) ?? shiftsOverlap(ctx, parent, ids);
 	if (group) return group;
 	const where = childPlace(ctx, parent, siblings, i, () => firstRoot(ctx));
 	if (isRefused(where)) return where;
