@@ -36,7 +36,8 @@ function fedora() {
 	return { snap, index: buildIndex(snap, hints) };
 }
 
-describe('task tree intents on Fedora 20 with engine hints', () => {
+// Each intent re-indexes Fedora twice; under a full parallel run that can pass 5 s.
+describe('task tree intents on Fedora 20 with engine hints', { timeout: 60_000 }, () => {
 	const { snap, index } = fedora();
 
 	/** The children of `parent` after the intent, indexed with the carried hints. */

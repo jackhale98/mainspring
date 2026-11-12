@@ -326,6 +326,18 @@ export interface Dependents {
 	readonly start: boolean;
 }
 
+const orphanCache = new WeakMap<SymbolIndex, OrphanDep[]>();
+
+/** `orphanDeps` once per index (the semantic checks ask for many tasks of one snapshot). */
+function orphansOf(ws: WorkspaceSnapshot, index: SymbolIndex): OrphanDep[] {
+	let o = orphanCache.get(index);
+	if (!o) {
+		o = orphanDeps(ws, index);
+		orphanCache.set(index, o);
+	}
+	return o;
+}
+
 /** The dependents of `task` and its ancestors in `index` (module comment of `Dependents`). */
 export function dependentsOf(ws: WorkspaceSnapshot, index: SymbolIndex, task: TaskId): Dependents {
 	const chain = new Set<TaskId>();
@@ -341,7 +353,7 @@ export function dependentsOf(ws: WorkspaceSnapshot, index: SymbolIndex, task: Ta
 		if (end && start) return { end, start };
 	}
 	// Items of declarations the index cannot name (`task "Item 2" { depends !!wp2 }`).
-	for (const o of orphanDeps(ws, index)) {
+	for (const o of orphansOf(ws, index)) {
 		if (!chain.has(o.target)) continue;
 		if (o.form === 'depends') end = true;
 		else if (!o.onEnd) start = true;
