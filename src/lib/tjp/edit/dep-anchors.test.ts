@@ -7,6 +7,7 @@ import { applyIntent } from './apply';
 import { stateReader } from './dep-graph';
 import { anchorsOf, isUnanchored, namedBy } from './dep-anchors';
 import { setup } from './testing';
+import { corpusPlans, load } from './testing-plans';
 import type { EditIntent, EditResult } from './types';
 
 const H = 'project p "P" 2026-01-05 +3m\nresource r "R"\ntask x "X" { start 2026-01-10 }\n';
@@ -101,5 +102,43 @@ describe('intents that would leave a chain waiting on itself', () => {
 		expect(run(inherited, { type: 'moveTask', task: 'g.b', parent: null, index: 0 })).toMatchObject(
 			{ reason: 'conflicting-attribute' },
 		);
+	});
+});
+
+describe('items aimed at the other end leave the chain anchored (native N15b, N13b, syn-07)', () => {
+	const H2 = 'project p "P" 2026-01-05 - 2026-06-27\nresource r "R"\nresource s "S"\n';
+	const run2 = (body: string, intent: EditIntent): EditResult => {
+		const st = setup(H2 + body);
+		return applyIntent(st.snap, st.index, intent);
+	};
+
+	it('allows removing the start of a task a `precedes … { onend }` names (N15b)', () => {
+		const plan =
+			'task a "A" { effort 1d allocate r precedes b { onend } }\n' +
+			'task b "B" { effort 2d allocate s start 2026-01-12 }\n';
+		expect(run2(plan, { type: 'removeAttr', task: 'b', attr: 'start' })).toMatchObject({
+			status: 'edit',
+		});
+	});
+
+	it('allows removing the end of an ALAP task a `depends … { onstart }` names (N13b)', () => {
+		const plan =
+			'task a "A" { effort 1d allocate r depends b { onstart } }\n' +
+			'task b "B" { effort 2d allocate s scheduling alap end 2026-03-02 }\n';
+		expect(run2(plan, { type: 'removeAttr', task: 'b', attr: 'end' })).toMatchObject({
+			status: 'edit',
+		});
+	});
+
+	it('allows removeDepends chain.g -> chain.a in syn-07 (chain.h precedes it { onend })', () => {
+		const p = corpusPlans().find((c) => c.name.endsWith('07-deps-onstart-onend'));
+		if (!p) throw new Error('no syn-07');
+		const c = load(p.name, p.plan);
+		const r = applyIntent(c.snap, c.index, {
+			type: 'removeDepends',
+			task: 'chain.g',
+			target: 'chain.a',
+		});
+		expect(r).toMatchObject({ status: 'edit' });
 	});
 });

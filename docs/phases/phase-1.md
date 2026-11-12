@@ -1275,10 +1275,10 @@ them.
       and new allocations of an implicit milestone (T11c `milestoneLost`). Both predicates live in
       `edit/dep-anchors.ts`. `conflicting-attribute` also for a task the edit leaves unanchored
       (`isUnanchored`, native `not_scheduled`, checked in tj3): an ASAP task (direction as T11a
-      models it: positional, inherited at creation) that a `precedes` names, also `{ onend }`,
-      needs its own `start` or a `depends` (own or inherited; a parent's `start` and `scheduling
-      asap` do not help); an ALAP task that a `depends` names, also `{ onstart }`, needs its own
-      `end` or a `precedes`. Leaves and containers, all scenarios. Refused when introduced by
+      models it: positional, inherited at creation) whose start a `precedes` targets (not
+      `{ onend }`) needs its own `start` or a `depends` (own or inherited; a parent's `start` and
+      `scheduling asap` do not help); an ALAP task whose end a `depends` targets (not
+      `{ onstart }`) needs its own `end` or a `precedes`. Leaves and containers, all scenarios. Refused when introduced by
       `removeAttr`/`setAttr` of a timing attribute (T11a), `addDepends`/`removeDepends` (T11c,
       both subtrees checked) and the task tree intents (moved and added tasks, old parents and
       the subtrees of dependency owners on delete).

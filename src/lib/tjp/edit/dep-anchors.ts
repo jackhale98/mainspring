@@ -9,9 +9,9 @@
  *
  * - `isUnderspecified`: an allocated or booked leaf without size needs its open end left alone
  *   (`task_underspecified`, "has not been marked as scheduled");
- * - `isUnanchored`: an ASAP task that a `precedes` names needs its own `start` or a `depends`, an
- *   ALAP task that a `depends` names needs its own `end` or a `precedes`, else the chain waits on
- *   itself (`not_scheduled`).
+ * - `isUnanchored`: an ASAP task whose start a `precedes` targets needs its own `start` or a
+ *   `depends`, an ALAP task whose end a `depends` targets needs its own `end` or a `precedes`,
+ *   else the chain waits on itself (`not_scheduled`).
  */
 import type { WorkspaceSnapshot } from '../../workspace/workspace';
 import type { SymbolIndex, TaskId } from '../index';
@@ -94,9 +94,9 @@ export function isUnderspecified(st: TaskState, dependents: Dependents): boolean
 
 /** What other tasks' dependency items name a task itself with (all scenarios, orphans too). */
 export interface NamedBy {
-	/** A `precedes` item names it (either end). */
+	/** A `precedes` item names its start (not `{ onend }`). */
 	readonly precedes: boolean;
-	/** A `depends` item names it (either end). */
+	/** A `depends` item names its end (not `{ onstart }`). */
 	readonly depends: boolean;
 }
 
@@ -104,13 +104,13 @@ export function namedBy(ws: WorkspaceSnapshot, index: SymbolIndex, task: TaskId)
 	let precedes = false;
 	let depends = false;
 	for (const d of index.dependencies) {
-		if (d.form === 'precedes' && d.succ === task) precedes = true;
-		if (d.form === 'depends' && d.pred === task) depends = true;
+		if (d.form === 'precedes' && d.succ === task && !depOnEnd(ws, d)) precedes = true;
+		if (d.form === 'depends' && d.pred === task && depOnEnd(ws, d)) depends = true;
 	}
 	for (const o of orphansOf(ws, index)) {
 		if (o.target !== task) continue;
-		if (o.form === 'precedes') precedes = true;
-		else depends = true;
+		if (o.form === 'precedes') precedes ||= !o.onEnd;
+		else depends ||= o.onEnd;
 	}
 	return { precedes, depends };
 }
@@ -137,10 +137,11 @@ export const anchorsOf = (st: TaskState): Anchors => ({
  * side it would compute from (native `not_scheduled`, checked in tj3 3.8.4):
  *
  * - ASAP (direction as `TaskState.forward`: positional, inherited at creation): a `precedes` that
- *   names it, also `{ onend }`, makes it wait for a start it can only get from its own `start` or a
- *   `depends` (own or inherited); a parent's `start` or `scheduling asap` does not help;
- * - ALAP: mirrored, a `depends` that names it, also `{ onstart }`, needs its own `end` or a
- *   `precedes` (own or inherited).
+ *   targets its start makes it wait for a start it can only get from its own `start` or a
+ *   `depends` (own or inherited); a parent's `start` or `scheduling asap` does not help. A
+ *   `precedes … { onend }` does not (it schedules natively with other resources);
+ * - ALAP: mirrored, a `depends` that targets its end needs its own `end` or a `precedes` (own or
+ *   inherited); a `depends … { onstart }` does not.
  */
 export function isUnanchored(st: Anchors, named: NamedBy): boolean {
 	if (st.forward) return named.precedes && !st.start && !st.depends;
