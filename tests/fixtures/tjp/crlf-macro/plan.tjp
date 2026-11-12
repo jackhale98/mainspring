@@ -1,0 +1,20 @@
+# Feature: CRLF macro bodies: one-line and multi-line bodies close on ] before CRLF
+# SPDX-License-Identifier: GPL-2.0-or-later
+project cm "CRLF macros" 2026-01-05 +2m
+
+macro e [
+  effort 3d
+]
+macro who [ana]
+
+resource ana "Ana"
+
+task t "T" {
+  ${e}
+  allocate ${who}
+}
+task u "U" {
+  effort 1d
+  depends !t
+  allocate ana
+}

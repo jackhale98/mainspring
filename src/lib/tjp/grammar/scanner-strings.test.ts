@@ -19,6 +19,19 @@ function only(text: string, kind: TjpToken['kind']): TjpToken {
 }
 
 describe('strings', () => {
+	it('ends string lines at \r too, so env references after it stay literal', () => {
+		expect(lex('"a\rb" \'c\r\nd\'')).toEqual(['String:"a\rb"', "String:'c\r\nd'"]);
+		expect(only('"a\r$(HOME)"', 'String').flags).toBe(0);
+		expect(only('"a $(HOME)\r"', 'String').flags).toBe(TokenFlag.Env);
+		expect(lex('"x\rabc\\" def')).toEqual(['String:"x\rabc\\"', 'Identifier:def']);
+		// A lone \r on a later line, not followed by \n (regression: lookahead offset).
+		expect(lex('\'a\n)\rc\' x "a\r\n)b\rc" y')).toEqual([
+			"String:'a\n)\rc'",
+			'Identifier:x',
+			'String:"a\r\n)b\rc"',
+			'Identifier:y',
+		]);
+	});
 	it('reads a line of many short strings linearly, with the same tokens', () => {
 		const text = 'a "s" \'t\' "u\\"v" '.repeat(500);
 		const strings = tokenizeTjp(text).filter((t) => t.kind === 'String');
@@ -57,6 +70,12 @@ describe('cut-here strings', () => {
 		]);
 		const t = only('-8<-\n->8-', 'String');
 		expect([t.to, t.flags]).toEqual([9, TokenFlag.CutHere]);
+	});
+	it('treats a lone \r as a line break around the marks', () => {
+		expect(lex('-8<-\ra\r  ->8-\r')).toEqual(['String:-8<-\ra\r  ->8-']);
+		expect(lex('-8<- \r\nx\n->8-')).toEqual(['String:-8<- \r\nx\n->8-']);
+		expect(lex('-8<- x\ry\r->8-')).toEqual(['Error:-8<- x\ry\r->8-!junk-after-cut']);
+		expect(lex('-8<-\r')).toEqual(['Error:-8<-\r!unterminated-string']);
 	});
 	it('accepts CRLF after the mark', () => {
 		expect(lex('-8<-\r\na\r\n  ->8-\r\n')).toEqual(['String:-8<-\r\na\r\n  ->8-']);

@@ -4,11 +4,11 @@
 /**
  * The TJP scanner, phase-1.md 5.1.
  *
- * TaskJuggler reads one line at a time (`gets`, so lines end after `\n` only) and, in the
+ * TaskJuggler reads one line at a time (`gets`, after normalising line breaks) and, in the
  * current mode, tries its patterns in order with `StringScanner#scan`: anchored at the cursor,
  * first match wins, never across the end of the line. This port runs the same regular
  * expressions, translated to ASCII classes (Ruby's `\s`, `\w`, `\d` are ASCII and `.` excludes
- * only `\n`), in the same order. It reads only as far as the patterns can look: identifiers,
+ * only the line break), in the same order. It reads only as far as the patterns can look: identifiers,
  * numbers and punctuation read their own `[-a-zA-Z_0-9>:.+]*` run plus two code units (for a
  * glued `${`/`$(`), so long lines stay linear and Lezer's recorded lookahead stays short.
  *
@@ -20,19 +20,25 @@
  * quotes, backslashes, line feeds or cut marks. (An empty expansion makes TaskJuggler drop the
  * call's prefix too, so `1d${?x}` loses its `1d` natively; here it stays one `MacroWord`.)
  *
+ * Line breaks are `\n`, `\r\n` or a lone `\r` (see `ScanSource`): TaskJuggler normalises both
+ * `\r\n` and `\r` to `\n` when it reads a file, so a CRLF macro body closes on `]\r\n` and
+ * `# c\r effort 3d` is a comment followed by `effort 3d`.
+ *
  * For edits and formatting (T10, T12): a `MacroBody` ends at its `]`, but TaskJuggler only
- * closes a macro body on `]` immediately followed by `\n`. That line feed is load-bearing:
- * never insert text between the `]` and it, never remove it, never turn it into `\r\n`.
+ * closes a macro body on `]` immediately followed by a line break. That break (`\n`, `\r\n`
+ * or `\r`) is load-bearing: never insert text between the `]` and it, and never remove it or
+ * change its kind.
  */
-import { endsLine, finishCall, match, runaway, token, RE_MACRO_HEAD } from './scanner-core';
+import { breakLength, endsLine, finishCall, match, runaway, token } from './scanner-core';
+import { RE_MACRO_HEAD } from './scanner-core';
 import type { ScanSource, ScannedToken } from './scanner-core';
 import { scanCutHere, scanQuoted } from './scanner-strings';
 import { TokenFlag } from './token-kinds';
 
 export type { ScanSource, ScannedToken } from './scanner-core';
 
-const RE_BLOCK_ONE_LINE = /\/\*[^\n]*\*\//y;
-const RE_BLOCK_END = /[^\n]*\*\//y;
+const RE_BLOCK_ONE_LINE = /\/\*[^\r\n]*\*\//y;
+const RE_BLOCK_END = /[^\r\n]*\*\//y;
 const RE_PREFIX = /[-a-zA-Z_0-9>:.+]*/y;
 const RE_ENV_HEAD = /\$\([A-Z_][A-Z_0-9]*\)/y;
 const RE_WORD = /[a-zA-Z_]\w*/y;
@@ -41,8 +47,6 @@ const RE_DATE = /\d{4}-\d{1,2}-\d{1,2}(?:-\d{1,2}:\d{1,2}(?::\d{1,2})?(?:-[-+]?\
 const RE_TIME = /\d{1,2}:\d{2}/y;
 const RE_FLOAT = /\d*\.\d+/y;
 const RE_INTEGER = /\d+/y;
-const RE_DEF_ONE_LINE = /\[[^\n]*\]\n/y;
-const RE_DEF_END = /[^\n]*\]\n/y;
 
 function isSpace(c: number): boolean {
 	// ' ', \t, \n, \v, \f, \r
@@ -71,7 +75,7 @@ function scanWhitespace(src: ScanSource): ScannedToken {
 /** `#.*\n?` and `\/\/.*\n?`; the line feed is left to the whitespace token. */
 function scanLineComment(src: ScanSource): ScannedToken {
 	let n = 1;
-	for (let c = src.peek(n); c >= 0 && c !== 10; c = src.peek(n)) n++;
+	for (let c = src.peek(n); c >= 0 && c !== 10 && c !== 13; c = src.peek(n)) n++;
 	return token('LineComment', n);
 }
 
@@ -129,18 +133,28 @@ function scanGlued(src: ScanSource): ScannedToken | null {
 	return token(macros === 0 ? 'EnvRef' : glued ? 'MacroWord' : 'MacroCall', pos, flags);
 }
 
-/** A macro definition body `[ … ]`, single line (`\[.*\]\n`) or `macroDef` mode. */
+/** The length of `line` before its break, if it ends with `]` and a break; otherwise -1. */
+function closesBody(line: string, min: number): number {
+	const content = line.length - breakLength(line);
+	if (content === line.length || content < min) return -1;
+	return line.charCodeAt(content - 1) === 93 ? content : -1;
+}
+
+/**
+ * A macro definition body `[ … ]`: single line (`\[.*\]\n`, so the line must end with `]`), or
+ * `macroDef` mode, which ends at the first line ending with `]` (`.*\]\n`).
+ */
 function scanMacroBody(src: ScanSource): ScannedToken | null {
 	const first = src.line(0);
-	const one = match(RE_DEF_ONE_LINE, first);
-	if (one >= 0) return token('MacroBody', one - 1);
+	const one = closesBody(first, 2);
+	if (one >= 0) return token('MacroBody', one);
 	if (!endsLine(first)) return null;
 	let pos = first.length;
 	for (;;) {
 		const line = src.line(pos);
 		if (line === '') return runaway(src, 0, 'unterminated-macro-body');
-		const end = match(RE_DEF_END, line);
-		if (end >= 0) return token('MacroBody', pos + end - 1);
+		const end = closesBody(line, 1);
+		if (end >= 0) return token('MacroBody', pos + end);
 		if (!endsLine(line)) return runaway(src, 0, 'unterminated-macro-body');
 		pos += line.length;
 	}

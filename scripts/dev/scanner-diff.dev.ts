@@ -11,7 +11,10 @@
  * of each significant token, and the value of identifiers, punctuation, quoted strings and
  * macro bodies; and that the port produces an `Error` token where TaskJuggler's scanner stops
  * with a scanner error. Buffers are the corpora (fixtures, goldens, upstream examples and
- * tests) and seeded random soup from the TJP alphabet.
+ * tests) and seeded random soup from the TJP alphabet, with CRLF and lone CR breaks.
+ *
+ * TaskJuggler reads files through `forceUTF8Encoding`, which turns `\r\n` and `\r` into `\n`;
+ * the oracle does the same, and its offsets are mapped back to the original text here.
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -78,6 +81,13 @@ const PIECES = [
 	'5d',
 	'\\"',
 	"\\'",
+	']\r\n',
+	']\r',
+	'-8<-\r\n',
+	'-8<-\r',
+	'/*\r',
+	'#\r',
+	'\r\r\n',
 	'é',
 	'😀',
 	'\u00a0',
@@ -169,8 +179,28 @@ function byteOffsets(text: string): (byte: number) => number {
 	};
 }
 
+/** The text TaskJuggler scans, and the original offset of each of its offsets. */
+function normalise(text: string): { norm: string; orig: number[] } {
+	let norm = '';
+	const orig: number[] = [];
+	for (let i = 0; i < text.length;) {
+		const c = text[i] as string;
+		orig.push(i);
+		if (c === '\r') {
+			norm += '\n';
+			i += text[i + 1] === '\n' ? 2 : 1;
+		} else {
+			norm += c;
+			i++;
+		}
+	}
+	orig.push(text.length);
+	return { norm, orig };
+}
+
 /** The value TaskJuggler gives a token, where it can be compared as text; null otherwise. */
-function portValue(kind: string, s: string, flags: number): string | null {
+function portValue(kind: string, raw: string, flags: number): string | null {
+	const s = raw.replace(/\r\n?/g, '\n');
 	if (kind === 'Identifier' || kind === 'AbsoluteId' || kind === 'Punct') return s;
 	if (kind === 'ScenarioPrefix') return s.slice(0, -1);
 	if (kind === 'MacroBody') return s.slice(1, -1);
@@ -182,7 +212,9 @@ const SCANNER_ERRORS = ['runaway_token', 'no_token_match', 'junk_after_cut'];
 
 /** A mismatch description, or null when the port agrees with TaskJuggler. */
 function compare(text: string, res: OracleResult): string | null {
-	const at = byteOffsets(text);
+	const { norm, orig } = normalise(text);
+	const toUtf16 = byteOffsets(norm);
+	const at = (byte: number): number => orig[toUtf16(byte)] as number;
 	let theirs = res.tokens.map(([type, a, b, v]) => ({ type, from: at(a), to: at(b), v }));
 	// The port keeps a leading BOM as trivia; TaskJuggler returns it as a LITERAL.
 	if (text.startsWith('\ufeff') && theirs[0]?.from === 0) theirs = theirs.slice(1);
@@ -190,8 +222,9 @@ function compare(text: string, res: OracleResult): string | null {
 	for (const [i, t] of theirs.entries()) {
 		const o = ours[i];
 		if (!o) return `#${i}: TaskJuggler ${t.type} ${t.from}-${t.to}, port none`;
-		// TaskJuggler's MACRO also consumes the line feed after `]`.
-		const end = o.kind === 'MacroBody' ? o.to + 1 : o.to;
+		// TaskJuggler's MACRO also consumes the line break after `]` (`\r\n` is one).
+		const brk = text[o.to] === '\r' && text[o.to + 1] === '\n' ? 2 : 1;
+		const end = o.kind === 'MacroBody' ? o.to + brk : o.to;
 		const v = portValue(o.kind, text.slice(o.from, o.to), o.flags);
 		if (
 			taskJugglerType(o.kind) !== t.type ||
@@ -236,7 +269,9 @@ it('agrees with TaskJuggler’s scanner on the corpora and on random soup', () =
 			const input = batch[i] as { name: string; text: string };
 			const why = compare(input.text, res);
 			if (why)
-				failures.push(`${input.name}: ${why}\n    ${JSON.stringify(input.text.slice(0, 200))}`);
+				failures.push(
+					`${input.name}: ${why}\n    ${JSON.stringify(input.text.slice(0, Number(process.env['SHOW'] ?? 200)))}`,
+				);
 		});
 	}
 	console.info(
