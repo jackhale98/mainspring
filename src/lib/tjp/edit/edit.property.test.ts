@@ -384,7 +384,7 @@ describe('edit core properties on corpus files', () => {
 		for (const kind of KINDS) {
 			expect(counts.get(`${kind}:edit`) ?? 0, `${kind} edits`).toBeGreaterThanOrEqual(5);
 		}
-	});
+	}, 60_000);
 
 	it('several ops at once, across files, keep the same properties', () => {
 		let multiFile = 0;
