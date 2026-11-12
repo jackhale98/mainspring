@@ -5,6 +5,7 @@
 // the enforced types, so every type gets its share of the cases.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { IntentType } from '../../src/lib/tjp/edit/types';
 import { buildIndex } from '../../src/lib/tjp/index';
 import { createWorkspace } from '../../src/lib/workspace/workspace';
@@ -16,6 +17,8 @@ import { genPlan } from './gen/model';
 import { printPlan } from './gen/print-plan';
 import { mixSeed, Rng } from './gen/rng';
 import { factsFromIndex } from './oracle';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 export const NOW = '2026-01-05T09:00:00Z';
 
@@ -60,71 +63,78 @@ export interface CorpusPlan {
 	readonly workerMs: number;
 }
 
-/** Worker times from the last golden run, else the native ones (a proxy; documented in the report). */
-function plansTiming(): { ms: Map<string, number>; basis: string } {
-	const ms = new Map<string, number>();
-	try {
-		const report = JSON.parse(
-			fs.readFileSync(path.join(REPO, 'test-results/golden-report.json'), 'utf8'),
-		) as {
-			rows: Array<{ id: string; workerMs: number | null }>;
-		};
-		for (const r of report.rows) if (r.workerMs !== null && !ms.has(r.id)) ms.set(r.id, r.workerMs);
-		if (ms.size > 0) return { ms, basis: 'worker totalMs from test-results/golden-report.json' };
-	} catch {
-		// No report: use the native times.
-	}
-	for (const e of loadGoldens()) if (e.native) ms.set(e.plan.id, e.native.totalMs);
-	return {
-		ms,
-		basis: 'native totalMs from engine/golden/native-timings.json (no golden report found)',
-	};
-}
-
-let corpusCache: { plans: CorpusPlan[]; basis: string; maxMs: number } | null = null;
-
-/** The golden plans whose engine time is under `maxMs` (default 500), with their index facts. */
-export function corpusPlans(maxMs = Number(process.env['FIDELITY_CORPUS_MAX_MS'] ?? 500)): {
-	plans: CorpusPlan[];
+interface CorpusList {
 	basis: string;
-	maxMs: number;
-} {
-	if (corpusCache && corpusCache.maxMs === maxMs) return corpusCache;
-	const { ms, basis } = plansTiming();
-	const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
-	const plans: CorpusPlan[] = [];
-	for (const { plan, golden } of loadGoldens()) {
-		const t = ms.get(plan.id);
-		if (t === undefined || t >= maxMs) continue;
-		const files: Record<string, string> = {};
-		for (const f of golden.files)
-			files[f] = decoder.decode(fs.readFileSync(path.join(REPO, plan.root, f)));
-		const snap = createWorkspace({ entry: golden.entry, files }).snapshot();
-		const index = buildIndex(snap, undefined, { cache: null });
-		const facts = factsFromIndex(snap, index);
-		if (facts.tasks.length === 0) continue;
-		plans.push({
-			id: plan.id,
-			entry: golden.entry,
-			files,
-			facts,
-			sem: semOf(facts),
-			now: golden.options.now,
-			workerMs: t,
-		});
-	}
-	corpusCache = { plans, basis, maxMs };
-	return corpusCache;
+	measuredMs: Record<string, number>;
+	push: string[];
+	nightlyExtra: Record<string, number>;
 }
 
-/** A corpus case: a golden plan and an intent drawn against its index facts. */
-export function corpusCase(seed: number, type: IntentType): Case {
+/**
+ * The corpus lists (corpus.json): which golden plans a push run draws from, chosen from engine times
+ * measured once and committed with them, and the plans the nightly run adds with their case counts. Nothing
+ * here depends on the machine, a report or the environment, so a case replays anywhere.
+ */
+export const CORPUS: CorpusList = JSON.parse(
+	fs.readFileSync(path.join(HERE, 'corpus.json'), 'utf8'),
+) as CorpusList;
+export const NIGHTLY_EXTRA: Readonly<Record<string, number>> = CORPUS.nightlyExtra;
+
+const loaded = new Map<string, CorpusPlan | null>();
+
+/** A golden plan by id with its index facts (read once); null when it has no task. */
+export function corpusPlan(id: string): CorpusPlan | null {
+	if (loaded.has(id)) return loaded.get(id) ?? null;
+	const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+	const found = loadGoldens().find((e) => e.plan.id === id);
+	if (!found) throw new Error(`corpus.json names an unknown plan: ${id}`);
+	const { plan, golden } = found;
+	const files: Record<string, string> = {};
+	for (const f of golden.files)
+		files[f] = decoder.decode(fs.readFileSync(path.join(REPO, plan.root, f)));
+	const snap = createWorkspace({ entry: golden.entry, files }).snapshot();
+	const facts = factsFromIndex(snap, buildIndex(snap, undefined, { cache: null }));
+	const out =
+		facts.tasks.length === 0
+			? null
+			: {
+					id,
+					entry: golden.entry,
+					files,
+					facts,
+					sem: semOf(facts),
+					now: golden.options.now,
+					workerMs: CORPUS.measuredMs[id] ?? 0,
+				};
+	loaded.set(id, out);
+	return out;
+}
+
+/** The plans of the per-push list that have a task. */
+export const corpusPlans = (): CorpusPlan[] =>
+	CORPUS.push.map(corpusPlan).filter((p): p is CorpusPlan => p !== null);
+
+const hash = (s: string): number =>
+	[...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
+
+/**
+ * A corpus case: a golden plan and an intent drawn against its index facts. The plan is `pin` when given
+ * (and offers a target), else chosen from the per-push list by the seed; a plan that offers none passes the
+ * turn to the next. The intent is drawn from a stream of (seed, plan), so replaying with the plan a case
+ * ran on (`replayLine`) reproduces it.
+ */
+export function corpusCase(seed: number, type: IntentType, pin?: string): Case {
 	const family = familyOf(type);
-	const { plans } = corpusPlans();
-	for (let attempt = 0; attempt < 60; attempt++) {
-		const rng = new Rng(mixSeed(seed, attempt));
-		const p = rng.pick(plans);
-		const drawn = family.draw(type, p.facts, p.sem, rng);
+	const list = CORPUS.push;
+	const start = seed % list.length;
+	const order = [
+		...(pin ? [pin] : []),
+		...list.map((_, i) => list[(start + i) % list.length] as string),
+	];
+	for (const id of order) {
+		const p = corpusPlan(id);
+		if (!p) continue;
+		const drawn = family.draw(type, p.facts, p.sem, new Rng(mixSeed(seed, hash(id))));
 		if (!drawn) continue;
 		return {
 			seed,

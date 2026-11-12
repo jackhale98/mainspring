@@ -5,29 +5,32 @@
 // schedule.property.test.ts. Failing seeds go to regressions.json and replay on every run.
 import { afterAll, describe, expect, it } from 'vitest';
 import { CONFIG, plannedCases, type PlannedCase } from './config';
-import { corpusPlans } from './cases';
+import { CORPUS } from './cases';
 import { ENFORCED, PENDING } from './families';
 import { runCase, type Outcome } from './harness';
-import { buildCase, describeFailure, REGRESSIONS } from './shared';
+import { buildCase, describeFailure, guarded, REGRESSIONS } from './shared';
 import { percentile, tally, writePart, type TextPart } from './stats';
 
 const outcomes: Outcome[] = [];
 const failures: string[] = [];
 const times: number[] = [];
-const known: TextPart['regressions']['known'] = [];
 let replayed = 0;
 const started = performance.now();
 
-function run(p: PlannedCase): void {
-	const c = buildCase(p);
-	const o = runCase(c);
-	outcomes.push(o);
-	times.push(o.ms);
-	if (o.failures.length > 0) failures.push(describeFailure(c, o));
-}
-
 /** A run of thousands of cases takes minutes; the suites set their own limit. */
 const LONG = 3_600_000;
+
+/** Builds and runs one case; a throw anywhere is a failure with its replay line. */
+function run(p: PlannedCase): void {
+	const r = guarded(p, () => {
+		const c = buildCase(p);
+		return { c, o: runCase(c) };
+	});
+	if ('failure' in r) return void failures.push(r.failure);
+	outcomes.push(r.value.o);
+	times.push(r.value.o.ms);
+	if (r.value.o.failures.length > 0) failures.push(describeFailure(r.value.c, r.value.o));
+}
 
 const planned = plannedCases('all');
 
@@ -37,18 +40,13 @@ describe('patch fidelity (text only)', () => {
 		() => {
 			const bad: string[] = [];
 			for (const r of REGRESSIONS) {
-				const c = buildCase(r);
-				const o = runCase(c);
-				if (r.status === 'known-failure') {
-					known.push({
-						id: `${r.source}:${r.seed}:${r.type}`,
-						reason: r.reason,
-						stillFails: o.failures.length > 0,
-					});
-				} else {
-					replayed++;
-					if (o.failures.length > 0) bad.push(describeFailure(c, o));
-				}
+				const g = guarded(r, () => {
+					const c = buildCase(r);
+					return { c, o: runCase(c) };
+				});
+				replayed++;
+				if ('failure' in g) bad.push(g.failure);
+				else if (g.value.o.failures.length > 0) bad.push(describeFailure(g.value.c, g.value.o));
 			}
 			expect(bad.join('\n')).toBe('');
 		},
@@ -76,7 +74,6 @@ describe('patch fidelity (text only)', () => {
 
 	it('every enforced intent type produced at least 5 edits', () => {
 		const stats = tally(outcomes, ENFORCED);
-		// A replay of one case, or a debugging run, is too small to cover every type.
 		// Too few cases (a replay, a debugging run, a small shard) cannot cover every type; the merged
 		// report of the shards is checked in CI (scripts/ci/fidelity-merge.mjs).
 		if (CONFIG.only || outcomes.length < 8 * ENFORCED.length) return;
@@ -89,14 +86,16 @@ describe('patch fidelity (text only)', () => {
 
 afterAll(() => {
 	if (outcomes.length === 0) return;
-	const { plans, basis } = corpusPlans();
 	const part: TextPart = {
 		seed: CONFIG.seed,
 		runs: CONFIG.runs,
 		corpusRuns: CONFIG.corpusRuns,
 		shard: `${CONFIG.shard.index}/${CONFIG.shard.count}`,
-		corpusBasis: basis,
-		corpusPlans: plans.map((p) => p.id),
+		corpusBasis: CORPUS.basis,
+		corpusPlans: [
+			...CORPUS.push,
+			...(CONFIG.corpus === 'nightly' ? Object.keys(CORPUS.nightlyExtra) : []),
+		],
 		wallMs: performance.now() - started,
 		p50Ms: percentile(times, 0.5),
 		p95Ms: percentile(times, 0.95),
@@ -104,7 +103,7 @@ afterAll(() => {
 		perType: tally(outcomes, ENFORCED),
 		pending: PENDING.map((p) => ({ type: p.type, task: p.task })),
 		failures,
-		regressions: { replayed, known },
+		regressions: { replayed },
 	};
 	writePart('text', part);
 });

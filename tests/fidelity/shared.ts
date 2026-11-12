@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Helpers shared by the fidelity test files: the recorded regressions, building a case from its
-// seed, and a failure message with the replay command.
+// Helpers shared by the fidelity test files: the recorded regressions, building a case from its seed,
+// a failure message with the replay command, and a guard that turns a throw into a failure message.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,15 +8,15 @@ import { corpusCase, generatedCase } from './cases';
 import type { PlannedCase } from './config';
 import type { Case, Outcome } from './harness';
 
+/** A case that failed once and replays on every run. It must pass; a fixed bug stays here. */
 export interface Regression {
 	source: 'generated' | 'corpus';
 	seed: number;
 	type: PlannedCase['type'];
-	status: 'regression' | 'known-failure';
+	/** For a corpus case: the golden plan it ran on. */
+	plan?: string;
 	reason: string;
 	found: string;
-	/** A known failure's shape: intent fields and the new error ids, so P4 can skip its repeats. */
-	match?: { intent: Record<string, unknown>; errors: string[] };
 }
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -27,30 +27,37 @@ export const REGRESSIONS: Regression[] = (
 	}
 ).cases;
 
-export function buildCase(p: Pick<PlannedCase, 'source' | 'seed' | 'type'>): Case {
-	return p.source === 'generated' ? generatedCase(p.seed, p.type) : corpusCase(p.seed, p.type);
+export function buildCase(p: Pick<PlannedCase, 'source' | 'seed' | 'type' | 'plan'>): Case {
+	return p.source === 'generated'
+		? generatedCase(p.seed, p.type)
+		: corpusCase(p.seed, p.type, p.plan);
 }
+
+/** Everything needed to replay a case: source, seed, type and, for a corpus case, its plan. */
+export const replayLine = (c: Pick<Case, 'source' | 'seed' | 'type' | 'name'>): string =>
+	`FIDELITY_CASE=${c.source}:${c.seed}:${c.type}${c.source === 'corpus' ? `:${c.name}` : ''}`;
 
 export function describeFailure(
 	c: Case,
-	o: Outcome,
+	o: Pick<Outcome, 'status' | 'reason' | 'failures'>,
 	extra: readonly string[] = o.failures,
 ): string {
 	const head = `${c.source} seed ${c.seed} ${c.type} on ${c.name}: ${JSON.stringify(c.drawn.intent).slice(0, 300)} -> ${o.status}${o.reason ? ` (${o.reason})` : ''}`;
-	return `${head}\n${extra.map((f) => `    ${f}`).join('\n')}\n    replay: FIDELITY_CASE=${c.source}:${c.seed}:${c.type}`;
+	return `${head}\n${extra.map((f) => `    ${f}`).join('\n')}\n    replay: ${replayLine(c)}`;
 }
 
-/** The known failure a P4 failure repeats (same intent fields, only the listed new error ids). */
-export function knownP4(c: Case, newErrors: readonly string[]): Regression | null {
-	const intent = c.drawn.intent as unknown as Record<string, unknown>;
-	return (
-		REGRESSIONS.find(
-			(r) =>
-				r.status === 'known-failure' &&
-				r.match &&
-				Object.entries(r.match.intent).every(([k, v]) => intent[k] === v) &&
-				newErrors.length > 0 &&
-				newErrors.every((e) => r.match?.errors.includes(e)),
-		) ?? null
-	);
+/** Runs `fn`; a throw (in the generator, the edit API or the harness) becomes a failure with its replay line. */
+export function guarded<T>(
+	p: Pick<PlannedCase, 'source' | 'seed' | 'type' | 'plan'>,
+	fn: () => T,
+): { value: T } | { failure: string } {
+	try {
+		return { value: fn() };
+	} catch (error) {
+		const stack = error instanceof Error ? (error.stack ?? error.message) : String(error);
+		const name = p.plan ?? '';
+		return {
+			failure: `${p.source} seed ${p.seed} ${p.type}: threw ${stack.split('\n').slice(0, 4).join(' | ')}\n    replay: ${replayLine({ ...p, name })}`,
+		};
+	}
 }

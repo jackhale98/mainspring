@@ -54,18 +54,13 @@ export interface TextPart {
 	perType: TypeStats[];
 	pending: Array<{ type: string; task: string }>;
 	failures: string[];
-	regressions: {
-		replayed: number;
-		known: Array<{ id: string; reason: string; stillFails: boolean }>;
-	};
+	regressions: { replayed: number };
 }
 export interface P4Part {
 	runs: number;
 	okKept: number;
 	okBefore: number;
 	newErrors: number;
-	/** Failures that repeat a known edit-API bug (regressions.json). */
-	known: number;
 	cases: number;
 	wallMs: number;
 	p95Ms: number;
@@ -121,16 +116,12 @@ export function renderReport(
 		for (const p of text.pending) out.push(`| ${p.type} | skipped, pending ${p.task} | | | | |`);
 		out.push(
 			'',
-			`Corpus plans (${text.corpusPlans.length}), chosen by ${text.corpusBasis}: ${text.corpusPlans.join(', ')}.`,
+			`Corpus plans (${text.corpusPlans.length}, from tests/fidelity/corpus.json; times: ${text.corpusBasis}): ${text.corpusPlans.join(', ')}.`,
 			'',
 		);
 		out.push(
-			`Regression replays: ${text.regressions.replayed} must pass; ${text.regressions.known.length} known failures skipped.`,
+			`Regression replays (text-only properties): ${text.regressions.replayed}, all must pass.`,
 		);
-		for (const k of text.regressions.known)
-			out.push(
-				`- ${k.id}: ${k.reason} (${k.stillFails ? 'still fails the text-only properties' : 'text-only properties pass; the failure is in P4'})`,
-			);
 		out.push('');
 		if (text.failures.length > 0)
 			out.push(
@@ -144,7 +135,7 @@ export function renderReport(
 		out.push(
 			'## P4: still schedules',
 			'',
-			`${p4.runs} engine runs over ${p4.cases} edited cases (old and new workspace); ok kept in ${p4.okKept} of ${p4.okBefore} cases that scheduled ok before; new error or fatal ids: ${p4.newErrors}, plus ${p4.known} repeats of known failures. ` +
+			`${p4.runs} engine runs over ${p4.cases} edited cases (old and new workspace); ok kept in ${p4.okKept} of ${p4.okBefore} cases that scheduled ok before; new error or fatal ids: ${p4.newErrors}. ` +
 				`Wall time ${(p4.wallMs / 1000).toFixed(1)} s, p95 ${ms(p4.p95Ms)} ms per case.`,
 			'',
 		);

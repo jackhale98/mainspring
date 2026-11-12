@@ -12,10 +12,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { bootNodeEngine } from '../../engine/golden/run-wasm.mjs';
 import type { ScheduleResult } from '../../src/engine/protocol';
 import { REPO } from '../golden/corpus';
-import { CONFIG, plannedCases } from './config';
-import { runCase } from './harness';
+import { CONFIG, plannedCases, type PlannedCase } from './config';
+import { runCase, type Case, type Outcome } from './harness';
 import { percentile, writePart, type P4Part } from './stats';
-import { buildCase, describeFailure, knownP4 } from './shared';
+import { buildCase, describeFailure, guarded, REGRESSIONS, type Regression } from './shared';
 
 type Engine = Awaited<ReturnType<typeof bootNodeEngine>>;
 
@@ -92,7 +92,7 @@ function schedule(
 const failures: string[] = [];
 const times: number[] = [];
 const tolerated: Record<string, number> = {};
-const stats = { runs: 0, cases: 0, okBefore: 0, okKept: 0, newErrors: 0, known: 0 };
+const stats = { runs: 0, cases: 0, okBefore: 0, okKept: 0, newErrors: 0 };
 const started = performance.now();
 
 beforeAll(async () => {
@@ -102,63 +102,83 @@ beforeAll(async () => {
 	engine = await bootNodeEngine({ log: () => {} });
 }, 120_000);
 
+/** P4 for one case that was edited; the failures, and whether the engine ran on the old plan. */
+function checkP4(c: Case, o: Outcome): string[] {
+	if (o.status !== 'edit' || !o.after) return [];
+	const intent = c.drawn.intent;
+	let before: ScheduleResult;
+	let ranOld = true;
+	if (c.source === 'corpus') {
+		const cached = oldCache.get(c.name);
+		ranOld = cached === undefined;
+		before = cached ?? schedule(c.files, c.entry, c.now);
+		oldCache.set(c.name, before);
+	} else before = schedule(c.files, c.entry, c.now);
+	const after = schedule(o.after, c.entry, c.now);
+	stats.cases++;
+	stats.runs += ranOld ? 2 : 1;
+	const bad: string[] = [];
+	if (c.source === 'generated' && errorsOf(before).size > 0) {
+		bad.push(
+			`the generated plan does not schedule cleanly (a bug in the generator): ${[...errorsOf(before).keys()].join(', ')}`,
+		);
+	}
+	if (before.ok) stats.okBefore++;
+	if (before.ok && after.ok) stats.okKept++;
+	else if (before.ok) bad.push('ok went from true to false');
+	const added = newErrors(before, after);
+	const fine =
+		c.source === 'corpus' &&
+		added.length > 0 &&
+		added.every((k) => SCHEDULE_DEPENDENT.has(k.split(':')[1] ?? ''));
+	if (fine) for (const k of added) tolerated[k] = (tolerated[k] ?? 0) + 1;
+	else if (added.length > 0) {
+		stats.newErrors += added.length;
+		bad.push(`new error ids: ${added.join(', ')}`);
+	}
+	if (
+		intent.type === 'renameTask' ||
+		intent.type === 'renameResource' ||
+		intent.type === 'format'
+	) {
+		const names = intent.type !== 'format';
+		if (normalized(before, names) !== normalized(after, names)) {
+			bad.push('the schedule changed (compared apart from names, source lines and timings)');
+		}
+	}
+	return bad.map((b) => `P4: ${b}`);
+}
+
+/** Builds, edits and checks one case; a throw anywhere is a failure with its replay line. */
+function runP4(p: PlannedCase | Regression): string | null {
+	const t0 = performance.now();
+	const r = guarded(p, () => {
+		const c = buildCase(p);
+		const o = runCase(c);
+		return { c, o, bad: checkP4(c, o) };
+	});
+	times.push(performance.now() - t0);
+	if ('failure' in r) return r.failure;
+	return r.value.bad.length > 0 ? describeFailure(r.value.c, r.value.o, r.value.bad) : null;
+}
+
 describe('patch fidelity P4: the edited plan still schedules', () => {
+	it('replays the recorded regressions', () => {
+		const bad = REGRESSIONS.map(runP4).filter((x): x is string => x !== null);
+		expect(bad.join('\n')).toBe('');
+	}, 600_000);
+
 	it(`schedules the old and the new plan of every edit (${CONFIG.runs} generated, ${CONFIG.corpusRuns} corpus cases)`, () => {
 		for (const p of plannedCases('all')) {
-			const t0 = performance.now();
-			const c = buildCase(p);
-			const o = runCase(c);
-			if (o.status !== 'edit' || !o.after) continue;
-			const intent = c.drawn.intent;
-			let before: ScheduleResult;
-			if (c.source === 'corpus') {
-				before = oldCache.get(c.name) ?? schedule(c.files, c.entry, c.now);
-				oldCache.set(c.name, before);
-			} else before = schedule(c.files, c.entry, c.now);
-			const after = schedule(o.after, c.entry, c.now);
-			stats.cases++;
-			stats.runs += c.source === 'corpus' && oldCache.has(c.name) ? 1 : 2;
-			const bad: string[] = [];
-			if (c.source === 'generated' && errorsOf(before).size > 0) {
-				bad.push(
-					`the generated plan does not schedule cleanly (a bug in the generator): ${[...errorsOf(before).keys()].join(', ')}`,
-				);
-			}
-			if (before.ok) stats.okBefore++;
-			if (before.ok && after.ok) stats.okKept++;
-			const added = newErrors(before, after);
-			const known = added.length > 0 && knownP4(c, added) !== null;
-			if (known) stats.known++;
-			else if (before.ok && !after.ok) bad.push('ok went from true to false');
-			const fine =
-				c.source === 'corpus' &&
-				added.length > 0 &&
-				added.every((k) => SCHEDULE_DEPENDENT.has(k.split(':')[1] ?? ''));
-			if (fine) for (const k of added) tolerated[k] = (tolerated[k] ?? 0) + 1;
-			else if (added.length > 0 && !known) {
-				stats.newErrors += added.length;
-				bad.push(`new error ids: ${added.join(', ')}`);
-			}
-			if (intent.type === 'renameTask' || intent.type === 'format') {
-				if (
-					normalized(before, intent.type === 'renameTask') !==
-					normalized(after, intent.type === 'renameTask')
-				) {
-					bad.push('the schedule changed (compared apart from names, source lines and timings)');
-				}
-			}
-			if (bad.length > 0)
-				failures.push(
-					describeFailure(
-						c,
-						o,
-						bad.map((b) => `P4: ${b}`),
-					),
-				);
-			times.push(performance.now() - t0);
+			const bad = runP4(p);
+			if (bad) failures.push(bad);
 		}
 		expect(failures.join('\n')).toBe('');
-	}, 1_800_000);
+	}, 3_600_000);
+
+	it('ran the engine on at least one edited case', () => {
+		expect(stats.cases, 'P4 checked no case: the run proves nothing').toBeGreaterThan(0);
+	});
 });
 
 afterAll(() => {

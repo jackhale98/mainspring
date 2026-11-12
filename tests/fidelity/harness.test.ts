@@ -122,7 +122,7 @@ describe('the report', () => {
 			perType: tally(outcomes, ['setAttr']),
 			pending: [{ type: 'addTask', task: 'T11b' }],
 			failures: [],
-			regressions: { replayed: 1, known: [] },
+			regressions: { replayed: 1 },
 		};
 		const md = renderReport(part, null, null);
 		expect(md).toContain('Seed 42');

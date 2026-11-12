@@ -97,7 +97,27 @@ export function diffJson(a: unknown, b: unknown, max = 6): string {
 	return out.join('\n');
 }
 
+/** Runs a case; a throw in the edit API or the checks is a failure of the case, not of the run. */
 export function runCase(c: Case, apply: ApplyFn = realApply, load = loadWorkspace): Outcome {
+	const t0 = performance.now();
+	try {
+		return runChecks(c, apply, load);
+	} catch (error) {
+		const stack = error instanceof Error ? (error.stack ?? error.message) : String(error);
+		return {
+			type: c.type,
+			source: c.source,
+			status: 'refused',
+			reason: 'threw',
+			failures: [`throw: ${stack.split('\n').slice(0, 4).join(' | ')}`],
+			changes: 0,
+			ms: performance.now() - t0,
+			after: null,
+		};
+	}
+}
+
+function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome {
 	const t0 = performance.now();
 	const failures: string[] = [];
 	const fail = (p: string, msg: string): void => void failures.push(`${p}: ${msg}`);
