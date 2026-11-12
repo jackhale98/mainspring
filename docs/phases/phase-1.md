@@ -1016,3 +1016,56 @@ them.
       a resource left short after a removal) cannot be foreseen without scheduling and are not
       refused; the engine check (`edit/links.engine.test.ts`) counts and logs them by message id
       (`not_scheduled` only next to `sched_runaway`).
+20. **Task attribute intents (T11a; checked against native tj3).** `edit/task-attrs*.ts`.
+    - **Sizing.** TaskJuggler rejects a second criterion even in a supplement
+      (`multiple_durations`), so `setAttr` of `effort`, `length` or `duration` rewrites the last
+      own criterion (keyword and value together when the keyword differs) and removes the task's
+      other own criteria; it inserts one only when there is none.
+    - **Other scenarios.** A top-scenario value read after another scenario's statement is copied
+      over it (`PropertyTreeNode#[]=` in provided mode), and a criterion resets the other criteria
+      and `milestone` of every scenario (`setDurationAttribute`). An inserted statement therefore
+      goes before the first declaration-body statement of another scenario that sets the same
+      attribute; for a criterion or `milestone`, before any criterion or `milestone` of another
+      scenario. Rewrites stay where they are.
+    - **`flags` and `responsible`** accumulate over the task's own statements (declaration and
+      supplements) and its ancestors'. The intent's value is the task's whole list: it may not
+      drop an id an ancestor gives (`inherited`, at the ancestor's statements); it is a no-op when
+      the own and inherited ids already equal it; otherwise the task's own contribution is made
+      equal to it (the last own statement's list is rewritten to the value, the other own
+      statements are removed, or `attr ids` is inserted). `responsible` ids resolve after parsing
+      (rule_undefResourceId), so a resource declared later is fine; they are written relative to
+      the file's `resourceprefix`, under which no global resource id can be named
+      (`invalid-value`). `flags` ids must be declared before the statement (rule_flag).
+    - **Inheritance happens when the child is created** (`inheritAttributes`): only an ancestor's
+      statements read before the child's header count, for `removeAttr`'s `inherited`, the list
+      ids and the timing model below.
+    - **Timing model** (`task-attrs-timing.ts`). Direction is positional: `start` and `depends`
+      set ASAP, `end` and `precedes` set ALAP, `scheduling` sets either, and the statement read
+      last wins (TjpSyntaxRules.rb 6349, 6447, 6598, 6687, 6792); a child starts with its parent's
+      direction, `depends`, `precedes` and `scheduled` at its creation. Only an own `scheduled`
+      disables `task_overspecified` (TaskScenario.rb:378). Other tasks' `precedes` (and
+      `depends … { onstart }`) on the task are start dependencies; their `depends` (and
+      `precedes … { onend }`) are end dependencies.
+    - **Extra `conflicting-attribute` refusals** beyond the 7.1 table, each only when the change
+      introduces the problem: `task_overspecified`; `milestone_start_end` for an ALAP milestone
+      with only a start that is a child or has `precedes`, and for an ASAP milestone with only an
+      end and no start dependency; bookings on an ALAP task that is not `scheduled`
+      (`booking_forward_only`, `alap_booking`); a criterion or `milestone` on a container; a
+      criterion on a milestone; a milestone whose own start and end differ. They apply to every
+      change of a timing attribute, `removeAttr` included (removing the `scheduling` that keeps a
+      task ALAP can overspecify it). `task_pred_before` for a `length` or `duration` task with
+      `depends x { onstart }` on an effort task (syn-07 `chain.d`) depends on the schedule (the
+      predecessor's start moves to its first booked slot), so it is not refused; the engine test
+      tolerates exactly that case, and each other tolerated error id has its own predicate.
+    - **Macros.** A statement-level macro call in the task's bodies refuses `setAttr` and
+      `removeAttr` (`macro-in-body`) unless the macro is defined once, its body has no nested
+      calls or arguments, and its words include none of the keywords the edit reads: the
+      attribute itself, or for a timing attribute every keyword of the timing model plus
+      `booking`. Tutorial's `${allocate_developers}` therefore allows attribute edits. A statement
+      the edit would rewrite or remove that is written with a macro is `text-only` (X3), also
+      for `removeAttr`.
+    - **Names and flags.** `renameTask` keeps the quote style; a cut-here name becomes a
+      double-quoted one. `declareFlag` declares a flag where every task can use it: it appends to
+      the last file-level `flags` declaration read before the first task, else inserts one before
+      that task; it is a no-op only when the flag is already declared before the first task
+      (a second declaration is harmless natively).
