@@ -19,6 +19,17 @@ re-record the three native goldens in one step with
 `node engine/golden/record-native.mjs --allow-ruby --only gantt-manipulation --only gantt-200 --only gantt-500`
 (Ruby 3.3.6 here; drop `--allow-ruby` on Ruby 3.4.x). They are provisional like the rest.
 
+The record command does not run the generator. After changing `gantt-plans.mjs`, run it
+first, then commit the plans, then record. The recorder refuses to run while `engine/bridge` or
+any manifest root outside `engine/tj` (including `tests/fixtures/gantt/manipulation`) has
+uncommitted changes. CI checks both generators with `--check`.
+
+Deviations from the phase-2 spec (T3):
+- The workspace path follows section 7.1 (`tests/fixtures/gantt/manipulation/`), and the
+  manifest id is `gantt-manipulation`.
+- Only effort leaves carry allocations. Length and duration leaves with allocations gave native
+  `allocate_no_assigned` warnings whose lines the hand-written diagnostics table cannot express.
+
 ## Synthetic plans
 
 Synthetic TaskJuggler plans for Phase 0 (spec section 6.1). Each plan's header comment names the feature it targets. Validate a plan with native tj3 from its own directory (the run command uses `poc/stubs` until `engine/stubs` exists):
