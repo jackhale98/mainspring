@@ -120,8 +120,12 @@ export interface TaskScenarioResult {
 	 * report the value they hold too.
 	 */
 	direction: 'asap' | 'alap';
-	/** v2. `complete` in percent as the plan sets it for this scenario; null when unset. Never a
-	 *  computed completion. */
+	/**
+	 * v2. `complete` in percent as TaskJuggler holds it for this scenario after scheduling: the
+	 * plan's value, or null when unset. TaskJuggler computes a completion only when something
+	 * queries it; the engine runs no reports, so only a `fail` or `warn` condition that reads
+	 * completion can make it non-null without a `complete` in the plan.
+	 */
 	complete: number | null;
 	/** v2. This task's start waits on these (`depends` after inheritance: the parent's entries,
 	 *  then the task's own), in TaskJuggler's order. */

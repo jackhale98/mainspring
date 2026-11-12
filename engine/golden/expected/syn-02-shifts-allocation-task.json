@@ -250,6 +250,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "shifts02",
       "name": "Shifts on allocations and tasks",
@@ -265,7 +266,245 @@
       "start": "2026-01-05T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          75420,
+          75900
+        ],
+        [
+          76860,
+          77340
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          82620,
+          83100
+        ],
+        [
+          84060,
+          84540
+        ],
+        [
+          85500,
+          85980
+        ],
+        [
+          86940,
+          87420
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          92700,
+          93180
+        ],
+        [
+          94140,
+          94620
+        ],
+        [
+          95580,
+          96060
+        ],
+        [
+          97020,
+          97500
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          102780,
+          103260
+        ],
+        [
+          104220,
+          104700
+        ],
+        [
+          105660,
+          106140
+        ],
+        [
+          107100,
+          107580
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          112860,
+          113340
+        ],
+        [
+          114300,
+          114780
+        ],
+        [
+          115740,
+          116220
+        ]
+      ]
     },
     "resources": [
       {
@@ -313,9 +552,13 @@
               "cara",
               "dan"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 57060,
             "pathCriticalness": 24.813559322033896,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -336,9 +579,13 @@
             "allocated": [
               "cara"
             ],
+            "complete": null,
             "criticalness": 8.813559322033898,
+            "depends": [],
+            "direction": "asap",
             "end": 25080,
             "pathCriticalness": 24.813559322033896,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -359,9 +606,13 @@
             "allocated": [
               "dan"
             ],
+            "complete": null,
             "criticalness": 4.745762711864407,
+            "depends": [],
+            "direction": "asap",
             "end": 16860,
             "pathCriticalness": 15.322033898305085,
+            "precedes": [],
             "scheduled": true,
             "start": 780
           }
@@ -383,9 +634,26 @@
               "cara",
               "dan"
             ],
+            "complete": null,
             "criticalness": 5.423728813559322,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "work.part1"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "work.part2"
+              }
+            ],
+            "direction": "asap",
             "end": 34020,
             "pathCriticalness": 16,
+            "precedes": [],
             "scheduled": true,
             "start": 25080
           }
@@ -406,9 +674,20 @@
             "allocated": [
               "cara"
             ],
+            "complete": null,
             "criticalness": 10.576271186440678,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "work.part3"
+              }
+            ],
+            "direction": "asap",
             "end": 57060,
             "pathCriticalness": 10.576271186440678,
+            "precedes": [],
             "scheduled": true,
             "start": 34020
           }
@@ -421,5 +700,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

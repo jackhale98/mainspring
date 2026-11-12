@@ -279,6 +279,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "track06",
       "name": "Tracking",
@@ -300,7 +301,245 @@
       "start": "2026-01-05T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          75420,
+          75900
+        ],
+        [
+          76860,
+          77340
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          82620,
+          83100
+        ],
+        [
+          84060,
+          84540
+        ],
+        [
+          85500,
+          85980
+        ],
+        [
+          86940,
+          87420
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          92700,
+          93180
+        ],
+        [
+          94140,
+          94620
+        ],
+        [
+          95580,
+          96060
+        ],
+        [
+          97020,
+          97500
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          102780,
+          103260
+        ],
+        [
+          104220,
+          104700
+        ],
+        [
+          105660,
+          106140
+        ],
+        [
+          107100,
+          107580
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          112860,
+          113340
+        ],
+        [
+          114300,
+          114780
+        ],
+        [
+          115740,
+          116220
+        ]
+      ]
     },
     "resources": [
       {
@@ -354,9 +593,13 @@
               "jo",
               "kai"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 66900,
             "pathCriticalness": 13.898479358295395,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           },
@@ -365,9 +608,13 @@
               "jo",
               "kai"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 44220,
             "pathCriticalness": 12.745762711864408,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -388,9 +635,13 @@
             "allocated": [
               "jo"
             ],
+            "complete": 100,
             "criticalness": 8.321513002364066,
+            "depends": [],
+            "direction": "asap",
             "end": 61440,
             "pathCriticalness": 8.321513002364066,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           },
@@ -398,9 +649,13 @@
             "allocated": [
               "jo"
             ],
+            "complete": 100,
             "criticalness": 7.4576271186440675,
+            "depends": [],
+            "direction": "asap",
             "end": 6780,
             "pathCriticalness": 7.4576271186440675,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -421,9 +676,13 @@
             "allocated": [
               "jo"
             ],
+            "complete": 40,
             "criticalness": 9.98581560283688,
+            "depends": [],
+            "direction": "asap",
             "end": 61140,
             "pathCriticalness": 13.898479358295395,
+            "precedes": [],
             "scheduled": true,
             "start": 10620
           },
@@ -431,9 +690,13 @@
             "allocated": [
               "jo"
             ],
+            "complete": 40,
             "criticalness": 8.949152542372882,
+            "depends": [],
+            "direction": "asap",
             "end": 21180,
             "pathCriticalness": 12.745762711864408,
+            "precedes": [],
             "scheduled": true,
             "start": 10620
           }
@@ -454,9 +717,20 @@
             "allocated": [
               "kai"
             ],
+            "complete": 0,
             "criticalness": 3.912663755458515,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "proj.second"
+              }
+            ],
+            "direction": "asap",
             "end": 66900,
             "pathCriticalness": 3.912663755458515,
+            "precedes": [],
             "scheduled": true,
             "start": 61140
           },
@@ -464,9 +738,20 @@
             "allocated": [
               "kai"
             ],
+            "complete": 0,
             "criticalness": 3.7966101694915255,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "proj.second"
+              }
+            ],
+            "direction": "asap",
             "end": 26940,
             "pathCriticalness": 3.7966101694915255,
+            "precedes": [],
             "scheduled": true,
             "start": 22140
           }
@@ -487,9 +772,13 @@
             "allocated": [
               "kai"
             ],
+            "complete": null,
             "criticalness": 2.934497816593886,
+            "depends": [],
+            "direction": "asap",
             "end": 53940,
             "pathCriticalness": 2.934497816593886,
+            "precedes": [],
             "scheduled": true,
             "start": 40860
           },
@@ -497,9 +786,13 @@
             "allocated": [
               "kai"
             ],
+            "complete": null,
             "criticalness": 2.847457627118644,
+            "depends": [],
+            "direction": "asap",
             "end": 44220,
             "pathCriticalness": 2.847457627118644,
+            "precedes": [],
             "scheduled": true,
             "start": 40860
           }
@@ -512,5 +805,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

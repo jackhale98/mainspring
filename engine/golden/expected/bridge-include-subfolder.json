@@ -66,6 +66,7 @@
     ],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-04-01T10:00:00Z",
       "id": "inc",
       "name": "Include subfolder",
@@ -81,7 +82,101 @@
       "start": "2026-03-02T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          43800
+        ]
+      ]
     },
     "resources": [
       {
@@ -144,9 +239,13 @@
             "allocated": [
               "ann"
             ],
+            "complete": null,
             "criticalness": 1.4463276836158192,
+            "depends": [],
+            "direction": "asap",
             "end": 2460,
             "pathCriticalness": 2.8079096045197742,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -167,9 +266,20 @@
             "allocated": [
               "bob"
             ],
+            "complete": null,
             "criticalness": 0.3615819209039548,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "build"
+              }
+            ],
+            "direction": "asap",
             "end": 3900,
             "pathCriticalness": 1.3615819209039548,
+            "precedes": [],
             "scheduled": true,
             "start": 3420
           }
@@ -188,9 +298,20 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "test"
+              }
+            ],
+            "direction": "asap",
             "end": 3900,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 3900
           }
@@ -203,5 +324,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

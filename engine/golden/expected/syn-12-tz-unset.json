@@ -107,6 +107,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-06-26T00:00:00Z",
       "id": "utc12",
       "name": "No timezone",
@@ -122,7 +123,165 @@
       "start": "2026-05-04T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          75420,
+          75900
+        ]
+      ]
     },
     "resources": [
       {
@@ -170,9 +329,13 @@
               "vera",
               "walt"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 20940,
             "pathCriticalness": 15.692307692307693,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -193,9 +356,13 @@
             "allocated": [
               "vera"
             ],
+            "complete": null,
             "criticalness": 2.769230769230769,
+            "depends": [],
+            "direction": "asap",
             "end": 3900,
             "pathCriticalness": 15.692307692307693,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -216,9 +383,20 @@
             "allocated": [
               "walt"
             ],
+            "complete": null,
             "criticalness": 9.230769230769232,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "plain.kickoff"
+              }
+            ],
+            "direction": "asap",
             "end": 15420,
             "pathCriticalness": 12.923076923076923,
+            "precedes": [],
             "scheduled": true,
             "start": 4860
           }
@@ -240,9 +418,20 @@
               "vera",
               "walt"
             ],
+            "complete": null,
             "criticalness": 3.6923076923076925,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "plain.middle"
+              }
+            ],
+            "direction": "asap",
             "end": 20940,
             "pathCriticalness": 3.6923076923076925,
+            "precedes": [],
             "scheduled": true,
             "start": 16380
           }
@@ -255,5 +444,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

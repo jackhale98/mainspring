@@ -284,6 +284,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "leaves13",
       "name": "Calendars and leaves",
@@ -299,7 +300,237 @@
       "start": "2026-01-05T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          75420,
+          75900
+        ],
+        [
+          76860,
+          77340
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          82620,
+          83100
+        ],
+        [
+          84060,
+          84540
+        ],
+        [
+          85500,
+          85980
+        ],
+        [
+          86940,
+          87420
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          92700,
+          93180
+        ],
+        [
+          94140,
+          94620
+        ],
+        [
+          95580,
+          96060
+        ],
+        [
+          97020,
+          97500
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          102780,
+          103260
+        ],
+        [
+          104220,
+          104700
+        ],
+        [
+          105660,
+          106140
+        ],
+        [
+          107100,
+          107580
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          112860,
+          113340
+        ],
+        [
+          114300,
+          114780
+        ],
+        [
+          115740,
+          116220
+        ]
+      ]
     },
     "resources": [
       {
@@ -364,9 +595,13 @@
               "yui",
               "zed"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 91740,
             "pathCriticalness": 83.51814223512336,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -388,9 +623,13 @@
               "xan",
               "yui"
             ],
+            "complete": null,
             "criticalness": 15.825834542815674,
+            "depends": [],
+            "direction": "asap",
             "end": 3900,
             "pathCriticalness": 83.51814223512336,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -411,9 +650,20 @@
             "allocated": [
               "xan"
             ],
+            "complete": null,
             "criticalness": 27.076923076923077,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "calendar.kick"
+              }
+            ],
+            "direction": "asap",
             "end": 26940,
             "pathCriticalness": 67.6923076923077,
+            "precedes": [],
             "scheduled": true,
             "start": 4860
           }
@@ -434,9 +684,20 @@
             "allocated": [
               "xan"
             ],
+            "complete": null,
             "criticalness": 40.61538461538461,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "calendar.mid"
+              }
+            ],
+            "direction": "asap",
             "end": 55740,
             "pathCriticalness": 40.61538461538461,
+            "precedes": [],
             "scheduled": true,
             "start": 30780
           }
@@ -458,9 +719,13 @@
               "yui",
               "zed"
             ],
+            "complete": null,
             "criticalness": 45.283018867924525,
+            "depends": [],
+            "direction": "asap",
             "end": 74460,
             "pathCriticalness": 45.283018867924525,
+            "precedes": [],
             "scheduled": true,
             "start": 52380
           }
@@ -481,9 +746,13 @@
             "allocated": [
               "yui"
             ],
+            "complete": null,
             "criticalness": 16.30188679245283,
+            "depends": [],
+            "direction": "asap",
             "end": 91740,
             "pathCriticalness": 16.30188679245283,
+            "precedes": [],
             "scheduled": true,
             "start": 75420
           }
@@ -496,5 +765,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

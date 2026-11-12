@@ -36,6 +36,7 @@
     ],
     "ok": false,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "kathmandu22",
       "name": "Kathmandu resolution",
@@ -51,10 +52,11 @@
       "start": "2026-02-02T00:00:00Z",
       "timezone": "Asia/Kathmandu",
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": []
     },
     "resources": [],
     "tasks": []
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

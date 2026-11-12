@@ -172,6 +172,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-04-30T00:00:00Z",
       "id": "gaps08",
       "name": "Gaps and ALAP",
@@ -187,7 +188,341 @@
       "start": "2026-01-05T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          75420,
+          75900
+        ],
+        [
+          76860,
+          77340
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          82620,
+          83100
+        ],
+        [
+          84060,
+          84540
+        ],
+        [
+          85500,
+          85980
+        ],
+        [
+          86940,
+          87420
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          92700,
+          93180
+        ],
+        [
+          94140,
+          94620
+        ],
+        [
+          95580,
+          96060
+        ],
+        [
+          97020,
+          97500
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          102780,
+          103260
+        ],
+        [
+          104220,
+          104700
+        ],
+        [
+          105660,
+          106140
+        ],
+        [
+          107100,
+          107580
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          112860,
+          113340
+        ],
+        [
+          114300,
+          114780
+        ],
+        [
+          115740,
+          116220
+        ],
+        [
+          117180,
+          117660
+        ],
+        [
+          121500,
+          121980
+        ],
+        [
+          122940,
+          123420
+        ],
+        [
+          124380,
+          124860
+        ],
+        [
+          125820,
+          126300
+        ],
+        [
+          127260,
+          127740
+        ],
+        [
+          131580,
+          132060
+        ],
+        [
+          133020,
+          133500
+        ],
+        [
+          134460,
+          134940
+        ],
+        [
+          135900,
+          136380
+        ],
+        [
+          137340,
+          137820
+        ],
+        [
+          141660,
+          142140
+        ],
+        [
+          143100,
+          143580
+        ],
+        [
+          144540,
+          145020
+        ],
+        [
+          145980,
+          146460
+        ],
+        [
+          147420,
+          147900
+        ],
+        [
+          151740,
+          152220
+        ],
+        [
+          153180,
+          153660
+        ],
+        [
+          154620,
+          155100
+        ],
+        [
+          156060,
+          156540
+        ],
+        [
+          157500,
+          157980
+        ],
+        [
+          161820,
+          162300
+        ],
+        [
+          163260,
+          163740
+        ],
+        [
+          164700,
+          165180
+        ]
+      ]
     },
     "resources": [
       {
@@ -235,9 +570,13 @@
               "pia",
               "quin"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 47100,
             "pathCriticalness": 17.542168674698793,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -258,9 +597,13 @@
             "allocated": [
               "pia"
             ],
+            "complete": null,
             "criticalness": 6.746987951807228,
+            "depends": [],
+            "direction": "asap",
             "end": 6780,
             "pathCriticalness": 17.542168674698793,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -281,9 +624,20 @@
             "allocated": [
               "quin"
             ],
+            "complete": null,
             "criticalness": 5.783132530120482,
+            "depends": [
+              {
+                "gapDurationMin": 10080,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "line.design"
+              }
+            ],
+            "direction": "asap",
             "end": 31260,
             "pathCriticalness": 10.795180722891565,
+            "precedes": [],
             "scheduled": true,
             "start": 20700
           }
@@ -304,9 +658,20 @@
             "allocated": [
               "pia"
             ],
+            "complete": null,
             "criticalness": 4.048192771084337,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 960,
+                "onEnd": true,
+                "task": "line.build"
+              }
+            ],
+            "direction": "asap",
             "end": 41340,
             "pathCriticalness": 5.0120481927710845,
+            "precedes": [],
             "scheduled": true,
             "start": 35100
           }
@@ -327,9 +692,20 @@
             "allocated": [
               "quin"
             ],
+            "complete": null,
             "criticalness": 0.963855421686747,
+            "depends": [
+              {
+                "gapDurationMin": 4320,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "line.test"
+              }
+            ],
+            "direction": "asap",
             "end": 47100,
             "pathCriticalness": 0.963855421686747,
+            "precedes": [],
             "scheduled": true,
             "start": 46620
           }
@@ -351,9 +727,13 @@
               "pia",
               "quin"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "alap",
             "end": 144000,
             "pathCriticalness": 10.987951807228916,
+            "precedes": [],
             "scheduled": true,
             "start": 124380
           }
@@ -374,9 +754,20 @@
             "allocated": [
               "pia"
             ],
+            "complete": null,
             "criticalness": 5.397590361445783,
+            "depends": [],
+            "direction": "alap",
             "end": 132060,
             "pathCriticalness": 10.987951807228916,
+            "precedes": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": false,
+                "task": "alap.beta"
+              }
+            ],
             "scheduled": true,
             "start": 124380
           }
@@ -397,9 +788,20 @@
             "allocated": [
               "quin"
             ],
+            "complete": null,
             "criticalness": 2.891566265060241,
+            "depends": [],
+            "direction": "alap",
             "end": 136380,
             "pathCriticalness": 5.590361445783133,
+            "precedes": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 480,
+                "onEnd": false,
+                "task": "alap.gamma"
+              }
+            ],
             "scheduled": true,
             "start": 133020
           }
@@ -420,9 +822,13 @@
             "allocated": [
               "pia"
             ],
+            "complete": null,
             "criticalness": 2.6987951807228914,
+            "depends": [],
+            "direction": "alap",
             "end": 143580,
             "pathCriticalness": 2.6987951807228914,
+            "precedes": [],
             "scheduled": true,
             "start": 141660
           }
@@ -435,5 +841,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

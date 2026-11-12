@@ -389,6 +389,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2012-06-01T16:00:00Z",
       "id": "prj",
       "name": "Scrum Example Project",
@@ -404,7 +405,361 @@
       "start": "2012-02-01T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          7740,
+          8220
+        ],
+        [
+          9180,
+          9660
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          17820,
+          18300
+        ],
+        [
+          19260,
+          19740
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          27900,
+          28380
+        ],
+        [
+          29340,
+          29820
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          37980,
+          38460
+        ],
+        [
+          39420,
+          39900
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          48060,
+          48540
+        ],
+        [
+          49500,
+          49980
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          58140,
+          58620
+        ],
+        [
+          59580,
+          60060
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          68220,
+          68700
+        ],
+        [
+          69660,
+          70140
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          78300,
+          78780
+        ],
+        [
+          79740,
+          80220
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          82620,
+          83100
+        ],
+        [
+          84060,
+          84540
+        ],
+        [
+          88380,
+          88860
+        ],
+        [
+          89820,
+          90300
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          92700,
+          93180
+        ],
+        [
+          94140,
+          94620
+        ],
+        [
+          98460,
+          98940
+        ],
+        [
+          99900,
+          100380
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          102780,
+          103260
+        ],
+        [
+          104220,
+          104700
+        ],
+        [
+          108540,
+          109020
+        ],
+        [
+          109980,
+          110460
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          112860,
+          113340
+        ],
+        [
+          114300,
+          114780
+        ],
+        [
+          118620,
+          119100
+        ],
+        [
+          120060,
+          120540
+        ],
+        [
+          121500,
+          121980
+        ],
+        [
+          122940,
+          123420
+        ],
+        [
+          124380,
+          124860
+        ],
+        [
+          128700,
+          129180
+        ],
+        [
+          130140,
+          130620
+        ],
+        [
+          131580,
+          132060
+        ],
+        [
+          133020,
+          133500
+        ],
+        [
+          134460,
+          134940
+        ],
+        [
+          138780,
+          139260
+        ],
+        [
+          140220,
+          140700
+        ],
+        [
+          141660,
+          142140
+        ],
+        [
+          143100,
+          143580
+        ],
+        [
+          144540,
+          145020
+        ],
+        [
+          148860,
+          149340
+        ],
+        [
+          150300,
+          150780
+        ],
+        [
+          151740,
+          152220
+        ],
+        [
+          153180,
+          153660
+        ],
+        [
+          154620,
+          155100
+        ],
+        [
+          158940,
+          159420
+        ],
+        [
+          160380,
+          160860
+        ],
+        [
+          161820,
+          162300
+        ],
+        [
+          163260,
+          163740
+        ],
+        [
+          164700,
+          165180
+        ],
+        [
+          169020,
+          169500
+        ],
+        [
+          170460,
+          170940
+        ],
+        [
+          171900,
+          172380
+        ],
+        [
+          173340,
+          173820
+        ],
+        [
+          174780,
+          175200
+        ]
+      ]
     },
     "resources": [
       {
@@ -469,9 +824,13 @@
               "r2",
               "r3"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 98940,
             "pathCriticalness": 80.38691322901849,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -493,9 +852,13 @@
               "r1",
               "r2"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 38460,
             "pathCriticalness": 80.38691322901849,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -516,9 +879,13 @@
             "allocated": [
               "r1"
             ],
+            "complete": null,
             "criticalness": 14.110953058321481,
+            "depends": [],
+            "direction": "asap",
             "end": 9660,
             "pathCriticalness": 80.38691322901849,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -539,9 +906,20 @@
             "allocated": [
               "r1"
             ],
+            "complete": null,
             "criticalness": 8.466571834992887,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1.t1"
+              }
+            ],
+            "direction": "asap",
             "end": 29820,
             "pathCriticalness": 66.275960170697,
+            "precedes": [],
             "scheduled": true,
             "start": 23580
           }
@@ -562,9 +940,13 @@
             "allocated": [
               "r1"
             ],
+            "complete": null,
             "criticalness": 19.75533428165007,
+            "depends": [],
+            "direction": "asap",
             "end": 22620,
             "pathCriticalness": 69.5533428165007,
+            "precedes": [],
             "scheduled": true,
             "start": 10620
           }
@@ -585,9 +967,20 @@
             "allocated": [
               "r2"
             ],
+            "complete": null,
             "criticalness": 8.011379800853485,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1.t2"
+              }
+            ],
+            "direction": "asap",
             "end": 38460,
             "pathCriticalness": 57.80938833570412,
+            "precedes": [],
             "scheduled": true,
             "start": 30780
           }
@@ -610,9 +1003,20 @@
               "r2",
               "r3"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1"
+              }
+            ],
+            "direction": "asap",
             "end": 61500,
             "pathCriticalness": 49.79800853485064,
+            "precedes": [],
             "scheduled": true,
             "start": 39420
           }
@@ -633,9 +1037,20 @@
             "allocated": [
               "r2"
             ],
+            "complete": null,
             "criticalness": 6.008534850640114,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1"
+              }
+            ],
+            "direction": "asap",
             "end": 42780,
             "pathCriticalness": 38.964438122332865,
+            "precedes": [],
             "scheduled": true,
             "start": 39420
           }
@@ -656,9 +1071,26 @@
             "allocated": [
               "r3"
             ],
+            "complete": null,
             "criticalness": 4.733997155049787,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2.t1"
+              }
+            ],
+            "direction": "asap",
             "end": 61500,
             "pathCriticalness": 31.681365576102415,
+            "precedes": [],
             "scheduled": true,
             "start": 43740
           }
@@ -679,9 +1111,20 @@
             "allocated": [
               "r1"
             ],
+            "complete": null,
             "criticalness": 16.933143669985775,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1"
+              }
+            ],
+            "direction": "asap",
             "end": 49980,
             "pathCriticalness": 49.79800853485064,
+            "precedes": [],
             "scheduled": true,
             "start": 39420
           }
@@ -702,9 +1145,26 @@
             "allocated": [
               "r3"
             ],
+            "complete": null,
             "criticalness": 5.917496443812233,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2.t3"
+              }
+            ],
+            "direction": "asap",
             "end": 60060,
             "pathCriticalness": 32.86486486486486,
+            "precedes": [],
             "scheduled": true,
             "start": 50940
           }
@@ -725,9 +1185,26 @@
             "allocated": [
               "r2"
             ],
+            "complete": null,
             "criticalness": 6.008534850640114,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2.t1"
+              }
+            ],
+            "direction": "asap",
             "end": 49980,
             "pathCriticalness": 32.95590327169275,
+            "precedes": [],
             "scheduled": true,
             "start": 43740
           }
@@ -750,9 +1227,20 @@
               "r2",
               "r3"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2"
+              }
+            ],
+            "direction": "asap",
             "end": 98940,
             "pathCriticalness": 26.94736842105263,
+            "precedes": [],
             "scheduled": true,
             "start": 62460
           }
@@ -773,9 +1261,26 @@
             "allocated": [
               "r1"
             ],
+            "complete": null,
             "criticalness": 16.933143669985775,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s1.t2"
+              }
+            ],
+            "direction": "asap",
             "end": 73020,
             "pathCriticalness": 26.94736842105263,
+            "precedes": [],
             "scheduled": true,
             "start": 62460
           }
@@ -796,9 +1301,26 @@
             "allocated": [
               "r3"
             ],
+            "complete": null,
             "criticalness": 4.733997155049787,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s3.t1"
+              }
+            ],
+            "direction": "asap",
             "end": 81660,
             "pathCriticalness": 4.733997155049787,
+            "precedes": [],
             "scheduled": true,
             "start": 73980
           }
@@ -819,9 +1341,26 @@
             "allocated": [
               "r1"
             ],
+            "complete": null,
             "criticalness": 11.288762446657184,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2.t4"
+              }
+            ],
+            "direction": "asap",
             "end": 81660,
             "pathCriticalness": 25.30867709815078,
+            "precedes": [],
             "scheduled": true,
             "start": 73980
           }
@@ -842,9 +1381,26 @@
             "allocated": [
               "r2"
             ],
+            "complete": null,
             "criticalness": 14.019914651493599,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s3.t3"
+              }
+            ],
+            "direction": "asap",
             "end": 94620,
             "pathCriticalness": 14.019914651493599,
+            "precedes": [],
             "scheduled": true,
             "start": 82620
           }
@@ -865,9 +1421,26 @@
             "allocated": [
               "r2"
             ],
+            "complete": null,
             "criticalness": 10.014224751066855,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s2"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "product.s3.t1"
+              }
+            ],
+            "direction": "asap",
             "end": 98940,
             "pathCriticalness": 10.014224751066855,
+            "precedes": [],
             "scheduled": true,
             "start": 73980
           }
@@ -880,5 +1453,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

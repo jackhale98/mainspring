@@ -36,6 +36,7 @@
     ],
     "ok": false,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-04-01T10:00:00Z",
       "id": "pf",
       "name": "Parse failure",
@@ -51,10 +52,11 @@
       "start": "2026-03-02T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": []
     },
     "resources": [],
     "tasks": []
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

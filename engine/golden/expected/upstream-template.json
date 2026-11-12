@@ -26,6 +26,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2012-03-11T21:00:00Z",
       "id": "your_project_id",
       "name": "Your Project Title",
@@ -41,7 +42,341 @@
       "start": "2011-11-11T05:00:00Z",
       "timezone": "America/New_York",
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          7740,
+          8220
+        ],
+        [
+          9180,
+          9660
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          17820,
+          18300
+        ],
+        [
+          19260,
+          19740
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          27900,
+          28380
+        ],
+        [
+          29340,
+          29820
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          37980,
+          38460
+        ],
+        [
+          39420,
+          39900
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          48060,
+          48540
+        ],
+        [
+          49500,
+          49980
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          58140,
+          58620
+        ],
+        [
+          59580,
+          60060
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          68220,
+          68700
+        ],
+        [
+          69660,
+          70140
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          76860,
+          77340
+        ],
+        [
+          78300,
+          78780
+        ],
+        [
+          79740,
+          80220
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          85500,
+          85980
+        ],
+        [
+          86940,
+          87420
+        ],
+        [
+          88380,
+          88860
+        ],
+        [
+          89820,
+          90300
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          97020,
+          97500
+        ],
+        [
+          98460,
+          98940
+        ],
+        [
+          99900,
+          100380
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          105660,
+          106140
+        ],
+        [
+          107100,
+          107580
+        ],
+        [
+          108540,
+          109020
+        ],
+        [
+          109980,
+          110460
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          115740,
+          116220
+        ],
+        [
+          117180,
+          117660
+        ],
+        [
+          118620,
+          119100
+        ],
+        [
+          120060,
+          120540
+        ],
+        [
+          121500,
+          121980
+        ],
+        [
+          125820,
+          126300
+        ],
+        [
+          127260,
+          127740
+        ],
+        [
+          128700,
+          129180
+        ],
+        [
+          130140,
+          130620
+        ],
+        [
+          131580,
+          132060
+        ],
+        [
+          135900,
+          136380
+        ],
+        [
+          137340,
+          137820
+        ],
+        [
+          138780,
+          139260
+        ],
+        [
+          140220,
+          140700
+        ],
+        [
+          141660,
+          142140
+        ],
+        [
+          147420,
+          147900
+        ],
+        [
+          148860,
+          149340
+        ],
+        [
+          150300,
+          150780
+        ],
+        [
+          151740,
+          152220
+        ],
+        [
+          156060,
+          156540
+        ],
+        [
+          157500,
+          157980
+        ],
+        [
+          158940,
+          159420
+        ],
+        [
+          160380,
+          160860
+        ],
+        [
+          161820,
+          162300
+        ],
+        [
+          166140,
+          166620
+        ],
+        [
+          167580,
+          168060
+        ],
+        [
+          169020,
+          169500
+        ],
+        [
+          170460,
+          170940
+        ],
+        [
+          171900,
+          172380
+        ]
+      ]
     },
     "resources": [
       {
@@ -134,9 +469,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 3,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -155,9 +494,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 3,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -176,9 +519,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 3,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -197,9 +544,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 3,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -218,9 +569,20 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "project.wp1"
+              }
+            ],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 2,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -239,9 +601,20 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "project.wp1"
+              }
+            ],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 2,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -260,9 +633,20 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "project.wp1"
+              }
+            ],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -281,9 +665,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 0,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -302,9 +690,20 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "project.wp1"
+              }
+            ],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -323,9 +722,20 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "project.wp2"
+              }
+            ],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -338,5 +748,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

@@ -171,6 +171,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "deps07",
       "name": "Dependency targets",
@@ -186,7 +187,245 @@
       "start": "2026-01-05T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          75420,
+          75900
+        ],
+        [
+          76860,
+          77340
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          82620,
+          83100
+        ],
+        [
+          84060,
+          84540
+        ],
+        [
+          85500,
+          85980
+        ],
+        [
+          86940,
+          87420
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          92700,
+          93180
+        ],
+        [
+          94140,
+          94620
+        ],
+        [
+          95580,
+          96060
+        ],
+        [
+          97020,
+          97500
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          102780,
+          103260
+        ],
+        [
+          104220,
+          104700
+        ],
+        [
+          105660,
+          106140
+        ],
+        [
+          107100,
+          107580
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          112860,
+          113340
+        ],
+        [
+          114300,
+          114780
+        ],
+        [
+          115740,
+          116220
+        ]
+      ]
     },
     "resources": [
       {
@@ -234,9 +473,13 @@
               "nina",
               "omar"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 22620,
             "pathCriticalness": 18.440677966101696,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -257,9 +500,13 @@
             "allocated": [
               "nina"
             ],
+            "complete": null,
             "criticalness": 8.135593220338983,
+            "depends": [],
+            "direction": "asap",
             "end": 6780,
             "pathCriticalness": 18.440677966101696,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -280,9 +527,20 @@
             "allocated": [
               "omar"
             ],
+            "complete": null,
             "criticalness": 5.423728813559322,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "chain.a"
+              }
+            ],
+            "direction": "asap",
             "end": 15420,
             "pathCriticalness": 10.305084745762713,
+            "precedes": [],
             "scheduled": true,
             "start": 10620
           }
@@ -303,9 +561,20 @@
             "allocated": [
               "nina"
             ],
+            "complete": null,
             "criticalness": 4.88135593220339,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": false,
+                "task": "chain.b"
+              }
+            ],
+            "direction": "asap",
             "end": 13980,
             "pathCriticalness": 4.88135593220339,
+            "precedes": [],
             "scheduled": true,
             "start": 10620
           }
@@ -326,9 +595,20 @@
             "allocated": [
               "omar"
             ],
+            "complete": null,
             "criticalness": 4.067796610169491,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": false,
+                "task": "chain.a"
+              }
+            ],
+            "direction": "asap",
             "end": 3900,
             "pathCriticalness": 7.322033898305085,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -349,9 +629,26 @@
             "allocated": [
               "nina"
             ],
+            "complete": null,
             "criticalness": 3.2542372881355934,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "chain.c"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "chain.d"
+              }
+            ],
+            "direction": "asap",
             "end": 16860,
             "pathCriticalness": 3.2542372881355934,
+            "precedes": [],
             "scheduled": true,
             "start": 14940
           }
@@ -372,9 +669,20 @@
             "allocated": [
               "omar"
             ],
+            "complete": null,
             "criticalness": 2.711864406779661,
+            "depends": [],
+            "direction": "alap",
             "end": 6780,
             "pathCriticalness": 2.711864406779661,
+            "precedes": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": false,
+                "task": "chain.e"
+              }
+            ],
             "scheduled": true,
             "start": 4860
           }
@@ -395,9 +703,20 @@
             "allocated": [
               "nina"
             ],
+            "complete": null,
             "criticalness": 3.2542372881355934,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "chain.a"
+              }
+            ],
+            "direction": "asap",
             "end": 22620,
             "pathCriticalness": 3.2542372881355934,
+            "precedes": [],
             "scheduled": true,
             "start": 20700
           }
@@ -418,9 +737,20 @@
             "allocated": [
               "omar"
             ],
+            "complete": null,
             "criticalness": 1.3559322033898304,
+            "depends": [],
+            "direction": "alap",
             "end": 22620,
             "pathCriticalness": 4.610169491525424,
+            "precedes": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "chain.g"
+              }
+            ],
             "scheduled": true,
             "start": 22140
           }
@@ -433,5 +763,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

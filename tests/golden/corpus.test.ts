@@ -2,6 +2,7 @@
 // Unit tests for corpus.ts: the manifest checks the parity test relies on, request building and
 // the seeded shuffle.
 import { describe, expect, it } from 'vitest';
+import { GOLDEN_SCHEMA_VERSION } from '../../engine/golden/lib.mjs';
 import { planRequest as nodeHarnessRequest } from '../../engine/golden/run-wasm.mjs';
 import {
 	expectedIds,
@@ -20,9 +21,10 @@ describe('corpus', () => {
 		expect(expectedIds()).toEqual([...ids].sort());
 	});
 
-	it('records every golden against the pinned TaskJuggler commit', () => {
+	it('records every golden against the pinned TaskJuggler commit and the current schema', () => {
 		const pin = pinnedCommit();
 		for (const { plan, golden } of loadCorpus()) {
+			expect(golden.schemaVersion, `${plan.id} schemaVersion`).toBe(GOLDEN_SCHEMA_VERSION);
 			expect(golden.native.tjCommit, plan.id).toBe(pin);
 			expect(golden.id).toBe(plan.id);
 			expect(golden.options.now, `${plan.id} options.now`).toBe(plan.now);

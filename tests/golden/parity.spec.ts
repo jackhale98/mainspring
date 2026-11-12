@@ -12,6 +12,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import type { ScheduleOutcome } from '../../src/engine/client';
 import type { EngineVersions, ScheduleRequest } from '../../src/engine/protocol';
+import { GOLDEN_SCHEMA_VERSION } from '../../engine/golden/lib.mjs';
 import { compareWithGolden } from './compare';
 import {
 	REPO,
@@ -114,12 +115,15 @@ test.afterAll(() => {
 	);
 });
 
-test('manifest, goldens and pin agree', () => {
+test('manifest, goldens, pin and schema agree', () => {
 	const ids = loadManifest().map((p) => p.id);
 	expect(ids).toHaveLength(EXPECTED_PLAN_COUNT);
 	expect(expectedIds()).toEqual([...ids].sort());
 	const pin = pinnedCommit();
-	for (const { plan, golden } of corpus) expect(golden.native.tjCommit, plan.id).toBe(pin);
+	for (const { plan, golden } of corpus) {
+		expect(golden.native.tjCommit, plan.id).toBe(pin);
+		expect(golden.schemaVersion, plan.id).toBe(GOLDEN_SCHEMA_VERSION);
+	}
 });
 
 test('the long-lived client forgets files that a later request leaves out', async ({ page }) => {

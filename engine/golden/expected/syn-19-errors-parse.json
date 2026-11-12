@@ -37,6 +37,7 @@
     ],
     "ok": false,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "errors19",
       "name": "Parse error in include",
@@ -52,10 +53,11 @@
       "start": "2026-01-05T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "workingTime": []
     },
     "resources": [],
     "tasks": []
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

@@ -99,6 +99,7 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "kathmandu10",
       "name": "Fractional offset",
@@ -114,7 +115,165 @@
       "start": "2026-02-02T00:00:00Z",
       "timezone": "Asia/Kathmandu",
       "timingResolutionMin": 15,
-      "version": null
+      "version": null,
+      "workingTime": [
+        [
+          195,
+          675
+        ],
+        [
+          1635,
+          2115
+        ],
+        [
+          3075,
+          3555
+        ],
+        [
+          4515,
+          4995
+        ],
+        [
+          5955,
+          6435
+        ],
+        [
+          10275,
+          10755
+        ],
+        [
+          11715,
+          12195
+        ],
+        [
+          13155,
+          13635
+        ],
+        [
+          14595,
+          15075
+        ],
+        [
+          16035,
+          16515
+        ],
+        [
+          20355,
+          20835
+        ],
+        [
+          21795,
+          22275
+        ],
+        [
+          23235,
+          23715
+        ],
+        [
+          24675,
+          25155
+        ],
+        [
+          26115,
+          26595
+        ],
+        [
+          30435,
+          30915
+        ],
+        [
+          31875,
+          32355
+        ],
+        [
+          33315,
+          33795
+        ],
+        [
+          34755,
+          35235
+        ],
+        [
+          36195,
+          36675
+        ],
+        [
+          40515,
+          40995
+        ],
+        [
+          41955,
+          42435
+        ],
+        [
+          43395,
+          43875
+        ],
+        [
+          44835,
+          45315
+        ],
+        [
+          46275,
+          46755
+        ],
+        [
+          50595,
+          51075
+        ],
+        [
+          52035,
+          52515
+        ],
+        [
+          53475,
+          53955
+        ],
+        [
+          54915,
+          55395
+        ],
+        [
+          56355,
+          56835
+        ],
+        [
+          60675,
+          61155
+        ],
+        [
+          62115,
+          62595
+        ],
+        [
+          63555,
+          64035
+        ],
+        [
+          64995,
+          65475
+        ],
+        [
+          66435,
+          66915
+        ],
+        [
+          70755,
+          71235
+        ],
+        [
+          72195,
+          72675
+        ],
+        [
+          73635,
+          74115
+        ],
+        [
+          75075,
+          75555
+        ]
+      ]
     },
     "resources": [
       {
@@ -162,9 +321,13 @@
               "raj",
               "sita"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 33450,
             "pathCriticalness": 30.97435897435897,
+            "precedes": [],
             "scheduled": true,
             "start": 195
           }
@@ -185,9 +348,13 @@
             "allocated": [
               "raj"
             ],
+            "complete": null,
             "criticalness": 10.461538461538462,
+            "depends": [],
+            "direction": "asap",
             "end": 3555,
             "pathCriticalness": 30.97435897435897,
+            "precedes": [],
             "scheduled": true,
             "start": 195
           }
@@ -208,9 +375,20 @@
             "allocated": [
               "sita"
             ],
+            "complete": null,
             "criticalness": 16.41025641025641,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "fractional.survey"
+              }
+            ],
+            "direction": "asap",
             "end": 12195,
             "pathCriticalness": 20.51282051282051,
+            "precedes": [],
             "scheduled": true,
             "start": 4515
           }
@@ -231,9 +409,13 @@
             "allocated": [
               "raj"
             ],
+            "complete": null,
             "criticalness": 4.3589743589743595,
+            "depends": [],
+            "direction": "asap",
             "end": 32010,
             "pathCriticalness": 4.3589743589743595,
+            "precedes": [],
             "scheduled": true,
             "start": 30450
           }
@@ -254,9 +436,26 @@
             "allocated": [
               "sita"
             ],
+            "complete": null,
             "criticalness": 4.102564102564102,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "fractional.install"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "fractional.quarter"
+              }
+            ],
+            "direction": "asap",
             "end": 33450,
             "pathCriticalness": 4.102564102564102,
+            "precedes": [],
             "scheduled": true,
             "start": 32010
           }
@@ -269,5 +468,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }
