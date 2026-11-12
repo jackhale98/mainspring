@@ -70,7 +70,8 @@ function buildTree(n, rnd) {
         else leaf.size = `duration ${1 + (s % 3)}d`;
         if (phase.index === 0) leaf.complete = 100;
         else if (phase.index === 1 && s % 2 === 0) leaf.complete = 40;
-        const withAllocation = !(kind === 9 && s % 3 === 0);
+        // Only effort leaves are allocated: TaskJuggler warns about allocations it cannot fill.
+        const withAllocation = kind <= 6;
         if (withAllocation) {
           leaf.alloc = [pick(n === 200 ? 10 : 20)];
           if (s % 5 === 0) leaf.alloc.push((leaf.alloc[0] + 1 + pick(3)) % (n === 200 ? 10 : 20));

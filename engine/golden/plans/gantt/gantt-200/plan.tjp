@@ -74,16 +74,14 @@ task p0 "Phase 1" {
       allocate r07
     }
     task t7 "Item 7" {
-      depends !t6
+      depends !t6 { gapduration 2d }
       length 5d
       complete 100
-      allocate r02
     }
     task t8 "Item 8" {
-      depends !t7 { gaplength 3d }
+      depends !t7
       length 2d
       complete 100
-      allocate r09
     }
   }
   task p0k1 "Package 1.2" {
@@ -96,92 +94,89 @@ task p0 "Phase 1" {
       depends !t9
       effort 7d
       complete 100
-      allocate r07, r08
+      allocate r09, r01
     }
     task t11 "Item 11" {
       depends !t10
       effort 6d
       complete 100
-      allocate r09
+      allocate r02
     }
     task t12 "Item 12" {
-      depends !t11 { gaplength 3d }
+      depends !t11
       effort 5d
       complete 100
-      allocate r00
+      allocate r09
     }
     task t13 "Item 13" {
-      depends !t12
+      depends !t12 { gaplength 3d }
       effort 4d
       complete 100
-      allocate r07
+      allocate r00
     }
     task t14 "Item 14" {
       depends !t13
       effort 3d
       complete 100
-      allocate r06
+      allocate r07
     }
     task t15 "Item 15" {
-      depends !t14
+      depends !t14 { gaplength 2d }
       effort 2d
       complete 100
-      allocate r01, r03
+      allocate r06, r09
     }
     task t16 "Item 16" {
-      depends !t15
+      depends !t15 { onstart }
       effort 1d
       complete 100
-      allocate r03
+      allocate r08
     }
   }
   task p0k2 "Package 1.3" {
     task t17 "Item 17" {
       length 3d
       complete 100
-      allocate r07
     }
     task t18 "Item 18" {
-      depends !t17 { gaplength 2d }
+      depends !t17
       length 4d
       complete 100
-      allocate r08
     }
     task t19 "Item 19" {
-      depends !t18
+      depends !t18 { onstart }
       duration 2d
       complete 100
-      allocate r05
     }
     task t20 "Item 20" {
-      depends !t19 { onstart }
+      depends !t19
       effort 5d
       complete 100
-      allocate r01, r03
+      allocate r08, r09
     }
     task t21 "Item 21" {
-      depends !t20 { gaplength 2d }
+      depends !t20
       effort 4d
       complete 100
-      allocate r02
+      allocate r05
     }
     task t22 "Item 22" {
       depends !t21
       effort 3d
       complete 100
-      allocate r04
+      allocate r01
     }
     task t23 "Item 23" {
-      depends !t22
+      depends !t22 { gapduration 1d }
       effort 2d
       complete 100
       allocate r03
     }
     task t24 "Item 24" {
-      depends !t23 { gaplength 3d }
+      depends !t23
       effort 1d
       complete 100
-      allocate r02
+      allocate r03
     }
   }
   task p0k3 "Package 1.4" {
@@ -189,10 +184,10 @@ task p0 "Phase 1" {
       depends p0.p0k2.t24
       effort 8d
       complete 100
-      allocate r05, r07
+      allocate r08, r00
     }
     task t26 "Item 26" {
-      depends !t25 { gapduration 2d }
+      depends !t25 { gaplength 3d }
       effort 7d
       complete 100
       allocate r02
@@ -201,74 +196,69 @@ task p0 "Phase 1" {
       depends !t26
       length 5d
       complete 100
-      allocate r09
     }
     task t28 "Item 28" {
       depends !t27
       length 2d
       complete 100
-      allocate r03
     }
     task t29 "Item 29" {
       depends !t28
       duration 3d
       complete 100
-      allocate r02
     }
     task t30 "Item 30" {
       depends !t29
       effort 3d
       complete 100
-      allocate r00, r02
+      allocate r02, r03
     }
     task t31 "Item 31" {
       depends !t30
       effort 2d
       complete 100
-      allocate r07
+      allocate r09
     }
     task t32 "Item 32" {
       depends !t31
       effort 1d
       complete 100
-      allocate r00
+      allocate r03
     }
   }
   task p0k4 "Package 1.5" {
     task t33 "Item 33" {
       effort 8d
       complete 100
-      allocate r04
+      allocate r02
     }
     task t34 "Item 34" {
-      depends !t33 { gaplength 2d }
+      depends !t33
       effort 7d
       complete 100
-      allocate r07
+      allocate r00
     }
     task t35 "Item 35" {
       depends !t34
       effort 6d
       complete 100
-      allocate r09, r00
+      allocate r04, r07
     }
     task t36 "Item 36" {
-      depends !t35 { onstart }
+      depends !t35
       effort 5d
       complete 100
-      allocate r03
+      allocate r00
     }
     task t37 "Item 37" {
       depends !t36
       length 3d
       complete 100
-      allocate r01
     }
     task t38 "Item 38" {
-      depends !t37 { gapduration 2d }
+      depends !t37
       length 4d
       complete 100
-      allocate r06
     }
     task t39 "Item 39" {
       depends !t38
@@ -276,10 +266,10 @@ task p0 "Phase 1" {
       complete 100
     }
     task t40 "Item 40" {
-      depends !t39 { onstart }
+      depends !t39
       effort 1d
       complete 100
-      allocate r04, r06
+      allocate r01, r03
     }
   }
   task p0k5 "Package 1.6" {
@@ -287,13 +277,13 @@ task p0 "Phase 1" {
       depends p0.p0k4.t40
       effort 8d
       complete 100
-      allocate r00
+      allocate r01
     }
     task t42 "Item 42" {
-      depends !t41 { gaplength 2d }
+      depends !t41 { onstart }
       effort 7d
       complete 100
-      allocate r07
+      allocate r03
     }
   }
   task ms0 "Phase 1 done" {
@@ -307,239 +297,228 @@ task p1 "Phase 2" {
     task t43 "Item 43" {
       depends p0.ms0
       effort 6d
-      allocate r07
-    }
-    task t44 "Item 44" {
-      depends !t43
-      effort 5d
-      complete 40
-      allocate r02
-    }
-    task t45 "Item 45" {
-      depends !t44
-      effort 4d
-      allocate r04, r05
-    }
-    task t46 "Item 46" {
-      depends !t45 { onstart }
-      effort 3d
-      complete 40
       allocate r01
     }
-    task t47 "Item 47" {
-      depends !t46 { gaplength 2d }
-      length 5d
-      allocate r05
+    task t44 "Item 44" {
+      depends !t43 { gapduration 2d }
+      effort 5d
+      complete 40
+      allocate r06
     }
-    task t48 "Item 48" {
-      depends !t47 { gapduration 2d }
-      length 2d
+    task t45 "Item 45" {
+      depends !t44 { onstart }
+      effort 4d
+      allocate r07, r09
+    }
+    task t46 "Item 46" {
+      depends !t45 { gaplength 2d }
+      effort 3d
       complete 40
       allocate r03
+    }
+    task t47 "Item 47" {
+      depends !t46
+      length 5d
+    }
+    task t48 "Item 48" {
+      depends !t47 { gaplength 2d }
+      length 2d
+      complete 40
     }
     task t49 "Item 49" {
       depends !t48
       duration 2d
-      allocate r00
     }
     task t50 "Item 50" {
       depends !t49
       effort 7d
       complete 40
-      allocate r01, r03
+      allocate r01, r02
     }
   }
   task p1k1 "Package 2.2" {
     task t51 "Item 51" {
       depends p1.p1k0.t50
       effort 6d
-      allocate r00
+      allocate r04
     }
     task t52 "Item 52" {
-      depends !t51
+      depends !t51 { gaplength 2d }
       effort 5d
       complete 40
-      allocate r07
+      allocate r04
     }
     task t53 "Item 53" {
-      depends !t52
+      depends !t52 { gaplength 2d }
       effort 4d
-      allocate r00
+      allocate r05
     }
     task t54 "Item 54" {
-      depends !t53
+      depends !t53 { gapduration 2d }
       effort 3d
       complete 40
       allocate r03
     }
     task t55 "Item 55" {
-      depends !t54
+      depends !t54 { gaplength 2d }
       effort 2d
-      allocate r07, r09
+      allocate r00, r02
     }
     task t56 "Item 56" {
       depends !t55 { gaplength 1d }
       effort 1d
       complete 40
-      allocate r04
+      allocate r08
     }
     task t57 "Item 57" {
-      depends !t56 { onstart }
+      depends !t56
       length 3d
-      allocate r05
     }
     task t58 "Item 58" {
       depends !t57
       length 4d
       complete 40
-      allocate r02
     }
   }
   task p1k2 "Package 2.3" {
     task t59 "Item 59" {
       depends p0.ms0
       duration 3d
-      allocate r05
     }
     task t60 "Item 60" {
       depends !t59
       effort 5d
       complete 40
-      allocate r08, r09
+      allocate r06, r08
     }
     task t61 "Item 61" {
-      depends !t60
+      depends !t60 { onstart }
       effort 4d
       allocate r07
     }
     task t62 "Item 62" {
-      depends !t61 { gaplength 3d }
+      depends !t61
       effort 3d
       complete 40
-      allocate r03
+      allocate r07
     }
     task t63 "Item 63" {
-      depends !t62
+      depends !t62 { gaplength 2d }
       effort 2d
       allocate r01
     }
     task t64 "Item 64" {
-      depends !t63
+      depends !t63 { gapduration 2d }
       effort 1d
       complete 40
-      allocate r00
+      allocate r03
     }
     task t65 "Item 65" {
       depends !t64
       effort 8d
-      allocate r00, r02
+      allocate r05, r06
     }
     task t66 "Item 66" {
       depends !t65
       effort 7d
       complete 40
-      allocate r05
+      allocate r02
     }
   }
   task p1k3 "Package 2.4" {
     task t67 "Item 67" {
       depends p1.p1k2.t66
       length 5d
-      allocate r07
     }
     task t68 "Item 68" {
-      depends !t67 { gapduration 1d }
+      depends !t67
       length 2d
       complete 40
-      allocate r00
     }
     task t69 "Item 69" {
-      depends !t68
+      depends !t68 { onstart }
       duration 1d
     }
     task t70 "Item 70" {
-      depends !t69
+      depends !t69 { gaplength 3d }
       effort 3d
       complete 40
-      allocate r03, r06
+      allocate r00, r03
     }
     task t71 "Item 71" {
-      depends !t70 { onstart }
+      depends !t70
       effort 2d
-      allocate r08
+      allocate r00
     }
     task t72 "Item 72" {
-      depends !t71
+      depends !t71 { onstart }
       effort 1d
       complete 40
-      allocate r09
+      allocate r00
     }
     task t73 "Item 73" {
       depends !t72
       effort 8d
-      allocate r02
+      allocate r07
     }
     task t74 "Item 74" {
-      depends !t73 { gaplength 3d }
+      depends !t73
       effort 7d
       complete 40
-      allocate r09
+      allocate r08
     }
   }
   task p1k4 "Package 2.5" {
     task t75 "Item 75" {
       depends p0.ms0
       effort 6d
-      allocate r06, r08
+      allocate r04, r05
     }
     task t76 "Item 76" {
-      depends !t75 { gaplength 2d }
+      depends !t75
       effort 5d
       complete 40
-      allocate r00
+      allocate r01
     }
     task t77 "Item 77" {
-      depends !t76
+      depends !t76 { onstart }
       length 3d
-      allocate r08
     }
     task t78 "Item 78" {
-      depends !t77 { gaplength 3d }
+      depends !t77
       length 4d
       complete 40
-      allocate r00
     }
     task t79 "Item 79" {
-      depends !t78 { gaplength 1d }
+      depends !t78
       duration 2d
-      allocate r06
     }
     task t80 "Item 80" {
       depends !t79
       effort 1d
       complete 40
-      allocate r08, r00
+      allocate r08, r09
     }
     task t81 "Item 81" {
-      depends !t80
+      depends !t80 { gapduration 2d }
       effort 8d
-      allocate r02
+      allocate r05
     }
     task t82 "Item 82" {
-      depends !t81
+      depends !t81 { gaplength 3d }
       effort 7d
       complete 40
-      allocate r08
+      allocate r09
     }
   }
   task p1k5 "Package 2.6" {
     task t83 "Item 83" {
       depends p1.p1k4.t82
       effort 6d
-      allocate r03
+      allocate r06
     }
     task t84 "Item 84" {
-      depends !t83
+      depends !t83 { gaplength 1d }
       effort 5d
       complete 40
       allocate r06
@@ -556,219 +535,208 @@ task p2 "Phase 3" {
     task t85 "Item 85" {
       depends p1.ms1
       effort 4d
-      allocate r03, r04
+      allocate r04, r07
     }
     task t86 "Item 86" {
-      depends !t85
+      depends !t85 { gaplength 3d }
       effort 3d
       allocate r00
     }
     task t87 "Item 87" {
       depends !t86
       length 5d
-      allocate r06
     }
     task t88 "Item 88" {
-      depends !t87
+      depends !t87 { gaplength 1d }
       length 2d
-      allocate r01
     }
     task t89 "Item 89" {
-      depends !t88 { gaplength 2d }
+      depends !t88
       duration 3d
-      allocate r02
     }
     task t90 "Item 90" {
-      depends !t89
+      depends !t89 { gapduration 2d }
       effort 7d
-      allocate r07, r08
+      allocate r05, r08
     }
     task t91 "Item 91" {
-      depends !t90 { onstart }
+      depends !t90
       effort 6d
-      allocate r01
+      allocate r08
     }
     task t92 "Item 92" {
       depends !t91
       effort 5d
-      allocate r06
+      allocate r03
     }
   }
   task p2k1 "Package 3.2" {
     task t93 "Item 93" {
       depends p2.p2k0.t92
       effort 4d
-      allocate r07
+      allocate r06
     }
     task t94 "Item 94" {
-      depends !t93 { gapduration 2d }
+      depends !t93 { gapduration 1d }
       effort 3d
-      allocate r07
+      allocate r03
     }
     task t95 "Item 95" {
-      depends !t94 { gapduration 2d }
+      depends !t94
       effort 2d
-      allocate r07, r09
+      allocate r00, r02
     }
     task t96 "Item 96" {
-      depends !t95 { onstart }
+      depends !t95 { gaplength 3d }
       effort 1d
-      allocate r01
-    }
-    task t97 "Item 97" {
-      depends !t96 { onstart }
-      length 3d
       allocate r07
     }
+    task t97 "Item 97" {
+      depends !t96 { gapduration 1d }
+      length 3d
+    }
     task t98 "Item 98" {
-      depends !t97
+      depends !t97 { onstart }
       length 4d
-      allocate r06
     }
     task t99 "Item 99" {
       depends !t98
       duration 1d
     }
     task t100 "Item 100" {
-      depends !t99
+      depends !t99 { gaplength 1d }
       effort 5d
-      allocate r06, r07
+      allocate r01, r04
     }
   }
   task p2k2 "Package 3.3" {
     task t101 "Item 101" {
       depends p1.ms1
       effort 4d
-      allocate r07
+      allocate r06
     }
     task t102 "Item 102" {
       depends !t101
       effort 3d
-      allocate r08
+      allocate r07
     }
     task t103 "Item 103" {
-      depends !t102
+      depends !t102 { gapduration 2d }
       effort 2d
-      allocate r09
+      allocate r07
     }
     task t104 "Item 104" {
-      depends !t103
+      depends !t103 { onstart }
       effort 1d
-      allocate r05
+      allocate r07
     }
     task t105 "Item 105" {
-      depends !t104 { gaplength 3d }
+      depends !t104 { gaplength 1d }
       effort 8d
-      allocate r09, r00
+      allocate r02, r05
     }
     task t106 "Item 106" {
-      depends !t105
+      depends !t105 { onstart }
       effort 7d
-      allocate r00
+      allocate r07
     }
     task t107 "Item 107" {
       depends !t106
       length 5d
-      allocate r01
     }
     task t108 "Item 108" {
       depends !t107
       length 2d
-      allocate r07
     }
   }
   task p2k3 "Package 3.4" {
     task t109 "Item 109" {
       depends p2.p2k2.t108
       duration 2d
-      allocate r08
     }
     task t110 "Item 110" {
       depends !t109
       effort 3d
-      allocate r01, r02
+      allocate r06, r07
     }
     task t111 "Item 111" {
       depends !t110
       effort 2d
-      allocate r02
+      allocate r07
     }
     task t112 "Item 112" {
-      depends !t111 { gapduration 2d }
+      depends !t111
       effort 1d
       allocate r08
     }
     task t113 "Item 113" {
-      depends !t112 { gaplength 1d }
+      depends !t112
       effort 8d
-      allocate r04
+      allocate r09
     }
     task t114 "Item 114" {
       depends !t113
       effort 7d
-      allocate r01
+      allocate r05
     }
     task t115 "Item 115" {
-      depends !t114
+      depends !t114 { gaplength 3d }
       effort 6d
-      allocate r05, r06
+      allocate r09, r00
     }
     task t116 "Item 116" {
       depends !t115
       effort 5d
-      allocate r07
+      allocate r00
     }
   }
   task p2k4 "Package 3.5" {
     task t117 "Item 117" {
       depends p1.ms1
       length 3d
-      allocate r09
     }
     task t118 "Item 118" {
-      depends !t117 { gapduration 1d }
+      depends !t117
       length 4d
-      allocate r08
     }
     task t119 "Item 119" {
-      depends !t118 { gaplength 3d }
+      depends !t118
       duration 3d
-      allocate r09
     }
     task t120 "Item 120" {
       depends !t119
       effort 1d
-      allocate r06, r08
+      allocate r08, r01
     }
     task t121 "Item 121" {
-      depends !t120 { onstart }
+      depends !t120 { gaplength 3d }
       effort 8d
-      allocate r00
+      allocate r01
     }
     task t122 "Item 122" {
       depends !t121
       effort 7d
-      allocate r09
+      allocate r02
     }
     task t123 "Item 123" {
-      depends !t122
+      depends !t122 { gapduration 2d }
       effort 6d
       allocate r08
     }
     task t124 "Item 124" {
-      depends !t123 { onstart }
+      depends !t123 { gaplength 1d }
       effort 5d
-      allocate r05
+      allocate r04
     }
   }
   task p2k5 "Package 3.6" {
     task t125 "Item 125" {
       depends p2.p2k4.t124
       effort 4d
-      allocate r02, r05
+      allocate r01, r04
     }
     task t126 "Item 126" {
-      depends !t125 { gaplength 3d }
+      depends !t125
       effort 3d
       allocate r03
     }
@@ -784,81 +752,76 @@ task p3 "Phase 4" {
     task t127 "Item 127" {
       depends p2.ms2
       length 5d
-      allocate r05
     }
     task t128 "Item 128" {
       depends !t127
       length 2d
-      allocate r05
     }
     task t129 "Item 129" {
-      depends !t128 { gaplength 2d }
+      depends !t128
       duration 1d
     }
     task t130 "Item 130" {
       depends !t129 { gapduration 1d }
       effort 7d
-      allocate r06, r07
+      allocate r00, r03
     }
     task t131 "Item 131" {
-      depends !t130
+      depends !t130 { gaplength 3d }
       effort 6d
-      allocate r03
+      allocate r09
     }
     task t132 "Item 132" {
       depends !t131
       effort 5d
-      allocate r01
+      allocate r06
     }
     task t133 "Item 133" {
-      depends !t132 { onstart }
+      depends !t132 { gaplength 2d }
       effort 4d
       allocate r09
     }
     task t134 "Item 134" {
-      depends !t133 { gapduration 1d }
+      depends !t133
       effort 3d
-      allocate r03
+      allocate r09
     }
   }
   task p3k1 "Package 4.2" {
     task t135 "Item 135" {
       depends p3.p3k0.t134
       effort 2d
-      allocate r02, r03
+      allocate r08, r00
     }
     task t136 "Item 136" {
-      depends !t135
+      depends !t135 { gapduration 2d }
       effort 1d
-      allocate r09
+      allocate r03
     }
     task t137 "Item 137" {
       depends !t136
       length 3d
-      allocate r03
     }
     task t138 "Item 138" {
-      depends !t137
+      depends !t137 { onstart }
       length 4d
-      allocate r03
     }
     task t139 "Item 139" {
-      depends !t138 { gaplength 2d }
+      depends !t138 { gaplength 3d }
       duration 2d
-      allocate r05
     }
     task t140 "Item 140" {
       depends !t139
       effort 5d
-      allocate r03, r05
+      allocate r05, r07
     }
     task t141 "Item 141" {
-      depends !t140 { onstart }
+      depends !t140 { gaplength 2d }
       effort 4d
-      allocate r01
+      allocate r09
     }
     task t142 "Item 142" {
-      depends !t141 { gapduration 2d }
+      depends !t141 { gapduration 1d }
       effort 3d
       allocate r06
     }
@@ -867,40 +830,37 @@ task p3 "Phase 4" {
     task t143 "Item 143" {
       depends p2.ms2
       effort 2d
-      allocate r03
+      allocate r01
     }
     task t144 "Item 144" {
-      depends !t143 { onstart }
+      depends !t143 { gaplength 3d }
       effort 1d
-      allocate r06
+      allocate r05
     }
     task t145 "Item 145" {
-      depends !t144
+      depends !t144 { onstart }
       effort 8d
-      allocate r01, r03
+      allocate r09, r01
     }
     task t146 "Item 146" {
-      depends !t145
+      depends !t145 { gaplength 1d }
       effort 7d
-      allocate r04
+      allocate r02
     }
     task t147 "Item 147" {
-      depends !t146
+      depends !t146 { gapduration 2d }
       length 5d
-      allocate r02
     }
     task t148 "Item 148" {
-      depends !t147 { onstart }
+      depends !t147
       length 2d
-      allocate r02
     }
     task t149 "Item 149" {
-      depends !t148 { gaplength 2d }
+      depends !t148
       duration 3d
-      allocate r04
     }
     task t150 "Item 150" {
-      depends !t149
+      depends !t149 { onstart }
       effort 3d
       allocate r03, r06
     }
@@ -909,42 +869,40 @@ task p3 "Phase 4" {
     task t151 "Item 151" {
       depends p3.p3k2.t150
       effort 2d
-      allocate r00
+      allocate r06
     }
     task t152 "Item 152" {
-      depends !t151 { gaplength 3d }
+      depends !t151
       effort 1d
-      allocate r02
+      allocate r01
     }
     task t153 "Item 153" {
-      depends !t152 { gaplength 3d }
+      depends !t152
       effort 8d
-      allocate r07
+      allocate r03
     }
     task t154 "Item 154" {
-      depends !t153
+      depends !t153 { gaplength 1d }
       effort 7d
-      allocate r09
+      allocate r05
     }
     task t155 "Item 155" {
-      depends !t154 { onstart }
+      depends !t154
       effort 6d
-      allocate r07, r00
+      allocate r06, r07
     }
     task t156 "Item 156" {
-      depends !t155 { gapduration 1d }
+      depends !t155
       effort 5d
-      allocate r07
+      allocate r03
     }
     task t157 "Item 157" {
       depends !t156
       length 3d
-      allocate r01
     }
     task t158 "Item 158" {
-      depends !t157 { gaplength 3d }
+      depends !t157 { onstart }
       length 4d
-      allocate r08
     }
   }
   task p3k4 "Package 4.5" {
@@ -955,49 +913,47 @@ task p3 "Phase 4" {
     task t160 "Item 160" {
       depends !t159
       effort 1d
-      allocate r08, r00
+      allocate r04, r07
     }
     task t161 "Item 161" {
-      depends !t160 { gaplength 2d }
+      depends !t160 { gapduration 2d }
       effort 8d
-      allocate r03
+      allocate r05
     }
     task t162 "Item 162" {
-      depends !t161
+      depends !t161 { onstart }
       effort 7d
-      allocate r04
+      allocate r02
     }
     task t163 "Item 163" {
-      depends !t162 { gapduration 2d }
+      depends !t162 { gaplength 2d }
       effort 6d
-      allocate r05
+      allocate r04
     }
     task t164 "Item 164" {
       depends !t163
       effort 5d
-      allocate r01
+      allocate r03
     }
     task t165 "Item 165" {
       depends !t164
       effort 4d
-      allocate r07, r09
+      allocate r07, r08
     }
     task t166 "Item 166" {
-      depends !t165 { gapduration 2d }
+      depends !t165 { gaplength 3d }
       effort 3d
-      allocate r00
+      allocate r02
     }
   }
   task p3k5 "Package 4.6" {
     task t167 "Item 167" {
       depends p3.p3k4.t166
       length 5d
-      allocate r01
     }
     task t168 "Item 168" {
-      depends !t167 { gapduration 1d }
+      depends !t167 { gaplength 3d }
       length 2d
-      allocate r03
     }
   }
   task ms3 "Phase 4 done" {
