@@ -7,11 +7,16 @@
 # type, start and end byte offsets and value. Macro calls are not supported (the caller skips
 # buffers containing `${` or `$(`).
 #
+# Each buffer goes through `forceUTF8Encoding` first, as FileStreamHandle does for files (and so
+# the wasm bridge, which writes files): `\r\n` and a lone `\r` become `\n`. Offsets refer to
+# that normalised text; the caller maps them back.
+#
 # Usage: ruby -I engine/tj/lib scripts/dev/tj-tokens.rb < texts.json > tokens.json
 #   texts.json:  ["text", ...]
 #   tokens.json: [{"tokens": [[type, startByte, endByte, value], ...],
 #                  "error": null | {"id": id, "at": startByte}}, ...]
 require 'json'
+require 'taskjuggler/UTF8String'
 require 'taskjuggler/TjException'
 require 'taskjuggler/MessageHandler'
 require 'taskjuggler/Log'
@@ -85,7 +90,7 @@ end
 
 texts = JSON.parse($stdin.read)
 out = texts.map do |text|
-  scanner = TaskJuggler::ProjectFileScanner.new(text)
+  scanner = TaskJuggler::ProjectFileScanner.new(text.forceUTF8Encoding)
   scanner.open(true)
   tokens = []
   err = nil
