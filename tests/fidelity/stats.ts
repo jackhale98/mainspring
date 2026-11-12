@@ -129,7 +129,7 @@ export function renderReport(
 		);
 		for (const k of text.regressions.known)
 			out.push(
-				`- ${k.id}: ${k.reason} (${k.stillFails ? 'still fails' : 'now passes: remove the mark'})`,
+				`- ${k.id}: ${k.reason} (${k.stillFails ? 'still fails the text-only properties' : 'text-only properties pass; the failure is in P4'})`,
 			);
 		out.push('');
 		if (text.failures.length > 0)
