@@ -38,6 +38,12 @@ function withChanges(
 	return { ...edit, changes, inverse };
 }
 
+/** The edit with `[from, to]` of `file` added to its declared targets, so that only the oracle can object. */
+const widen = (edit: TjpEdit, file: string, from: number, to: number): TjpEdit => ({
+	...edit,
+	targets: { ...edit.targets, [file]: [...(edit.targets[file] ?? []), { file, from, to }] },
+});
+
 const baseTexts = (snap: WorkspaceSnapshot): Record<string, Text> =>
 	Object.fromEntries([...snap.files].map(([k, f]) => [k, f.text]));
 
@@ -56,7 +62,7 @@ const specsOf = (edit: TjpEdit): Record<string, Spec[]> => {
 const MUTANTS: Array<{ name: string; by: string[]; wrap: (real: ApplyFn) => ApplyFn }> = [
 	{
 		name: 'touches one byte outside the target',
-		by: ['P1'],
+		by: ['P1-region'],
 		wrap: (real) => (snap, index, intent) => {
 			const r = real(snap, index, intent);
 			if (r.status !== 'edit') return r;
@@ -69,12 +75,13 @@ const MUTANTS: Array<{ name: string; by: string[]; wrap: (real: ApplyFn) => Appl
 			if (p === undefined) return r;
 			const specs = specsOf(r.edit);
 			(specs[file] ??= []).push({ from: p, to: p, insert: ' ' });
-			return { status: 'edit', edit: withChanges(r.edit, specs, baseTexts(snap)) };
+			const edit = widen(withChanges(r.edit, specs, baseTexts(snap)), file, p, p);
+			return { status: 'edit', edit };
 		},
 	},
 	{
 		name: 'skips one required change (a removed site, item or statement)',
-		by: ['P3', 'P1'],
+		by: ['P3', 'P1-region'],
 		wrap: (real) => (snap, index, intent) => {
 			const r = real(snap, index, intent);
 			if (r.status !== 'edit') return r;
@@ -89,7 +96,7 @@ const MUTANTS: Array<{ name: string; by: string[]; wrap: (real: ApplyFn) => Appl
 	},
 	{
 		name: 'writes an inserted statement at the wrong place (the top of its file)',
-		by: ['P1'],
+		by: ['P1-region'],
 		wrap: (real) => (snap, index, intent) => {
 			const r = real(snap, index, intent);
 			if (r.status !== 'edit' || intent.type === 'format') return r;
@@ -101,7 +108,8 @@ const MUTANTS: Array<{ name: string; by: string[]; wrap: (real: ApplyFn) => Appl
 				const c = list[at];
 				if (!c || top <= 0 || c.from === top) continue;
 				list[at] = { ...c, from: top, to: top };
-				return { status: 'edit', edit: withChanges(r.edit, specs, baseTexts(snap)) };
+				const edit = widen(withChanges(r.edit, specs, baseTexts(snap)), file, top, top);
+				return { status: 'edit', edit };
 			}
 			return r;
 		},

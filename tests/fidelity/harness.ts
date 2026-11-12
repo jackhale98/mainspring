@@ -160,14 +160,14 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 	for (const ch of changes) {
 		const where = `${ch.file}[${ch.from},${ch.to}) ${JSON.stringify(ch.insert.slice(0, 40))}`;
 		if (typeof region === 'function') {
-			if (!region(ch, c.facts)) fail('P1', `change outside the oracle region: ${where}`);
+			if (!region(ch, c.facts)) fail('P1-region', `change outside the oracle region: ${where}`);
 		} else if (
 			!covered(
 				ch,
 				region.filter((x: Rg) => x.file === ch.file),
 			)
 		) {
-			fail('P1', `change outside the oracle region: ${where}`);
+			fail('P1-region', `change outside the oracle region: ${where}`);
 		}
 		if (
 			!covered(
@@ -175,7 +175,7 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 				(edit.targets[ch.file] ?? []).filter(() => true),
 			)
 		)
-			fail('P1', `change outside the edit's declared targets: ${where}`);
+			fail('P1-targets', `change outside the edit's declared targets: ${where}`);
 	}
 	// P5: no edit changes a macro body or call (removing a call whole is allowed).
 	for (const ch of changes) {
