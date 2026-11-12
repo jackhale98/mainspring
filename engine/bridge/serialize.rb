@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # serialize.rb - turn a parsed and scheduled TaskJuggler project into a
-# ScheduleResult v1 (docs/phases/phase-0.md, section 3.1), without `revision`
-# and `timings`, which the caller adds.
+# ScheduleResult v2 (docs/phases/phase-0.md, section 3.1, plus the fields of
+# docs/phases/phase-2.md, section 6.1), without `revision` and `timings`,
+# which the caller adds.
 #
 # Shared by the browser bridge (tj_bridge.rb on ruby.wasm) and the native
 # golden recorder (native/record.rb). It must load on plain native Ruby with
@@ -23,6 +24,38 @@
 #
 # TaskJuggler 3.8.4 tracks line numbers only: every SourceFileInfo has column
 # 0. Column 0 and line 0 mean "unknown" and are emitted as null.
+#
+# Schema v2 adds fields only (phase-2 spec 6.1); every v1 field is unchanged.
+# Where TaskJuggler keeps each value (paths under engine/tj/lib/taskjuggler/,
+# TaskJuggler 3.8.4 at 3b36c79):
+#
+# - ProjectInfo.dailyWorkingHours: the project attribute 'dailyworkinghours'
+#   (Project.rb:80, default 8.0; Project#dailyWorkingHours at Project.rb:539).
+# - ProjectInfo.workingTime: the project scoreboard, read slot by slot with
+#   Project#isWorkingTime(Integer) (Project.rb:880-886). Project#schedule
+#   builds it first (Project.rb:631-632, initScoreboards at Project.rb:1269):
+#   a slot is nil (working) when the global working hours are on shift and no
+#   global leave covers it. A failed parse never reaches Project#schedule, so
+#   the header has no scoreboard and the list is empty.
+# - TaskScenarioResult.direction: the scenario attribute 'forward'
+#   (Project.rb:283, inherited, default true), as it stands after scheduling.
+#   The parser sets it from scheduling/start/depends (true) and end/precedes
+#   (false) (TjpSyntaxRules.rb:6345-6351, 6444-6449, 6594-6600, 6684-6695,
+#   6789-6794), and TaskScenario#bookBookings forces true for effortdone and
+#   effortleft (TaskScenario.rb:2007-2009).
+# - TaskScenarioResult.complete: the scenario attribute 'complete'
+#   (Project.rb:257, not inherited, default nil). TaskJuggler computes a value
+#   (TaskScenario#calcCompletion, TaskScenario.rb:2425-2437) only when a query
+#   reads completion: reports, which the bridge never runs, or a fail/warn
+#   condition (PropertyTreeNode.rb:549-571), on both sides alike.
+# - TaskScenarioResult.depends and precedes: the scenario attributes 'depends'
+#   and 'precedes' (Project.rb:263, 311; DependencyListAttribute, inherited
+#   from the parent at creation, then the task's own entries appended,
+#   TjpSyntaxRules.rb:6347, 6596), lists of TaskDependency (TaskDependency.rb:
+#   taskId, task, onEnd, gapDuration in seconds, gapLength in slots).
+#   TaskScenario#Xref resolves each entry's task and drops the broken ones
+#   (TaskScenario.rb:166-179, checkDependency at TaskScenario.rb:2318); see
+#   #dependencies for runs that stop before it.
 require 'json'
 
 module MainspringBridge
@@ -50,8 +83,10 @@ module MainspringBridge
 
     def result(ok, project, header, meta, messages)
       info_source = project || header
-      info = info_source && project_info(info_source, meta)
-      @start = info && info_source['start']
+      @start = info_source && info_source['start']
+      # Only a parsed project went through Project#schedule, which builds the
+      # scoreboard that workingTime reads.
+      info = info_source && project_info(info_source, meta, !project.nil?)
       out = {
         'ok' => ok ? true : false,
         'project' => info,
@@ -62,6 +97,8 @@ module MainspringBridge
       }
       return out unless project && info
 
+      @project = project
+      @slotMin = project['scheduleGranularity'] / 60
       scenarios = preorder(project.scenarios)
       @active = scenarios.select { |sc| sc.get('active') }
                          .map { |sc| [sc.fullId, project.scenarioIdx(sc)] }
@@ -80,7 +117,7 @@ module MainspringBridge
 
     private
 
-    def project_info(p, meta)
+    def project_info(p, meta, scheduled)
       {
         'id' => p['projectid'],
         'name' => p['name'],
@@ -94,8 +131,36 @@ module MainspringBridge
           { 'id' => sc.fullId, 'name' => sc.name,
             'parent' => sc.parent && sc.parent.fullId,
             'active' => sc.get('active') ? true : false }
-        end
+        end,
+        'dailyWorkingHours' => p['dailyworkinghours'],
+        'workingTime' => scheduled ? working_time(p) : []
       }
+    end
+
+    # The project's working time as merged [start, end) minute pairs: maximal
+    # runs of scoreboard slots for which Project#isWorkingTime is true. Slots
+    # from scoreboardSize on are never working time (initScoreboards marks only
+    # the first scoreboardSize slots, Project.rb:1283), so they are not read.
+    def working_time(p)
+      out = []
+      size = p.scoreboardSize
+      first = nil
+      i = 0
+      while i < size
+        if p.isWorkingTime(i)
+          first ||= i
+        elsif first
+          out << slot_pair(p, first, i)
+          first = nil
+        end
+        i += 1
+      end
+      out << slot_pair(p, first, size) if first
+      out
+    end
+
+    def slot_pair(p, first, stop)
+      [minutes(p.idxToDate(first)), minutes(p.idxToDate(stop))]
     end
 
     def task(t)
@@ -110,7 +175,12 @@ module MainspringBridge
           'end' => minutes(t['end', idx]),
           'allocated' => allocated.map(&:fullId),
           'criticalness' => t['criticalness', idx],
-          'pathCriticalness' => t['pathcriticalness', idx]
+          'pathCriticalness' => t['pathcriticalness', idx],
+          # v2 (phase-2 spec 6.1); sources in the header comment.
+          'direction' => t['forward', idx] ? 'asap' : 'alap',
+          'complete' => t['complete', idx],
+          'depends' => dependencies(t['depends', idx]),
+          'precedes' => dependencies(t['precedes', idx])
         }
       end
       # 'milestone' is scenario-specific in TaskJuggler; the protocol has one
@@ -122,6 +192,39 @@ module MainspringBridge
         'milestone' => milestone ? true : false,
         'scenarios' => scenarios
       }
+    end
+
+    # DependencyResult entries for a 'depends' or 'precedes' list, in its
+    # order. TaskScenario#Xref sets each entry's task (TaskDependency#resolve,
+    # TaskDependency.rb:42-44, which is Project#task(taskId), Project.rb:605)
+    # and removes broken entries before it reports them. A scheduling error
+    # stops the run, so later tasks, and scenarios not reached, keep entries
+    # that were never resolved; those are looked up the same way here, without
+    # mutating them, and an id that names no task is left out. The parser
+    # already made relative ids absolute (TjpSyntaxRules.rb:6082-6096).
+    def dependencies(list)
+      list.filter_map do |dep|
+        task = dep.task || @project.task(dep.taskId)
+        next unless task
+
+        {
+          'task' => task.fullId,
+          'onEnd' => dep.onEnd ? true : false,
+          'gapDurationMin' => gap_minutes(dep.gapDuration),
+          'gapLengthMin' => dep.gapLength * @slotMin
+        }
+      end
+    end
+
+    # gapduration is stored in seconds and is a multiple of the timing
+    # resolution (TjpSyntaxRules.rb:2058-2063), so whole minutes.
+    def gap_minutes(secs)
+      whole = secs.round
+      if secs != whole || whole % 60 != 0
+        raise SerializeError, "gapduration of #{secs} s is not a whole number of minutes"
+      end
+
+      whole / 60
     end
 
     def resource(r)

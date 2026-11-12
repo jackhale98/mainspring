@@ -34,6 +34,13 @@ export function nowProblem(now) {
 export const PLAN_KINDS = ['upstream', 'poc', 'synthetic', 'bridge'];
 
 /**
+ * GoldenFile.schemaVersion: the ScheduleResult schema the goldens hold. 2 since the bridge
+ * schema v2 fields (docs/phases/phase-2.md, sections 5.3 and 6.1). engine/bridge/native/record.rb
+ * writes the same number; record-native.mjs refuses output with any other.
+ */
+export const GOLDEN_SCHEMA_VERSION = 2;
+
+/**
  * Problems with the manifest's GoldenPlan entries that can be found without
  * the file system, as "id: problem" strings; empty when it is valid.
  * @param {unknown} plans
@@ -196,24 +203,131 @@ export function expectedRows(result) {
 
 const CSV_DATE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/;
 
+/** The header cross-check.tji's columns produce, in order. */
+export const CROSS_CHECK_HEADER = ['Scenario', 'Id', 'Start', 'End', 'Precursors', 'Completion'];
+
 /**
- * Rows of the cross-check CSV in the same form as expectedRows. TaskJuggler
- * leaves the id empty on the rows of the second and later scenarios of a
- * task; non-date cells (empty, "Error") become null.
+ * The data rows of the cross-check CSV as [scenario, id, start, end, precursors, completion],
+ * with the id carried forward: TaskJuggler leaves it empty on the rows of the second and later
+ * scenarios of a task.
+ * @param {string[][]} csv  parsed CSV including the header row
+ * @returns {string[][]}
+ */
+function crossCheckCells(csv) {
+	const [header, ...rows] = csv;
+	if (header?.join(';') !== CROSS_CHECK_HEADER.join(';')) {
+		throw new Error(`unexpected cross-check CSV header: ${JSON.stringify(header)}`);
+	}
+	let lastId = '';
+	return rows.map(([scenario = '', id = '', start = '', end = '', precursors = '', completion = '']) => {
+		lastId = id || lastId;
+		return [scenario, lastId, start, end, precursors, completion];
+	});
+}
+
+/**
+ * Rows of the cross-check CSV in the same form as expectedRows. Non-date
+ * cells (empty, "Error") become null.
  * @param {string[][]} csv  parsed CSV including the header row
  * @returns {string[]}
  */
 export function csvRows(csv) {
-	const [header, ...rows] = csv;
-	if (header?.join(';') !== 'Scenario;Id;Start;End') {
-		throw new Error(`unexpected cross-check CSV header: ${JSON.stringify(header)}`);
+	const date = (/** @type {string} */ v) => (CSV_DATE.test(v) ? v : null);
+	return crossCheckCells(csv).map(([scenario, id, start = '', end = '']) =>
+		[scenario, id, date(start), date(end)].join(' | '));
+}
+
+/**
+ * @typedef {{ task: string, onEnd: boolean }} Dep
+ * @typedef {{ depends?: Dep[], precedes?: Dep[], complete?: number | null }} LinkData
+ * @typedef {{ id: string, scenarios: Record<string, LinkData> }} LinkTask
+ * @typedef {{ project: { scenarios: Scenario[] } | null, tasks: LinkTask[] }} LinkResult
+ */
+
+/**
+ * The dependency and completion rows the cross-check report should contain for a serializer
+ * result, one per task (pre-order) and active scenario (pre-order), as
+ * "scenario name | task id | precursors | completion".
+ *
+ * Precursors are what tj3's `precursors` column lists for the task (TaskScenario#query_precursors,
+ * engine/tj/lib/taskjuggler/TaskScenario.rb:1466-1493, from the lists TaskScenario#Xref fills at
+ * TaskScenario.rb:166-179): each of its own `depends` entries as "<other> ]->[" (after the other
+ * task's end) or "<other> [->[" (after its start), and each other task's `precedes` entry that
+ * names it as "<other> ]->[" (before this task's start) or "<other> ]->]" (before its end). They
+ * are sorted, because Xref's order mixes the two lists. Gaps have no report column.
+ *
+ * Completion is "<n>%" with n the integer part, as TaskScenario#query_complete prints a `complete`
+ * the plan sets (TaskScenario.rb:1311-1320), or "*" when unset: tj3 then prints a completion it
+ * computes from the dates, which the serializer never reports.
+ * @param {LinkResult} result
+ * @returns {string[]}
+ */
+export function expectedLinkRows(result) {
+	if (!result.project) return [];
+	const active = result.project.scenarios.filter((s) => s.active);
+	/** @type {Map<string, string[]>} */
+	const items = new Map();
+	const add = (/** @type {string} */ scenario, /** @type {string} */ task, /** @type {string} */ item) => {
+		const key = `${scenario}\n${task}`;
+		const list = items.get(key);
+		if (list) list.push(item);
+		else items.set(key, [item]);
+	};
+	for (const t of result.tasks) {
+		for (const s of active) {
+			const d = t.scenarios[s.id];
+			for (const dep of d?.depends ?? []) add(s.id, t.id, `${dep.task} ${dep.onEnd ? ']->[' : '[->['}`);
+			for (const dep of d?.precedes ?? []) add(s.id, dep.task, `${t.id} ${dep.onEnd ? ']->]' : ']->['}`);
+		}
 	}
-	let lastId = '';
-	return rows.map(([scenario = '', id = '', start = '', end = '']) => {
-		lastId = id || lastId;
-		const date = (/** @type {string} */ v) => (CSV_DATE.test(v) ? v : null);
-		return [scenario, lastId, date(start), date(end)].join(' | ');
+	/** @type {string[]} */
+	const rows = [];
+	for (const t of result.tasks) {
+		for (const s of active) {
+			const complete = t.scenarios[s.id]?.complete ?? null;
+			const precursors = [...(items.get(`${s.id}\n${t.id}`) ?? [])].sort().join(', ');
+			rows.push([s.name, t.id, precursors, complete === null ? '*' : `${Math.trunc(complete)}%`].join(' | '));
+		}
+	}
+	return rows;
+}
+
+/**
+ * Rows of the cross-check CSV in the same form as expectedLinkRows, with the precursor items
+ * sorted. Each item is "<task id> <dependency>" (the report's `listitem`), and items are
+ * separated by ", ", which no task id contains.
+ * @param {string[][]} csv  parsed CSV including the header row
+ * @returns {string[]}
+ */
+export function csvLinkRows(csv) {
+	return crossCheckCells(csv).map(([scenario, id, , , precursors = '', completion = '']) => {
+		const list = precursors === '' ? [] : precursors.split(', ').map((s) => s.trim());
+		return [scenario, id, list.sort().join(', '), completion].join(' | ');
 	});
+}
+
+/**
+ * Lines describing where expectedLinkRows and csvLinkRows differ (at most `limit`). A "*"
+ * completion in an expected row matches any reported value.
+ * @param {string[]} expected
+ * @param {string[]} actual
+ * @param {number} [limit]
+ */
+export function linkRowDiffs(expected, actual, limit = 10) {
+	const same = (/** @type {string | undefined} */ e, /** @type {string | undefined} */ a) => {
+		if (e === undefined || a === undefined) return e === a;
+		const ef = e.split(' | ');
+		const af = a.split(' | ');
+		return ef.length === 4 && af.length === 4 &&
+			ef.slice(0, 3).join(' | ') === af.slice(0, 3).join(' | ') && (ef[3] === '*' || ef[3] === af[3]);
+	};
+	const out = [];
+	for (let i = 0; i < Math.max(expected.length, actual.length) && out.length < limit; i++) {
+		if (!same(expected[i], actual[i])) {
+			out.push(`row ${i + 1}: serializer ${expected[i] ?? '(none)'}; report ${actual[i] ?? '(none)'}`);
+		}
+	}
+	return out;
 }
 
 /**
