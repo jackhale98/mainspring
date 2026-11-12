@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // All user-facing copy lives in this file (CLAUDE.md conventions).
+import type { EngineErrorKind } from '../engine/protocol';
+import type { RefusalReason } from './tjp/edit/types';
 import type { ValueErrorCode } from './tjp/values/result';
 
 /**
@@ -157,14 +159,63 @@ export const engineStatusLabels = {
 /** Keys match `EngineState` in the engine protocol (phase-0 spec 3.3). */
 export type EngineStatus = keyof typeof engineStatusLabels;
 
+/** Why an edit intent was refused (src/lib/tjp/edit/types.ts), one sentence each, for toasts. */
+export const refusalStrings = {
+	'unknown-target': 'That item no longer exists in the plan.',
+	'text-only': 'That part of the plan is written with macros, so it can only be edited as text.',
+	'macro-in-body':
+		'A macro call in the way keeps this from changing safely. Edit the text instead.',
+	'invalid-value': 'That value is not valid here.',
+	'conflicting-attribute': 'Another setting on this task conflicts with that change.',
+	inherited: 'This value comes from a parent task. Change it there.',
+	'id-collision': 'Another task or resource already uses that id.',
+	cycle: 'That would make the tasks depend on each other in a loop.',
+	'unfixable-reference': 'Some references to this item cannot be updated safely.',
+	'undeclared-flag': 'That flag is not declared in the plan.',
+	'unsafe-text': 'That text cannot be written into the plan safely.',
+	'needs-schedule': 'Wait for the schedule to finish, then try again.',
+	'syntax-error': 'Fix the syntax errors in the text first.',
+	'unsupported-form': 'The plan uses a form of this setting that cannot be edited here.',
+	stale: 'The plan changed in the meantime. Try again.',
+	'shared-declaration':
+		'This part of a file is used in more than one place, so it is edited as text.',
+} as const satisfies Record<RefusalReason, string>;
+
+/** Why the scheduler stopped, by `EngineError.kind`. */
+export const engineFailureStrings = {
+	boot: 'The scheduler could not start.',
+	crash: 'The scheduler stopped unexpectedly.',
+	timeout: 'The scheduler took too long and was restarted.',
+	internal: 'The scheduler failed on this plan.',
+	'invalid-request': 'The scheduler could not read this request.',
+} as const satisfies Record<EngineErrorKind, string>;
+
+/** Why a piece of the plan is "text only" (src/lib/tjp/text-only.ts). */
+export const textOnlyStrings = {
+	'macro-body': 'Part of a macro definition.',
+	'macro-call': 'Written with a macro call.',
+	'env-var': 'Written with an environment variable.',
+	'macro-id': 'Its id is built by a macro.',
+	'auto-id': 'Its id is chosen by the scheduler.',
+	'expanded-only': 'Declared by a macro.',
+	'syntax-error': 'Has a syntax error.',
+	opaque: 'A setting the editor does not understand yet.',
+	unresolved: 'The scheduler has not named this item yet.',
+} as const;
+
+const plural = (n: number, one: string, other: string): string => `${n} ${n === 1 ? one : other}`;
+
 export const strings = {
 	appName: 'Mainspring',
 	tagline: 'TaskJuggler plans, scheduled in your browser.',
 	skipToContent: 'Skip to main content',
+	noscript: 'Mainspring needs JavaScript to run the scheduler in your browser.',
 	engine: {
 		label: 'Engine',
 		notConnected: 'not connected yet',
 		status: engineStatusLabels,
+		failure: engineFailureStrings,
+		retry: 'Try again',
 	},
 	home: {
 		openApp: 'Open the app',
@@ -176,6 +227,70 @@ export const strings = {
 		'syn-18-structure-include-macro': 'Includes, macros and supplements',
 		'upstream-fedora-20': 'Fedora 20 release schedule',
 	},
+	topBar: {
+		sample: 'Sample plan',
+		/** Phase 2 turns this into the Text, Split and Visual switch. */
+		mode: 'Text mode',
+		loading: 'Loading the plan…',
+		loadFailed: (label: string) => `Could not load “${label}”.`,
+		confirmSwitch: 'Switching plans discards your changes to this one. Switch anyway?',
+	},
+	notice: 'Changes stay in this tab until saving arrives. Reloading the page discards them.',
+	panels: {
+		plan: 'Plan',
+		text: 'Text',
+		tabs: 'Panels',
+		outlineOpen: 'Outline',
+		outlineClose: 'Close outline',
+	},
+	outline: {
+		title: 'Outline',
+		tasks: 'Tasks',
+		resources: 'Resources',
+		noTasks: 'No tasks yet.',
+		noResources: 'No resources yet.',
+		textOnly: 'text only',
+		errors: (n: number) => plural(n, 'error', 'errors'),
+		unnamed: 'Unnamed',
+		reason: textOnlyStrings,
+	},
+	editor: {
+		label: (path: string) => `Editor for ${path}`,
+		files: 'Files',
+		file: 'File',
+		format: 'Format',
+		docs: 'Docs',
+		docsTitle: 'Documentation',
+		close: 'Close',
+	},
+	status: {
+		region: 'Plan status',
+		engineStarting: 'Starting the scheduler…',
+		scheduling: 'Scheduling…',
+		ok: 'Scheduled',
+		errors: 'Scheduled with problems',
+		failed: 'Scheduler failed',
+		idle: 'Waiting for the first schedule',
+		finish: 'Finish',
+		noFinish: 'No finish date yet',
+		lastGood: 'last good',
+		later: (amount: string) => `${amount} later`,
+		earlier: (amount: string) => `${amount} earlier`,
+		counts: (errors: number, warnings: number) =>
+			errors + warnings === 0
+				? 'No problems'
+				: [
+						errors > 0 ? plural(errors, 'error', 'errors') : null,
+						warnings > 0 ? plural(warnings, 'warning', 'warnings') : null,
+					]
+						.filter(Boolean)
+						.join(', '),
+		nextProblem: 'Go to the next problem',
+		unlocated: (n: number) => plural(n, 'message without a place', 'messages without a place'),
+		unlocatedTitle: 'Messages without a place in the text',
+		severity: { error: 'Error', warning: 'Warning', info: 'Note' },
+	},
+	refusal: refusalStrings,
 } as const;
 
 /**

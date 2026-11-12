@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { engineLine, engineStatusLabels, strings } from './strings';
+import {
+	engineFailureStrings,
+	engineLine,
+	engineStatusLabels,
+	refusalStrings,
+	strings,
+	textOnlyStrings,
+} from './strings';
 
 describe('strings', () => {
 	it('names the app', () => {
@@ -20,5 +27,23 @@ describe('strings', () => {
 		expect(engineLine('idle')).toBe('Engine: Ready');
 		expect(engineLine('busy')).toBe('Engine: Scheduling');
 		expect(engineLine('failed')).toBe('Engine: Failed');
+	});
+
+	it('has one sentence for every refusal reason, failure kind and text-only reason', () => {
+		expect(Object.keys(refusalStrings)).toHaveLength(16);
+		for (const text of [
+			...Object.values(refusalStrings),
+			...Object.values(engineFailureStrings),
+			...Object.values(textOnlyStrings),
+		]) {
+			expect(text).toMatch(/^[A-Z].*\.$/);
+		}
+	});
+
+	it('counts problems in plain words', () => {
+		expect(strings.status.counts(0, 0)).toBe('No problems');
+		expect(strings.status.counts(1, 0)).toBe('1 error');
+		expect(strings.status.counts(2, 1)).toBe('2 errors, 1 warning');
+		expect(strings.outline.errors(3)).toBe('3 errors');
 	});
 });

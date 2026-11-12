@@ -1,79 +1,20 @@
 ---
 // SPDX-License-Identifier: GPL-2.0-or-later
+import App from '../../components/App.svelte';
 import Base from '../../layouts/Base.astro';
-import { engineLine, strings } from '../../lib/strings';
+import { strings } from '../../lib/strings';
 ---
 
 <Base title={strings.appName}>
-	<header class="bar">
-		<span class="mark" aria-hidden="true"></span>
-		<span class="brand">{strings.appName}</span>
-	</header>
-	<main id="main" class="shell">
-		<h1>{strings.appName}</h1>
-		<p class="tagline">{strings.tagline}</p>
-		<p class="engine" data-testid="engine-status" role="status">
-			{engineLine()}
-		</p>
-	</main>
+	<noscript>
+		<p class="no-js">{strings.noscript}</p>
+	</noscript>
+	<App client:only="svelte" />
 </Base>
 
-<script>
-	import { createEngineClient } from '../../engine/client';
-	import { engineLine } from '../../lib/strings';
-
-	const line = document.querySelector('[data-testid="engine-status"]');
-	const client = createEngineClient();
-	const show = (): void => {
-		if (line) line.textContent = engineLine(client.state);
-	};
-	client.onState(show);
-	show();
-</script>
-
 <style>
-	.bar {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-3) var(--gutter);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
-	}
-	.mark {
-		inline-size: 1.25rem;
-		block-size: 1.25rem;
-		border-radius: 50%;
-		border: 3px solid var(--color-accent);
-	}
-	.brand {
-		font-weight: 600;
-	}
-	.shell {
-		max-inline-size: 60rem;
-		margin-inline: auto;
-		padding: var(--space-6) var(--gutter);
-	}
-	h1 {
-		margin: 0 0 var(--space-2);
-		font-size: var(--text-xl);
-		line-height: 1.2;
-	}
-	.tagline {
-		margin: 0 0 var(--space-6);
-		color: var(--color-text-muted);
-		font-size: var(--text-lg);
-	}
-	.engine {
-		display: inline-block;
+	.no-js {
 		margin: 0;
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-status-neutral);
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		overflow-wrap: anywhere;
+		padding: var(--space-6) var(--gutter);
 	}
 </style>
