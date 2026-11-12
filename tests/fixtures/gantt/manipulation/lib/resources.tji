@@ -1,0 +1,13 @@
+# Feature: gantt-manipulation - resources, included from plan.tjp
+# SPDX-License-Identifier: GPL-2.0-or-later
+resource dev1 "Dev 1" {
+  efficiency 1.0
+}
+
+resource dev2 "Dev 2" {
+  efficiency 0.8
+}
+
+resource dev3 "Dev 3"
+
+resource ops1 "Ops 1"

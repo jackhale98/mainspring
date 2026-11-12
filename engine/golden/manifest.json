@@ -474,5 +474,63 @@
       "bridge",
       "now-line-wins"
     ]
+  },
+  {
+    "id": "gantt-manipulation",
+    "kind": "synthetic",
+    "root": "tests/fixtures/gantt/manipulation",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "gantt",
+      "effort",
+      "length",
+      "duration",
+      "asap",
+      "alap",
+      "depends-gaplength",
+      "depends-gapduration",
+      "depends-onstart",
+      "depends-onend",
+      "allocate",
+      "milestone",
+      "container",
+      "complete",
+      "open-ended-allocation",
+      "macro-task",
+      "include"
+    ]
+  },
+  {
+    "id": "gantt-200",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/gantt/gantt-200",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "gantt",
+      "scale",
+      "containers",
+      "depends",
+      "allocate",
+      "milestone",
+      "complete"
+    ]
+  },
+  {
+    "id": "gantt-500",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/gantt/gantt-500",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "gantt",
+      "scale",
+      "containers",
+      "depends",
+      "allocate",
+      "milestone",
+      "complete"
+    ]
   }
 ]

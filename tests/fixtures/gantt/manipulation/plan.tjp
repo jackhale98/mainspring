@@ -1,0 +1,46 @@
+# Feature: gantt-manipulation - shapes for the direct-manipulation rows R1 to R10 (phase-2 section 7.1)
+# Covers: effort, length and duration leaves; ASAP and ALAP; depends with gaplength, gapduration,
+# onstart and onend; allocations (one and several people); milestones; containers; complete;
+# an open-ended allocated leaf (spike: a start and an allocation, no size; it runs to the project
+# end, native exit 0); a macro-built task (checks in lib/build.tji); included files (lib/*.tji).
+# SPDX-License-Identifier: GPL-2.0-or-later
+project ganttm "Gantt manipulation" 2026-03-02 - 2026-06-30 {
+  now 2026-03-09-09:00
+}
+
+include "lib/resources.tji"
+
+# Container with ASAP leaves, a dependency gap, onstart, onend and an ALAP leaf.
+task design "Design" {
+  task research "Research" {
+    effort 3d
+    allocate dev1
+    complete 40
+  }
+  task sketch "Sketch" {
+    length 4d
+    allocate dev2
+    depends !research { gaplength 2d }
+  }
+  task review "Review" {
+    duration 2d
+    depends !sketch { onstart }
+  }
+  task spike "Spike" {
+    start 2026-03-23
+    allocate dev3
+  }
+  task docs "Write docs" {
+    scheduling alap
+    effort 2d
+    allocate dev1, dev2
+    depends !review { gapduration 1d }
+  }
+  task gate "Design gate" {
+    milestone
+    depends !review { onend }
+    depends !docs
+  }
+}
+
+include "lib/build.tji"

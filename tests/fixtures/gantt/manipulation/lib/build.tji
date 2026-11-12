@@ -1,0 +1,27 @@
+# Feature: gantt-manipulation - the build container, included from plan.tjp; depends on a task in plan.tjp
+# and holds a macro-built task (the macro is defined in this file)
+# SPDX-License-Identifier: GPL-2.0-or-later
+macro checkTask [
+  task check_${1} "Check ${1}" {
+    length 2d
+    allocate ops1
+  }
+]
+
+task build "Build" {
+  depends design.gate
+  task code "Write code" {
+    effort 6d
+    allocate dev2, dev3
+    complete 25
+  }
+  task tests "Write tests" {
+    effort 3d
+    allocate ops1
+    depends !code { gaplength 1d }
+  }
+  task checks "Checks" {
+    depends !tests
+    ${checkTask "unit"}
+  }
+}
