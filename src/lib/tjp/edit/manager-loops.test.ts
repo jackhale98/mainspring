@@ -68,16 +68,48 @@ describe('manager loops', () => {
 		);
 	});
 
+	it('counts only inherited managers read before the child as there already (mgreorder, mgcross, mgsupp)', () => {
+		// b is declared before g's `managers a`, so b does not inherit a; moved after it, it would.
+		const reorder =
+			H +
+			'resource g "G" {\n  resource b "B"\n  managers a\n  resource c "C"\n}\n' +
+			'resource a "A" { managers b }\ntask t "T" { effort 3d allocate c }\n';
+		expect(
+			status(run(reorder, { type: 'moveResource', resource: 'b', parent: 'g', index: 1 })),
+		).toBe('refused:cycle');
+		const cross =
+			H +
+			'resource g1 "G1" {\n  resource b "B"\n  managers a\n}\n' +
+			'resource g2 "G2" {\n  managers a\n  resource c "C"\n}\n' +
+			'resource a "A" { managers b }\ntask t "T" { effort 3d allocate c }\n';
+		expect(
+			status(run(cross, { type: 'moveResource', resource: 'b', parent: 'g2', index: 1 })),
+		).toBe('refused:cycle');
+		const supp =
+			H +
+			'resource g "G" {\n  resource b "B"\n  resource c "C"\n}\n' +
+			'supplement resource g { managers a }\nresource a "A" { managers b }\n' +
+			'resource h "H" {\n  managers a\n  resource d "D"\n}\ntask t "T" { effort 3d allocate c }\n';
+		expect(status(run(supp, { type: 'moveResource', resource: 'b', parent: 'h', index: 1 }))).toBe(
+			'refused:cycle',
+		);
+		// d already reports to a (h says so before d): moving it adds no edge. (Moving c would be
+		// refused: the upper bound counts g's supplement for b, a loop TaskJuggler does not see.)
+		expect(status(run(supp, { type: 'moveResource', resource: 'd', parent: 'g', index: 2 }))).toBe(
+			'edit',
+		);
+	});
+
 	it('names the loop members', () => {
 		const plan = H + 'resource a "A" { managers b }\nresource b "B"\n';
 		const s = setup(plan);
-		const r = managerLoop(s.index, { own: new Map([['b', ['a']]]) });
+		const r = managerLoop(s.ctx, { own: new Map([['b', ['a']]]) });
 		const text = s.file().text;
 		expect(r?.at.map((x) => text.sliceString(x.from, x.to)).sort()).toEqual([
 			'resource a "A"',
 			'resource b "B"',
 		]);
-		expect(managerLoop(s.index, { own: new Map([['b', []]]) })).toBeNull();
+		expect(managerLoop(s.ctx, { own: new Map([['b', []]]) })).toBeNull();
 	});
 });
 

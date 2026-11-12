@@ -144,7 +144,7 @@ function planManagers(ctx: EditContext, sym: ResourceSymbol, value: AttrValue): 
 	const at = [last?.value ?? sym.decl.header];
 	const ids = managerIds(ctx, sym, value, at);
 	if (isRefused(ids)) return ids;
-	const loop = managerLoop(ctx.index, { own: new Map([[sym.id, ids]]) });
+	const loop = managerLoop(ctx, { own: new Map([[sym.id, ids]]) });
 	if (loop) return loop;
 	const up = inheritedSites(ctx, sym, 'managers', true);
 	const upIds = new Set(up.flatMap((s) => siteIds(ctx, s)));

@@ -5,13 +5,21 @@
  * 15.22). TaskJuggler rejects many of them outside the frame (date_in_range), and the value
  * re-check (revalidate.ts) only sees typed values. A written date that may lie in the part of the
  * frame the edit removes is `invalid-value` at the date. The check is conservative: every
- * `YYYY-MM-DD[-hh:mm[:ss]]` token counts, read as UTC with a day of margin either way for the
- * zone, and only the sides of the frame that shrink are checked.
+ * `YYYY-MM-DD[-hh:mm[:ss]]` token counts (report dates too: a report `end` before the new start
+ * is report_end), except in comments and string tokens, read as UTC with a day of margin either
+ * way for the zone, and only the sides of the frame that shrink are checked.
  */
 import type { SourceRange } from '../index';
 import { refused, type EditContext, type Refused } from './types';
 
 const DAY = 86400;
+/** Nodes whose text is never read as a date. */
+const NOT_DATES: ReadonlySet<string> = new Set([
+	'LineComment',
+	'BlockComment',
+	'String',
+	'TemplateString',
+]);
 const DATE = /(?<![\w.-])(\d{4})-(\d{2})-(\d{2})(?:-(\d{1,2}):(\d{2})(?::(\d{2}))?)?(?![\w:])/g;
 
 /** Seconds since the epoch of a date token read as UTC. */
@@ -41,8 +49,8 @@ export function checkUntypedDates(
 			const text = file.text.sliceString(t.at.from, t.at.to);
 			DATE.lastIndex = 0;
 			for (let m = DATE.exec(text); m; m = DATE.exec(text)) {
-				if (!lost(seconds(m))) continue;
 				const from = t.at.from + m.index;
+				if (!lost(seconds(m)) || NOT_DATES.has(file.tree.resolveInner(from, 1).name)) continue;
 				at.set(`${path}\0${from}`, { file: path, from, to: from + m[0].length });
 			}
 		}

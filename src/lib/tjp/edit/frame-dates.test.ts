@@ -49,4 +49,23 @@ describe('setProjectHeader and untyped dates', () => {
 		const comment = PLAN.replace('2026-03-02', '2026-01-20') + '# 2026-03-10\n';
 		expect(status(run(comment, { type: 'setProjectHeader', end: '2026-02-20' }).r)).toBe('edit');
 	});
+
+	it('skips comments and strings inside opaque statements, keeps report dates (frrepc, frjstr)', () => {
+		const end: EditIntent = { type: 'setProjectHeader', end: '2026-03-20' };
+		const H = 'project p "P" 2026-01-05 - 2026-03-27 {\n  now 2026-02-02\n}\nresource a "A"\n';
+		const report = (body: string): string =>
+			H +
+			'task t "T" { effort 2d allocate a }\ntaskreport r "r" {\n  formats html\n' +
+			body +
+			'}\n';
+		expect(status(run(report('  # was due 2026-03-25\n'), end).r)).toBe('edit');
+		expect(status(run(report('  /* 2026-03-25 */\n'), end).r)).toBe('edit');
+		const jstr =
+			H +
+			'task t "T" {\n  effort 2d\n  allocate a\n' +
+			'  journalentry 2026-02-02 "Moved from 2026-03-25" { author a }\n}\n';
+		expect(status(run(jstr, end).r)).toBe('edit');
+		// A report date the narrowed frame may drop still counts.
+		expect(status(run(report('  end 2026-03-25\n'), end).r)).toBe('refused:invalid-value');
+	});
 });

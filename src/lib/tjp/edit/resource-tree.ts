@@ -129,7 +129,7 @@ export function planAddResource(ctx: EditContext, intent: IntentOf<'addResource'
 	const body = attrStatements(ctx, id, intent.attrs ?? [], where.file.path, at);
 	if (isRefused(body)) return body;
 	const own = managersIn(intent.attrs ?? []);
-	const loop = managerLoop(ctx.index, { added: { id, parent: parent?.id ?? null, own } });
+	const loop = managerLoop(ctx, { added: { id, parent: parent?.id ?? null, own } });
 	if (loop) return loop;
 	const header = `resource ${id} ${name.value}`;
 	const text = body.length > 0 ? `${header} {\n${body.map((l) => `\t${l}`).join('\n')}\n}` : header;
@@ -260,7 +260,7 @@ export function planMoveResource(ctx: EditContext, intent: IntentOf<'moveResourc
 	if (sym.parent === (parent?.id ?? null) && before === i) return noop('already-set');
 	const group = checkNewParent(ctx, parent, ids);
 	if (group) return group;
-	const loop = managerLoop(ctx.index, { parent: new Map([[sym.id, parent?.id ?? null]]) });
+	const loop = managerLoop(ctx, { parent: new Map([[sym.id, parent?.id ?? null]]) });
 	if (loop) return loop;
 	const where = childPlace(ctx, parent, siblings, i, () => firstRoot(ctx));
 	if (isRefused(where)) return where;

@@ -1155,9 +1155,11 @@ them.
     - Manager loops (`edit/manager-loops.ts`): TaskJuggler follows `managers` recursively for
       every resource (ResourceScenario#setReports_i from Project#prepareScenario), so a loop
       overflows the stack (natively `stack level too deep`; the wasm worker dies). A resource's
-      managers are its own and every ancestor's (conservative: also an ancestor's statements read
-      after the child). An intent that adds an edge leading to any loop (closing one, or reaching
-      one already there) is `cycle`: `setResourceAttr managers`, `addResource` (with `managers`
+      managers are its own and those it inherits when it is created (`inheritAttributes`: only
+      ancestor statements read before the child). An edge is new when the graph after the edit
+      (an upper bound: every ancestor statement counts) has it and the resource's managers before
+      the edit (a lower bound: only ancestor statements read before the child on the path) lack
+      it; a new edge leading to any loop (closing one, or reaching one already there) is `cycle`: `setResourceAttr managers`, `addResource` (with `managers`
       or under a group with managers) and `moveResource` (inheriting the new chain's managers).
     - Resource attribute values are TaskJuggler text, as `setAttr` (`'1.5'`, `'"a@b.c"'`); the
       number rule has no sign, so negative values are `invalid-value`. `managers` is the whole
@@ -1180,8 +1182,9 @@ them.
       (`- date` or `+duration`, a new end date becoming whole days, hours or minutes) and writes
       no `version` (7.1 names only the name and the interval). A narrowed frame also refuses
       (`invalid-value`) dates written in opaque statements and macro bodies (a `journalentry`, a
-      `booking`) that may fall in the removed part (`edit/frame-dates.ts`; conservative: every
-      date token, read as UTC with a day of margin, on the sides that shrink).
+      `booking`, a report `end`) that may fall in the removed part (`edit/frame-dates.ts`;
+      conservative: every date token outside comments and strings, read as UTC with a day of
+      margin, on the sides that shrink).
     - Re-checking (`revalidate.ts`): a change of the frame, `timezone`, `now`,
       `dailyworkinghours` or the project working hours is applied to a copy of the snapshot, the
       index rebuilt with the same zone data, and the value diagnostics compared: any new one is

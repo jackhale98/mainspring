@@ -4,16 +4,21 @@
  * resource's reports (ResourceScenario#setReports_i, called for every resource from
  * Project#prepareScenario): a loop reached from any resource recurses until the stack overflows
  * (natively `stack level too deep`; in the wasm engine a dead worker). A resource's managers are
- * its own `managers` ids plus every ancestor's (a group's managers apply to its subtree; counting
- * every ancestor statement, not only those read before the child, is conservative).
+ * its own `managers` ids plus those it inherits: TaskJuggler copies the parent's value when it
+ * creates the child (PropertyTreeNode#inheritAttributes), so only ancestor statements read before
+ * the child count.
  *
  * `managerLoop` takes the change an intent makes to the graph (new own lists, new parents, a new
  * resource) and refuses with `cycle` when an edge the change adds leads to a loop, whether the
- * edge closes it or only reaches one that is already there. Every loop is refused, not only those
- * an outside resource reports into: that is simpler and always safe.
+ * edge closes it or only reaches one that is already there. Both sides are bounded so that no new
+ * edge is missed: the graph after the change is an upper bound (every ancestor statement counts,
+ * wherever it is read), and the managers a changed resource had before are a lower bound (only
+ * the ancestor statements read before the child on the path, `managersHad`). Every loop is
+ * refused, not only those an outside resource reports into: that is simpler and always safe.
  */
 import type { SourceRange, SymbolIndex } from '../index';
-import { refused, type Refused } from './types';
+import { readBefore, resourceAncestors } from './props';
+import { refused, type EditContext, type Refused } from './types';
 
 /** How an intent changes the managers graph. */
 export interface ManagerChange {
@@ -98,6 +103,27 @@ function loopFrom(g: Graph, start: string): string[] | null {
 	return visit(start);
 }
 
+/**
+ * The managers `id` surely has now (lower bound, module comment): its own ids, and each ancestor's
+ * ids from statements read before its child on the path was declared.
+ */
+function managersHad(ctx: EditContext, id: string): Set<string> {
+	const out = new Set<string>();
+	const sym = ctx.index.resources.get(id);
+	if (!sym) return out;
+	const refs = ctx.index.references.filter(
+		(r) => r.via === 'managers' && r.kind === 'resource' && r.target !== null,
+	);
+	for (const r of refs) if (r.owner === id && r.target !== null) out.add(r.target);
+	for (const step of resourceAncestors(ctx, sym)) {
+		for (const r of refs) {
+			if (r.owner !== step.res.id || r.target === null) continue;
+			if (readBefore(ctx, r.at, step.before)) out.add(r.target);
+		}
+	}
+	return out;
+}
+
 /** The resources whose managers the change may alter: the changed ones and their subtrees. */
 function touched(index: SymbolIndex, change: ManagerChange): string[] {
 	const roots = [...(change.own?.keys() ?? []), ...(change.parent?.keys() ?? [])];
@@ -115,11 +141,12 @@ function touched(index: SymbolIndex, change: ManagerChange): string[] {
  * `cycle` at the declarations of a loop that an edge added by `change` reaches (module comment),
  * or null.
  */
-export function managerLoop(index: SymbolIndex, change: ManagerChange): Refused | null {
+export function managerLoop(ctx: EditContext, change: ManagerChange): Refused | null {
+	const { index } = ctx;
 	const before = graphBefore(index, ownManagers(index));
 	const after = graphAfter(before, change);
 	for (const id of touched(index, change)) {
-		const had = change.added?.id === id ? new Set<string>() : managersOf(before, id);
+		const had = change.added?.id === id ? new Set<string>() : managersHad(ctx, id);
 		for (const m of managersOf(after, id)) {
 			if (had.has(m)) continue;
 			const loop = loopFrom(after, m);
