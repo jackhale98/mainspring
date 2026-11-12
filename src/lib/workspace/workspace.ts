@@ -19,7 +19,7 @@
  * the extensions for the new top and lists it in `ChangeInfo.reconfigured`; an editor showing that
  * file then takes `state(path)` again.
  */
-import { history } from '@codemirror/commands';
+import { history, isolateHistory } from '@codemirror/commands';
 import {
 	Annotation,
 	Compartment,
@@ -85,7 +85,10 @@ export interface Workspace {
 	state(path: WorkspacePath): EditorState;
 	/** Called by the editor with its transactions, which must start from `state(path)`. */
 	commit(path: WorkspacePath, tr: Transaction | readonly Transaction[], origin: ChangeOrigin): void;
-	/** Applies an edit: one transaction per file, annotated with tjpEditId. 'stale' if a base moved. */
+	/**
+	 * Applies an edit: one transaction per file, annotated with tjpEditId and isolated in the
+	 * history (its own undo step). 'stale' if a base moved.
+	 */
 	apply(edit: WorkspaceEdit): 'applied' | 'stale';
 	/** Full workspace text for ScheduleRequest.files. */
 	texts(): Record<WorkspacePath, string>;
@@ -219,7 +222,8 @@ class MemoryWorkspace implements Workspace {
 			if (!cs || cs.empty) continue;
 			const tr = this.state(path).update({
 				changes: cs,
-				annotations: tjpEditId.of(edit.id),
+				// Its own undo step: typing right after an edit is not joined to it.
+				annotations: [tjpEditId.of(edit.id), isolateHistory.of('full')],
 				userEvent: `input.tjp.${edit.intent.type}`,
 			});
 			changed.push({ path, tr });

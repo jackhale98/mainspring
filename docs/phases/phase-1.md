@@ -887,3 +887,45 @@ them.
     intents (`addTask`, `deleteTask`, `moveTask`, `addDepends`/`removeDepends`, allocation changes
     that add or remove lines or items) are always refused there with `shared-declaration`, whose
     `affects` lists every visit's ids (for top-level text, every id the file declares).
+17. **CodeMirror extensions (T13; ADR-0004).** `src/lib/tjp/cm/`; `tjp(opts)` is the full set for
+    one file and `workspaceExtensions(opts)` is the `createWorkspace` `extensions` factory.
+    - **Interface.** `contextAt(tree, pos, top, text)` returns `ContextId | null` and takes a text
+      accessor; null is a body whose context is unknown (an opaque or unknown statement), where no
+      keyword is offered. It replays the grammar's context tracker over the finished tree; a test
+      checks it gives every keyword of the corpora (global top, and project and prolog tops) the
+      scoped keyword the tracker resolved. `tjp()` takes `top` and `docs` (spec 6.7) plus `path`,
+      `workspace` (a getter: the workspace creates file states before `createWorkspace` returns),
+      `index` (a getter), `ids` (default true), `onFormat` (the format outcome for the UI),
+      `gutter` (lint gutter, default true) and `theme` (default true).
+    - **Two trees.** The editor's tree is CodeMirror's own incremental parse of the state
+      (highlighting, folding, completion, keyword hover, indentation); the workspace's `TjpFile`
+      tree (with `reuseFragments`) serves diagnostics, the index and formatting. The two can differ
+      only next to syntax errors. Id hover and the format command use the workspace file and the
+      index only while they describe the text the editor shows (same text, index of the current
+      workspace version); otherwise id hover shows nothing.
+    - **Format.** With a workspace, the command builds a `TjpEdit` with the edit API's
+      `formatFile(snapshot, path)` and dispatches its change set as one view transaction
+      (`tjpOrigin` 'format', `tjpEditId`, user event `input.tjp.format`, `isolateHistory` 'full')
+      rather than through `Workspace.apply`, so the view and the workspace stay on one state;
+      `workspaceDispatch(ws, path)` commits it with origin 'format'. It is refused as `stale` when
+      the view's state is not the workspace's state for the file or the edit's base version is not
+      the file's, and as `syntax-error` as format refuses. A read-only editor does not format.
+      Without a workspace it formats a fresh parse with format.ts. `Workspace.apply` also marks its
+      transactions `isolateHistory` 'full', so typing after an edit is a separate undo step.
+    - **Lint channels.** Diagnostics are pushed, on two channels that replace each other
+      independently: 'engine' (the runner, after each run) and 'local' (syntax, value and attribute
+      checks, after each reparse). Only the file's own are kept; precision 'none' is never drawn.
+      Both channels are mapped through edits; engine diagnostics turn stale at the first edit and are
+      redrawn after a 300 ms pause with a dotted underline and a stale note (the text keeps its full
+      colour, WCAG 1.4.3).
+    - **Ids (ADR-0004).** Completion offers task ids after `depends` and `precedes` and resource ids
+      after `allocate`, `responsible` and `managers`, from the index; Text mode keeps the default
+      `ids: true`. Hovering an id (a declaration header, a reference, a `supplement` target or a
+      macro name) shows its declaration's file, line and header; an undeclared reference says so.
+    - **Keys.** Format: Shift-Alt-F on Windows and Linux (6.7); on macOS Cmd-Option-Shift-F,
+      because Option-Shift-F types "Ï" there. Documentation at the cursor (the hover content, or
+      the docs of the statement's keyword, for keyboard users): Mod-K Mod-I, Escape closes. Enter
+      inside a quoted string inserts a bare line break, which keeps the string's value. F8 and
+      Mod-Shift-M come from @codemirror/lint (next problem, problem list). Labels for these are in
+      strings.ts `editorStrings.commands`; CodeMirror's own phrases are routed through
+      `codemirrorPhrases`.
