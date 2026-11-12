@@ -79,7 +79,7 @@ class StreamSource implements ScanSource {
 		return s;
 	}
 
-	/** Up to `length` code units from `offset`, stopping after a `\n` if `toLineEnd`. */
+	/** Up to `length` code units from `offset`; with `toLineEnd`, through a `\n`, `\r\n` or `\r`. */
 	private read(offset: number, length: number, toLineEnd: boolean): string {
 		let out = '';
 		const codes: number[] = [];
@@ -92,6 +92,10 @@ class StreamSource implements ScanSource {
 				codes.length = 0;
 			}
 			if (toLineEnd && c === 10) break;
+			if (toLineEnd && c === 13) {
+				if (this.input.peek(offset + i + 1) === 10) codes.push(10);
+				break;
+			}
 		}
 		return out + String.fromCharCode(...codes);
 	}

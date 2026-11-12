@@ -93,9 +93,13 @@ describe('ValueLexer', () => {
 		expect(s?.str).toEqual({ value: `it's "x"`, style: 'single' });
 	});
 
-	it('reads multi-line strings and keeps \\r as content', () => {
+	it('reads every line break in a string value as \\n, as TaskJuggler does', () => {
 		const [t] = lex('"a\r\nb"');
-		expect(t?.str?.value).toBe('a\r\nb');
+		expect([t?.text, t?.str?.value]).toEqual(['"a\r\nb"', 'a\nb']);
+		const [u] = lex("'a\rb\r\r\nc'");
+		expect(u?.str?.value).toBe('a\nb\n\nc');
+		const [v] = lex('-8<-\r\n  one\r\n  two\r  ->8-');
+		expect(v?.str).toEqual({ value: 'one\ntwo\n', style: 'cut' });
 	});
 
 	it('reads a backslash before a newline as a plain backslash', () => {
