@@ -1039,11 +1039,12 @@ them.
       `unfixable-reference`; leaving an effort leaf without allocations is
       `conflicting-attribute` (effort_no_allocations, as 15.19).
     - `moveResource` across files with different `resourceprefix` is `unsupported-form` (ids in
-      the block would read differently); moving a subtree that assigns `shifts` under a parent
-      chain that does too is `conflicting-attribute` (inherited assignments overlap:
-      shift_assignment_overlap, checked natively); a move later in reading order past an
-      allocation of the subtree (TaskJuggler resolves `allocate` ids while parsing) or with a
-      mention outside the block is `unfixable-reference`.
+      the block would read differently). Under a new parent chain that assigns `shifts` too, a
+      subtree with its own `shifts` is `conflicting-attribute` (inherited assignments overlap:
+      shift_assignment_overlap), and so is a subtree holding a resource the chain's `managers`
+      names (it would inherit itself: manager_is_self); both checked natively. A move later in
+      reading order past an allocation of the subtree (TaskJuggler resolves `allocate` ids while
+      parsing) or with a mention outside the block is `unfixable-reference`.
     - Resource attribute values are TaskJuggler text, as `setAttr` (`'1.5'`, `'"a@b.c"'`); the
       number rule has no sign, so negative values are `invalid-value`. `managers` is the whole
       accumulating list, as T11a's `responsible`: inherited ids stay (`inherited`), every id a leaf

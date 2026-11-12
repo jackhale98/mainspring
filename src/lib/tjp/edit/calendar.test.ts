@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ROOT } from '../../../../tests/grammar/corpus';
 import { applyIntent } from './apply';
 import { setWorkingHours } from './settings';
 import { setup, textsAfter } from './testing';
@@ -158,6 +161,18 @@ describe('setWorkingHours', () => {
 				).r,
 			),
 		).toBe('refused:text-only');
+	});
+
+	it('edits statements in a supplement resource body', () => {
+		const sup = readFileSync(path.join(ROOT, 'tests/fixtures/tjp/supplement/plan.tjp'), 'utf8');
+		// Resource ids are global: `bo` is declared inside `grp`.
+		const scope = { kind: 'resource' as const, resource: 'bo' };
+		expect(
+			run({ type: 'setWorkingHours', scope, days: ['fri'], hours: [['9:00', '12:00']] }, sup).text,
+		).toContain('  workinghours mon-thu 9:00-17:00\n  workinghours fri 9:00 - 12:00\n}');
+		expect(run({ type: 'setWorkingHours', scope, days: WEEK, hours: 'off' }, sup).text).toContain(
+			'  workinghours fri off\n  workinghours mon - fri off\n}',
+		);
 	});
 
 	it('keeps CRLF and tabs', () => {

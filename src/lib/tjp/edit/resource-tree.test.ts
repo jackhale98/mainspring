@@ -259,6 +259,13 @@ describe('moveResource', () => {
 		).toBe('edit');
 	});
 
+	it('refuses inheriting itself as manager (manager_is_self)', () => {
+		const m = PLAN.replace('  efficiency 1.0\n', '  efficiency 1.0\n  managers cid\n');
+		expect(
+			status(run({ type: 'moveResource', resource: 'cid', parent: 'team', index: 0 }, m).r),
+		).toBe('refused:conflicting-attribute');
+	});
+
 	it('refuses moving into a file with another resourceprefix', () => {
 		const files = {
 			'plan.tjp':
