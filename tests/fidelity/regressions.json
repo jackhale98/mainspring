@@ -60,6 +60,62 @@
 			"answer": "text-only",
 			"reason": "Oracle bug in the suite, fixed: a setAttr aimed at a statement written with a macro used a value that failed validation, so it was refused invalid-value instead of text-only. This seed aims at the macro-written effort of a corpus task and must be refused text-only.",
 			"found": "2026-11-12"
+		},
+		{
+			"source": "corpus",
+			"seed": 23,
+			"type": "setDependsGap",
+			"plan": "upstream-fedora-20",
+			"intent": {
+				"type": "setDependsGap",
+				"task": "f20.TestingPhase.alpha.remind_alpha_blocker1",
+				"target": "f20.TestingPhase.alpha.shadow_alpha_blocker",
+				"gap": {
+					"kind": "gapduration",
+					"value": "1h"
+				}
+			},
+			"reason": "Oracle bug in the suite, fixed (found by the nightly, shard 3): the gap of an item written `{ gapduration 1h}` was read as `1h}`; the pattern now stops at a closing brace.",
+			"found": "2026-11-13"
+		},
+		{
+			"source": "corpus",
+			"seed": 1786307328,
+			"type": "addLeave",
+			"plan": "upstream-template",
+			"intent": {
+				"type": "addLeave",
+				"scope": {
+					"kind": "global"
+				},
+				"leave": {
+					"type": "holiday",
+					"name": "Retreat",
+					"start": "2011-11-26",
+					"end": "2011-11-27"
+				}
+			},
+			"reason": "Model bug in the suite, fixed (nightly, shard 3): with no `leaves` list but `vacation` statements after the project header, addLeave inserts a new `leaves` statement right after the header, so the item comes first, not last (calendar-leaves.ts). The expectation counts the items before the insertion place.",
+			"found": "2026-11-13"
+		},
+		{
+			"source": "corpus",
+			"seed": 211377250,
+			"type": "addTask",
+			"plan": "upstream-todolist",
+			"intent": {
+				"type": "addTask",
+				"parent": null,
+				"index": 1,
+				"id": "zed",
+				"name": "New task",
+				"attrs": [
+					["duration", "9h"],
+					["priority", "360"]
+				]
+			},
+			"reason": "Oracle bug in the suite, fixed (nightly, shard 3): Todolist's tasks have automatic ids (`_Task_5`), which the engine renumbers when a task is added, so the hints taken from the golden result name other tasks after the edit (15.24, no text names them). After a task tree intent on a hinted plan only literal ids are compared.",
+			"found": "2026-11-13"
 		}
 	]
 }
