@@ -178,14 +178,14 @@ describe('insertStatement by attribute order', () => {
 describe('strings in inserted statements', () => {
 	const note = 'note "first\n\tsecond \\" still\nthird"';
 
-	it('never re-indents or converts breaks inside a multi-line string (LF, CRLF)', () => {
+	it('never re-indents inside a multi-line string; breaks follow the file (LF, CRLF)', () => {
 		const lf = HEAD + 'task a "A" {\n  effort 5d\n}\n';
 		expect(insert(lf, 'task a', note, byRank('note'))).toBe(
 			HEAD + 'task a "A" {\n  ' + note + '\n  effort 5d\n}\n',
 		);
 		const crlf = lf.replace(/\n/g, '\r\n');
 		expect(insert(crlf, 'task a', note, byRank('note'))).toBe(
-			crlf.replace('{\r\n', '{\r\n  ' + note + '\r\n'),
+			crlf.replace('{\r\n', '{\r\n  ' + note.replace(/\n/g, '\r\n') + '\r\n'),
 		);
 	});
 

@@ -156,3 +156,29 @@ export function touchedMacro(
 	});
 	return hit;
 }
+
+/**
+ * The macro node that would follow a pure insertion or deletion at `pos` (the next token after
+ * blanks, line breaks and comments), unless `exempt` accepts its statement-level call (a safe
+ * call whose body starts with a statement keyword, 5.4). Null when none.
+ */
+export function nextTokenMacro(
+	tree: Tree,
+	text: string,
+	pos: number,
+	exempt: (callStatementFrom: number) => boolean,
+): string | null {
+	let i = pos;
+	for (;;) {
+		while (i < text.length && /[ \t\n\v\f\r]/.test(text[i] ?? '')) i++;
+		if (i >= text.length) return null;
+		const leaf = tree.resolveInner(i, 1);
+		if ((leaf.name === 'LineComment' || leaf.name === 'BlockComment') && leaf.from === i) {
+			i = leaf.to;
+			continue;
+		}
+		const stmt = leaf.parent?.name === 'MacroCallStatement' ? leaf.parent : null;
+		if (stmt && exempt(stmt.from)) return null;
+		return MACRO_NODE_NAMES.has(leaf.name) || stmt ? `${leaf.name} at ${leaf.from}` : null;
+	}
+}

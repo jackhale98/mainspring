@@ -11,7 +11,9 @@
  *   directly before or after `${m}` glues to it (`${m}x` is one MacroWord);
  * - inserts or removes text so that the next significant token after it (blanks, line breaks and
  *   comments skipped) is a macro call, or the start of a `macro-body` or `expanded-only` range:
- *   the expansion would then follow the new text (or the text before a removed statement);
+ *   the expansion would then follow the new text (or the text before a removed statement).
+ *   Exempt: a safe statement-level call whose macro body starts with a statement keyword
+ *   (`keywordLedSafeCall`, as Tutorial's `${allocate_developers}`);
  * - touches a macro definition's name (`macro name [...]`), which every call depends on;
  * - touches the line break that closes a macro body after its `]` (grammar/scanner.ts), unless it
  *   removes the body with it.
@@ -20,6 +22,7 @@ import type { SyntaxNode } from '@lezer/common';
 import type { TjpFile } from '../document';
 import type { TextOnlyReason } from '../text-only';
 import { MACRO_TOKENS } from '../grammar/parser';
+import { KEYWORDS } from '../syntax/keywords';
 import { breakLength, fileText } from './lines';
 import { refused, type EditContext, type EditOp, type Refused, type Span } from './types';
 
@@ -68,6 +71,33 @@ function touches(op: EditOp, n: Span): boolean {
 	return !whole && op.from <= n.to && op.to >= n.from;
 }
 
+const KEYWORD_NAMES: ReadonlySet<string> = new Set(KEYWORDS.map((k) => k.name));
+const CALL_NAME = /^\$\{\??\s*([A-Za-z_]\w*)/;
+
+/**
+ * Whether `leaf` starts a statement-level call the index treats as safe (none of its text-only
+ * ranges lacks a `within`: one definition, no nested calls, nothing declared) whose macro body
+ * starts with a
+ * statement keyword. Its expansion is then a statement of its own and cannot join the text
+ * before it; a body that starts with a continuation (`, b`, `{ … }`) can.
+ */
+export function keywordLedSafeCall(ctx: EditContext, file: TjpFile, leaf: SyntaxNode): boolean {
+	const stmt = leaf.parent;
+	if (stmt?.name !== 'MacroCallStatement') return false;
+	// The index marks an unsafe call with a range of its own that has no `within` (T8); the call
+	// token's range always has one.
+	const ranges = ctx.index
+		.textOnly(file.path)
+		.filter((t) => t.reason === 'macro-call' && t.at.from === stmt.from && t.at.to === stmt.to);
+	const safe = ranges.length > 0 && ranges.every((t) => t.within !== null);
+	if (!safe) return false;
+	const name = CALL_NAME.exec(fileText(file).slice(leaf.from, leaf.to))?.[1];
+	const defs = name === undefined ? undefined : ctx.index.macros.get(name);
+	const def = defs?.length === 1 ? defs[0] : undefined;
+	const word = def ? /^\s*([A-Za-z_]\w*)/.exec(def.text)?.[1] : undefined;
+	return word !== undefined && KEYWORD_NAMES.has(word);
+}
+
 /** The macro adjacency rules (module comment) for one op. */
 export function checkMacroAdjacency(ctx: EditContext, file: TjpFile, op: EditOp): Refused | null {
 	let bad: Refused | null = null;
@@ -96,7 +126,7 @@ export function checkMacroAdjacency(ctx: EditContext, file: TjpFile, op: EditOp)
 	const next = nextSignificant(file, op.to);
 	if (!next) return null;
 	if (MACRO_NODES.has(next.name) || next.parent?.name === 'MacroCallStatement') {
-		return refuse(file, next);
+		return keywordLedSafeCall(ctx, file, next) ? null : refuse(file, next);
 	}
 	const starts = ctx.index
 		.textOnly(file.path)

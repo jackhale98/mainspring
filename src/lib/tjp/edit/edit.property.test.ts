@@ -28,7 +28,8 @@ import {
 	replaceValue,
 	type OrderScope,
 } from './layout';
-import { inOrder, lineRegion, listItems, touchedMacro } from './oracle';
+import { KEYWORDS } from '../syntax/keywords';
+import { inOrder, lineRegion, listItems, nextTokenMacro, touchedMacro } from './oracle';
 import {
 	isNoop,
 	isRefused,
@@ -113,6 +114,8 @@ const INSERTS: Readonly<Record<OrderScope, ReadonlyArray<readonly [string, strin
 		['complete', 'complete 25'],
 		['scheduling', 'scheduling asap'],
 		['task', 'task prop_child "Property child" {\n\tlength 1d\n}'],
+		['note', 'note "Line one\n\tline two, it\'s kept"'],
+		['note', "note -8<-\n  It's cut-here text\n  ->8-"],
 	],
 	resource: [
 		['email', 'email "p@example.org"'],
@@ -256,6 +259,27 @@ function candidates(c: Corpus, kind: Kind, pick: number): Array<() => Case> {
 	return out;
 }
 
+const KEYWORD_NAMES = new Set(KEYWORDS.map((k) => k.name));
+
+/**
+ * Statement-level calls the next-token rule exempts (5.4): the index treats them as safe (no
+ * text-only range of theirs lacks a `within`) and their only macro definition starts with a
+ * keyword.
+ */
+function safeCall(c: Corpus, file: string): (from: number) => boolean {
+	const text = fileOf(c, file).text.toString();
+	return (from) => {
+		const at = c.index
+			.textOnly(file)
+			.filter((r) => r.reason === 'macro-call' && r.at.from === from);
+		if (at.length === 0 || at.some((r) => r.within === null)) return false;
+		const name = /^\$\{\??\s*(\w+)/.exec(text.slice(from))?.[1] ?? '';
+		const defs = c.index.macros.get(name) ?? [];
+		const word = defs.length === 1 ? /^\s*(\w+)/.exec(defs[0]?.text ?? '')?.[1] : undefined;
+		return word !== undefined && KEYWORD_NAMES.has(word);
+	};
+}
+
 const INTENT = { type: 'declareFlag', flag: 'property' } as const;
 const overlaps = (a: Span, b: Span): boolean => a.from <= b.to && b.from <= a.to;
 
@@ -298,6 +322,11 @@ function check(
 			syntaxIssues(file.tree, file.text).length,
 		);
 		expect(touchedMacro(file.tree, base, fresh.tree, cs), `${c.name} ${label}`).toBeNull();
+		for (const x of list) {
+			if (x.fromA !== x.toA && x.inserted !== '') continue;
+			const next = nextTokenMacro(file.tree, base, x.toA, safeCall(c, p));
+			expect(next, `${c.name} ${label}: ${x.fromA}-${x.toA} before a macro`).toBeNull();
+		}
 		if (base.includes('\r\n') && !/(^|[^\r])\n/.test(base)) {
 			for (const x of list) expect(x.inserted).not.toMatch(/(^|[^\r])\n/);
 		}

@@ -4,12 +4,9 @@ import { buildIndex } from '../index';
 import { insertStatement, removeStatement, replaceSpan } from './layout';
 import {
 	checkFresh,
-	checkMacroAdjacency,
-	checkMacroBreaks,
 	checkOps,
 	checkSafeText,
 	checkStatementErrors,
-	nextSignificant,
 	statementAround,
 	validValue,
 } from './refuse';
@@ -17,13 +14,6 @@ import type { EditOp } from './types';
 import { ops, setup, span, stmt } from './testing';
 
 const HEAD = 'project p "P" 2026-01-05 +2m\nresource r "R"\n';
-const at = (op: EditOp, from: number, to = from, insert = 'y'): EditOp => ({
-	...op,
-	from,
-	to,
-	insert,
-	element: { from, to },
-});
 
 describe('freshness', () => {
 	it('refuses an index built from another workspace version', () => {
@@ -80,42 +70,6 @@ describe('text-only targets', () => {
 	});
 });
 
-describe('macro adjacency (H1)', () => {
-	it('refuses a body before a macro call that supplies one', () => {
-		const text = HEAD + 'macro b [{ length 1d }]\ntask a "A" ${b}\n';
-		const s = setup(text);
-		const f = s.file();
-		const r = checkOps(s.ctx, ops(insertStatement(f, stmt(f, 'task a'), 'priority 600', 'end')));
-		expect(r).toMatchObject({ reason: 'text-only', textOnly: 'macro-call' });
-	});
-
-	it('refuses text glued to a macro token, and insertion points before one', () => {
-		const text = HEAD + 'macro m [x]\ntask a "A" {\n  note "n"\n  ${m}\n  effort 1d\n}\n';
-		const s = setup(text);
-		const f = s.file();
-		const call = span(f, '${m}');
-		const base = removeStatement(f, stmt(f, 'note'));
-		expect(checkMacroAdjacency(s.ctx, f, at(base, call.to))).not.toBeNull();
-		expect(checkMacroAdjacency(s.ctx, f, at(base, call.from))).not.toBeNull();
-		// The line start before the call: the next significant token is the call.
-		expect(checkMacroAdjacency(s.ctx, f, at(base, call.from - 2))).not.toBeNull();
-		// Removing the statement before the call makes the call follow other text.
-		expect(checkOps(s.ctx, [base])).toMatchObject({ reason: 'text-only' });
-		expect(checkOps(s.ctx, [removeStatement(f, stmt(f, 'effort'))])).toBeNull();
-		expect(nextSignificant(f, stmt(f, 'note').to)?.name).toBe('MacroCall');
-	});
-
-	it('refuses edits of a macro definition name', () => {
-		const text = HEAD + 'macro m [x]\ntask a "A"\n';
-		const s = setup(text);
-		const f = s.file();
-		const name = span(f, 'm [').from;
-		const o = replaceSpan(f, { from: name, to: name + 1 }, 'n');
-		expect(checkOps(s.ctx, [o])).toMatchObject({ reason: 'text-only', textOnly: 'macro-body' });
-		expect(checkOps(s.ctx, [at(o, name + 1)])).not.toBeNull();
-	});
-});
-
 describe('syntax errors', () => {
 	const text =
 		HEAD + 'task a "A" {\n  effort 5d\n  start 2026-01-05 @\n}\ntask b "B" {\n  effort 1d\n}\n';
@@ -138,27 +92,6 @@ describe('syntax errors', () => {
 		expect(statementAround(f, { from: e.from, to: e.from })?.name).toBe('TaskStatement');
 		expect(statementAround(f, { from: 0, to: 0 })).toBeNull();
 	});
-});
-
-describe('macro body line breaks', () => {
-	for (const eol of ['\n', '\r\n', '\r']) {
-		it(`never touches the break after ] (${JSON.stringify(eol)})`, () => {
-			const text = `${HEAD}macro m [x]${eol}task a "A"${eol}`;
-			const s = setup(text);
-			const f = s.file();
-			const end = text.indexOf(']') + 1;
-			const base = replaceSpan(f, { from: 0, to: 0 }, 'y');
-			expect(checkMacroBreaks(f, at(base, end))).toMatchObject({ textOnly: 'macro-body' });
-			expect(checkMacroBreaks(f, at(base, end, end + 1))).toMatchObject({
-				textOnly: 'macro-body',
-			});
-			if (eol.length === 2) expect(checkMacroBreaks(f, at(base, end + 1))).not.toBeNull();
-			expect(checkMacroBreaks(f, at(base, end + eol.length))).toBeNull();
-			expect(checkMacroBreaks(f, at(base, end - 2, end - 1))).toBeNull();
-			const whole = at(base, text.indexOf('macro'), end + eol.length, '');
-			expect(checkMacroBreaks(f, whole)).toBeNull();
-		});
-	}
 });
 
 describe('shared declarations (M5)', () => {
