@@ -151,7 +151,9 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 	const attrs = ['efficiency', 'rate', 'email', 'managers'] as ResourceAttr[];
 	if (type === 'removeResourceAttr') {
 		const cands = f.resTree.flatMap((r) =>
-			attrs.filter((a) => own(r, a).length > 0).map((a) => [r.id, a] as const),
+			attrs
+				.filter((a) => own(r, a).length > 0 && (a !== 'managers' || r.children.length === 0))
+				.map((a) => [r.id, a] as const),
 		);
 		const [id, attr] =
 			cands.length > 0 && rng.chance(0.85)
@@ -241,12 +243,14 @@ export const resourcesFamily: Family = {
 		if (intent.type === 'addResource') {
 			const attrs: Record<string, string[]> = {};
 			for (const [k, v] of intent.attrs ?? []) attrs[k] = [normValue(String(v))];
+			// A child inherits the managers its parent has when it is created (15.22).
+			const inherited = rs.find((r) => r.id === intent.parent)?.managers ?? [];
 			const item: ResSem = {
 				id: intent.id ?? '',
 				parent: intent.parent,
 				name: intent.name,
 				attrs,
-				managers: [],
+				managers: [...inherited],
 				leaves: [],
 			};
 			out.resources = place(rs, item, intent.parent, intent.index);

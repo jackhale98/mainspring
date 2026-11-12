@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Zones for resource blocks (7.1 addResource, deleteResource, moveResource): where a resource
 // declaration may be inserted, and the gap around a block that removing or cutting it may change.
-import { firstTask, lineEndOf, rg, type Elem, type Facts, type Rg, type TaskF } from '../gen/facts';
+import {
+	firstTask,
+	lineEndOf,
+	RES_RANK,
+	rg,
+	type Elem,
+	type Facts,
+	type Rg,
+	type TaskF,
+} from '../gen/facts';
 
 const breakAfter = (t: string, p: number): number =>
 	t[p] === '\r' && t[p + 1] === '\n' ? 2 : t[p] === '\n' || t[p] === '\r' ? 1 : 0;
@@ -45,7 +54,12 @@ export function slotZone(f: Facts, parentId: string | null, index: number, exclu
 			return [rg(file, parent.block.to, e + breakAfter(text(file), e))];
 		}
 		if (parent?.body) {
-			const last = parent.body.elems[parent.body.elems.length - 1];
+			// Child resources follow the ranked statements; statements the order skips (opaque ones,
+			// such as `limits`) may come after them.
+			const ranked = parent.body.elems.filter(
+				(e) => e.kind === 'stmt' && e.key !== null && RES_RANK[e.key] !== undefined,
+			);
+			const last = ranked[ranked.length - 1];
 			return [rg(parent.body.file, last ? last.to : parent.body.open, parent.body.close)];
 		}
 		const first = firstTask(f);
