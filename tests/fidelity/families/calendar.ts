@@ -255,7 +255,15 @@ export const calendarFamily: Family = {
 			const last = lists[lists.length - 1];
 			const index = last
 				? mine.filter((x) => x.seq <= last.seq).reduce((n, x) => n + (x.items?.length ?? 0), 0)
-				: (list?.length ?? 0);
+				: // With no `leaves` list the statement is inserted (after the project header for the global
+					// scope, by the 7.2 order for a resource), so it goes before the items of statements read after
+					// that place, such as a `vacation` that follows the header.
+					(() => {
+						const zone = (calendarFamily.region(intent, f) as readonly Rg[])[0];
+						return mine
+							.filter((x) => zone && x.range.file === zone.file && x.range.to <= zone.from)
+							.reduce((n, x) => n + (x.items?.length ?? 0), 0);
+					})();
 			list?.splice(index, 0, leaveText(intent.leave));
 		} else if (intent.type === 'updateLeave' || intent.type === 'removeLeave') {
 			const ref = intent.leave.item;

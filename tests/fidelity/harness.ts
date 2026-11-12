@@ -64,6 +64,16 @@ export interface Outcome {
 	readonly after: Record<string, string> | null;
 }
 
+/** The semantics without the tasks whose id has an automatic segment, and the dependencies naming them. */
+function withoutAutoIds(s: Sem): Sem {
+	const auto = (id: string): boolean => /(^|\.)_Task_\d+/.test(id);
+	return {
+		...s,
+		tasks: s.tasks.filter((t) => !auto(t.id)),
+		deps: s.deps.filter((d) => !/(^|\.|<-)_Task_\d+/.test(d)),
+	};
+}
+
 export function changesOf(edit: TjpEdit): Change[] {
 	const out: Change[] = [];
 	for (const [file, cs] of Object.entries(edit.changes) as Array<[string, ChangeSet]>) {
@@ -224,8 +234,12 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 		c.result ? goldenHints(c.result, snap0, { snap: snap1, changes: edit.changes }) : undefined,
 		{ cache: null },
 	);
-	const sem1 = semOf(factsFromIndex(snap1, index1));
-	const expected = c.family.expect(c.sem, c.facts, c.drawn.intent);
+	// Automatic ids (`_Task_12`) count declarations, so the engine renumbers them when a task is added,
+	// deleted or moved (15.24): no text names them, so after such an edit only literal ids are compared.
+	const structural = ['addTask', 'deleteTask', 'moveTask'].includes(c.drawn.intent.type);
+	const literal = (s: Sem): Sem => (c.result && structural ? withoutAutoIds(s) : s);
+	const sem1 = literal(semOf(factsFromIndex(snap1, index1)));
+	const expected = literal(c.family.expect(c.sem, c.facts, c.drawn.intent));
 	if (JSON.stringify(canonSem(sem1)) !== JSON.stringify(canonSem(expected))) {
 		fail(
 			'P3',

@@ -4,7 +4,7 @@ A static, offline-first web app for TaskJuggler plans. The real TaskJuggler 3.8.
 runs in the browser on ruby.wasm, and the plan stays a plain `.tjp` text file under version
 control.
 
-Status: Phase 1 (document layer and text mode) in progress. See `docs/BUILD_PLAN.md` and `docs/phases/`.
+Status: Phase 2 (Gantt and visual editing) in progress. See `docs/BUILD_PLAN.md` and `docs/phases/`.
 
 ## Run locally / Preview
 

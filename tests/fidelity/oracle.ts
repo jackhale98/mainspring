@@ -109,7 +109,7 @@ const inside = (outer: SourceRange, r: SourceRange): boolean =>
 
 /** The gap of a `{ gapduration 2h }` item body, as the plan says it. */
 export function gapOf(text: string): Gap | null {
-	const m = /\b(gapduration|gaplength)\s+(\S+)/.exec(text);
+	const m = /\b(gapduration|gaplength)\s+([^\s}]+)/.exec(text);
 	return m ? { kind: m[1] as Gap['kind'], value: m[2] as string } : null;
 }
 

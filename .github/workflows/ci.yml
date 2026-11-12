@@ -30,6 +30,9 @@ jobs:
       # Gate criterion 1 (phase-1.md 9.1, 9.2): parse then print every golden file byte for byte,
       # and the index against the goldens. Needs no engine build.
       - run: npm run test:roundtrip
+      # Generated golden plans must match their generators (phase-2 T3; scale-1000 is phase-0 section 6.1).
+      - run: node engine/golden/generators/gantt-plans.mjs --check
+      - run: node engine/golden/generators/scale-1000.mjs --check
       - uses: actions/upload-artifact@v4
         if: always()
         with:

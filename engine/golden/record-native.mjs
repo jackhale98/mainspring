@@ -75,8 +75,13 @@ function preflight(allowRuby) {
 	if (tree !== pin.tree) throw new Refusal(`engine/tj at HEAD is tree ${tree}; tj.pin.json pins ${pin.tree}`);
 	const tjDirty = git('status', '--porcelain', '--ignored', '--untracked-files=all', '--', 'engine/tj');
 	if (tjDirty.trim()) throw new Refusal(`engine/tj differs from the pinned tree:\n${tjDirty}`);
-	const dirty = git('status', '--porcelain', '--untracked-files=all', '--', 'engine/bridge', 'engine/golden/plans');
-	if (dirty.trim()) throw new Refusal(`commit these first; goldens must come from committed inputs:\n${dirty}`);
+	// Every manifest root outside engine/tj counts as an input (the plans, and the fixtures such as
+	// tests/fixtures/gantt), together with the bridge.
+	const manifest = JSON.parse(fs.readFileSync(path.join(REPO, 'engine', 'golden', 'manifest.json'), 'utf8'));
+	const roots = [...new Set(manifest.map((p) => String(p.root).replace(/\/+$/, '')))]
+		.filter((r) => r !== 'engine/tj' && !r.startsWith('engine/tj/'));
+	const dirty = git('status', '--porcelain', '--untracked-files=all', '--', 'engine/bridge', ...roots);
+	if (dirty.trim()) throw new Refusal(`commit these first; goldens must come from committed inputs (engine/bridge and every manifest root outside engine/tj):\n${dirty}`);
 	const check = run('bundle', ['check']);
 	if (check.status !== 0) {
 		throw new Refusal(`gems missing; run: BUNDLE_GEMFILE=engine/golden/Gemfile bundle install\n${check.stdout}${check.stderr}`);

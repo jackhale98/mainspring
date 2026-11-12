@@ -70,6 +70,18 @@ export const SAMPLES: readonly Sample[] = [
 		'f-20.tjp': () => import('../../../engine/tj/examples/Fedora-20/f-20.tjp?raw'),
 		'reports.tji': () => import('../../../engine/tj/examples/Fedora-20/reports.tji?raw'),
 	}),
+	sample('gantt-manipulation', 'plan.tjp', {
+		'plan.tjp': () => import('../../../tests/fixtures/gantt/manipulation/plan.tjp?raw'),
+		'lib/build.tji': () => import('../../../tests/fixtures/gantt/manipulation/lib/build.tji?raw'),
+		'lib/resources.tji': () =>
+			import('../../../tests/fixtures/gantt/manipulation/lib/resources.tji?raw'),
+	}),
+	sample('gantt-200', 'plan.tjp', {
+		'plan.tjp': () => import('../../../engine/golden/plans/gantt/gantt-200/plan.tjp?raw'),
+	}),
+	sample('gantt-500', 'plan.tjp', {
+		'plan.tjp': () => import('../../../engine/golden/plans/gantt/gantt-500/plan.tjp?raw'),
+	}),
 ];
 
 /** The sample with this id, or null. */

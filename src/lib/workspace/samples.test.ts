@@ -14,10 +14,13 @@ const ROOTS: Record<string, string> = {
 	'upstream-tutorial': 'engine/tj/examples/Tutorial',
 	'syn-18-structure-include-macro': 'engine/golden/plans/synthetic/18-structure-include-macro',
 	'upstream-fedora-20': 'engine/tj/examples/Fedora-20',
+	'gantt-manipulation': 'tests/fixtures/gantt/manipulation',
+	'gantt-200': 'engine/golden/plans/gantt/gantt-200',
+	'gantt-500': 'engine/golden/plans/gantt/gantt-500',
 };
 
 describe('SAMPLES', () => {
-	it('lists the four samples of spec 6.2 with labels from the strings file', () => {
+	it('lists the four samples of spec 6.2 and the Gantt samples, with labels from the strings file', () => {
 		expect(SAMPLES.map((s) => s.id)).toEqual(Object.keys(strings.samples));
 		for (const s of SAMPLES) {
 			expect(s.label).toBe(strings.samples[s.id]);
