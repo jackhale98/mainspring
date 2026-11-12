@@ -696,7 +696,7 @@ The edit API does not refuse schedule-dependent errors. The dispatcher settles e
    - median engine time saved of at least 30% on Fedora and `gantt-200`;
    - no golden parity change (golden runs never use the fast path);
    - the bundle size growth recorded.
-   The outcome goes in ADR-0009 either way. If adopted, the runner sends `fast` (6.12) for eligible single intents and undo or redo of them. Typing never uses it.
+   The outcome goes in ADR-0010 either way. If adopted, the runner sends `fast` (6.12) for eligible single intents and undo or redo of them. Typing never uses it.
 
 ## 13. Tests and CI
 
@@ -772,7 +772,7 @@ Each task runs in its own worktree and goes through `reviewer` before merge. UI 
 | T16 | Gantt interactions: gestures wired to hits, previews, link mode, people palette, row drag with indent, keyboard model (7.1, 7.2, 10.2) | `ui-builder` | `src/components/gantt/**` | T9, T11, T12, T13 |
 | T17 | Inspector, link inspector, project sheet, show-source sheet (9.3, 9.1), open-ended warning (11.1) | `ui-builder` | `src/components/inspector/**`, `src/lib/strings.ts` | T12, T13 |
 | T18 | Treegrid outline columns and announcements (10.1) | `ui-builder` | `src/components/gantt/OutlineGrid.svelte` | T10 |
-| T19 | Fast-path spike (section 12); ADR-0009 with the outcome | `engine-specialist`; `test-writer` (equivalence tests); `docs-writer` formats the ADR | `engine/bridge/fast_path.rb`, `src/engine/**`, `tests/engine/fast-path.*` | T2 |
+| T19 | Fast-path spike (section 12); ADR-0010 with the outcome | `engine-specialist`; `test-writer` (equivalence tests); `docs-writer` formats the ADR | `engine/bridge/fast_path.rb`, `src/engine/**`, `tests/engine/fast-path.*` | T2 |
 | T20 | Unit and property tests (13.1), written alongside each owner's task | `test-writer` | beside each module | per module |
 | T21 | E2E specs (13.2), hand-written expected patches, screenshots | `test-writer` | `tests/e2e/gantt-*.spec.ts`, `tests/fixtures/gantt/expected/**` | T3; complete after T16, T17 |
 | T22 | Perf harness: `gantt-perf.spec.ts`, `/dev/gantt-perf`, frame meter, `perf-android.mjs`, touch-listener comparison (8.2) | `perf-a11y-auditor` | `tests/e2e/gantt-perf.spec.ts`, `src/pages/dev/_gantt-perf.astro`, `scripts/perf-android.mjs` | T11, T16 |
@@ -792,7 +792,7 @@ Each task runs in its own worktree and goes through `reviewer` before merge. UI 
 | 3 | T5, T11, T13 |
 | 4 | T12, T15, T17 |
 | 5 | T16; T21 and T22 written against the running UI |
-| 6 | T21, T22, T23, T25 complete; T19 decision (ADR-0009) |
+| 6 | T21, T22, T23, T25 complete; T19 decision (ADR-0010) |
 | 7 | T26 with the user's device; T27; stop for approval |
 
 ## 15. Risks
@@ -860,13 +860,13 @@ These are phase bullets, not gate criteria; they are listed for completeness.
 | --- | --- |
 | "Canvas Gantt with outline, zoom, collapse, dependency lines, critical path, float tails, today and status-date lines." | Screenshots of each feature; unit results for model, ticks and analysis; the treegrid test; critical and float fixtures |
 | "Split, Text and Visual modes with two-way selection sync; inspector; all MVP gestures on mouse and touch; unified undo across text and visual edits." | `gantt-sync.spec.ts`; criterion 1 table; history property-test output (cases, seeds) |
-| "Spike: the parse-skipping fast path; adopt only if equivalence tests pass." | ADR-0009 with the equivalence counts, differences (must be 0 to adopt) and timings before and after on Fedora and `gantt-200` |
+| "Spike: the parse-skipping fast path; adopt only if equivalence tests pass." | ADR-0010 with the equivalence counts, differences (must be 0 to adopt) and timings before and after on Fedora and `gantt-200` |
 
 The gate also records the reschedule time for plans up to 200 tasks, drag feedback times, JS sizes, the golden state (Ruby 3.3.6 or 3.4) and the edit API timing table (T6).
 
 ## 17. Evidence files
 
-`docs/phases/phase-2-gate.md`; `docs/phases/screenshots/phase-2/*.png`; `test-results/gantt-perf.json`, `gantt-perf-android.json`, `text-mode-node-timings.json`; ADR-0007, ADR-0008, ADR-0009.
+`docs/phases/phase-2-gate.md`; `docs/phases/screenshots/phase-2/*.png`; `test-results/gantt-perf.json`, `gantt-perf-android.json`, `text-mode-node-timings.json`; ADR-0007, ADR-0008, ADR-0010.
 
 ## 18. Open questions for the user
 
