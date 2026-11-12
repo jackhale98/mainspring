@@ -52,9 +52,12 @@ export function plannedCases(kind: 'generated' | 'corpus' | 'all' = 'all'): Plan
 	}
 	const out: PlannedCase[] = [];
 	const add = (source: PlannedCase['source'], count: number, seed: number): void => {
+		// The type cycles over the cases this shard runs, so every shard covers every type.
+		let local = 0;
 		draw(count, seed).forEach((s, n) => {
-			if (n % CONFIG.shard.count === CONFIG.shard.index)
-				out.push({ n, source, seed: s, type: typeOfCase(n) });
+			if (n % CONFIG.shard.count === CONFIG.shard.index) {
+				out.push({ n, source, seed: s, type: typeOfCase(local++) });
+			}
 		});
 	};
 	if (kind !== 'corpus') add('generated', CONFIG.runs, CONFIG.seed);

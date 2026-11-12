@@ -118,8 +118,10 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 			f.tasks.flatMap((t) => t.stmts.flatMap((x) => (x.items ?? []).map((i) => i.target))),
 		);
 		const free = f.resTree.filter((r) => !subtree(f, r.id).some((id) => used.has(id)));
+		// Plans where every resource is in use are redrawn most of the time.
+		if (free.length === 0 && rng.chance(0.7)) return null;
 		return {
-			intent: { type, resource: (free.length > 0 && rng.chance(0.5) ? rng.pick(free) : any()).id },
+			intent: { type, resource: (free.length > 0 && rng.chance(0.75) ? rng.pick(free) : any()).id },
 		};
 	}
 	if (type === 'renameResource') {

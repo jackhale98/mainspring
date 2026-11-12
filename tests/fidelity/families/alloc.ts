@@ -27,12 +27,15 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 		const t = rng.pick(leaves);
 		const p = parentOf(f, t);
 		const inherited = p ? effectiveIds(f, p, 'allocate', t.seq) : [];
-		const extra = rng.sample(res, rng.int(1, 2));
+		const have = new Set(effectiveIds(f, t, 'allocate'));
+		const fresh = res.filter((r) => !have.has(r));
+		const extra = rng.sample(fresh.length > 0 && rng.chance(0.85) ? fresh : res, rng.int(1, 2));
 		const wanted = rng.chance(0.85) ? sorted([...inherited, ...extra]) : sorted(extra);
 		return { intent: { type: 'allocate', task: t.id, resources: wanted } };
 	}
 	if (type === 'addAllocation') {
-		const t = rng.pick(leaves);
+		const open = leaves.filter((x) => res.some((r) => !effectiveIds(f, x, 'allocate').includes(r)));
+		const t = rng.pick(open.length > 0 && rng.chance(0.9) ? open : leaves);
 		const have = new Set(effectiveIds(f, t, 'allocate'));
 		const fresh = res.filter((r) => !have.has(r));
 		const pool = fresh.length > 0 && rng.chance(0.85) ? fresh : res;

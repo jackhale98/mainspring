@@ -77,7 +77,9 @@ describe('patch fidelity (text only)', () => {
 	it('every enforced intent type produced at least 5 edits', () => {
 		const stats = tally(outcomes, ENFORCED);
 		// A replay of one case, or a debugging run, is too small to cover every type.
-		if (CONFIG.only || CONFIG.runs < 100) return;
+		// Too few cases (a replay, a debugging run, a small shard) cannot cover every type; the merged
+		// report of the shards is checked in CI (scripts/ci/fidelity-merge.mjs).
+		if (CONFIG.only || outcomes.length < 8 * ENFORCED.length) return;
 		const short = stats
 			.filter((s) => s.edits < 5)
 			.map((s) => `${s.type}: ${s.edits} edits in ${s.cases} cases`);
