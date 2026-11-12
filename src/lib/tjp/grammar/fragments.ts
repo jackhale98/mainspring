@@ -8,7 +8,10 @@
  *   fragments before applying the edit, so text near an old error is reparsed from scratch;
  * - `reparse` also catches errors that the edit creates where the old tree had none: when the
  *   new tree has an error within reach of text that was offered for reuse, recovery there may
- *   have used old nodes, so it parses the file afresh. An error-free result is kept as it is.
+ *   have used old nodes, so it cuts those regions too and parses incrementally again. After
+ *   MAX_ROUNDS incremental parses it parses the file afresh. Edits in the middle of a word are
+ *   often briefly erroneous, so a fresh parse on every error would cost a full parse per
+ *   keystroke; one cut round almost always suffices. An error-free result is kept as it is.
  * Error-free text is reused as usual (parser.property.test.ts checks equality with fresh parses).
  */
 import { TreeFragment, type ChangedRange, type Tree } from '@lezer/common';
@@ -55,10 +58,13 @@ export function reuseFragments(
 	return TreeFragment.applyChanges(fragments, changes);
 }
 
+/** Incremental parses before `reparse` falls back to a fresh one. */
+export const MAX_ROUNDS = 2;
+
 /**
  * Reparses `text` (the text of `tree` after `changes`) incrementally. Returns the new tree, equal
  * to `parser.parse(text)`, and the fragments it was parsed with (the `previous` of the next
- * call).
+ * call). `maxRounds` is for tests.
  */
 export function reparse(
 	parser: LRParser,
@@ -66,11 +72,16 @@ export function reparse(
 	tree: Tree,
 	changes: readonly ChangedRange[],
 	previous?: readonly TreeFragment[],
+	maxRounds = MAX_ROUNDS,
 ): { tree: Tree; fragments: readonly TreeFragment[] } {
-	const fragments = reuseFragments(tree, changes, previous);
-	const next = parser.parse(text, fragments);
-	const nearReuse = errorRanges(next).some((r) =>
-		fragments.some((f) => f.from < r.toA && f.to > r.fromA),
-	);
-	return nearReuse ? { tree: parser.parse(text), fragments: [] } : { tree: next, fragments };
+	let fragments = reuseFragments(tree, changes, previous);
+	for (let round = 0; round < maxRounds; round++) {
+		const next = parser.parse(text, fragments);
+		const nearReuse = errorRanges(next).filter((r) =>
+			fragments.some((f) => f.from < r.toA && f.to > r.fromA),
+		);
+		if (nearReuse.length === 0) return { tree: next, fragments };
+		fragments = TreeFragment.applyChanges(fragments, nearReuse);
+	}
+	return { tree: parser.parse(text), fragments: [] };
 }
