@@ -14,14 +14,16 @@
  *   they cannot continue the current one;
  * - a scenario prefix starts one when a keyword or extension attribute follows it.
  *
- * An identifier that is neither, starts a line in a known context, and stands where a statement
- * could end is read as a misspelt attribute (`chargeset dev` then `effrot 5d` on the next line):
- * it becomes `UnknownWord`, which no rule accepts, so the error is on that line, where TaskJuggler
- * reports it. Arguments continued on the next line after a `,` are unaffected.
+ * A misspelt attribute is an error wherever the statement before it has an exact shape: a typed
+ * statement, or an opaque one whose keyword takes no arguments or a list of literal choices
+ * (argumentShape). After other opaque statements it is read as one more argument, because
+ * TaskJuggler's syntax lines do not say how many tokens an argument takes (`balance cost` may
+ * continue with `rev` on the next line, `charge 100` with `onstart`); a false error on a valid
+ * plan would be worse than a missed typo, which the engine reports anyway.
  */
 import type { Stack } from '@lezer/lr';
 import type { ContextId, KeywordEntry } from '../syntax/keywords';
-import { readWord, startsLine, type Peek } from './chars';
+import { readWord, type Peek } from './chars';
 import { resolveHeadKeyword } from './keyword-extras';
 import type { TjpFrame } from './context';
 import * as T from './parser.terms.generated';
@@ -51,6 +53,40 @@ const PUNCT: ReadonlyMap<string, number> = new Map([
 ]);
 
 const needsArgument = new Map<string, boolean>();
+const shapes = new Map<string, ArgumentShape>();
+
+/**
+ * How the arguments of an opaque statement look, from its keyword's syntax line:
+ * - 'none': no arguments, at most a body ('scheduled', 'limits [{ <attributes> }]');
+ * - 'choice': one or more literal words from a fixed set, comma-separated
+ *   ('formats (csv | html | niku) [, (csv | html | niku)...]', 'select (maxloaded | …)');
+ * - 'required' or 'optional': anything else, by whether an argument is mandatory.
+ * 'none' and 'choice' follow TaskJuggler's rules exactly (literal patterns in TjpSyntaxRules.rb).
+ */
+export type ArgumentShape = 'none' | 'choice' | 'required' | 'optional';
+
+const CHOICE = /^\(([a-z]+(?: \| [a-z]+)*)\)(?: \[, \(\1\)\.\.\.\])?$/;
+
+export function argumentShape(entry: KeywordEntry): ArgumentShape {
+	let shape = shapes.get(entry.keyword);
+	if (shape === undefined) {
+		const rest = entry.syntax.startsWith(entry.name)
+			? entry.syntax.slice(entry.name.length).trim()
+			: null;
+		if (rest !== null && /^(\[\{ <attributes> \}\])?$/.test(rest)) shape = 'none';
+		else if (rest !== null && CHOICE.test(rest)) shape = 'choice';
+		else shape = requiresArgument(entry) ? 'required' : 'optional';
+		shapes.set(entry.keyword, shape);
+	}
+	return shape;
+}
+
+const SHAPE_TERMS: Readonly<Record<ArgumentShape, number>> = {
+	none: T.kwBare,
+	choice: T.kwChoice,
+	required: T.kwArgs,
+	optional: T.kw,
+};
 
 /**
  * Whether a keyword's syntax line has a mandatory argument after the keyword: what is left once
@@ -91,13 +127,12 @@ function isHeadWord(name: string, ctx: ContextId | null): boolean {
 	return EXTENSION_CONTEXTS.has(ctx) && isUpper(name.charCodeAt(0));
 }
 
-function identifierTerm(name: string, stack: Stack, peek: Peek): number {
+function identifierTerm(name: string, stack: Stack): number {
 	const ctx = frameOf(stack).ctx;
 	if (ctx !== null) {
 		const entry = resolveHeadKeyword(name, ctx);
 		if (entry) {
-			const term =
-				TYPED_KEYWORDS.get(entry.keyword)?.head ?? (requiresArgument(entry) ? T.kwArgs : T.kw);
+			const term = TYPED_KEYWORDS.get(entry.keyword)?.head ?? SHAPE_TERMS[argumentShape(entry)];
 			if (stack.canShift(term)) return term;
 		} else if (
 			EXTENSION_CONTEXTS.has(ctx) &&
@@ -111,8 +146,12 @@ function identifierTerm(name: string, stack: Stack, peek: Peek): number {
 	}
 	if (UNITS.has(name) && stack.canShift(T.Unit)) return T.Unit;
 	if (SUPPLEMENT_KINDS.has(name) && stack.canShift(T.SupplementKind)) return T.SupplementKind;
-	if (ctx !== null && stack.canShift(T.kw) && startsLine(peek)) return T.UnknownWord;
-	return T.Identifier;
+	if (name === 'off' && stack.canShift(T.off)) return T.off;
+	// An identifier no state can take is an error anyway (`colour "red"` in a task). As a term that
+	// no rule accepts, recovery can only skip it; as an Identifier, recovery would also try
+	// inserting every head that could precede it, and each such stack rescans what follows (a
+	// runaway string to the end of the file, for one).
+	return stack.canShift(T.Identifier) ? T.Identifier : T.UnknownWord;
 }
 
 /** A string, by what TaskJuggler expands in it (props.ts records it on the node type). */
@@ -143,7 +182,7 @@ export function termFor(token: ScannedToken, text: () => string, stack: Stack, p
 		case 'Error':
 			return T.ScanError;
 		case 'Identifier':
-			return identifierTerm(text(), stack, peek);
+			return identifierTerm(text(), stack);
 		case 'ScenarioPrefix':
 			if (
 				stack.canShift(T.headPrefix) &&

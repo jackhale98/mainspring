@@ -27,5 +27,5 @@ export const tjpHighlighting = styleTags({
 	Comma: t.separator,
 	'Bang Minus Plus Percent': t.operator,
 	Punct: t.punctuation,
-	ScanError: t.invalid,
+	'ScanError UnknownWord': t.invalid,
 });

@@ -20,9 +20,25 @@
  *   `Interval`), `WeekdayRange`, `TimeInterval`.
  * - Every byte is in a leaf except whitespace, so leaves plus whitespace gaps print the input.
  * - Unterminated constructs are a `ScanError` token, which no rule accepts, so they sit in an
- *   error node; so does anything else TaskJuggler would reject at that point.
+ *   error node. An identifier that no parse state can take is an `UnknownWord` token, also in an
+ *   error node.
  *
- * Incremental reparses should take their fragments from `reuseFragments` (fragments.ts), which
+ * Errors the grammar finds, and the one kind it knowingly misses (every valid corpus file has no
+ * error node, which matters more than catching each typo; the engine reports the rest):
+ * - Caught: a misspelt or unknown attribute at the start of a statement, at any indentation and
+ *   with any line breaks, wherever the statement before it has an exact shape: after a typed
+ *   statement (`effort 1d` then `effrot 5d`, or `effort 5d 3h`), after an opaque keyword that takes
+ *   no arguments (`scheduled`, `limits { … }`), after a list of literal choices (`formats html`,
+ *   `select order`), after a body (only a comma continues), at the start of a body, and at the
+ *   top level. Also anything a typed value slot cannot take, a stray `}`, and an unterminated
+ *   string, comment or macro.
+ * - Missed: after an opaque statement whose arguments are open-ended (any other keyword without a
+ *   typed statement, such as `chargeset cost`, `balance cost`, `charge 100`, `shifts night …`), a
+ *   misspelt word is read as one more argument. Its syntax line does not say how many tokens an
+ *   argument takes, and valid plans continue such statements on the next line without a comma
+ *   (`balance cost` then `rev`), so flagging the word would give false errors.
+ *
+ * Incremental reparses should go through `reparse` (fragments.ts), which
  * makes the result equal to a fresh parse also next to syntax errors.
  */
 import type { SyntaxNode } from '@lezer/common';
@@ -34,7 +50,7 @@ import { TYPED_KEYWORDS } from './terms';
 
 export { parser as tjpGlobalParser } from './parser.generated';
 export { EXTRA_KEYWORDS } from './keyword-extras';
-export { reuseFragments } from './fragments';
+export { reparse, reuseFragments } from './fragments';
 export { stringTemplate, type StringTemplate } from './props';
 export { requiresArgument } from './lexer';
 

@@ -2,10 +2,10 @@
 // Parse timings (T5). Spec 8.4 records performance targets rather than enforcing them, so this
 // prints the numbers for the gate and asserts only sanity bounds ten times the targets: a full
 // parse of the 1,000-task synthetic plan (5,629 lines) under 100 ms warm in Node, and an
-// incremental reparse (reuseFragments included) after typing one line.
+// incremental reparse (reparse) after typing one line.
 import { describe, expect, it } from 'vitest';
 import { readTjp } from '../../../../tests/grammar/corpus';
-import { reuseFragments } from './fragments';
+import { reparse } from './fragments';
 import { tjpGlobalParser } from './parser';
 
 const FULL_TARGET_MS = 100;
@@ -53,10 +53,8 @@ describe.each(PLANS)('%s', (file) => {
 	it('reparses incrementally after typing one line', () => {
 		const tree = tjpGlobalParser.parse(text);
 		const e = edit(text, text.length >> 1, '  # typed\n');
-		const ms = time(() => tjpGlobalParser.parse(e.text, reuseFragments(tree, e.change)));
-		console.info(
-			`incremental reparse ${file}, reuseFragments included: median ${ms.toFixed(2)} ms`,
-		);
+		const ms = time(() => reparse(tjpGlobalParser, e.text, tree, e.change));
+		console.info(`incremental reparse ${file}, reparse: median ${ms.toFixed(2)} ms`);
 		expect(ms).toBeLessThan(INCREMENTAL_TARGET_MS * SANITY);
 	});
 });
@@ -80,7 +78,7 @@ describe('an unterminated string near the top of the 1,000-task plan', () => {
 	it('parses fully and incrementally', () => {
 		const full = time(() => tjpGlobalParser.parse(e.text));
 		const tree = tjpGlobalParser.parse(text);
-		const incremental = time(() => tjpGlobalParser.parse(e.text, reuseFragments(tree, e.change)));
+		const incremental = time(() => reparse(tjpGlobalParser, e.text, tree, e.change));
 		console.info(
 			`unterminated string at line ${text.slice(0, e.change[0]?.fromA).split('\n').length} of ` +
 				`${SCALE}: full ${full.toFixed(2)} ms, incremental ${incremental.toFixed(2)} ms`,
