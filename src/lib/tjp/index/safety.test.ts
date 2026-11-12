@@ -32,6 +32,52 @@ describe('structuralRisk', () => {
 	});
 });
 
+describe('macro bodies read as spliced (re-review, native4)', () => {
+	const eofBlocked = (idx: SymbolIndex, text: string, needle: string) => {
+		const at = text.indexOf(needle);
+		return idx.blocking('plan.tjp', at, at + needle.length)?.reason;
+	};
+
+	it('a.tjp: `[ /* ]` opens a comment once a line break follows', () => {
+		const text = `${P}macro bc [ /* ]\ntask a "A" {\n  \${bc}\n  length 1d\n  */\n}\ntask z "Z" { length 2d }\n`;
+		expect(structuralRisk(' /* ')).toBe('unterminated');
+		const idx = build(text);
+		expect(eofBlocked(idx, text, 'length 2d')).toBe('macro-call');
+	});
+
+	it('b.tjp: `[ note -8<- ]` opens a cut-here string once a line break follows', () => {
+		const text = `${P}macro k [ note -8<- ]\ntask a "A" {\n  \${k}\n  length 1d\n  ->8-\n  length 3d\n}\n`;
+		expect(structuralRisk(' note -8<- ')).toBe('unterminated');
+		const idx = build(text);
+		expect(eofBlocked(idx, text, 'length 3d')).toBe('macro-call');
+	});
+
+	it('c.tjp: a risky call folded into an opaque statement still blocks to the end', () => {
+		const text = `${P}macro close [ } ]\nmacro open [ { ]\ntask a "A" {\n  journalentry 2026-01-05 "x"\n  \${close} task b "B" \${open}\n  length 1d\n}\n`;
+		const idx = build(text);
+		// The grammar folds `${close}` into the journalentry statement; only `${open}` is a
+		// statement-level call.
+		const calls = idx.tasks.get('a')?.bodyMacroCalls ?? [];
+		expect(calls.map((r) => text.slice(r.from, r.to))).toEqual(['${open}']);
+		expect(blockOf(idx, 'a.b')?.reason).toBe('macro-call');
+		const close = text.indexOf('${close}');
+		const blocked = idx.textOnly('plan.tjp').find((r) => r.within === null && r.at.from === close);
+		expect(blocked?.at.to).toBe(text.length);
+	});
+
+	it('a call inside a string expands inside it and changes nothing around it', () => {
+		const text = `${P}macro close [ } ]\ntask a "A" {\n  note "\${close}"\n  length 1d\n}\n`;
+		expect(eofBlocked(build(text), text, 'length 1d')).toBeUndefined();
+	});
+
+	it('d.tjp: an allocation of a resource declared later is not declared before', () => {
+		const idx = build(`${P}task t "T" { effort 1d allocate dev }\nresource dev "Dev"\n`);
+		expect(idx.allocations.map((a) => [a.resource, a.declaredBefore])).toEqual([['dev', false]]);
+		const ok = build(`${P}resource dev "Dev"\ntask t "T" { effort 1d allocate dev }\n`);
+		expect(ok.allocations.map((a) => [a.resource, a.declaredBefore])).toEqual([['dev', true]]);
+	});
+});
+
 describe('statement-level macro calls (H1, M2)', () => {
 	// native1: TaskJuggler declares a top-level `b` with length 1d, `a` with no length, and
 	// comments out x's length.

@@ -98,6 +98,8 @@ export interface PendingResourceRef {
 	x4: TextOnly | null;
 	/** For `allocate`: the statement, for the AllocationSite. */
 	attr?: AttrSite;
+	/** Reading sequence of the referring statement. */
+	seq: number;
 }
 
 export class LinkState {

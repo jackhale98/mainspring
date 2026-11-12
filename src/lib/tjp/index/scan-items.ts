@@ -126,12 +126,15 @@ export function macroFact(ctx: ScanCtx, stmt: SyntaxNode): MacroFact | null {
  * scanner port (grammar/tokens.ts).
  */
 export function structuralRisk(text: string): 'braces' | 'comment' | 'unterminated' | null {
+	// Once spliced, a line break always follows the body: `/*` and `-8<-` only open a multi-line
+	// comment or cut-here string before one (ProjectFileScanner.rb:35-39, 118).
+	const spliced = `${text}\n`;
 	let depth = 0;
-	for (const t of tokenizeTjp(text)) {
+	for (const t of tokenizeTjp(spliced)) {
 		if (t.kind === 'LineComment' || t.kind === 'BlockComment') return 'comment';
 		if (t.kind === 'Error' || t.kind === 'MacroBody') return 'unterminated';
 		if (t.kind !== 'Punct') continue;
-		const c = text.slice(t.from, t.to);
+		const c = spliced.slice(t.from, t.to);
 		if (c === '{') depth++;
 		else if (c === '}' && --depth < 0) return 'braces';
 	}

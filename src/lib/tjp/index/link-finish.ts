@@ -39,9 +39,13 @@ export function finishLink(s: LinkState): void {
 			textOnly,
 		});
 		if (!p.attr) continue;
+		// rule_allocationHeader resolves the resource as it reads the allocation: one declared
+		// later in reading order is an error natively ("dev is not a defined resource").
+		const sym = target === null ? null : s.resources.get(target);
 		s.allocations.push({
 			task: p.owner.id,
 			resource: target,
+			declaredBefore: sym ? sym.seq < p.seq : false,
 			written: p.item.written,
 			item: p.item.item,
 			ref: p.item.ref,
@@ -114,6 +118,12 @@ const DECLARING: readonly string[] = ['task', 'resource', 'supplement', 'include
  * changes the structure of everything after the call, so the range runs to the end of the
  * file; a line comment in the body comments out the rest of the call's line (native: `${c}`
  * with `c` = `#` drops `length 5d`). Otherwise it is the call statement.
+ *
+ * Known limitation: an unbalanced or unterminated call blocks the rest of its own file, not
+ * the files included after it, which TaskJuggler also reads through the changed structure.
+ * Engine hints cover what the text cannot: when the engine read a header line with other ids
+ * (a call that rebalances later, or reshapes another file), that declaration is text-only
+ * (link.ts).
  */
 function unsafeMacroCalls(s: LinkState): void {
 	const redefines = [...s.macros.values()].some((defs) => defs.some((d) => d.words.has('macro')));
@@ -133,6 +143,38 @@ function unsafeMacroCalls(s: LinkState): void {
 		if (safe) continue;
 		const risks = new Set((defs ?? []).map((d) => d.structural));
 		s.addExtraRange({ reason: 'macro-call', at: reach(s, at, risks), within: null });
+	}
+	riskyMacroTokens(s, redefines);
+}
+
+const CALL_IN_TOKEN = /\$\{\??\s*([A-Za-z_]\w*)/g;
+const QUOTED = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+
+/**
+ * The structural reach applies to every macro call, not only statement-level ones: the grammar
+ * folds a call into the opaque statement before it (`journalentry … ${close}`) or reads it as
+ * a value, and TaskJuggler splices it all the same. Each `MacroCall`/`MacroWord` token (the X2
+ * ranges, strings aside: a call inside a string expands inside the string) whose macro is risky,
+ * or could be redefined, blocks to the end of its file or line as `reach` says.
+ */
+function riskyMacroTokens(s: LinkState, redefines: boolean): void {
+	for (const file of s.visitsOfFile.keys()) {
+		const facts = s.factsOf(file);
+		if (!facts) continue;
+		for (const r of facts.ranges.list) {
+			if (r.reason !== 'macro-call' || r.within === null) continue;
+			// Quoted strings (call arguments, templated values) expand inside the string.
+			const text = s.textAt(r.at).replace(QUOTED, '""');
+			if (!text.startsWith('$') && !/^\w/.test(text)) continue;
+			const risks = new Set<MacroDef['structural']>();
+			for (const m of text.matchAll(CALL_IN_TOKEN)) {
+				for (const d of s.macros.get(m[1] ?? '') ?? []) risks.add(d.structural);
+			}
+			if (redefines) risks.add('unterminated');
+			risks.delete(null);
+			if (risks.size > 0)
+				s.addExtraRange({ reason: 'macro-call', at: reach(s, r.at, risks), within: null });
+		}
 	}
 }
 
