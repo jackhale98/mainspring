@@ -1,0 +1,55 @@
+# The public preview on GitHub Pages (ADR-0006): https://jackhale98.github.io/mainspring/
+# Built from main with the base path /mainspring/. Needs Settings > Pages > Source: GitHub Actions.
+# The ci.yml base-path job tests this build in a browser; this workflow only builds and deploys.
+name: Pages preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push waits rather than cancelling a deployment in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build under /mainspring/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:engine
+      # Astro only: the engine is built above. No MAINSPRING_DEV_PAGES, so no test pages ship.
+      - run: npx astro build
+        env:
+          MAINSPRING_BASE: /mainspring/
+      # Every URL the site uses for its own files must be under the base path.
+      - run: node scripts/ci/base-path-scan.mjs dist /mainspring/
+      # No .nojekyll: a Pages site deployed from an Actions artifact is published as is, without
+      # Jekyll, so _astro/ is served; upload-pages-artifact also leaves dotfiles out. The engine's
+      # .gz files are served as plain application/gzip; the worker gunzips them (manifest.ts).
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
