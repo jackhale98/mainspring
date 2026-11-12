@@ -4,7 +4,7 @@
 // file and line, names and milestones equal the engine's; without hints, every declaration the
 // text names matches and the rest lie in unresolved declarations; dependency targets agree with
 // the schedule where it shows them. Plans the engine stopped reading before any declaration are
-// skipped (3 of 36: syn-19, bridge-parse-failure, syn-22), and the totals say how many were
+// skipped (3 of 39: syn-19, bridge-parse-failure, syn-22), and the totals say how many were
 // compared.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -151,13 +151,25 @@ describe.each(CASES)('$id', ({ golden, seed }) => {
 						last: s.slice(0, u.decl.block.to).split('\n').length,
 					};
 				});
+			// A macro call or macro body the index marks text-only also covers its engine line.
+			const lineAt = (file: string, offset: number): number =>
+				text(file).slice(0, offset).split('\n').length;
+			const inMacro = (file: string, line: number): boolean =>
+				without.textOnly(file as never).some((r) => {
+					if (r.reason !== 'macro-call' && r.reason !== 'macro-body') return false;
+					return lineAt(file, r.at.from) <= line && line <= lineAt(file, r.at.to);
+				});
 			for (const t of expected) {
 				if (map.has(t.id)) continue;
 				const line = t.source?.line ?? -1;
+				const file = t.source?.file ?? '';
 				const inside = blocks.some(
 					(b) => b.file === t.source?.file && b.first <= line && line <= b.last,
 				);
-				expect(inside, `${kind} ${t.id} lies in an unresolved declaration`).toBe(true);
+				expect(
+					inside || inMacro(file, line),
+					`${kind} ${t.id} lies in an unresolved declaration or a text-only macro call`,
+				).toBe(true);
 			}
 		}
 	});
