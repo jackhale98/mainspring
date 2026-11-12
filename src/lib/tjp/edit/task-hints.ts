@@ -15,7 +15,20 @@ import type { ChangeSet } from '@codemirror/state';
 import { lineMap } from '../../workspace/run-lines';
 import type { WorkspaceSnapshot } from '../../workspace/workspace';
 import type { EngineHints, HintEntry, SymbolIndex } from '../index';
-import { tjLineOf } from '../lines';
+import type { TjpFile } from '../document';
+import { TjLines } from '../lines';
+
+/** TaskJuggler line starts per file version, built once (a scan of the whole text). */
+const linesOf = new WeakMap<TjpFile, TjLines>();
+
+function tjLines(file: TjpFile): TjLines {
+	let l = linesOf.get(file);
+	if (!l) {
+		l = new TjLines(file.text);
+		linesOf.set(file, l);
+	}
+	return l;
+}
 
 export interface MappedHints {
 	readonly hints: EngineHints;
@@ -51,9 +64,9 @@ export function mapHints(
 		const out: HintEntry[] = [];
 		for (const s of list) {
 			const { file, from } = s.decl.header;
-			const text = before.files.get(file)?.text;
-			if (!text) continue;
-			const old = tjLineOf(text, from);
+			const f = before.files.get(file);
+			if (!f) continue;
+			const old = tjLines(f).lineOf(from);
 			const line = lines.mapLine(file, old);
 			const id = map(s.id);
 			if (line === null || id === null) continue;
