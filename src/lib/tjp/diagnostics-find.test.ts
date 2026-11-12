@@ -32,9 +32,11 @@ describe('LineSearch', () => {
 		expect(own).toEqual(['effort 2d', 's2:effort 3d', 'note "colour"']);
 	});
 
-	it('finds statements by keyword on the line or before it, and macro definitions', () => {
-		expect(slice(at(4).statementBefore(['EFFORT']))).toBe('s2:effort 3d');
-		expect(slice(at(7).statementBefore(['effort']))).toBe('effort 1d');
+	it('finds the statement just read at a line, and macro definitions', () => {
+		expect(slice(at(4).reportedStatement(['EFFORT']))).toBe('s2:effort 3d');
+		expect(slice(at(5).reportedStatement(['effort']))).toBe('effort 1d');
+		// A statement ending on an earlier line is not the one just read.
+		expect(at(7).reportedStatement(['effort'])).toBeNull();
 		expect(slice(at(9).macroBefore('m'))).toBe('m');
 		expect(at(9).macroBefore('m')?.from).toBe(TEXT.lastIndexOf('m ['));
 	});
@@ -44,6 +46,28 @@ describe('LineSearch', () => {
 		expect(slice(at(3).onLine({ from: 0, to: TEXT.length }))).toBe(
 			TEXT.slice(line.from, line.to).trim(),
 		);
+	});
+});
+
+describe('reportedStatement', () => {
+	const REPORT =
+		'taskreport r "r" {\n  hidetask a | b\n  hidetask b\n\n  title "T"\n}\ntask x "X" { start 2026-01-01 start 2026-01-02 }\n';
+	const f = createFile('plan.tjp', REPORT);
+	const on = (n: number, kws: string[]) => {
+		const s = new LineSearch(f, engineLine(f.text, n)).reportedStatement(kws);
+		return s && REPORT.slice(s.from, s.to);
+	};
+
+	it('takes a logical expression whose next token is on the line', () => {
+		expect(on(3, ['hidetask'])).toBe('hidetask a | b');
+		expect(on(5, ['hidetask'])).toBe('hidetask b');
+		expect(on(4, ['hidetask'])).toBeNull();
+	});
+
+	it('takes the last statement ending on the line for other values', () => {
+		expect(on(5, ['title'])).toBe('title "T"');
+		expect(on(7, ['start'])).toBe('start 2026-01-02');
+		expect(on(6, ['title'])).toBeNull();
 	});
 });
 

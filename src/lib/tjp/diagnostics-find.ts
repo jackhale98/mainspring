@@ -15,6 +15,7 @@ import {
 	type LineSpan,
 	type Span,
 } from './diagnostics-lines';
+import { KEYWORDS } from './syntax/keywords';
 import { bodyOf, statementHead, statementKeyword, statementsIn } from './tree';
 
 const DECLS: ReadonlySet<string> = new Set(['TaskStatement', 'ResourceStatement']);
@@ -24,7 +25,14 @@ const NESTED: ReadonlySet<string> = new Set([
 	'SupplementStatement',
 ]);
 /** How far back (in engine lines) a message may sit after the statement it is about. */
-export const LOOK_BACK = 50;
+export const LOOK_BACK = 5;
+/** How far back a redefined macro's definition may end (it is matched by name). */
+const MACRO_LOOK_BACK = 50;
+
+/** Keywords whose value is a logical expression (`hidetask`, `rolluptask`, `fail`, …). */
+export const EXPRESSION_KEYWORDS: ReadonlySet<string> = new Set(
+	KEYWORDS.filter((k) => k.syntax.includes('<operand>')).map((k) => k.name),
+);
 
 export class LineSearch {
 	readonly text: string;
@@ -122,33 +130,45 @@ export class LineSearch {
 		return out;
 	}
 
+	/** The first content token at or after `pos`, if it starts on the line. */
+	nextTokenOnLine(pos: number): boolean {
+		const next = leavesIn(this.file.tree, pos, this.line.to).find(
+			(l) => l.from >= pos && l.from < l.to && !TRIVIA.has(l.name),
+		);
+		return next !== undefined && next.from >= this.line.from;
+	}
+
 	/**
-	 * The statement led by one of `keywords` (compared in lower case) on the line, else the
-	 * nearest one that ends before the line ends, at most LOOK_BACK lines back.
+	 * The statement led by one of `keywords` (compared in lower case) that TaskJuggler had just
+	 * read when it reported at this line: the last one whose last token is on the line, or, for
+	 * a logical expression (whose end the parser sees only at the next token), the last one
+	 * whose next token is on the line. Statements ending more than LOOK_BACK lines back are not
+	 * considered. Else a matching statement that starts on the line.
 	 */
-	statementBefore(keywords: readonly string[]): SyntaxNode | null {
+	reportedStatement(keywords: readonly string[]): SyntaxNode | null {
 		const want = new Set(keywords.map((k) => k.toLowerCase()));
 		const kw = (s: SyntaxNode) => statementKeyword(s, this.text)?.toLowerCase() ?? '';
-		const on = this.statementsOnLine().find((s) => want.has(kw(s)));
-		if (on) return on;
 		const from = engineLine(this.file.text, this.line.number - LOOK_BACK).from;
 		let best: SyntaxNode | null = null;
 		this.file.tree.iterate({
 			from,
 			to: this.line.to,
 			enter: (n) => {
-				if (!n.name.endsWith('Statement') || n.to > this.line.to || n.from < from) return undefined;
+				if (!n.name.endsWith('Statement') || n.to > this.line.to || n.to < from) return undefined;
 				const node = n.node;
-				if (want.has(kw(node)) && (!best || node.from > best.from)) best = node;
+				const k = kw(node);
+				if (!want.has(k)) return undefined;
+				const hit = EXPRESSION_KEYWORDS.has(k) ? this.nextTokenOnLine(n.to) : n.to > this.line.from;
+				if (hit && (!best || node.from > best.from)) best = node;
 				return undefined;
 			},
 		});
-		return best;
+		return best ?? this.statementsOnLine().find((s) => want.has(kw(s))) ?? null;
 	}
 
 	/** The `macro <name>` definition nearest before the end of the line. */
 	macroBefore(name: string): Span | null {
-		const from = engineLine(this.file.text, this.line.number - LOOK_BACK).from;
+		const from = engineLine(this.file.text, this.line.number - MACRO_LOOK_BACK).from;
 		let best: Span | null = null;
 		this.file.tree.iterate({
 			from,

@@ -6,6 +6,7 @@ import type { EngineMessage } from '../../engine/protocol';
 import { engineDiagnostics } from './diagnostics';
 import { buildIndex } from './index';
 import { inline } from './index/testing';
+import { REPORTED_CASES } from '../../../tests/diagnostics/reported-cases';
 
 const HEAD = 'project p "P" 2026-01-05 +3m { now 2026-01-05 }\nresource r "R"\n';
 
@@ -147,10 +148,10 @@ const CASES: Record<string, Case> = {
 		text: "Too many '!' for relative task in this context.",
 		want: ['depends !!!x', 'statement', 6],
 	},
-	'overwritten attribute, reported at the next line': {
+	'overwritten attribute, reported at its own line': {
 		plan: 'task a "A" {\n  effort 2d\n  allocate r\n  priority 3\n  priority 4\n}\n',
 		id: 'attr_overwrite',
-		line: 8,
+		line: 7,
 		text: 'Overwriting a previously provided value for attribute priority',
 		want: ['priority 4', 'statement', 7],
 	},
@@ -236,4 +237,24 @@ describe('refinement rules', () => {
 		const d = diagnose({ ...c, plan: plan.replace(/\r/g, '\r\n') }, { index: true, head: crlf });
 		expect([d.text, d.d.line, d.d.column]).toEqual(['colour', 5, 3]);
 	});
+});
+
+describe('messages reported after their statement (recorded engine runs)', () => {
+	for (const c of REPORTED_CASES) {
+		it(c.name, () => {
+			const s = inline({ 'plan.tjp': c.plan }).snapshot();
+			const result = {
+				revision: 1,
+				ok: false,
+				project: null,
+				tasks: [],
+				resources: [],
+				bookings: [],
+				messages: [...c.messages],
+				timings: { writeFsMs: 0, parseMs: 0, scheduleMs: 0, serializeMs: 0, totalMs: 0 },
+			};
+			const ds = engineDiagnostics(result, s, buildIndex(s));
+			expect(ds.map((d) => c.plan.slice(d.from, d.to))).toEqual(c.want);
+		});
+	}
 });

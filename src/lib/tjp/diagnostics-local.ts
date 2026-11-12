@@ -41,9 +41,13 @@ function base(
 
 const MAX_TOKEN = 40;
 
-function quoteToken(s: string): string {
-	const one = s.split(/[\r\n]/, 1)[0] ?? '';
-	return `“${one.length > MAX_TOKEN ? `${one.slice(0, MAX_TOKEN)}…` : one}”`;
+/** The "unexpected" message for a token: its first line, shortened to MAX_TOKEN characters. */
+function unexpected(token: string): string {
+	const one = token.split(/[\r\n]/, 1)[0] ?? '';
+	if (one === '') return S.syntax.unexpectedHere;
+	return one.length > MAX_TOKEN
+		? S.syntax.unexpected(one.slice(0, MAX_TOKEN), true)
+		: S.syntax.unexpected(one);
 }
 
 /** Syntax diagnostics of one file, from its error nodes. */
@@ -97,17 +101,17 @@ function syntaxDiagnostic(file: TjpFile, text: string, from: number, to: number)
 				next.from,
 				next.to,
 				'syntax:unexpected',
-				S.syntax.unexpected(quoteToken(text.slice(next.from, next.to))),
+				unexpected(text.slice(next.from, next.to)),
 			);
 		}
-		return mk(from, from, 'syntax:unexpected', S.syntax.unexpected(quoteToken('')));
+		return mk(from, from, 'syntax:unexpected', S.syntax.unexpectedHere);
 	}
 	if (leaves.length > 0 && leaves.every((l) => l.name === 'CloseBrace')) {
 		return mk(from, to, 'syntax:extra-brace', S.syntax.extraBrace);
 	}
 	const first = leaves[0];
 	const token = first ? text.slice(first.from, first.to) : text.slice(from, to);
-	return mk(from, to, 'syntax:unexpected', S.syntax.unexpected(quoteToken(token)));
+	return mk(from, to, 'syntax:unexpected', unexpected(token));
 }
 
 /** Value diagnostics of every file the include graph reads. Needs the index for the contexts. */

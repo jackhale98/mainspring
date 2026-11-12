@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { bootNodeEngine } from '../../../engine/golden/run-wasm.mjs';
 import type { ScheduleResult } from '../../engine/protocol';
 import { ROOT } from '../../../tests/grammar/corpus';
+import { REPORTED_CASES } from '../../../tests/diagnostics/reported-cases';
 import { createWorkspace } from '../workspace/workspace';
 import { engineDiagnostics, type TjpDiagnostic } from './diagnostics';
 import { LOOK_BACK } from './diagnostics-find';
@@ -60,7 +61,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('engine messages from real 
 		for (const { dir, entry } of runs.sort((a, b) => (a.entry < b.entry ? -1 : 1))) {
 			const files = readDir(dir);
 			const s = createWorkspace({ entry, files }).snapshot();
-			const r = (await engine.schedule({ files, entry, revision: ++revision })) as ScheduleResult;
+			const r: ScheduleResult = engine.schedule({ files, entry, revision: ++revision });
 			const ds = engineDiagnostics(r, s, buildIndex(s));
 			const shown = r.messages.filter((m) => m.level !== 'debug');
 			expect(ds).toHaveLength(shown.length);
@@ -83,5 +84,22 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('engine messages from real 
 		// Most messages are placed more precisely than their line.
 		const placed = (precision['token'] ?? 0) + (precision['statement'] ?? 0);
 		expect(placed).toBeGreaterThan(precision['line'] ?? 0);
+	}, 120_000);
+
+	it('places messages reported after their statement exactly', async () => {
+		const engine = await bootNodeEngine({ log: () => {} });
+		let revision = 0;
+		for (const c of REPORTED_CASES) {
+			const files = { 'plan.tjp': c.plan };
+			const s = createWorkspace({ entry: 'plan.tjp', files }).snapshot();
+			const r: ScheduleResult = engine.schedule({ files, entry: 'plan.tjp', revision: ++revision });
+			const shown = r.messages.filter((m) => m.level !== 'debug');
+			expect([c.name, shown.map((m) => [m.id, m.line])]).toEqual([
+				c.name,
+				c.messages.map((m) => [m.id, m.line]),
+			]);
+			const ds = engineDiagnostics(r, s, buildIndex(s));
+			expect([c.name, ds.map((d) => c.plan.slice(d.from, d.to))]).toEqual([c.name, c.want]);
+		}
 	}, 120_000);
 });

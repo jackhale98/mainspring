@@ -9,7 +9,8 @@
  * TaskJuggler reports some messages after the statement they are about, at the scanner's
  * position after its look-ahead token (`attr_overwrite` at the next line's `}`,
  * `marco_redefinition` on the line after the macro), and errors found while scheduling at the
- * task's header line. Those rules search backwards (LOOK_BACK lines) or in the task's body.
+ * task's header line. Those rules look at the statement just read (diagnostics-find.ts
+ * `reportedStatement`) or in the task's body.
  */
 import type { TjpFile } from './document';
 import { contentAtOrBefore, contentSpan, type LineSpan, type Span } from './diagnostics-lines';
@@ -124,12 +125,25 @@ const valueOnLine: Rule = (c) => {
 const keywordStatement =
 	(...keywords: string[]): Rule =>
 	(c) =>
-		statement(c.statementBefore(keywords));
+		statement(c.reportedStatement(keywords));
 
-/** `… attribute <name> …`: the nearest statement setting that attribute. */
+/** Keywords that set a TaskJuggler attribute whose id is not its keyword. */
+const ATTRIBUTE_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
+	start: ['start', 'period'],
+	end: ['end', 'period'],
+	forward: ['scheduling'],
+};
+
+/**
+ * `… attribute <name> …`: a macro call on the line (the attribute came from its expansion),
+ * else the statement setting that attribute that TaskJuggler had just read.
+ */
 const namedAttribute: Rule = (c) => {
 	const name = c.match(/attribute (\w+)/)?.[1];
-	return name ? statement(c.statementBefore([name])) : null;
+	if (!name) return null;
+	const call = macroCall(c);
+	if (call) return call;
+	return statement(c.reportedStatement(ATTRIBUTE_KEYWORDS[name] ?? [name]));
 };
 
 const macroRedefined: Rule = (c) => {
@@ -158,7 +172,7 @@ const declId =
 /** The include statement's file name, or the statement. */
 const includeFile: Rule = (c) => {
 	const name = c.match(/include file (.+)$/)?.[1];
-	const s = c.statementBefore(['include']);
+	const s = c.reportedStatement(['include']);
 	if (!s) return null;
 	const str = s.getChild('String') ?? s.getChild('TemplateString');
 	if (name && str && c.slice(str).includes(name)) return token(str);
@@ -319,6 +333,7 @@ export const RULES: Readonly<Record<string, readonly Rule[]>> = {
 	time_interval: VALUE,
 	time_bad_time: VALUE,
 	bad_workinghours: VALUE,
+	iv_duration_not_aligned: VALUE,
 	too_many_bangs: [unexpectedToken, keywordStatement('depends', 'precedes')],
 };
 

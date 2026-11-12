@@ -8,7 +8,9 @@ import type { ValueErrorCode } from './tjp/values/result';
  */
 export const diagnosticStrings = {
 	syntax: {
-		unexpected: (token: string) => `Unexpected ${token}.`,
+		/** `cut` when the token was shortened for the message. */
+		unexpected: (token: string, cut = false) => `Unexpected “${token}${cut ? '…' : ''}”.`,
+		unexpectedHere: 'Unexpected text here.',
 		unterminated: 'This string, comment or macro is not closed.',
 		unexpectedEnd: 'The file ends too early. A closing } may be missing.',
 		extraBrace: 'This } has no matching {.',

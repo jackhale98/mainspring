@@ -256,4 +256,71 @@ describe('mergeDiagnostics', () => {
 			['syntax', 5],
 		]);
 	});
+
+	// Messages below are the wasm engine's for these plans (the warning variant aside).
+	const P = 'project p "P" 2026-01-05 +3m {\n}\nresource r "R"\n';
+	const run = (text: string, messages: EngineMessage[]) => {
+		const s = inline({ 'plan.tjp': text }).snapshot();
+		const idx = buildIndex(s);
+		const engine = engineDiagnostics(result(messages), s, idx);
+		const merged = mergeDiagnostics(engine, localDiagnostics(s, idx));
+		return {
+			engine,
+			s,
+			merged: merged.map((d) => [d.source, d.messageId, textOf(s, d), d.hint]),
+		};
+	};
+
+	it('keeps a local error on the line of an unrelated engine message', () => {
+		const text = `${P}task a "A" { duration 1d }\ntask t "T" { depends a { gapduration 30min } priority 5000 duration 1d }\n`;
+		const { merged } = run(text, [
+			message({
+				id: 'iv_duration_not_aligned',
+				line: 5,
+				text: 'The interval duration must be a multiple of the specified timing resolution (60min) of the project.',
+			}),
+		]);
+		expect(merged).toEqual([
+			['engine', 'iv_duration_not_aligned', '30min', null],
+			['value', 'task_priority', '5000', null],
+		]);
+	});
+
+	it('gives the did-you-mean hint to the parse error about the token, not its neighbour', () => {
+		const text = `${P}task t "T" { start 2026-01-06 start 2026-01-07 Effort 1d }\n`;
+		const { merged } = run(text, [
+			message({
+				level: 'warning',
+				id: 'attr_overwrite',
+				line: 4,
+				text: 'Overwriting a previously provided value for attribute start',
+			}),
+			message({ id: 'no_reduce', line: 4, text: "Unexpected token 'Effort' found. Expecting '}'" }),
+		]);
+		expect(merged).toEqual([
+			['engine', 'attr_overwrite', 'start 2026-01-07', null],
+			['engine', 'no_reduce', 'Effort', 'Did you mean effort?'],
+		]);
+	});
+
+	it('never merges into a stale or less severe engine entry', () => {
+		const text = `${P}task t "T" {\n  priority 100\n  priority 200 complete 150\n}\n`;
+		const warn = message({
+			level: 'warning',
+			id: 'task_complete',
+			line: 6,
+			text: 'Complete value must be between 0 and 100',
+		});
+		const fresh = run(text, [warn]);
+		expect(fresh.merged.map((d) => d[0])).toEqual(['engine', 'value']);
+		const err = { ...warn, level: 'error' as const };
+		const { engine, s } = run(text, [err]);
+		const stale = engine.map((d) => ({ ...d, stale: true }));
+		const merged = mergeDiagnostics(stale, localDiagnostics(s, buildIndex(s)));
+		expect(merged.map((d) => [d.source, d.stale])).toEqual([
+			['engine', true],
+			['value', false],
+		]);
+		expect(run(text, [err]).merged.map((d) => d[0])).toEqual(['engine']);
+	});
 });

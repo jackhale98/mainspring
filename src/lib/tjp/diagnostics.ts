@@ -9,9 +9,11 @@
  *   diagnostics-refine.ts. A message without a file in the workspace, or without a line, is
  *   placed on the entry file's project header with precision 'none' (status strip only).
  * - `localDiagnostics(ws, index)` (diagnostics-local.ts).
- * - `mergeDiagnostics(engine, local)`: a local diagnostic at the place of an engine one (same
- *   file, overlapping ranges or the same line) is dropped; the engine one keeps its text and
- *   takes the local hint, and the local range when that is narrower and inside it.
+ * - `mergeDiagnostics(engine, local)`: a local diagnostic that reports the same problem as an
+ *   engine one (same message id, or a syntax or attribute diagnostic and an engine parse
+ *   error, at overlapping ranges; never a stale or less severe engine entry) is dropped; that
+ *   engine diagnostic keeps its text and takes the local hint, and the local range when that is
+ *   narrower and inside it.
  * - `mapDiagnostics(list, changes, current)` (diagnostics-map.ts): stale positions.
  *
  * `sent` is the snapshot whose texts were scheduled (the runner keeps it until the result is
@@ -112,11 +114,31 @@ export function engineDiagnostics(
 	return out;
 }
 
-const samePlace = (a: TjpDiagnostic, b: TjpDiagnostic): boolean =>
-	a.file === b.file &&
-	a.precision !== 'none' &&
-	b.precision !== 'none' &&
-	((a.from <= b.to && b.from <= a.to) || (a.line !== null && a.line === b.line));
+const RANK = { info: 0, warning: 1, error: 2 } as const;
+
+/** Engine ids of parse errors, which a local syntax or attribute diagnostic can repeat. */
+const PARSE_ERRORS: ReadonlySet<string> = new Set([
+	'no_reduce',
+	'unexpctd_token',
+	'runaway_token',
+	'no_token_match',
+	'junk_after_cut',
+]);
+
+const overlap = (a: TjpDiagnostic, b: TjpDiagnostic): boolean =>
+	a.file === b.file && a.from <= b.to && b.from <= a.to;
+
+/**
+ * Whether local diagnostic `l` reports the same problem as engine diagnostic `e`: the same
+ * message id (value checks carry TaskJuggler's id) or a parse error the tree also has, at
+ * overlapping ranges, in a fresh engine entry at least as severe.
+ */
+function sameProblem(e: TjpDiagnostic, l: TjpDiagnostic): boolean {
+	if (e.stale || e.precision === 'none' || RANK[e.severity] < RANK[l.severity]) return false;
+	if (!overlap(e, l)) return false;
+	if (l.messageId === e.messageId) return true;
+	return (l.source === 'syntax' || l.source === 'attribute') && PARSE_ERRORS.has(e.messageId);
+}
 
 const NARROWER: ReadonlySet<string> = new Set(['line', 'statement']);
 
@@ -128,7 +150,7 @@ export function mergeDiagnostics(
 	const merged = engine.map((e) => ({ ...e }));
 	const kept: TjpDiagnostic[] = [];
 	for (const l of local) {
-		const i = merged.findIndex((e) => e.severity !== 'info' && samePlace(e, l));
+		const i = merged.findIndex((e) => sameProblem(e, l));
 		const e = merged[i];
 		if (!e) {
 			kept.push(l);
@@ -138,7 +160,7 @@ export function mergeDiagnostics(
 		merged[i] = {
 			...e,
 			hint: e.hint ?? l.hint,
-			...(inside && NARROWER.has(e.precision) && !e.stale
+			...(inside && NARROWER.has(e.precision)
 				? { from: l.from, to: l.to, precision: 'token' as const, line: l.line, column: l.column }
 				: {}),
 		};
