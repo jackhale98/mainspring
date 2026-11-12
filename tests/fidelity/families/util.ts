@@ -32,8 +32,7 @@ export const allocated = (f: Facts, t: TaskF): string[] => effectiveIds(f, t, 'a
 
 /** Leaf resources: the ones that are nobody's parent. */
 export const leafResources = (f: Facts): string[] => {
-	const parents = new Set(f.resources.map((r) => r.parent));
-	return f.resources.filter((r) => !parents.has(r.id)).map((r) => r.id);
+	return f.resTree.filter((r) => r.children.length === 0).map((r) => r.id);
 };
 
 export const declaredFlags = (sem: Sem): string[] => sem.flags;

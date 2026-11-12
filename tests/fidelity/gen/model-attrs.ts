@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The statements of the random plan model: sizing, dependencies, allocations, other attributes,
 // scenario-prefixed statements, supplements and macros. Valid by construction (see model.ts).
-import { COMMENTS, list, mk, type MPlan, type MStmt, type MTask } from './model-types';
+import { COMMENTS, list, mk, type MPlan, type MRes, type MStmt, type MTask } from './model-types';
 import type { Rng } from './rng';
 
 const hours = (rng: Rng): string => (rng.chance(0.3) ? `${rng.int(1, 2)}d` : `${rng.int(2, 16)}h`);
@@ -171,3 +171,48 @@ export function macros(rng: Rng, plan: MPlan, all: MTask[]): void {
 		t.quote = '"';
 	}
 }
+
+const LEAVE_ITEMS = [
+	'annual 2026-03-02 - 2026-03-06',
+	'sick 2026-02-10',
+	'special "Retreat" 2026-03-10 - 2026-03-11',
+	'annual 2026-02-23 +2d',
+];
+const GLOBAL_LEAVES = [
+	'holiday "Founders Day" 2026-02-16',
+	'holiday "Spring Break" 2026-03-30 - 2026-03-31',
+];
+
+const leaf = (key: string, items: string[]): MStmt =>
+	mk(key, null, { items: items.map((target) => ({ target, rel: false, gap: null })) });
+
+/** Resource attributes, file-level leaves and the project header statements (T11d intents edit them). */
+export function resourceStatements(rng: Rng, plan: MPlan): void {
+	const all = flat(plan.resources);
+	all.forEach((r, i) => {
+		if (r.kids.length > 0) return;
+		const s = r.stmts;
+		if (rng.chance(0.4)) s.push(mk('email', `"${r.id}@example.org"`));
+		const earlier = all.slice(0, i).filter((x) => x.kids.length === 0 && !isUnder(r, x));
+		if (earlier.length > 0 && rng.chance(0.2)) s.push(list('managers', [rng.pick(earlier).id]));
+		if (rng.chance(0.25)) s.push(mk('efficiency', rng.pick(['1', '0.9', '1.1'])));
+		if (rng.chance(0.2)) s.push(mk('rate', rng.pick(['100', '85.5'])));
+		if (rng.chance(0.15)) s.push(mk('workinghours', 'fri 9:00 - 15:00'));
+		if (rng.chance(0.25)) s.push(leaf('leaves', rng.sample(LEAVE_ITEMS, rng.int(1, 2))));
+		if (rng.chance(0.2)) s.sort((a, b) => (a.key < b.key ? -1 : 1));
+		if (rng.chance(0.2) && s.length > 1) s.reverse();
+	});
+	if (rng.chance(0.35))
+		plan.globalLeaves.push(leaf('leaves', rng.sample(GLOBAL_LEAVES, rng.int(1, 2))));
+	const p = plan.projectStmts;
+	p.push(mk('now', '2026-01-05-09:00'));
+	if (rng.chance(0.3)) p.push(mk('timezone', '"UTC"'));
+	if (rng.chance(0.25)) p.push(mk('timeformat', '"%Y-%m-%d"'));
+	if (rng.chance(0.25)) p.push(mk('currency', '"EUR"'));
+	if (rng.chance(0.2)) p.push(mk('dailyworkinghours', '8'));
+	if (rng.chance(0.15)) p.push(mk('workinghours', 'sat off'));
+	if (rng.chance(0.2)) p.reverse();
+}
+
+const flat = (rs: readonly MRes[]): MRes[] => rs.flatMap((r) => [r, ...flat(r.kids)]);
+const isUnder = (a: MRes, b: MRes): boolean => flat(a.kids).includes(b);

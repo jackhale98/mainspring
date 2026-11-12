@@ -86,13 +86,25 @@ export interface TaskF {
 	readonly macroWords: ReadonlySet<string>;
 }
 
+/** The project header as facts: a task-like record, plus the tokens of its interval. */
+export interface ProjF extends TaskF {
+	readonly frameAt: { readonly start: Rg; readonly end: Rg } | null;
+}
+
 export interface Facts {
 	readonly entry: string;
 	readonly texts: Readonly<Record<string, string>>;
 	readonly tasks: readonly TaskF[];
 	readonly byId: ReadonlyMap<string, TaskF>;
-	/** Resources in declaration order: `id` and its parent. */
-	readonly resources: ReadonlyArray<{ readonly id: string; readonly parent: string | null }>;
+	/** Resources in declaration order, with the same facts as a task (attributes, body, items). */
+	readonly resTree: readonly TaskF[];
+	readonly resById: ReadonlyMap<string, TaskF>;
+	/** The project header: name, interval tokens, body and its statements. */
+	readonly project: ProjF | null;
+	/** File-level `leaves` and `vacation` statements, in reading order. */
+	readonly globalLeaves: readonly StmtF[];
+	/** Dates may be written without regard to a time zone (a generated plan runs in UTC). */
+	readonly frameDates: boolean;
 	readonly flagDecls: readonly StmtF[];
 	/** The statements at file level, per file. */
 	readonly topElems: Readonly<Record<string, readonly Elem[]>>;
@@ -100,8 +112,6 @@ export interface Facts {
 	readonly macroRanges: readonly Rg[];
 	/** Text that `format` must not touch: strings and comments that span lines, macro bodies. */
 	readonly noTouch: readonly Rg[];
-	/** Leaf items, `scope|text`, whitespace collapsed. */
-	readonly leaves: readonly string[];
 	/** The project frame in epoch seconds, when known (dates an intent writes must lie inside it). */
 	readonly frame: { readonly start: number; readonly end: number } | null;
 }
@@ -126,8 +136,27 @@ export const RANK: Readonly<Record<string, number>> = {
 	allocate: 13,
 	complete: 14,
 };
+/** Canonical order of resource statements (7.2). */
+export const RES_RANK: Readonly<Record<string, number>> = {
+	email: 0,
+	managers: 1,
+	efficiency: 2,
+	rate: 3,
+	workinghours: 4,
+	leaves: 5,
+	vacation: 6,
+};
+/** Canonical order of project header statements (7.2). */
+export const PROJ_RANK: Readonly<Record<string, number>> = {
+	timezone: 0,
+	timeformat: 1,
+	currency: 2,
+	now: 3,
+	dailyworkinghours: 4,
+	weekstartsmonday: 5,
+	workinghours: 6,
+};
 export const SIZING = ['effort', 'length', 'duration'] as const;
-export const LIST_KEYS = new Set(['flags', 'responsible', 'depends', 'precedes', 'allocate']);
 
 // ---- text helpers (independent of edit/lines.ts) ----
 
@@ -158,19 +187,19 @@ const textOf = (f: Facts, file: string): string => f.texts[file] ?? '';
  * comment and the statement below it. Statements the canonical order skips are passed over. A task
  * without a body gets one at the end of its header.
  */
-export function insertZone(f: Facts, t: TaskF, key: string): Rg[] {
+export function insertZone(f: Facts, t: TaskF, key: string, table = RANK): Rg[] {
 	const file = t.block.file;
 	if (!t.body) {
 		const text = textOf(f, file);
 		const end = lineEndOf(text, t.block.to);
 		return [rg(file, t.block.to, end + breakAt(text, end))];
 	}
-	return [bodyInsertZone(t.body, RANK[key] ?? 99)];
+	return [bodyInsertZone(t.body, table[key] ?? 99, table)];
 }
 
-export function bodyInsertZone(b: BodyF, rank: number): Rg {
+export function bodyInsertZone(b: BodyF, rank: number, table = RANK): Rg {
 	const ranked = (e: Elem): number | null =>
-		e.kind === 'stmt' && e.key !== null ? (RANK[e.key] ?? null) : null;
+		e.kind === 'stmt' && e.key !== null ? (table[e.key] ?? null) : null;
 	let last = -1;
 	b.elems.forEach((e, i) => {
 		const r = ranked(e);
@@ -229,94 +258,4 @@ export function firstTask(f: Facts): TaskF | null {
 	return f.tasks.reduce<TaskF | null>((a, t) => (a === null || t.seq < a.seq ? t : a), null);
 }
 
-// ---- semantics: what the index must say after an edit ----
-
-export interface TaskSem {
-	id: string;
-	parent: string | null;
-	name: string | null;
-	/** `scenario:keyword` or `keyword` to its unprefixed values in reading order (lists excluded). */
-	attrs: Record<string, string[]>;
-	/** Effective ids: own statements plus those an ancestor's statements read before this task give. */
-	flags: string[];
-	responsible: string[];
-	allocate: string[];
-}
-export interface Sem {
-	tasks: TaskSem[];
-	resources: string[];
-	flags: string[];
-	/** `succ<-pred|scenario|gap` for every item of every own `depends` and `precedes`. */
-	deps: string[];
-	leaves: string[];
-}
-
-/** A value as the plan means it: trimmed, unquoted, escapes undone, whitespace collapsed. */
-export function normValue(text: string): string {
-	const t = text.trim();
-	const m = /^(["'])([\s\S]*)\1$/.exec(t);
-	if (m) return (m[2] as string).replace(/\\(["'\\])/g, '$1');
-	return t.replace(/\s+/g, ' ');
-}
-
-/** Ids a task has in a list attribute: own unprefixed statements before `upto`, then the parent's. */
-export function effectiveIds(f: Facts, t: TaskF, key: string, upto = Infinity): string[] {
-	const own = t.stmts
-		.filter((s) => s.key === key && s.scenario === null && s.seq < upto && !s.macro)
-		.flatMap((s) => (s.items ?? []).map((i) => i.target ?? i.written));
-	const parent = t.parent === null ? undefined : f.byId.get(t.parent);
-	const inherited = parent ? effectiveIds(f, parent, key, t.seq) : [];
-	return [...new Set([...own, ...inherited])];
-}
-
-export function semOf(f: Facts): Sem {
-	const deps: string[] = [];
-	const tasks = f.tasks.map((t): TaskSem => {
-		const attrs: Record<string, string[]> = {};
-		for (const s of t.stmts) {
-			if (s.macro) continue;
-			if (s.key === 'depends' || s.key === 'precedes') {
-				for (const i of s.items ?? []) {
-					const other = i.target ?? i.written;
-					const [succ, pred] = s.key === 'depends' ? [t.id, other] : [other, t.id];
-					const gap = i.gap ? `${i.gap.kind} ${i.gap.value}` : '';
-					deps.push(`${succ}<-${pred}|${s.scenario ?? ''}|${gap}`);
-				}
-			} else if (!LIST_KEYS.has(s.key)) {
-				const k = s.scenario ? `${s.scenario}:${s.key}` : s.key;
-				(attrs[k] ??= []).push(normValue(s.text));
-			}
-		}
-		const eff = (key: string): string[] => effectiveIds(f, t, key).sort();
-		return {
-			id: t.id,
-			parent: t.parent,
-			name: t.nameMacro ? null : t.name,
-			attrs,
-			flags: eff('flags'),
-			responsible: eff('responsible'),
-			allocate: eff('allocate'),
-		};
-	});
-	const flags = f.flagDecls.flatMap((d) => (d.items ?? []).map((i) => i.written));
-	return {
-		tasks,
-		resources: f.resources.map((r) => `${r.id}<${r.parent ?? ''}`),
-		flags: [...new Set(flags)].sort(),
-		deps: deps.sort(),
-		leaves: [...f.leaves].sort(),
-	};
-}
-
-/** The same semantics with every order-free part sorted, for comparing. */
-export function canonSem(s: Sem): Sem {
-	const sort = <T>(o: Record<string, T>): Record<string, T> =>
-		Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
-	return {
-		...s,
-		tasks: s.tasks.map((t) => ({ ...t, attrs: sort(t.attrs) })),
-		flags: [...s.flags].sort(),
-		deps: [...s.deps].sort(),
-		leaves: [...s.leaves].sort(),
-	};
-}
+export * from './sem';

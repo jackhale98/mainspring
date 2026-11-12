@@ -5,7 +5,7 @@
 // declaration order, every effort leaf has an allocation, fixed dates stay early and no hard
 // constraints are combined. The printer (printer.ts) turns it into text and records the oracle.
 // This file builds the tree, the resources and the files; model-attrs.ts adds the statements.
-import { macros, statements, supplements } from './model-attrs';
+import { macros, resourceStatements, statements, supplements } from './model-attrs';
 import {
 	FLAGS,
 	IDS,
@@ -43,15 +43,13 @@ export function genPlan(rng: Rng, opts: PlanOpts = {}): MPlan {
 		files: [{ path: 'plan.tjp', prefix: null, plain: false }],
 		macros: [],
 		flagDecls: flags,
-		globalLeaves: rng.chance(0.3) ? 'holiday "Founders Day" 2026-02-16' : null,
+		globalLeaves: [],
+		projectStmts: [],
 		resources,
 		tasks,
 		resourceLeaves: leafRes,
 	};
-	if (rng.chance(0.2)) {
-		const r = flatten(resources, (x) => x.kids).find((x) => x.kids.length === 0);
-		if (r) r.leaves = 'annual 2026-03-02 - 2026-03-06';
-	}
+	resourceStatements(rng, plan);
 	statements(rng, all, leafRes, declared, plan.scenarios);
 	if (rich || rng.chance(0.25)) supplements(rng, all, leafRes, declared);
 	if (rich || rng.chance(0.3)) macros(rng, plan, all);
@@ -66,7 +64,7 @@ function genResources(rng: Rng): MRes[] {
 		id,
 		name: id[0]?.toUpperCase() + id.slice(1),
 		kids: [],
-		leaves: null,
+		stmts: [],
 	});
 	if (count < 3 || rng.chance(0.3)) return ids.map(mkRes);
 	const group = (id: string, kids: string[]): MRes => ({

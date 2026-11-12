@@ -7,7 +7,9 @@
 import type { SyntaxNode } from '@lezer/common';
 import { compareParseOrder } from '../../src/lib/workspace/include-order';
 import type { WorkspaceSnapshot } from '../../src/lib/workspace/workspace';
-import type { SourceRange, SymbolIndex, TaskSymbol } from '../../src/lib/tjp/index';
+import type { ResourceSymbol, SourceRange, SymbolIndex, TaskSymbol } from '../../src/lib/tjp/index';
+
+type PropSymbol = TaskSymbol | ResourceSymbol;
 import { bodyOf, statementKeyword, statementsIn } from '../../src/lib/tjp/tree';
 import {
 	normValue,
@@ -15,6 +17,7 @@ import {
 	type Elem,
 	type Facts,
 	type Gap,
+	type ProjF,
 	type ItemF,
 	type Rg,
 	type StmtF,
@@ -113,7 +116,7 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 	const seqs = new Map<string, number>();
 	const key = (r: { file: string; from: number }): string => `${r.file}:${r.from}`;
 
-	const itemsFor = (t: TaskSymbol, stmt: SourceRange, kw: string): ItemF[] | null => {
+	const itemsFor = (t: PropSymbol, stmt: SourceRange, kw: string): ItemF[] | null => {
 		const mk = (
 			written: string,
 			target: string | null,
@@ -148,7 +151,12 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 				.filter((a) => a.task === t.id && inside(stmt, a.item))
 				.map((a) => mk(a.written, a.resource ?? a.written, a.ref, a.item, null));
 		}
-		if (kw === 'flags' || kw === 'responsible') {
+		if (kw === 'leaves' || kw === 'vacation') {
+			return index.leaves
+				.filter((l) => l.attr.statement.file === stmt.file && l.attr.statement.from === stmt.from)
+				.flatMap((l) => l.items.map((i) => mk(text(i).trim(), text(i).trim(), i, i, null)));
+		}
+		if (kw === 'flags' || kw === 'responsible' || kw === 'managers') {
 			return index.references
 				.filter((r) => r.via === kw && inside(stmt, r.at))
 				.map((r) => mk(r.written, r.target ?? r.written, r.at, r.at, null));
@@ -157,8 +165,8 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 	};
 
 	const stmtOf = (
-		t: TaskSymbol | null,
-		a: TaskSymbol['attrs'][number],
+		t: PropSymbol | null,
+		a: PropSymbol['attrs'][number],
 		body: BodyF | null,
 	): StmtF => {
 		const items = t ? itemsFor(t, a.statement, a.keyword) : null;
@@ -177,6 +185,20 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 		};
 	};
 
+	const itemsOf = (st: StmtF): ItemF[] =>
+		index.leaves
+			.filter(
+				(l) => l.attr.statement.file === st.range.file && l.attr.statement.from === st.range.from,
+			)
+			.flatMap((l) =>
+				l.items.map((i) => ({
+					written: text(i).trim(),
+					target: text(i).trim(),
+					at: rgOf(i),
+					range: rgOf(i),
+					gap: null,
+				})),
+			);
 	const tasks: TaskF[] = [];
 	const macros = (words: Set<string>, t: TaskSymbol): void => {
 		for (const call of t.bodyMacroCalls) {
@@ -210,6 +232,71 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 			macroWords: words,
 		});
 	}
+	const resTreeRaw: TaskF[] = [];
+	for (const r of index.resources.values()) {
+		if (r.expandedOnly) continue;
+		const body = bodyFacts(snap, texts, r.decl.block);
+		note(r.decl.block);
+		const nameAt = r.decl.name ? rgOf(r.decl.name) : null;
+		const nameMacro = nameAt ? index.blocking(nameAt.file, nameAt.from, nameAt.to) !== null : false;
+		resTreeRaw.push({
+			id: r.id,
+			parent: r.parent,
+			children: [...r.children],
+			name: nameAt && !nameMacro ? normValue(text(nameAt)) : null,
+			nameAt,
+			nameMacro,
+			seq: 0,
+			block: rgOf(r.decl.block),
+			start: r.decl.leadingComments
+				? r.decl.leadingComments.from
+				: attachedFrom(texts[r.decl.block.file] ?? '', r.decl.block.from),
+			body,
+			stmts: r.attrs.map((a) => stmtOf(r, a, body)),
+			macroWords: new Set(),
+		});
+	}
+	const pj = index.project;
+	let projectRaw: ProjF | null = null;
+	if (pj) {
+		const body = bodyFacts(snap, texts, pj.decl.block);
+		note(pj.decl.block);
+		const nameAt = pj.decl.name ? rgOf(pj.decl.name) : null;
+		let frameAt: ProjF['frameAt'] = null;
+		if (pj.interval) {
+			const m = /^(\S+)\s+(\S[\s\S]*)$/.exec(text(pj.interval));
+			if (m) {
+				const f0 = pj.interval.from;
+				frameAt = {
+					start: { file: pj.interval.file, from: f0, to: f0 + (m[1] as string).length },
+					end: {
+						file: pj.interval.file,
+						from: pj.interval.to - (m[2] as string).length,
+						to: pj.interval.to,
+					},
+				};
+			}
+		}
+		projectRaw = {
+			id: 'project',
+			parent: null,
+			children: [],
+			name: nameAt ? normValue(text(nameAt)) : null,
+			nameAt,
+			nameMacro: pj.textOnly !== null,
+			seq: 0,
+			block: rgOf(pj.decl.block),
+			start: attachedFrom(texts[pj.decl.block.file] ?? '', pj.decl.block.from),
+			body,
+			stmts: pj.attrs.map((a) => stmtOf(null, a, body)),
+			macroWords: new Set(),
+			frameAt,
+		};
+	}
+	const globalLeavesRaw: StmtF[] = index.leaves
+		.filter((l) => l.scope.kind === 'global')
+		.map((l) => stmtOf(null, l.attr, null))
+		.map((st) => ({ ...st, items: itemsOf(st) }));
 	const flagDecls: StmtF[] = index.globalFlags.map((a) => {
 		note(a.statement);
 		// A global declaration names flags; it is not a reference, so read the ids from the value.
@@ -244,7 +331,10 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 	const withSeq = <T extends { range?: Rg; block?: Rg }>(x: T): number =>
 		seqOf((x.range ?? x.block) as Rg);
 	const fix = (s: StmtF): StmtF => ({ ...s, seq: withSeq(s) });
-	const fixed: TaskF[] = tasks.map((t) => ({ ...t, seq: seqOf(t.block), stmts: t.stmts.map(fix) }));
+	const seqd = (t: TaskF): TaskF => ({ ...t, seq: seqOf(t.block), stmts: t.stmts.map(fix) });
+	const fixed: TaskF[] = tasks.map(seqd);
+	const resTree = resTreeRaw.map(seqd);
+	const project = projectRaw ? { ...seqd(projectRaw), frameAt: projectRaw.frameAt } : null;
 
 	const topElems: Record<string, Elem[]> = {};
 	const macroRanges: Rg[] = [];
@@ -274,23 +364,20 @@ export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Fac
 			},
 		});
 	}
-	const leaves = index.leaves.flatMap((l) =>
-		l.items.map(
-			(i) =>
-				`${l.scope.kind === 'global' ? 'global' : `res:${l.scope.resource}`}|${text(i).replace(/\s+/g, ' ').trim()}`,
-		),
-	);
 	return {
 		entry: snap.entry,
 		texts,
 		tasks: fixed,
 		byId: new Map(fixed.map((t) => [t.id, t])),
-		resources: [...index.resources.values()].map((r) => ({ id: r.id, parent: r.parent })),
+		resTree,
+		resById: new Map(resTree.map((r) => [r.id, r])),
+		project,
+		globalLeaves: globalLeavesRaw.map(fix),
+		frameDates: false,
 		flagDecls: flagDecls.map(fix),
 		topElems,
 		macroRanges,
 		noTouch,
-		leaves,
 		frame:
 			index.project && index.project.start !== null && index.project.end !== null
 				? { start: index.project.start, end: index.project.end }

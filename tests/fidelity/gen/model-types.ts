@@ -43,7 +43,8 @@ export interface MRes {
 	id: string;
 	name: string;
 	kids: MRes[];
-	leaves: string | null;
+	/** Attribute statements: email, efficiency, rate, managers, workinghours, leaves. */
+	stmts: MStmt[];
 }
 export interface MMacro {
 	name: string;
@@ -69,7 +70,10 @@ export interface MPlan {
 	files: MFile[];
 	macros: MMacro[];
 	flagDecls: string[][];
-	globalLeaves: string | null;
+	/** File-level `leaves` statements. */
+	globalLeaves: MStmt[];
+	/** Statements of the project header body (now, timezone, …). */
+	projectStmts: MStmt[];
 	resources: MRes[];
 	tasks: MTask[];
 	resourceLeaves: string[];

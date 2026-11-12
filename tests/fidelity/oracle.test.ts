@@ -77,6 +77,23 @@ describe('the printer records what it wrote', () => {
 					xs.map((s) => [s.range.file, s.range.from, s.range.to, s.value?.from, s.value?.to]);
 				expect(byStart(r?.stmts ?? []), `${seed} ${t.id} statements`).toEqual(byStart(t.stmts));
 			}
+			const startsOf = (xs: readonly { range: Rg; value: Rg | null }[]): unknown[] =>
+				xs.map((s) => [s.range.file, s.range.from, s.range.to, s.value?.from, s.value?.to]);
+			const items = (xs: readonly { items: readonly { range: Rg }[] | null }[]): unknown[] =>
+				xs.map((s) => (s.items ?? []).map((i) => [i.range.from, i.range.to]));
+			for (const t of [...facts.resTree, ...(facts.project ? [facts.project] : [])]) {
+				const r = t.id === 'project' ? read.project : read.resById.get(t.id);
+				const what = `${seed} ${t.id}`;
+				expect(r?.block, `${what} block`).toEqual(t.block);
+				expect(r?.nameAt, `${what} name`).toEqual(t.nameAt);
+				expect(r?.start, `${what} start`).toBe(t.start);
+				expect(r?.body?.open, `${what} open`).toBe(t.body?.open);
+				expect(r?.body?.close, `${what} close`).toBe(t.body?.close);
+				expect(startsOf(r?.stmts ?? []), `${what} statements`).toEqual(startsOf(t.stmts));
+				expect(items(r?.stmts ?? []), `${what} items`).toEqual(items(t.stmts));
+			}
+			expect(read.project?.frameAt, `${seed} frame tokens`).toEqual(facts.project?.frameAt);
+			expect(items(read.globalLeaves), `${seed} global leaves`).toEqual(items(facts.globalLeaves));
 		}
 	});
 

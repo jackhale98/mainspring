@@ -5,7 +5,15 @@
 // come from the parser, the index or the edit code. This file prints tasks and supplements;
 // print-plan.ts prints the file layout around them.
 import type { BodyF, Elem, ItemF, Rg, StmtF, TaskF } from './facts';
-import { BLOCK, preOrder, type MItem, type MPlan, type MStmt, type MTask } from './model';
+import {
+	BLOCK,
+	preOrder,
+	type MItem,
+	type MPlan,
+	type MRes,
+	type MStmt,
+	type MTask,
+} from './model';
 import type { Rng } from './rng';
 
 type Mut<T> = { -readonly [K in keyof T]: T[K] };
@@ -29,8 +37,8 @@ export class Printer {
 	readonly flagDecls: StmtF[] = [];
 	readonly macroRanges: Rg[] = [];
 	readonly noTouch: Rg[] = [];
-	readonly resources: Array<{ id: string; parent: string | null }> = [];
-	readonly leaves: string[] = [];
+	readonly resTree: TaskF[] = [];
+	readonly globalLeaves: StmtF[] = [];
 	seq = 0;
 	constructor(
 		readonly plan: MPlan,
@@ -256,6 +264,58 @@ export class Printer {
 			const m = this.plan.macros.find((x) => x.name === c.macro);
 			for (const w of m?.body.match(/[A-Za-z_]\w*/g) ?? []) words.add(w);
 		}
+	}
+
+	/** Prints a resource and its child resources at depth `d` into the entry file. */
+	resource(r: MRes, parentId: string | null, d: number): void {
+		const b = this.bufs[0] as Buf;
+		const { eol } = this;
+		b.put(this.indent(d));
+		const from = b.pos;
+		const seq = this.seq++;
+		b.put(`resource ${r.id} `);
+		const nfrom = b.pos;
+		b.put(`"${r.name}"`);
+		const nameAt = this.rg(b, nfrom, b.pos);
+		const stmts: StmtF[] = [];
+		let body: MBody | null = null;
+		if (r.stmts.length + r.kids.length === 0) b.put(eol);
+		else {
+			b.put(' {');
+			body = { file: b.path, open: b.pos, close: 0, elems: [] };
+			b.put(eol);
+			for (const s of r.stmts) stmts.push(this.stmt(b, d + 1, s, null, body, 'decl'));
+			for (const k of r.kids) {
+				this.resource(k, r.id, d + 1);
+				const kt = this.resTree[this.resTree.length - 1] as TaskF;
+				body.elems.push({
+					kind: 'block',
+					key: null,
+					from: kt.block.from,
+					to: kt.block.to,
+					start: kt.start,
+				});
+			}
+			b.put(this.indent(d));
+			body.close = b.pos;
+			b.put('}' + eol);
+		}
+		const end = body ? body.close + 1 : nameAt.to;
+		this.resTree.push({
+			id: r.id,
+			parent: parentId,
+			children: r.kids.map((k) => k.id),
+			name: r.name,
+			nameAt,
+			nameMacro: false,
+			seq,
+			block: this.rg(b, from, end),
+			start: from,
+			body,
+			stmts,
+			macroWords: new Set(),
+		});
+		if (d === 0) b.tops.push({ kind: 'block', key: 'resource', from, to: end, start: from });
 	}
 
 	supplements(file: number): void {

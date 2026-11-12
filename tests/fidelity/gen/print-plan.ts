@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Prints a whole MPlan: the entry file's header, macros, flags, resources and includes around the tasks
 // that printer.ts writes, and collects the oracle's facts (see printer.ts).
-import type { Elem, Facts, ItemF, TaskF } from './facts';
-import { type MPlan, preOrder } from './model';
+import type { BodyF, Elem, Facts, ItemF, ProjF, StmtF, TaskF } from './facts';
+import { type MPlan, type MRes, preOrder } from './model';
 import { Buf, Printer } from './printer';
 import type { Rng } from './rng';
 
@@ -23,14 +23,52 @@ export function printPlan(plan: MPlan, rng: Rng): Printed {
 	let from = entry.pos;
 	entry.put(`# Fidelity plan ${plan.seed}${eol}`);
 	from = entry.pos;
-	entry.put(`project fid "Fidelity plan" 2026-01-05 ${end}`);
-	if (plan.headerBody || plan.scenarios) {
-		entry.put(` {${eol}${plan.indent}now 2026-01-05-09:00${eol}`);
-		if (plan.scenarios)
+	const pseq = p.seq++;
+	entry.put('project fid ');
+	const nfrom = entry.pos;
+	entry.put('"Fidelity plan"');
+	const pnameAt = p.rg(entry, nfrom, entry.pos);
+	entry.put(' ');
+	const sfrom = entry.pos;
+	entry.put('2026-01-05');
+	const startAt = p.rg(entry, sfrom, entry.pos);
+	entry.put(' ');
+	const efrom = entry.pos;
+	entry.put(end);
+	const endAt = p.rg(entry, efrom, entry.pos);
+	const pstmts: StmtF[] = [];
+	let pbody: BodyF | null = null;
+	if (plan.projectStmts.length > 0 || plan.scenarios) {
+		entry.put(' {');
+		const body = { file: entry.path, open: entry.pos, close: 0, elems: [] as Elem[] };
+		pbody = body;
+		entry.put(eol);
+		for (const st of plan.projectStmts) pstmts.push(p.stmt(entry, 1, st, null, body, 'decl'));
+		if (plan.scenarios) {
+			const sf = entry.pos + plan.indent.length;
 			entry.put(`${plan.indent}scenario plan "Plan" { scenario late "Late" }${eol}`);
+			body.elems.push({ kind: 'stmt', key: null, from: sf, to: entry.pos - eol.length, start: sf });
+		}
+		body.close = entry.pos;
 		entry.put(`}${eol}`);
 	} else entry.put(eol);
-	top(entry, 'project', 'block', from);
+	const pend = pbody ? pbody.close + 1 : endAt.to;
+	const project: ProjF = {
+		id: 'project',
+		parent: null,
+		children: [],
+		name: 'Fidelity plan',
+		nameAt: pnameAt,
+		nameMacro: false,
+		seq: pseq,
+		block: p.rg(entry, from, pend),
+		start: 0, // the comment line above the header is attached
+		body: pbody,
+		stmts: pstmts,
+		macroWords: new Set(),
+		frameAt: { start: startAt, end: endAt },
+	};
+	entry.tops.push({ kind: 'block', key: 'project', from, to: pend, start: from });
 	for (const m of plan.macros) {
 		from = entry.pos;
 		entry.put(`macro ${m.name} [`);
@@ -71,30 +109,12 @@ export function printPlan(plan: MPlan, rng: Rng): Printed {
 		entry.put(eol);
 		top(entry, 'flags', 'stmt', from);
 	}
-	if (plan.globalLeaves) {
+	for (const st of plan.globalLeaves) {
 		from = entry.pos;
-		entry.put(`leaves ${plan.globalLeaves}${eol}`);
-		p.leaves.push(`global|${plan.globalLeaves}`);
+		p.globalLeaves.push(p.stmt(entry, 0, st, null, null, 'decl'));
 		top(entry, 'leaves', 'stmt', from);
 	}
-	const res = (r: (typeof plan.resources)[number], parent: string | null, d: number): void => {
-		const ind = plan.indent.repeat(d);
-		const f = entry.pos;
-		entry.put(`${ind}resource ${r.id} "${r.name}"`);
-		p.resources.push({ id: r.id, parent });
-		if (r.kids.length === 0 && !r.leaves) entry.put(eol);
-		else {
-			entry.put(` {${eol}`);
-			if (r.leaves) {
-				entry.put(`${ind}${plan.indent}leaves ${r.leaves}${eol}`);
-				p.leaves.push(`res:${r.id}|${r.leaves}`);
-			}
-			r.kids.forEach((k) => res(k, r.id, d + 1));
-			entry.put(`${ind}}${eol}`);
-		}
-		if (d === 0) top(entry, 'resource', 'block', f + ind.length);
-	};
-	plan.resources.forEach((r) => res(r, null, 0));
+	plan.resources.forEach((r) => p.resource(r, null, 0));
 
 	const include = (k: number, prefix: string | null): void => {
 		from = entry.pos;
@@ -121,6 +141,9 @@ export function printPlan(plan: MPlan, rng: Rng): Printed {
 	p.supplements(0);
 
 	const tasks = preOrder(plan.tasks).map((m) => p.tasks.find((x) => x.id === m.id) as TaskF);
+	const resOrder = (rs: readonly MRes[]): string[] =>
+		rs.flatMap((r) => [r.id, ...resOrder(r.kids)]);
+	const resTree = resOrder(plan.resources).map((id) => p.resTree.find((x) => x.id === id) as TaskF);
 	const files: Record<string, string> = {};
 	const topElems: Record<string, Elem[]> = {};
 	for (const b of p.bufs) {
@@ -132,13 +155,20 @@ export function printPlan(plan: MPlan, rng: Rng): Printed {
 		texts: files,
 		tasks,
 		byId: new Map(tasks.map((t) => [t.id, t])),
-		resources: p.resources,
+		resTree,
+		resById: new Map(resTree.map((r) => [r.id, r])),
+		project,
+		globalLeaves: p.globalLeaves,
+		frameDates: true,
 		flagDecls: p.flagDecls,
 		topElems,
 		macroRanges: p.macroRanges,
 		noTouch: p.noTouch,
-		leaves: p.leaves,
-		frame: { start: Date.UTC(2026, 0, 5) / 1000, end: Date.UTC(2026, plan.horizon, 5) / 1000 },
+		// TaskJuggler reads +Nm as N months of 365/12 days.
+		frame: {
+			start: Date.UTC(2026, 0, 5) / 1000,
+			end: Date.UTC(2026, 0, 5) / 1000 + plan.horizon * 2628000,
+		},
 	};
 	return { files, facts };
 }
