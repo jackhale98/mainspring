@@ -48,7 +48,7 @@ import { movedText } from './task-text';
 import { checkEdited, checkNewParent } from './task-semantics';
 import { afterEdit, verifyTree } from './task-verify';
 import { checkOps, checkSafeText } from './refuse';
-import { subtree } from './refs';
+import { dependenciesNaming, subtree } from './refs';
 import {
 	isRefused,
 	noop,
@@ -148,7 +148,7 @@ function planAdd(ctx: EditContext, intent: IntentOf<'addTask'>): IntentPlan {
 	return (
 		checkOps(ctx, ops) ??
 		verifyTree(ctx, edited, expected, 'unsupported-form', point) ??
-		checkEdited(ctx, edited, [], same, full, point) ??
+		checkEdited(ctx, edited, { added: full, map: same, at: point }) ??
 		ops
 	);
 }
@@ -195,12 +195,18 @@ function planDelete(ctx: EditContext, intent: IntentOf<'deleteTask'>): IntentPla
 	const removed = (at: SourceRange): boolean =>
 		ranges.some((r) => r.file === at.file && r.from <= at.from && at.to <= r.to) ||
 		ops.some((o) => o.file === at.file && o.from <= at.from && at.to <= o.to);
+	const bad = overlap(ops) ?? checkOps(ctx, ops);
+	if (bad) return bad;
+	const edited = afterEdit(ctx, ops, map);
+	const at = [sym.decl.block];
+	// The old parent may become a leaf; a dependency owner may lose its only dependency.
+	const owners = dependenciesNaming(ctx.index, ids).map((d) =>
+		d.form === 'depends' ? d.succ : d.pred,
+	);
+	const touched = [sym.parent, ...owners].filter((x): x is TaskId => x !== null && !gone.has(x));
 	return (
-		overlap(ops) ??
-		checkOps(ctx, ops) ??
-		verifyTree(ctx, afterEdit(ctx, ops, map), { map, dropped: removed }, 'unfixable-reference', [
-			sym.decl.block,
-		]) ??
+		verifyTree(ctx, edited, { map, dropped: removed }, 'unfixable-reference', at) ??
+		checkEdited(ctx, edited, { touched, map, at }) ??
 		ops
 	);
 }
@@ -297,7 +303,7 @@ function planMove(ctx: EditContext, intent: IntentOf<'moveTask'>): IntentPlan {
 			'unfixable-reference',
 			at,
 		) ??
-		checkEdited(ctx, edited, ids, map, null, at) ??
+		checkEdited(ctx, edited, { moved: ids, touched: sym.parent ? [sym.parent] : [], map, at }) ??
 		ops
 	);
 }

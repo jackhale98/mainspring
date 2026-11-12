@@ -315,6 +315,24 @@ export function isMilestone(st: TaskState, container: boolean): boolean {
 	);
 }
 
+/**
+ * Whether a leaf risks `task_underspecified` (TaskScenario.rb:345) or "has not been marked as
+ * scheduled": it has no sizing criterion or `milestone`, and an allocation (own or inherited) or a
+ * booking, which keeps it from being promoted to a milestone (`markAsMilestone`, :2288), so it
+ * gets its dates only from its own specifications. With a start (own `start` or a `depends`) and
+ * an end (own `end` or a `precedes`) it always schedules; with only one of them, or neither,
+ * whether it does depends on the rest of the plan (a successor of it or of its parent makes it
+ * fail, checked in native tj3), so the edit API treats it as underspecified, as T11c's
+ * `milestoneLost` does. `start` and `end` are not inherited (Project.rb:273, :327).
+ */
+export function isUnderspecified(st: TaskState): boolean {
+	if (st.sizing || st.milestone) return false;
+	if (st.allocs.length === 0 && !st.booking) return false;
+	const hasStart = st.start || st.depends.length > 0;
+	const hasEnd = st.end || st.precedes.length > 0;
+	return !(hasStart && hasEnd);
+}
+
 /** The scenarios the loop check runs in: every declared one (TaskJuggler's default: 'plan'). */
 function scenarios(index: SymbolIndex): string[] {
 	return index.scenarios.length > 0 ? index.scenarios.map((s) => s.id) : ['plan'];

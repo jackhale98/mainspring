@@ -11,6 +11,7 @@ import fc from 'fast-check';
 import { CORPORA, ROOT, readTjp } from '../../../../tests/grammar/corpus';
 import { createWorkspace, type WorkspaceSnapshot } from '../../workspace/workspace';
 import { buildIndex, type SymbolIndex } from '../index';
+import type { ScheduleResult } from '../../../engine/protocol';
 import type { EditIntent } from './types';
 
 export interface Plan {
@@ -26,6 +27,10 @@ interface Node {
 	readonly comment: boolean;
 	readonly blank: boolean;
 	readonly second: boolean;
+	/** A container allocates `r` itself (its leaves then inherit it instead of their own). */
+	readonly alloc: boolean;
+	/** A leaf books `r` for two hours on a Monday of its own (no two bookings overlap). */
+	readonly booking: boolean;
 }
 
 const ancestors = (nodes: readonly Node[], i: number): number[] => {
@@ -57,22 +62,40 @@ export interface Layout {
 	readonly relative: boolean;
 }
 
-/** Prints a generated plan; leaves get `effort`, `allocate r` and depends on earlier leaves. */
+/**
+ * Prints a generated plan: leaves get `effort` and depends on earlier leaves, and `allocate r`
+ * unless an ancestor allocates it; some containers allocate `r` and some leaves outside the
+ * dependency graph book it (scheduled with `now` after every booking).
+ */
 export function printPlan(nodes: readonly Node[], layout: Layout): Plan {
 	const { unit, eol } = layout;
 	const kids = (p: number): number[] => nodes.flatMap((n, i) => (n.parent === p ? [i] : []));
 	const leaf = (i: number): boolean => kids(i).length === 0;
+	const depsOf = (i: number): number[] =>
+		leaf(i)
+			? [...new Set(nodes[i]?.depends ?? [])].filter(
+					(j) => j < i && leaf(j) && !ancestors(nodes, i).includes(j),
+				)
+			: [];
+	// Bookings only on leaves outside the dependency graph: a booked successor would start before
+	// its predecessor ends.
+	const linked = new Set(nodes.flatMap((_, i) => (depsOf(i).length > 0 ? [i, ...depsOf(i)] : [])));
 	const block = (i: number, depth: number): string[] => {
 		const n = nodes[i] as Node;
 		const ind = unit.repeat(depth);
 		const out: string[] = [];
 		if (n.blank) out.push('');
 		if (n.comment) out.push(`${ind}# about t${i}`);
-		const deps = [...new Set(n.depends)].filter(
-			(j) => j < i && leaf(j) && !ancestors(nodes, i).includes(j),
-		);
+		const deps = depsOf(i);
 		const body: string[] = [];
-		if (leaf(i)) body.push(`${ind}${unit}effort ${1 + (i % 3)}d`, `${ind}${unit}allocate r`);
+		const inherits = ancestors(nodes, i).some((a) => nodes[a]?.alloc);
+		if (!leaf(i) && n.alloc && !inherits) body.push(`${ind}${unit}allocate r`);
+		if (leaf(i)) {
+			body.push(`${ind}${unit}effort ${1 + (i % 3)}d`);
+			if (!inherits) body.push(`${ind}${unit}allocate r`);
+			const date = new Date(Date.UTC(2026, 0, 5 + 7 * i)).toISOString().slice(0, 10);
+			if (n.booking && !linked.has(i)) body.push(`${ind}${unit}booking r ${date}-09:00 +2h`);
+		}
 		if (deps.length > 0 && leaf(i)) {
 			const refs = deps.map((j) => refText(nodes, i, j, layout.relative));
 			body.push(`${ind}${unit}depends ${refs.join(', ')}`);
@@ -82,7 +105,7 @@ export function printPlan(nodes: readonly Node[], layout: Layout): Plan {
 		return out;
 	};
 	const roots = kids(-1);
-	const main = ['project p "P" 2026-01-05 +3m', 'resource r "R"', ''];
+	const main = ['project p "P" 2026-01-05 +6m', 'resource r "R"', ''];
 	const ordered = [
 		...roots.filter((r) => !nodes[r]?.second),
 		...roots.filter((r) => nodes[r]?.second),
@@ -133,6 +156,8 @@ export function arbPlan(): fc.Arbitrary<Plan> {
 			comment: fc.boolean(),
 			blank: fc.boolean(),
 			second: fc.boolean(),
+			alloc: fc.integer({ min: 0, max: 3 }).map((x) => x === 0),
+			booking: fc.integer({ min: 0, max: 3 }).map((x) => x === 0),
 		});
 	const nodes = fc
 		.integer({ min: 2, max: 9 })
@@ -244,4 +269,44 @@ export function movedId(task: string, parent: string | null): (id: string) => st
 	const local = task.slice(task.lastIndexOf('.') + 1);
 	const next = parent === null ? local : `${parent}.${local}`;
 	return (id) => (id === task || id.startsWith(`${task}.`) ? next + id.slice(task.length) : id);
+}
+
+/**
+ * The engine's task tree after the intent against the base tree mapped through it: every kept task
+ * has its (mapped) parent, deleted ones are gone, and an addition adds exactly one task.
+ */
+export function treeDiff(
+	base: ScheduleResult,
+	result: ScheduleResult,
+	intent: EditIntent,
+): string[] {
+	const gone = (id: string): boolean =>
+		intent.type === 'deleteTask' && (id === intent.task || id.startsWith(`${intent.task}.`));
+	const map = intent.type === 'moveTask' ? movedId(intent.task, intent.parent) : (x: string) => x;
+	const now = new Map(result.tasks.map((t) => [t.id, t.parent]));
+	const out: string[] = [];
+	let kept = 0;
+	// Automatic ids (`_Task_12`) count declarations, so they renumber when the order changes; no
+	// text can name them, so only their number is compared (through the task count).
+	const auto = (id: string): boolean => /(^|\.)_Task_\d+/.test(id);
+	for (const t of base.tasks) {
+		if (auto(t.id)) {
+			kept++;
+			continue;
+		}
+		if (gone(t.id)) {
+			if (now.has(t.id)) out.push(`${t.id} not deleted`);
+			continue;
+		}
+		kept++;
+		const id = map(t.id);
+		const moved = intent.type === 'moveTask' && t.id === intent.task;
+		const want = moved ? intent.parent : t.parent === null ? null : map(t.parent);
+		if (!now.has(id)) out.push(`${id} missing`);
+		else if (now.get(id) !== want) out.push(`${id} has parent ${now.get(id)}, not ${want}`);
+	}
+	const added = intent.type === 'addTask' ? 1 : 0;
+	if (result.tasks.length !== kept + added)
+		out.push(`${result.tasks.length} tasks, not ${kept + added}`);
+	return out;
 }

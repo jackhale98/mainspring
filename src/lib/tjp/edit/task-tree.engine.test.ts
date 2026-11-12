@@ -16,7 +16,7 @@ import { bootNodeEngine, loadCorpus, planRequest } from '../../../../engine/gold
 import { ROOT } from '../../../../tests/grammar/corpus';
 import type { ScheduleRequest, ScheduleResult } from '../../../engine/protocol';
 import { applyIntent } from './apply';
-import { arbPlan, load, movedId, type Loaded } from './testing-plans';
+import { arbPlan, load, movedId, treeDiff, type Loaded } from './testing-plans';
 import type { EditIntent } from './types';
 
 const ENGINE = path.join(ROOT, 'public/engine/manifest.json');
@@ -47,42 +47,6 @@ function dates(r: ScheduleResult, map: (id: string) => string = (x) => x): Map<s
 	return out;
 }
 
-/**
- * The engine's task tree after the intent against the base tree mapped through it: every kept task
- * has its (mapped) parent, deleted ones are gone, and an addition adds exactly one task.
- */
-function treeDiff(base: ScheduleResult, result: ScheduleResult, intent: EditIntent): string[] {
-	const gone = (id: string): boolean =>
-		intent.type === 'deleteTask' && (id === intent.task || id.startsWith(`${intent.task}.`));
-	const map = intent.type === 'moveTask' ? movedId(intent.task, intent.parent) : (x: string) => x;
-	const now = new Map(result.tasks.map((t) => [t.id, t.parent]));
-	const out: string[] = [];
-	let kept = 0;
-	// Automatic ids (`_Task_12`) count declarations, so they renumber when the order changes; no
-	// text can name them, so only their number is compared (through the task count).
-	const auto = (id: string): boolean => /(^|\.)_Task_\d+/.test(id);
-	for (const t of base.tasks) {
-		if (auto(t.id)) {
-			kept++;
-			continue;
-		}
-		if (gone(t.id)) {
-			if (now.has(t.id)) out.push(`${t.id} not deleted`);
-			continue;
-		}
-		kept++;
-		const id = map(t.id);
-		const moved = intent.type === 'moveTask' && t.id === intent.task;
-		const want = moved ? intent.parent : t.parent === null ? null : map(t.parent);
-		if (!now.has(id)) out.push(`${id} missing`);
-		else if (now.get(id) !== want) out.push(`${id} has parent ${now.get(id)}, not ${want}`);
-	}
-	const added = intent.type === 'addTask' ? 1 : 0;
-	if (result.tasks.length !== kept + added)
-		out.push(`${result.tasks.length} tasks, not ${kept + added}`);
-	return out;
-}
-
 /** Intents for a plan: delete a leaf, add a sibling, reorder and reparent (deterministic). */
 function intentsFor(c: Loaded): Array<{ intent: EditIntent; neutral: boolean }> {
 	const tasks = [...c.index.tasks.values()].filter((t) => t.idSource === 'text');
@@ -102,6 +66,14 @@ function intentsFor(c: Loaded): Array<{ intent: EditIntent; neutral: boolean }> 
 				name: 'Added',
 				attrs: [['milestone', true]],
 			},
+			neutral: false,
+		});
+	}
+	// A bare task under the first container: refused where it would be underspecified.
+	const container = tasks.find((t) => t.children.length > 0);
+	if (container) {
+		out.push({
+			intent: { type: 'addTask', parent: container.id, index: 0, name: 'Bare' },
 			neutral: false,
 		});
 	}
@@ -218,12 +190,14 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('task tree intents on gener
 		const engine = await bootNodeEngine({ log: () => {} });
 		let revision = 0;
 		let edits = 0;
+		const outcomes = new Map<string, number>();
 		const schedule = (files: Record<string, string>): ScheduleResult =>
 			engine.schedule({
 				files,
 				entry: 'plan.tjp',
 				revision: ++revision,
-				options: { now: '2026-01-05T09:00:00Z' },
+				// After every generated booking (bookings are work already done).
+				options: { now: '2026-03-09T00:00:00Z' },
 			});
 		fc.assert(
 			fc.property(
@@ -234,6 +208,8 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('task tree intents on gener
 					const intent = anyIntent(c, p);
 					if (!intent) return;
 					const r = applyIntent(c.snap, c.index, intent);
+					const k = `${intent.type} ${r.status === 'refused' ? r.reason : r.status}`;
+					outcomes.set(k, (outcomes.get(k) ?? 0) + 1);
 					if (r.status !== 'edit') return;
 					edits++;
 					const base = schedule(plan.files);
@@ -254,6 +230,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('task tree intents on gener
 			),
 			{ numRuns: Number(process.env['TJP_EDIT_ENGINE_RUNS'] ?? 40), ...SEED },
 		);
+		console.log(`generated task tree outcomes: ${JSON.stringify([...outcomes].sort())}`);
 		expect(edits).toBeGreaterThan(10);
 	}, 300_000);
 });

@@ -71,9 +71,9 @@ jobs:
         env:
           TJP_EDIT_ENGINE: '1'
           FC_SEED: '20261112'
-      # Task tree edits (add, delete, move) on golden and generated plans must still schedule on this
-      # engine (phase-1 spec 9.3 P4); same flags as above.
-      - run: npx vitest run src/lib/tjp/edit/task-tree.engine.test.ts
+      # Task tree edits (add, delete, move) on golden, generated and Fedora (with hints) plans must
+      # still schedule on this engine with the intended task tree (phase-1 spec 9.3 P4); same flags.
+      - run: npx vitest run src/lib/tjp/edit/task-tree.engine.test.ts src/lib/tjp/edit/task-tree.fedora.test.ts
         env:
           TJP_EDIT_ENGINE: '1'
           FC_SEED: '20261112'

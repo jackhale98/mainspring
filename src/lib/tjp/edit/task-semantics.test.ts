@@ -30,10 +30,12 @@ describe('checkEdited', () => {
 		const at = span(f, '  allocate r\n');
 		const ops = [{ file: 'plan.tjp', from: at.from, to: at.to, insert: '', element: at }];
 		const edited = afterEdit(s.ctx, ops, same);
-		expect(checkEdited(s.ctx, edited, ['p.x'], same, null, [])).toMatchObject({
+		expect(checkEdited(s.ctx, edited, { moved: ['p.x'], map: same, at: [] })).toMatchObject({
 			reason: 'conflicting-attribute',
 		});
-		expect(checkEdited(s.ctx, afterEdit(s.ctx, [], same), ['p.x'], same, null, [])).toBeNull();
+		expect(
+			checkEdited(s.ctx, afterEdit(s.ctx, [], same), { moved: ['p.x'], map: same, at: [] }),
+		).toBeNull();
 	});
 
 	it('refuses a new dependency loop', () => {
@@ -43,7 +45,7 @@ describe('checkEdited', () => {
 		const ops = [
 			{ file: 'plan.tjp', from: at, to: at, insert: ' depends b', element: { from: at, to: at } },
 		];
-		expect(checkEdited(s.ctx, afterEdit(s.ctx, ops, same), [], same, null, [])).toMatchObject({
+		expect(checkEdited(s.ctx, afterEdit(s.ctx, ops, same), { map: same, at: [] })).toMatchObject({
 			reason: 'cycle',
 		});
 	});

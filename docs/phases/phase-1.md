@@ -1145,8 +1145,18 @@ them.
       ancestor or descendant (native `task_depend_parent`/`task_depend_child`) or that adds a
       dependency loop through the new parent's inherited dependencies (dep-graph.ts
       `graphLoops`). `conflicting-attribute` for adding or moving a child under a leaf with its
-      own sizing or `milestone` (`container_duration`), and for an `effort` task that loses its
-      inherited allocations or a new `effort` task without any (`effort_no_allocations`).
+      own sizing, `milestone` or bookings (`container_duration`, `container_milestone`,
+      `container_booking`); for an `effort` task that loses its inherited allocations or a new
+      `effort` task without any (`effort_no_allocations`); and for a leaf the edit leaves
+      underspecified (`task_underspecified`, dep-graph.ts `isUnderspecified`): an own or
+      inherited `allocate` or a booking keeps a leaf without sizing or `milestone` from becoming a
+      milestone, and then it needs both a start (own `start` or `depends`) and an end (own `end`
+      or `precedes`); `start` and `end` are not inherited. With only one of them it fails or not
+      depending on the rest of the plan (native tj3: a successor of it or of its parent makes it
+      fail), so the edit API counts it as underspecified, as T11c's allocation intents do.
+      Refused when the edit makes a leaf underspecified or takes a start or an end from one that
+      already is; checked for new and moved leaves, an old parent left without children (move
+      and delete) and a task that loses a dependency to a delete.
       `needs-schedule` when the destination parent has a child whose id only the engine knows (a
       macro or automatic id without hints), since a new id could collide with it. `id-collision`
       also for an unresolved declaration with the same id there. `unfixable-reference` also for
@@ -1164,5 +1174,6 @@ them.
       supplement; other mismatches are `unfixable-reference` (`unsupported-form` for `addTask`).
     - **Automatic ids** (`_Task_12`) count declarations, so TaskJuggler renumbers them when tasks
       are added, deleted or reordered before them; no text names them, so nothing is refused.
-    - **Not refused:** deleting the only task (native `no_tasks`), and a container that loses its
-      last child and so becomes a leaf.
+    - **Not refused:** deleting the only task (native `no_tasks`). A container that loses its last
+      child is refused only when it becomes underspecified (above); other leaf errors that need the
+      schedule are left to the engine.
