@@ -18,9 +18,10 @@
  *
  * `newLoop` reports the first scenario where adding a dependency makes a loop the graph did not
  * have, so a plan that already loops does not make unrelated edits refuse: one TaskJuggler's
- * check finds (`loop_detected`), or a cycle of time points it misses but cannot schedule
- * (dep-loops.ts `hasCycle`). `taskState` gives the
- * same reading of one task to the allocation intents (inherited allocations, sizing).
+ * check finds (`loop_detected`), or a cycle of time points it misses and then cannot handle
+ * (dep-loops.ts `hasCycle`: the stack overflows in `calcPathCriticalness`, before scheduling). `taskState` gives the same reading of one task to the allocation intents
+ * (inherited allocations, sizing); `ownAlapBefore` gives deps.ts the `scheduling alap` a new
+ * `depends` would override.
  */
 import { compareParseOrder, type ParsePosition } from '../../workspace/include-order';
 import type { WorkspaceSnapshot } from '../../workspace/workspace';
@@ -234,6 +235,19 @@ class Graph {
 		return st;
 	}
 
+	/** The task's own attributes that set its direction in `scenario`, in reading order. */
+	directionSites(id: TaskId, scenario: string): Array<{ site: AttrSite; forward: boolean }> {
+		const sym = this.index.tasks.get(id);
+		const out: Array<{ site: AttrSite; forward: boolean }> = [];
+		for (const a of sym?.attrs ?? []) {
+			if (!sym || !this.applies(a.scenario, scenario)) continue;
+			for (const e of this.#attrEvents(sym, a)) {
+				if (e.kind === 'forward') out.push({ site: a, forward: e.value });
+			}
+		}
+		return out;
+	}
+
 	/** The loop-check nodes of one scenario, with the unnamed owners of orphan items (dep-orphans.ts). */
 	nodes(scenario: string): Map<TaskId, Node> {
 		const out = new Map<TaskId, Node>();
@@ -318,6 +332,34 @@ export function newLoop(
 		const a = after.nodes(sc);
 		const b = before.nodes(sc);
 		if ((hasLoop(a) && !hasLoop(b)) || (hasCycle(a) && !hasCycle(b))) return sc;
+	}
+	return null;
+}
+
+/**
+ * The task's own `scheduling alap` that a `depends` read at `at` would override in some
+ * scenario, or null: the task's own direction-setting attributes after its last ASAP one
+ * (`start`, `depends`, `scheduling asap`) are all ALAP ones (`end`, `precedes`,
+ * `scheduling alap`) read before `at`, and one of them is a `scheduling alap` (the last is
+ * returned). An ALAP only inherited, or only set by `end` or `precedes`, gives null.
+ */
+export function ownAlapBefore(
+	ws: WorkspaceSnapshot,
+	index: SymbolIndex,
+	task: TaskId,
+	at: ParsePosition,
+): AttrSite | null {
+	const g = new Graph(ws, index, []);
+	for (const sc of scenarios(index)) {
+		const writers = g.directionSites(task, sc).reverse();
+		const last = writers[0]?.site.statement;
+		if (!last || writers[0]?.forward || g.cmp({ file: last.file, from: last.from }, at) >= 0)
+			continue;
+		// After the last ASAP setting every one is ALAP, so a `scheduling` among them is `alap`.
+		const asap = writers.findIndex((w) => w.forward);
+		const run = asap < 0 ? writers : writers.slice(0, asap);
+		const alap = run.find((w) => w.site.parsed?.kind === 'scheduling');
+		if (alap) return alap.site;
 	}
 	return null;
 }

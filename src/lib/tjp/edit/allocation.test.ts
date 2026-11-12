@@ -132,6 +132,28 @@ describe('removeAllocation', () => {
 		);
 	});
 
+	it("refuses leaving a container's later effort children without allocations", () => {
+		// c inherits g's list: without it, effort_no_allocations natively.
+		const plan = HEAD + 'task g "G" {\n  allocate ana\n  task c "C" { effort 2d }\n}\n';
+		const effort = { from: plan.indexOf('effort 2d'), to: plan.indexOf('effort 2d') + 9 };
+		for (const intent of [remA('g', 'ana'), alloc('g', [])]) {
+			expect(run(plan, intent)).toEqual({
+				status: 'refused',
+				reason: 'conflicting-attribute',
+				at: [{ file: 'plan.tjp', ...effort }],
+			});
+		}
+		// Replacing the list keeps c allocated; so does c's own list.
+		expect(after(plan, alloc('g', ['bo']))).toBe(plan.replace('allocate ana', 'allocate bo'));
+		const ownList = plan.replace('effort 2d }', 'effort 2d allocate cy }');
+		expect(after(ownList, remA('g', 'ana'))).toBe(ownList.replace('  allocate ana\n', ''));
+		const twice = plan.replace('allocate ana', 'allocate ana, bo');
+		expect(after(twice, remA('g', 'ana'))).toBe(plan.replace('allocate ana', 'allocate bo'));
+		// A child without an effort needs no allocation.
+		const bare = HEAD + 'task g "G" {\n  allocate ana\n  task c "C" { length 2d }\n}\n';
+		expect(after(bare, remA('g', 'ana'))).toBe(bare.replace('  allocate ana\n', ''));
+	});
+
 	it('leaves scenario-prefixed lists alone', () => {
 		const plan =
 			'project p "P" 2026-01-05 +2m {\n  scenario plan "Plan" {\n    scenario d "D"\n  }\n}\n' +

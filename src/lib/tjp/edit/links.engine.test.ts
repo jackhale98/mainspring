@@ -12,7 +12,10 @@
 // And the loop check: a `cycle` refusal for unrelated tasks (links back along existing ones, the
 // sampled refusals, and the Tutorial's gui -> test), forced into the text anyway, must not
 // schedule: the engine reports `loop_detected`, another error, or overflows its stack (the
-// loops TaskJuggler's own walk misses, dep-loops.ts). Accepted links never loop.
+// loops TaskJuggler's own walk misses, dep-loops.ts). Accepted links never loop. New errors that
+// depend on the computed schedule are counted and logged with their ids, not failed. Fixed
+// container cases (a container's allocation or depends reaching later children) are checked
+// both ways: the refused edit, forced, fails in the engine; the accepted neighbour schedules.
 // Needs the built engine (npm run build:engine); skipped without it unless EDIT_ENGINE=1.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,14 +31,19 @@ import { isAncestor, linkItems, unprefixed } from './deps-links';
 import { appendOrInsert } from './lists';
 import { intentArb, LINK_TYPES, linkCorpora, rebuilt, type LinkCorpus } from './links-testing';
 import { taskRefText } from './refs';
-import { textsAfter } from './testing';
+import { setup, textsAfter } from './testing';
 import type { EditIntent, EditResult } from './types';
 
 const ENGINE = path.join(ROOT, 'public/engine/manifest.json');
 const REQUIRED = process.env['EDIT_ENGINE'] === '1';
 const SLOW = new Set(['upstream-fedora-20', 'syn-20-scale-1000']);
-/** Edits scheduled per intent type, and forced cycles checked (about 2.5 s each in all). */
-const CASES = Number(process.env['LINK_ENGINE_RUNS'] ?? 10);
+/** Edits scheduled per intent type (each must reach it), and forced cycles checked. */
+const CASES = Number(process.env['LINK_ENGINE_RUNS'] ?? 20);
+/**
+ * Random intents drawn per type to reach CASES edits: refusals and no-ops take many, most of all
+ * for removeAllocation (inherited lists, last allocations of effort tasks). Only edits schedule.
+ */
+const DRAWS = CASES * 25;
 const SEED = Number(process.env['LINK_ENGINE_SEED'] ?? 1109);
 
 type Engine = Awaited<ReturnType<typeof bootNodeEngine>>;
@@ -72,8 +80,19 @@ const SCHEDULE_DEPENDENT = new Set([
 	'task_start_in_parent',
 	'task_end_in_parent',
 	'start_after_end',
-	'not_scheduled',
 ]);
+
+/**
+ * Whether all new errors depend on the computed schedule. `not_scheduled` counts only next to
+ * `sched_runaway` (TaskScenario.rb:446-452 reports both for a task that did not fit); alone it
+ * is preScheduleCheck's static check of `scheduled` without dates (:248), a failure.
+ */
+const scheduleDependent = (fresh: readonly string[]): boolean =>
+	fresh.length > 0 &&
+	fresh.every(
+		(id) =>
+			SCHEDULE_DEPENDENT.has(id) || (id === 'not_scheduled' && fresh.includes('sched_runaway')),
+	);
 
 /** Calendar minutes a gap stands for at least (working days of 8 hours, weeks of 5 days). */
 function gapMinutes(g: { kind: string; value: string }): number {
@@ -218,7 +237,8 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('link intents still schedul
 		expect(plans.length).toBeGreaterThan(20);
 		const failures: string[] = [];
 		const counts: Record<string, number> = {};
-		let conflicts = 0;
+		const conflicts: string[] = [];
+		const conflictIds: Record<string, number> = {};
 		const sampledCycles: Array<{ c: LinkCorpus; task: string; target: string }> = [];
 		const run = (c: LinkCorpus, base: ScheduleResult, intent: EditIntent): void => {
 			const r = applyIntent(c.snap, c.index, intent);
@@ -238,8 +258,9 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('link intents still schedul
 			}
 			const fresh = errorIds(res).filter((id) => !errorIds(base).includes(id));
 			if (res.messages.some((m) => m.id === 'loop_detected')) failures.push(`${label}: loop`);
-			if (fresh.length > 0 && fresh.every((id) => SCHEDULE_DEPENDENT.has(id))) {
-				conflicts++;
+			if (scheduleDependent(fresh)) {
+				conflicts.push(`${label}: ${fresh.join(',')}`);
+				for (const id of new Set(fresh)) conflictIds[id] = (conflictIds[id] ?? 0) + 1;
 				return;
 			}
 			if (!res.ok || fresh.length > 0) {
@@ -253,7 +274,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('link intents still schedul
 			const arb = fc
 				.integer({ min: 0, max: plans.length - 1 })
 				.chain((i) => fc.tuple(fc.constant(i), intentArb((plans[i] as (typeof plans)[0]).c, type)));
-			for (const [i, intent] of fc.sample(arb, { numRuns: CASES * 3, seed: SEED })) {
+			for (const [i, intent] of fc.sample(arb, { numRuns: DRAWS, seed: SEED })) {
 				const { c, base } = plans[i] as (typeof plans)[0];
 				if ((counts[type] ?? 0) >= CASES) break;
 				run(c, base, intent);
@@ -311,10 +332,60 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('link intents still schedul
 		}
 		console.log(
 			`link intents scheduled: ${JSON.stringify(counts)}, schedule-dependent conflicts ` +
-				`${conflicts}, forced cycles ${JSON.stringify(cycleOutcomes)}`,
+				`${conflicts.length} ${JSON.stringify(conflictIds)}, forced cycles ` +
+				`${JSON.stringify(cycleOutcomes)}` +
+				conflicts.map((x) => `\n  conflict: ${x}`).join(''),
 		);
 		expect(failures).toEqual([]);
-		for (const type of LINK_TYPES) expect(counts[type] ?? 0).toBeGreaterThanOrEqual(3);
+		for (const type of LINK_TYPES) expect(counts[type] ?? 0).toBeGreaterThanOrEqual(CASES);
 		expect(cycles).toBeGreaterThanOrEqual(3);
 	}, 600_000);
+
+	it('refuses the container cases the engine rejects, and accepts their neighbours', async () => {
+		const engine = await bootNodeEngine({ log: () => {} });
+		const run = (files: Record<string, string>): ScheduleResult =>
+			engine.schedule({ files, entry: 'plan.tjp', revision: ++revision, options: {} });
+		const H = 'project p "P" 2026-01-05 +2m\nresource r "R"\nresource r2 "R2"\n';
+		const alloc = H + 'task g "G" {\n  allocate r\n  task c "C" { effort 2d }\n}\n';
+		const deps =
+			H +
+			'task b "B" { duration 5d start 2026-01-05 }\ntask g "G" {\n' +
+			'  task c "C" { duration 2d end 2026-03-02 scheduling asap }\n}\n';
+		const noAlloc = alloc.replace('  allocate r\n', '');
+		const gDeps: EditIntent = { type: 'addDepends', task: 'g', target: 'b' };
+		// [plan, intent, the refused edit forced into the text and its engine error | null if accepted]
+		const cases: Array<[string, EditIntent, [string, string] | null]> = [
+			[
+				alloc,
+				{ type: 'removeAllocation', task: 'g', resource: 'r' },
+				[noAlloc, 'effort_no_allocations'],
+			],
+			[alloc, { type: 'allocate', task: 'g', resources: [] }, [noAlloc, 'effort_no_allocations']],
+			[alloc, { type: 'allocate', task: 'g', resources: ['r2'] }, null],
+			[deps, gDeps, [deps.replace('"G" {\n', '"G" {\n  depends !b\n'), 'task_overspecified']],
+			[deps.replace(' scheduling asap', ''), gDeps, null],
+		];
+		const problems: string[] = [];
+		for (const [plan, intent, refusal] of cases) {
+			const label = `${JSON.stringify(intent)} on ${JSON.stringify(plan.slice(H.length))}`;
+			const base = run({ 'plan.tjp': plan });
+			if (!base.ok || errorIds(base).length > 0) problems.push(`${label}: base does not schedule`);
+			const s = setup(plan);
+			const r = applyIntent(s.snap, s.index, intent);
+			if (refusal === null) {
+				if (r.status !== 'edit') problems.push(`${label}: ${r.status} ${JSON.stringify(r)}`);
+				const res = run(textsAfter(s.snap, r));
+				if (!res.ok || errorIds(res).length > 0)
+					problems.push(`${label}: accepted, but ${errorIds(res).join(',')}`);
+				continue;
+			}
+			if (r.status !== 'refused' || r.reason !== 'conflicting-attribute')
+				problems.push(`${label}: ${r.status}, wanted conflicting-attribute`);
+			const [forced, error] = refusal;
+			const res = run({ 'plan.tjp': forced });
+			if (!errorIds(res).includes(error))
+				problems.push(`${label}: forced text gave ${errorIds(res).join(',') || 'no error'}`);
+		}
+		expect(problems).toEqual([]);
+	}, 120_000);
 });

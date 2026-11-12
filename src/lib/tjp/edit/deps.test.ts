@@ -162,9 +162,12 @@ describe('addDepends', () => {
 		const fixed =
 			HEAD +
 			'task a "A" { effort 1d allocate r }\n' +
-			'task b "B" { end 2026-02-02 scheduling alap effort 1d allocate r }\n';
-		expect(run(fixed, add('b', 'a'))).toMatchObject({ reason: 'conflicting-attribute' });
-		expect(run(fixed.replace('alap effort 1d allocate r', 'alap'), add('b', 'a'))).toMatchObject({
+			'task b "B" { end 2026-02-02 effort 1d allocate r }\n';
+		expect(run(fixed, add('b', 'a'))).toMatchObject({
+			reason: 'conflicting-attribute',
+			at: [{ from: fixed.indexOf('end 2026'), to: fixed.indexOf('end 2026') + 14 }],
+		});
+		expect(run(fixed.replace('02-02 effort 1d allocate r', '02-02'), add('b', 'a'))).toMatchObject({
 			status: 'edit',
 		});
 		// del's new depends would be inherited by Item 1, which has it already.
@@ -176,6 +179,75 @@ describe('addDepends', () => {
 		expect(run(ms, add('a', 'b'))).toMatchObject({ reason: 'cycle' });
 		const ok = HEAD + 'task a "A" { effort 1d allocate r }\ntask b "B" { effort 1d allocate r }\n';
 		expect(run(ok, add('a', 'b'))).toMatchObject({ status: 'edit' });
+	});
+
+	it("refuses overriding the successor's own scheduling alap", () => {
+		const at = (plan: string, text: string) => [
+			{ from: plan.indexOf(text), to: plan.indexOf(text) + text.length },
+		];
+		// rule_depends sets ASAP and drops the clash silently: refused at the statement.
+		const own =
+			HEAD + 'task a "A" { duration 1d }\ntask b "B" {\n  scheduling alap\n  duration 1d\n}\n';
+		expect(run(own, add('b', 'a'))).toMatchObject({
+			status: 'refused',
+			reason: 'conflicting-attribute',
+			at: at(own, 'scheduling alap'),
+		});
+		// A container: its later children would inherit ASAP.
+		const box =
+			HEAD +
+			'task a "A" { duration 1d }\ntask g "G" {\n  scheduling alap\n  end 2026-03-02\n' +
+			'  task c "C" { duration 1d }\n}\n';
+		expect(run(box, add('g', 'a'))).toMatchObject({
+			reason: 'conflicting-attribute',
+			at: at(box, 'scheduling alap'),
+		});
+		// A prefixed one counts in its scenario.
+		const sc =
+			'project p "P" 2026-01-05 +2m {\n  scenario plan "Plan" {\n    scenario d "D"\n  }\n}\n' +
+			'task a "A" { duration 1d }\ntask b "B" {\n  d:scheduling alap\n  duration 1d\n}\n';
+		expect(run(sc, add('b', 'a'))).toMatchObject({
+			reason: 'conflicting-attribute',
+			at: at(sc, 'd:scheduling alap'),
+		});
+		// Not when something later decides the direction, when ALAP comes from the parent or from
+		// `end`, or when the alap is read after the item (TaskJuggler's documented behaviour).
+		const started = own.replace('  duration 1d\n}', '  start 2026-02-02\n  duration 1d\n}');
+		expect(run(started, add('b', 'a'))).toMatchObject({ status: 'edit' });
+		const inherited =
+			HEAD +
+			'task a "A" { duration 1d }\ntask g "G" {\n  scheduling alap\n  end 2026-03-02\n' +
+			'  task b "B" { duration 1d }\n}\n';
+		expect(run(inherited, add('g.b', 'a'))).toMatchObject({ status: 'edit' });
+		const ends = HEAD + 'task a "A" { duration 1d }\ntask b "B" { end 2026-03-02 }\n';
+		expect(run(ends, add('b', 'a'))).toMatchObject({ status: 'edit' });
+		const later =
+			HEAD +
+			'task a "A" { duration 1d }\ntask c "C" { duration 1d }\n' +
+			'task b "B" {\n  depends !c\n  scheduling alap\n  duration 1d\n}\n';
+		expect(after(later, add('b', 'a'))).toBe(later.replace('depends !c', 'depends !c, !a'));
+	});
+
+	it("refuses overspecifying a container's later children", () => {
+		// g's new depends reaches c, which is ASAP with a sized fixed end (task_overspecified).
+		const plan =
+			HEAD +
+			'task b "B" { duration 5d start 2026-01-05 }\ntask g "G" {\n' +
+			'  task c "C" { duration 2d end 2026-03-02 scheduling asap }\n}\n';
+		expect(run(plan, add('g', 'b'))).toMatchObject({
+			status: 'refused',
+			reason: 'conflicting-attribute',
+			at: [{ from: plan.indexOf('end 2026-03-02'), to: plan.indexOf('end 2026-03-02') + 14 }],
+		});
+		// Without its own asap, c's end keeps it ALAP: accepted.
+		expect(run(plan.replace(' scheduling asap', ''), add('g', 'b'))).toMatchObject({
+			status: 'edit',
+		});
+		// A child that is already overspecified is not the edit's doing.
+		const already = plan
+			.replace('scheduling asap', 'scheduling asap depends !!b')
+			.replace('task b "B"', 'task z "Z" { duration 1d }\ntask b "B"');
+		expect(run(already, add('g', 'z'))).toMatchObject({ status: 'edit' });
 	});
 
 	it('refuses in a shared file and in macro bodies', () => {
@@ -234,6 +306,21 @@ describe('removeDepends', () => {
 			'project p "P" 2026-01-05 +2m {\n  scenario plan "Plan" {\n    scenario d "D"\n  }\n}\n' +
 				'task a "A" {\n}\ntask b "B" {\n  effort 1d\n}\n',
 		);
+	});
+
+	it('refuses a link that exists only in another scenario', () => {
+		const plan =
+			'project p "P" 2026-01-05 +2m {\n  scenario plan "Plan" {\n    scenario alt "Alt"\n  }\n}\n' +
+			'task b "B" { duration 1d }\ntask a "A" {\n  alt:depends !b\n  duration 1d\n}\n';
+		const item = plan.indexOf('!b');
+		expect(run(plan, remove('a', 'b'))).toEqual({
+			status: 'refused',
+			reason: 'conflicting-attribute',
+			at: [{ file: 'plan.tjp', from: item, to: item + 2 }],
+		});
+		// The top scenario's prefix is the same as none.
+		const top = plan.replace('alt:depends', 'plan:depends');
+		expect(after(top, remove('a', 'b'))).toBe(top.replace('  plan:depends !b\n', ''));
 	});
 
 	it('is not-present, or inherited when only a parent has it', () => {

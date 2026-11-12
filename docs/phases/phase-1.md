@@ -939,28 +939,41 @@ them.
       (task_depend_self/parent/child), a loop TaskJuggler's own check finds (a port of
       `TaskScenario#checkForLoops`, with scheduling direction, milestones, containers,
       inheritance and scenarios, `edit/dep-loops.ts`), and a cycle of start and end times that
-      check misses but the scheduler cannot resolve (on the Tutorial golden it overflows the
-      stack). Items in declarations the index cannot name (auto ids) take part through the
-      named task around them (`edit/dep-orphans.ts`). Only loops the edit adds are refused.
+      check misses and TaskJuggler then cannot handle: on the Tutorial golden it recurses in
+      `calcPathCriticalness` (TaskScenario.rb:897, :2415), which runs after the loop check and
+      before scheduling, until the stack overflows. Items in declarations the index cannot name
+      (auto ids) take part through the named task around them (`edit/dep-orphans.ts`). Only
+      loops the edit adds are refused.
     - `already-linked` includes links inherited from a parent's list; adding an unprefixed link
       where only a scenario-prefixed `depends` exists, or above children that already depend on
-      the target (they inherit it: task_depend_multi), or one that makes a sized task with a
-      fixed `end` ASAP (task_overspecified), is `conflicting-attribute`.
+      the target (they inherit it: task_depend_multi), or one that makes a sized leaf with a
+      fixed `end` ASAP (task_overspecified: the task, or a container's children declared after
+      the new item, which inherit it and the direction), is `conflicting-attribute`.
     - New `depends` and `allocate` statements never go after a child task (`container_attribute`).
     - A new `depends` statement makes its task ASAP, as in TaskJuggler (rule_depends sets
-      `forward`), also under an earlier `scheduling alap` or an ALAP parent. The edit does not
-      compensate; the loop and overspecification checks read the direction after the edit.
+      `forward` and drops the clash silently). When that would override the task's own
+      `scheduling alap` (no own ASAP setting after it, and no own direction setting after the new
+      item), also for a container whose later children would inherit ASAP, `addDepends` is
+      `conflicting-attribute` at that `scheduling alap` statement. An ALAP inherited from a parent
+      or set only by `end` or `precedes` is overridden as TaskJuggler documents; the edit does not
+      compensate, and the loop and overspecification checks read the direction after the edit.
     - A body macro call whose definition may write the list (mentions the keyword, has nested
       calls, or is not defined) refuses the intent with `macro-in-body`.
-    - `removeDepends` removes every item of the link, prefixed ones included; `setDependsGap` sets
-      the gap on all unprefixed items of the link and leaves exactly one gap statement per body.
+    - `removeDepends` (no scenario) removes every item of the link, prefixed ones included, when
+      an unprefixed (or top-scenario) item exists. A link only in scenario-prefixed items exists
+      only in those scenarios: `conflicting-attribute` at those items, as `addDepends` treats the
+      same link (`not-present` would say there is no link). `setDependsGap` sets the gap on all
+      unprefixed items of the link and leaves exactly one gap statement per body; on a link
+      inherited from a parent's list it is `inherited`.
     - Allocation intents work on unprefixed lists; inherited resources count as allocated
       (`inherited` to remove one); items with a body are `unsupported-form`. A resource must be
       declared before the allocation and writable under the file's `resourceprefix`
-      (`unknown-target`, `unsupported-form`). Removing an effort task's last allocation
-      (effort_no_allocations) and allocating to a task that would stop being an implicit
+      (`unknown-target`, `unsupported-form`). Leaving an effort leaf without allocations
+      (effort_no_allocations: the task, or a container's children declared after the removed
+      item, which inherited it) and allocating to a task that would stop being an implicit
       milestone without both ends (task_underspecified), container children included, are
       `conflicting-attribute`.
     - Errors that depend on the computed schedule (a fixed start before a new predecessor's end,
       a resource left short after a removal) cannot be foreseen without scheduling and are not
-      refused; the engine check (`edit/links.engine.test.ts`) counts them separately.
+      refused; the engine check (`edit/links.engine.test.ts`) counts and logs them by message id
+      (`not_scheduled` only next to `sched_runaway`).

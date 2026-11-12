@@ -17,8 +17,10 @@
  *
  * That check misses loops it never walks into: an end is entered from inside only from a child
  * without successors, so `gui` (in `software`) depending on `test`, whose child `alpha` depends
- * on `software`, passes it, and the scheduler then recurses until the stack overflows (seen on
- * the Tutorial golden in the wasm engine). `hasCycle` is the plain test the edit API adds: a
+ * on `software`, passes it, and TaskJuggler then recurses until the stack overflows (seen on the
+ * Tutorial golden in the wasm engine): in `calcPathCriticalness` (TaskScenario.rb:897, and
+ * :2415 in `calcPathCriticalnessEndSuccs`), which Project.rb:1123 runs after the loop check and
+ * before scheduling. `hasCycle` is the plain test the edit API adds: a
  * cycle among the time points (a task's start before its end, a container around its
  * children, each dependency from the end or start it names). Every loop `hasLoop` finds is one
  * of these, since its walk follows those edges in one direction per pass.

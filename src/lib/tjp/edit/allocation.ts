@@ -20,7 +20,8 @@
  *   (rule_resourceId), and needs the resource declared before the allocation in reading order;
  *   a resource missing, declared later, or not writable under the prefix is refused
  *   (`unknown-target`; `unsupported-form` for the prefix).
- * - Scheduling: removing the last allocation of an effort task (effort_no_allocations) and
+ * - Scheduling: leaving an effort leaf without allocations (effort_no_allocations: the task
+ *   itself, or for a container a leaf declared after the removed item, which inherited it) and
  *   allocating to a task TaskJuggler would otherwise make a milestone, without both a start and
  *   an end, are refused (`conflicting-attribute`).
  *
@@ -128,28 +129,50 @@ function removeOwn(ctx: EditContext, gone: readonly AllocationSite[]): EditOp[] 
 	return ops;
 }
 
-/** Refusals for the allocated set after the edit (module comment, "Scheduling"). */
-function checkScheduling(
+/**
+ * effort_no_allocations (module comment, "Scheduling"): the effort leaves of the subtree that
+ * have allocations now and none after the edit. A removed item reaches the task itself and the
+ * descendants declared after its statement (they inherited it); new ids, those declared after
+ * `addAt`. Bookings do not count: TaskScenario#preScheduleCheck needs an allocation for any
+ * effort.
+ */
+function effortLeft(
 	ctx: EditContext,
 	own: Own,
-	after: number,
-	adding: boolean,
+	remove: readonly AllocationSite[],
+	addAt: { file: string; from: number } | null,
 ): Refused | null {
 	const { ws, index } = ctx;
 	const read = stateReader(ws, index);
-	// Bookings do not count: TaskScenario#preScheduleCheck needs an allocation for any effort.
-	if (own.task.children.length === 0) {
-		if (after === 0) {
-			const effort = own.task.attrs.filter((a) => a.keyword === 'effort');
-			if (effort.length > 0)
-				return refused(
-					'conflicting-attribute',
-					effort.map((a) => a.statement),
-				);
+	const at: SourceRange[] = [];
+	for (const id of subtree(index, 'task', own.task.id)) {
+		const sym = index.tasks.get(id);
+		if (!sym || sym.children.length > 0) continue;
+		const effort = sym.attrs.filter((a) => a.keyword === 'effort');
+		if (effort.length === 0) continue;
+		const decl = { file: sym.decl.block.file, from: sym.decl.block.from };
+		const reaches = (r: { file: string; from: number }): boolean =>
+			id === own.task.id || compareParseOrder(ws.includes, r, decl, 'first') < 0;
+		if (addAt && reaches(addAt)) continue;
+		const allocs = [...read(id).state.allocs];
+		if (allocs.length === 0) continue;
+		for (const a of remove) {
+			const i = reaches(a.statement) ? allocs.indexOf(a.resource) : -1;
+			if (i >= 0) allocs.splice(i, 1);
 		}
+		if (allocs.length === 0) at.push(...effort.map((a) => a.statement));
 	}
-	if (!adding) return null;
-	// A container's new allocation reaches the children declared after it, so check its leaves too.
+	return at.length > 0 ? refused('conflicting-attribute', at) : null;
+}
+
+/**
+ * task_underspecified (module comment, "Scheduling"): a container's new allocation reaches the
+ * children declared after it, so every leaf of the subtree that would stop being an implicit
+ * milestone needs both ends.
+ */
+function milestoneLost(ctx: EditContext, own: Own): Refused | null {
+	const { ws, index } = ctx;
+	const read = stateReader(ws, index);
 	for (const id of subtree(index, 'task', own.task.id)) {
 		const sym = index.tasks.get(id);
 		if (!sym || sym.children.length > 0) continue;
@@ -174,11 +197,12 @@ function reshape(
 ): IntentPlan {
 	const gone = new Set(remove.map((a) => rangeKey(a.item)));
 	const kept = own.items.filter((a) => !gone.has(rangeKey(a.item)));
-	const after = new Set<string>([...own.inherited, ...add]);
-	for (const a of kept) after.add(a.resource ?? rangeKey(a.item));
-	const block = checkScheduling(ctx, own, after.size, add.length > 0);
-	if (block) return block;
-	if (add.length === 0) return remove.length === 0 ? noop('already-set') : removeOwn(ctx, remove);
+	if (add.length === 0) {
+		if (remove.length === 0) return noop('already-set');
+		return effortLeft(ctx, own, remove, null) ?? removeOwn(ctx, remove);
+	}
+	const lost = milestoneLost(ctx, own);
+	if (lost) return lost;
 	const survivor = [...own.sites]
 		.reverse()
 		.find((s) => kept.some((a) => rangeKey(a.statement) === rangeKey(s.statement)));
@@ -201,6 +225,8 @@ function reshape(
 			const d = declaredBefore(ctx, r, target.statement);
 			if (d) return d;
 		}
+		const left = effortLeft(ctx, own, remove, target.statement);
+		if (left) return left;
 		const others = remove.filter((a) => rangeKey(a.statement) !== rangeKey(target.statement));
 		const rest = removeOwn(ctx, others);
 		if ('status' in rest) return rest;
@@ -220,6 +246,8 @@ function reshape(
 		const d = declaredBefore(ctx, id, r.at);
 		if (d) return d;
 	}
+	const left = effortLeft(ctx, own, remove, r.at);
+	if (left) return left;
 	return [...removal, ...r.ops];
 }
 

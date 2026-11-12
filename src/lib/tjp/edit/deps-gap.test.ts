@@ -127,6 +127,18 @@ describe('setDependsGap', () => {
 		});
 	});
 
+	it("refuses a link inherited from the parent's list", () => {
+		const plan = A + 'task g "G" {\n  depends a { gaplength 1d }\n  task x "X"\n}\n';
+		const item = { from: plan.indexOf('a { gap'), to: plan.indexOf('1d }') + 4 };
+		for (const g of [{ kind: 'gapduration', value: '2d' } as const, null]) {
+			expect(run(plan, gap('g.x', 'a', g))).toEqual({
+				status: 'refused',
+				reason: 'inherited',
+				at: [{ file: 'plan.tjp', ...item }],
+			});
+		}
+	});
+
 	it('refuses a gap next to a macro in the body', () => {
 		const plan = A + 'macro g [gaplength 1d]\ntask b "B" {\n  depends !a { ${g} }\n}\n';
 		expect(run(plan, gap('b', 'a', { kind: 'gapduration', value: '1d' }))).toMatchObject({

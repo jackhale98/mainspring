@@ -5,8 +5,9 @@
  *
  * - The items: the link's unprefixed items (deps.ts `linkItems`: the successor's `depends`
  *   item, the predecessor's `precedes` item), else its scenario-prefixed ones. TaskJuggler
- *   honours every item, so all of them get the same gap. No item: noop `not-present` when
- *   clearing, `unknown-target` when setting.
+ *   honours every item, so all of them get the same gap. No own item: `inherited` when the link
+ *   comes from a parent's list (its gap is the parent's, `at` those items), else noop
+ *   `not-present` when clearing and `unknown-target` when setting.
  * - The value is checked as TaskJuggler reads it, with the project settings at the item:
  *   `gapduration` is an interval duration (never 0, a multiple of the timing resolution),
  *   `gaplength` a non-zero working duration (`invalid-value`).
@@ -24,7 +25,7 @@ import type { SyntaxNode } from '@lezer/common';
 import type { TjpFile } from '../document';
 import { statementsIn } from '../tree';
 import { itemNode } from './dep-graph';
-import { linkItems, linkTasks, unprefixed } from './deps-links';
+import { inheritedItems, inheritedLink, linkItems, linkTasks, unprefixed } from './deps-links';
 import {
 	fileText,
 	indentUnit,
@@ -139,6 +140,8 @@ export function setDependsGapPlan(ctx: EditContext, intent: IntentOf<'setDepends
 	const plain = all.filter((d) => unprefixed(index, d.scenario));
 	const items = plain.length > 0 ? plain : all;
 	if (items.length === 0) {
+		if (inheritedLink(ctx, tasks.succ.id, tasks.pred.id))
+			return refused('inherited', inheritedItems(index, tasks.succ.id, tasks.pred.id));
 		return intent.gap === null
 			? noop('not-present')
 			: refused('unknown-target', [tasks.succ.decl.header, tasks.pred.decl.header]);
