@@ -852,3 +852,14 @@ them.
     three as line breaks while keeping offsets on the original text. This corrects section 5.1 and the
     earlier note that CRLF macro bodies run to the end of the file.
 
+15. **Edit core (T10).** Intents are handlers in `edit/apply.ts` `HANDLERS` that return
+    `EditOp`s (one change each, with the element it edits) built by `edit/layout.ts`, or a refusal
+    or no-op; `applyIntent` then runs the refusal pipeline (`edit/refuse.ts`) and `buildEdit`.
+    The pipeline checks, for every op, both the element's own range and the change range against
+    `SymbolIndex.blocking` (15.10), error nodes in the innermost statement around the element, and
+    the line break after a macro body's `]`; every edit is reparsed and refused with
+    `syntax-error` if it adds error nodes. `RefusalReason` gains `stale` (index built from another
+    workspace version) and `shared-declaration` (the target is in a file read in several include
+    visits, 15.8; the refusal lists the engine ids in `affects`, and `EditOptions.confirmShared`
+    lets the same intent through, so Phase 2 can ask for confirmation). `LeaveRef` is a leave
+    item's range. Inserted text uses the break of the neighbouring line, so CRLF files stay CRLF.
