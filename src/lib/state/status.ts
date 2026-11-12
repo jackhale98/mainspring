@@ -71,6 +71,12 @@ function kindOf(s: RunnerState): StatusKind {
 	return s.status;
 }
 
+/** The state line: "errors" is split by whether the latest run produced a schedule at all. */
+function labelOf(s: RunnerState, kind: StatusKind): string {
+	if (kind === 'errors' && s.latest && !s.latest.result.ok) return strings.status.notScheduled;
+	return LABELS[kind];
+}
+
 const LABELS: Record<StatusKind, string> = {
 	booting: strings.status.engineStarting,
 	idle: strings.status.idle,
@@ -85,7 +91,7 @@ export function statusView(s: RunnerState, locale?: string): StatusView {
 	const failure = s.failure ? strings.engine.failure[s.failure.error.kind] : null;
 	return {
 		kind: kindOf(s),
-		label: LABELS[kindOf(s)],
+		label: labelOf(s, kindOf(s)),
 		finish: finish ? formatFinish(finish, locale) : null,
 		zone: finish ? (finish.timezone ?? 'UTC') : null,
 		delta: finish ? formatDelta(finish.delta, locale) : null,

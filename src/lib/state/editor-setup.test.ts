@@ -25,7 +25,7 @@ describe('editorSetup', () => {
 		expect(keys.filter((k) => k.key === 'Tab' || k.mac === 'Tab')).toEqual([]);
 	});
 
-	it('combines with the workspace extensions for every file', () => {
+	it('builds a workspace with the editor setup and the TJP extensions together', () => {
 		const ws = createWorkspace(
 			{ entry: 'plan.tjp', files: { 'plan.tjp': 'project p "P" 2026-01-05 +1m\n' } },
 			{

@@ -33,11 +33,14 @@
 
 	const win = $derived(windowRows(rows.length, scrollTop, viewport, rowHeight));
 	const shown = $derived(rows.slice(win.start, win.end));
-	/** The row that is in the tab order: the focused one if it still shows, else the first. */
+	/**
+	 * The row that is in the tab order: the focused one while it is rendered, else the first
+	 * rendered row, so the tree always has a tab stop even when the focused row scrolled away.
+	 */
 	const tabKey = $derived(
-		focusKey !== null && rows.some((r) => r.node.key === focusKey)
+		focusKey !== null && shown.some((r) => r.node.key === focusKey)
 			? focusKey
-			: (rows[0]?.node.key ?? null),
+			: (shown[0]?.node.key ?? null),
 	);
 
 	// Measure a row once there is one, since the height follows the pointer type and font size.

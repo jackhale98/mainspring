@@ -251,7 +251,6 @@ export const strings = {
 		noResources: 'No resources yet.',
 		textOnly: 'text only',
 		errors: (n: number) => plural(n, 'error', 'errors'),
-		unnamed: 'Unnamed',
 		reason: textOnlyStrings,
 	},
 	editor: {
@@ -269,6 +268,7 @@ export const strings = {
 		scheduling: 'Scheduling…',
 		ok: 'Scheduled',
 		errors: 'Scheduled with problems',
+		notScheduled: 'Not scheduled: fix the errors',
 		failed: 'Scheduler failed',
 		idle: 'Waiting for the first schedule',
 		finish: 'Finish',

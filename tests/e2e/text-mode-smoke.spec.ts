@@ -13,13 +13,13 @@ async function openApp(page: Page, sample = SAMPLE): Promise<void> {
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,
 	});
-	await expect(page.getByRole('status', { name: 'Plan status' })).toContainText('Scheduled', {
+	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 		timeout: READY_TIMEOUT_MS,
 	});
 }
 
 const editor = (page: Page) => page.getByRole('textbox', { name: /^Editor for / });
-const finish = (page: Page) => page.getByRole('status', { name: 'Plan status' }).locator('time');
+const finish = (page: Page) => page.getByRole('group', { name: 'Plan status' }).locator('time');
 
 /** The Plan panel on a phone, where the outline lives; a no-op on wider layouts. */
 async function showOutline(page: Page): Promise<void> {
@@ -53,7 +53,7 @@ test.describe('text mode', () => {
 		);
 		// Typing waits 300 ms, then the scheduler runs again.
 		await expect(finish(page)).not.toHaveText(before ?? '', { timeout: READY_TIMEOUT_MS });
-		await expect(page.getByRole('status', { name: 'Plan status' })).toContainText('later');
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('later');
 		await showOutline(page);
 		await expect(
 			page.getByRole('tree', { name: 'Tasks' }).getByRole('treeitem', { name: /Late work/ }),
@@ -66,7 +66,7 @@ test.describe('text mode', () => {
 		await page.keyboard.press('ControlOrMeta+End');
 		await page.keyboard.insertText('}\n');
 		await expect(page.locator('.cm-lintRange-error').first()).toBeVisible({ timeout: 10_000 });
-		const strip = page.getByRole('status', { name: 'Plan status' });
+		const strip = page.getByRole('group', { name: 'Plan status' });
 		await expect(strip.getByRole('button', { name: /error/ })).toBeVisible();
 		// The last good finish stays visible and is labelled.
 		await expect(strip).toContainText('last good', { timeout: READY_TIMEOUT_MS });
@@ -75,15 +75,62 @@ test.describe('text mode', () => {
 		await expect(strip).toContainText('No problems', { timeout: READY_TIMEOUT_MS });
 	});
 
-	test('selecting an outline item puts the cursor on its declaration', async ({ page }) => {
+	test('selecting an outline item puts the cursor on its declaration', async ({
+		page,
+		hasTouch,
+	}) => {
 		await openApp(page);
 		await showOutline(page);
 		await page
 			.getByRole('tree', { name: 'Tasks' })
 			.getByRole('treeitem', { name: /Rollout/ })
 			.click();
-		await expect(page.locator('.cm-selectionBackground, .cm-cursor').first()).toBeVisible();
+		await expect(page.locator('.cm-activeLine')).toBeVisible();
 		await expect(page.locator('.cm-activeLine')).toContainText('task rollout');
+		// A mouse or keyboard user gets the editor; on touch, focus would raise the keyboard.
+		if (hasTouch) await expect(editor(page)).not.toBeFocused();
+		else await expect(editor(page)).toBeFocused();
+	});
+
+	test('selecting items in other files scrolls the declaration into view', async ({
+		page,
+		viewport,
+	}) => {
+		test.skip(viewport?.width !== 1280, 'needs the outline beside a short editor (desktop)');
+		await page.setViewportSize({ width: 1280, height: 380 });
+		await openApp(page);
+		const tree = page.getByRole('tree', { name: 'Tasks' });
+		const visibleActiveLine = () =>
+			page.evaluate(() => {
+				const scroller = document.querySelector('.cm-scroller')?.getBoundingClientRect();
+				const line = document.querySelector('.cm-activeLine')?.getBoundingClientRect();
+				return (
+					!!scroller && !!line && line.top >= scroller.top - 1 && line.bottom <= scroller.bottom + 1
+				);
+			});
+		// `prep` is declared in lib/tasks.tji; `go` is far down plan.tjp, and the window is short.
+		await tree.getByRole('treeitem', { name: /Vorbereitung/ }).click();
+		await expect(page.getByRole('tab', { name: 'lib/tasks.tji' })).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		await expect(page.locator('.cm-activeLine')).toContainText('task prep');
+		await tree.getByRole('treeitem', { name: /^Go/ }).click();
+		await expect(page.locator('.cm-activeLine')).toContainText('task go');
+		// A scroll restore after the reveal used to leave the declaration off screen.
+		await page.waitForTimeout(300);
+		expect(await visibleActiveLine()).toBe(true);
+	});
+
+	test('the strip announces a settled run once, in a hidden live region', async ({ page }) => {
+		await openApp(page);
+		const strip = page.getByRole('group', { name: 'Plan status' });
+		await expect(strip).not.toHaveAttribute('role', 'status');
+		await expect(strip.locator('[aria-live]')).toHaveCount(0);
+		const live = page.locator('[role="status"][aria-live="polite"][aria-atomic="true"]');
+		await expect(live).toContainText('Scheduled');
+		await expect(live).toContainText('Finish');
+		await expect(live).toContainText('No problems');
 	});
 
 	test('the outline is an ARIA tree with arrow keys', async ({ page, viewport }) => {
@@ -119,6 +166,8 @@ test.describe('text mode', () => {
 		await drawer.getByRole('treeitem', { name: /Rollout/ }).click();
 		await expect(drawer).toBeHidden();
 		await expect(page.locator('.cm-activeLine')).toContainText('task rollout');
+		// The dialog closes first, then the editor takes the focus (a modal makes it inert).
+		await expect(editor(page)).toBeFocused();
 	});
 
 	test('the docs button shows the keyword at the cursor', async ({ page }) => {

@@ -45,6 +45,7 @@ import type { EngineClient, EngineState, ScheduleOutcome } from '../../engine/cl
 import type { Revision, ScheduleResult } from '../../engine/protocol';
 import { finishOf } from '../schedule/finish';
 import { engineDiagnostics, type TjpDiagnostic } from '../tjp/diagnostics';
+import type { ZoneOffsets } from '../tjp/values';
 import { buildIndex, NO_HINTS, type EngineHints, type SymbolIndex } from '../tjp/index';
 import {
 	DEFAULT_DEBOUNCE_MS,
@@ -111,6 +112,7 @@ class Runner implements ScheduleRunner {
 	readonly #ws: Workspace;
 	readonly #client: EngineClient;
 	readonly #debounceMs: number;
+	readonly #zones: ZoneOffsets | undefined;
 	readonly #timers: Timers;
 	readonly #debounceSlot: Slot = { armed: false, handle: null };
 	readonly #idleSlot: Slot = { armed: false, handle: null };
@@ -134,9 +136,10 @@ class Runner implements ScheduleRunner {
 		this.#ws = o.workspace;
 		this.#client = o.client;
 		this.#debounceMs = o.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+		this.#zones = o.zones;
 		this.#timers = defaultTimers(o.timers ?? {});
 		this.#engine = o.client.state;
-		this.#view = fullView(this.#ws, this.#ws.snapshot(), null, null);
+		this.#view = fullView(this.#ws, this.#ws.snapshot(), null, null, undefined, this.#zones);
 		this.#state = this.#compose();
 		this.#unsubscribe.push(
 			this.#ws.subscribe((_snap, origin) => this.#onChange(origin)),
@@ -203,7 +206,14 @@ class Runner implements ScheduleRunner {
 		this.#clear(this.#idleSlot, this.#timers.cancelIdle);
 		this.#derive(() => {
 			const now = this.#ws.snapshot();
-			this.#view = fullView(this.#ws, now, this.#hintBase, this.#diagnosticBase, prepared);
+			this.#view = fullView(
+				this.#ws,
+				now,
+				this.#hintBase,
+				this.#diagnosticBase,
+				prepared,
+				this.#zones,
+			);
 		});
 	}
 
@@ -280,7 +290,7 @@ class Runner implements ScheduleRunner {
 			const hints = isHintSource(result) ? sentHints(result, sent.snapshot) : null;
 			out.hints = hints;
 			if (hints) this.#hintBase = { snapshot: sent.snapshot, result, hints };
-			const current = prepareIndex(this.#ws, now, this.#hintBase, prev);
+			const current = prepareIndex(this.#ws, now, this.#hintBase, prev, this.#zones);
 			// Engine messages are refined by id in the sent snapshot's index: the current one when
 			// nothing changed during the run, else an earlier view's of that version with the same
 			// hints, else one built for it. Without messages no index is needed.
@@ -293,7 +303,11 @@ class Runner implements ScheduleRunner {
 					? current.index
 					: reusable
 						? prev.index
-						: buildIndex(sent.snapshot, hints ?? NO_HINTS);
+						: buildIndex(
+								sent.snapshot,
+								hints ?? NO_HINTS,
+								this.#zones === undefined ? {} : { zones: this.#zones },
+							);
 			out.diagnostics = engineDiagnostics(result, sent.snapshot, sentIndex);
 			this.#diagnosticBase = { snapshot: sent.snapshot, diagnostics: out.diagnostics };
 			this.#refresh(current);

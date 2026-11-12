@@ -13,6 +13,7 @@
  * Samples load in memory; nothing is stored (Phase 4).
  */
 import type { EditorView } from '@codemirror/view';
+import { createTimeZoneHost } from '../../engine/timezone';
 import { createEngineClient, type EngineClient } from '../../engine/client';
 import type { EngineState } from '../../engine/client';
 import type { SyntaxDocs, WorkspacePath } from '../../engine/protocol';
@@ -46,6 +47,8 @@ export interface Reveal {
 	readonly from: number;
 	readonly to: number;
 	readonly nonce: number;
+	/** Whether the editor takes the keyboard focus (not wanted when a touch keyboard would open). */
+	readonly focus: boolean;
 }
 
 export interface AppStateOptions {
@@ -85,12 +88,15 @@ export class AppState {
 	/** The editor view, set by the editor panel. Not reactive. */
 	editor: EditorView | null = null;
 
-	readonly files = $derived<readonly WorkspacePath[]>(
-		this.workspace ? [...this.workspace.snapshot().includes.order] : [],
-	);
+	/** The plan's files, entry first then in include order; follows the include graph. */
+	files = $state.raw<readonly WorkspacePath[]>([]);
 	/** The index; its identity changes only when the runner derives a new one. */
 	readonly index = $derived(this.run?.index ?? null);
 	readonly diagnostics = $derived(this.run?.diagnostics ?? []);
+	/** The revision of the newest engine result; the editor pushes engine marks when it changes. */
+	readonly engineRevision = $derived(this.run?.latest?.revision ?? null);
+	readonly engineDiagnostics = $derived(this.diagnostics.filter((d) => d.source === 'engine'));
+	readonly localDiagnostics = $derived(this.diagnostics.filter((d) => d.source !== 'engine'));
 	readonly outline = $derived(
 		this.index
 			? buildOutline(
@@ -106,6 +112,8 @@ export class AppState {
 	);
 	readonly status = $derived<StatusView | null>(this.run ? statusView(this.run) : null);
 
+	/** Intl-backed zone data for the index: zone names and zone-dependent value checks. */
+	readonly #zones = createTimeZoneHost();
 	#runner: ScheduleRunner | null = null;
 	#unsubscribe: Array<() => void> = [];
 	#docs: SyntaxDocs | null = null;
@@ -177,19 +185,33 @@ export class AppState {
 		ws = createWorkspace(seed, {
 			extensions: (path, top) => [extensions(path, top), editorSetup(path)],
 		});
-		runner = createScheduleRunner({ workspace: ws, client: this.client });
+		runner = createScheduleRunner({ workspace: ws, client: this.client, zones: this.#zones });
 		this.#runner = runner;
 		this.#unsubscribe = [
 			ws.subscribe(() => (this.dirty = true)),
-			runner.subscribe((s) => (this.run = s)),
+			runner.subscribe((s) => {
+				this.run = s;
+				this.#syncFiles(ws);
+			}),
 		];
 		this.dirty = false;
 		this.collapsed = new Set();
 		this.workspace = ws;
+		this.#syncFiles(ws);
 		this.activeFile = seed.entry;
 		this.reveal = null;
 		this.phase = 'ready';
 		return true;
+	}
+
+	/** Updates `files` when the include graph changed (the list keeps its identity otherwise). */
+	#syncFiles(ws: Workspace | null): void {
+		const order = ws ? ws.snapshot().includes.order : [];
+		const same = order.length === this.files.length && order.every((p, i) => p === this.files[i]);
+		if (!same) this.files = [...order];
+		if (this.files.length > 0 && !this.files.includes(this.activeFile) && this.activeFile !== '') {
+			this.activeFile = this.files[0] ?? this.activeFile;
+		}
 	}
 
 	#teardown(): void {
@@ -205,10 +227,10 @@ export class AppState {
 	}
 
 	/** Puts the cursor on a range of a file, opening the file and the Text panel (module comment). */
-	revealRange(file: WorkspacePath, from: number, to: number): void {
+	revealRange(file: WorkspacePath, from: number, to: number, focus = true): void {
 		this.openFile(file);
 		this.phoneTab = 'text';
-		this.reveal = { file, from, to, nonce: ++this.#nonce };
+		this.reveal = { file, from, to, nonce: ++this.#nonce, focus };
 	}
 
 	/** Selects an outline node's declaration. The index may be older than the text: map it. */
@@ -224,7 +246,9 @@ export class AppState {
 		}
 		const from = changes ? changes.mapPos(node.at.from, 1) : node.at.from;
 		const to = changes ? changes.mapPos(node.at.to, -1) : node.at.to;
-		this.revealRange(node.at.file, from, Math.max(from, to));
+		// A touch keyboard would cover the editor: only a keyboard or mouse user gets the focus.
+		const touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
+		this.revealRange(node.at.file, from, Math.max(from, to), !touch);
 		this.outlineOpen = false;
 	}
 

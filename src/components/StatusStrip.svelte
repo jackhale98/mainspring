@@ -20,25 +20,43 @@
 
 	let popover: HTMLElement | undefined = $state();
 
+	/** The sentence a screen reader hears when a run settles; empty until the first one does. */
+	let announcement = $state('');
+	$effect(() => {
+		const v = s;
+		if (!v || v.kind === 'scheduling' || v.kind === 'booting' || v.kind === 'idle') return;
+		const parts = [v.failure ?? v.label];
+		if (v.finish)
+			parts.push(`${strings.status.finish} ${v.finish}${v.delta ? `, ${v.delta}` : ''}`);
+		parts.push(v.counts);
+		announcement = parts.join('. ');
+	});
+
 	function jump(): void {
-		if (!app.goToNextProblem()) popover?.showPopover();
+		if (app.goToNextProblem()) return;
+		// Nothing to jump to: the messages without a place are the only ones left.
+		if (s && s.unlocated.length > 0 && popover && !popover.matches(':popover-open')) {
+			popover.showPopover();
+		}
 	}
 </script>
 
+<!--
+	The visible strip is not a live region: it holds buttons and changes while the user types, and
+	a polite region that is atomic would read it all out again each time. The hidden region below
+	speaks once per settled run, and only when its text changes.
+-->
+<div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
 {#if s}
-	<div class="strip" class:compact role="status" aria-label={strings.status.region}>
-		<span
-			class="state"
-			data-kind={s.kind}
-			aria-hidden={s.kind === 'scheduling' ? 'true' : undefined}
-		>
+	<div class="strip" class:compact role="group" aria-label={strings.status.region}>
+		<span class="state" data-kind={s.kind}>
 			<span class="dot" aria-hidden="true"></span>{s.label}
 		</span>
 		<span class="finish" class:outdated={s.outdated}>
 			<span class="key">{strings.status.finish}</span>
 			{#if s.finish}
 				<time datetime={app.run?.finish?.date}>{s.finish}</time>
-				{#if !compact && s.zone}<span class="zone">{s.zone}</span>{/if}
+				{#if s.zone && !compact}<span class="zone">{s.zone}</span>{/if}
 				{#if s.delta}<span class="delta">{s.delta}</span>{/if}
 				{#if s.outdated}<span class="badge">{strings.status.lastGood}</span>{/if}
 			{:else}

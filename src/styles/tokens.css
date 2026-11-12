@@ -38,8 +38,11 @@
 	--color-editor-active-line: #f0f4f8;
 
 	/* Type */
-	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-	--font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+	--font-sans:
+		'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		sans-serif;
+	--font-mono:
+		'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 	--text-sm: 0.875rem;
 	--text-md: 1rem;
 	--text-lg: 1.25rem;

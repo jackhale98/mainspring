@@ -29,7 +29,7 @@ describe('strings', () => {
 		expect(engineLine('failed')).toBe('Engine: Failed');
 	});
 
-	it('has one sentence for every refusal reason, failure kind and text-only reason', () => {
+	it('has a capitalised sentence for each refusal reason, failure kind and text-only reason', () => {
 		expect(Object.keys(refusalStrings)).toHaveLength(16);
 		for (const text of [
 			...Object.values(refusalStrings),

@@ -44,6 +44,7 @@ import {
 	type HintEntry,
 	type SymbolIndex,
 } from '../tjp/index';
+import type { ZoneOffsets } from '../tjp/values';
 import { changesMacroDefinition, lineMap } from './run-lines';
 import type { Workspace, WorkspaceSnapshot } from './workspace';
 
@@ -225,7 +226,8 @@ function view(
 }
 
 /**
- * The index of `now` with the hint base's hints; `reuse` (an earlier view) is kept when it is of
+ * The index of `now` with the hint base's hints (and `zones`, the time-zone data that zone
+ * names and zone-dependent value checks need; without it they are skipped as uncheckable); `reuse` (an earlier view) is kept when it is of
  * the same version and its hints are equal, so its index and checks need no rebuild.
  */
 export function prepareIndex(
@@ -233,10 +235,16 @@ export function prepareIndex(
 	now: WorkspaceSnapshot,
 	hintBase: HintBase | null,
 	reuse?: Prepared | null,
+	zones?: ZoneOffsets,
 ): Prepared {
 	const hints = hintsNow(ws, now, hintBase);
 	if (reuse && reuse.indexVersion === now.version && sameHints(reuse.hints, hints)) return reuse;
-	return { indexVersion: now.version, hints, index: buildIndex(now, hints), checks: null };
+	return {
+		indexVersion: now.version,
+		hints,
+		index: buildIndex(now, hints, zones === undefined ? {} : { zones }),
+		checks: null,
+	};
 }
 
 /** Everything shown for `now`; `prepared` (from `prepareIndex` for `now`) saves the index. */
@@ -246,9 +254,12 @@ export function fullView(
 	hintBase: HintBase | null,
 	diagnosticBase: DiagnosticBase | null,
 	prepared?: Prepared,
+	zones?: ZoneOffsets,
 ): View {
 	const p =
-		prepared && prepared.indexVersion === now.version ? prepared : prepareIndex(ws, now, hintBase);
+		prepared && prepared.indexVersion === now.version
+			? prepared
+			: prepareIndex(ws, now, hintBase, null, zones);
 	const checks = p.checks ?? [
 		...valueDiagnostics(now, p.index),
 		...attributeDiagnostics(now, p.index),

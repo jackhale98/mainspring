@@ -13,7 +13,6 @@
 	import DocsSheet from './DocsSheet.svelte';
 	import EditorPanel from './EditorPanel.svelte';
 	import OutlinePanel from './OutlinePanel.svelte';
-	import PlanSummary from './PlanSummary.svelte';
 	import Sheet from './Sheet.svelte';
 	import StatusStrip from './StatusStrip.svelte';
 	import TabBar from './TabBar.svelte';
@@ -51,7 +50,6 @@
 				aria-labelledby="tab-plan"
 				hidden={app.phoneTab !== 'plan'}
 			>
-				<PlanSummary {app} />
 				<div class="grow"><OutlinePanel {app} showTitle={false} /></div>
 			</div>
 		{/if}
@@ -73,7 +71,7 @@
 			{/if}
 		</div>
 	</main>
-	<StatusStrip {app} compact={phone} />
+	<StatusStrip {app} compact={phone && app.phoneTab === 'text'} />
 	{#if phone}<TabBar {app} />{/if}
 	{#if kind === 'tablet'}
 		<Sheet

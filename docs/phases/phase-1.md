@@ -1069,3 +1069,45 @@ them.
       the last file-level `flags` declaration read before the first task, else inserts one before
       that task; it is a no-op only when the flag is already declared before the first task
       (a second declaration is harmless natively).
+
+21. **Text mode UI (T15).** `src/components/`, state in `src/lib/state/` (runes), wired in
+    `src/pages/app/index.astro` with `client:only="svelte"`. Choices made while building:
+    - **One `EditorView`, one state per file.** The workspace holds an `EditorState` per file
+      (text, history, cursor, lint marks); the single view shows the open file's state with
+      `setState`, so switching files keeps each file's state, and `{#key workspace}` makes a new
+      view per sample. `EditorController` (`state/editor-controller.ts`) owns the view: `sync`
+      catches the view up after edits made without it (`Workspace.apply`) and runs before every
+      diagnostic push, reveal and format, since a transaction from an outdated state would throw in
+      `commit`; `show` restores a file's scroll position except before a reveal.
+    - **Layout.** File tabs (a select on phones), Format and Docs are in the editor toolbar, not the
+      top bar. The top bar has the app name, the sample picker, the mode ("Text mode", plain text
+      until Phase 2) and the engine state. Breakpoints 600 and 1024 (`layout.svelte.ts`); the
+      tablet outline is a modal `<dialog>` drawer; the phone tab bar has Plan (outline) and Text.
+      There is no separate Plan summary: the strip shows the zone and the delta on the Plan tab.
+    - **Docs at every width.** The Docs button opens a bottom sheet with `docsAtCursor`, on
+      desktop too, besides hover and Mod-K Mod-I.
+    - **Status strip.** The visible strip is a `group`, not a live region; a hidden polite region
+      speaks once when a run settles and its text changes. The state line says "Not scheduled: fix
+      the errors" when the latest result is not ok, "Scheduled with problems" otherwise; the last
+      good finish is dimmed by style (not opacity) with a "last good" label.
+    - **Diagnostics to the view.** The engine channel is pushed when a result arrives
+      (`engineRevision`), the local channel when the document layer's checks change; the lint layer
+      maps both through edits.
+    - **Reveal.** An outline click maps the index range through `changesSince(indexVersion)`. The
+      editor takes focus after the tablet drawer has closed, and not at all on a coarse pointer.
+    - **`?sample=<id>`** opens a sample at start (also used by the end-to-end specs). Switching
+      samples after an edit asks with `window.confirm`; a small in-page dialog can replace it.
+    - **Fonts (ADR-0005).** Inter and JetBrains Mono as `@fontsource-variable` packages, Latin
+      subset only (`styles/fonts.css`, about 90 KB); `scripts/ci/licenses.mjs` accepts `OFL-1.1`
+      only for those two package names (`FONT_PACKAGES`); the license texts ship at
+      `/fonts/NOTICES.txt` and are listed in `THIRD_PARTY_NOTICES.md`.
+    - **Tests.** Vitest compiles `.svelte` and `.svelte.ts` through `@sveltejs/vite-plugin-svelte`
+      with the `browser` resolve condition (runes need Svelte's client runtime); the editor
+      controller test runs in jsdom (`// @vitest-environment jsdom`, dev dependency only).
+      Keystroke-to-paint is measured by `tests/e2e/text-mode-perf.spec.ts` (Event Timing and a
+      frame measure; recorded in `test-results/text-mode-perf.json`, not enforced).
+    - **Time-zone data for the index.** `ScheduleRunnerOptions.zones` (a `ZoneOffsets`) goes to
+      every `buildIndex` the runner makes, so zone names and zone-dependent value checks (a timing
+      resolution against the zone's offset, misaligned dates) are made instead of skipped as
+      uncheckable. The app passes `createTimeZoneHost()`, now in `src/engine/timezone.ts` (and
+      re-exported by `runtime.ts`), so the main thread does not bundle the Ruby VM for it.

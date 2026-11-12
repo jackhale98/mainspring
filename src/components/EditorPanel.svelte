@@ -8,17 +8,11 @@
 	parent), so a new sample gets a fresh view.
 -->
 <script lang="ts">
-	import { EditorView } from '@codemirror/view';
 	import { onMount, untrack } from 'svelte';
+	import { EditorController } from '../lib/state/editor-controller';
 	import type { AppState } from '../lib/state/app.svelte';
 	import type { LayoutKind } from '../lib/state/layout.svelte';
 	import { editorStrings, strings } from '../lib/strings';
-	import {
-		formatCommand,
-		setEngineDiagnostics,
-		setLocalDiagnostics,
-		workspaceDispatch,
-	} from '../lib/tjp/cm';
 	import type { Workspace } from '../lib/workspace/workspace';
 	import FileSwitcher from './FileSwitcher.svelte';
 
@@ -30,90 +24,66 @@
 	let { app, ws, layout }: Props = $props();
 
 	let host: HTMLDivElement | undefined = $state();
-	let view: EditorView | null = null;
-	/** The file whose state the view shows. */
-	let shown = untrack(() => app.activeFile);
-	const scrolls = new Map<string, number>();
+	/** Set once the view exists; the effects below start then. */
+	let ctl = $state.raw<EditorController | null>(null);
 
 	const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 	const keys = (c: { mac: string; other: string }): string => (mac ? c.mac : c.other);
 	const C = editorStrings.commands;
 
-	/** Gives the view another file's state, remembering where this file was scrolled to. */
-	function switchTo(path: string): void {
-		if (!view || path === shown) return;
-		scrolls.set(shown, view.scrollDOM.scrollTop);
-		shown = path;
-		view.setState(ws.state(path));
-		const top = scrolls.get(path) ?? 0;
-		requestAnimationFrame(() => {
-			if (view) view.scrollDOM.scrollTop = top;
-		});
-	}
-
 	onMount(() => {
 		if (!host) return;
-		const v = new EditorView({
-			parent: host,
-			state: ws.state(shown),
-			dispatchTransactions: workspaceDispatch(ws, () => shown),
-		});
-		view = v;
-		app.editor = v;
-		// Edits made without the view (the edit API, Phase 2) leave it behind the workspace.
-		const off = ws.subscribe(() =>
-			queueMicrotask(() => {
-				if (view && view.state !== ws.state(shown)) view.setState(ws.state(shown));
-			}),
+		const c = new EditorController(
+			ws,
+			host,
+			untrack(() => app.activeFile),
 		);
+		app.editor = c.view;
+		ctl = c;
 		return () => {
-			off();
-			if (app.editor === v) app.editor = null;
-			v.destroy();
-			view = null;
+			if (app.editor === c.view) app.editor = null;
+			c.destroy();
+			ctl = null;
 		};
 	});
 
 	$effect(() => {
 		const path = app.activeFile;
-		untrack(() => switchTo(path));
+		const c = ctl;
+		if (c) untrack(() => c.show(path));
 	});
 
-	// The runner's diagnostics go to the view on the lint layer's two channels: the engine's own,
-	// and the document layer's (syntax, value, attribute). The view keeps only this file's.
+	// The runner's diagnostics go to the view on the lint layer's two channels. The engine's are
+	// pushed when a result arrives (the layer maps them through later edits and marks them stale);
+	// the document layer's whenever its checks change. The view keeps only this file's.
 	$effect(() => {
-		const list = app.diagnostics;
+		void app.engineRevision;
 		const path = app.activeFile;
-		untrack(() => {
-			if (!view) return;
-			switchTo(path);
-			setEngineDiagnostics(
-				view,
-				list.filter((d) => d.source === 'engine'),
-			);
-			setLocalDiagnostics(
-				view,
-				list.filter((d) => d.source !== 'engine'),
-			);
-		});
+		const c = ctl;
+		if (c) {
+			untrack(() => {
+				c.show(path);
+				c.setEngine(app.engineDiagnostics);
+			});
+		}
+	});
+
+	$effect(() => {
+		const list = app.localDiagnostics;
+		const path = app.activeFile;
+		const c = ctl;
+		if (c) {
+			untrack(() => {
+				c.show(path);
+				c.setLocal(list);
+			});
+		}
 	});
 
 	$effect(() => {
 		const r = app.reveal;
-		if (!r) return;
-		untrack(() => {
-			if (!view) return;
-			switchTo(r.file);
-			const length = view.state.doc.length;
-			const from = Math.min(Math.max(0, r.from), length);
-			const to = Math.min(Math.max(from, r.to), length);
-			view.dispatch({
-				selection: { anchor: from, head: to },
-				effects: EditorView.scrollIntoView(from, { y: 'center' }),
-				userEvent: 'select',
-			});
-			view.focus();
-		});
+		const c = ctl;
+		if (r && c) untrack(() => c.reveal(r.file, r.from, r.to, r.focus));
 	});
 </script>
 
@@ -124,7 +94,7 @@
 		<div class="actions">
 			<button
 				type="button"
-				onclick={() => view && formatCommand(view)}
+				onclick={() => ctl?.format()}
 				title="{C.format.label} ({keys(C.format)})"
 				aria-keyshortcuts={keys(C.format).replaceAll(' ', '+')}
 			>

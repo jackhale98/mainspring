@@ -75,7 +75,13 @@ describe('statusView', () => {
 		client.done(2, { ok: false, tasks: [], messages: [message('error', 3, 'broken')] });
 		await flush();
 		const v = statusView(runner.state, 'en');
-		expect(v).toMatchObject({ kind: 'errors', outdated: true, finish: good, errors: 1 });
+		expect(v).toMatchObject({
+			kind: 'errors',
+			label: strings.status.notScheduled,
+			outdated: true,
+			finish: good,
+			errors: 1,
+		});
 		expect(v.counts).toBe('1 error');
 	});
 
@@ -103,5 +109,14 @@ describe('statusView', () => {
 		expect(v.unlocated.map((d) => d.message)).toContain('No place');
 		expect(v.warnings).toBe(1);
 		expect(v.counts).toBe('1 warning');
+	});
+
+	it('says "Scheduled with problems" when the run produced a schedule that has errors', async () => {
+		client.done(1, { tasks: TASKS, messages: [message('error', 3, 'odd')] });
+		await flush();
+		expect(statusView(runner.state, 'en')).toMatchObject({
+			kind: 'errors',
+			label: strings.status.errors,
+		});
 	});
 });

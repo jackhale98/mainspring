@@ -88,12 +88,8 @@
 		font-size: var(--text-sm);
 	}
 	.mode {
-		padding: var(--space-1) var(--space-3);
-		border-radius: 999px;
-		background: var(--color-badge-bg);
-		color: var(--color-badge-text);
+		color: var(--color-text-muted);
 		font-size: var(--text-sm);
-		font-weight: 600;
 	}
 	.engine {
 		display: flex;

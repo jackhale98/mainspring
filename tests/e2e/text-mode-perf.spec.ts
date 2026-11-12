@@ -8,13 +8,13 @@
 //   next paint (rounded to 8 ms; events under 16 ms are not reported, so "reported" counts them);
 // - a frame measure: keydown to the first task after the next animation frame, which follows the
 //   paint that shows the keystroke.
-// Run with PERF=1 (the syn-20 run waits minutes for the engine). The workspace's own work (commit, reparse, runner) is on that path; the engine is in a worker.
+// The workspace's own work (commit, reparse, runner) is on that path; the engine is in a worker.
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 
-const READY_TIMEOUT_MS = 180_000;
+const READY_TIMEOUT_MS = 120_000;
 const KEYS = 60;
 const GAP_MS = 90;
 
@@ -45,10 +45,17 @@ function summary(values: readonly number[]) {
 }
 
 async function scheduled(page: Page): Promise<void> {
-	await expect(page.getByRole('status', { name: 'Plan status' })).toContainText(
+	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText(
 		/Scheduled|Scheduled with problems/,
 		{ timeout: READY_TIMEOUT_MS },
 	);
+}
+
+/** Waits for the run that follows an edit: scheduling starts, then the strip shows a result. */
+async function settled(page: Page): Promise<void> {
+	const state = page.getByRole('group', { name: 'Plan status' }).locator('.state');
+	await expect(state).toHaveAttribute('data-kind', 'scheduling', { timeout: 10_000 });
+	await expect(state).not.toHaveAttribute('data-kind', 'scheduling', { timeout: READY_TIMEOUT_MS });
 }
 
 async function measure(
@@ -88,10 +95,9 @@ async function measure(
 
 test.describe('keystroke to paint', () => {
 	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(!process.env['PERF'], 'set PERF=1 to measure (syn-20 takes minutes to schedule)');
 		test.skip(info.project.name !== 'desktop', 'desktop Chrome only (spec 8.4)');
 	});
-	test.setTimeout(READY_TIMEOUT_MS * 2);
+	test.setTimeout(READY_TIMEOUT_MS + 60_000);
 
 	const results: Record<string, unknown> = {};
 
@@ -122,11 +128,19 @@ test.describe('keystroke to paint', () => {
 		const editor = page.getByRole('textbox', { name: /^Editor for / });
 		await editor.click();
 		await page.keyboard.press('ControlOrMeta+a');
-		await page.keyboard.insertText(text);
-		await expect(editor).toContainText('task', { timeout: 30_000 });
-		// The new text is scheduled after the pause; wait for a stable status.
-		await page.waitForTimeout(1000);
-		await scheduled(page);
+		// One paste event with the whole file, as a user pasting a plan would send it.
+		await page.evaluate((t) => {
+			const data = new DataTransfer();
+			data.setData('text/plain', t);
+			document
+				.querySelector('.cm-content')
+				?.dispatchEvent(
+					new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+				);
+		}, text);
+		// The cursor ends after the pasted text, so the end of the file is what shows.
+		await expect(editor).toContainText('task t3_4_9_4 "Item 3.4.9.4"');
+		await settled(page);
 		const r = await measure(page);
 		results['syn-20-scale-1000'] = r;
 		console.log('syn-20-scale-1000', JSON.stringify(r));

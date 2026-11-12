@@ -145,4 +145,25 @@ describe('AppState', () => {
 		expect(app.phase).toBe('failed');
 		expect(app.loadError).toBe(strings.topBar.loadFailed('Bad'));
 	});
+
+	it('checks zone-dependent values: Kathmandu with a 30 minute timing resolution', async () => {
+		const kathmandu = sample('kathmandu', {
+			'plan.tjp': [
+				'project p "P" 2026-01-05 +1m {',
+				'  timezone "Asia/Kathmandu"',
+				'  timingresolution 30min',
+				'}',
+				'task t "T" { effort 1d }',
+				'',
+			].join('\n'),
+		});
+		const client = new FakeEngineClient();
+		app = new AppState({ client, samples: [kathmandu] });
+		await flush();
+		const found = app.localDiagnostics.filter((d) => d.source === 'value');
+		expect(found.length).toBeGreaterThan(0);
+		expect(app.status?.errors).toBeGreaterThan(0);
+		// The marks go to the editor's local channel, with a place in the text.
+		expect(found.every((d) => d.file === 'plan.tjp' && d.precision !== 'none')).toBe(true);
+	});
 });
