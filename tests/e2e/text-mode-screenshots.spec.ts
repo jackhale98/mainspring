@@ -82,4 +82,15 @@ test.describe('text mode screenshots', () => {
 		await page.waitForTimeout(400);
 		await page.screenshot({ path: path.join(DIR, 'app-phone-docs.png') });
 	});
+
+	// 9.4 asks for phone screenshots in light and dark.
+	test('app-phone-text-dark.png and app-phone-plan-dark.png', async ({ page }, info) => {
+		test.skip(info.project.name !== 'pixel-7');
+		await page.emulateMedia({ colorScheme: 'dark' });
+		await open(page, 'syn-18-structure-include-macro');
+		await breakPlan(page);
+		await page.screenshot({ path: path.join(DIR, 'app-phone-text-dark.png') });
+		await page.getByRole('tab', { name: 'Plan', exact: true }).click();
+		await page.screenshot({ path: path.join(DIR, 'app-phone-plan-dark.png') });
+	});
 });
