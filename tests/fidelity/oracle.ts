@@ -1,0 +1,299 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// The corpus oracle (phase-1.md 9.3 P1, 9.5): the facts the intent zones are computed from, read from
+// the pre-edit symbol index and the tree, written from the 7.1 and 7.2 rules. It never imports the
+// edit code. The same zone functions (gen/facts.ts) run over these facts and over the printer's
+// record, so a rule is written once. The same reader also rebuilds the facts of the text after an
+// edit (P3), where the semantics are compared (semOf).
+import type { SyntaxNode } from '@lezer/common';
+import { compareParseOrder } from '../../src/lib/workspace/include-order';
+import type { WorkspaceSnapshot } from '../../src/lib/workspace/workspace';
+import type { SourceRange, SymbolIndex, TaskSymbol } from '../../src/lib/tjp/index';
+import { bodyOf, statementKeyword, statementsIn } from '../../src/lib/tjp/tree';
+import {
+	normValue,
+	type BodyF,
+	type Elem,
+	type Facts,
+	type Gap,
+	type ItemF,
+	type Rg,
+	type StmtF,
+	type TaskF,
+} from './gen/facts';
+
+const rgOf = (r: SourceRange): Rg => ({ file: r.file, from: r.from, to: r.to });
+
+/** First non-blank offset of the comment lines (`#`, `//`) directly above `from`, else `from`. */
+export function attachedFrom(text: string, from: number): number {
+	let start = from;
+	let ls = from;
+	while (ls > 0 && text[ls - 1] !== '\n' && text[ls - 1] !== '\r') ls--;
+	// A statement that shares its line with something else has no comment lines of its own.
+	if (!/^[ \t]*$/.test(text.slice(ls, from))) return from;
+	for (;;) {
+		if (ls === 0) return start;
+		let pe = ls - 1;
+		if (text[pe] === '\n' && text[pe - 1] === '\r') pe--;
+		let ps = pe;
+		while (ps > 0 && text[ps - 1] !== '\n' && text[ps - 1] !== '\r') ps--;
+		const m = /^([ \t]*)(#|\/\/)/.exec(text.slice(ps, pe));
+		if (!m) return start;
+		start = ps + (m[1]?.length ?? 0);
+		ls = ps;
+	}
+}
+
+const BLOCKS = new Set([
+	'TaskStatement',
+	'ResourceStatement',
+	'SupplementStatement',
+	'ProjectStatement',
+]);
+
+function elemsOf(text: string, node: SyntaxNode): Elem[] {
+	return statementsIn(node).map((n): Elem => {
+		const block = BLOCKS.has(n.name);
+		const key = block ? null : statementKeyword(n, text);
+		const scoped = n.firstChild?.name === 'ScenarioPrefix';
+		return {
+			kind: block ? 'block' : 'stmt',
+			key,
+			from: n.from,
+			to: n.to,
+			start: attachedFrom(text, n.from),
+			scoped,
+		};
+	});
+}
+
+function nodeAt(snap: WorkspaceSnapshot, r: SourceRange): SyntaxNode | null {
+	const file = snap.files.get(r.file);
+	if (!file) return null;
+	for (let n: SyntaxNode | null = file.tree.resolveInner(r.from, 1); n; n = n.parent) {
+		if (n.from === r.from && n.to === r.to) return n;
+		if (n.from < r.from) break;
+	}
+	return null;
+}
+
+function bodyFacts(
+	snap: WorkspaceSnapshot,
+	texts: Record<string, string>,
+	decl: SourceRange,
+): BodyF | null {
+	const node = nodeAt(snap, decl);
+	const body = node && bodyOf(node);
+	if (!body) return null;
+	return {
+		file: decl.file,
+		open: body.from + 1,
+		close: body.to - 1,
+		elems: elemsOf(texts[decl.file] ?? '', body),
+	};
+}
+
+const inside = (outer: SourceRange, r: SourceRange): boolean =>
+	outer.file === r.file && outer.from <= r.from && r.to <= outer.to;
+
+/** The gap of a `{ gapduration 2h }` item body, as the plan says it. */
+export function gapOf(text: string): Gap | null {
+	const m = /\b(gapduration|gaplength)\s+(\S+)/.exec(text);
+	return m ? { kind: m[1] as Gap['kind'], value: m[2] as string } : null;
+}
+
+/** The facts of the workspace as the index sees it (the index must have been built from `snap`). */
+export function factsFromIndex(snap: WorkspaceSnapshot, index: SymbolIndex): Facts {
+	const texts: Record<string, string> = {};
+	for (const [path, file] of snap.files) texts[path] = file.text.toString();
+	const text = (r: SourceRange): string => (texts[r.file] ?? '').slice(r.from, r.to);
+
+	// Reading order of every positioned thing.
+	const positions: Array<{ file: string; from: number }> = [];
+	const note = (r: SourceRange): void => void positions.push({ file: r.file, from: r.from });
+	const seqs = new Map<string, number>();
+	const key = (r: { file: string; from: number }): string => `${r.file}:${r.from}`;
+
+	const itemsFor = (t: TaskSymbol, stmt: SourceRange, kw: string): ItemF[] | null => {
+		const mk = (
+			written: string,
+			target: string | null,
+			at: SourceRange,
+			range: SourceRange,
+			gap: Gap | null,
+		): ItemF => ({
+			written,
+			target,
+			at: rgOf(at),
+			range: rgOf(range),
+			gap,
+		});
+		if (kw === 'depends' || kw === 'precedes') {
+			return index.dependencies
+				.filter(
+					(d) =>
+						d.form === kw && inside(stmt, d.item) && (kw === 'depends' ? d.succ : d.pred) === t.id,
+				)
+				.map((d) =>
+					mk(
+						d.written,
+						(kw === 'depends' ? d.pred : d.succ) ?? d.written,
+						d.ref,
+						d.item,
+						d.body ? gapOf(text(d.body)) : null,
+					),
+				);
+		}
+		if (kw === 'allocate') {
+			return index.allocations
+				.filter((a) => a.task === t.id && inside(stmt, a.item))
+				.map((a) => mk(a.written, a.resource ?? a.written, a.ref, a.item, null));
+		}
+		if (kw === 'flags' || kw === 'responsible') {
+			return index.references
+				.filter((r) => r.via === kw && inside(stmt, r.at))
+				.map((r) => mk(r.written, r.target ?? r.written, r.at, r.at, null));
+		}
+		return null;
+	};
+
+	const stmtOf = (
+		t: TaskSymbol | null,
+		a: TaskSymbol['attrs'][number],
+		body: BodyF | null,
+	): StmtF => {
+		const items = t ? itemsFor(t, a.statement, a.keyword) : null;
+		note(a.statement);
+		return {
+			key: a.keyword,
+			scenario: a.scenario,
+			site: a.site === 'supplement' ? 'supp' : 'decl',
+			seq: 0,
+			range: rgOf(a.statement),
+			value: a.value ? rgOf(a.value) : null,
+			text: a.value ? text(a.value).trim() : '',
+			items,
+			macro: a.textOnly !== null,
+			body: a.site === 'decl' ? body : null,
+		};
+	};
+
+	const tasks: TaskF[] = [];
+	const macros = (words: Set<string>, t: TaskSymbol): void => {
+		for (const call of t.bodyMacroCalls) {
+			const name = /\$\{\s*([A-Za-z_]\w*)/.exec(text(call))?.[1];
+			for (const def of (name && index.macros.get(name)) || [])
+				for (const w of def.words) words.add(w);
+		}
+	};
+	for (const t of index.tasks.values()) {
+		if (t.expandedOnly) continue;
+		const body = bodyFacts(snap, texts, t.decl.block);
+		note(t.decl.block);
+		const words = new Set<string>();
+		macros(words, t);
+		const nameAt = t.decl.name ? rgOf(t.decl.name) : null;
+		const nameMacro = nameAt ? index.blocking(nameAt.file, nameAt.from, nameAt.to) !== null : false;
+		tasks.push({
+			id: t.id,
+			parent: t.parent,
+			children: [...t.children],
+			name: nameAt && !nameMacro ? normValue(text(nameAt)) : null,
+			nameAt,
+			nameMacro,
+			seq: 0,
+			block: rgOf(t.decl.block),
+			start: t.decl.leadingComments
+				? t.decl.leadingComments.from
+				: attachedFrom(texts[t.decl.block.file] ?? '', t.decl.block.from),
+			body,
+			stmts: t.attrs.map((a) => stmtOf(t, a, body)),
+			macroWords: words,
+		});
+	}
+	const flagDecls: StmtF[] = index.globalFlags.map((a) => {
+		note(a.statement);
+		// A global declaration names flags; it is not a reference, so read the ids from the value.
+		const items: ItemF[] = [];
+		if (a.value) {
+			for (const m of text(a.value).matchAll(/[A-Za-z_][\w]*/g)) {
+				const at = {
+					file: a.value.file,
+					from: a.value.from + (m.index ?? 0),
+					to: a.value.from + (m.index ?? 0) + m[0].length,
+				};
+				items.push({ written: m[0], target: m[0], at: rgOf(at), range: rgOf(at), gap: null });
+			}
+		}
+		return {
+			key: 'flags',
+			scenario: a.scenario,
+			site: 'decl',
+			seq: 0,
+			range: rgOf(a.statement),
+			value: a.value ? rgOf(a.value) : null,
+			text: a.value ? text(a.value) : '',
+			items,
+			macro: a.textOnly !== null,
+			body: null,
+		};
+	});
+
+	positions.sort((x, y) => compareParseOrder(snap.includes, x, y));
+	positions.forEach((p, i) => seqs.set(key(p), i));
+	const seqOf = (r: Rg): number => seqs.get(key(r)) ?? 0;
+	const withSeq = <T extends { range?: Rg; block?: Rg }>(x: T): number =>
+		seqOf((x.range ?? x.block) as Rg);
+	const fix = (s: StmtF): StmtF => ({ ...s, seq: withSeq(s) });
+	const fixed: TaskF[] = tasks.map((t) => ({ ...t, seq: seqOf(t.block), stmts: t.stmts.map(fix) }));
+
+	const topElems: Record<string, Elem[]> = {};
+	const macroRanges: Rg[] = [];
+	const noTouch: Rg[] = [];
+	for (const [path, file] of snap.files) {
+		topElems[path] = elemsOf(texts[path] ?? '', file.tree.topNode);
+		for (const r of index.textOnly(path)) {
+			if (r.reason === 'macro-body' || r.reason === 'macro-call' || r.reason === 'env-var')
+				macroRanges.push(rgOf(r.at));
+			if (
+				r.reason !== 'syntax-error' &&
+				r.reason !== 'opaque' &&
+				r.reason !== 'macro-id' &&
+				r.reason !== 'auto-id'
+			)
+				noTouch.push(rgOf(r.at));
+		}
+		file.tree.iterate({
+			enter(n) {
+				const multi =
+					(n.name === 'String' ||
+						n.name === 'TemplateString' ||
+						n.name === 'BlockComment' ||
+						n.name === 'MacroBody') &&
+					/[\r\n]/.test((texts[path] ?? '').slice(n.from, n.to));
+				if (multi) noTouch.push({ file: path, from: n.from, to: n.to });
+			},
+		});
+	}
+	const leaves = index.leaves.flatMap((l) =>
+		l.items.map(
+			(i) =>
+				`${l.scope.kind === 'global' ? 'global' : `res:${l.scope.resource}`}|${text(i).replace(/\s+/g, ' ').trim()}`,
+		),
+	);
+	return {
+		entry: snap.entry,
+		texts,
+		tasks: fixed,
+		byId: new Map(fixed.map((t) => [t.id, t])),
+		resources: [...index.resources.values()].map((r) => ({ id: r.id, parent: r.parent })),
+		flagDecls: flagDecls.map(fix),
+		topElems,
+		macroRanges,
+		noTouch,
+		leaves,
+		frame:
+			index.project && index.project.start !== null && index.project.end !== null
+				? { start: index.project.start, end: index.project.end }
+				: null,
+	};
+}

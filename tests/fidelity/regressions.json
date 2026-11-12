@@ -1,0 +1,21 @@
+{
+	"$comment": "Failing fidelity cases, replayed on every run (phase-1.md 9.3). A 'regression' entry is a fixed bug and must pass; a 'known-failure' entry is a bug in the edit API that its owner has not fixed: it is replayed but does not fail the run, and the report says whether it still fails. A case is a function of source, seed and type (FIDELITY_CASE=<source>:<seed>:<type> replays it). Seeds are only stable while the generator and the family drawing code are unchanged, so an entry also keeps its reason.",
+	"cases": [
+		{
+			"source": "corpus",
+			"seed": 20,
+			"type": "setAttr",
+			"status": "regression",
+			"reason": "Oracle bug in the suite, fixed: a drawn minstart date lay outside the corpus plan's project frame (date_in_range). Dates are now drawn inside the frame.",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "corpus",
+			"seed": 27,
+			"type": "setAttr",
+			"status": "regression",
+			"reason": "Oracle bug in the suite, fixed: a setAttr aimed at a statement written with a macro used a value that failed validation, so it was refused as invalid-value instead of text-only. The value is now valid for its attribute.",
+			"found": "2026-11-12"
+		}
+	]
+}

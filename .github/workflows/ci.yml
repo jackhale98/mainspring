@@ -86,6 +86,41 @@ jobs:
           path: public/engine/
           retention-days: 7
 
+  fidelity:
+    name: Patch fidelity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # P4 boots the built wasm engine in Node, so the engine is built here and no native Ruby runs.
+      - run: npm run build:engine
+      # The committed keyword table must match this engine (phase-1 spec 6.3, 14.12).
+      - run: npm run gen:keywords -- --check
+      # Gate criterion 2 (phase-1.md 9.3, 12): properties P1 to P6 over 200 generated and 50 corpus
+      # cases, the mutation meta-test and the recorded regressions. FIDELITY_SEED fixes the run; a
+      # failure prints the case seed and the FIDELITY_CASE to replay it.
+      - run: npm run test:fidelity
+      - name: Add the report to the step summary
+        if: always()
+        run: |
+          if [ -f test-results/fidelity-report.md ]; then
+            cat test-results/fidelity-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-report
+          path: |
+            test-results/fidelity-report.md
+            test-results/fidelity-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
   e2e:
     name: End-to-end and accessibility
     runs-on: ubuntu-latest

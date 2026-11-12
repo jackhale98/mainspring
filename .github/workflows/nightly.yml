@@ -48,6 +48,50 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  fidelity-nightly:
+    name: Patch fidelity (shard ${{ matrix.shard }} of 4)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    env:
+      # 5,000 generated and 500 corpus cases in all, split over four shards of the same sequence
+      # (phase-1.md 9.3). The seed changes every night, so the run explores new plans; every shard
+      # uses the same one. Fedora is under the corpus limit so it gets its share of the corpus cases.
+      FIDELITY_RUNS: '5000'
+      FIDELITY_CORPUS_RUNS: '500'
+      FIDELITY_CORPUS_MAX_MS: '1000'
+      FIDELITY_SEED: ${{ github.run_number }}
+      FIDELITY_SHARD: ${{ matrix.shard }}/4
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:engine
+      - run: npm run gen:keywords -- --check
+      - run: npm run test:fidelity
+      - name: Add the report to the step summary
+        if: always()
+        run: |
+          if [ -f test-results/fidelity-report.md ]; then
+            cat test-results/fidelity-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-report-shard-${{ matrix.shard }}
+          path: |
+            test-results/fidelity-report.md
+            test-results/fidelity-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
   golden-cross-browser:
     name: Golden plans (${{ matrix.browser }})
     runs-on: ubuntu-latest
