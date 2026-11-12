@@ -58,8 +58,8 @@ export async function generate(grammar) {
 		warn: (message) => warnings.push(message),
 	});
 	// ScanError (an unterminated construct, which runs to the end of the file) and UnknownWord (an
-	// unknown attribute name starting a line) are deliberately accepted nowhere, so the parser
-	// turns them into error nodes.
+	// identifier no parse state can take) are deliberately accepted nowhere, so the parser turns
+	// them into error nodes.
 	const unexpected = warnings.filter((w) => !/^Unused rule '(ScanError|UnknownWord)'/.test(w));
 	if (unexpected.length > 0) {
 		throw new Error(`lezer-generator warnings:\n${unexpected.join('\n')}`);

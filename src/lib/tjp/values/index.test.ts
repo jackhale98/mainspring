@@ -73,6 +73,11 @@ describe('keepOrPrint', () => {
 		expect(keepOrPrint('2026-1-5', parsed('date', '2026-01-05-00:00'))).toMatchObject({
 			value: { changed: false },
 		});
+		// The value has `\n`; the file keeps its own line breaks.
+		expect(keepOrPrint('"a\r\nb"', parsed('string', '"a\nb"'))).toEqual({
+			ok: true,
+			value: { text: '"a\r\nb"', changed: false },
+		});
 	});
 
 	it('writes canonical text when the value changes', () => {

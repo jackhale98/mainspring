@@ -7,7 +7,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { CORPORA, printLeaves, readTjp, serialize } from '../../../../tests/grammar/corpus';
 import type { TopContextName } from '../syntax/keywords';
-import { reuseFragments } from './fragments';
+import { reparse } from './fragments';
 import { tjpParser } from './parser';
 
 const FILES = CORPORA.flatMap((c) => c.files);
@@ -93,9 +93,9 @@ const topArb: fc.Arbitrary<TopContextName> = fc.constantFrom(
 );
 
 /**
- * Applies the edits one by one, reparsing incrementally each time with reuseFragments, and checks
- * each step against a fresh parse. While the previous tree has no error nodes, plain Lezer
- * fragments must give the same tree too.
+ * Applies the edits one by one, reparsing incrementally each time with `reparse`, and checks each
+ * step against a fresh parse. Where neither the previous nor the new tree has error nodes, plain
+ * Lezer fragments must give the same tree too.
  */
 function check(file: string, top: TopContextName, edits: readonly Edit[]): void {
 	const parser = tjpParser(top);
@@ -109,12 +109,14 @@ function check(file: string, top: TopContextName, edits: readonly Edit[]): void 
 		const plain = hasErrors(tree)
 			? null
 			: TreeFragment.applyChanges(TreeFragment.addTree(tree, fragments), change);
-		fragments = reuseFragments(tree, change, fragments);
 		text = text.slice(0, from) + e.insert + text.slice(to);
-		tree = parser.parse(text, fragments);
-		const fresh = serialize(parser.parse(text));
+		({ tree, fragments } = reparse(parser, text, tree, change, fragments));
+		const freshTree = parser.parse(text);
+		const fresh = serialize(freshTree);
 		expect(serialize(tree)).toEqual(fresh);
-		if (plain) expect(serialize(parser.parse(text, plain))).toEqual(fresh);
+		if (plain && !hasErrors(freshTree)) {
+			expect(serialize(parser.parse(text, plain))).toEqual(fresh);
+		}
 		expect(tree.length).toBe(text.length);
 		expect(printLeaves(tree, text)).toBe(text);
 	}

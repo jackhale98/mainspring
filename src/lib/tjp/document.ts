@@ -8,14 +8,14 @@
  * - The tree is parsed with the file's top context (spec 5.2): 'global' for the entry file and
  *   files included at the top level after the project header, 'project' for files included in
  *   the header, 'prolog' for files included before it. The workspace (include graph) decides.
- * - `updateFile` reparses incrementally with `reuseFragments` (grammar/fragments.ts) rather than
+ * - `updateFile` reparses incrementally with `reparse` (grammar/fragments.ts) rather than
  *   bare `TreeFragment.applyChanges`, so the result equals a fresh parse also next to syntax
- *   errors.
+ *   errors, old ones and ones the edit creates.
  */
 import { ChangeSet, Text, type ChangeSpec } from '@codemirror/state';
 import type { ChangedRange, Tree, TreeFragment } from '@lezer/common';
 import type { WorkspacePath } from '../../engine/protocol';
-import { reuseFragments, tjpParser } from './grammar/parser';
+import { reparse, tjpParser } from './grammar/parser';
 import type { ContextId, TopContextName } from './syntax/keywords';
 
 export { CoverageError, printTree, syntaxIssues, type SyntaxIssue } from './tree';
@@ -81,8 +81,7 @@ export function updateFile(file: TjpFile, changes: ChangeSet): TjpFile {
 		ranges.push({ fromA, toA, fromB, toB });
 	});
 	const text = changes.apply(file.text);
-	const fragments = reuseFragments(file.tree, ranges);
-	const tree = parseTjp(text.toString(), { top: file.top, fragments });
+	const { tree } = reparse(tjpParser(file.top), text.toString(), file.tree, ranges);
 	return { path: file.path, text, tree, version: file.version + 1, top: file.top };
 }
 

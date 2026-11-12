@@ -85,6 +85,8 @@ const text: fc.Arbitrary<string> = fc
 			)
 			.map((a) => a.join('')),
 	)
+	// Values the app creates break lines with `\n`, as TaskJuggler reads every break.
+	.map((s) => s.replace(/\r\n?/g, '\n'))
 	.filter((s) => isSafeText(s) && !s.endsWith('\\'));
 const id = fc.stringMatching(/^[a-zA-Z_][a-zA-Z0-9_]{0,6}$/);
 const taskRef: fc.Arbitrary<TaskRef> = fc.record({

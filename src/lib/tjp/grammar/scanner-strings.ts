@@ -16,10 +16,11 @@ import {
 } from './scanner-core';
 import { TokenFlag, type TjpScanError } from './token-kinds';
 
-const RE_CUT_START = /-8<-[^\n]*\n/y;
-const RE_CUT_CLEAN = /-8<-[ \t\n\v\f\r]*\n$/;
+const RE_CUT_START = /-8<-[^\r\n]*(?:\r\n?|\n)/y;
+const RE_CUT_CLEAN = /-8<-[ \t\n\v\f\r]*[\r\n]$/;
 const RE_CUT_END = /[ \t\n\v\f\r]*->8-/y;
-const RE_CUT_MACRO = /[^\n]*?\$\{[ \t\n\v\f\r]*\??[a-zA-Z_]\w*(?:[ \t\n\v\f\r]*"(?:\\"|[^"])*")*/y;
+const RE_CUT_MACRO =
+	/[^\r\n]*?\$\{[ \t\n\v\f\r]*\??[a-zA-Z_]\w*(?:[ \t\n\v\f\r]*"(?:\\"|[^"])*")*/y;
 
 /** The patterns of one string mode (`dqString` or `sqString`), without the opening quote. */
 interface QuotePatterns {
@@ -39,7 +40,7 @@ const DOUBLE: QuotePatterns = {
 	macro: /(?:\\"|[^"])*?\$\{[ \t\n\v\f\r]*\??[a-zA-Z_]\w*(?:[ \t\n\v\f\r]*"(?:\\"|[^"])*")*/y,
 	env: /(?:\\"|[^"])*?\$\([A-Z_][A-Z_0-9]*\)/y,
 	start: /(?:\\"|[^"])*/y,
-	mid: /(?:\\"|[^"])*\n/y,
+	mid: /(?:\\"|[^"])*[\r\n]$/y,
 	end: /(?:\\"|[^"])*"/y,
 };
 
@@ -48,7 +49,7 @@ const SINGLE: QuotePatterns = {
 	macro: /(?:\\'|[^'])*?\$\{[ \t\n\v\f\r]*\??[a-zA-Z_]\w*(?:[ \t\n\v\f\r]*"(?:\\"|[^"])*")*/y,
 	env: /(?:\\'|[^'])*?\$\([A-Z_][A-Z_0-9]*\)/y,
 	start: /(?:\\'|[^'])*/y,
-	mid: /(?:\\'|[^'])*\n/y,
+	mid: /(?:\\'|[^'])*[\r\n]$/y,
 	end: /(?:\\'|[^'])*'/y,
 };
 
@@ -66,6 +67,7 @@ function segment(src: ScanSource, pos: number, quote: number): string {
 		if (c === 36) return src.line(pos);
 		// A quote right after a backslash is escaped (`\\"` and `[^"]` both reach it).
 		if ((c === quote && (i === 0 || prev !== 92)) || c === 10) return src.slice(pos, i + 1);
+		if (c === 13) return src.slice(pos, src.peek(pos + i + 1) === 10 ? i + 2 : i + 1);
 		prev = c;
 	}
 }

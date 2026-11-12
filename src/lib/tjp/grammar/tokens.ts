@@ -79,7 +79,7 @@ class StreamSource implements ScanSource {
 		return s;
 	}
 
-	/** Up to `length` code units from `offset`, stopping after a `\n` if `toLineEnd`. */
+	/** Up to `length` code units from `offset`; with `toLineEnd`, through a `\n`, `\r\n` or `\r`. */
 	private read(offset: number, length: number, toLineEnd: boolean): string {
 		let out = '';
 		const codes: number[] = [];
@@ -92,6 +92,10 @@ class StreamSource implements ScanSource {
 				codes.length = 0;
 			}
 			if (toLineEnd && c === 10) break;
+			if (toLineEnd && c === 13) {
+				if (this.input.peek(offset + i + 1) === 10) codes.push(10);
+				break;
+			}
 		}
 		return out + String.fromCharCode(...codes);
 	}
@@ -123,11 +127,22 @@ export function tjpExternalTokenizer(
 	termFor: TjpTermFor,
 	options: TjpTokenizerOptions = {},
 ): ExternalTokenizer {
+	// Error recovery can ask for the token at one position from many stacks. An unterminated
+	// construct reads to the end of the input, so the last one is kept per stream and position;
+	// a repeat peeks its end again, so Lezer records the same look-ahead.
+	let runaway: { input: InputStream; pos: number; token: ScannedToken } | null = null;
 	return new ExternalTokenizer(
 		(input, stack) => {
 			if (input.next < 0) return;
 			const src = new StreamSource(input);
-			const t = scanToken(src, input.pos === 0);
+			let t: ScannedToken | null;
+			if (runaway && runaway.input === input && runaway.pos === input.pos) {
+				t = runaway.token;
+				input.peek(t.length - 1);
+			} else {
+				t = scanToken(src, input.pos === 0);
+				if (t?.kind === 'Error') runaway = { input, pos: input.pos, token: t };
+			}
 			if (!t) return;
 			const term = termFor(
 				t,

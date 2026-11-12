@@ -1,0 +1,1 @@
+# Feature: lone CR line breaks throughout (macro body closing on ] before CR, comments, multi-line string)# SPDX-License-Identifier: GPL-2.0-or-laterproject cr "CR only" 2026-01-05 +2mmacro e [  effort 3d]resource ana "Ana" // a resource# a task sized by the macrotask t "T" {  ${e}  allocate ana  note "twolines"}
