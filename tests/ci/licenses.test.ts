@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	BUILD_ONLY,
+	FONT_PACKAGES,
 	checkLock,
 	classifyLicense,
 	parseSpdx,
@@ -284,5 +285,70 @@ describe('BUILD_ONLY', () => {
 		for (const [name, reason] of BUILD_ONLY) {
 			expect(reason.length, name).toBeGreaterThan(40);
 		}
+	});
+});
+
+describe('font packages (ADR-0005)', () => {
+	const pkgs = {
+		'node_modules/@fontsource-variable/inter': { version: '5.3.0', license: 'OFL-1.1' },
+	};
+
+	it('accepts OFL-1.1 for a listed font package', () => {
+		const report = checkLock(lock(['@fontsource-variable/inter'], pkgs), none);
+		expect(report.failures).toEqual([]);
+	});
+
+	it('lists exactly the two self-hosted fonts', () => {
+		expect([...FONT_PACKAGES].sort()).toEqual([
+			'@fontsource-variable/inter',
+			'@fontsource-variable/jetbrains-mono',
+		]);
+	});
+
+	it('rejects OFL-1.1 for any other package, as code', () => {
+		const report = checkLock(
+			lock(['some-lib'], { 'node_modules/some-lib': { version: '1.0.0', license: 'OFL-1.1' } }),
+			none,
+		);
+		expect(report.failures).toEqual([expect.objectContaining({ license: 'OFL-1.1' })]);
+	});
+
+	it('rejects a font package under any other non-compatible license', () => {
+		const report = checkLock(
+			lock(['@fontsource-variable/inter'], {
+				'node_modules/@fontsource-variable/inter': { version: '5.3.0', license: 'Apache-2.0' },
+			}),
+			none,
+		);
+		expect(report.failures).toHaveLength(1);
+	});
+
+	it('rejects an OFL license combined with another term, and a nested copy', () => {
+		expect(
+			checkLock(
+				lock(['@fontsource-variable/inter'], {
+					'node_modules/@fontsource-variable/inter': {
+						version: '5.3.0',
+						license: 'OFL-1.1 AND Apache-2.0',
+					},
+				}),
+				none,
+			).failures,
+		).toHaveLength(1);
+		expect(
+			checkLock(
+				lock(['app'], {
+					'node_modules/app': {
+						license: 'MIT',
+						dependencies: { '@fontsource-variable/inter': '*' },
+					},
+					'node_modules/app/node_modules/@fontsource-variable/inter': {
+						version: '5.3.0',
+						license: 'OFL-1.1',
+					},
+				}),
+				none,
+			).failures,
+		).toHaveLength(1);
 	});
 });

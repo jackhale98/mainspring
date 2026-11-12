@@ -39,6 +39,7 @@ import { PROJECT_HANDLERS } from './project';
 import { RESOURCE_ATTR_HANDLERS } from './resource-attrs';
 import { RESOURCE_TREE_HANDLERS } from './resource-tree';
 import { checkOps, opTarget } from './refuse';
+import { TASK_ATTR_HANDLERS } from './task-attrs';
 import {
 	isNoop,
 	isRefused,
@@ -84,6 +85,7 @@ export const HANDLERS: IntentHandlers = {
 	...PROJECT_HANDLERS,
 	...WORKING_HOURS_HANDLERS,
 	...LEAVE_HANDLERS,
+	...TASK_ATTR_HANDLERS,
 };
 
 let seq = 0;

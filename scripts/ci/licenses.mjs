@@ -46,6 +46,17 @@ export const COMPATIBLE = new Set([
 ]);
 
 /**
+ * Packages that ship font files, which may be licensed OFL-1.1 (ADR-0005). The OFL is not on the
+ * code list above and is accepted only for these named packages, only as exactly `OFL-1.1`: the
+ * fonts are data files that the page loads, not code linked into Mainspring. Their license texts
+ * ship in public/fonts/NOTICES.txt (tests/ci/fonts.test.ts checks that).
+ */
+export const FONT_PACKAGES = new Set([
+	'@fontsource-variable/inter',
+	'@fontsource-variable/jetbrains-mono',
+]);
+
+/**
  * `license WITH exception` pairs that are compatible although the license alone is not. The
  * LLVM exception waives the Apache-2.0 terms that conflict with GPL-2.0 (THIRD_PARTY_NOTICES.md,
  * wasi-vfs). A compatible license with any exception is compatible too.
@@ -232,6 +243,7 @@ export function resolveDep(packages, from, name) {
  * @param {{
  *   buildOnly?: Map<string, string>,
  *   embedded?: Array<{ package: string, version: string, component: string, license: string, reason: string }>,
+ *   fonts?: Set<string>,
  *   readLicense?: (path: string) => unknown,
  * }} [options]
  */
@@ -240,6 +252,7 @@ export function checkLock(
 	{
 		buildOnly = BUILD_ONLY,
 		embedded = EMBEDDED_EXCEPTIONS,
+		fonts = FONT_PACKAGES,
 		readLicense = (_path) => undefined,
 	} = {},
 ) {
@@ -294,8 +307,12 @@ export function checkLock(
 	const checked = [];
 	for (const [path, entry] of shipped) {
 		const license = entry.license ?? readLicense(path);
-		const result = classifyLicense(license);
 		const name = entry.name ?? nameOfPath(path);
+		const isFont = fonts.has(name) && path === `node_modules/${name}`;
+		const result =
+			isFont && typeof license === 'string' && license.trim() === 'OFL-1.1'
+				? { ok: true, expression: 'OFL-1.1' }
+				: classifyLicense(license);
 		checked.push({ path, name, version: entry.version, ...result });
 		if (!result.ok) {
 			failures.push({

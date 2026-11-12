@@ -1016,8 +1016,103 @@ them.
       a resource left short after a removal) cannot be foreseen without scheduling and are not
       refused; the engine check (`edit/links.engine.test.ts`) counts and logs them by message id
       (`not_scheduled` only next to `sched_runaway`).
+20. **Task attribute intents (T11a; checked against native tj3).** `edit/task-attrs*.ts`.
+    - **Sizing.** TaskJuggler rejects a second criterion even in a supplement
+      (`multiple_durations`), so `setAttr` of `effort`, `length` or `duration` rewrites the last
+      own criterion (keyword and value together when the keyword differs) and removes the task's
+      other own criteria; it inserts one only when there is none.
+    - **Other scenarios.** A top-scenario value read after another scenario's statement is copied
+      over it (`PropertyTreeNode#[]=` in provided mode), and a criterion resets the other criteria
+      and `milestone` of every scenario (`setDurationAttribute`). An inserted statement therefore
+      goes before the first declaration-body statement of another scenario that sets the same
+      attribute; for a criterion or `milestone`, before any criterion or `milestone` of another
+      scenario. Rewrites stay where they are.
+    - **`flags` and `responsible`** accumulate over the task's own statements (declaration and
+      supplements) and its ancestors'. The intent's value is the task's whole list: it may not
+      drop an id an ancestor gives (`inherited`, at the ancestor's statements); it is a no-op when
+      the own and inherited ids already equal it; otherwise the task's own contribution is made
+      equal to it (the last own statement's list is rewritten to the value, the other own
+      statements are removed, or `attr ids` is inserted). `responsible` ids resolve after parsing
+      (rule_undefResourceId), so a resource declared later is fine; they are written relative to
+      the file's `resourceprefix`, under which no global resource id can be named
+      (`invalid-value`). `flags` ids must be declared before the statement (rule_flag).
+    - **Inheritance happens when the child is created** (`inheritAttributes`): only an ancestor's
+      statements read before the child's header count, for `removeAttr`'s `inherited`, the list
+      ids and the timing model below.
+    - **Timing model** (`task-attrs-timing.ts`). Direction is positional: `start` and `depends`
+      set ASAP, `end` and `precedes` set ALAP, `scheduling` sets either, and the statement read
+      last wins (TjpSyntaxRules.rb 6349, 6447, 6598, 6687, 6792); a child starts with its parent's
+      direction, `depends`, `precedes` and `scheduled` at its creation. Only an own `scheduled`
+      disables `task_overspecified` (TaskScenario.rb:378). Other tasks' `precedes` (and
+      `depends … { onstart }`) on the task are start dependencies; their `depends` (and
+      `precedes … { onend }`) are end dependencies.
+    - **Extra `conflicting-attribute` refusals** beyond the 7.1 table, each only when the change
+      introduces the problem: `task_overspecified`; `milestone_start_end` for an ALAP milestone
+      with only a start that is a child or has `precedes`, and for an ASAP milestone with only an
+      end and no start dependency; bookings on an ALAP task that is not `scheduled`
+      (`booking_forward_only`, `alap_booking`); a criterion or `milestone` on a container; a
+      criterion on a milestone; a milestone whose own start and end differ. They apply to every
+      change of a timing attribute, `removeAttr` included (removing the `scheduling` that keeps a
+      task ALAP can overspecify it). `task_pred_before` for a `length` or `duration` task with
+      `depends x { onstart }` on an effort task (syn-07 `chain.d`) depends on the schedule (the
+      predecessor's start moves to its first booked slot), so it is not refused; the engine test
+      tolerates exactly that case, and each other tolerated error id has its own predicate.
+    - **Macros.** A statement-level macro call in the task's bodies refuses `setAttr` and
+      `removeAttr` (`macro-in-body`) unless the macro is defined once, its body has no nested
+      calls or arguments, and its words include none of the keywords the edit reads: the
+      attribute itself, or for a timing attribute every keyword of the timing model plus
+      `booking`. Tutorial's `${allocate_developers}` therefore allows attribute edits. A statement
+      the edit would rewrite or remove that is written with a macro is `text-only` (X3), also
+      for `removeAttr`.
+    - **Names and flags.** `renameTask` keeps the quote style; a cut-here name becomes a
+      double-quoted one. `declareFlag` declares a flag where every task can use it: it appends to
+      the last file-level `flags` declaration read before the first task, else inserts one before
+      that task; it is a no-op only when the flag is already declared before the first task
+      (a second declaration is harmless natively).
 
-20. **Resource, project, working-hours and leave intents (T11d).** Handlers in
+21. **Text mode UI (T15).** `src/components/`, state in `src/lib/state/` (runes), wired in
+    `src/pages/app/index.astro` with `client:only="svelte"`. Choices made while building:
+    - **One `EditorView`, one state per file.** The workspace holds an `EditorState` per file
+      (text, history, cursor, lint marks); the single view shows the open file's state with
+      `setState`, so switching files keeps each file's state, and `{#key workspace}` makes a new
+      view per sample. `EditorController` (`state/editor-controller.ts`) owns the view: `sync`
+      catches the view up after edits made without it (`Workspace.apply`) and runs before every
+      diagnostic push, reveal and format, since a transaction from an outdated state would throw in
+      `commit`; `show` restores a file's scroll position except before a reveal.
+    - **Layout.** File tabs (a select on phones), Format and Docs are in the editor toolbar, not the
+      top bar. The top bar has the app name, the sample picker, the mode ("Text mode", plain text
+      until Phase 2) and the engine state. Breakpoints 600 and 1024 (`layout.svelte.ts`); the
+      tablet outline is a modal `<dialog>` drawer; the phone tab bar has Plan (outline) and Text.
+      There is no separate Plan summary: the strip shows the zone and the delta on the Plan tab.
+    - **Docs at every width.** The Docs button opens a bottom sheet with `docsAtCursor`, on
+      desktop too, besides hover and Mod-K Mod-I.
+    - **Status strip.** The visible strip is a `group`, not a live region; a hidden polite region
+      speaks once when a run settles and its text changes. The state line says "Not scheduled: fix
+      the errors" when the latest result is not ok, "Scheduled with problems" otherwise; the last
+      good finish is dimmed by style (not opacity) with a "last good" label.
+    - **Diagnostics to the view.** The engine channel is pushed when a result arrives
+      (`engineRevision`), the local channel when the document layer's checks change; the lint layer
+      maps both through edits.
+    - **Reveal.** An outline click maps the index range through `changesSince(indexVersion)`. The
+      editor takes focus after the tablet drawer has closed, and not at all on a coarse pointer.
+    - **`?sample=<id>`** opens a sample at start (also used by the end-to-end specs). Switching
+      samples after an edit asks with `window.confirm`; a small in-page dialog can replace it.
+    - **Fonts (ADR-0005).** Inter and JetBrains Mono as `@fontsource-variable` packages, Latin
+      subset only (`styles/fonts.css`, about 90 KB); `scripts/ci/licenses.mjs` accepts `OFL-1.1`
+      only for those two package names (`FONT_PACKAGES`); the license texts ship at
+      `/fonts/NOTICES.txt` and are listed in `THIRD_PARTY_NOTICES.md`.
+    - **Tests.** Vitest compiles `.svelte` and `.svelte.ts` through `@sveltejs/vite-plugin-svelte`
+      with the `browser` resolve condition (runes need Svelte's client runtime); the editor
+      controller test runs in jsdom (`// @vitest-environment jsdom`, dev dependency only).
+      Keystroke-to-paint is measured by `tests/e2e/text-mode-perf.spec.ts` (Event Timing and a
+      frame measure; recorded in `test-results/text-mode-perf.json`, not enforced).
+    - **Time-zone data for the index.** `ScheduleRunnerOptions.zones` (a `ZoneOffsets`) goes to
+      every `buildIndex` the runner makes, so zone names and zone-dependent value checks (a timing
+      resolution against the zone's offset, misaligned dates) are made instead of skipped as
+      uncheckable. The app passes `createTimeZoneHost()`, now in `src/engine/timezone.ts` (and
+      re-exported by `runtime.ts`), so the main thread does not bundle the Ruby VM for it.
+
+22. **Resource, project, working-hours and leave intents (T11d).** Handlers in
     `edit/resource-tree.ts`, `edit/resource-attrs.ts`, `edit/project.ts`, `edit/calendar.ts` and
     `edit/calendar-leaves.ts`, registered in `HANDLERS`; the plan's function names are in
     `edit/resources.ts` and `edit/settings.ts`; shared helpers in `edit/props.ts` (own sites,
