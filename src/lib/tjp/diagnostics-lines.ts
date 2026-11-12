@@ -6,12 +6,13 @@
  *   `\r` and `\n` each end a line. Documents split on `\n` only (document.ts), so an engine line
  *   number is resolved here against the text itself, not with `Text.line`.
  * - Positions: `line` and `column` of a diagnostic use the same line rule (1-based, UTF-16
- *   columns), so a diagnostic's line is the engine's line when no refinement moved it. The
- *   shared helper planned in src/lib/tjp/lines.ts can replace `lineTable` here alone.
+ *   columns), so a diagnostic's line is the engine's line when no refinement moved it. Lines
+ *   come from the shared helper in lines.ts.
  * - Leaves: the tokens of a range, with comments and the BOM marked as trivia.
  */
 import type { Text } from '@codemirror/state';
 import type { SyntaxNode, Tree } from '@lezer/common';
+import { TjLines } from './lines';
 
 export interface Span {
 	from: number;
@@ -23,12 +24,7 @@ export interface LineSpan extends Span {
 	number: number;
 }
 
-interface LineTable {
-	starts: number[];
-	ends: number[];
-}
-
-const tables = new WeakMap<Text, LineTable>();
+const tables = new WeakMap<Text, TjLines>();
 const strings = new WeakMap<Text, string>();
 
 /** The text as a string, cached per `Text`. */
@@ -41,49 +37,31 @@ export function textString(doc: Text): string {
 	return s;
 }
 
-function lineTable(doc: Text): LineTable {
+/** The shared TaskJuggler line table (lines.ts), cached per `Text`. */
+function lines(doc: Text): TjLines {
 	let t = tables.get(doc);
-	if (t) return t;
-	const s = textString(doc);
-	const starts = [0];
-	const ends: number[] = [];
-	for (let i = 0; i < s.length; i++) {
-		const c = s.charCodeAt(i);
-		if (c === 10 || c === 13) {
-			ends.push(i);
-			if (c === 13 && s.charCodeAt(i + 1) === 10) i++;
-			starts.push(i + 1);
-		}
+	if (!t) {
+		t = new TjLines(textString(doc));
+		tables.set(doc, t);
 	}
-	ends.push(s.length);
-	t = { starts, ends };
-	tables.set(doc, t);
 	return t;
 }
 
 /** Number of engine lines (a final line break starts an empty last line). */
 export function engineLineCount(doc: Text): number {
-	return lineTable(doc).starts.length;
+	return lines(doc).count;
 }
 
 /** Engine line `line`, clamped to the first and last line. */
 export function engineLine(doc: Text, line: number): LineSpan {
-	const t = lineTable(doc);
-	const n = Math.min(Math.max(1, Math.floor(line)), t.starts.length);
-	return { from: t.starts[n - 1] ?? 0, to: t.ends[n - 1] ?? 0, number: n };
+	const t = lines(doc);
+	const n = Math.min(Math.max(1, Math.floor(line)), t.count);
+	return { ...t.range(n), number: n };
 }
 
 /** The engine line that holds offset `pos`. */
 export function engineLineAt(doc: Text, pos: number): number {
-	const { starts } = lineTable(doc);
-	let lo = 0;
-	let hi = starts.length - 1;
-	while (lo < hi) {
-		const mid = (lo + hi + 1) >> 1;
-		if ((starts[mid] ?? 0) <= pos) lo = mid;
-		else hi = mid - 1;
-	}
-	return lo + 1;
+	return lines(doc).lineOf(pos);
 }
 
 /**
