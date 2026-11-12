@@ -10,7 +10,7 @@ import {
 	lineEnd,
 	lineIndent,
 	lineStart,
-	quoteAfter,
+	stringModeAfter,
 	renderStatement,
 	startsLine,
 	statementNode,
@@ -45,16 +45,29 @@ describe('lines as TaskJuggler reads them', () => {
 	});
 
 	it('tracks quotes across lines', () => {
-		expect(quoteAfter('note "a', null)).toBe('"');
-		expect(quoteAfter('b \\" c', '"')).toBe('"');
-		expect(quoteAfter('b"', '"')).toBeNull();
-		expect(quoteAfter("x # 'not a string", null)).toBeNull();
-		expect(quoteAfter("note 'it''", null)).toBe("'");
+		expect(stringModeAfter('note "a', null)).toBe('"');
+		expect(stringModeAfter('b \\" c', '"')).toBe('"');
+		expect(stringModeAfter('b"', '"')).toBeNull();
+		expect(stringModeAfter("x # 'not a string", null)).toBeNull();
+		expect(stringModeAfter("note 'it''", null)).toBe("'");
+	});
+
+	it('tracks cut-here strings as their own mode', () => {
+		expect(stringModeAfter('note -8<-  ', null)).toBe('cut');
+		expect(stringModeAfter("  it's a cut", 'cut')).toBe('cut');
+		expect(stringModeAfter('  ->8-', 'cut')).toBeNull();
+		expect(stringModeAfter('  ->8- # done "x', 'cut')).toBeNull();
+		expect(stringModeAfter('  ->8- "open', 'cut')).toBe('"');
+		expect(stringModeAfter('note -8<- x', null)).toBeNull();
 	});
 
 	it('leaves lines that start inside strings alone', () => {
 		expect(renderStatement('note "a\n\tb"\n\tx 1', '  ', '    ', '\r\n')).toBe(
-			'note "a\n\tb"\r\n      x 1',
+			'note "a\r\n\tb"\r\n      x 1',
+		);
+		const cut = "note -8<-\n\tit's cut\n\t->8-\n\tlength 1d";
+		expect(renderStatement(cut, '  ', '  ', '\r\n')).toBe(
+			"note -8<-\r\n    it's cut\r\n    ->8-\r\n    length 1d",
 		);
 	});
 

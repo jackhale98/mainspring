@@ -113,21 +113,34 @@ export function lineBreakNear(text: string, pos: number): LineBreak {
 	return dominantBreak(text);
 }
 
-type Quote = '"' | "'";
+/** Where a line of statement text starts: outside strings, in a quoted string, or in a cut-here string. */
+export type StringMode = null | '"' | "'" | 'cut';
+
+const CUT_OPEN = '-8<-';
+const CUT_CLOSE = '->8-';
 
 /**
- * The quote still open at the end of `line` when it starts inside `open` (null outside strings).
- * `\"` and `\'` are the only escapes; `#` and `//` outside strings end the line.
+ * The string mode at the end of `line` when it starts in `mode` (spec 5.1 strings). `\"` and `\'`
+ * are the only escapes in quoted strings; `#` and `//` outside strings end the line. A cut-here
+ * string opens with `-8<-` at the end of its line (trailing blanks allowed) and closes on a line
+ * whose first non-blank text is `->8-`; quotes inside it are ordinary text.
  */
-export function quoteAfter(line: string, open: Quote | null): Quote | null {
-	let q = open;
-	for (let i = 0; i < line.length; i++) {
+export function stringModeAfter(line: string, mode: StringMode): StringMode {
+	let i = 0;
+	if (mode === 'cut') {
+		const lead = line.length - line.trimStart().length;
+		if (!line.startsWith(CUT_CLOSE, lead)) return 'cut';
+		i = lead + CUT_CLOSE.length;
+	}
+	let q: StringMode = mode === 'cut' ? null : mode;
+	for (; i < line.length; i++) {
 		const c = line[i];
 		if (q) {
 			if (c === '\\' && line[i + 1] === q) i++;
 			else if (c === q) q = null;
 		} else if (c === '"' || c === "'") q = c;
 		else if (c === '#' || (c === '/' && line[i + 1] === '/')) break;
+		else if (line.startsWith(CUT_OPEN, i) && isBlank(line.slice(i + CUT_OPEN.length))) return 'cut';
 	}
 	return q;
 }
@@ -135,9 +148,10 @@ export function quoteAfter(line: string, open: Quote | null): Quote | null {
 /**
  * Statement text in the file's layout: `\n` becomes `eol`, each line after the first starts with
  * `indent`, and leading tabs become indent units, except for lines that start inside a `"` or `'`
- * string: those and the break before them stay exactly as given (they are part of the value).
- * Cut-here strings are re-indented with the rest; TaskJuggler strips their first line's
- * indentation from every line, so a uniform shift keeps the value.
+ * string: their text stays exactly as given (it is part of the value) and only the break before
+ * them becomes `eol` (TaskJuggler reads every break as `\n`, so the value is unchanged and CRLF
+ * files stay CRLF). Cut-here strings are re-indented with the rest; TaskJuggler strips their first
+ * line's indentation from every line, so a uniform shift keeps the value.
  */
 export function renderStatement(
 	stmt: string,
@@ -146,15 +160,15 @@ export function renderStatement(
 	eol: LineBreak,
 ): string {
 	let out = '';
-	let quote: Quote | null = null;
+	let mode: StringMode = null;
 	stmt.split('\n').forEach((line, i) => {
-		if (quote) out += '\n' + line;
+		if (mode === '"' || mode === "'") out += eol + line;
 		else {
 			let n = 0;
 			while (line[n] === '\t') n++;
 			out += (i === 0 ? '' : eol + indent) + unit.repeat(n) + line.slice(n);
 		}
-		quote = quoteAfter(line, quote);
+		mode = stringModeAfter(line, mode);
 	});
 	return out;
 }
