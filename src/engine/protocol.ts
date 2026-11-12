@@ -3,6 +3,10 @@
  * Engine protocol: the shared types (phase-0 spec 3.1) and the worker messages (spec 3.2).
  * Decisions on `now`, `bookings`, late results and dates are in ADR-0002.
  * This module holds types only; it has no runtime code.
+ *
+ * Result schema v2 (phase-2 spec 6.1) adds fields only; every v1 field keeps its meaning:
+ * `ProjectInfo.dailyWorkingHours` and `workingTime`, and per task scenario `direction`,
+ * `complete`, `depends` and `precedes` (`DependencyResult`). The worker messages are unchanged.
  */
 
 /** Strictly increasing per EngineClient. */
@@ -59,6 +63,19 @@ export interface ProjectInfo {
 	timingResolutionMin: number;
 	/** Declaration pre-order. */
 	scenarios: ScenarioInfo[];
+	/**
+	 * v2. Hours in a working day (`dailyworkinghours`, default 8); TaskJuggler converts the 'd',
+	 * 'w', 'm' and 'y' units of effort, length and gaplength with it.
+	 */
+	dailyWorkingHours: number;
+	/**
+	 * v2. Global working time over the project frame as [start, end) pairs: ascending, disjoint,
+	 * touching pairs merged, every bound a multiple of `timingResolutionMin`. Read slot by slot
+	 * from TaskJuggler's project scoreboard (`Project#isWorkingTime`): the global working hours
+	 * minus global leaves, in the plan's time zone, so DST is already applied. Empty when parsing
+	 * failed, because TaskJuggler builds the scoreboard only when it schedules.
+	 */
+	workingTime: Array<[start: Minutes, end: Minutes]>;
 }
 export interface ScenarioInfo {
 	id: string;
@@ -96,6 +113,41 @@ export interface TaskScenarioResult {
 	criticalness: number;
 	/** Null when scheduling stopped before TaskJuggler computed it (it starts as nil). */
 	pathCriticalness: number | null;
+	/**
+	 * v2. Scheduling direction as TaskJuggler holds it after scheduling (its `forward` flag). The
+	 * last of `scheduling`, `start` and `depends` (asap) or `end` and `precedes` (alap) in the task
+	 * wins, otherwise the parent's value, and `effortdone`/`effortleft` force asap. Containers
+	 * report the value they hold too.
+	 */
+	direction: 'asap' | 'alap';
+	/** v2. `complete` in percent as the plan sets it for this scenario; null when unset. Never a
+	 *  computed completion. */
+	complete: number | null;
+	/** v2. This task's start waits on these (`depends` after inheritance: the parent's entries,
+	 *  then the task's own), in TaskJuggler's order. */
+	depends: DependencyResult[];
+	/** v2. This task's end must come before these (`precedes` after inheritance), in
+	 *  TaskJuggler's order. */
+	precedes: DependencyResult[];
+}
+
+/**
+ * v2. One resolved `depends` or `precedes` entry of a task scenario. Entries that name no task
+ * are left out (TaskJuggler reports them as `task_depend_unknown` messages).
+ */
+export interface DependencyResult {
+	/** The other task's full id. */
+	task: string;
+	/**
+	 * Whether the edge attaches to the other task's end (true) or start (false). The default is
+	 * true for `depends` (after the predecessor's end) and false for `precedes` (before the
+	 * successor's start); `onend` and `onstart` change it.
+	 */
+	onEnd: boolean;
+	/** `gapduration`: calendar minutes. 0 when unset. */
+	gapDurationMin: number;
+	/** `gaplength`: working minutes (scoreboard slots x `timingResolutionMin`). 0 when unset. */
+	gapLengthMin: number;
 }
 
 export interface ResourceResult {
