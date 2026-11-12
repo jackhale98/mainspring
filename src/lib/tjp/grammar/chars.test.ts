@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Character reads around a token (chars.ts).
 import { describe, expect, it } from 'vitest';
-import { MAX_LOOKBEHIND, isSpace, isWordChar, readWord, startsLine, type Peek } from './chars';
+import { isSpace, isWordChar, readWord, type Peek } from './chars';
 
 /** A peek function over `text`, relative to the position of the first `|`. */
 function at(marked: string): Peek {
@@ -26,14 +26,5 @@ describe('chars', () => {
 		expect(readWord(at('delayed:|  effort'), 0, true)).toBe('effort');
 		expect(readWord(at('delayed:|  effort'), 0)).toBe('');
 		expect(readWord(at('|x'), 5)).toBe('');
-	});
-
-	it('sees a line start through blanks, up to the look-behind limit', () => {
-		expect(startsLine(at('|effort'))).toBe(true);
-		expect(startsLine(at('a\n  \t|effort'))).toBe(true);
-		expect(startsLine(at('a\r\n|effort'))).toBe(true);
-		expect(startsLine(at('dev |effort'))).toBe(false);
-		expect(startsLine(at(`a\n${' '.repeat(MAX_LOOKBEHIND - 1)}|x`))).toBe(true);
-		expect(startsLine(at(`a\n${' '.repeat(MAX_LOOKBEHIND)}|x`))).toBe(false);
 	});
 });

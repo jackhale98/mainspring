@@ -71,6 +71,8 @@ export const TYPED_KEYWORDS: ReadonlyMap<string, TypedHead> = new Map<string, Ty
 export const HEAD_KEYWORD_TERMS: ReadonlySet<number> = new Set<number>([
 	T.kw,
 	T.kwArgs,
+	T.kwBare,
+	T.kwChoice,
 	...[...TYPED_KEYWORDS.values()].map((t) => t.head),
 ]);
 

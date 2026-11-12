@@ -22,7 +22,7 @@
  * - Unterminated constructs are a `ScanError` token, which no rule accepts, so they sit in an
  *   error node; so does anything else TaskJuggler would reject at that point.
  *
- * Incremental reparses should take their fragments from `reuseFragments` (fragments.ts), which
+ * Incremental reparses should go through `reparse` (fragments.ts), which
  * makes the result equal to a fresh parse also next to syntax errors.
  */
 import type { SyntaxNode } from '@lezer/common';
@@ -34,7 +34,7 @@ import { TYPED_KEYWORDS } from './terms';
 
 export { parser as tjpGlobalParser } from './parser.generated';
 export { EXTRA_KEYWORDS } from './keyword-extras';
-export { reuseFragments } from './fragments';
+export { reparse, reuseFragments } from './fragments';
 export { stringTemplate, type StringTemplate } from './props';
 export { requiresArgument } from './lexer';
 
