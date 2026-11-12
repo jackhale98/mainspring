@@ -1,5 +1,58 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // All user-facing copy lives in this file (CLAUDE.md conventions).
+import type { ValueErrorCode } from './tjp/values/result';
+
+/**
+ * Diagnostics the document layer finds itself (src/lib/tjp/diagnostics*.ts). Engine messages
+ * keep TaskJuggler's own text.
+ */
+export const diagnosticStrings = {
+	syntax: {
+		unexpected: (token: string) => `Unexpected ${token}.`,
+		unterminated: 'This string, comment or macro is not closed.',
+		unexpectedEnd: 'The file ends too early. A closing } may be missing.',
+		extraBrace: 'This } has no matching {.',
+	},
+	/** One plain sentence per typed-value error code (src/lib/tjp/values/result.ts). */
+	value: {
+		'unexpected-token': 'This value is not valid here.',
+		'unexpected-end': 'A value is missing.',
+		'trailing-text': 'Unexpected text after the value.',
+		'macro-call': 'This value uses a macro.',
+		'env-var': 'This value uses an environment variable.',
+		unterminated: 'This string is not closed.',
+		'junk-after-cut': 'The cut mark -8<- must end its line.',
+		'bad-unit': 'This unit is not allowed here.',
+		'number-range': 'This number is out of range.',
+		'number-too-large': 'This number is too large.',
+		'zero-duration': 'A duration must be greater than zero.',
+		'duration-not-aligned': 'This duration does not fit the timing resolution.',
+		'duration-too-small': 'This duration is shorter than the timing resolution.',
+		'year-range': 'The year must be between 1970 and 2035.',
+		'month-range': 'The month must be between 1 and 12.',
+		'day-range': 'This day does not exist in that month.',
+		'hour-range': 'The hour must be between 0 and 23.',
+		'minute-range': 'The minutes must be between 0 and 59.',
+		'second-range': 'The seconds must be between 0 and 59.',
+		'zone-sign': 'A time zone offset needs a + or - sign.',
+		'zone-format': 'Write the time zone offset as +hhmm or -hhmm.',
+		'zone-range': 'The time zone offset is out of range.',
+		'time-range': 'This time of day is not valid.',
+		'time-interval': 'The end time must be after the start time.',
+		'misaligned-date': 'This date does not fit the timing resolution.',
+		'start-before-end': 'The end must be after the start.',
+		'out-of-project': 'This date is outside the project time frame.',
+		'zone-data': 'Time zone data is not available yet.',
+		'bad-zone': 'Unknown time zone.',
+		'not-an-id': 'This is not a valid id.',
+		'too-many-bangs': "Too many '!' for a relative task id here.",
+		'unsafe-text': 'This text cannot be written safely.',
+		unrepresentable: 'This value cannot be written in TaskJuggler syntax.',
+	} satisfies Record<ValueErrorCode, string>,
+	undeclaredAttribute: (name: string) =>
+		`${name} is not a custom attribute. Declare it with extend first.`,
+	didYouMean: (keyword: string) => `Did you mean ${keyword}?`,
+} as const;
 
 export const engineStatusLabels = {
 	booting: 'Starting the scheduler',
