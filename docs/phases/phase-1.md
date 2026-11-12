@@ -1309,8 +1309,10 @@ them.
       and `P1-targets` (the edit's own declared targets). The mutants widen `edit.targets`, so only
       `P1-region` can catch them.
     - **Families.** One module per intent family (`families/`): draw an intent, its region, its model
-      update. `families/index.ts` lists them and `PENDING` (T11b: addTask, deleteTask, moveTask); a test
-      requires every key of `HANDLERS` to be enforced and nothing pending to have a handler. The run
+      update. `families/index.ts` lists them and `PENDING` (empty since T11b merged: all 28 intents of 7.1 are
+      enforced); a test requires every key of `HANDLERS` to be enforced and nothing pending to have a
+      handler. Moves and adds are drawn under parents that give no `flags`, `responsible` or `allocate`, so the
+      effective lists of the moved or new tasks stay as they were. The run
       fails unless each enforced type produced 5 edits (for a run of 8 cases per type or more; the
       merged nightly report applies the rule over all shards, `scripts/ci/fidelity-merge.mjs`), and unless
       intents aimed at text-only text were all refused (at least 10 as `text-only` and 8 as
@@ -1339,7 +1341,6 @@ them.
       ms per task. The 5,000-case nightly splits over four shards that each take about 11 minutes with four
       shards sharing four cores; the text-only properties take 36 s per shard. The 300 ms stays a
       target: the 15-minute job limit is met (the default run takes 75 s).
-    - **Mutation meta-test.** Four faulty wrappers (a byte outside the target, a required change skipped, an
-      insertion at the wrong place, an inverse change dropped) must be caught by `P1-region`, `P3` or `P6`
-      within 200 cases. T11b's module can add the literal "reference fix skipped" mutant for deleteTask and
-      moveTask.
+    - **Mutation meta-test.** Five faulty wrappers (a byte outside the target, a required change skipped, an
+      insertion at the wrong place, one reference fix of a deleteTask or moveTask skipped, an inverse change
+      dropped) must be caught by `P1-region`, `P3` or `P6` within 200 cases.

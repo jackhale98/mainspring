@@ -9,7 +9,7 @@ import type { ChangeSet, Text } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 import { changeSetOf } from '../../src/lib/tjp/document';
 import type { WorkspaceSnapshot } from '../../src/lib/workspace/workspace';
-import type { TjpEdit } from '../../src/lib/tjp/edit/types';
+import type { IntentType, TjpEdit } from '../../src/lib/tjp/edit/types';
 import { generatedCase, typeOfCase } from './cases';
 import { runCase, realApply, type ApplyFn } from './harness';
 import { writePart, type MutationPart } from './stats';
@@ -59,7 +59,13 @@ const specsOf = (edit: TjpEdit): Record<string, Spec[]> => {
 };
 
 /** Faulty wrappers: each returns the real result with one defect added to an edit. */
-const MUTANTS: Array<{ name: string; by: string[]; wrap: (real: ApplyFn) => ApplyFn }> = [
+const MUTANTS: Array<{
+	name: string;
+	by: string[];
+	/** Draw the cases from these intent types only (default: every enforced type in turn). */
+	types?: IntentType[];
+	wrap: (real: ApplyFn) => ApplyFn;
+}> = [
 	{
 		name: 'touches one byte outside the target',
 		by: ['P1-region'],
@@ -115,6 +121,24 @@ const MUTANTS: Array<{ name: string; by: string[]; wrap: (real: ApplyFn) => Appl
 		},
 	},
 	{
+		name: 'skips one reference fix of a deleteTask or moveTask',
+		by: ['P3', 'P1-region'],
+		types: ['deleteTask', 'moveTask'],
+		wrap: (real) => (snap, index, intent) => {
+			const r = real(snap, index, intent);
+			if (r.status !== 'edit') return r;
+			const specs = specsOf(r.edit);
+			const flat = Object.entries(specs).flatMap(([file, list]) => list.map((s) => ({ file, s })));
+			// The block's own change is the biggest; the others fix references (items, paths, supplements).
+			const size = (x: { s: Spec }): number => x.s.to - x.s.from + x.s.insert.length;
+			const fixes = [...flat].sort((a, b) => size(a) - size(b)).slice(0, -1);
+			const drop = fixes[0];
+			if (!drop) return r;
+			specs[drop.file] = (specs[drop.file] ?? []).filter((s) => s !== drop.s);
+			return { status: 'edit', edit: withChanges(r.edit, specs, baseTexts(snap)) };
+		},
+	},
+	{
 		name: 'drops one change of the inverse',
 		by: ['P6'],
 		wrap: (real) => (snap, index, intent) => {
@@ -153,7 +177,10 @@ describe('the properties have teeth', () => {
 			let used = 0;
 			for (let n = 0; n < BUDGET && caught === null; n++) {
 				used = n + 1;
-				const c = generatedCase(MUTATION_SEED + 1000 + n, typeOfCase(n));
+				const c = generatedCase(
+					MUTATION_SEED + 1000 + n,
+					m.types ? (m.types[n % m.types.length] as IntentType) : typeOfCase(n),
+				);
 				const labels = runCase(c, apply).failures.map((f) => f.split(':')[0] as string);
 				caught = m.by.find((p) => labels.includes(p)) ?? null;
 			}
