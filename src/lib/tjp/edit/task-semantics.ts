@@ -12,9 +12,10 @@
  *   allocation it had (an inherited `allocate` from its old ancestors), or a new task with
  *   `effort` gets none (`effort_no_allocations`), at the `effort` statement;
  * - `conflicting-attribute` when a leaf becomes underspecified (`task_underspecified`, dep-graph.ts
- *   `isUnderspecified`: allocated or booked, no size, not both a start and an end), or an
- *   underspecified leaf loses the start or end it had: a new or moved leaf, an old parent left
- *   without children (by a move or a delete), or a task that loses a dependency to a delete;
+ *   `isUnderspecified`: allocated or booked, no size, and neither a start nor an end, or only one
+ *   of them while a dependency waits on the open one): a new or moved leaf, an old parent left
+ *   without children (by a move or a delete), or the leaves of a task that loses a dependency to
+ *   a delete (an inherited dependency reaches every leaf below it);
  * - `cycle` when the edited graph has a dependency loop or time-point cycle in a scenario that the
  *   old one did not (dep-graph.ts `graphLoops`; dependencies are inherited from the new parent).
  *
@@ -22,7 +23,7 @@
  * dependencies and allocations).
  */
 import type { SourceRange, SymbolIndex, TaskId, TaskSymbol } from '../index';
-import { graphLoops, isUnderspecified, stateReader } from './dep-graph';
+import { dependentsOf, graphLoops, isUnderspecified, stateReader } from './dep-graph';
 import { SIZING, bookingsOf, isContainer } from './task-attrs-checks';
 import type { Edited } from './task-verify';
 import { refused, type EditContext, type Refused } from './types';
@@ -92,13 +93,10 @@ export function checkEdited(ctx: EditContext, edited: Edited, t: EditedTasks): R
 		}
 	}
 	const after: EditContext = { ws: edited.snap, index: edited.index, opts: ctx.opts };
-	/** -1 when the leaf is not at risk, else how many of its two ends are specified. */
-	const risk = (c: EditContext, read: typeof next, id: TaskId): number => {
+	const under = (c: EditContext, read: typeof next, id: TaskId): boolean => {
 		const sym = c.index.tasks.get(id);
-		if (!sym || isContainer(c, sym)) return -1;
-		const st = read(id).state;
-		if (!isUnderspecified(st)) return -1;
-		return Number(st.start || st.depends.length > 0) + Number(st.end || st.precedes.length > 0);
+		if (!sym || isContainer(c, sym)) return false;
+		return isUnderspecified(read(id).state, dependentsOf(c.ws, c.index, id));
 	};
 	const candidates: Array<[TaskId | null, TaskId]> = [
 		...[...moved, ...(t.touched ?? [])].map((id): [TaskId | null, TaskId | null] => [
@@ -108,11 +106,8 @@ export function checkEdited(ctx: EditContext, edited: Edited, t: EditedTasks): R
 		...(added === null ? [] : [[null, added] as [null, TaskId]]),
 	].filter((c): c is [TaskId | null, TaskId] => c[1] !== null);
 	for (const [was, now] of candidates) {
-		const r = risk(after, next, now);
-		if (r < 0) continue;
-		// Introduced: the leaf was not at risk, or it loses a start or an end it had.
-		const before = was === null ? -1 : risk(ctx, old, was);
-		if (before >= 0 && r >= before) continue;
+		if (!under(after, next, now)) continue;
+		if (was !== null && under(ctx, old, was)) continue;
 		const sym = was === null ? undefined : ctx.index.tasks.get(was);
 		return refused('conflicting-attribute', sym ? [sym.decl.header] : t.at);
 	}

@@ -203,7 +203,11 @@ function planDelete(ctx: EditContext, intent: IntentOf<'deleteTask'>): IntentPla
 	const owners = dependenciesNaming(ctx.index, ids).map((d) =>
 		d.form === 'depends' ? d.succ : d.pred,
 	);
-	const touched = [sym.parent, ...owners].filter((x): x is TaskId => x !== null && !gone.has(x));
+	// An owner's dependencies are inherited by every task below it, so its leaves are checked too.
+	const below = owners.flatMap((o) => (o === null ? [] : subtree(ctx.index, 'task', o)));
+	const touched = [...new Set([sym.parent, ...below])].filter(
+		(x): x is TaskId => x !== null && !gone.has(x),
+	);
 	return (
 		verifyTree(ctx, edited, { map, dropped: removed }, 'unfixable-reference', at) ??
 		checkEdited(ctx, edited, { touched, map, at }) ??

@@ -44,7 +44,7 @@ import type { AttrSite, SourceRange, TaskSymbol } from '../index';
 import { statementHead } from '../tree';
 import { printValue, type TypedValue } from '../values';
 import type { IntentHandler } from './apply';
-import { isUnderspecified, taskState } from './dep-graph';
+import { dependentsOf, isUnderspecified, taskState } from './dep-graph';
 import {
 	insertStatement,
 	removeStatements,
@@ -245,8 +245,9 @@ function planSizing(ctx: EditContext, sym: TaskSymbol, attr: string, v: TypedVal
 
 /**
  * `conflicting-attribute` at `removed` when removing them leaves the leaf without any size or
- * `milestone` while an allocation or booking keeps it from becoming a milestone and it lacks a
- * start or an end (dep-graph.ts `isUnderspecified`; native `task_underspecified`).
+ * `milestone` while an allocation or booking keeps it from becoming a milestone, and it has neither
+ * a start nor an end, or only one while a dependency waits on the other (dep-graph.ts
+ * `isUnderspecified`; native `task_underspecified`).
  */
 function sizeLost(ctx: EditContext, sym: TaskSymbol, removed: readonly AttrSite[]): Refused | null {
 	if (isContainer(ctx, sym)) return null;
@@ -255,7 +256,10 @@ function sizeLost(ctx: EditContext, sym: TaskSymbol, removed: readonly AttrSite[
 	if (left.length > 0) return null;
 	const st = taskState(ctx.ws, ctx.index, sym.id).state;
 	const after = { ...st, sizing: false, milestone: false };
-	return isUnderspecified(after) ? refused('conflicting-attribute', ranges(removed)) : null;
+	const dependents = dependentsOf(ctx.ws, ctx.index, sym.id);
+	return isUnderspecified(after, dependents)
+		? refused('conflicting-attribute', ranges(removed))
+		: null;
 }
 
 function planMilestone(ctx: EditContext, sym: TaskSymbol, value: boolean): IntentPlan {

@@ -316,21 +316,61 @@ export function isMilestone(st: TaskState, container: boolean): boolean {
 }
 
 /**
- * Whether a leaf risks `task_underspecified` (TaskScenario.rb:345) or "has not been marked as
- * scheduled": it has no sizing criterion or `milestone`, and an allocation (own or inherited) or a
- * booking, which keeps it from being promoted to a milestone (`markAsMilestone`, :2288), so it
- * gets its dates only from its own specifications. With a start (own `start` or a `depends`) and
- * an end (own `end` or a `precedes`) it always schedules; with only one of them, or neither,
- * whether it does depends on the rest of the plan (a successor of it or of its parent makes it
- * fail, checked in native tj3), so the edit API treats it as underspecified, as T11c's
- * `milestoneLost` does. `start` and `end` are not inherited (Project.rb:273, :327).
+ * What depends on a task or one of its ancestors, as `isUnderspecified` reads it (all scenarios,
+ * also items of declarations the index cannot name): `end` when a `depends` item names one of them
+ * (a successor waits for the end), `start` when a `precedes` item that targets a start names one
+ * of them (a predecessor fixes the start).
  */
-export function isUnderspecified(st: TaskState): boolean {
+export interface Dependents {
+	readonly end: boolean;
+	readonly start: boolean;
+}
+
+/** The dependents of `task` and its ancestors in `index` (module comment of `Dependents`). */
+export function dependentsOf(ws: WorkspaceSnapshot, index: SymbolIndex, task: TaskId): Dependents {
+	const chain = new Set<TaskId>();
+	for (let x: TaskId | null = task; x !== null; x = index.tasks.get(x)?.parent ?? null)
+		chain.add(x);
+	let end = false;
+	let start = false;
+	for (const d of index.dependencies) {
+		if (d.form === 'depends' && d.pred !== null && chain.has(d.pred)) end = true;
+		if (d.form === 'precedes' && d.succ !== null && chain.has(d.succ) && !depOnEnd(ws, d)) {
+			start = true;
+		}
+		if (end && start) return { end, start };
+	}
+	// Items of declarations the index cannot name (`task "Item 2" { depends !!wp2 }`).
+	for (const o of orphanDeps(ws, index)) {
+		if (!chain.has(o.target)) continue;
+		if (o.form === 'depends') end = true;
+		else if (!o.onEnd) start = true;
+	}
+	return { end, start };
+}
+
+/**
+ * `task_underspecified` (TaskScenario.rb:345) and "has not been marked as scheduled" for a leaf
+ * with no sizing criterion or `milestone` and an allocation (own or inherited) or a booking, which
+ * keeps it from being promoted to a milestone (`markAsMilestone`, :2288). `start` and `end` are
+ * not inherited (Project.rb:273, :327); dependencies are. Checked in native tj3 3.8.4:
+ *
+ * - with a start (own `start` or a `depends`) and an end (own `end` or a `precedes`) it schedules;
+ * - with neither it fails;
+ * - with only a start it runs from there to the project end, and fails when a `depends` names it
+ *   or an ancestor (`dependents.end`); a `precedes` on it, also `{ onend }`, does not matter;
+ * - with only an end it runs from the project start, and fails when a `precedes` that targets a
+ *   start names it or an ancestor (`dependents.start`); a `depends` on it, also `{ onstart }`,
+ *   does not matter.
+ */
+export function isUnderspecified(st: TaskState, dependents: Dependents): boolean {
 	if (st.sizing || st.milestone) return false;
 	if (st.allocs.length === 0 && !st.booking) return false;
 	const hasStart = st.start || st.depends.length > 0;
 	const hasEnd = st.end || st.precedes.length > 0;
-	return !(hasStart && hasEnd);
+	if (hasStart && hasEnd) return false;
+	if (!hasStart && !hasEnd) return true;
+	return hasStart ? dependents.end : dependents.start;
 }
 
 /** The scenarios the loop check runs in: every declared one (TaskJuggler's default: 'plan'). */

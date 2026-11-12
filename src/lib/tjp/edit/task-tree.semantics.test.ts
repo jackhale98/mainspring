@@ -24,7 +24,6 @@ describe('task_underspecified', () => {
 		expect(run(ALLOC, { type: 'addTask', parent: 'p', index: 1, name: 'New' })).toMatchObject({
 			reason: 'conflicting-attribute',
 		});
-		// A start alone fails when the parent has a successor (native); a start and an end schedule.
 		const add = (attrs: Extract<EditIntent, { type: 'addTask' }>['attrs']): EditIntent => ({
 			type: 'addTask',
 			parent: 'p',
@@ -32,7 +31,10 @@ describe('task_underspecified', () => {
 			name: 'New',
 			...(attrs ? { attrs } : {}),
 		});
-		expect(run(ALLOC, add([['start', '2026-01-12']]))).toMatchObject({
+		// A start alone schedules (to the project end) unless the parent has a successor (native B1).
+		expect(run(ALLOC, add([['start', '2026-01-12']]))).toMatchObject({ status: 'edit' });
+		const waited = ALLOC + 'task s "S" { depends p length 1d }\n';
+		expect(run(waited, add([['start', '2026-01-12']]))).toMatchObject({
 			reason: 'conflicting-attribute',
 		});
 		expect(
@@ -81,6 +83,48 @@ describe('task_underspecified', () => {
 		});
 		const two = 'task y "Y" { start 2026-01-11 }\ntask p "P" { depends x, y allocate a }\n';
 		expect(run(two, { type: 'deleteTask', task: 'x' })).toMatchObject({ status: 'edit' });
+	});
+});
+
+describe('open-ended allocated leaves (native q1, q2, q4, A1, D0, D1)', () => {
+	it('allows a start-only leaf with nothing waiting on its end (q4)', () => {
+		const q4 =
+			'task p "P" { allocate a\n  task k "K" { effort 1d }\n}\ntask m "M" { start 2026-01-12 }\n';
+		expect(run(q4, { type: 'moveTask', task: 'm', parent: 'p', index: 1 })).toMatchObject({
+			status: 'edit',
+		});
+		// A1: a successor of its end makes the same move fail natively.
+		const a1 = q4 + 'task s "S" { depends p.k, m length 1d }\n';
+		expect(run(a1, { type: 'moveTask', task: 'm', parent: 'p', index: 1 })).toMatchObject({
+			reason: 'conflicting-attribute',
+		});
+	});
+
+	it('checks the leaves of a container whose inherited dependency a delete removes (q1, D1)', () => {
+		const q1 = 'task C "C" { depends x\n  task c "C1" { allocate a }\n}\n';
+		expect(run(q1, { type: 'deleteTask', task: 'x' })).toMatchObject({
+			reason: 'conflicting-attribute',
+		});
+		// q2: the leaf's own only dependency goes, so it has neither end.
+		const q2 = 'task C "C" { allocate a\n  task c "C1" { depends x }\n}\n';
+		expect(run(q2, { type: 'deleteTask', task: 'x' })).toMatchObject({
+			reason: 'conflicting-attribute',
+		});
+	});
+
+	it('refuses removing the size of a start-only leaf a successor waits on (D1)', () => {
+		const d1 =
+			'task t "T" { depends x allocate a effort 1d }\ntask s "S" { depends t length 1d }\n';
+		expect(run(d1, { type: 'removeAttr', task: 't', attr: 'effort' })).toMatchObject({
+			reason: 'conflicting-attribute',
+		});
+		expect(
+			run('task t "T" { depends x allocate a effort 1d }\n', {
+				type: 'removeAttr',
+				task: 't',
+				attr: 'effort',
+			}),
+		).toMatchObject({ status: 'edit' });
 	});
 });
 

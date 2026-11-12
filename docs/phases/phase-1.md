@@ -1148,15 +1148,17 @@ them.
       own sizing, `milestone` or bookings (`container_duration`, `container_milestone`,
       `container_booking`); for an `effort` task that loses its inherited allocations or a new
       `effort` task without any (`effort_no_allocations`); and for a leaf the edit leaves
-      underspecified (`task_underspecified`, dep-graph.ts `isUnderspecified`): an own or
-      inherited `allocate` or a booking keeps a leaf without sizing or `milestone` from becoming a
-      milestone, and then it needs both a start (own `start` or `depends`) and an end (own `end`
-      or `precedes`); `start` and `end` are not inherited. With only one of them it fails or not
-      depending on the rest of the plan (native tj3: a successor of it or of its parent makes it
-      fail), so the edit API counts it as underspecified, as T11c's allocation intents do.
-      Refused when the edit makes a leaf underspecified or takes a start or an end from one that
-      already is; checked for new and moved leaves, an old parent left without children (move
-      and delete) and a task that loses a dependency to a delete.
+      underspecified (`task_underspecified`, dep-graph.ts `isUnderspecified`, checked in native
+      tj3): an own or inherited `allocate` or a booking keeps a leaf without sizing or `milestone`
+      from becoming a milestone. With a start (own `start` or `depends`) and an end (own `end` or
+      `precedes`) it schedules; with neither it fails; with only a start it runs to the project end
+      and fails when a `depends` names it or an ancestor; with only an end it runs from the project
+      start and fails when a `precedes` that targets a start names it or an ancestor (also items of
+      declarations the index cannot name; all scenarios). `start` and `end` are not inherited,
+      dependencies are. Checked for new and moved leaves, an old parent left without children
+      (move and delete), and the leaves below a task that loses a dependency to a delete. The
+      same predicate refuses `setAttr milestone=false` and `removeAttr` of the last size (T11a),
+      and new allocations of an implicit milestone (T11c `milestoneLost`).
       `needs-schedule` when the destination parent has a child whose id only the engine knows (a
       macro or automatic id without hints), since a new id could collide with it. `id-collision`
       also for an unresolved declaration with the same id there. `unfixable-reference` also for

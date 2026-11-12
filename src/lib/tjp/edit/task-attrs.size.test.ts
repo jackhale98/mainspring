@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyIntent } from './apply';
 import { setup } from './testing';
+import { corpusPlans, load, type Loaded } from './testing-plans';
 import type { EditIntent, EditResult } from './types';
 
 const H = 'project p "P" 2026-01-05 +5m\nresource ana "Ana"\n';
@@ -33,13 +34,39 @@ describe('removing the last size of an allocated leaf', () => {
 		});
 	});
 
-	it('refuses removing effort, length or duration from a leaf with an allocation and one end', () => {
+	it('refuses removing the size of a start-only leaf a successor waits on, or of one without ends', () => {
 		for (const attr of ['effort', 'length', 'duration'] as const) {
-			const plan = `task x "X" { ${attr} 1d allocate ana start 2026-01-12 }\n`;
-			expect(run(plan, { type: 'removeAttr', task: 'x', attr })).toMatchObject({
+			const waited =
+				`task x "X" { ${attr} 1d allocate ana start 2026-01-12 }\n` +
+				'task s "S" { depends x length 1d }\n';
+			expect(run(waited, { type: 'removeAttr', task: 'x', attr })).toMatchObject({
+				reason: 'conflicting-attribute',
+			});
+			const none = `task x "X" { ${attr} 1d allocate ana }\n`;
+			expect(run(none, { type: 'removeAttr', task: 'x', attr })).toMatchObject({
 				reason: 'conflicting-attribute',
 			});
 		}
+		// End-only, with a predecessor through `precedes` (native E1).
+		const e1 =
+			'task t "T" { end 2026-02-12 allocate ana effort 1d }\ntask s "S" { precedes t length 1d }\n';
+		expect(run(e1, { type: 'removeAttr', task: 't', attr: 'effort' })).toMatchObject({
+			reason: 'conflicting-attribute',
+		});
+	});
+
+	it('allows open-ended allocated work: one end and nothing waiting on the other', () => {
+		// q3: from its start to the project end.
+		const q3 = 'task t "T" { start 2026-01-12 allocate ana effort 2d }\n';
+		expect(run(q3, { type: 'removeAttr', task: 't', attr: 'effort' })).toMatchObject({
+			status: 'edit',
+		});
+		// From the project start to its end; a successor of its end does not matter (native E2).
+		const e2 =
+			'task t "T" { end 2026-02-12 allocate ana effort 1d }\ntask s "S" { depends t length 1d }\n';
+		expect(run(e2, { type: 'removeAttr', task: 't', attr: 'effort' })).toMatchObject({
+			status: 'edit',
+		});
 	});
 
 	it('allows it without an allocation (milestone promotion) or with both ends', () => {
@@ -58,5 +85,37 @@ describe('removing the last size of an allocated leaf', () => {
 		expect(run(two, { type: 'setAttr', task: 'x', attr: 'length', value: '2d' })).toMatchObject({
 			status: 'edit',
 		});
+	});
+});
+
+describe('corpus tasks whose last size can go (open-ended allocated work)', () => {
+	const plans = corpusPlans();
+	const loaded = (name: string): Loaded => {
+		const p = plans.find((c) => c.name.endsWith(name));
+		if (!p) throw new Error(`no corpus plan ${name}`);
+		return load(p.name, p.plan);
+	};
+	/** The task with an `effort` statement on 1-based `line` of the entry file. */
+	const atLine = (c: Loaded, line: number): string => {
+		const text = c.snap.files.get(c.snap.entry)?.text;
+		for (const [id, t] of c.index.tasks) {
+			const e = t.attrs.find((a) => a.keyword === 'effort');
+			if (e && text && text.lineAt(e.statement.from).number === line) return id;
+		}
+		throw new Error(`no effort on line ${line}`);
+	};
+
+	it('removes effort from the 15-allocate-select, 01-shifts-resource and Scrum examples', () => {
+		const select = loaded('15-allocate-select');
+		const ids = [49, 77, 104, 118, 135].map((n) => atLine(select, n));
+		const cases: Array<[Loaded, string]> = [
+			...ids.map((id): [Loaded, string] => [select, id]),
+			[loaded('01-shifts-resource'), 'project.build'],
+			[loaded('Scrum'), 'product.s3.t2'],
+		];
+		for (const [c, task] of cases) {
+			const r = applyIntent(c.snap, c.index, { type: 'removeAttr', task, attr: 'effort' });
+			expect({ task, status: r.status }).toEqual({ task, status: 'edit' });
+		}
 	});
 });
