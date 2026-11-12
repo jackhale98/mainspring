@@ -176,8 +176,19 @@ function anyIntent(c: Loaded, pick: readonly number[]): EditIntent | null {
 			const keepsTasks = t.parent !== null || c.index.taskRoots.length > 1;
 			return keepsTasks ? { type: 'deleteTask', task: t.id } : null;
 		}
-		case 1:
-			return { type: 'addTask', parent, index: (pick[3] ?? 0) % (n + 1), name: 'Added' };
+		case 1: {
+			// Mostly under a container or at the top (a leaf with effort may not get children), and
+			// half with a size, so that additions under allocating containers are accepted too.
+			const holders = [null, ...tasks.filter((x) => x.children.length > 0).map((x) => x.id)];
+			const at =
+				(pick[2] ?? 0) % 4 === 0 ? parent : (holders[(pick[2] ?? 0) % holders.length] ?? null);
+			const kids = at === null ? c.index.taskRoots : (c.index.tasks.get(at)?.children ?? []);
+			const index = (pick[3] ?? 0) % (kids.length + 1);
+			const sized = (pick[0] ?? 0) % 2 === 0;
+			return sized
+				? { type: 'addTask', parent: at, index, name: 'Added', attrs: [['duration', '1d']] }
+				: { type: 'addTask', parent: at, index, name: 'Added' };
+		}
 		default: {
 			const others = n - (t.parent === parent ? 1 : 0);
 			return { type: 'moveTask', task: t.id, parent, index: (pick[3] ?? 0) % (others + 1) };
