@@ -318,8 +318,9 @@ export function isMilestone(st: TaskState, container: boolean): boolean {
 /**
  * What depends on a task or one of its ancestors, as `isUnderspecified` reads it (all scenarios,
  * also items of declarations the index cannot name): `end` when a `depends` item names one of them
- * (a successor waits for the end), `start` when a `precedes` item that targets a start names one
- * of them (a predecessor fixes the start).
+ * that targets an end (not `{ onstart }`; a successor waits for the end), `start` when a
+ * `precedes` item that targets a start (not `{ onend }`) names one of them (a predecessor fixes the
+ * start).
  */
 export interface Dependents {
 	readonly end: boolean;
@@ -346,7 +347,9 @@ export function dependentsOf(ws: WorkspaceSnapshot, index: SymbolIndex, task: Ta
 	let end = false;
 	let start = false;
 	for (const d of index.dependencies) {
-		if (d.form === 'depends' && d.pred !== null && chain.has(d.pred)) end = true;
+		if (d.form === 'depends' && d.pred !== null && chain.has(d.pred) && depOnEnd(ws, d)) {
+			end = true;
+		}
 		if (d.form === 'precedes' && d.succ !== null && chain.has(d.succ) && !depOnEnd(ws, d)) {
 			start = true;
 		}
@@ -355,7 +358,7 @@ export function dependentsOf(ws: WorkspaceSnapshot, index: SymbolIndex, task: Ta
 	// Items of declarations the index cannot name (`task "Item 2" { depends !!wp2 }`).
 	for (const o of orphansOf(ws, index)) {
 		if (!chain.has(o.target)) continue;
-		if (o.form === 'depends') end = true;
+		if (o.form === 'depends') end ||= o.onEnd;
 		else if (!o.onEnd) start = true;
 	}
 	return { end, start };
@@ -370,7 +373,8 @@ export function dependentsOf(ws: WorkspaceSnapshot, index: SymbolIndex, task: Ta
  * - with a start (own `start` or a `depends`) and an end (own `end` or a `precedes`) it schedules;
  * - with neither it fails;
  * - with only a start it runs from there to the project end, and fails when a `depends` names it
- *   or an ancestor (`dependents.end`); a `precedes` on it, also `{ onend }`, does not matter;
+ *   or an ancestor without `{ onstart }` (`dependents.end`); a `precedes` on it, also
+ *   `{ onend }`, and a `depends … { onstart }` do not matter;
  * - with only an end it runs from the project start, and fails when a `precedes` that targets a
  *   start names it or an ancestor (`dependents.start`); a `depends` on it, also `{ onstart }`,
  *   does not matter.

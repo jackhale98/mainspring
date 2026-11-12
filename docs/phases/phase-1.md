@@ -1265,8 +1265,9 @@ them.
       tj3): an own or inherited `allocate` or a booking keeps a leaf without sizing or `milestone`
       from becoming a milestone. With a start (own `start` or `depends`) and an end (own `end` or
       `precedes`) it schedules; with neither it fails; with only a start it runs to the project end
-      and fails when a `depends` names it or an ancestor; with only an end it runs from the project
-      start and fails when a `precedes` that targets a start names it or an ancestor (also items of
+      and fails when a `depends` that waits on an end (not `{ onstart }`) names it or an ancestor;
+      with only an end it runs from the project start and fails when a `precedes` that targets a
+      start (not `{ onend }`) names it or an ancestor (also items of
       declarations the index cannot name; all scenarios). `start` and `end` are not inherited,
       dependencies are. Checked for new and moved leaves, an old parent left without children
       (move and delete), and the leaves below a task that loses a dependency to a delete. The
