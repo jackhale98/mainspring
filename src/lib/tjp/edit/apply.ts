@@ -31,7 +31,10 @@ import { changeSetOf, updateFile } from '../document';
 import { formatFile as formatChanges, type FormatOptions } from '../format';
 import type { SymbolIndex } from '../index';
 import { syntaxIssues } from '../tree';
+import { ALLOCATION_HANDLERS } from './allocation';
+import { DEPENDENCY_HANDLERS } from './deps';
 import { checkOps, opTarget } from './refuse';
+import { TASK_ATTR_HANDLERS } from './task-attrs';
 import {
 	isNoop,
 	isRefused,
@@ -69,7 +72,11 @@ interface AnyHandler {
 export type IntentHandlers = { readonly [K in Exclude<IntentType, 'format'>]?: IntentHandler<K> };
 
 /** One handler per intent type; T11a to T11d add theirs. `format` goes through `formatFile`. */
-export const HANDLERS: IntentHandlers = {};
+export const HANDLERS: IntentHandlers = {
+	...DEPENDENCY_HANDLERS,
+	...ALLOCATION_HANDLERS,
+	...TASK_ATTR_HANDLERS,
+};
 
 let seq = 0;
 const session = Math.random().toString(36).slice(2, 8);
