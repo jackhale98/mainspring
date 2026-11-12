@@ -77,7 +77,11 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 			},
 		};
 	}
-	if (type === 'deleteTask') return { intent: { type, task: any().id } };
+	if (type === 'deleteTask') {
+		// Deleting the only task is left to the engine (native no_tasks, 15.24), so the plan keeps one.
+		const t = any();
+		return subtreeIds(f, t.id).length >= f.tasks.length ? null : { intent: { type, task: t.id } };
+	}
 	const t = any();
 	const inside = new Set(subtreeIds(f, t.id));
 	const outside = f.tasks.filter((x) => !inside.has(x.id));

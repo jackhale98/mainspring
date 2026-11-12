@@ -28,6 +28,13 @@
 			"type": "setAttr",
 			"reason": "Edit API bug (T11a task attribute intents), found by P4: setAttr milestone=false on `task t \"T\" { milestone depends !x }` removes the milestone statement and leaves a leaf with no size and one bound, so the engine reports task_underspecified (ok true to false). It should be refused as conflicting-attribute. Fails until T11b's fix merges.",
 			"found": "2026-11-12"
+		},
+		{
+			"source": "generated",
+			"seed": 1573606886,
+			"type": "removeAttr",
+			"reason": "Edit API bug (T11a/T11b timing rules), found by P4: removeAttr start on a task that another task's `precedes` names leaves it without an anchor, and the engine deadlocks (not_scheduled, ok true to false). Minimal: `task a { effort 1d allocate r precedes b }` and `task b { effort 1d allocate r start 2026-02-02 }`, then removeAttr task=b attr=start is an edit; it should be refused conflicting-attribute. Fails until fixed.",
+			"found": "2026-11-12"
 		}
 	]
 }
