@@ -14,6 +14,20 @@
 			"type": "setAttr",
 			"reason": "Oracle bug in the suite, fixed: a setAttr aimed at a statement written with a macro used a value that failed validation, so it was refused as invalid-value instead of text-only. The value is now valid for its attribute.",
 			"found": "2026-11-12"
+		},
+		{
+			"source": "generated",
+			"seed": 1528,
+			"type": "setAttr",
+			"reason": "Edit API bug (T11a task attribute intents), found by P4: setAttr milestone=false on `task t \"T\" { milestone depends !x }` removes the milestone statement and leaves a leaf with no size and one bound, so the engine reports task_underspecified (ok true to false). It should be refused as conflicting-attribute. Fails until T11b's fix merges.",
+			"found": "2026-11-12"
+		},
+		{
+			"source": "generated",
+			"seed": 1719,
+			"type": "setAttr",
+			"reason": "Edit API bug (T11a task attribute intents), found by P4: setAttr milestone=false on `task t \"T\" { milestone depends !x }` removes the milestone statement and leaves a leaf with no size and one bound, so the engine reports task_underspecified (ok true to false). It should be refused as conflicting-attribute. Fails until T11b's fix merges.",
+			"found": "2026-11-12"
 		}
 	]
 }

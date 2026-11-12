@@ -1211,3 +1211,54 @@ them.
       `booking_on_vacation` after calendar changes of the booked resource (for `updateLeave`, the
       leave's resource; every resource for the project or global scope), since bookings are
       opaque. Runs pass the golden manifest's `options.now` (ADR-0002 #1).
+
+24. **Patch-fidelity suite (T18, T22 fidelity jobs).** `tests/fidelity/`, run by `npm run test:fidelity`
+    (`vitest.fidelity.config.ts`); the text-only properties also run in `test:unit`. Decisions:
+    - **Seeds and RNG.** Every case is a function of one integer seed. The generator uses its own
+      small RNG (`gen/rng.ts`, mulberry32); fast-check only supplies the seeds (`fc.sample` from
+      `FIDELITY_SEED`), so there is no shrinking: a failure prints the case and its replay line
+      (`FIDELITY_CASE=generated:<seed>:<type>[:text-only]` or `corpus:<seed>:<type>:<plan>`, which names
+      everything the case needs). `regressions.json` replays on every run in both the text-only
+      file and P4 and every entry must pass: there is no known-failure mark.
+    - **Oracle.** Generated plans are printed from a model and the printer records every range and
+      value (`gen/printer.ts`, `gen/print-plan.ts`); corpus plans and the text after an edit are read from the
+      index and the tree (`oracle.ts`). One set of zone functions (`gen/facts.ts`, written from 7.1 and
+      7.2, never importing `edit/`) runs over both, and `oracle.test.ts` checks that the printer's record and
+      the index agree on every range. P1 has two checks with distinct labels: `P1-region` (the oracle)
+      and `P1-targets` (the edit's own declared targets). The mutants widen `edit.targets`, so only
+      `P1-region` can catch them.
+    - **Families.** One module per intent family (`families/`): draw an intent, its region, its model
+      update. `families/index.ts` lists them and `PENDING` (T11b: addTask, deleteTask, moveTask); a test
+      requires every key of `HANDLERS` to be enforced and nothing pending to have a handler. The run
+      fails unless each enforced type produced 5 edits (for a run of 8 cases per type or more; the
+      merged nightly report applies the rule over all shards, `scripts/ci/fidelity-merge.mjs`), and unless
+      intents aimed at text-only text were all refused (at least 10 as `text-only` and 8 as
+      `macro-in-body`). Types cycle over the cases of a shard, so each shard covers every type. Six
+      cases in seven are drawn until the API makes an edit; the rest keep refusals and
+      no-ops. 40 extra cases (`FIDELITY_TEXTONLY_RUNS`) use plans rich in macros and aim at text-only text.
+    - **Corpus.** `tests/fidelity/corpus.json` lists the golden plans a push run draws from (worker
+      `totalMs` under 500 ms, measured with `node engine/golden/run-wasm.mjs --repeat 3` and committed
+      with the numbers) and the plans the nightly run adds, Tutorial and Fedora with 20 cases each. Nothing
+      depends on a golden report, native timings or the environment.
+    - **TaskJuggler facts the generator had to respect** (each found by running the engine on generated
+      plans): a leaf with only `depends` is underspecified, so milestones carry `milestone`;
+      scenario-prefixed statements come last, since a later top-scenario criterion resets another
+      scenario's (15.20); `supplement task` ids read under a `taskprefix` are prefixed, so those supplements
+      go to the entry file; `+Nm` is N months of 365/12 days; `end` makes a task ALAP and a task with
+      `end` or `precedes` takes no dependency; a `depends` item may not repeat across scenarios.
+    - **P4.** `bootNodeEngine`, one boot per file. For corpus plans the errors that depend on the computed
+      schedule (15.19, the same ids as `links.engine.test.ts`) are counted and listed, not failed; for
+      generated plans nothing is tolerated and the old schedule must be clean. P4 fails if it ran on no case.
+    - **Time.** Plans are mostly small (5 to 16 tasks in nine of ten, 40 at most), and plans with two scenarios
+      have at most 16 tasks, since a scenario doubles the schedule time. Measured on the default run (200
+      generated and 50 corpus cases, one machine, nothing else running): 227 edited cases, 436 engine
+      runs, 70 s of wall time, p95 467 ms per case. That is over the 300 ms target of 9.3 and smaller plans
+      do not fix it: a case runs the engine twice (old and new plan), and one run costs about 60 to
+      120 ms of parse and set-up even for a 5-task plan (fixed per-run overhead of the worker), plus about 4
+      ms per task. The 5,000-case nightly splits over four shards that each take about 11 minutes with four
+      shards sharing four cores; the text-only properties take 36 s per shard. The 300 ms stays a
+      target: the 15-minute job limit is met (the default run takes 75 s).
+    - **Mutation meta-test.** Four faulty wrappers (a byte outside the target, a required change skipped, an
+      insertion at the wrong place, an inverse change dropped) must be caught by `P1-region`, `P3` or `P6`
+      within 200 cases. T11b's module can add the literal "reference fix skipped" mutant for deleteTask and
+      moveTask.

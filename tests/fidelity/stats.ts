@@ -84,7 +84,7 @@ export interface MutationPart {
 	mutants: Array<{ name: string; caught: boolean; by: string; cases: number }>;
 }
 
-export const RESULTS = path.join(REPO, 'test-results');
+export const RESULTS = process.env['FIDELITY_RESULTS'] ?? path.join(REPO, 'test-results');
 
 export function writePart(name: 'text' | 'p4' | 'mutation', data: unknown): void {
 	fs.mkdirSync(path.join(RESULTS, 'fidelity'), { recursive: true });
