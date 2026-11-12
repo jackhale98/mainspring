@@ -5,7 +5,7 @@
 // declaration order, every effort leaf has an allocation, fixed dates stay early and no hard
 // constraints are combined. The printer (printer.ts) turns it into text and records the oracle.
 // This file builds the tree, the resources and the files; model-attrs.ts adds the statements.
-import { macros, resourceStatements, statements, supplements } from './model-attrs';
+import { macros, precedes, resourceStatements, statements, supplements } from './model-attrs';
 import {
 	FLAGS,
 	IDS,
@@ -23,7 +23,12 @@ export * from './model-types';
 
 export function genPlan(rng: Rng, opts: PlanOpts = {}): MPlan {
 	const rich = opts.rich ?? rng.chance(0.4);
-	const n = Math.max(opts.minTasks ?? 5, 5 + Math.floor(35 * rng.next() ** 2.2));
+	// Engine time is mostly fixed cost plus about 4 ms per task, and twice that with two scenarios, so plans
+	// are mostly small (5 to 40 tasks in all; phase-1.md 9.3: smaller, not fewer, when runs are slow).
+	const scenarios = rich && rng.chance(0.5);
+	const roll = rng.next();
+	const size = roll < 0.9 ? rng.int(5, 16) : roll < 0.98 ? rng.int(17, 28) : rng.int(29, 40);
+	const n = Math.max(opts.minTasks ?? 5, scenarios ? Math.min(size, 16) : size);
 	const resources = genResources(rng);
 	const leafRes = flatten(resources, (r) => r.kids)
 		.filter((r) => r.kids.length === 0)
@@ -38,7 +43,7 @@ export function genPlan(rng: Rng, opts: PlanOpts = {}): MPlan {
 		eol: rng.chance(0.1) ? '\r\n' : '\n',
 		sloppy: opts.sloppy ?? rng.chance(0.2),
 		horizon: rng.int(5, 6),
-		scenarios: rich && rng.chance(0.5),
+		scenarios,
 		headerBody: rng.chance(0.4),
 		files: [{ path: 'plan.tjp', prefix: null, plain: false }],
 		macros: [],
@@ -51,6 +56,7 @@ export function genPlan(rng: Rng, opts: PlanOpts = {}): MPlan {
 	};
 	resourceStatements(rng, plan);
 	statements(rng, all, leafRes, declared, plan.scenarios);
+	precedes(rng, all);
 	if (rich || rng.chance(0.25)) supplements(rng, all, leafRes, declared);
 	if (rich || rng.chance(0.3)) macros(rng, plan, all);
 	assignFiles(rng, plan, opts.minTasks === undefined && rng.chance(0.45) ? 2 : 0);

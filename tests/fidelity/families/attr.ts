@@ -95,25 +95,27 @@ function drawSet(f: Facts, sem: Sem, rng: Rng): Drawn | null {
 	const tasks = f.tasks;
 	const leaves = tasks.filter(isLeaf);
 	const pick = <T>(xs: readonly T[]): T | null => (xs.length > 0 ? rng.pick(xs) : null);
-	// Statements written with a macro, or next to a macro call that writes the same keyword: text-only.
-	if (rng.chance(0.12)) {
+	// Text-only targets: a statement written with a macro (X3), and a keyword a statement-level macro
+	// call in the body writes (macro-in-body). Both kinds are drawn when the plan has them.
+	if (rng.chance(0.15)) {
 		const hit = tasks.find((t) => macroStmt(t));
 		const stmt = hit && macroStmt(hit);
+		const call = tasks.find((t) => t.macroWords.has('priority'));
+		const options: Drawn[] = [];
 		if (hit && stmt) {
 			const attr = stmt.key as TaskAttr;
-			const value = validValue(attr, f, rng);
-			return {
-				intent: { type: 'setAttr', task: hit.id, attr, value },
+			options.push({
+				intent: { type: 'setAttr', task: hit.id, attr, value: validValue(attr, f, rng) },
 				mustRefuse: ['text-only', 'macro-in-body'],
-			};
+			});
 		}
-		const call = tasks.find((t) => t.macroWords.has('priority'));
 		if (call) {
-			return {
+			options.push({
 				intent: { type: 'setAttr', task: call.id, attr: 'priority', value: '640' },
 				mustRefuse: ['macro-in-body', 'text-only'],
-			};
+			});
 		}
+		if (options.length > 0) return rng.pick(options);
 	}
 	const kind = rng.pick([
 		'sizing',

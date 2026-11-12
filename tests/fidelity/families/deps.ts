@@ -37,6 +37,19 @@ const holdingPrecedes = (f: Facts, succ: string, pred: string): StmtF[] =>
 function drawLink(type: LinkIntent['type'], f: Facts, rng: Rng): Drawn | null {
 	const order = f.tasks;
 	if (type === 'addDepends') {
+		// A successor whose `depends` is written with a macro is text-only: no item can be added to it.
+		const macroDep = order.find((t) => own(t, 'depends').some((s) => s.macro));
+		if (macroDep && rng.chance(0.2)) {
+			const idx = order.indexOf(macroDep);
+			const anc = ancestorIds(f, macroDep.id);
+			const prior = order.slice(0, idx).filter((p) => !anc.has(p.id));
+			if (prior.length > 0) {
+				return {
+					intent: { type, task: macroDep.id, target: rng.pick(prior).id },
+					mustRefuse: ['text-only', 'macro-in-body'],
+				};
+			}
+		}
 		const succs = order.filter(
 			(t) =>
 				isLeaf(t) &&

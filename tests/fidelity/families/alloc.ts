@@ -2,6 +2,7 @@
 // allocate, addAllocation, removeAllocation, replaceAllocation (7.1, 15.19): the task's own plain
 // `allocate` lists are reshaped with the fewest edits. Resources a parent gives count as allocated, so
 // the semantic is the effective set: own ids plus those an ancestor's statements gave before the task.
+import type { EditIntent } from '../../../src/lib/tjp/edit/types';
 import {
 	effectiveIds,
 	insertZone,
@@ -23,6 +24,16 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 	const res = leafResources(f);
 	const leaves = f.tasks.filter((t) => isLeaf(t) && hasSizing(t) && !t.stmts.some((s) => s.macro));
 	if (leaves.length === 0 || res.length === 0) return null;
+	// A statement-level macro call that writes `allocate` makes the task's allocation text-only.
+	const called = leaves.filter((t) => t.macroWords.has('allocate'));
+	if ((type === 'allocate' || type === 'addAllocation') && called.length > 0 && rng.chance(0.25)) {
+		const t = rng.pick(called);
+		const intent: EditIntent =
+			type === 'allocate'
+				? { type, task: t.id, resources: [rng.pick(res)] }
+				: { type, task: t.id, resource: rng.pick(res) };
+		return { intent, mustRefuse: ['macro-in-body', 'text-only'] };
+	}
 	if (type === 'allocate') {
 		const t = rng.pick(leaves);
 		const p = parentOf(f, t);
