@@ -71,6 +71,12 @@ jobs:
         env:
           TJP_EDIT_ENGINE: '1'
           FC_SEED: '20261112'
+      # Task tree edits (add, delete, move) on golden and generated plans must still schedule on this
+      # engine (phase-1 spec 9.3 P4); same flags as above.
+      - run: npx vitest run src/lib/tjp/edit/task-tree.engine.test.ts
+        env:
+          TJP_EDIT_ENGINE: '1'
+          FC_SEED: '20261112'
       # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
       # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
       # engine build hash alone (bridge-only changes) prints a note and passes.
