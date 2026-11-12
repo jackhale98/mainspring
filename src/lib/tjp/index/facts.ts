@@ -81,6 +81,7 @@ export interface MacroFact {
 	readonly text: string;
 	readonly nestedCalls: boolean;
 	readonly words: ReadonlySet<string>;
+	readonly structural: 'braces' | 'comment' | 'unterminated' | null;
 }
 
 export interface ProjectFact {
@@ -141,6 +142,8 @@ export interface FileFacts {
 	readonly ranges: RangeIndex;
 	/** Declaration headers per `${kind}:${line}`. */
 	readonly headerLines: ReadonlyMap<string, number>;
+	/** The literal local ids declared per `${kind}:${line}`. */
+	readonly headerLiterals: ReadonlyMap<string, readonly string[]>;
 	/** Outermost macro bodies and opaque statements, for `mentions`. */
 	readonly opaque: readonly TextOnly[];
 }

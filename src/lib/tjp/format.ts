@@ -38,8 +38,7 @@
  * Files with syntax errors are refused. As an internal check the result is reparsed
  * (incrementally): if it has error nodes, format refuses with `syntax-error` and the ranges of
  * those nodes mapped back to the file as it is; a different tree shape without errors throws.
- * (Neither should happen; the tokenizer once read line starts through only 24 code units of
- * indentation, which re-indenting could cross.)
+ * (Neither should happen: the grammar's tokens and statements do not depend on indentation.)
  *
  * `opts.from`/`opts.to` select lines; a selected continuation line pulls in its statement's
  * first line and that line's other continuations, so alignment is kept.

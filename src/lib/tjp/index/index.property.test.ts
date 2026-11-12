@@ -2,7 +2,9 @@
 // Property test for the incremental index (phase-1.md 6.4, T8): random edits typed into the
 // workspace keep the index built with the facts cache (only changed files rescanned) equal to one
 // built from scratch, with and without (increasingly stale) engine hints. The edits change
-// tokens, declarations, include sites, prefixes, macros and supplements.
+// tokens, declarations, include sites, prefixes, macros and supplements. Hints come from the
+// literal declarations, or are the engine's own for the macro-id (X4) and macro-expanded (X5)
+// fixtures; all are fingerprinted with the seed text, as the schedule runner records them.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { buildIndex, createFactsCache, type EngineHints } from './index';
@@ -32,19 +34,63 @@ const SNIPPETS = [
 	'include "defs.tji" { taskprefix root }\n',
 	'include "sub/a.tji" { resourceprefix who }\n',
 	'macro m [ x ]\n',
+	'macro mk [ task ${1} "x" ]\n',
+	'${mk "q9"}\n',
+	'macro close [ } ]\n',
+	'${close}',
 	'supplement task rollout {',
 	'supplement resource lena { efficiency 0.5 }\n',
 	'timingresolution 15min\n',
 	'scenario s "S"\n',
 ];
 
-const SEEDS: ReadonlyArray<() => Workspace> = [
-	() => golden('syn-18-structure-include-macro'),
-	() => fixture('include-prefix-property'),
-	() => fixture('include-nested'),
-	() => fixture('supplement'),
-	() => fixture('macro-statements'),
-];
+type Hint = { id: string; parent: string | null; file: string; line: number };
+const h = (id: string, parent: string | null, line: number): Hint => ({
+	id,
+	parent,
+	file: 'plan.tjp',
+	line,
+});
+
+/** Seeds, with the engine's hints where the text cannot name every declaration. */
+const SEEDS: ReadonlyArray<{ ws: () => Workspace; hints?: { tasks: Hint[]; resources: Hint[] } }> =
+	[
+		{ ws: () => golden('syn-18-structure-include-macro') },
+		{ ws: () => fixture('include-prefix-property') },
+		{ ws: () => fixture('include-nested') },
+		{ ws: () => fixture('supplement') },
+		{ ws: () => fixture('macro-statements') },
+		{
+			ws: () => fixture('macro-ids'),
+			hints: {
+				tasks: [h('dev', null, 12), h('dev.dev_sub', 'dev', 13), h('lit', null, 18)],
+				resources: [h('ana', null, 9), h('ana2', null, 10)],
+			},
+		},
+		{
+			ws: () => fixture('macro-expanded'),
+			hints: {
+				tasks: [
+					h('top', null, 9),
+					h('top.q1', 'top', 10),
+					h('top.lit', 'top', 11),
+					h('top.q2', 'top', 14),
+					h('after', null, 16),
+				],
+				resources: [h('ana', null, 8)],
+			},
+		},
+	];
+
+/** Fingerprints hints with the seed's line texts. */
+function fingerprinted(ws: Workspace, hints: { tasks: Hint[]; resources: Hint[] }): EngineHints {
+	const snap = ws.snapshot();
+	const fp = (e: Hint) => {
+		const doc = snap.files.get(e.file)?.text;
+		return doc && e.line <= doc.lines ? { ...e, text: doc.line(e.line).text } : e;
+	};
+	return { tasks: hints.tasks.map(fp), resources: hints.resources.map(fp) };
+}
 
 interface Edit {
 	file: number;
@@ -92,8 +138,14 @@ describe('incremental index', () => {
 				fc.boolean(),
 				fc.array(editArb, { minLength: 1, maxLength: 6 }),
 				(seed, useHints, edits) => {
-					const ws = (SEEDS[seed] as () => Workspace)();
-					const hints = useHints ? hintsOf(ws) : undefined;
+					const spec = SEEDS[seed];
+					if (!spec) return;
+					const ws = spec.ws();
+					const hints = !useHints
+						? undefined
+						: spec.hints
+							? fingerprinted(ws, spec.hints)
+							: hintsOf(ws);
 					const cache = createFactsCache();
 					buildIndex(ws.snapshot(), hints, { cache });
 					for (const e of edits) {

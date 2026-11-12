@@ -63,6 +63,7 @@
   Punct,
   Unit,
   SupplementKind,
+  off[@name=Identifier],
   // Statement heads.
   headPrefix[@name=ScenarioPrefix],
   headMacro[@name=MacroCall],
@@ -72,6 +73,8 @@
   AttributeName,
   kw[@name=Keyword],
   kwArgs[@name=Keyword],
+  kwBare[@name=Keyword],
+  kwChoice[@name=Keyword],
   kwProject[@name=Keyword],
   kwInclude[@name=Keyword],
   kwMacro[@name=Keyword],
@@ -249,7 +252,7 @@ PrecedesStatement { prefix? kwPrecedes DepItem (Comma DepItem)* }
 AllocateStatement { prefix? kwAllocate AllocItem (Comma AllocItem)* }
 
 WorkinghoursStatement {
-  prefix? kwWorkinghours WeekdayRange (Comma WeekdayRange)* (Identifier | timeIntervals)?
+  prefix? kwWorkinghours WeekdayRange (Comma WeekdayRange)* (off | timeIntervals)?
 }
 
 // Statements outside the typed set.
@@ -258,7 +261,20 @@ ExtensionStatement { prefix? AttributeName opaqueArgs? }
 
 MacroCallStatement { prefix? (headMacro | headMacroWord | headEnvRef) opaqueArgs? }
 
-OpaqueStatement { prefix? ((kw | headUnknown) opaqueArgs? | kwArgs opaqueArgs) }
+// Opaque statements by the argument shape of their keyword's syntax line (lexer.ts): optional
+// arguments, required ones, none at all ('scheduled', 'limits [{ … }]'), or a list of literal
+// choices ('formats (csv | html | niku) [, …]'). The last two are exact, so a misspelt
+// attribute after them is an error, as in TaskJuggler.
+OpaqueStatement {
+  prefix? (
+    (kw | headUnknown) opaqueArgs? |
+    kwArgs opaqueArgs |
+    kwBare Body? |
+    kwChoice choice (Comma choice)*
+  )
+}
+
+choice { Identifier | macroToken }
 
 // After a body only a comma continues the statement (`columns a { … }, b`), so a typo on the
 // next line (`limits { … }` then `efort 5d`) is an error, as in TaskJuggler.

@@ -53,6 +53,15 @@ describe('syntaxIssues', () => {
 		expect(issues.length).toBeGreaterThan(0);
 		expect(issues[0]?.line).toBe(3);
 	});
+
+	it.each([
+		['\\r\\n', '\r\n'],
+		['a lone \\r', '\r'],
+	])('counts lines broken by %s as TaskJuggler does', (_what, eol) => {
+		const bad = ['task a "A" {', '  effort 2d', '', '  @@', '}', ''].join(eol);
+		const issues = syntaxIssues(parseTjp(bad), textOf(bad));
+		expect(issues[0]?.line).toBe(4);
+	});
 });
 
 describe('statement navigation', () => {

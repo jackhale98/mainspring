@@ -45,8 +45,12 @@ export function isSafeText(value: string): boolean {
 	return !hasExpansion(value);
 }
 
-/** Canonical text of a string value, escaping the quote character of the chosen style. */
-export function printString(value: string, opts: PrintStringOptions = {}): Result<string> {
+/**
+ * Canonical text of a string value, escaping the quote character of the chosen style. Line
+ * breaks (`\r\n`, a lone `\r`) are written as `\n`, which is what TaskJuggler reads back.
+ */
+export function printString(raw: string, opts: PrintStringOptions = {}): Result<string> {
+	const value = raw.replace(/\r\n?/g, '\n');
 	if (!isSafeText(value)) return fail('unsafe-text', 0, 0);
 	const style = opts.style ?? 'double';
 	if (style === 'cut') return printCut(value, opts.indent ?? '');

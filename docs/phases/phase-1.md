@@ -73,7 +73,7 @@ Data flow: the editor or format produces a CodeMirror transaction on a file's `E
 One external tokenizer (`tokens.ts`) produces every token, so Lezer never applies its own longest-match rules. It follows TaskJuggler's rules exactly:
 
 - **Order.** Patterns are tried in the scanner's order and the first match wins. Matches are anchored at the cursor and lines are read one at a time.
-- **Whitespace.** ASCII `[ \t\n\v\f\r]` only, as Ruby's `\s`. JavaScript's `\s` also matches NBSP and U+FEFF, which is wrong here. Lines break on `\n` only. A single leading U+FEFF is a `Bom` trivia token; the bridge strips it (ADR-0002 #13).
+- **Whitespace.** ASCII `[ \t\n\v\f\r]` only, as Ruby's `\s`. JavaScript's `\s` also matches NBSP and U+FEFF, which is wrong here. Lines break on `\n`, `\r\n` or a lone `\r`, as TaskJuggler reads files (§15.14). A single leading U+FEFF is a `Bom` trivia token; the bridge strips it (ADR-0002 #13).
 - **Comments.** `#` and `//` run to the end of the line. A one-line `/* … */` is greedy to the last `*/` on its line. A multi-line comment ends at the last `*/` on its closing line.
 - **Identifiers.** `ScenarioPrefix` (`[a-zA-Z_]\w*:`, as in `delayed:effort`) is tried before `AbsoluteId` (`a.b.c`), which is tried before `Identifier`. `\w` is ASCII.
 - **Numbers and dates.** `Date` (`\d{4}-\d{1,2}-\d{1,2}(-\d{1,2}:\d{1,2}(:\d{1,2})?(-[-+]?\d{4})?)?`) before `Time` before `Float` (`\d*\.\d+`) before `Integer`. So `5d` is `Integer` + `Identifier`, as in TaskJuggler.
@@ -160,7 +160,7 @@ Intents are also refused when their effect depends on text the layer cannot see:
 
 ## 6. Interfaces
 
-All offsets are UTF-16 offsets into the file text, as CodeMirror uses. Lines are 1-based. Documents use `EditorState.lineSeparator.of('\n')`, so a `\r` is kept as an ordinary character, as TaskJuggler's `gets` treats it. Without this, CodeMirror would normalise line endings and break the round trip.
+All offsets are UTF-16 offsets into the file text, as CodeMirror uses. Lines are 1-based. Documents use `EditorState.lineSeparator.of('\n')`, so a `\r` is kept in the text exactly as written and CodeMirror never normalises line endings (the round trip stays byte-exact). Line numbers for TaskJuggler messages and syntax issues count `\n`, `\r\n` and a lone `\r` as one break each (§15.14), through a shared helper.
 
 ### 6.1 Document (`src/lib/tjp/document.ts`)
 

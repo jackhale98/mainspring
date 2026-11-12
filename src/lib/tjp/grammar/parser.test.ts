@@ -253,13 +253,6 @@ describe('errors', () => {
 		['a stray value', 'task a "A" {\n  effort 1d\n  "x"\n}', 3],
 		['an unbalanced brace', 'task a "A" {\n}\n}\n', 3],
 		['a missing unit', 'task a "A" {\n  effort 5\n}', 3],
-		// A misspelt attribute on the line after an opaque statement is not taken as its argument.
-		['a typo after an opaque statement', 'task a "A" {\n  chargeset dev\n  effrot 5d\n}', 3],
-		[
-			'a typo after an opaque interval',
-			'task a "A" {\n  shifts night 2024-01-01 - 2024-02-01\n  efort 5d\n}',
-			3,
-		],
 		['a typo after an opaque body', 'task a "A" {\n  limits { dailymax 4h }\n  efort 5d\n}', 3],
 		['a typo after a body on one line', 'task a "A" { limits { dailymax 4h } efort 5d }', 1],
 		['a typo after a typed statement', 'task a "A" {\n  effort 1d\n  effrot 5d\n}', 3],

@@ -185,3 +185,44 @@ describe('relative-ids and scenario-prefix', () => {
 		expect(dep?.pred).not.toBeNull();
 	});
 });
+
+describe('macro-expanded (X5)', () => {
+	// Ids from native TaskJuggler 3.8.4 (CSV report), lines from the wasm engine: injected
+	// declarations carry the line of their macro call.
+	const hints = {
+		tasks: [
+			{ id: 'top', parent: null, file: 'plan.tjp', line: 9 },
+			{ id: 'top.q1', parent: 'top', file: 'plan.tjp', line: 10 },
+			{ id: 'top.lit', parent: 'top', file: 'plan.tjp', line: 11 },
+			{ id: 'top.q2', parent: 'top', file: 'plan.tjp', line: 14 },
+			{ id: 'after', parent: null, file: 'plan.tjp', line: 16 },
+		],
+		resources: [{ id: 'ana', parent: null, file: 'plan.tjp', line: 8 }],
+	};
+
+	it('indexes expanded declarations at their calls, in the engine pre-order', () => {
+		const idx = buildIndex(fixture('macro-expanded').snapshot(), hints, { cache: null });
+		expect([...idx.tasks.keys()]).toEqual(hints.tasks.map((t) => t.id));
+		expect([...idx.resources.keys()]).toEqual(['ana']);
+		expect(idx.tasks.get('top')?.children).toEqual(['top.q1', 'top.lit', 'top.q2']);
+		for (const id of ['top.q1', 'top.q2']) {
+			expect(idx.tasks.get(id)?.expandedOnly).toBe(true);
+			expect(idx.tasks.get(id)?.textOnly?.reason).toBe('expanded-only');
+		}
+		expect(idx.resources.get('ana')?.expandedOnly).toBe(true);
+	});
+
+	it('resolves references to expanded declarations (M4)', () => {
+		const idx = buildIndex(fixture('macro-expanded').snapshot(), hints, { cache: null });
+		expect(idx.dependencies.map((d) => [d.pred, d.succ])).toEqual([['top.q2', 'after']]);
+		expect(idx.allocations.map((a) => [a.task, a.resource])).toEqual([['after', 'ana']]);
+	});
+
+	it('without hints, blocks the blocks that hold the calls', () => {
+		const idx = buildIndex(fixture('macro-expanded').snapshot(), undefined, { cache: null });
+		expect([...idx.tasks.keys()]).toEqual(['top', 'top.lit', 'after']);
+		const b = idx.tasks.get('top')?.decl.block;
+		expect(b && idx.blocking('plan.tjp', b.from, b.to)?.reason).toBe('macro-call');
+		expect(idx.dependencies[0]?.pred).toBeNull();
+	});
+});

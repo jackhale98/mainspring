@@ -7,6 +7,7 @@
  */
 import type { SyntaxNode } from '@lezer/common';
 import { MACRO_TOKENS, TYPED_STATEMENTS } from '../grammar/parser';
+import { tokenizeTjp } from '../grammar/tokens';
 import { statementHead, statementsIn } from '../tree';
 import { KEYWORD_VALUE_KIND } from '../values';
 import {
@@ -112,7 +113,32 @@ export function macroFact(ctx: ScanCtx, stmt: SyntaxNode): MacroFact | null {
 		text,
 		nestedCalls: /\$[{(]/.test(text),
 		words: new Set(text.match(WORD) ?? []),
+		structural: structuralRisk(text),
 	};
+}
+
+/**
+ * Why splicing a macro body into a line can change the structure around the call, or null.
+ * TaskJuggler injects the expansion into the line it reads (Scanner.rb:78-90), so a body that
+ * opens or closes blocks, starts a comment, or leaves a string, cut-here string, comment or
+ * macro unterminated reshapes the text after the call (native: `${close} task b` declares a
+ * top-level `b`; `${c}` with `c` = `#` comments out the rest of the line). Read with the
+ * scanner port (grammar/tokens.ts).
+ */
+export function structuralRisk(text: string): 'braces' | 'comment' | 'unterminated' | null {
+	// Once spliced, a line break always follows the body: `/*` and `-8<-` only open a multi-line
+	// comment or cut-here string before one (ProjectFileScanner.rb:35-39, 118).
+	const spliced = `${text}\n`;
+	let depth = 0;
+	for (const t of tokenizeTjp(spliced)) {
+		if (t.kind === 'LineComment' || t.kind === 'BlockComment') return 'comment';
+		if (t.kind === 'Error' || t.kind === 'MacroBody') return 'unterminated';
+		if (t.kind !== 'Punct') continue;
+		const c = spliced.slice(t.from, t.to);
+		if (c === '{') depth++;
+		else if (c === '}' && --depth < 0) return 'braces';
+	}
+	return depth === 0 ? null : 'braces';
 }
 
 /** The leaf children of an opaque statement after its head, and its body. */

@@ -2,10 +2,11 @@
 // Parse timings (T5). Spec 8.4 records performance targets rather than enforcing them, so this
 // prints the numbers for the gate and asserts only sanity bounds ten times the targets: a full
 // parse of the 1,000-task synthetic plan (5,629 lines) under 100 ms warm in Node, and an
-// incremental reparse (reuseFragments included) after typing one line.
+// incremental reparse (reparse) after typing one line.
+import type { TreeFragment } from '@lezer/common';
 import { describe, expect, it } from 'vitest';
 import { readTjp } from '../../../../tests/grammar/corpus';
-import { reuseFragments } from './fragments';
+import { reparse } from './fragments';
 import { tjpGlobalParser } from './parser';
 
 const FULL_TARGET_MS = 100;
@@ -53,11 +54,40 @@ describe.each(PLANS)('%s', (file) => {
 	it('reparses incrementally after typing one line', () => {
 		const tree = tjpGlobalParser.parse(text);
 		const e = edit(text, text.length >> 1, '  # typed\n');
-		const ms = time(() => tjpGlobalParser.parse(e.text, reuseFragments(tree, e.change)));
-		console.info(
-			`incremental reparse ${file}, reuseFragments included: median ${ms.toFixed(2)} ms`,
-		);
+		const ms = time(() => reparse(tjpGlobalParser, e.text, tree, e.change));
+		console.info(`incremental reparse ${file}, reparse: median ${ms.toFixed(2)} ms`);
 		expect(ms).toBeLessThan(INCREMENTAL_TARGET_MS * SANITY);
+	});
+});
+
+describe('typing a word into the middle of the 1,000-task plan', () => {
+	// Each keystroke is one reparse; until the word is complete the text is often erroneous
+	// (`e`, `ef`, … are unknown attributes, `effort 1` lacks its unit).
+	it('reparses each keystroke incrementally', () => {
+		const original = readTjp(SCALE);
+		const typed = 'effort 1d\n  ';
+		const at = original.indexOf('\n', original.indexOf('effort', original.length >> 1)) + 3;
+		const times: number[] = [];
+		for (let run = 0; run < 3; run++) {
+			let text = original;
+			let tree = tjpGlobalParser.parse(text);
+			let fragments: readonly TreeFragment[] = [];
+			for (let i = 0; i < typed.length; i++) {
+				const pos = at + i;
+				text = text.slice(0, pos) + typed.charAt(i) + text.slice(pos);
+				const change = [{ fromA: pos, toA: pos, fromB: pos, toB: pos + 1 }];
+				const t0 = performance.now();
+				({ tree, fragments } = reparse(tjpGlobalParser, text, tree, change, fragments));
+				if (run > 0) times.push(performance.now() - t0);
+			}
+			expect(tree.toString()).toBe(tjpGlobalParser.parse(text).toString());
+		}
+		const max = Math.max(...times);
+		console.info(
+			`typing ${JSON.stringify(typed)} into ${SCALE}: per keystroke median ` +
+				`${median(times).toFixed(2)} ms, max ${max.toFixed(2)} ms`,
+		);
+		expect(max).toBeLessThan(INCREMENTAL_TARGET_MS * SANITY);
 	});
 });
 
@@ -80,7 +110,7 @@ describe('an unterminated string near the top of the 1,000-task plan', () => {
 	it('parses fully and incrementally', () => {
 		const full = time(() => tjpGlobalParser.parse(e.text));
 		const tree = tjpGlobalParser.parse(text);
-		const incremental = time(() => tjpGlobalParser.parse(e.text, reuseFragments(tree, e.change)));
+		const incremental = time(() => reparse(tjpGlobalParser, e.text, tree, e.change));
 		console.info(
 			`unterminated string at line ${text.slice(0, e.change[0]?.fromA).split('\n').length} of ` +
 				`${SCALE}: full ${full.toFixed(2)} ms, incremental ${incremental.toFixed(2)} ms`,

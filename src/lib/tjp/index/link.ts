@@ -19,6 +19,9 @@
  * - Task ids: parent full id + '.' + id. Resource ids are flat: the id alone.
  * - Non-literal ids take engine hints (hints.ts); without one the declaration and everything
  *   below it is unresolved, and its block is text-only (X4).
+ * - A declaration whose header line carries fresh hints, none naming the id its text gives, was
+ *   read differently by the engine (a spliced macro body moved braces or started a comment):
+ *   it keeps its text id but its whole block is text-only ('macro-call', no `within`).
  */
 import type { WorkspacePath } from '../../../engine/protocol';
 import type { IncludeEdge } from '../../workspace/includes';
@@ -207,7 +210,12 @@ export class Linker extends LinkState {
 		let id: string | null = null;
 		if (resolved && !this.has(fact.kind, resolved.id)) {
 			id = resolved.id;
-			sym = this.addSymbol(fact, frame.visit, id, resolved.parent, resolved.source, outer);
+			if (resolved.disagrees) {
+				const own: TextOnly = { reason: 'macro-call', at: fact.site.block, within: null };
+				this.addExtraRange(own);
+				x4 = stronger(outer, own);
+			}
+			sym = this.addSymbol(fact, frame.visit, id, resolved.parent, resolved.source, x4);
 		} else {
 			if (resolved) id = resolved.id;
 			if (fact.idForm !== 'literal') {

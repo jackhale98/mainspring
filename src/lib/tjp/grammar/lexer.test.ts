@@ -3,7 +3,7 @@
 // identifier, statement heads for macros, unknown identifiers and scenario prefixes.
 import { describe, expect, it } from 'vitest';
 import { KEYWORDS, keywordById } from '../syntax/keywords';
-import { requiresArgument } from './lexer';
+import { argumentShape, requiresArgument } from './lexer';
 import { tjpGlobalParser } from './parser';
 
 function leaves(text: string): string[] {
@@ -39,6 +39,30 @@ describe('requiresArgument', () => {
 
 	it('is decided for every keyword without throwing', () => {
 		for (const k of KEYWORDS) expect(typeof requiresArgument(k)).toBe('boolean');
+	});
+});
+
+describe('argumentShape', () => {
+	it.each([
+		['scheduled', 'none'],
+		['limits.task', 'none'],
+		['inherit.extend', 'none'],
+		['formats', 'choice'],
+		['select', 'choice'],
+		['loadunit', 'choice'],
+		['balance', 'required'],
+		['charge', 'required'],
+		['chargeset', 'required'],
+		['columns', 'required'],
+		['center', 'required'],
+		['vacation.shift', 'optional'],
+	])('%s: %s', (id, want) => {
+		expect(argumentShape(entry(id))).toBe(want);
+	});
+
+	it('gives every keyword a shape', () => {
+		const shapes = new Set(KEYWORDS.map((k) => argumentShape(k)));
+		expect([...shapes].sort()).toEqual(['choice', 'none', 'optional', 'required']);
 	});
 });
 

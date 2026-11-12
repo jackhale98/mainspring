@@ -14,9 +14,13 @@ sources under `engine/` on the load path, `--no-reports --silent plan.tjp`, `TZ=
 | --- | --- | --- |
 | `macro-ids` | Macro calls as task and resource ids (`task ${tid}`, `${who}2`), templated names, macro in `depends`/`allocate` (X2, X4) | accepted (exit 0) |
 | `macro-statements` | Statement-level macro calls in task bodies, multi-line macro body, `${?absent}` as a statement (`macro-in-body`) | accepted (exit 0) |
+| `macro-expanded` | A resource and tasks declared only through statement-level macro calls with arguments (X5), a dependency and an allocation naming them | accepted (exit 0); ids `top`, `top.q1`, `top.lit`, `top.q2`, `after` and resource `ana` checked with temporary `taskreport`/`resourcereport` in a scratch copy; the wasm engine records lines 9, 10, 11, 14, 16 and 8 (the call lines) |
 | `macro-args-nested` | Macro arguments `${1}`, quoted call args, optional `${?x}` (before a value), nested calls inside macro bodies, glued id `t${major}`, `${content}${major}` | accepted (exit 0) |
 | `crlf-plan` | Whole file CRLF, header comment included | accepted (exit 0) |
 | `crlf-strings` | CRLF with a multi-line string and a cut-here string | accepted (exit 0) |
+| `crlf-macro` | Whole file CRLF with a multi-line and a one-line macro body closing on `]` before CRLF, used as a statement (`${e}`) and a value (`${who}`) | accepted (exit 0); `effort 3d` from the macro applies (checked with a temporary `export` in a scratch copy) |
+| `cr-only` | Lone CR line breaks throughout (old Mac): macro body closing on `]` before CR, `#` and `//` comments, multi-line string | accepted (exit 0); the macro's `effort 3d` applies and the note has two lines (temporary `export`) |
+| `crlf-comment` | LF file where a lone CR inside a `#` or `//` comment line ends the comment, so `effort 3d`/`effort 2d` after it is read | accepted (exit 0); both efforts apply (temporary `export`) |
 | `tabs` | Tab indentation, tabs between tokens, trailing tabs | accepted (exit 0) |
 | `one-line-blocks` | One-line blocks, several statements per line, empty body `{}`, project body on one line | accepted (exit 0) |
 | `cut-here-strings` | `-8<-` ... `->8-` with comment-like text, braces, trailing blanks after the mark, inline `->8-` that does not close | accepted (exit 0) |
@@ -36,6 +40,10 @@ sources under `engine/` on the load path, `--no-reports --silent plan.tjp`, `TZ=
 
 Notes found while validating, useful for the tests that use these files:
 
+- TaskJuggler reads every file through `forceUTF8Encoding`, which converts `\r\n` and a lone `\r`
+  to `\n` before scanning (`encode('UTF-8', universal_newline: true)`, UTF8String.rb). So a
+  CRLF macro body closes on `]\r\n`, a lone `\r` ends a line comment, and CR-only files work.
+  Driving `ProjectFileScanner` on a raw string skips this conversion and behaves differently.
 - Macro call arguments must be double-quoted strings. A call inside a call argument is not
   possible, so nesting appears in macro bodies only.
 - A `${?x}` glued after a number (`1d${?x}`) breaks the native scanner, so the optional call
