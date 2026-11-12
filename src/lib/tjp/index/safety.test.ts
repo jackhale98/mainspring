@@ -65,6 +65,22 @@ describe('macro bodies read as spliced (re-review, native4)', () => {
 		expect(blocked?.at.to).toBe(text.length);
 	});
 
+	it('n0: a value-position call whose macro declares a task blocks deleting its block', () => {
+		const text = `${P}resource r "R"\nmacro p [5 task z "Z"]\ntask a "A" {\n  priority \${p}\n}\nsupplement task a.z { length 1d }\ntask b "B" {\n  depends a.z\n  length 1d\n}\n`;
+		const idx = build(text);
+		expect(blockOf(idx, 'a')?.reason).toBe('macro-call');
+		const call = text.indexOf('${p}');
+		const r = idx.textOnly('plan.tjp').find((t) => t.within === null && t.at.from === call);
+		expect(r?.at.to).toBe(call + 4);
+		// Through a nested call as well; a value macro that declares nothing stays harmless.
+		const nested = build(
+			`${P}macro q [task y "Y"]\nmacro p [5 \${q}]\ntask a "A" {\n  priority \${p}\n}\n`,
+		);
+		expect(blockOf(nested, 'a')?.reason).toBe('macro-call');
+		const plain = build(`${P}macro p [5]\ntask a "A" {\n  priority \${p}\n}\n`);
+		expect(blockOf(plain, 'a')).toBeNull();
+	});
+
 	it('a call inside a string expands inside it and changes nothing around it', () => {
 		const text = `${P}macro close [ } ]\ntask a "A" {\n  note "\${close}"\n  length 1d\n}\n`;
 		expect(eofBlocked(build(text), text, 'length 1d')).toBeUndefined();

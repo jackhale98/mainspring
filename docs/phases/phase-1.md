@@ -860,3 +860,30 @@ them.
     (file trees), not a text lookup, and ignores an index whose version does not match. Line and
     column follow TaskJuggler's line breaks (`\n`, `\r\n`, lone `\r`).
 
+16. **Edit core (T10).** Intents are handlers in `edit/apply.ts` `HANDLERS` (`{ plan,
+    sameInEveryVisit }`) whose `plan` returns `EditOp`s (one change each, with the element it
+    edits) built by `edit/layout.ts`, or a refusal or no-op; `applyIntent` then runs the refusal
+    pipeline (`edit/refuse.ts`) and `buildEdit`. The pipeline checks the index is built from this
+    snapshot (`SymbolIndex.isFor`, else `stale`); for every op, both the element's own range and
+    the change range against `SymbolIndex.blocking` (15.10), error nodes in the innermost statement
+    around the element, and the macro rules: no change touches a macro call, macro word, `$(…)`,
+    templated string, macro body or statement-level call without removing it whole, no insertion
+    or removal leaves a macro call (or an expanded-only call site) as the next token after it
+    (except a statement-level call the index treats as safe whose macro body starts with a
+    statement keyword, as Tutorial's `${allocate_developers}`: its expansion cannot join the text
+    before it), no edit touches a macro definition's name or the line break after its `]`. Every edit is reparsed
+    and refused with `syntax-error` if it adds error nodes. `LeaveRef` is a leave item's range.
+    Inserted text uses the break of the neighbouring line (CRLF files stay CRLF), also inside
+    quoted strings (TaskJuggler reads every break as `\n`, so the value is unchanged); lines that
+    start inside a quoted string are never re-indented. Cut-here strings are tracked as their own
+    mode and re-indented uniformly. `applyEdit` records
+    the file versions an apply produced; `undoEdit` builds the inverse only while they are current.
+    **Shared files** (read in several include visits, 15.8): an edit there changes every visit's
+    declaration. Only intents whose change means the same in every visit (value rewrites through
+    `setAttr`/`removeAttr` of value attributes, the name string of `renameTask`) declare
+    `sameInEveryVisit`, and they go through only with `EditOptions.confirmShared`. Id-valued
+    attributes (`responsible`, `managers`, `allocate`, `depends`, `precedes`) are not
+    `sameInEveryVisit`: task and resource prefixes change what an id names in each visit. Structural
+    intents (`addTask`, `deleteTask`, `moveTask`, `addDepends`/`removeDepends`, allocation changes
+    that add or remove lines or items) are always refused there with `shared-declaration`, whose
+    `affects` lists every visit's ids (for top-level text, every id the file declares).
