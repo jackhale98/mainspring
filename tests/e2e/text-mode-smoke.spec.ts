@@ -86,6 +86,41 @@ test.describe('text mode', () => {
 		await expect(page.locator('.cm-activeLine')).toContainText('task rollout');
 	});
 
+	test('the outline is an ARIA tree with arrow keys', async ({ page, viewport }) => {
+		test.skip((viewport?.width ?? 0) < 1024, 'the outline sits beside the editor on desktop');
+		await openApp(page);
+		const tree = page.getByRole('tree', { name: 'Tasks' });
+		const items = tree.getByRole('treeitem');
+		await items.first().focus();
+		await page.keyboard.press('ArrowDown');
+		const rollout = tree.getByRole('treeitem', { name: /Rollout/ });
+		await expect(rollout).toBeFocused();
+		await expect(rollout).toHaveAttribute('aria-expanded', 'true');
+		await expect(rollout).toHaveAttribute('aria-level', '1');
+		await page.keyboard.press('ArrowRight'); // into the first child
+		await expect(tree.getByRole('treeitem', { name: /Ready/ })).toBeFocused();
+		await page.keyboard.press('ArrowLeft'); // back to the parent
+		await expect(rollout).toBeFocused();
+		await page.keyboard.press('ArrowLeft'); // collapse
+		await expect(rollout).toHaveAttribute('aria-expanded', 'false');
+		await expect(items).toHaveCount(2);
+		await page.keyboard.press('Enter');
+		await expect(page.locator('.cm-activeLine')).toContainText('task rollout');
+	});
+
+	test('the outline opens in a drawer on a tablet', async ({ page, viewport }) => {
+		test.skip(viewport?.width !== 1280, 'resized below, from the desktop project');
+		await page.setViewportSize({ width: 820, height: 1100 });
+		await openApp(page);
+		await expect(page.getByRole('tree', { name: 'Tasks' })).toHaveCount(0);
+		await page.getByRole('button', { name: 'Outline' }).click();
+		const drawer = page.getByRole('dialog', { name: 'Outline' });
+		await expect(drawer).toBeVisible();
+		await drawer.getByRole('treeitem', { name: /Rollout/ }).click();
+		await expect(drawer).toBeHidden();
+		await expect(page.locator('.cm-activeLine')).toContainText('task rollout');
+	});
+
 	test('the docs button shows the keyword at the cursor', async ({ page }) => {
 		await openApp(page);
 		await editor(page).click();
