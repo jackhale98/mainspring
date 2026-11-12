@@ -136,7 +136,7 @@ bridge code (`engine/bridge/request.rb`, `engine/bridge/serialize.rb`), never th
    - every task's precursors in every active scenario: TaskJuggler's list of the
      dependencies that end at the task (its own `depends` and the `precedes` of other tasks
      that name it), each as the other task's id and which ends it joins (`]->[`, `[->[`,
-     `]->]`), compared as a sorted list with the one `lib.mjs` derives from the golden's
+     `]->]`), compared as a sorted list with the one `cross-check-rows.mjs` derives from the golden's
      `depends` and `precedes`;
    - every `complete` the plan sets, as tj3 prints it (integer part and `%`); tj3 prints a
      computed completion for the others, which the golden leaves `null`;
@@ -238,8 +238,8 @@ them in the browser too. Each header says what it targets and expects.
 | bridge-now-option | No `now` line: `options.now` becomes `now`, seen by `${now}` and `${today}` |
 | bridge-now-line | A `now` line wins over `options.now` |
 
-Unit tests for the recorder's pure helpers (`lib.mjs`) are in
-`tests/golden/record-lib.test.ts` and run with `npm run test:unit`.
+Unit tests for the recorder's pure helpers (`lib.mjs`, and `cross-check-rows.mjs` for the
+cross-check CSV) are in `tests/golden/record-lib.test.ts` and run with `npm run test:unit`.
 
 ### Time-zone edge cases
 

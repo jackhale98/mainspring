@@ -22,9 +22,10 @@
 # other tasks' `precedes` entries that name it, each printed by the listitem
 # below as "<other task id> <dependency>", where the dependency is ]->[, [->[,
 # ]->] or [->] (TaskScenario#query_precursors). The script derives the same
-# list from the golden's depends and precedes (lib.mjs expectedLinkRows), so
-# the other task and both ends of every edge are checked. Completion checks a
-# `complete` the plan sets, as tj3 prints it: the integer part and '%'.
+# list from the golden's depends and precedes (cross-check-rows.mjs
+# expectedLinkRows), so the other task and both ends of every edge are
+# checked. Completion checks a `complete` the plan sets, as tj3 prints it: the
+# integer part and '%'.
 #
 # TaskJuggler's task report has no column for gaps, the scheduling direction
 # (`scheduling` prints ASAP for every leaf, TaskScenario.rb:1538), the

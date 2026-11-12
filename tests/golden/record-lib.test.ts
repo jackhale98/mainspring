@@ -1,29 +1,31 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Unit tests for engine/golden/lib.mjs, the pure helpers of the native golden
-// recorder (record-native.mjs). The recorder itself needs native TaskJuggler
-// and never runs in CI; these helpers do not.
+// Unit tests for engine/golden/lib.mjs and cross-check-rows.mjs, the pure
+// helpers of the native golden recorder (record-native.mjs). The recorder itself
+// needs native TaskJuggler and never runs in CI; these helpers do not.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
 	CROSS_CHECK_HEADER,
+	csvLinkRows,
+	csvRows,
+	expectedLinkRows,
+	expectedRows,
+	linkRowDiffs,
+	parseCsv,
+	rowDiffs,
+} from '../../engine/golden/cross-check-rows.mjs';
+import {
 	GOLDEN_SCHEMA_VERSION,
 	NOW_RE,
 	canonical,
 	canonicalJson,
-	csvLinkRows,
-	csvRows,
 	diffPaths,
-	expectedLinkRows,
-	expectedRows,
 	firstError,
-	linkRowDiffs,
 	manifestProblems,
 	messageDiffs,
 	minutesToIso,
 	normaliseMessages,
 	nowProblem,
-	parseCsv,
-	rowDiffs,
 	workspacePath,
 } from '../../engine/golden/lib.mjs';
 

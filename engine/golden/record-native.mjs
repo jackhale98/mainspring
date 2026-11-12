@@ -28,9 +28,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
-	GOLDEN_SCHEMA_VERSION, canonical, canonicalJson, csvLinkRows, csvRows, diffPaths, expectedLinkRows,
-	expectedRows, firstError, linkRowDiffs, manifestProblems, messageDiffs, normaliseMessages, parseCsv,
-	rowDiffs,
+	csvLinkRows, csvRows, expectedLinkRows, expectedRows, linkRowDiffs, parseCsv, rowDiffs,
+} from './cross-check-rows.mjs';
+import {
+	GOLDEN_SCHEMA_VERSION, canonical, canonicalJson, diffPaths, firstError, manifestProblems,
+	messageDiffs, normaliseMessages,
 } from './lib.mjs';
 import { checkTzEdgesNative } from './tz-edges.mjs';
 
@@ -196,7 +198,7 @@ function recordOnce(plan, workspace) {
 // neither side parses, tj3 must also exit non-zero. Schema v2 (phase-2 spec
 // 5.3) adds the report's precursors and completion columns: the dependencies
 // that end at each task, and every `complete` the plan sets
-// (lib.mjs expectedLinkRows).
+// (cross-check-rows.mjs expectedLinkRows).
 function crossCheck(plan, result, workspace, tmp) {
 	const template = fs.readFileSync(path.join(GOLDEN, 'cross-check.tji'), 'utf8');
 	if (!MACRO_RE.test(template)) throw new Error('cross-check.tji lost its scenario macro line');
