@@ -1158,8 +1158,8 @@ them.
       managers are its own and those it inherits when it is created (`inheritAttributes`: only
       ancestor statements read before the child). An edge is new when the graph after the edit
       (an upper bound: every ancestor statement counts) has it and the resource's managers before
-      the edit (a lower bound: only ancestor statements read before the child on the path) lack
-      it; a new edge leading to any loop (closing one, or reaching one already there) is `cycle`: `setResourceAttr managers`, `addResource` (with `managers`
+      the edit (a lower bound: only unprefixed statements, since `managers` is per scenario, and
+      only ancestor statements read before the child on the path) lack it; a new edge leading to any loop (closing one, or reaching one already there) is `cycle`: `setResourceAttr managers`, `addResource` (with `managers`
       or under a group with managers) and `moveResource` (inheriting the new chain's managers).
     - Resource attribute values are TaskJuggler text, as `setAttr` (`'1.5'`, `'"a@b.c"'`); the
       number rule has no sign, so negative values are `invalid-value`. `managers` is the whole

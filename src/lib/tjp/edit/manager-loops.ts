@@ -16,7 +16,7 @@
  * the ancestor statements read before the child on the path, `managersHad`). Every loop is
  * refused, not only those an outside resource reports into: that is simpler and always safe.
  */
-import type { SourceRange, SymbolIndex } from '../index';
+import type { ReferenceSite, SourceRange, SymbolIndex } from '../index';
 import { readBefore, resourceAncestors } from './props';
 import { refused, type EditContext, type Refused } from './types';
 
@@ -103,16 +103,32 @@ function loopFrom(g: Graph, start: string): string[] | null {
 	return visit(start);
 }
 
+/** Whether a `managers` reference lies in an unprefixed statement of its owner (every scenario). */
+function inEveryScenario(ctx: EditContext, r: ReferenceSite): boolean {
+	const owner = r.owner === null ? undefined : ctx.index.resources.get(r.owner);
+	const site = owner?.attrs.find(
+		(a) =>
+			a.keyword === 'managers' &&
+			a.statement.file === r.at.file &&
+			a.statement.from <= r.at.from &&
+			r.at.to <= a.statement.to,
+	);
+	return site !== undefined && site.scenario === null;
+}
+
 /**
- * The managers `id` surely has now (lower bound, module comment): its own ids, and each ancestor's
- * ids from statements read before its child on the path was declared.
+ * The managers `id` surely has now in every scenario (lower bound, module comment): its own ids,
+ * and each ancestor's ids from statements read before its child on the path was declared. Only
+ * unprefixed statements count: `managers` is scenario specific (Project.rb:222), so `s1:managers`
+ * holds in one scenario only. (The upper bound counts prefixed statements as present everywhere.)
  */
 function managersHad(ctx: EditContext, id: string): Set<string> {
 	const out = new Set<string>();
 	const sym = ctx.index.resources.get(id);
 	if (!sym) return out;
 	const refs = ctx.index.references.filter(
-		(r) => r.via === 'managers' && r.kind === 'resource' && r.target !== null,
+		(r) =>
+			r.via === 'managers' && r.kind === 'resource' && r.target !== null && inEveryScenario(ctx, r),
 	);
 	for (const r of refs) if (r.owner === id && r.target !== null) out.add(r.target);
 	for (const step of resourceAncestors(ctx, sym)) {

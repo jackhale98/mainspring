@@ -100,6 +100,24 @@ describe('manager loops', () => {
 		);
 	});
 
+	it('counts a scenario-prefixed managers statement only as possibly there (mgscen2)', () => {
+		// `s1:managers a` gives b manager a in s1 only; moved after `managers a`, b gets it in s2,
+		// where a has manager b: a loop (native `stack level too deep`).
+		const plan =
+			'project p "P" 2026-01-05 - 2026-03-27 {\n  now 2026-02-02\n' +
+			'  scenario plan "Plan" {\n    scenario s1 "S1"\n    scenario s2 "S2"\n  }\n}\n' +
+			'resource g "G" {\n  s1:managers a\n  resource b "B"\n  managers a\n  resource c "C"\n}\n' +
+			'resource a "A" { s2:managers b }\ntask t "T" { effort 3d allocate c }\n';
+		expect(status(run(plan, { type: 'moveResource', resource: 'b', parent: 'g', index: 1 }))).toBe(
+			'refused:cycle',
+		);
+		// A prefixed statement still counts in the graph after the edit (the upper bound).
+		const after = plan.replace('  managers a\n  resource c', '  resource c');
+		expect(
+			status(run(after, { type: 'setResourceAttr', resource: 'b', attr: 'managers', value: 'a' })),
+		).toBe('refused:cycle');
+	});
+
 	it('names the loop members', () => {
 		const plan = H + 'resource a "A" { managers b }\nresource b "B"\n';
 		const s = setup(plan);
