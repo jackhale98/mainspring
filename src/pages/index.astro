@@ -1,6 +1,7 @@
 ---
 // SPDX-License-Identifier: GPL-2.0-or-later
 import Base from '../layouts/Base.astro';
+import { sitePath } from '../lib/site-path';
 import { strings } from '../lib/strings';
 ---
 
@@ -9,7 +10,7 @@ import { strings } from '../lib/strings';
 		<h1>{strings.appName}</h1>
 		<p>{strings.tagline}</p>
 		<p>
-			<a href="/app">{strings.home.openApp}</a>
+			<a href={sitePath('app')}>{strings.home.openApp}</a>
 		</p>
 	</main>
 </Base>
