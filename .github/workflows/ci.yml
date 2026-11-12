@@ -64,6 +64,13 @@ jobs:
       - run: npx vitest run src/lib/workspace/schedule-runner.engine.test.ts
         env:
           SCHEDULE_RUNNER_ENGINE: '1'
+      # Task attribute edits must still schedule on this engine (phase-1 spec 9.3 P4).
+      # TJP_EDIT_ENGINE=1 makes the test fail, not skip, if public/engine is missing; FC_SEED fixes
+      # the fast-check seed so a failure replays.
+      - run: npx vitest run src/lib/tjp/edit/task-attrs.engine.test.ts
+        env:
+          TJP_EDIT_ENGINE: '1'
+          FC_SEED: '20261112'
       # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
       # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
       # engine build hash alone (bridge-only changes) prints a note and passes.
