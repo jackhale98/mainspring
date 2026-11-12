@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The dependency and allocation intents on golden plans, scheduled by the wasm engine booted in
 // Node (engine/golden/run-wasm.mjs; phase-1.md 9.3 P4). For random intents (fast-check, fixed
-// seed) on every golden plan that schedules (the two slowest are left to the nightly fidelity
+// seed) on every golden plan that schedules (the slowest three, see SLOW, are left to the nightly fidelity
 // job), each edit must keep `ok`, add no new error or fatal message ids, and have its effect:
 // - addDepends: the successor starts no earlier than the predecessor ends;
 // - setDependsGap: the gap is honoured on every item of the link (calendar minutes for
@@ -36,7 +36,7 @@ import type { EditIntent, EditResult } from './types';
 
 const ENGINE = path.join(ROOT, 'public/engine/manifest.json');
 const REQUIRED = process.env['EDIT_ENGINE'] === '1';
-const SLOW = new Set(['upstream-fedora-20', 'syn-20-scale-1000']);
+const SLOW = new Set(['upstream-fedora-20', 'syn-20-scale-1000', 'gantt-500']);
 /** Edits scheduled per intent type (each must reach it), and forced cycles checked. */
 const CASES = Number(process.env['LINK_ENGINE_RUNS'] ?? 20);
 /**
