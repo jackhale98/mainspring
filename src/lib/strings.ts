@@ -74,6 +74,9 @@ export const editorStrings = {
 		/** A diagnostic from a run made before the latest edits. */
 		staleMessage: (message: string) =>
 			`${message} (From the last run. The text has changed since.)`,
+		/** Spoken when the cursor lands on a marked problem: "Error: Task 'zz' is unknown." */
+		announce: (severity: string, message: string) =>
+			`${severity === 'error' ? 'Error' : severity === 'warning' ? 'Warning' : 'Note'}: ${message}`,
 	},
 	hover: {
 		task: 'Task',

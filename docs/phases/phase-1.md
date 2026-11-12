@@ -923,6 +923,16 @@ them.
       after `allocate`, `responsible` and `managers`, from the index; Text mode keeps the default
       `ids: true`. Hovering an id (a declaration header, a reference, a `supplement` target or a
       macro name) shows its declaration's file, line and header; an undeclared reference says so.
+    - **Pushing diagnostics (T21).** `setEngineDiagnostics` and `setLocalDiagnostics` skip a push
+      that would draw what the channel draws already (ranges as mapped through edits, `stale`
+      compared, `revision` ignored), and wait while CodeMirror holds an Android Enter or Backspace
+      (`view.observer.delayedAndroidKey`, a private field; false if absent): on Android Chrome
+      with EditContext, a transaction before the next animation frame drops the held key. A
+      waiting push keeps the newest list per channel, runs the caller's `before` (the controller's
+      `sync`) and is made against the then-current state; after about 500 ms it goes in anyway.
+      The stale redraw waits the same way. CodeMirror's own dispatches (the completion timer, hover
+      tooltips) are not covered. A live region inside the editor says the problems under the
+      cursor (`cm-tjp-announce`), keyed on their ranges and messages.
     - **Keys.** Format: Shift-Alt-F on Windows and Linux (6.7); on macOS Cmd-Option-Shift-F,
       because Option-Shift-F types "Ï" there. Documentation at the cursor (the hover content, or
       the docs of the statement's keyword, for keyboard users): Mod-K Mod-I, Escape closes. Enter
@@ -954,7 +964,11 @@ them.
     checks (the checks mapped through the edits, marked stale) until one idle task
     (`requestIdleCallback`, timeout 100 ms; `setTimeout` 50 ms where there is none; injectable
     through `timers`) derives them for every keystroke before it; until then `indexVersion` is
-    behind `version`. Format and intent edits, results and the start derive everything at once.
+    behind `version`. The idle task is requested after a 150 ms pause in typing
+    (`TYPING_PAUSE_MS`; T21: run after every keystroke it put 15 to 40 ms tasks between keys on
+    `scale-1000`) and at the latest 1 s after the first keystroke of a burst that never pauses
+    (`MAX_TYPING_WAIT_MS`), so the outline, value checks and id completion lag by at most about
+    1.1 s; in a continuous burst the task can still land between two keystrokes, once a second. Format and intent edits, results and the start derive everything at once.
     A result reuses an index whose version and hints are unchanged, and builds the sent
     snapshot's index for message refinement only when the result has messages and no index of
     that version with those hints exists. An exception while deriving keeps the previous view and
