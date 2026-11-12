@@ -1272,7 +1272,16 @@ them.
       dependencies are. Checked for new and moved leaves, an old parent left without children
       (move and delete), and the leaves below a task that loses a dependency to a delete. The
       same predicate refuses `setAttr milestone=false` and `removeAttr` of the last size (T11a),
-      and new allocations of an implicit milestone (T11c `milestoneLost`).
+      and new allocations of an implicit milestone (T11c `milestoneLost`). Both predicates live in
+      `edit/dep-anchors.ts`. `conflicting-attribute` also for a task the edit leaves unanchored
+      (`isUnanchored`, native `not_scheduled`, checked in tj3): an ASAP task (direction as T11a
+      models it: positional, inherited at creation) whose start a `precedes` targets (not
+      `{ onend }`) needs its own `start` or a `depends` (own or inherited; a parent's `start` and
+      `scheduling asap` do not help); an ALAP task whose end a `depends` targets (not
+      `{ onstart }`) needs its own `end` or a `precedes`. Leaves and containers, all scenarios. Refused when introduced by
+      `removeAttr`/`setAttr` of a timing attribute (T11a), `addDepends`/`removeDepends` (T11c,
+      both subtrees checked) and the task tree intents (moved and added tasks, old parents and
+      the subtrees of dependency owners on delete).
       `needs-schedule` when the destination parent has a child whose id only the engine knows (a
       macro or automatic id without hints), since a new id could collide with it. `id-collision`
       also for an unresolved declaration with the same id there. `unfixable-reference` also for

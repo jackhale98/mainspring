@@ -32,14 +32,8 @@ import { compareParseOrder } from '../../workspace/include-order';
 import type { AllocationSite, AttrSite, ResourceId, SourceRange, TaskSymbol } from '../index';
 import { isId } from '../values';
 import type { IntentHandlers } from './apply';
-import {
-	dependentsOf,
-	isMilestone,
-	isUnderspecified,
-	stateReader,
-	taskState,
-	topScenario,
-} from './dep-graph';
+import { dependentsOf, isUnderspecified } from './dep-anchors';
+import { isMilestone, stateReader, taskState, topScenario } from './dep-graph';
 import { rangeKey, unprefixed } from './deps-links';
 import { replaceSpan } from './layout';
 import { appendOrInsert, checkBodyMacros, itemSpans, removeItems } from './lists';

@@ -44,7 +44,8 @@ import type { AttrSite, SourceRange, TaskSymbol } from '../index';
 import { statementHead } from '../tree';
 import { printValue, type TypedValue } from '../values';
 import type { IntentHandler } from './apply';
-import { dependentsOf, isUnderspecified, taskState } from './dep-graph';
+import { dependentsOf, isUnderspecified } from './dep-anchors';
+import { taskState } from './dep-graph';
 import {
 	insertStatement,
 	removeStatements,
