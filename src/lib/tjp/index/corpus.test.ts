@@ -186,6 +186,7 @@ describe.each(CASES)('$id', ({ golden, seed }) => {
 		for (const a of withHints.allocations) {
 			if (a.textOnly?.reason === 'macro-call') continue;
 			expect(a.resource, `allocate ${a.written}`).not.toBeNull();
+			expect(a.declaredBefore, `allocate ${a.written} after its resource`).toBe(true);
 		}
 	});
 });

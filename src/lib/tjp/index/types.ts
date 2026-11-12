@@ -103,6 +103,12 @@ export interface DependencySite {
 export interface AllocationSite {
 	task: TaskId | null;
 	resource: ResourceId | null;
+	/**
+	 * The resource is declared before the allocation in reading order. TaskJuggler rejects an
+	 * allocation of a resource declared later (rule_allocationHeader), so edits must not rely on
+	 * one where this is false.
+	 */
+	declaredBefore: boolean;
 	written: string;
 	item: SourceRange;
 	ref: SourceRange;

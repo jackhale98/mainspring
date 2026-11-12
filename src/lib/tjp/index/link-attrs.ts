@@ -5,7 +5,7 @@
  * attribute uses. References wait for the end of the walk (link-finish.ts), so that they also
  * reach declarations only expansion makes (X5). `allocate` looks the resource up with
  * `resourceprefix` applied (rule_allocationHeader, TjpSyntaxRules.rb:372, 4784); TaskJuggler
- * needs it declared before the allocation, which the index does not check.
+ * needs it declared before the allocation, which `AllocationSite.declaredBefore` records.
  */
 import type { AttrFact, ListItemFact } from './facts';
 import type { LinkState, Scope } from './link-state';
@@ -55,13 +55,21 @@ export function declAttr(
 		case 'allocate':
 			if (owner.kind !== 'task') return;
 			for (const item of fact.items) {
-				s.pendingResourceRefs.push({ item, lookup: lookup(item), owner, via: kw, x4, attr: site });
+				s.pendingResourceRefs.push({
+					item,
+					lookup: lookup(item),
+					owner,
+					via: kw,
+					x4,
+					attr: site,
+					seq: s.seq,
+				});
 			}
 			return;
 		case 'responsible':
 		case 'managers':
 			for (const item of fact.items)
-				s.pendingResourceRefs.push({ item, lookup: lookup(item), owner, via: kw, x4 });
+				s.pendingResourceRefs.push({ item, lookup: lookup(item), owner, via: kw, x4, seq: s.seq });
 			return;
 		case 'flags':
 			for (const it of fact.items) {
