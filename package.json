@@ -27,7 +27,8 @@
 		"build:grammar": "node scripts/build-grammar.mjs",
 		"gen:keywords": "node scripts/gen-tjp-keywords.mjs",
 		"test:roundtrip": "vitest run tests/roundtrip tests/index",
-		"test:fidelity": "vitest run --config vitest.fidelity.config.ts"
+		"test:fidelity": "vitest run --config vitest.fidelity.config.ts",
+		"test:fast-path": "vitest run tests/engine/fast-path.adversarial.test.ts tests/engine/fast-path.guards.test.ts tests/engine/fast-path.equivalence.test.ts"
 	},
 	"dependencies": {
 		"@astrojs/svelte": "^9.1.0",

@@ -126,6 +126,48 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  fast-path-nightly:
+    name: Fast path equivalence (500 generated plans)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 90
+    env:
+      # ADR-0010, section CI: the per-push run's suites at nightly size. The seed changes every
+      # night, so the run explores new plans; FAST_PATH_SEED=<run number> replays one.
+      FAST_PATH: '1'
+      FAST_PATH_RUNS: '500'
+      FAST_PATH_DIRECTION_RUNS: '200'
+      FAST_PATH_CORPUS_EDITS: '6'
+      FAST_PATH_SEED: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:engine
+      - run: npm run test:fast-path
+      - name: Add the report to the step summary
+        if: always()
+        run: |
+          if [ -f test-results/fast-path-equivalence.json ]; then
+            {
+              echo "## Fast path equivalence (seed $FAST_PATH_SEED)"
+              echo
+              echo '```json'
+              cat test-results/fast-path-equivalence.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fast-path-equivalence
+          path: test-results/fast-path-equivalence.json
+          if-no-files-found: warn
+          retention-days: 30
+
   golden-cross-browser:
     name: Golden plans (${{ matrix.browser }})
     runs-on: ubuntu-latest
