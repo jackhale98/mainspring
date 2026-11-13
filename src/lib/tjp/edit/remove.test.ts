@@ -64,6 +64,42 @@ describe('removeStatement', () => {
 	});
 });
 
+describe('removeStatement of a whole block (one blank-line separation goes with it)', () => {
+	const cut = (text: string, needle: string): string =>
+		run(text, (s) => removeStatement(s.file(), stmt(s.file(), needle), { block: true }));
+	const a = 'task a "A" {\n  effort 1d\n}\n';
+	const b = 'task b "B" {\n  effort 1d\n}\n';
+	const c = 'task c "C" {\n  effort 1d\n}\n';
+
+	it('between blank lines: one blank line stays', () => {
+		expect(cut(HEAD + `${a}\n${b}\n${c}`, 'task b')).toBe(HEAD + `${a}\n${c}`);
+	});
+
+	it('last before the end of the file or a closing brace: the blank line before goes', () => {
+		expect(cut(HEAD + `${a}\n${b}`, 'task b')).toBe(HEAD + a);
+		const nested = HEAD + 'task p "P" {\n  task a "A" {}\n\n  task b "B" {}\n}\n';
+		expect(cut(nested, 'task b')).toBe(HEAD + 'task p "P" {\n  task a "A" {}\n}\n');
+	});
+
+	it('first in a body: the blank line after goes', () => {
+		const nested = HEAD + 'task p "P" {\n  task a "A" {}\n\n  task b "B" {}\n}\n';
+		expect(cut(nested, 'task a')).toBe(HEAD + 'task p "P" {\n  task b "B" {}\n}\n');
+	});
+
+	it('without blank lines around it, as a statement; CRLF kept', () => {
+		expect(cut(HEAD + a + b + c, 'task b')).toBe(HEAD + a + c);
+		const crlf = (HEAD + `${a}\n${b}\n${c}`).replace(/\n/g, '\r\n');
+		expect(cut(crlf, 'task b')).toBe((HEAD + `${a}\n${c}`).replace(/\n/g, '\r\n'));
+	});
+
+	it('an attribute removal never takes a blank line', () => {
+		const p = HEAD + 'task a "A" {\n  effort 1d\n\n  start 2026-01-05\n\n  priority 300\n}\n';
+		expect(run(p, (s) => removeStatement(s.file(), stmt(s.file(), 'start')))).toBe(
+			HEAD + 'task a "A" {\n  effort 1d\n\n\n  priority 300\n}\n',
+		);
+	});
+});
+
 describe('removeStatements', () => {
 	const p = HEAD + 'task a "A" { effort 5d start 2026-01-05 priority 3 }\n';
 	const many = (text: string, needles: string[]): string =>

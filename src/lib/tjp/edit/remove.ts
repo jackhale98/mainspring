@@ -6,6 +6,10 @@
  * - `removeStatement`: the statement's lines go when nothing else is on them; a trailing comment
  *   stays (with the indentation); on a shared line only the statement and the blanks on one side
  *   go. Leading comment lines (`DeclSite.leadingComments`) can go with it. Never adds blank lines.
+ *   A whole block (`block`: a task or resource cut by delete or move) also takes one blank-line
+ *   separation with it, so one blank line stays where blank lines stood on both sides: the blank
+ *   line after it when the lines on both sides are blank, or after an opening `{`; the blank line
+ *   before it when nothing follows at its level (a closing `}`, or the end of the file).
  * - `removeStatements`: several statements at once. Statements separated only by blanks on one
  *   line are removed as one run, so their ops never overlap (`{ effort 5d start x }` loses both).
  * - `removeListItems`: several items of one list. Each run of removed items takes the separator
@@ -29,6 +33,32 @@ import type { EditOp, Span } from './types';
 export interface RemoveOptions {
 	/** Comment lines attached above the statement (`DeclSite.leadingComments`), removed with it. */
 	readonly leading?: Span | null;
+	/** A task or resource block: it takes one blank-line separation with it (module comment). */
+	readonly block?: boolean;
+}
+
+/** The line holding `pos` without its break. */
+const lineAt = (text: string, pos: number): string =>
+	text.slice(lineStart(text, pos), lineEnd(text, pos));
+
+/** Widens a whole-line removal [from, to) over one blank-line separation (module comment). */
+function withSeparation(text: string, from: number, to: number): [number, number] {
+	// Step back over the whole break before `from` (`\r\n` is one).
+	const back = text[from - 1] === '\n' && text[from - 2] === '\r' ? 2 : 1;
+	const prevStart = from > 0 ? lineStart(text, from - back) : -1;
+	const prev = prevStart < 0 ? null : lineAt(text, prevStart);
+	const next = to < text.length ? lineAt(text, to) : null;
+	const prevBlank = prev !== null && isBlank(prev);
+	const nextBlank = next !== null && isBlank(next);
+	const pastNext = (): number => {
+		const le = lineEnd(text, to);
+		return le + breakLength(text, le);
+	};
+	if (nextBlank && (prevBlank || (prev !== null && prev.trimEnd().endsWith('{')))) {
+		return [from, pastNext()];
+	}
+	if (prevBlank && (next === null || next.trimStart().startsWith('}'))) return [prevStart, to];
+	return [from, to];
 }
 
 /** Removes a statement with its line (module comment). */
@@ -54,12 +84,14 @@ export function removeStatement(file: TjpFile, stmt: Span, opts: RemoveOptions =
 	}
 	if (next < text.length && !isBreak(text[next])) return op(start, next);
 	const le = lineEnd(text, stmt.to);
-	return op(ls, le + breakLength(text, le));
+	const end = le + breakLength(text, le);
+	return opts.block ? op(...withSeparation(text, ls, end)) : op(ls, end);
 }
 
 export interface Removal {
 	readonly stmt: Span;
 	readonly leading?: Span | null;
+	readonly block?: boolean;
 }
 
 /** Removes several statements of one file (module comment); ops in document order. */
@@ -74,10 +106,13 @@ export function removeStatements(file: TjpFile, list: readonly Removal[]): EditO
 			runs[runs.length - 1] = {
 				stmt: { from: last.stmt.from, to: r.stmt.to },
 				leading: last.leading ?? null,
+				block: !!(last.block || r.block),
 			};
 		} else runs.push(r);
 	}
-	return runs.map((r) => removeStatement(file, r.stmt, { leading: r.leading ?? null }));
+	return runs.map((r) =>
+		removeStatement(file, r.stmt, { leading: r.leading ?? null, block: !!r.block }),
+	);
 }
 
 /** Removes the items at `indices` of one list (module comment), or null when none would be left. */
