@@ -67,9 +67,7 @@ test('the app boots, schedules a sample and requests nothing outside the base pa
 	await expect(strip).toContainText('Scheduled', { timeout: READY_TIMEOUT_MS });
 	await expect(strip.locator('time')).toContainText('2002', { timeout: READY_TIMEOUT_MS });
 	await expect(
-		page
-			.getByRole('tree', { name: 'Tasks' })
-			.getByRole('treeitem', { name: /Accounting Software/ }),
+		page.getByRole('treegrid', { name: 'Tasks' }).getByRole('row', { name: /Accounting Software/ }),
 	).toBeVisible();
 	await page.evaluate(() => document.fonts.ready.then(() => undefined));
 

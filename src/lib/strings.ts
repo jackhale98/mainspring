@@ -437,9 +437,6 @@ export const strings = {
 		},
 		/** The effort or length cell: the value and which attribute it is, e.g. "5d effort". */
 		sizing: (value: string, attr: string) => `${value} ${attr}`,
-		/** Said when a row is expanded or collapsed from the keyboard. */
-		expanded: (name: string, n: number) => `${name} expanded, ${plural(n, 'task', 'tasks')}`,
-		collapsed: (name: string) => `${name} collapsed`,
 		expandTask: 'Expand',
 		collapseTask: 'Collapse',
 	},

@@ -20,7 +20,7 @@ async function open(page: Page, query = ''): Promise<void> {
 	await expect(page.getByTestId('gantt')).toBeVisible();
 }
 
-const rows = (page: Page) => page.getByTestId('gantt').getByRole('treeitem');
+const rows = (page: Page) => page.getByTestId('gantt').locator('[role="row"][data-key]');
 
 /** Whether the overlay canvas holds painted pixels (the bars canvas sits under it). */
 async function barsPainted(page: Page): Promise<boolean> {
@@ -40,7 +40,7 @@ test.describe('gantt', () => {
 
 	test('draws the schedule, with the tasks listed beside it', async ({ page }, info) => {
 		await open(page);
-		const labelled = page.getByTestId('gantt').getByRole('tree', { name: 'Tasks' });
+		const labelled = page.getByTestId('gantt').getByRole('treegrid', { name: 'Tasks' });
 		await expect(labelled).toBeVisible();
 		await expect(rows(page).first()).toBeVisible();
 		await expect.poll(() => barsPainted(page)).toBe(true);

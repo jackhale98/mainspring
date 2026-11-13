@@ -34,7 +34,7 @@ async function open(page: Page, sample: string, mode?: string): Promise<void> {
 	await expect(page.getByTestId('gantt')).toBeVisible();
 }
 
-const rows = (page: Page) => page.getByTestId('gantt').getByRole('treeitem');
+const rows = (page: Page) => page.getByTestId('gantt').locator('[role="row"][data-key]');
 const chip = (page: Page) => page.getByRole('button', { name: 'Critical path' });
 
 /** The analysis measures recorded so far: [tasks, duration ms]. */
