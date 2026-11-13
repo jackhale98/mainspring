@@ -65,10 +65,16 @@
 		zoomForKey,
 		type ZoomLevel,
 	} from '../../lib/gantt/scale';
-	import { defaultTableRatio, tableWidth } from '../../lib/gantt/table';
+	import {
+		defaultTableRatio,
+		leastTableWidth,
+		tableLimits,
+		tableWidth,
+	} from '../../lib/gantt/table';
 	import { ticksFor } from '../../lib/gantt/ticks';
 	import { memoZones } from '../../lib/gantt/zones';
 	import type { AppState } from '../../lib/state/app.svelte';
+	import { clampRatio } from '../../lib/state/split';
 	import { strings } from '../../lib/strings';
 	import { ctrlWheel } from './ctrl-wheel';
 	import { ZoomPreview } from './zoom-preview';
@@ -144,17 +150,40 @@
 	// The columns drawn and their natural width together; the divider decides how much of it shows.
 	const columnsShown = $derived(shownColumns(phone));
 	const naturalW = $derived(nameColW + extrasRem(columnsShown) * remPx);
+	const tableSpace = $derived({
+		ganttPx: scrollerW,
+		dividerPx: dividerW,
+		leastPx: leastTableWidth(nameColW, remPx),
+	});
+	/** What the divider can reach: the pane is never narrower than the name and the widest column. */
+	const limits = $derived(tableLimits(tableSpace));
 	const defaultRatio = $derived(
 		defaultTableRatio(scrollerW, nameColW + extrasRem(DEFAULT_COLUMNS) * remPx, dividerW),
 	);
-	const ratio = $derived(tableRatio ?? defaultRatio);
+	const ratio = $derived(clampRatio(tableRatio ?? defaultRatio, limits));
 	/** The table pane's width, and where the chart starts (past the divider). */
-	const tableW = $derived(
-		phone
-			? nameColW
-			: tableWidth({ ratio, ganttPx: scrollerW, dividerPx: dividerW, nameColPx: nameColW }),
-	);
+	const tableW = $derived(phone ? nameColW : tableWidth({ ...tableSpace, ratio }));
 	const chartLeft = $derived(tableW + (phone ? 0 : dividerW));
+
+	// The divider is dragged at the pointer's rate: one update per frame is all that is drawn.
+	let tableNext: number | null = null;
+	let tableFrame = 0;
+	function flushTable(): void {
+		tableFrame = 0;
+		if (tableNext === null) return;
+		const next = tableNext;
+		tableNext = null;
+		ontable?.(next);
+	}
+	function moveTable(next: number): void {
+		tableNext = next;
+		if (tableFrame === 0) tableFrame = requestAnimationFrame(flushTable);
+	}
+	function commitTable(): void {
+		if (tableFrame !== 0) cancelAnimationFrame(tableFrame);
+		flushTable();
+		ontablecommit?.();
+	}
 
 	// What a reschedule moved, for the treegrid's live region (announce.ts forgets the last result
 	// when there is none, so a new plan is not compared with the old one).
@@ -172,16 +201,24 @@
 	const scale = $derived(scaleFor(model, pxPerDay, metrics));
 	const viewW = $derived(Math.max(0, scrollerW - chartLeft));
 	const viewH = $derived(Math.max(0, scrollerH - metrics.headerHeight));
-	// The layout reserves where the names are (labels.ts) with a scratch canvas set in the theme's fonts.
+	// The layout reserves where the names are (labels.ts) with a scratch canvas set in the theme's
+	// fonts. It does not depend on the width of the view, so that dragging the divider never builds
+	// it again: the content is at least as wide as the view where that is applied (`contentW`).
 	const measure = $derived(measureFor(env.theme));
-	const layout = $derived(createLayout(model, scale, metrics, viewW, measure));
+	const layout = $derived(createLayout(model, scale, metrics, 0, measure));
+	const contentW = $derived(Math.max(viewW, layout.width));
+	// The canvases are painted for the widest the chart can be (the pane at its least), so that
+	// dragging the divider moves the table over and off a painted chart and repaints nothing.
+	const paintViewW = $derived(
+		phone ? viewW : Math.max(viewW, scrollerW - tableWidth({ ...tableSpace, ratio: 0 }) - dividerW),
+	);
 
 	let paintWin = $state.raw<PaintWindow>({ x: 0, y: 0, w: 0, h: 0 });
 	$effect(() => {
 		const prev = untrack(() => paintWin);
 		const next = paintWindow(
-			{ x: scrollLeft, y: scrollTop, w: viewW, h: viewH },
-			{ w: layout.width, h: layout.height },
+			{ x: scrollLeft, y: scrollTop, w: paintViewW, h: viewH },
+			{ w: contentW, h: layout.height },
 			{ overscanX: OVERSCAN_X, overscanY: OVERSCAN_ROWS * metrics.rowHeight },
 			prev,
 		);
@@ -292,6 +329,7 @@
 		const stop = root ? env.attach(root) : () => undefined;
 		return () => {
 			stop();
+			if (tableFrame !== 0) cancelAnimationFrame(tableFrame);
 			zoomPreview.dispose();
 		};
 	});
@@ -305,7 +343,6 @@
 	aria-label={strings.gantt.region}
 	data-testid="gantt"
 	data-zoom={nearestLevel(pxPerDay)}
-	style:--gantt-names="{chartLeft}px"
 	style:--gantt-pill-h={pillH > 0 ? `${pillH}px` : undefined}
 	{onkeydown}
 >
@@ -342,10 +379,10 @@
 			<div
 				class="space"
 				bind:this={space}
-				style:grid-template-columns="{tableW}px {phone ? 0 : dividerW}px {layout.width}px"
+				style:grid-template-columns="{tableW}px {phone ? 0 : dividerW}px {contentW}px"
 				style:grid-template-rows="{metrics.headerHeight}px {layout.height}px"
 			>
-				<div class="head">
+				<div class="head" style:--gantt-names="{chartLeft}px">
 					<TimeHeader
 						{model}
 						{layout}
@@ -385,15 +422,16 @@
 								axis="col"
 								value={ratio}
 								container={scroller}
-								onchange={(v) => ontable?.(v)}
-								oncommit={() => ontablecommit?.()}
+								onchange={moveTable}
+								oncommit={commitTable}
+								{limits}
 								label={strings.panels.tableDivider}
 								firstName={strings.panels.dividerTable}
 							/>
 						</div>
 					</div>
 				{/if}
-				<div class="plot">
+				<div class="plot" style:--gantt-names="{chartLeft}px">
 					<Timeline
 						{model}
 						{layout}
@@ -404,6 +442,7 @@
 						{selectedRow}
 						todayMin={today}
 						{viewW}
+						{contentW}
 						onselect={selectRow}
 						onhover={(r) => (hoverRow = r)}
 					/>

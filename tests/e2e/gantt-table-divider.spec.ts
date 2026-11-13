@@ -203,6 +203,83 @@ test.describe('the table divider', () => {
 		expect(back?.x ?? 0).toBeGreaterThanOrEqual((name?.x ?? 0) + (name?.width ?? 0) - 1);
 	});
 
+	test('at the divider minimum every cell is still fully visible beside the name when focused', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		await divider(page).focus();
+		await page.keyboard.press('Home');
+		// The separator says what its limits really are: the name and the widest column fit.
+		const min = Number(await divider(page).getAttribute('aria-valuemin'));
+		expect(await valueOf(page)).toBe(min);
+		expect(min).toBeGreaterThan(20);
+		const firstRow = page.locator('[role="row"][data-key]').first();
+		await page.locator('[tabindex="0"][data-key]').first().focus();
+		const cols = ['name', 'start', 'end', 'effort', 'people', 'float', 'critical', 'status'];
+		for (const col of cols) {
+			await page.keyboard.press('ArrowRight');
+			const cell = firstRow.locator(`[data-col="${col}"]`);
+			await expect(cell).toBeFocused();
+			const [c, pane, name] = await Promise.all([
+				cell.boundingBox(),
+				names(page).boundingBox(),
+				firstRow.locator('[data-col="name"]').boundingBox(),
+			]);
+			const right = (pane?.x ?? 0) + (pane?.width ?? 0);
+			expect((c?.x ?? 0) + (c?.width ?? 0), `${col} within the pane`).toBeLessThanOrEqual(
+				right + 1,
+			);
+			if (col !== 'name') {
+				expect(c?.x ?? 0, `${col} clear of the name`).toBeGreaterThanOrEqual(
+					(name?.x ?? 0) + (name?.width ?? 0) - 1,
+				);
+			}
+		}
+	});
+
+	test('the pane scrollbar leaves the last row clear, and a drag of the divider stays smooth', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page, 'gantt-500');
+		const scroller = page.getByTestId('gantt').locator('.scroller');
+		await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
+		await page.waitForTimeout(400);
+		const [bar, last] = await Promise.all([
+			page.getByTestId('gantt-table-scrollbar').boundingBox(),
+			page.locator('[role="row"][data-key]').last().boundingBox(),
+		]);
+		expect(bar).not.toBeNull();
+		expect((last?.y ?? 0) + (last?.height ?? 0)).toBeLessThanOrEqual((bar?.y ?? 0) + 1);
+
+		// A drag of the divider across the plan: one frame's work per step, no long task over 100 ms.
+		await scroller.evaluate((el) => (el.scrollTop = 0));
+		await page.evaluate(() => {
+			const w = window as unknown as { __long: number[] };
+			w.__long = [];
+			new PerformanceObserver((l) => {
+				for (const e of l.getEntries()) w.__long.push(e.duration);
+			}).observe({ type: 'longtask' });
+		});
+		const handle = await divider(page).boundingBox();
+		if (!handle) throw new Error('no divider');
+		const y = handle.y + handle.height / 2;
+		let x = handle.x + handle.width / 2;
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		for (let i = 0; i < 40; i++) {
+			x += i < 20 ? -8 : 8;
+			await page.mouse.move(x, y);
+			await page.evaluate(
+				() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+			);
+		}
+		await page.mouse.up();
+		const long = await page.evaluate(() => (window as unknown as { __long: number[] }).__long);
+		expect(long.filter((d) => d >= 100)).toEqual([]);
+	});
+
 	test('rows stay level with the bars through fast vertical scrolling', async ({ page }, info) => {
 		test.skip(info.project.name !== 'desktop');
 		await open(page, 'gantt-500');

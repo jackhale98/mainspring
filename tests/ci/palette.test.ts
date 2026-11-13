@@ -165,8 +165,11 @@ const DISTINCT: ReadonlyArray<readonly [string, string, string]> = [
 
 /**
  * The critical bar's edge must show on its own fill, at both ends of the gradient, for normal
- * vision and for protan and deutan viewers: [edge token, fill token].
+ * vision and for protan and deutan viewers: [edge token, fill token]. And on the done part of the
+ * bar, where the progress tint lightens the fill: a little less is asked there.
  */
+const EDGE_MIN = 3.25;
+const EDGE_ON_DONE_MIN = 2.5;
 const EDGES: ReadonlyArray<readonly [string, string]> = [
 	['color-gantt-critical-edge', 'color-gantt-critical-top'],
 	['color-gantt-critical-edge', 'color-gantt-critical-bottom'],
@@ -202,9 +205,24 @@ describe.each([
 			expect(
 				ratio(x, y),
 				m === PROTAN ? 'protan' : m === DEUTAN ? 'deutan' : 'normal',
-			).toBeGreaterThanOrEqual(2.5);
+			).toBeGreaterThanOrEqual(EDGE_MIN);
 		}
 	});
+
+	it.each(EDGES)(
+		'%s shows on the done part of %s, tinted by the progress overlay',
+		(edge, fill) => {
+			const done = colour(t, 'color-gantt-critical-progress', colour(t, fill));
+			for (const m of [null, PROTAN, DEUTAN] as const) {
+				const a = colour(t, edge);
+				const [x, y] = m ? [simulate(a, m), simulate(done, m)] : [a, done];
+				expect(
+					ratio(x, y),
+					m === PROTAN ? 'protan' : m === DEUTAN ? 'deutan' : 'normal',
+				).toBeGreaterThanOrEqual(EDGE_ON_DONE_MIN);
+			}
+		},
+	);
 
 	it('keeps the stale label readable on the glass chip too', () => {
 		const chip = glassOverSurface('color-gantt-chip');

@@ -8,7 +8,7 @@
  * - `paintWindow` (paint-window.ts, re-exported here) decides which part of the content the
  *   canvases hold.
  */
-import { LABEL_STRIDE, labelRunInto, type LabelRun, type TextMeasure } from './labels';
+import { LABEL_STRIDE, labelRunInto, sideFont, type LabelRun, type TextMeasure } from './labels';
 import type { GanttLink, GanttModel, GanttRow } from './model';
 import type { Theme } from './paint/theme';
 import {
@@ -184,6 +184,27 @@ export function placeBar(
 	out.h = h;
 }
 
+/**
+ * The widths of every row's name, in the bar's font and beside it, kept per model and measure: a
+ * layout that is built again for the same rows and fonts (a zoom step, a move of the window) reads
+ * them back and measures no text.
+ */
+const widthMemo = new WeakMap<GanttModel, WeakMap<TextMeasure, Float64Array>>();
+
+function nameWidths(model: GanttModel, measure: TextMeasure): Float64Array {
+	let byMeasure = widthMemo.get(model);
+	if (!byMeasure) widthMemo.set(model, (byMeasure = new WeakMap()));
+	let out = byMeasure.get(measure);
+	if (out) return out;
+	out = new Float64Array(2 * model.rows.length);
+	model.rows.forEach((r, i) => {
+		out[2 * i] = measure.width('bar', r.name);
+		out[2 * i + 1] = measure.width(sideFont(r), r.name);
+	});
+	byMeasure.set(measure, out);
+	return out;
+}
+
 /** `viewWidth` keeps the content at least as wide as the viewport. */
 export function createLayout(
 	model: GanttModel,
@@ -211,11 +232,18 @@ export function createLayout(
 	const labels = new Float64Array(measure ? LABEL_STRIDE * rows.length : 0).fill(NaN);
 	if (measure) {
 		const run: LabelRun = { x0: 0, x1: 0, inside: false };
+		const widths = nameWidths(model, measure);
+		let at = 0;
+		// Reads the remembered width of the row being placed instead of measuring it again.
+		const remembered: TextMeasure = {
+			width: (font) => widths[2 * at + (font === 'bar' ? 0 : 1)] ?? 0,
+		};
 		for (let i = 0; i < rows.length; i++) {
+			at = i;
 			const r: GanttRow | undefined = rows[i];
 			const x = bars.x[i];
 			if (!r || x === undefined || Number.isNaN(x)) continue;
-			if (!labelRunInto(run, r, scale, x, bars.w[i] ?? 0, metrics, measure)) continue;
+			if (!labelRunInto(run, r, scale, x, bars.w[i] ?? 0, metrics, remembered)) continue;
 			labels[LABEL_STRIDE * i] = run.x0;
 			labels[LABEL_STRIDE * i + 1] = run.x1;
 			labels[LABEL_STRIDE * i + 2] = run.inside ? 1 : 0;

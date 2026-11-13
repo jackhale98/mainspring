@@ -61,19 +61,22 @@
 		app.dispose();
 	});
 
+	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
+	const planViews = { tasks: newOutlineView(), resources: newOutlineView() };
+
 	// The preferences of the open sample: its mode and its divider.
 	$effect(() => {
 		const id = app.sampleId;
 		if (id === '') return;
 		untrack(() => {
+			// Another plan's outline starts at the top with nothing selected.
+			Object.assign(planViews.tasks, newOutlineView());
+			Object.assign(planViews.resources, newOutlineView());
 			modes.use(id);
 			// A phone starts on the tab of the remembered mode.
 			if (modes.choice !== null) app.phoneTab = phoneTabFor(modes.choice);
 		});
 	});
-
-	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
-	const planViews = { tasks: newOutlineView(), resources: newOutlineView() };
 
 	const kind = $derived(layout.kind);
 	const phone = $derived(kind === 'phone');

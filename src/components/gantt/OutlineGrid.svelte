@@ -129,42 +129,29 @@
 	}
 
 	// The scrollbar of the pane: the Gantt scrolls vertically in one container, so the rows'
-	// own horizontal bar would sit at the foot of the whole plan; this one stays in view.
+	// own horizontal bar would sit at the foot of the whole plan; this one stays in view. Only its
+	// thumb takes the pointer: the strip it sits in is not in the way of the rows beneath it.
 	const MIN_THUMB = 28;
 	const thumbW = $derived(
 		overflow > 0 ? Math.max(MIN_THUMB, (paneW * paneW) / Math.max(naturalWidth, 1)) : 0,
 	);
 	const thumbX = $derived(overflow > 0 ? (scrolled / overflow) * (paneW - thumbW) : 0);
 	let drag: { id: number; from: number; at: number } | null = null;
-	function scrollToThumb(x: number): void {
-		if (!bodyScroll || overflow <= 0) return;
-		const room = Math.max(1, paneW - thumbW);
-		bodyScroll.scrollLeft = Math.max(0, Math.min(overflow, (x / room) * overflow));
-	}
-	function ontrackdown(e: PointerEvent): void {
+	function onthumbdown(e: PointerEvent): void {
 		if (e.button !== 0) return;
-		const track = e.currentTarget as HTMLElement;
-		const x = e.clientX - track.getBoundingClientRect().left;
-		const onThumb = x >= thumbX && x <= thumbX + thumbW;
-		drag = { id: e.pointerId, from: e.clientX, at: onThumb ? scrolled : -1 };
-		track.setPointerCapture(e.pointerId);
-		if (!onThumb) scrollToThumb(x - thumbW / 2);
+		drag = { id: e.pointerId, from: e.clientX, at: scrolled };
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		e.preventDefault();
 	}
-	function ontrackmove(e: PointerEvent): void {
+	function onthumbmove(e: PointerEvent): void {
 		if (!drag || drag.id !== e.pointerId || !bodyScroll) return;
-		if (drag.at < 0) {
-			const x = e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left;
-			scrollToThumb(x - thumbW / 2);
-			return;
-		}
 		const room = Math.max(1, paneW - thumbW);
 		bodyScroll.scrollLeft = Math.max(
 			0,
 			Math.min(overflow, drag.at + ((e.clientX - drag.from) / room) * overflow),
 		);
 	}
-	function ontrackup(): void {
+	function onthumbup(): void {
 		drag = null;
 	}
 
@@ -267,8 +254,8 @@
 		await onreveal(to.row);
 		const sel = `[data-key="${CSS.escape(row.key)}"]`;
 		const el = grid?.querySelector<HTMLElement>(col === null ? sel : `${sel} [data-col="${col}"]`);
+		// Focusing the cell scrolls it into view (`onfocusin`): once, whoever moved the focus.
 		el?.focus({ preventScroll: true });
-		if (el && col !== null) revealCell(el);
 	}
 
 	const indexOf = (key: string): number => model.rowOf.get(key) ?? -1;
@@ -442,6 +429,7 @@
 			{/each}
 		</div>
 	</div>
+	{#if overflow > 0}<div class="hbar-room" aria-hidden="true"></div>{/if}
 	<!--
 		The pane's scrollbar, drawn only when the columns are wider than the pane, and kept at the
 		foot of the view (a zero-height sticky anchor). Pointer only: the cells are reachable by
@@ -449,15 +437,18 @@
 	-->
 	<div class="hbar-anchor" aria-hidden="true">
 		{#if overflow > 0}
-			<div
-				class="hbar"
-				data-testid="gantt-table-scrollbar"
-				onpointerdown={ontrackdown}
-				onpointermove={ontrackmove}
-				onpointerup={ontrackup}
-				onpointercancel={ontrackup}
-			>
-				<div class="thumb" style:width="{thumbW}px" style:transform="translateX({thumbX}px)"></div>
+			<div class="hbar" data-testid="gantt-table-scrollbar">
+				<div
+					class="thumb-hit"
+					style:width="{thumbW}px"
+					style:transform="translateX({thumbX}px)"
+					onpointerdown={onthumbdown}
+					onpointermove={onthumbmove}
+					onpointerup={onthumbup}
+					onpointercancel={onthumbup}
+				>
+					<div class="thumb"></div>
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -467,6 +458,7 @@
 
 <style>
 	.grid {
+		--hbar-h: 12px;
 		position: relative;
 	}
 	.body {
@@ -599,9 +591,18 @@
 		position: absolute;
 		inset-inline: 0;
 		inset-block-end: 0;
-		block-size: 12px;
+		block-size: var(--hbar-h);
+		pointer-events: none;
+	}
+	/* Its height is also reserved below the rows while it shows, so that the last row is clear of it. */
+	.hbar-room {
+		block-size: var(--hbar-h);
+	}
+	.thumb-hit {
+		block-size: 100%;
 		padding-block: 3px;
 		box-sizing: border-box;
+		pointer-events: auto;
 		touch-action: none;
 		cursor: default;
 	}
@@ -611,12 +612,14 @@
 		background: var(--color-gantt-text-faint);
 		opacity: 0.55;
 	}
-	.hbar:hover .thumb {
+	.thumb-hit:hover .thumb {
 		opacity: 0.85;
 	}
 	@media (pointer: coarse) {
-		.hbar {
-			block-size: 16px;
+		.grid {
+			--hbar-h: 16px;
+		}
+		.thumb-hit {
 			padding-block: 5px;
 		}
 	}

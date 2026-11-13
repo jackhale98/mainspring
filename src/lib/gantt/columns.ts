@@ -40,6 +40,9 @@ export const COLUMN_REM: Readonly<Record<Exclude<ColumnId, 'name'>, number>> = {
 	status: 6.25,
 };
 
+/** The widest column but the name, in rem. */
+export const WIDEST_COLUMN_REM = Math.max(...Object.values(COLUMN_REM));
+
 /** The columns the divider's default position shows: the name, the dates and the effort. */
 export const DEFAULT_COLUMNS: readonly ColumnId[] = ['name', 'start', 'end', 'effort'];
 

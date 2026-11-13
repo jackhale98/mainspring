@@ -23,14 +23,26 @@ export const MAX_RATIO = 0.8;
 export const STEP = 0.02;
 export const BIG_STEP = 0.1;
 
-export function clampRatio(value: number): number {
+/** Narrower limits than the default, for a divider whose panel has a real minimum (gantt/table.ts). */
+export interface RatioLimits {
+	readonly min: number;
+	readonly max: number;
+}
+export const DEFAULT_LIMITS: RatioLimits = { min: MIN_RATIO, max: MAX_RATIO };
+
+export function clampRatio(value: number, limits: RatioLimits = DEFAULT_LIMITS): number {
 	if (!Number.isFinite(value)) return DEFAULT_RATIOS.col;
-	return Math.min(MAX_RATIO, Math.max(MIN_RATIO, value));
+	return Math.min(limits.max, Math.max(Math.min(limits.min, limits.max), value));
 }
 
 /** The ratio for a pointer at `pos`, in a container that starts at `origin` and is `size` long. */
-export function ratioFromPointer(pos: number, origin: number, size: number): number {
-	return size > 0 ? clampRatio((pos - origin) / size) : DEFAULT_RATIOS.col;
+export function ratioFromPointer(
+	pos: number,
+	origin: number,
+	size: number,
+	limits: RatioLimits = DEFAULT_LIMITS,
+): number {
+	return size > 0 ? clampRatio((pos - origin) / size, limits) : DEFAULT_RATIOS.col;
 }
 
 /**
@@ -42,14 +54,15 @@ export function stepRatio(
 	key: string,
 	axis: SplitAxis,
 	big: boolean,
+	limits: RatioLimits = DEFAULT_LIMITS,
 ): number | null {
 	const less = axis === 'col' ? 'ArrowLeft' : 'ArrowUp';
 	const more = axis === 'col' ? 'ArrowRight' : 'ArrowDown';
 	const step = big ? BIG_STEP : STEP;
-	if (key === less) return clampRatio(current - step);
-	if (key === more) return clampRatio(current + step);
-	if (key === 'Home') return MIN_RATIO;
-	if (key === 'End') return MAX_RATIO;
+	if (key === less) return clampRatio(current - step, limits);
+	if (key === more) return clampRatio(current + step, limits);
+	if (key === 'Home') return clampRatio(limits.min, limits);
+	if (key === 'End') return clampRatio(limits.max, limits);
 	return null;
 }
 

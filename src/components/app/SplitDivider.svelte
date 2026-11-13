@@ -8,7 +8,13 @@
 	src/lib/state/split.ts; the container is whatever element holds both panels.
 -->
 <script lang="ts">
-	import { ratioFromPointer, stepRatio, type SplitAxis } from '../../lib/state/split';
+	import {
+		DEFAULT_LIMITS,
+		ratioFromPointer,
+		stepRatio,
+		type RatioLimits,
+		type SplitAxis,
+	} from '../../lib/state/split';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 
@@ -24,6 +30,8 @@
 		/** What the separator is called, and the name of the first panel in its value text. */
 		label?: string;
 		firstName?: string;
+		/** Narrower limits than the default (a panel with a real minimum), also what the separator reports. */
+		limits?: RatioLimits;
 	}
 	let {
 		axis,
@@ -33,6 +41,7 @@
 		oncommit,
 		label = strings.panels.divider,
 		firstName,
+		limits = DEFAULT_LIMITS,
 	}: Props = $props();
 
 	let dragging = $state(false);
@@ -44,11 +53,13 @@
 
 	function fromPointer(e: PointerEvent): void {
 		if (!container) return;
+		// The inside of the container, as the panels are laid out in it: a classic scrollbar or a
+		// border is not part of what the ratio is a share of.
 		const r = container.getBoundingClientRect();
 		onchange(
 			vertical
-				? ratioFromPointer(e.clientX, r.left, r.width)
-				: ratioFromPointer(e.clientY, r.top, r.height),
+				? ratioFromPointer(e.clientX, r.left + container.clientLeft, container.clientWidth, limits)
+				: ratioFromPointer(e.clientY, r.top + container.clientTop, container.clientHeight, limits),
 		);
 	}
 
@@ -69,7 +80,7 @@
 		oncommit();
 	}
 	function onkeydown(e: KeyboardEvent): void {
-		const next = stepRatio(value, e.key, axis, e.shiftKey);
+		const next = stepRatio(value, e.key, axis, e.shiftKey, limits);
 		if (next === null) return;
 		e.preventDefault();
 		onchange(next);
@@ -86,8 +97,8 @@
 	aria-label={label}
 	aria-orientation={vertical ? 'vertical' : 'horizontal'}
 	aria-valuenow={percent}
-	aria-valuemin={20}
-	aria-valuemax={80}
+	aria-valuemin={Math.round(limits.min * 100)}
+	aria-valuemax={Math.round(limits.max * 100)}
 	aria-valuetext={strings.panels.dividerValue(percent, first)}
 	{onpointerdown}
 	{onpointermove}

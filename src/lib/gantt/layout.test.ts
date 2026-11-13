@@ -311,6 +311,28 @@ describe('names', () => {
 		expect(layout.labels[0]).toBe(3 * 48 + m.labelGap);
 	});
 
+	it('measures each name once per model and measure, however often the layout is built', () => {
+		const model = modelOf([row(0, 0, 2 * D), row(1, 0, D / 2)]);
+		let calls = 0;
+		const counting = {
+			width: (font: string, text: string) => {
+				calls++;
+				return FIXED_MEASURE.width(font as 'bar', text);
+			},
+		};
+		const first = createLayout(model, scale, m, 0, counting);
+		const measured = calls;
+		expect(measured).toBeGreaterThan(0);
+		// A zoom step and a move of the window build it again: the widths are read back.
+		const again = createLayout(model, createScale(96, 0), m, 0, counting);
+		createLayout(model, scale, m, 800, counting);
+		expect(calls).toBe(measured);
+		expect(again.labels[3]).not.toBe(first.labels[3]);
+		// Another model, or another measure (the fonts changed), measures afresh.
+		createLayout(modelOf([row(0, 0, D)]), scale, m, 0, counting);
+		expect(calls).toBeGreaterThan(measured);
+	});
+
 	it('reserves nothing without a text measure', () => {
 		expect(createLayout(modelOf([row(0, 0, D / 2)]), scale, m).labels).toHaveLength(0);
 	});

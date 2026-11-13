@@ -58,6 +58,27 @@ test.describe('phone polish', () => {
 		await expect(back.locator('[aria-selected="true"]')).toHaveAttribute('data-key', selectedKey);
 	});
 
+	test('another plan starts with its own outline, at the top and nothing selected', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'pixel-7');
+		await open(page, 'gantt-500');
+		await page.getByRole('tab', { name: 'Plan', exact: true }).click();
+		const scroller = page.getByRole('tree', { name: 'Tasks' }).locator('xpath=..');
+		await scroller.evaluate((el) => (el.scrollTop = 900));
+		await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(900);
+		await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
+		await page.getByRole('combobox', { name: 'Sample plan' }).selectOption('upstream-tutorial');
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await page.getByRole('tab', { name: 'Plan', exact: true }).click();
+		const again = page.getByRole('tree', { name: 'Tasks' });
+		await expect(again).toBeVisible();
+		expect(await again.locator('xpath=..').evaluate((el) => el.scrollTop)).toBe(0);
+		await expect(again.locator('[aria-selected="true"]')).toHaveCount(0);
+	});
+
 	test('the task pill leaves room to scroll the last row clear of it', async ({ page }, info) => {
 		test.skip(info.project.name !== 'pixel-7');
 		await open(page, 'upstream-fedora-20');

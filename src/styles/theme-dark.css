@@ -102,7 +102,7 @@
 	--color-gantt-critical-progress: rgb(255 255 255 / 0.18);
 	--color-gantt-critical-highlight: rgb(255 255 255 / 0.22);
 	--color-gantt-critical-shadow: rgb(240 98 126 / 0.28);
-	--color-gantt-critical-edge: #ffc2cf;
+	--color-gantt-critical-edge: #ffdde4;
 	--color-gantt-summary: #b9af98;
 	--color-gantt-milestone: #d2ae5c;
 	--color-gantt-jewel-high: #f6e3ae;
