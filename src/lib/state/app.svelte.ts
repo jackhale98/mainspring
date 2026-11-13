@@ -38,7 +38,7 @@ import { editorSetup } from './editor-setup';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
 import { statusView, type StatusView } from './status';
 
-export type PhoneTab = 'plan' | 'text';
+export type PhoneTab = 'plan' | 'gantt' | 'text';
 export type Phase = 'loading' | 'ready' | 'failed';
 
 /** A request to put the cursor on a range of a file; `nonce` makes repeats distinct. */
@@ -78,6 +78,8 @@ export class AppState {
 	outlineOpen = $state(false);
 	docsOpen = $state(false);
 	collapsed = $state.raw<ReadonlySet<string>>(new Set());
+	/** The outline key (`task:app.code`) of the task selected in the Gantt, or null. */
+	selectedTask = $state<string | null>(null);
 	/** The newest format message, shown briefly. */
 	note = $state<string | null>(null);
 	reveal = $state.raw<Reveal | null>(null);
@@ -196,6 +198,7 @@ export class AppState {
 		];
 		this.dirty = false;
 		this.collapsed = new Set();
+		this.selectedTask = null;
 		this.workspace = ws;
 		this.#syncFiles(ws);
 		this.activeFile = seed.entry;
@@ -226,15 +229,18 @@ export class AppState {
 		if (this.files.includes(path)) this.activeFile = path;
 	}
 
-	/** Puts the cursor on a range of a file, opening the file and the Text panel (module comment). */
-	revealRange(file: WorkspacePath, from: number, to: number, focus = true): void {
+	/**
+	 * Puts the cursor on a range of a file, opening the file and, unless `showText` is false, the
+	 * Text panel on phones (module comment).
+	 */
+	revealRange(file: WorkspacePath, from: number, to: number, focus = true, showText = true): void {
 		this.openFile(file);
-		this.phoneTab = 'text';
+		if (showText) this.phoneTab = 'text';
 		this.reveal = { file, from, to, nonce: ++this.#nonce, focus };
 	}
 
-	/** Selects an outline node's declaration. The index may be older than the text: map it. */
-	revealNode(node: OutlineNode): void {
+	/** A node's declaration in the text now. The index may be older than the text: map it. */
+	#declaration(node: OutlineNode): { file: WorkspacePath; from: number; to: number } {
 		const ws = this.workspace;
 		const version = this.run?.indexVersion;
 		let changes;
@@ -246,10 +252,29 @@ export class AppState {
 		}
 		const from = changes ? changes.mapPos(node.at.from, 1) : node.at.from;
 		const to = changes ? changes.mapPos(node.at.to, -1) : node.at.to;
+		return { file: node.at.file, from, to: Math.max(from, to) };
+	}
+
+	/** Selects an outline node's declaration. */
+	revealNode(node: OutlineNode): void {
+		const d = this.#declaration(node);
 		// A touch keyboard would cover the editor: only a keyboard or mouse user gets the focus.
 		const touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
-		this.revealRange(node.at.file, from, Math.max(from, to), !touch);
+		this.revealRange(d.file, d.from, d.to, !touch);
 		this.outlineOpen = false;
+	}
+
+	/**
+	 * Selects a task from the Gantt and puts the editor cursor on its declaration (the visual to
+	 * text half of selection sync, phase-2.md 6.10). The editor does not take the keyboard focus,
+	 * and a phone stays on its Gantt tab.
+	 */
+	selectTask(key: string): void {
+		this.selectedTask = key;
+		const node = this.outline.byKey.get(key);
+		if (!node) return;
+		const d = this.#declaration(node);
+		this.revealRange(d.file, d.from, d.to, false, false);
 	}
 
 	toggleNode(key: string): void {

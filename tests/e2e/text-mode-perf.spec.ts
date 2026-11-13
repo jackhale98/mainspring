@@ -132,7 +132,7 @@ async function typeAndObserve(page: Page, gap: number): Promise<Samples & { repo
 type Open = (page: Page) => Promise<void>;
 
 async function openFedora(page: Page): Promise<void> {
-	await page.goto('/app?sample=upstream-fedora-20');
+	await page.goto('/app?sample=upstream-fedora-20&mode=text');
 	await scheduled(page);
 	await page.getByRole('textbox', { name: EDITOR }).click();
 }
@@ -142,7 +142,7 @@ async function openScale1000(page: Page): Promise<void> {
 		path.join(REPO, 'engine/golden/plans/synthetic/20-scale-1000/plan.tjp'),
 		'utf8',
 	);
-	await page.goto('/app');
+	await page.goto('/app?mode=text');
 	await scheduled(page);
 	const editor = page.getByRole('textbox', { name: EDITOR });
 	await editor.click();
@@ -235,7 +235,7 @@ async function coldLoad(context: BrowserContext) {
 		};
 		const t = setInterval(() => watch() && clearInterval(t), 5);
 	});
-	await page.goto('/app');
+	await page.goto('/app?mode=text');
 	await scheduled(page);
 	const t = await page.evaluate(() => {
 		const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;

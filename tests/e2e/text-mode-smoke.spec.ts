@@ -9,7 +9,7 @@ const READY_TIMEOUT_MS = 120_000;
 const SAMPLE = 'syn-18-structure-include-macro';
 
 async function openApp(page: Page, sample = SAMPLE): Promise<void> {
-	await page.goto(`/app?sample=${sample}`);
+	await page.goto(`/app?sample=${sample}&mode=text`);
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,
 	});

@@ -232,8 +232,6 @@ export const strings = {
 	},
 	topBar: {
 		sample: 'Sample plan',
-		/** Phase 2 turns this into the Text, Split and Visual switch. */
-		mode: 'Text mode',
 		loading: 'Loading the plan…',
 		loadFailed: (label: string) => `Could not load “${label}”.`,
 		confirmSwitch: 'Switching plans discards your changes to this one. Switch anyway?',
@@ -241,6 +239,7 @@ export const strings = {
 	notice: 'Changes stay in this tab until saving arrives. Reloading the page discards them.',
 	panels: {
 		plan: 'Plan',
+		gantt: 'Gantt',
 		text: 'Text',
 		tabs: 'Panels',
 		outlineOpen: 'Outline',
@@ -255,6 +254,42 @@ export const strings = {
 		textOnly: 'text only',
 		errors: (n: number) => plural(n, 'error', 'errors'),
 		reason: textOnlyStrings,
+	},
+	/** The switch between the editor, both side by side, and the Gantt (src/components/gantt). */
+	view: {
+		label: 'View',
+		text: 'Text',
+		split: 'Split',
+		gantt: 'Gantt',
+	},
+	gantt: {
+		region: 'Gantt chart',
+		toolbar: 'Gantt controls',
+		zoomIn: 'Zoom in',
+		zoomOut: 'Zoom out',
+		today: 'Today',
+		legend: 'Lines on the chart',
+		/** The current zoom level, e.g. "Zoom: Week". */
+		zoomLevel: (level: 'day' | 'week' | 'month' | 'quarter') =>
+			`Zoom: ${{ day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' }[level]}`,
+		quarter: (q: number) => `Q${q}`,
+		taskColumn: 'Task',
+		tasks: 'Tasks',
+		noTasks: 'No tasks yet.',
+		scheduling: 'Scheduling…',
+		waitingForErrors: 'The plan does not schedule yet. Fix the errors to see bars.',
+		lastGood: 'Showing the last good schedule',
+		notScheduled: 'not scheduled',
+		lines: {
+			today: 'Today',
+			status: 'Status date',
+			both: 'Today (status date)',
+		},
+		/** Summary line for the selected or hovered task, e.g. "Code: 3 Mar to 9 Mar 2026". */
+		span: (name: string, from: string, to: string) => `${name}: ${from} to ${to}`,
+		milestoneOn: (name: string, at: string) => `${name}: milestone on ${at}`,
+		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
+		blocked: 'The Gantt could not be drawn in this browser.',
 	},
 	editor: {
 		label: (path: string) => `Editor for ${path}`,

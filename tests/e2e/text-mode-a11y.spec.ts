@@ -11,7 +11,7 @@ const SAMPLE = 'syn-18-structure-include-macro';
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 async function openApp(page: Page, sample = SAMPLE): Promise<void> {
-	await page.goto(`/app?sample=${sample}`);
+	await page.goto(`/app?sample=${sample}&mode=text`);
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,
 	});

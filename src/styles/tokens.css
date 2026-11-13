@@ -22,6 +22,79 @@
 	--color-row-hover: #eef2f6;
 	--color-row-selected: #d9e8f9;
 
+	/* Gantt, "Mainspring" palette: a watch dial in light (enamel, brass, blued steel).
+	   src/lib/gantt/paint/theme.ts reads every colour and size below through one theme object, and
+	   the Gantt components use the same tokens, so a change here restyles the chart with no code
+	   change. Nothing else in the app reads them. Where the palette's own tint would fall under 3:1
+	   against the canvas (WCAG 1.4.11), the bar outline and the links use the brass of the
+	   progress colour instead. */
+	--color-gantt-surface: #fffdf8;
+	--color-gantt-surface-header: #f3efe5;
+	--color-gantt-text: #1c1a17;
+	--color-gantt-text-muted: #625b4f;
+	--color-gantt-border: #e6e0d2;
+	--color-gantt-border-strong: #cdc4b0;
+	--color-gantt-grid: #eee9dd;
+	--color-gantt-grid-major: #e6e0d2;
+	--color-gantt-row-line: #e6e0d2;
+	--color-gantt-accent: #2346a0;
+	--color-gantt-accent-wash: #e7ecf8;
+	--color-gantt-accent-ink: #1c3a86;
+	--color-gantt-accent-text: #ffffff;
+	--color-gantt-row-selected: #eef2fb;
+	--color-gantt-row-hover: #f3efe5;
+	--color-gantt-bar: #efe6d1;
+	--color-gantt-bar-progress: #b08d3c;
+	--color-gantt-bar-outline: #b08d3c;
+	--color-gantt-summary: #2e2a24;
+	--color-gantt-milestone: #b08d3c;
+	--color-gantt-link: #b08d3c;
+	--color-critical: #2346a0;
+	--color-critical-fill: #dce4f5;
+	--color-float: #b08d3c;
+	--color-pending: #9a7424;
+	--color-status-date: #1c3a86;
+	--color-today: #9a7424;
+	--color-text-only: #625b4f;
+	--color-done: #2f7d4f;
+
+	/* Gantt sizes, weights and opacities, in px unless noted. The coarse-pointer sizes are
+	   overrides below. */
+	--gantt-row-height: 40px;
+	--gantt-row-line-width: 0px;
+	--gantt-bar-height: 18px;
+	--gantt-bar-radius: 9px;
+	--gantt-bar-outline-width: 1px;
+	--gantt-summary-height: 10px;
+	--gantt-summary-stem: 6px;
+	--gantt-milestone-half: 6px;
+	--gantt-min-bar-width: 4px;
+	--gantt-header-row-height: 24px;
+	--gantt-font-size: 12px;
+	--gantt-label-size: 11px;
+	--gantt-header-font-size: 12px;
+	--gantt-header-minor-font-size: 11px;
+	--gantt-font-weight-strong: 600;
+	--gantt-label-gap: 14px;
+	--gantt-label-pad: 8px;
+	--gantt-link-width: 1.2px;
+	--gantt-link-width-critical: 1.6px;
+	--gantt-link-width-hover: 2.4px;
+	--gantt-link-elbow: 8px;
+	--gantt-arrow-size: 6px;
+	--gantt-outline-width: 1.5px;
+	--gantt-critical-outline: 1.6px;
+	--gantt-marker-width: 2px;
+	--gantt-marker-size: 5px;
+	--gantt-ring-width: 2px;
+	--gantt-ring-gap: 2px;
+	--gantt-float-height: 3px;
+	--gantt-dash: 4px;
+	--gantt-dim-opacity: 0.5;
+	--gantt-hover-opacity: 0.7;
+	--gantt-text-only-opacity: 0.25;
+	--gantt-motion: var(--motion-base);
+
 	/* Code editor (src/lib/tjp/cm/theme.ts). AA contrast on --color-surface. */
 	--color-syntax-keyword: #0b5cad;
 	--color-syntax-definition: #7a2e8e;
@@ -64,6 +137,7 @@
 	--size-tap: 2.75rem;
 	--size-row: 2.25rem;
 	--size-outline: 20rem;
+	--size-gantt-names: 17rem;
 
 	/* Motion: 150 to 200 ms for panels and sheets; off when the user asks for less motion */
 	--motion-fast: 150ms;
@@ -94,6 +168,35 @@
 		--color-overlay: rgb(0 0 0 / 0.6);
 		--color-row-hover: #262b30;
 		--color-row-selected: #203447;
+		--color-gantt-surface: #11151d;
+		--color-gantt-surface-header: #1c2230;
+		--color-gantt-text: #eee7d7;
+		--color-gantt-text-muted: #a9a291;
+		--color-gantt-border: #2a3243;
+		--color-gantt-border-strong: #3d4659;
+		--color-gantt-grid: #1e2431;
+		--color-gantt-grid-major: #2a3243;
+		--color-gantt-row-line: #2a3243;
+		--color-gantt-accent: #7d9be8;
+		--color-gantt-accent-wash: #1a2443;
+		--color-gantt-accent-ink: #b3c5f4;
+		--color-gantt-accent-text: #0d1117;
+		--color-gantt-row-selected: #172036;
+		--color-gantt-row-hover: #1c2230;
+		--color-gantt-bar: #2a2517;
+		--color-gantt-bar-progress: #c9a24d;
+		--color-gantt-bar-outline: #c9a24d;
+		--color-gantt-summary: #e8dec6;
+		--color-gantt-milestone: #d2ae5c;
+		--color-gantt-link: #7a7565;
+		--color-critical: #7d9be8;
+		--color-critical-fill: #1b2748;
+		--color-float: #c9a24d;
+		--color-pending: #d2ae5c;
+		--color-status-date: #b3c5f4;
+		--color-today: #d2ae5c;
+		--color-text-only: #a9a291;
+		--color-done: #6fcf97;
 		--color-syntax-keyword: #6cb2f2;
 		--color-syntax-definition: #d39af0;
 		--color-syntax-reference: #eceef0;
@@ -120,6 +223,11 @@
 @media (pointer: coarse) {
 	:root {
 		--size-row: var(--size-tap);
+		--gantt-bar-height: 22px;
+		--gantt-bar-radius: 11px;
+		--gantt-summary-height: 12px;
+		--gantt-summary-stem: 7px;
+		--gantt-milestone-half: 8px;
 	}
 }
 
