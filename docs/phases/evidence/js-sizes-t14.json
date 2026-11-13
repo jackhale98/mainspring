@@ -1,0 +1,61 @@
+{
+  "note": "gzip -9 bytes. before = fd55b570, after = T14 branch. Measured with scripts/js-sizes.mjs in headless Chromium, first load, tutorial sample.",
+  "before": {
+    "distTotalGzip": 333197,
+    "visualFirstGzip": 302105,
+    "textFirstGzip": 302105,
+    "textFirstLoadsEditorChunk": false,
+    "visualFirstLoadsEditorChunk": false,
+    "biggest": [
+      {
+        "file": "App.BpFgY_G0.js",
+        "raw": 830189,
+        "gzip": 264197
+      },
+      {
+        "file": "client.BWjrt3gg.js",
+        "raw": 42333,
+        "gzip": 16249
+      },
+      {
+        "file": "f-20.CHS6uEET.js",
+        "raw": 77312,
+        "gzip": 15969
+      },
+      {
+        "file": "worker-BxSIa01U.js",
+        "raw": 57188,
+        "gzip": 15807
+      }
+    ]
+  },
+  "after": {
+    "distTotalGzip": 342413,
+    "visualFirstGzip": 174771,
+    "textFirstGzip": 311321,
+    "textFirstLoadsEditorChunk": true,
+    "visualFirstLoadsEditorChunk": false,
+    "biggest": [
+      {
+        "file": "editor-controller.CHrhIQYD.js",
+        "raw": 404211,
+        "gzip": 128162
+      },
+      {
+        "file": "workspace.CBBS8OTb.js",
+        "raw": 302897,
+        "gzip": 95610
+      },
+      {
+        "file": "App.D3HD1g4V.js",
+        "raw": 115661,
+        "gzip": 39620
+      },
+      {
+        "file": "client.SHKnBhYf.js",
+        "raw": 42786,
+        "gzip": 16360
+      }
+    ]
+  }
+}
