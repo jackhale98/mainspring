@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
 	The editor panel (phase-1.md 8.2): a toolbar with the file switcher, Format and Docs, and one
-	CodeMirror view. The workspace holds an EditorState per file (text, undo history, cursor);
+	CodeMirror view. The workspace holds an EditorState per file (text, cursor; undo is one history);
 	switching files gives the view another of them, so each file keeps its own state. Typing,
 	format and every other transaction are committed to the workspace through `workspaceDispatch`;
 	the view never owns the text. The panel is created again for each workspace (`{#key}` in the
@@ -83,7 +83,7 @@
 	$effect(() => {
 		const r = app.reveal;
 		const c = ctl;
-		if (r && c) untrack(() => c.reveal(r.file, r.from, r.to, r.focus));
+		if (r && c) untrack(() => c.reveal(r.file, r.from, r.to, r.focus, r.select ?? true));
 	});
 </script>
 

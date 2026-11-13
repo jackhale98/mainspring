@@ -16,8 +16,9 @@
  * Every file's ChangeSet shares one edit id; `Workspace.apply` dispatches one transaction per
  * file with `tjpEditId.of(id)` and `userEvent` `input.tjp.<type>`, all or nothing ('stale' when a
  * base version moved). `applyEdit` does that and records the file versions the apply produced;
- * `undoEdit` builds the inverse edit only while those versions are still current (Phase 2 groups
- * the per-file transactions into one undo step).
+ * `undoEdit` builds the inverse edit only while those versions are still current. Both also take
+ * any edit of the same shape (`InvertibleEdit`), so the workspace history (phase-2.md 6.7) undoes
+ * a typing group with the same checks as an intent.
  *
  * A handler declares whether its change means the same in every include visit of a shared file
  * (`sameInEveryVisit`, 15.15): only then can `EditOptions.confirmShared` let it through.
@@ -26,7 +27,13 @@
  * opaque and auto-id blocks on purpose, 15.13) and refuses only `syntax-error`.
  */
 import type { ChangeSet } from '@codemirror/state';
-import { tjpEditId, type Workspace, type WorkspaceSnapshot } from '../../workspace/workspace';
+import {
+	tjpEditId,
+	type ApplyOptions,
+	type Workspace,
+	type WorkspaceEdit,
+	type WorkspaceSnapshot,
+} from '../../workspace/workspace';
 import { changeSetOf, updateFile } from '../document';
 import { formatFile as formatChanges, type FormatOptions } from '../format';
 import type { SymbolIndex } from '../index';
@@ -258,9 +265,12 @@ export function formatFile(
 	return buildEdit(ws, { type: 'format', file }, ops, { ...opts, checkParse: false });
 }
 
+/** What `applyEdit` and `undoEdit` need: a `TjpEdit`, or an edit of its shape with another intent. */
+export type InvertibleEdit = WorkspaceEdit & Omit<TjpEdit, 'intent'>;
+
 /** An edit `applyEdit` applied, with the version of each changed file right after it. */
-export interface AppliedEdit {
-	readonly edit: TjpEdit;
+export interface AppliedEdit<E extends InvertibleEdit = TjpEdit> {
+	readonly edit: E;
 	readonly versions: Readonly<Record<WorkspacePath, number>>;
 }
 
@@ -268,7 +278,11 @@ export interface AppliedEdit {
  * `Workspace.apply`, recording the file versions the apply produced (from the snapshot the
  * workspace announces with this edit's transactions, so listeners that edit in turn do not count).
  */
-export function applyEdit(workspace: Workspace, edit: TjpEdit): AppliedEdit | 'stale' {
+export function applyEdit<E extends InvertibleEdit = TjpEdit>(
+	workspace: Workspace,
+	edit: E,
+	opts?: ApplyOptions,
+): AppliedEdit<E> | 'stale' {
 	let versions: Record<WorkspacePath, number> | null = null;
 	const off = workspace.subscribe((snap, _origin, info) => {
 		if (versions || !info.transactions.some((t) => t.annotation(tjpEditId) === edit.id)) return;
@@ -278,7 +292,7 @@ export function applyEdit(workspace: Workspace, edit: TjpEdit): AppliedEdit | 's
 	});
 	let r: 'applied' | 'stale';
 	try {
-		r = workspace.apply(edit);
+		r = workspace.apply(edit, opts);
 	} finally {
 		off();
 	}
@@ -291,11 +305,11 @@ export function applyEdit(workspace: Workspace, edit: TjpEdit): AppliedEdit | 's
  * ranges. Null unless every changed file still has exactly the version the apply produced (any
  * later change, even one of the same length, makes the inverse wrong).
  */
-export function undoEdit(
-	applied: AppliedEdit,
+export function undoEdit<E extends InvertibleEdit = TjpEdit>(
+	applied: AppliedEdit<E>,
 	now: WorkspaceSnapshot,
 	opts: EditOptions = {},
-): TjpEdit | null {
+): E | null {
 	const { edit, versions } = applied;
 	const base: Record<WorkspacePath, number> = {};
 	const targets: Record<WorkspacePath, SourceRange[]> = {};
@@ -311,8 +325,8 @@ export function undoEdit(
 		targets[path] = list;
 	}
 	return {
+		...edit,
 		id: opts.id ?? newEditId(),
-		intent: edit.intent,
 		base,
 		changes: edit.inverse,
 		inverse: edit.changes,

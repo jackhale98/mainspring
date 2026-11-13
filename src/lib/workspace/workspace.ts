@@ -18,11 +18,16 @@
  * change moves a file to another parse context, the workspace reconfigures that file's state with
  * the extensions for the new top and lists it in `ChangeInfo.reconfigured`; an editor showing that
  * file then takes `state(path)` again.
+ *
+ * Undo (phase-2.md 6.7, 6.11): the file states carry no CodeMirror history. One workspace history
+ * (history.ts) records every change from the listeners' `ChangeInfo` and undoes through `apply`
+ * with origin 'history'. `apply` takes the origin, per-file selections, annotations and a user
+ * event for that; `ChangeInfo.edit` is the edit an `apply` dispatched.
  */
-import { history, isolateHistory } from '@codemirror/commands';
 import {
 	Annotation,
 	Compartment,
+	EditorSelection,
 	EditorState,
 	type AnnotationType,
 	type ChangeSet,
@@ -46,7 +51,8 @@ export type { IncludeEdge, IncludeGraph, IncludeProblem, IncludeVisit } from './
 /** Annotates every transaction of one TjpEdit with its id (one undo step in Phase 2). */
 export const tjpEditId: AnnotationType<string> = Annotation.define<string>();
 
-export type ChangeOrigin = 'typing' | 'format' | 'intent';
+/** 'history' is an undo or redo (history.ts); the runner treats it like 'intent'. */
+export type ChangeOrigin = 'typing' | 'format' | 'intent' | 'history';
 
 export interface WorkspaceSnapshot {
 	readonly entry: WorkspacePath;
@@ -71,6 +77,20 @@ export interface ChangeInfo {
 	readonly transactions: readonly Transaction[];
 	/** Files whose parse context changed, so their state was reconfigured (module comment). */
 	readonly reconfigured: readonly WorkspacePath[];
+	/** The edit `apply` dispatched (absent for `commit`); `transactions[i]` changed `paths[i]`. */
+	readonly edit?: WorkspaceEdit;
+}
+
+/** How `apply` dispatches an edit (phase-2.md 6.11); every field is optional. */
+export interface ApplyOptions {
+	/** Default 'format' for a format edit, else 'intent'. */
+	readonly origin?: ChangeOrigin;
+	/** The selection each changed file gets, in post-edit coordinates (clamped to the text). */
+	readonly selection?: Readonly<Record<WorkspacePath, EditorSelection>>;
+	/** Added to every transaction of the edit, after `tjpEditId`. */
+	readonly annotations?: readonly Annotation<unknown>[];
+	/** Default `input.tjp.<intent type>`. */
+	readonly userEvent?: string;
 }
 
 export type WorkspaceListener = (
@@ -81,15 +101,15 @@ export type WorkspaceListener = (
 
 export interface Workspace {
 	snapshot(): WorkspaceSnapshot;
-	/** One EditorState per file (no DOM; history, '\n' line separator). The editor shows one. */
+	/** One EditorState per file (no DOM, no history; '\n' line separator). The editor shows one. */
 	state(path: WorkspacePath): EditorState;
 	/** Called by the editor with its transactions, which must start from `state(path)`. */
 	commit(path: WorkspacePath, tr: Transaction | readonly Transaction[], origin: ChangeOrigin): void;
 	/**
-	 * Applies an edit: one transaction per file, annotated with tjpEditId and isolated in the
-	 * history (its own undo step). 'stale' if a base moved.
+	 * Applies an edit: one transaction per file, annotated with tjpEditId (and `opts`), all or
+	 * nothing. 'stale' if a base moved.
 	 */
-	apply(edit: WorkspaceEdit): 'applied' | 'stale';
+	apply(edit: WorkspaceEdit, opts?: ApplyOptions): 'applied' | 'stale';
 	/** Full workspace text for ScheduleRequest.files. */
 	texts(): Record<WorkspacePath, string>;
 	/** Per-file composition of the changes made since a workspace version (changed files only). */
@@ -206,7 +226,7 @@ class MemoryWorkspace implements Workspace {
 		this.afterChange(origin, [path], list);
 	}
 
-	apply(edit: WorkspaceEdit): 'applied' | 'stale' {
+	apply(edit: WorkspaceEdit, opts: ApplyOptions = {}): 'applied' | 'stale' {
 		const paths = Object.keys(edit.changes);
 		for (const path of paths) {
 			const file = this.fileOf(path);
@@ -220,11 +240,12 @@ class MemoryWorkspace implements Workspace {
 		for (const path of paths) {
 			const cs = edit.changes[path];
 			if (!cs || cs.empty) continue;
+			const sel = opts.selection?.[path];
 			const tr = this.state(path).update({
 				changes: cs,
-				// Its own undo step: typing right after an edit is not joined to it.
-				annotations: [tjpEditId.of(edit.id), isolateHistory.of('full')],
-				userEvent: `input.tjp.${edit.intent.type}`,
+				...(sel ? { selection: clampSelection(sel, cs.newLength) } : {}),
+				annotations: [tjpEditId.of(edit.id), ...(opts.annotations ?? [])],
+				userEvent: opts.userEvent ?? `input.tjp.${edit.intent.type}`,
 			});
 			changed.push({ path, tr });
 		}
@@ -236,9 +257,10 @@ class MemoryWorkspace implements Workspace {
 			this.record(path, tr.changes);
 		}
 		this.afterChange(
-			edit.intent.type === 'format' ? 'format' : 'intent',
+			opts.origin ?? (edit.intent.type === 'format' ? 'format' : 'intent'),
 			changed.map((c) => c.path),
 			changed.map((c) => c.tr),
+			edit,
 		);
 		return 'applied';
 	}
@@ -311,6 +333,7 @@ class MemoryWorkspace implements Workspace {
 		origin: ChangeOrigin,
 		paths: readonly WorkspacePath[],
 		transactions: readonly Transaction[],
+		edit?: WorkspaceEdit,
 	): void {
 		const before = new Map([...this.files].map(([p, f]) => [p, f.top]));
 		this.graph = this.walk();
@@ -327,7 +350,9 @@ class MemoryWorkspace implements Workspace {
 		}
 		this.snap = null;
 		const snap = this.snapshot();
-		const info: ChangeInfo = { paths, transactions, reconfigured };
+		const info: ChangeInfo = edit
+			? { paths, transactions, reconfigured, edit }
+			: { paths, transactions, reconfigured };
 		for (const l of [...this.listeners]) l(snap, origin, info);
 	}
 
@@ -336,9 +361,17 @@ class MemoryWorkspace implements Workspace {
 			doc: file.text,
 			extensions: [
 				EditorState.lineSeparator.of(LINE_SEPARATOR),
-				history(),
 				this.editorExtensions.of(this.opts.extensions?.(path, file.top) ?? []),
 			],
 		});
 	}
+}
+
+/** A selection with every position clamped to [0, length]. */
+function clampSelection(sel: EditorSelection, length: number): EditorSelection {
+	const at = (n: number) => Math.min(Math.max(0, n), length);
+	return EditorSelection.create(
+		sel.ranges.map((r) => EditorSelection.range(at(r.anchor), at(r.head))),
+		sel.mainIndex,
+	);
 }
