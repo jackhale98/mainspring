@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Frame times of the Gantt (phase-2.md 8.4, first cut; task T22 replaces it with the CI harness).
-// Fedora 20 (414 tasks) and gantt-500 (500 tasks, all expanded), on desktop (a mouse-wheel scroll
-// gesture) and on Pixel 7 emulation at 4x CPU throttle (a touch scroll gesture), both synthesised
-// through the DevTools Input domain so the browser's own scroller handles them.
+// Fedora 20 (414 tasks) and gantt-500 (500 tasks, all expanded), on desktop and on Pixel 7
+// emulation at 4x CPU throttle. Scrolls are synthesised through the DevTools Input domain, so the
+// browser's own scroller handles them (the compositor scrolls the canvases, not our script).
+//
+// Every scroll is checked: the scroller's offset is read before and after and the run FAILS if it
+// did not move by at least half of what was asked (a measurement of a page that did not scroll
+// measures nothing). The input used is recorded as `input` with a note: for the phone profile the
+// script first tries a touch gesture (`Input.synthesizeScrollGesture`, touch), and if the scroller
+// does not move (it does not in headless Chrome here: scrollTop 0 to 0) it falls back to a mouse
+// wheel gesture on the same emulated device, and then to a requestAnimationFrame-driven scrollBy,
+// labelled as such. A wheel scroll on an emulated phone exercises the same canvases, compositor and
+// painters as a finger, but not touch-specific paths (touch-action, the touchmove listener).
 //
 //   MAINSPRING_DEV_PAGES=1 npm run build && npm run preview -- --port 4321 &
 //   CHROMIUM_PATH=/usr/bin/google-chrome node scripts/gantt-frame-times.mjs [--out file.json]
@@ -90,8 +99,30 @@ async function openPlan(page, sample) {
 	await page.waitForTimeout(2000);
 }
 
-/** One measured action: frames, long animation frames and the compositor's frames. */
-async function measure(browser, page, run) {
+const SCROLLER = '[data-testid="gantt"] .scroller';
+
+const readScroll = (page) =>
+	page.evaluate((sel) => {
+		const el = document.querySelector(sel);
+		return { x: Math.round(el.scrollLeft), y: Math.round(el.scrollTop) };
+	}, SCROLLER);
+
+const setScroll = (page, x, y) =>
+	page.evaluate(
+		([sel, left, top]) => {
+			const el = document.querySelector(sel);
+			el.scrollTo({ left, top, behavior: 'instant' });
+		},
+		[SCROLLER, x, y],
+	);
+
+/**
+ * One measured action: frames, long animation frames and the compositor's frames. With `expectMove`
+ * (`{ x, y }`, the distance asked, in px) the scroller's offset is read before and after, recorded
+ * as `scrolledPx`, and the run fails when it moved by less than half of the distance asked.
+ */
+async function measure(browser, page, run, expectMove = null, label = '') {
+	const from = expectMove ? await readScroll(page) : null;
 	await page.evaluate(() => {
 		window.__frames = [];
 		window.__loaf = [];
@@ -105,10 +136,56 @@ async function measure(browser, page, run) {
 		window.__recording = false;
 		return { frames: window.__frames.slice(1), loaf: window.__loaf };
 	});
-	return frameStats(frames, loaf, pipelineOf(trace));
+	const stats = frameStats(frames, loaf, pipelineOf(trace));
+	if (expectMove && from) {
+		const to = await readScroll(page);
+		const moved = { x: to.x - from.x, y: to.y - from.y };
+		stats.scrolledPx = moved;
+		for (const axis of ['x', 'y']) {
+			const asked = Math.abs(expectMove[axis]);
+			if (asked > 0 && moved[axis] * expectMove[axis] < (asked * asked) / 2) {
+				throw new Error(
+					`${label}: the scroller did not move on ${axis}: asked ${expectMove[axis]} px, ` +
+						`moved ${moved[axis]} px (or the wrong way). The frame times of a page that does not scroll are not a result.`,
+				);
+			}
+		}
+	}
+	return stats;
 }
 
-async function gesture(cdp, source, x, y, dx, dy, speed) {
+/**
+ * One scroll of `dx`, `dy` px (a negative distance scrolls the content forward, as a finger or a
+ * wheel moving down does). `source` is 'touch', 'mouse' (CDP wheel gesture) or 'raf' (a
+ * requestAnimationFrame loop calling scrollBy, for when no synthesised input scrolls).
+ */
+async function gesture(page, cdp, source, x, y, dx, dy, speed) {
+	if (source === 'raf') {
+		await page.evaluate(
+			([sel, mx, my, pxPerSec]) =>
+				new Promise((resolve) => {
+					const el = document.querySelector(sel);
+					const total = Math.hypot(mx, my);
+					const start = performance.now();
+					let done = 0;
+					const tick = (t) => {
+						const want = Math.min(total, ((t - start) / 1000) * pxPerSec);
+						const step = want - done;
+						el.scrollBy({
+							left: (mx / total) * step,
+							top: (my / total) * step,
+							behavior: 'instant',
+						});
+						done = want;
+						if (done < total) requestAnimationFrame(tick);
+						else resolve();
+					};
+					requestAnimationFrame(tick);
+				}),
+			[SCROLLER, -dx, -dy, speed],
+		);
+		return;
+	}
 	await cdp.send('Input.synthesizeScrollGesture', {
 		x,
 		y,
@@ -118,6 +195,34 @@ async function gesture(cdp, source, x, y, dx, dy, speed) {
 		gestureSourceType: source,
 		preventFling: true,
 	});
+}
+
+/** The first input that moves the scroller: touch for a phone if it works, then wheel, then rAF. */
+async function pickInput(page, cdp, phone, x, y) {
+	const candidates = phone
+		? [
+				['touch', 'touch gesture'],
+				['mouse', 'mouse-wheel gesture on the emulated phone (touch synthesis did not scroll)'],
+				[
+					'raf',
+					'requestAnimationFrame scrollBy on the emulated phone (no synthesised input scrolled)',
+				],
+			]
+		: [
+				['mouse', 'mouse-wheel gesture'],
+				['raf', 'requestAnimationFrame scrollBy (the wheel gesture did not scroll)'],
+			];
+	const tried = [];
+	for (const [source, note] of candidates) {
+		await setScroll(page, 0, 0);
+		await gesture(page, cdp, source, x, y, 0, -400, 2000);
+		await page.waitForTimeout(300);
+		const moved = (await readScroll(page)).y;
+		tried.push(`${source}: ${moved} px`);
+		await setScroll(page, 0, 0);
+		if (moved >= 200) return { source, note, tried };
+	}
+	throw new Error(`No input scrolled the chart (${tried.join('; ')}): nothing to measure.`);
 }
 
 /**
@@ -192,21 +297,39 @@ async function profile(browser, name, sample) {
 	}, scroller);
 	const x = box.x + box.width * 0.7;
 	const y = box.y + box.height * 0.6;
-	const source = phone ? 'touch' : 'mouse';
+	const picked = await pickInput(page, cdp, phone, x, y);
+	const source = picked.source;
 	const down = Math.min(size.height - size.view - 50, 40_000);
 	const pan = Math.min(size.width - size.viewW - 50, 8000);
 	const speed = 4000;
-	const result = { sample, profile: name, scrollHeightPx: size.height, input: source };
-
-	result.scrollDown = await measure(browser, page, () =>
-		gesture(cdp, source, x, y, 0, -down, speed),
-	);
-	result.scrollUp = await measure(browser, page, () => gesture(cdp, source, x, y, 0, down, speed));
-	result.panRight = await measure(browser, page, () => gesture(cdp, source, x, y, -pan, 0, speed));
-	result.panLeft = await measure(browser, page, () => gesture(cdp, source, x, y, pan, 0, speed));
-	result.diagonal = await measure(browser, page, () =>
-		gesture(cdp, source, x, y, -1500, -3000, 3000),
-	);
+	if (down < 500 || pan < 500) {
+		throw new Error(`${sample}: too little to scroll (down ${down} px, pan ${pan} px).`);
+	}
+	const result = {
+		sample,
+		profile: name,
+		scrollHeightPx: size.height,
+		scrollWidthPx: size.width,
+		input: source,
+		inputNote: picked.note,
+		inputProbe: picked.tried,
+	};
+	const scroll = async (key, from, dx, dy, spd = speed) => {
+		await setScroll(page, from.x, from.y);
+		await page.waitForTimeout(300);
+		result[key] = await measure(
+			browser,
+			page,
+			() => gesture(page, cdp, source, x, y, dx, dy, spd),
+			{ x: -dx, y: -dy },
+			`${sample} ${name} ${key}`,
+		);
+	};
+	await scroll('scrollDown', { x: 0, y: 0 }, 0, -down);
+	await scroll('scrollUp', { x: 0, y: down }, 0, down);
+	await scroll('panRight', { x: 0, y: 0 }, -pan, 0);
+	await scroll('panLeft', { x: pan, y: 0 }, pan, 0);
+	await scroll('diagonal', { x: 0, y: 0 }, -1500, -3000, 3000);
 	const steps = [];
 	result.zoom = await measure(browser, page, async () => {
 		// Week to day, back to week, then month, quarter and month again.

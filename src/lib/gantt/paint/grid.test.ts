@@ -24,6 +24,11 @@ describe('markerLines', () => {
 
 	it('draws what it has', () => {
 		expect(markerLines(modelOf([]))).toEqual([]);
+		// Today may come from outside the model.
+		expect(markerLines(modelOf([], [], { statusMin: 2 * D }), 5 * D)).toEqual([
+			{ at: 2 * D, kind: 'status' },
+			{ at: 5 * D, kind: 'today' },
+		]);
 		expect(markerLines(modelOf([], [], { todayMin: 5 }))).toEqual([{ at: 5, kind: 'today' }]);
 	});
 });
@@ -73,18 +78,13 @@ describe('paintGrid', () => {
 		expect(line).toEqual(['fillRect', 14.5, 0, 0.5, 168]);
 	});
 
-	it('draws today solid and the status date dashed, in their own colours', () => {
+	it('draws no today or status line: they follow the clock and live on the overlay layer', () => {
 		const model = modelOf(rows, [], { statusMin: 2 * D, todayMin: 4 * D });
 		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 100 } });
 		paintGrid(frame, null);
 		const styles = rec.of('set:fillStyle').map((c) => c[1]);
-		expect(styles).toContain(frame.theme.today);
-		expect(styles).toContain(frame.theme.statusDate);
-		const todayX = (4 * D * 48) / MIN_PER_DAY - 1;
-		const solid = rec.of('fillRect').filter((c) => c[1] === todayX && c[4] === 100);
-		expect(solid).toHaveLength(1);
-		const dashes = rec.of('fillRect').filter((c) => c[1] === 95 && c[4] === 6);
-		expect(dashes.length).toBeGreaterThan(5);
+		expect(styles).not.toContain(frame.theme.today);
+		expect(styles).not.toContain(frame.theme.statusDate);
 	});
 
 	it('tints the selected row under the bars, and draws separators only when the token says so', () => {

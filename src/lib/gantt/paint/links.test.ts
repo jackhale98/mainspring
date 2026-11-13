@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { D, link, modelOf, row } from '../testing';
 import { paintLinks, roundedPolyline } from './links';
+import { bufOf } from '../route';
 import { frameOf, recorder } from './testing';
 
 describe('roundedPolyline', () => {
@@ -9,11 +10,11 @@ describe('roundedPolyline', () => {
 		const rec = recorder();
 		roundedPolyline(
 			rec.ctx,
-			[
+			bufOf([
 				{ x: 0, y: 0 },
 				{ x: 20, y: 0 },
 				{ x: 20, y: 30 },
-			],
+			]),
 			4,
 		);
 		expect(rec.calls).toEqual([
@@ -28,11 +29,11 @@ describe('roundedPolyline', () => {
 		const rec = recorder();
 		roundedPolyline(
 			rec.ctx,
-			[
+			bufOf([
 				{ x: 0, y: 0 },
 				{ x: 1, y: 0 },
 				{ x: 1, y: 30 },
-			],
+			]),
 			4,
 		);
 		expect(rec.of('quadraticCurveTo')).toHaveLength(0);
@@ -43,11 +44,11 @@ describe('roundedPolyline', () => {
 		const rec = recorder();
 		roundedPolyline(
 			rec.ctx,
-			[
+			bufOf([
 				{ x: 0, y: 0 },
 				{ x: 20, y: 0 },
 				{ x: 20, y: 6 },
-			],
+			]),
 			4,
 		);
 		expect(rec.of('quadraticCurveTo')[0]).toEqual(['quadraticCurveTo', 20, 0, 20, 3]);

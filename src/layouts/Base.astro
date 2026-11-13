@@ -9,10 +9,12 @@ import { themeBootScript } from '../lib/state/theme';
 
 interface Props {
 	title?: string;
+	/** The page description for search results and link previews. */
+	description?: string;
 	/** The app page: a fixed shell that never scrolls as a page, like a native app. */
 	shell?: boolean;
 }
-const { title = strings.appName, shell = false } = Astro.props;
+const { title = strings.appName, description = strings.tagline, shell = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -22,7 +24,7 @@ const { title = strings.appName, shell = false } = Astro.props;
 		<link rel="icon" href="data:," />
 		<!-- viewport-fit=cover lets the shell use the safe-area insets; the page still zooms (WCAG 1.4.4). -->
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<meta name="description" content={strings.tagline} />
+		<meta name="description" content={description} />
 		<meta name="theme-color" content="#ece7dc" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#080b10" media="(prefers-color-scheme: dark)" />
 		<title>{title}</title>

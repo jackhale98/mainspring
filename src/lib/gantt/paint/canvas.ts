@@ -8,6 +8,7 @@
  */
 import type { GanttLayout, PaintWindow } from '../layout';
 import type { GanttModel } from '../model';
+import type { BarMotion } from './motion';
 import type { Theme } from './theme';
 
 export const MAX_DPR = 2;
@@ -38,12 +39,22 @@ export interface PaintFrame {
 	readonly layout: GanttLayout;
 	readonly model: GanttModel;
 	readonly theme: Theme;
+	/**
+	 * The reschedule tween of the bars layer. Left out, the bars painter keeps one per canvas
+	 * context; pass one to share it (the overlay then follows the bars while they move).
+	 */
+	readonly motion?: BarMotion;
 }
 
 /** Clears the window and maps content coordinates onto the canvas. */
 export function begin(ctx: CanvasRenderingContext2D, win: PaintWindow, dpr: number): void {
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
 	ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+	toContent(ctx, win, dpr);
+}
+
+/** The transform of content coordinates, for after a painter moved it (a gradient's frame). */
+export function toContent(ctx: CanvasRenderingContext2D, win: PaintWindow, dpr: number): void {
 	ctx.setTransform(dpr, 0, 0, dpr, -win.x * dpr, -win.y * dpr);
 }
 

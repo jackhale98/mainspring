@@ -1,0 +1,49 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// A faint engine-turned (guilloché) rosette, the one watchmaker detail behind the hero. Built from
+// rotated copies of a few shapes with <use>, so the markup stays small, and faded to nothing at
+// the rim with a radial mask. Decorative.
+import { flowerCentres, rosetteAngles } from '../../lib/landing-art';
+
+const wide = rosetteAngles(45);
+const fine = rosetteAngles(60);
+const flower = flowerCentres(48, 120);
+---
+
+<svg viewBox="-400 -400 800 800" aria-hidden="true" focusable="false" class="g">
+	<defs>
+		<radialGradient id="g-fade">
+			<stop offset="0.35" stop-color="#fff"></stop>
+			<stop offset="0.98" stop-color="#fff" stop-opacity="0"></stop>
+		</radialGradient>
+		<mask id="g-mask" maskUnits="userSpaceOnUse" x="-400" y="-400" width="800" height="800">
+			<rect x="-400" y="-400" width="800" height="800" fill="url(#g-fade)"></rect>
+		</mask>
+		<ellipse id="g-wide" rx="380" ry="150"></ellipse>
+		<ellipse id="g-fine" rx="250" ry="70"></ellipse>
+	</defs>
+	<g mask="url(#g-mask)" fill="none" stroke="var(--lp-guilloche)" stroke-width="0.8">
+		{wide.map((a) => (
+			<use href="#g-wide" transform={`rotate(${a})`} />
+		))}
+		{fine.map((a) => (
+			<use href="#g-fine" transform={`rotate(${a + 1.5})`} />
+		))}
+		{flower.map((c) => (
+			<circle cx={c.cx} cy={c.cy} r="120" />
+		))}
+		<circle r="60"></circle>
+		<circle r="40"></circle>
+	</g>
+</svg>
+
+<style>
+	.g {
+		display: block;
+		inline-size: 100%;
+		block-size: auto;
+	}
+	.g :global(*) {
+		vector-effect: non-scaling-stroke;
+	}
+</style>
