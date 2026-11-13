@@ -1,8 +1,13 @@
 name: CI
 
 on:
+  # A push that changes only Markdown (ADRs, phase notes, README) does not start a run, so it
+  # cannot cancel the run of the code commit before it. Main is still fast-forwarded only to a
+  # commit whose last code change ran green.
   push:
+    paths-ignore: ['**/*.md']
   pull_request:
+    paths-ignore: ['**/*.md']
 
 concurrency:
   group: ci-${{ github.ref }}
