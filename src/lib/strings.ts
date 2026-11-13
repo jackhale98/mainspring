@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// All user-facing copy lives in this file (CLAUDE.md conventions).
+// All user-facing copy lives in this file (CLAUDE.md conventions). It passes 400 lines on purpose:
+// CLAUDE.md asks for one strings file, and phase-2.md section 4 keeps it whole.
 import type { EngineErrorKind } from '../engine/protocol';
-import type { RefusalReason } from './tjp/edit/types';
+import type { IntentType, RefusalReason } from './tjp/edit/types';
 import type { ValueErrorCode } from './tjp/values/result';
 
 /**
@@ -206,6 +207,65 @@ export const textOnlyStrings = {
 	unresolved: 'The scheduler has not named this item yet.',
 } as const;
 
+/** Intents whose undo label names the attribute ("set effort"), and the rest by type. */
+type AttrIntent =
+	| 'setAttr'
+	| 'removeAttr'
+	| 'setResourceAttr'
+	| 'removeResourceAttr'
+	| 'setProjectAttr'
+	| 'removeProjectAttr';
+
+/**
+ * The unified undo history (phase-2.md 6.7, ADR-0008): button text, tooltips such as
+ * "Undo: set effort", and the note after an undo that names the change and its files.
+ */
+export const historyStrings = {
+	undo: 'Undo',
+	redo: 'Redo',
+	undoWhat: (what: string) => `Undo: ${what}`,
+	redoWhat: (what: string) => `Redo: ${what}`,
+	nothingToUndo: 'Nothing to undo',
+	nothingToRedo: 'Nothing to redo',
+	/** Shown after an undo or redo that was not typing in the open file. */
+	undone: (what: string, files: string) => `Undone: ${what} (${files})`,
+	redone: (what: string, files: string) => `Redone: ${what} (${files})`,
+	diverged: 'A file changed outside the undo history, so undo and redo were cleared.',
+	shortcuts: {
+		undo: { mac: '⌘Z', other: 'Ctrl+Z' },
+		redo: { mac: '⇧⌘Z', other: 'Ctrl+Y' },
+	},
+	typing: 'typing',
+	/** A change whose intent the history does not know. */
+	edit: 'edit',
+	setAttr: (attr: string) => `set ${attr}`,
+	removeAttr: (attr: string) => `remove ${attr}`,
+	intent: {
+		renameTask: 'rename task',
+		addTask: 'add task',
+		deleteTask: 'delete task',
+		moveTask: 'move task',
+		addDepends: 'add dependency',
+		removeDepends: 'remove dependency',
+		setDependsGap: 'change gap',
+		allocate: 'allocate',
+		addAllocation: 'add allocation',
+		removeAllocation: 'remove allocation',
+		replaceAllocation: 'replace allocation',
+		addResource: 'add resource',
+		deleteResource: 'delete resource',
+		moveResource: 'move resource',
+		renameResource: 'rename resource',
+		setProjectHeader: 'edit project',
+		setWorkingHours: 'set working hours',
+		addLeave: 'add leave',
+		updateLeave: 'change leave',
+		removeLeave: 'remove leave',
+		declareFlag: 'declare flag',
+		format: 'format',
+	} satisfies Record<Exclude<IntentType, AttrIntent>, string>,
+} as const;
+
 const plural = (n: number, one: string, other: string): string => `${n} ${n === 1 ? one : other}`;
 
 export const strings = {
@@ -238,8 +298,21 @@ export const strings = {
 		loading: 'Loading the plan…',
 		loadFailed: (label: string) => `Could not load “${label}”.`,
 		confirmSwitch: 'Switching plans discards your changes to this one. Switch anyway?',
+		history: 'Undo and redo',
+		undo: 'Undo',
+		redo: 'Redo',
+		/** The phone's subtitle under the plan name, e.g. "Finish Wed, Jan 6, 2027". */
+		finish: (date: string) => `Finish ${date}`,
+	},
+	/** The theme toggle: the preference now, and what pressing it switches to. */
+	theme: {
+		label: 'Theme',
+		pref: { system: 'System', light: 'Light', dark: 'Dark' },
+		button: (current: string, next: string) => `Theme: ${current}. Switch to ${next}`,
 	},
 	notice: 'Changes stay in this tab until saving arrives. Reloading the page discards them.',
+	/** The same notice in the compact form that a phone shows on every tab. */
+	noticeShort: 'Changes stay in this tab',
 	panels: {
 		plan: 'Plan',
 		gantt: 'Gantt',
@@ -247,6 +320,11 @@ export const strings = {
 		tabs: 'Panels',
 		outlineOpen: 'Outline',
 		outlineClose: 'Close outline',
+		/** The draggable divider between the editor and the Gantt in Split mode. */
+		divider: 'Resize the editor and the chart',
+		dividerValue: (percent: number, what: string) => `${what} ${percent}%`,
+		dividerEditor: 'Editor',
+		dividerChart: 'Chart',
 	},
 	outline: {
 		title: 'Outline',
@@ -264,14 +342,38 @@ export const strings = {
 		text: 'Text',
 		split: 'Split',
 		visual: 'Visual',
+		/** The tooltip of a mode button: the shortcut Ctrl or Cmd plus the mode's number. */
+		shortcut: (n: number) => `Ctrl or Cmd+${n}`,
 	},
 	gantt: {
 		region: 'Gantt chart',
 		toolbar: 'Gantt controls',
 		zoom: 'Zoom',
 		level: { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' },
+		/** The zoom is between two presets (after a pinch or Ctrl+wheel), nearest to this one. */
+		levelCustom: (nearest: string) => `${nearest} (custom)`,
 		criticalPath: 'Critical path',
 		criticalUnavailable: 'The critical path is not computed yet',
+		/**
+		 * The critical path and float are display estimates derived from the schedule (ADR-0007):
+		 * they ignore resource limits and leveling, so they are always labelled as estimates.
+		 */
+		estimate: {
+			/** The critical-path chip's tooltip. */
+			hint: 'Critical path and float are estimates: they ignore resource limits and leveling',
+			/** Shown while the chip is on and the whole path ends before the status date. */
+			allDone: 'Every task on the critical path ends before the status date',
+			/**
+			 * Ends a critical task's line, so the critical path is never colour alone (WCAG 1.4.1),
+			 * and says it is an estimate.
+			 */
+			critical: 'On the critical path (estimate)',
+			float: (amount: string) => `Float about ${amount} (estimate)`,
+			days: (n: number) => (n === 1 ? '1 working day' : `${n} working days`),
+			hours: (n: number) => (n === 1 ? '1 working hour' : `${n} working hours`),
+			/** The treegrid's float column (T18). */
+			floatColumn: 'Float (estimate)',
+		},
 		/** Today has no line on the chart to go to (it is before or after the plan). */
 		todayOff: 'Today (off the chart)',
 		today: 'Today',
@@ -295,6 +397,8 @@ export const strings = {
 		milestoneOn: (name: string, at: string) => `${name}: milestone on ${at}`,
 		/** The task's line with the people on it, e.g. "Code: 3 Mar to 9 Mar 2026. Ana, Ben". */
 		withPeople: (line: string, people: string) => `${line}. ${people}`,
+		/** The task's line with its estimate note, e.g. "Code: 3 Mar to 9 Mar 2026. On the critical path (estimate)". */
+		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
 	},
 	editor: {
@@ -335,6 +439,7 @@ export const strings = {
 		severity: { error: 'Error', warning: 'Warning', info: 'Note' },
 	},
 	refusal: refusalStrings,
+	history: historyStrings,
 } as const;
 
 /**

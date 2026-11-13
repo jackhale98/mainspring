@@ -1,0 +1,105 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Stroke icons in the Lucide style (ISC licence, GPL-compatible), drawn as inline SVG paths so the
+// page loads no icon font and no image. Decorative: the text beside each icon says what it means.
+import type { IconName } from '../../lib/landing-copy';
+
+interface Props {
+	name: IconName;
+}
+const { name } = Astro.props;
+
+const PATHS: Record<IconName, string[]> = {
+	cpu: [
+		'M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+		'M9 9h6v6H9z',
+		'M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2',
+	],
+	'file-text': [
+		'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',
+		'M14 2v6h6M16 13H8M16 17H8M10 9H8',
+	],
+	code: ['m16 18 6-6-6-6', 'm8 6-6 6 6 6'],
+	gantt: ['M3 3v16a2 2 0 0 0 2 2h16', 'M9 7h9M12 12h6M8 17h5'],
+	contrast: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 18a6 6 0 0 0 0-12v12z'],
+	unlock: [
+		'M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z',
+		'M7 11V7a5 5 0 0 1 9.9-1',
+	],
+	move: ['m18 8 4 4-4 4', 'M2 12h20', 'm6 8-4 4 4 4'],
+	grid: [
+		'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
+		'M3 9h18M3 15h18M9 3v18M15 3v18',
+	],
+	pulse: ['M22 12h-4l-3 9L9 3l-3 9H2'],
+	folder: [
+		'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z',
+	],
+	download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm7 10 5 5 5-5', 'M12 15V3'],
+	layers: [
+		'M12.8 2.2a2 2 0 0 0-1.6 0L2.6 6.1a1 1 0 0 0 0 1.8l8.6 3.9a2 2 0 0 0 1.6 0l8.6-3.9a1 1 0 0 0 0-1.8z',
+		'm22 17.7-9.2 4.2a2 2 0 0 1-1.6 0L2 17.7',
+		'm22 12.7-9.2 4.2a2 2 0 0 1-1.6 0L2 12.7',
+	],
+	'arrow-right': ['M5 12h14', 'm12 5 7 7-7 7'],
+	check: ['M20 6 9 17l-5-5'],
+	github: [
+		'M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.1-1.4-.4-2.7-1.2-3.8.3-1.1.3-2.3 0-3.4 0 0-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.7 2.5 5.6 2.8 5.6 2.8a4.2 4.2 0 0 0 0 3.4A5.4 5.4 0 0 0 4 10c0 3.5 3 5.5 6 5.5-.4.5-.8 1.3-.9 2.1v4',
+		'M9 18c-4.5 2-5-2-7-2',
+	],
+	'git-pull-request': [
+		'M18 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+		'M6 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+		'M13 6h3a2 2 0 0 1 2 2v7',
+		'M6 9v12',
+	],
+	history: ['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5', 'M12 7v5l4 2'],
+	'git-branch': [
+		'M6 3v12',
+		'M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+		'M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+		'M18 9a9 9 0 0 1-9 9',
+	],
+	clock: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 6v6l4 2'],
+	users: [
+		'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+		'M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
+		'M22 21v-2a4 4 0 0 0-3-3.9',
+		'M16 3.1a4 4 0 0 1 0 7.8',
+	],
+	calendar: [
+		'M8 2v4',
+		'M16 2v4',
+		'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+		'M3 10h18',
+	],
+	route: [
+		'M6 13a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+		'M18 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+		'M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15',
+	],
+	wrench: [
+		'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8z',
+	],
+	external: [
+		'M15 3h6v6',
+		'M10 14 21 3',
+		'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
+	],
+};
+---
+
+<svg
+	viewBox="0 0 24 24"
+	fill="none"
+	stroke="currentColor"
+	stroke-width="1.8"
+	stroke-linecap="round"
+	stroke-linejoin="round"
+	aria-hidden="true"
+	focusable="false"
+>
+	{PATHS[name].map((d) => (
+		<path d={d} />
+	))}
+</svg>

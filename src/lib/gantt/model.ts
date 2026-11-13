@@ -10,9 +10,11 @@
  * - `links` is the list of dependencies to draw, resolved by links.ts from the engine's result
  *   (the source of truth for which links exist, their type and gaps) and the text's sites (which
  *   say where each one is written).
- * - `analysis` is the driving-path result (critical path, float). Nothing produces it yet, so
- *   the critical and float fields stay false and null. `GanttAnalysis` is the part of the T5
- *   `DrivingAnalysis` that the model reads, so T5's output fits without a change here.
+ * - `analysis` is the driving-path result (critical path and float, display estimates from
+ *   schedule/critical.ts, computed in an idle task by gantt/analysis.ts). `GanttAnalysis` is the
+ *   part of `DrivingAnalysis` the model reads. An analysis of another result revision is ignored,
+ *   so a stale one is never drawn over a newer schedule while the new one is being computed;
+ *   without one the critical and float fields are false and null.
  *
  * A collapsed container shows the links of its hidden children on its own bar, so a hidden
  * dependency is never silently lost; links that land on one pair of rows are one line that keeps
@@ -33,6 +35,8 @@ import { MIN_PER_DAY } from './scale';
 import type { GanttCalendar } from './ticks';
 
 export interface GanttAnalysis {
+	/** The result revision it was computed from; when given, it must be the shown result's. */
+	readonly revision?: Revision;
 	readonly critical: ReadonlySet<string>;
 	/** `${pred}>${succ}` */
 	readonly criticalLinks: ReadonlySet<string>;
@@ -121,8 +125,14 @@ export interface GanttModel {
 	/** The time frame drawn: minutes at x = 0 and at the right edge. */
 	readonly originMin: Minutes;
 	readonly endMin: Minutes;
-	/** The plan's status date (`now`) and the wall-clock today, in minutes; null when unknown. */
+	/** The plan's status date (`now`) in minutes; null when unknown. It comes from the result. */
 	readonly statusMin: Minutes | null;
+	/**
+	 * The wall-clock today in minutes, only when `nowMs` was given to `buildGanttModel`. Prefer to
+	 * keep the clock out of the model (`todayOf`, passed to the overlay): the clock changes every
+	 * minute, and a model that depends on it is rebuilt, its layout made and every layer
+	 * repainted each time.
+	 */
 	readonly todayMin: Minutes | null;
 	readonly scenario: string | null;
 	/** True when the schedule shown is not the newest outcome (errors): draw it dimmed. */
@@ -142,8 +152,12 @@ export interface ModelInput {
 	dimmed: boolean;
 	links: readonly RawLink[];
 	analysis: GanttAnalysis | null;
-	/** `Date.now()`, passed in so the model stays pure. */
-	nowMs: number | null;
+	/**
+	 * Transitional: `Date.now()`, which sets the model's `todayMin`. Leave it out and give the
+	 * clock to the overlay and `markerState` through `todayOf`, so that a tick of the clock does
+	 * not rebuild the model (phase-2.md 6.3).
+	 */
+	nowMs?: number | null;
 	zones?: ZoneOffsets;
 	locale?: string;
 }
@@ -170,6 +184,15 @@ export const EMPTY_MODEL: GanttModel = {
 };
 
 const taskKey = (id: TaskId): string => `task:${id}`;
+
+/** The wall-clock moment in minutes of the plan's own axis, or null without a plan or a clock. */
+export function todayOf(
+	project: ProjectInfo | null,
+	nowMs: number | null | undefined,
+): Minutes | null {
+	if (!project || nowMs === null || nowMs === undefined) return null;
+	return Math.round((nowMs - Date.parse(project.start)) / MINUTE_MS);
+}
 
 function minutesAt(project: ProjectInfo, iso: string): Minutes {
 	return Math.round((Date.parse(iso) - Date.parse(project.start)) / MINUTE_MS);
@@ -203,6 +226,11 @@ function extentOf(
 
 export function buildGanttModel(i: ModelInput): GanttModel {
 	const result = i.result;
+	// An analysis of an older (or newer) result is not drawn over this one.
+	const analysis =
+		i.analysis && (i.analysis.revision === undefined || i.analysis.revision === result?.revision)
+			? i.analysis
+			: null;
 	const project = result?.project ?? null;
 	const scenario = result ? finishScenario(result) : null;
 	const byId = new Map<string, TaskResult>();
@@ -241,9 +269,9 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 			complete: s?.complete ?? null,
 			people: (s?.allocated ?? []).map((id) => resourceName.get(id) ?? id),
 			peopleIndex: (s?.allocated ?? []).map((id) => resourceIndex.get(id) ?? 0),
-			critical: id !== null && !!i.analysis?.critical.has(id),
-			floatMin: id === null ? null : (i.analysis?.floatMin.get(id) ?? null),
-			lateEnd: id === null ? null : (i.analysis?.lateEnd.get(id) ?? null),
+			critical: id !== null && !!analysis?.critical.has(id),
+			floatMin: id === null ? null : (analysis?.floatMin.get(id) ?? null),
+			lateEnd: id === null ? null : (analysis?.lateEnd.get(id) ?? null),
 			textOnly: n.textOnly,
 		};
 	});
@@ -269,7 +297,7 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 		const predRow = rowFor(raw.pred);
 		const succRow = rowFor(raw.succ);
 		if (predRow === null || succRow === null || predRow === succRow) continue;
-		const critical = !!i.analysis?.criticalLinks.has(`${raw.pred}>${raw.succ}`);
+		const critical = !!analysis?.criticalLinks.has(`${raw.pred}>${raw.succ}`);
 		const key = `${predRow}>${succRow}|${raw.from}|${raw.to}`;
 		const known = merged.get(key);
 		if (!known) {
@@ -312,10 +340,7 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 		originMin,
 		endMin,
 		statusMin: project ? minutesAt(project, project.now) : null,
-		todayMin:
-			project && i.nowMs !== null
-				? Math.round((i.nowMs - Date.parse(project.start)) / MINUTE_MS)
-				: null,
+		todayMin: todayOf(project, i.nowMs),
 		scenario,
 		dimmed: i.dimmed,
 		revision: result?.revision ?? null,

@@ -1,7 +1,7 @@
 # ADR-0009: Visual direction: Mainspring (Paper layout, horological palette)
 
 Status: accepted by the user, 2026-11-12 (Paper). Refined by the user, 2026-11-13 (Mainspring
-palette).
+palette; refined design language; blued steel as an accent only, applied in T14).
 
 ## Context
 
@@ -188,23 +188,25 @@ THEMES objects in the refined mockups, for light and dark mode.
   - Bar outlines: brass bars keep a 1 px outline in the link colour (#9A7424 / #C9A24D) so the
     bar edge meets WCAG 1.4.11. The blued-steel critical bars already exceed 3:1 and need none.
 
-## Pending refinement, 2026-11-13: blued steel as an accent only
+## Refinement, 2026-11-13: blued steel as an accent only (applied in T14)
 
-The user asked for less blue, as a later change that must not delay the next deploy. On a real
-watch, heat-blued steel is an accent (the hands, a few screws), not a surface. The intent:
+The user asked for less blue. On a real watch, heat-blued steel is an accent (the hands, a few
+screws), not a surface. The intent, now built:
 
 - Enamel and brass carry the interface: grounds, panels, bars, controls and selection.
-- Blued steel appears only as thin, precise accents. Candidates: the critical-path links and a
-  fine blued edge or hand-like marker on critical bars instead of a solid blue fill, the progress
-  needle and arc, the focus ring, and the active-mode indicator.
-- Primary buttons, active tabs, selection washes and filled chips move from blue to brass or
-  enamel tones.
+- Blued steel appears only as thin, precise accents: the focus ring, the selection edge (the
+  3 px left edge of the selected row and the ring around the selected bar), the active-mode marker
+  (a 2 px line under the active segment's label) and, with the inspector (T17), the progress
+  needle and arc.
+- Primary buttons, active tabs, selection washes and filled chips are brass or enamel tones.
+- The critical path is ruby, not blue (user, 2026-11-13: a blue critical path would be
+  unexpected).
 
-This will be applied in one restyle pass after the Gantt and the app frame merge, and recorded
-here with the final values.
+This supersedes, where they differ, the earlier token table, the "Mainspring refined" materials
+(critical bars in a blued-steel gradient, critical links in steel, the navy active-mode pill and
+the steel selection wash) and the "Role mapping" note above.
 
-Human-factors mapping for that pass (the user, 2026-11-13: colours must match what people expect
-from other planning tools; for example, a blue critical path would be unexpected):
+### Human-factors mapping
 
 | Meaning | Convention | Mainspring colour |
 | --- | --- | --- |
@@ -217,9 +219,104 @@ from other planning tools; for example, a blue critical path would be unexpected
 | Milestones | Dark diamonds | Brass jewel, darker than bars |
 | Today line | Red or orange | Brass, not red, so it is not read as critical |
 | Non-working time | Light grey bands | Enamel shading |
-| Links | Neutral arrows; red on the critical path | Neutral or brass; ruby on the critical path |
+| Links | Neutral arrows; red on the critical path | Brass; ruby on the critical path |
 
-Rules: colour is never the only cue (critical bars also get a heavier edge or marker and say
-"critical" in their accessible text, WCAG 1.4.1), and every pair that must be told apart is
-checked under protanopia and deuteranopia simulation (ruby and brass differ strongly in
-lightness).
+Rules: colour is never the only cue (WCAG 1.4.1). A critical bar also gets a heavier edge in ruby (2 px against the 1 px brass
+outline) and a post at its finish and a critical link is 2.2 px against 1.2 px; the selected task's line in the live region
+adds "Critical path". The status dot differs in shape as well as colour (circle when fine,
+diamond for errors, ring while working) and always has words beside it. Every pair that must be
+told apart is checked under protanopia and deuteranopia simulation (Machado et al. 2009, severity
+1.0), by lightness (ratio of at least 1.5) or by a CIE76 distance of at least 25.
+
+### Final values
+
+The tokens live in `src/styles/theme-light.css` and `theme-dark.css` (colours and shadows) and
+`src/styles/tokens.css` (type, space, shape, motion, Gantt sizes). `tests/ci/palette.test.ts`
+reads those files and fails if any value below breaks its pair. The theme is always on the root
+element as `data-theme="light|dark"` (the inline script in `layouts/Base.astro`, then
+`src/lib/state/theme.svelte.ts`); the preference (system, light or dark) is in `localStorage`
+under `mainspring.theme`.
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--color-bg` | #ECE7DC | #080B10 | recessed canvas |
+| `--color-surface` | #FFFDF8 | #11151D | floating panels |
+| `--color-surface-sunken` | #F4EFE5 | #181D28 | inset wells |
+| `--color-text` / `muted` / `faint` | #1C1A17 / #625B4F / #6F675A | #EEE7D7 / #A9A291 / #8F897A | text |
+| `--color-border` / `border-strong` | #E6E0D2 / #D5CCB8 | #1E2431 / #2A3243 | hairlines, chip edges |
+| `--color-brass` / `brass-deep` | #B08D3C / #9A7424 | #D2AE5C / #C9A24D | mark, jewels, today, links |
+| `--color-brass-wash` / `brass-ink` | #F6EEDA / #5E4710 | #2A2517 / #F1E3BF | active tab, selection wash |
+| `--color-accent` (primary) / `accent-text` | #7A5C14 / #FFFDF8 | #D2AE5C / #1A1405 | primary buttons |
+| `--color-row-selected` | #F6EEDA | #251F12 | selection wash |
+| `--color-steel` = `--color-focus` | #2346A0 | #7D9BE8 | focus ring, selection edge |
+| `--color-pill-on` / `pill-on-ink` / `pill-marker` | #2B2620 / #F6F1E6 / #8FA9EC | #EEE7D7 / #11151D / #2346A0 | active mode |
+| `--color-ruby` / `ruby-wash` / `ruby-ink` | #A3123A / #F7E3E8 / #8A0F31 | #F0627E / #3A1620 / #F6A3B5 | errors, critical |
+| `--color-critical` (links, summary) | #A3123A | #F0627E | critical path |
+| `--color-gantt-critical-top` / `bottom` | #C0264F / #A3123A | #C93E63 / #A3274A | critical bar gradient |
+| `--color-gantt-critical-ink` | #FFFFFF | #FFFFFF | text on critical bars |
+| `--color-gantt-bar-top` / `bottom` / `outline` | #F7EFDC / #EADDBD / #9A7424 | #3B3322 / #2A2417 / #C9A24D | normal bars (brass) |
+| `--color-gantt-link` | #9A7424 | #C9A24D | links |
+| `--color-today` | #9A7424 | #D2AE5C | today line |
+| `--color-status-date` | #2B2620 | #EEE7D7 | status-date line (dashed) |
+| `--color-pending` ("last good" label, pending links) | #8A5A00 | #D2AE5C | amber-brass |
+| `--color-status-ok` | #2F7D4F | #6FCF97 | ok |
+| `--color-syntax-keyword` | #7A5C14 | #E3C47E | editor keywords (was blue) |
+
+Measured (WCAG ratio; deuteranopia distance in parentheses):
+
+- Text: text on the panel 17.1:1 (light) and 14.8:1 (dark); muted 6.6:1 and 7.2:1; faint 4.5:1 on
+  the light canvas and 4.9:1 on the wells, 5.7:1 on the dark canvas and 4.8:1 on its wells; the
+  primary label on the primary button 6.1:1 (light) and 8.7:1 (dark); white on the critical
+  gradient 5.8:1 at the top to 7.8:1 at the bottom (light), 4.8:1 to 7.1:1 (dark); the "last good
+  schedule" label 5.8:1 (light) and 8.7:1 (dark), where it was 4.22:1.
+- Graphics (3:1): the focus ring 8.4:1 on the panel and 7.4:1 on the selection wash (light), 6.7:1
+  and 6.0:1 (dark); the critical link 7.6:1 (light) and 5.9:1 (dark); the brass link and the today
+  line 4.2:1 (light), the outline of a brass bar 4.2:1.
+- Must be told apart: critical bar and brass bar (ratio 4.3 light, 3.2 dark; distance 42 and 38 for
+  deutan); critical link and brass link (1.8 and 1.3 by lightness, distance 27 and 30 for deutan, so
+  they also differ in width: 2.2 px against 1.2 px); critical and the today line (the same, and the
+  today line is full height with a crown); status date and today (3.5 light, 1.7 dark, dashed
+  against solid); critical and the focus ring (distance 79 and 63).
+- Known confusable: ruby and green for a deuteranope (distance 10). They never appear without
+  other cues: the status dot's shape and its words, the critical edge and the "Critical path" text.
+
+### Consequences of this refinement
+
+- The Gantt painter draws the second cue of the critical path (a 2 px edge in `--color-critical`
+  and a post at the bar's finish, `--gantt-critical-edge-width`, `--gantt-critical-post-width`,
+  `--gantt-critical-post-reach`) and reads the critical bar's colours from the `critical-*` tokens.
+- Pinch over the chart zooms the chart, not the page (phase-2.md 8.2: "pinch is ours"). The page
+  stays an app-like fixed shell; browser zoom stays available from the keyboard and menu (WCAG
+  1.4.4). A mouse or pen over the chart gets a non-passive wheel listener (a trackpad pinch is a
+  Ctrl+wheel with no key down); touch never does. T22 measures the scroll cost.
+- Lucide icon path data (ISC) is inlined in `src/lib/icons.ts`; the notice is in
+  `THIRD_PARTY_NOTICES.md`.
+
+## Mark note, 2026-11-13: the brand mark doubles as the loader
+
+The user chose option C1, "Tick, refined, all brass", from board F of the design canvas. They had
+asked for a sleek, sophisticated mark rather than a toy-like one, with every colour from this
+palette.
+
+- **Geometry:** one source, `src/lib/brand/mark.ts`, in a 120 × 120 box.
+  - Three task arcs on the dial, of 120°, 96° and 108°, with equal 12° gaps.
+  - A hairline inner dial ring.
+  - A blued-steel hairspring.
+  - A ruby cap jewel in a brass setting.
+- **Colours:**
+  - The arcs and the setting are brushed brass: a vertical gradient through `--color-mark-brass-hi`, `--color-mark-brass` and `--color-mark-brass-lo`.
+  - The jewel is a ruby radial gradient, lit from the top left.
+  - The hairspring is `--color-steel`. Blued steel stays a thin accent.
+- **Small form:** at 32 px and below, the inner ring and the hairspring are dropped and the arcs are thickened. The mark draws the mainspring itself: a lit blued-steel coil of 2.5 turns that starts under the jewel and tapers to a fine tail. The jewel (radius 9) sits on a brass setting with a soft shadow. The user chose this coil (option E, 2026-11-13) over a flat coil (A), so the small mark reads as a mainspring and matches the brushed brass. The favicon, the app icons and the top bar use this form.
+- **Loader:** with `busy`, the mark moves the way a movement does (the user, 2026-11-13).
+  - The dial is the escapement. It ticks forward twelve eased steps a turn, one every half second.
+  - In the small form, the mainspring unwinds steadily in one direction, a turn every 8 s.
+  - In the full form, the hairspring beats once a second, and each half-beat lets the dial tick.
+  - While it moves, the mark is cheap to paint: no masks or filters, which WebKit repaints every frame and which starved the engine's messages on the iPhone run. The turning coil is lit radially so its light does not spin, and the jewel drops its shadow.
+  - Under reduced motion the mark holds still and pulses.
+  - The loader replaces the brass ring in the engine pill and the status strip while the engine starts or schedules, and shows at 44 px in the Gantt's "Scheduling…" placeholder.
+- **App icons:** `public/manifest.webmanifest` lists the SVG favicon and 192, 512 and maskable 512 px PNGs, plus an apple-touch-icon, all rendered from the small form by `npm run gen:icons`. 
+- **Uses:**
+  - `Mark.svelte` in the app;
+  - `Mark.astro` on the landing page;
+  - `public/favicon.svg`, written by `npm run gen:favicon`, with the dark colours under `prefers-color-scheme`. `mark.test.ts` checks that it is current.

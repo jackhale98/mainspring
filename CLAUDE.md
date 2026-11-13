@@ -64,11 +64,45 @@ Haiku-sized work (fixtures, test runs, log triage, docs formatting) in the main 
 6. Record the gate evidence (test output, desktop and phone screenshots, timings) in
    `docs/phases/phase-N-gate.md` and stop for approval.
 
+## Process rules (user, 2026-11-13)
+
+Goal: develop fast and interactively, stay thorough, and never write code that has to be thrown
+away because work was split or delegated too early. These rules refine the loop above.
+
+- **Two or three parallel tracks at most.** Never run tasks in parallel when one consumes an
+  interface the other is still defining. Settle the interface first (types and a short contract,
+  merged), then build its consumers.
+- **Sequence over speculation.** Do not build against a guessed or stubbed version of unmerged
+  work when waiting a step would avoid rework. Merge in dependency order.
+- **Independent review where it pays:** engine, bridge, edit API, and anything checkable against
+  native TaskJuggler get a `reviewer` pass with native or engine reproduction. UI work: the main
+  session checks behaviour and screenshots during the work, and one review runs before merge, not
+  one per fix round.
+- **Small fixes in the main session.** A fix of a few lines is made directly, with its test, rather
+  than sent back through a fix round and re-review.
+- **Strong models for judgment.** Design, engine, edit API, reviews and test design use the
+  strongest model. Lighter models only for mechanical work (test runs, fixtures from a clear
+  recipe, docs formatting).
+- **Agents verify end to end.** An agent's report must include evidence that its change works in
+  the real app or engine (a run, a screenshot, a trace), not only unit tests.
+- **CI is the full gate.** Before pushing, run the checks for what changed: typecheck, format, the
+  touched unit tests and the touched e2e specs. Then push and let CI run the full sharded suite.
+  Do not repeat the whole e2e suite locally. Nothing reaches `main` until CI is green. Batch
+  pushes, because a new push cancels the run in progress.
+- **Proportionate tests.** Test behaviour and correctness, not marketing copy or wording. The existing
+  landing-copy test stays, but it is the exception, not the pattern.
+- **Interactive checkpoints.** Show the user visible progress early (screenshots, the Pages
+  preview) and ask before large design or scope turns.
+
 ## Current status
 
 - Phase 0 approved 2026-11-11 (`docs/phases/phase-0-gate.md`).
 - Phase 1 approved 2026-11-12 (`docs/phases/phase-1-gate.md`). Phase 2 in progress
   (`docs/phases/phase-2.md`, approved 2026-11-12; ADR-0007, ADR-0008). Goldens are
   provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
+- The user approved moving into Phase 3 as soon as Phase 2 is done (2026-11-13). Record the gate
+  evidence in `docs/phases/phase-2-gate.md` as usual, then start Phase 3 without waiting. Show the
+  user the Phase 3 spec when it is written. Polish (`docs/phases/phase-2-polish.md`) waits until
+  Phase 2 is finished.
 - Public preview on GitHub Pages from `main` (ADR-0006); the OpenSSL issue in ADR-0001 still blocks a real release.
 - `poc/` is the frozen proof of concept; see `poc/INVENTORY.md`. Never edit it.

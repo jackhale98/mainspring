@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { undo } from '@codemirror/commands';
-import { EditorState, Facet, Transaction, type ChangeSet } from '@codemirror/state';
+import { historyField } from '@codemirror/commands';
+import {
+	Annotation,
+	EditorSelection,
+	EditorState,
+	Facet,
+	Transaction,
+	type ChangeSet,
+} from '@codemirror/state';
 import { describe, expect, it, vi } from 'vitest';
 import { serialize } from '../../../tests/grammar/corpus';
 import { changeSetOf, parseTjp, syntaxIssues } from '../tjp/document';
@@ -123,19 +130,28 @@ describe('commit', () => {
 		expect(() => ws.commit('plan.tjp', stray, 'typing')).toThrow(/does not start/);
 	});
 
-	it('keeps per-file history', () => {
+	it('keeps no per-file CodeMirror history (the workspace history replaces it)', () => {
 		const ws = seed();
 		ws.commit('x.tji', typeAt(ws, 'x.tji', 0, '# note\n'), 'typing');
-		let undone: Transaction | null = null;
-		undo({
-			state: ws.state('x.tji'),
-			dispatch: (tr) => {
-				undone = tr;
-			},
-		});
-		if (!undone) throw new Error('nothing to undo');
-		ws.commit('x.tji', undone, 'typing');
-		expect(ws.texts()['x.tji']).toBe(X);
+		expect(ws.state('x.tji').field(historyField, false)).toBeUndefined();
+	});
+});
+
+describe('attachEditor', () => {
+	it('gives every file the editor extensions, keeping the text and the parse', () => {
+		const marker = Facet.define<string, string>({ combine: (v) => v.join(',') });
+		const ws = seed();
+		const before = ws.texts();
+		const version = ws.snapshot().version;
+		expect(ws.state('x.tji').facet(marker)).toBe('');
+		ws.attachEditor({ extensions: (path) => marker.of(path) });
+		expect(ws.texts()).toEqual(before);
+		expect(ws.snapshot().version).toBe(version);
+		expect(ws.state('x.tji').facet(marker)).toBe('x.tji');
+		expect(ws.state('plan.tjp').facet(marker)).toBe('plan.tjp');
+		// Edits still go through, and the extensions stay.
+		expect(ws.apply(edit(ws, 'x.tji', '1d', '4d'))).toBe('applied');
+		expect(ws.state('x.tji').facet(marker)).toBe('x.tji');
 	});
 });
 
@@ -192,6 +208,39 @@ describe('apply origins', () => {
 		ws.apply({ ...edit(ws, 'x.tji', '1d', '2d', 'f'), intent: { type: 'format' } });
 		ws.apply(edit(ws, 'x.tji', '2d', '3d', 'g'));
 		expect(origins).toEqual(['format', 'intent']);
+	});
+
+	it('takes the origin, selections, annotations and user event from the options (6.11)', () => {
+		const ws = seed();
+		const infos: Array<{ origin: string; info: ChangeInfo }> = [];
+		ws.subscribe((_s, origin, info) => infos.push({ origin, info }));
+		const marker = Annotation.define<string>();
+		const e = edit(ws, 'x.tji', '1d', '22d', 'h');
+		const r = ws.apply(e, {
+			origin: 'history',
+			selection: { 'x.tji': EditorSelection.create([EditorSelection.range(3, 999)]) },
+			annotations: [marker.of('m')],
+			userEvent: 'undo',
+		});
+		expect(r).toBe('applied');
+		const got = infos[0];
+		expect(got?.origin).toBe('history');
+		expect(got?.info.edit).toBe(e);
+		const tr = got?.info.transactions[0];
+		expect(tr?.annotation(marker)).toBe('m');
+		expect(tr?.annotation(tjpEditId)).toBe('h');
+		expect(tr?.isUserEvent('undo')).toBe(true);
+		// Clamped to the new text.
+		const len = ws.texts()['x.tji']?.length ?? 0;
+		expect(ws.state('x.tji').selection.main).toMatchObject({ anchor: 3, head: len });
+	});
+
+	it('leaves the edit out of commits', () => {
+		const ws = seed();
+		const infos: ChangeInfo[] = [];
+		ws.subscribe((_s, _o, info) => infos.push(info));
+		ws.commit('x.tji', typeAt(ws, 'x.tji', 0, '#'), 'typing');
+		expect(infos[0] && 'edit' in infos[0]).toBe(false);
 	});
 });
 

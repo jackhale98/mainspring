@@ -62,6 +62,42 @@ describe('ctrlWheel', () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
+	it('listens while a mouse is over the element, so a trackpad pinch (Ctrl+wheel, no key) zooms the chart', () => {
+		const { node, handler, action } = setup();
+		const enter = new Event('pointerenter') as PointerEvent;
+		Object.defineProperty(enter, 'pointerType', { value: 'mouse' });
+		node.dispatchEvent(enter);
+		const pinch = wheel({ ctrlKey: true, deltaY: -4 });
+		node.dispatchEvent(pinch);
+		expect(handler).toHaveBeenCalledOnce();
+		expect(pinch.defaultPrevented).toBe(true);
+		// A plain scroll is left alone while hovering.
+		const scroll = wheel({ deltaY: 80 });
+		node.dispatchEvent(scroll);
+		expect(scroll.defaultPrevented).toBe(false);
+		node.dispatchEvent(new Event('pointerleave'));
+		node.dispatchEvent(wheel({ ctrlKey: true }));
+		expect(handler).toHaveBeenCalledOnce();
+		action.destroy();
+	});
+
+	it('keeps listening on leave while the modifier is held, and never attaches for touch', () => {
+		const { node, handler, action } = setup();
+		const touch = new Event('pointerenter') as PointerEvent;
+		Object.defineProperty(touch, 'pointerType', { value: 'touch' });
+		node.dispatchEvent(touch);
+		node.dispatchEvent(wheel({ ctrlKey: true }));
+		expect(handler).not.toHaveBeenCalled();
+		key('keydown', 'Control');
+		const enter = new Event('pointerenter') as PointerEvent;
+		Object.defineProperty(enter, 'pointerType', { value: 'pen' });
+		node.dispatchEvent(enter);
+		node.dispatchEvent(new Event('pointerleave'));
+		node.dispatchEvent(wheel({ ctrlKey: true }));
+		expect(handler).toHaveBeenCalledOnce();
+		action.destroy();
+	});
+
 	it('uses the newest handler after an update', () => {
 		const { node, handler, action } = setup();
 		const next = vi.fn();

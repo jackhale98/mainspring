@@ -1,0 +1,66 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// A few lines of a text diff, as a review tool shows them. A removed line carries a minus sign and
+// an added line a plus sign, so the change never depends on colour alone. Decorative: the parent
+// describes it.
+import { tokenize, tokensToHtml } from '../../lib/landing-art';
+import type { DiffLine } from '../../lib/landing-sample';
+
+interface Props {
+	lines: readonly DiffLine[];
+}
+const { lines } = Astro.props;
+const rows = lines.map((l) => ({
+	...l,
+	marker: l.kind === 'add' ? '+' : l.kind === 'del' ? '−' : '',
+	html: tokensToHtml(tokenize(l.text)),
+}));
+---
+
+<div class="lp-code diff">
+	{rows.map((r) => (
+		<div class={`row ${r.kind}`}>
+			<span class="n">{r.n}</span>
+			<span class="mark">{r.marker}</span>
+			<span class="src" set:html={r.html} />
+		</div>
+	))}
+</div>
+
+<style>
+	.diff {
+		padding: 0.4em 0;
+		font-size: 0.85rem;
+	}
+	.row {
+		display: flex;
+		align-items: baseline;
+		line-height: 1.8;
+		white-space: pre;
+	}
+	.n {
+		inline-size: 2.6em;
+		flex: none;
+		text-align: end;
+		color: var(--lp-muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.mark {
+		inline-size: 2em;
+		flex: none;
+		text-align: center;
+		font-weight: 700;
+	}
+	.add {
+		background: color-mix(in srgb, var(--lp-ok) 15%, var(--lp-panel));
+	}
+	.add .mark {
+		color: var(--lp-ok);
+	}
+	.del {
+		background: color-mix(in srgb, var(--lp-ruby) 12%, var(--lp-panel));
+	}
+	.del .mark {
+		color: var(--lp-ruby);
+	}
+</style>

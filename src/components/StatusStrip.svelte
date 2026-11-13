@@ -8,6 +8,7 @@
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
 	import { strings } from '../lib/strings';
+	import Mark from './app/Mark.svelte';
 
 	interface Props {
 		app: AppState;
@@ -50,7 +51,10 @@
 {#if s}
 	<div class="strip" class:compact role="group" aria-label={strings.status.region}>
 		<span class="state" data-kind={s.kind}>
-			<span class="dot" aria-hidden="true"></span>{s.label}
+			{#if s.kind === 'scheduling' || s.kind === 'booting'}<Mark size={14} busy />{:else}<span
+					class="dot"
+					aria-hidden="true"
+				></span>{/if}{s.label}
 		</span>
 		<span class="finish" class:outdated={s.outdated}>
 			<span class="key">{strings.status.finish}</span>
@@ -101,9 +105,8 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-1) var(--space-4);
-		padding: var(--space-2) var(--gutter);
-		border-block-start: 1px solid var(--color-border);
-		background: var(--color-surface);
+		min-block-size: 40px;
+		padding: var(--space-1) var(--gutter);
 		font-size: var(--text-sm);
 	}
 	.state {
@@ -112,22 +115,25 @@
 		gap: var(--space-2);
 		font-weight: 600;
 	}
+	/* The dot differs in shape as well as colour: a circle when fine, a diamond for errors, and while it
+	   works the ticking brand mark instead (WCAG 1.4.1). */
 	.dot {
-		inline-size: 0.625rem;
-		block-size: 0.625rem;
+		flex: none;
+		inline-size: 8px;
+		block-size: 8px;
 		border-radius: 50%;
 		background: var(--color-status-neutral);
 	}
 	.state[data-kind='ok'] .dot {
 		background: var(--color-status-ok);
+		box-shadow: 0 0 0 3px var(--color-status-ok-halo);
 	}
 	.state[data-kind='errors'] .dot,
 	.state[data-kind='failed'] .dot {
+		border-radius: 1px;
+		transform: rotate(45deg);
 		background: var(--color-diagnostic-error);
-	}
-	.state[data-kind='scheduling'] .dot,
-	.state[data-kind='booting'] .dot {
-		background: var(--color-accent);
+		box-shadow: 0 0 0 3px var(--color-ruby-wash);
 	}
 	.finish {
 		display: inline-flex;
@@ -144,27 +150,35 @@
 	.delta {
 		color: var(--color-text-muted);
 	}
+	time {
+		font-family: var(--font-display);
+		font-size: 1.15em;
+	}
 	.badge {
 		padding: 0 var(--space-2);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-pill);
 		background: var(--color-badge-bg);
 		color: var(--color-badge-text);
 		font-size: var(--text-xs);
 		font-style: normal;
 	}
 	.counts {
-		padding: var(--space-1) var(--space-2);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+		padding: var(--space-1) var(--space-3);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-pill);
 		background: var(--color-surface);
 		color: var(--color-text);
 		font: inherit;
 		cursor: pointer;
 		min-block-size: 1.75rem;
 	}
+	.counts:hover {
+		background: var(--color-row-hover);
+	}
 	.counts.plain {
 		padding: 0;
 		border: 0;
+		background: transparent;
 		color: var(--color-text-muted);
 		cursor: default;
 	}
@@ -173,23 +187,32 @@
 		font-weight: 600;
 	}
 	.retry {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
 		padding: var(--space-1) var(--space-3);
 		border: 1px solid var(--color-accent);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-pill);
 		background: var(--color-accent);
 		color: var(--color-accent-text);
 		font: inherit;
+		font-weight: 600;
 		cursor: pointer;
 		min-block-size: 1.75rem;
+	}
+	.retry:hover {
+		background: var(--color-accent-hover);
 	}
 	.compact .state {
 		font-weight: 500;
 	}
-	/* One line: a phone's strip (every tab) takes little of the height. */
+	/* One line: a phone's strip (every tab) takes little of the height. It sits on the canvas. */
 	.strip.compact {
 		flex-wrap: nowrap;
 		gap: var(--space-1) var(--space-3);
-		padding-block: var(--space-1);
+		min-block-size: 0;
+		padding-block: 2px;
+		padding-inline: 8px;
 		overflow: hidden;
 		font-size: var(--text-xs);
 	}
@@ -220,14 +243,16 @@
 		overflow: auto;
 		padding: var(--space-3) var(--space-4);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-panel);
 		background: var(--color-surface);
 		color: var(--color-text);
 		box-shadow: var(--shadow-raised);
 	}
 	.popover h2 {
 		margin: 0 0 var(--space-2);
-		font-size: var(--text-md);
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		font-weight: 400;
 	}
 	.popover ul {
 		margin: 0;

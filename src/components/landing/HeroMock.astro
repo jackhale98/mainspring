@@ -1,0 +1,303 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// The hero's product mock: Mainspring's Split view, the plain-text plan on the left and its Gantt
+// chart on the right, for the same four tasks. The Design task is selected in both, in blued
+// steel, so the eye links the text to its bar, and the edited `effort` line is picked out in
+// brass. Built in HTML and SVG from the same tokens as the app, so it stays sharp and follows
+// light and dark. Everything is sized in em; the frame is a size container and the mock's font
+// size is a fraction of its width, so the picture scales as one. On a narrow frame the two panels
+// stack, chart above text, and the text shows its first two tasks. It is an illustration, so it
+// is one labelled image for assistive technology.
+import { tokenize, tokensToHtml } from '../../lib/landing-art';
+import { landing } from '../../lib/landing-copy';
+import {
+	heroPlan,
+	mockActiveLine,
+	mockFirstLine,
+	mockPlanText,
+	mockSelectedLines,
+} from '../../lib/landing-sample';
+import GanttChart from './GanttChart.astro';
+import Mark from './Mark.astro';
+
+const m = landing.mock;
+const [selFrom, selTo] = mockSelectedLines;
+const lines = mockPlanText.map((text, i) => ({
+	n: mockFirstLine + i,
+	active: i === mockActiveLine,
+	selected: i >= selFrom && i <= selTo,
+	html: tokensToHtml(tokenize(text)),
+}));
+---
+
+<div class="frame" role="img" aria-label={landing.hero.mockLabel}>
+	<div class="mock" aria-hidden="true">
+		<div class="top">
+			<span class="brand">
+				<Mark size={28} />
+				<span class="word">{m.brand}</span>
+			</span>
+			<span class="plan">{m.plan}</span>
+			<span class="modes">
+				{m.modes.map((label, i) => (
+					<span class={i === m.activeMode ? 'mode on' : 'mode'}>{label}</span>
+				))}
+			</span>
+			<span class="status">
+				<i class="dot"></i>
+				{m.status}
+			</span>
+		</div>
+
+		<div class="panels">
+			<section class="panel editor">
+				<div class="tab">{m.plan}</div>
+				<div class="lp-code code">
+					{lines.map((l) => (
+						<div class={`line${l.selected ? ' sel' : ''}${l.active ? ' active' : ''}`}>
+							<span class="n">{l.n}</span>
+							<span class="src" set:html={l.html} />
+						</div>
+					))}
+				</div>
+			</section>
+
+			<section class="panel chart">
+				<div class="wide">
+					<GanttChart
+						plan={heroPlan}
+						uid="hero-w"
+						selectedId="design"
+						ringId="design"
+						options={{ days: 21, rowH: 60, barH: 18 }}
+					/>
+				</div>
+				<div class="narrow">
+					<GanttChart
+						plan={heroPlan}
+						uid="hero-n"
+						selectedId="design"
+						ringId="design"
+						options={{ nameCol: 58, days: 16, rowH: 40 }}
+					/>
+				</div>
+				<div class="foot">
+					<span class="chip">{m.chips[0]}</span>
+					<span class="chip">
+						<i class="crit-dot"></i>
+						{m.chips[1]}
+					</span>
+				</div>
+			</section>
+		</div>
+	</div>
+</div>
+
+<style>
+	.frame {
+		container-type: inline-size;
+	}
+	.mock {
+		font-size: 12px;
+		font-size: calc(100cqw / 54);
+		padding: 0.8em;
+		border-radius: 1.5em;
+		background: var(--lp-recess);
+		border: 1px solid var(--lp-border);
+		box-shadow: var(--lp-shadow-mock);
+		color: var(--lp-text);
+		font-family: var(--font-sans);
+		line-height: 1.3;
+	}
+
+	/* Top bar, on the recessed ground */
+	.top {
+		display: grid;
+		grid-template-columns: auto auto 1fr auto;
+		align-items: center;
+		gap: 1em;
+		padding: 0.3em 0.5em 0.9em;
+	}
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 0.6em;
+	}
+	.brand :global(svg) {
+		inline-size: 2em;
+		block-size: 2em;
+	}
+	.word {
+		font-family: var(--font-display);
+		font-size: 1.9em;
+		line-height: 1;
+		letter-spacing: -0.01em;
+	}
+	.plan {
+		padding: 0.45em 0.9em;
+		border-radius: 0.8em;
+		background: var(--lp-panel);
+		border: 1px solid var(--lp-border);
+		font-size: 0.95em;
+		font-weight: 500;
+		color: var(--lp-muted);
+	}
+	.modes {
+		justify-self: center;
+		display: flex;
+		gap: 0.2em;
+		padding: 0.25em;
+		border-radius: 999px;
+		background: var(--lp-panel);
+		border: 1px solid var(--lp-border);
+		font-size: 0.95em;
+		font-weight: 500;
+		color: var(--lp-muted);
+	}
+	.mode {
+		padding: 0.35em 1.1em;
+		border-radius: 999px;
+	}
+	.mode.on {
+		background: var(--lp-ink);
+		color: var(--lp-on-ink);
+		font-weight: 600;
+	}
+	.status {
+		display: flex;
+		align-items: center;
+		gap: 0.55em;
+		padding: 0.45em 0.9em;
+		border-radius: 999px;
+		background: var(--lp-panel);
+		border: 1px solid var(--lp-border);
+		font-size: 0.95em;
+		font-weight: 500;
+	}
+	.dot {
+		inline-size: 0.7em;
+		block-size: 0.7em;
+		border-radius: 50%;
+		background: var(--lp-ok);
+		box-shadow: 0 0 0 0.3em var(--lp-ok-halo);
+	}
+
+	/* Two floating panels: the plan as text, and the same plan as bars */
+	.panels {
+		display: grid;
+		grid-template-columns: 20em minmax(0, 1fr);
+		gap: 0.8em;
+	}
+	.panel {
+		border-radius: 1.1em;
+		background: var(--lp-panel);
+		border: 1px solid var(--lp-border);
+		box-shadow:
+			0 1px 2px rgb(60 45 10 / 0.05),
+			0 6px 14px -8px rgb(60 45 10 / 0.12);
+		overflow: hidden;
+	}
+	.tab {
+		padding: 0.8em 1.2em;
+		border-block-end: 1px solid var(--lp-border);
+		font-family: var(--font-mono);
+		font-size: 0.85em;
+		font-weight: 500;
+		color: var(--lp-muted);
+	}
+	.code {
+		padding: 0.7em 0;
+		font-size: 1.02em;
+	}
+	.line {
+		display: flex;
+		gap: 1em;
+		padding-inline-end: 1em;
+		line-height: 1.62;
+		white-space: pre;
+		border-inline-start: 0.22em solid transparent;
+	}
+	/* The selected task, in blued steel as in the Gantt */
+	.line.sel {
+		background: var(--lp-surface2);
+		border-inline-start-color: var(--lp-steel);
+	}
+	/* The edited line, in brass */
+	.line.active {
+		background: var(--lp-brass-wash);
+	}
+	.line.active .n {
+		color: var(--lp-brass-text);
+		font-weight: 700;
+	}
+	.n {
+		inline-size: 2.2em;
+		flex: none;
+		text-align: end;
+		color: var(--lp-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* The chart panel, with the glass chips under the bars */
+	.chart {
+		display: flex;
+		flex-direction: column;
+	}
+	.narrow {
+		display: none;
+	}
+	.foot {
+		display: flex;
+		gap: 0.6em;
+		margin-top: auto;
+		padding: 0.9em 1em;
+	}
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
+		padding: 0.4em 1em;
+		border-radius: 999px;
+		background: var(--lp-glass);
+		border: 1px solid var(--lp-border-strong);
+		font-size: 0.9em;
+		font-weight: 500;
+	}
+	.crit-dot {
+		inline-size: 0.65em;
+		block-size: 0.65em;
+		border-radius: 50%;
+		background: var(--lp-ruby);
+	}
+
+	/* A narrow frame: the chart above, the first two tasks of the text below */
+	@container (max-width: 560px) {
+		.mock {
+			font-size: calc(100cqw / 37);
+		}
+		.top {
+			grid-template-columns: auto 1fr auto;
+		}
+		.plan {
+			display: none;
+		}
+		.panels {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.chart {
+			order: -1;
+		}
+		.wide {
+			display: none;
+		}
+		.narrow {
+			display: block;
+		}
+		.line:nth-child(n + 10) {
+			display: none;
+		}
+		.code {
+			font-size: 1.1em;
+		}
+	}
+</style>

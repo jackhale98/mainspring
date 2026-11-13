@@ -9,8 +9,10 @@
 		app: AppState;
 		/** Heading level offset: the panel sits under an h1 and, on phones, a tab panel. */
 		showTitle?: boolean;
+		/** The unsaved-changes notice at the foot (a phone shows its compact one on every tab). */
+		showNotice?: boolean;
 	}
-	let { app, showTitle = true }: Props = $props();
+	let { app, showTitle = true, showNotice = true }: Props = $props();
 </script>
 
 <div class="panel">
@@ -39,7 +41,7 @@
 			onselect={(n) => app.revealNode(n)}
 		/>
 	</section>
-	<p class="notice">{strings.notice}</p>
+	{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 </div>
 
 <style>
@@ -51,8 +53,10 @@
 	}
 	.title {
 		margin: 0;
-		padding: var(--space-3) var(--space-4) 0;
-		font-size: var(--text-md);
+		padding: var(--space-4) var(--space-4) 0;
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		font-weight: 400;
 	}
 	section {
 		display: flex;
@@ -68,11 +72,11 @@
 	}
 	h3 {
 		margin: 0;
-		padding: var(--space-2) var(--space-4) 0;
-		color: var(--color-text-muted);
-		font-size: var(--text-xs);
+		padding: var(--space-3) var(--space-4) var(--space-1);
+		color: var(--color-text-faint);
+		font-size: 10.5px;
 		font-weight: 600;
-		letter-spacing: 0.04em;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
 	.notice {

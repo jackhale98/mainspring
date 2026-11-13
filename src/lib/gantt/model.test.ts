@@ -6,7 +6,13 @@ import { buildIndex } from '../tjp/index';
 import { inline } from '../tjp/index/testing';
 import { result } from '../workspace/testing/fake-engine-client';
 import { resolveLinks } from './links';
-import { EMPTY_MODEL, buildGanttModel, type GanttAnalysis, type ModelInput } from './model';
+import {
+	EMPTY_MODEL,
+	buildGanttModel,
+	todayOf,
+	type GanttAnalysis,
+	type ModelInput,
+} from './model';
 import { MIN_PER_DAY } from './scale';
 
 const PLAN = `project p "P" 2026-01-05 +30d
@@ -194,6 +200,20 @@ describe('buildGanttModel', () => {
 		expect(m.links[0]?.sites).toEqual([first, second]);
 	});
 
+	it('drops a link from a task to itself: it has no line to draw', () => {
+		const self = {
+			pred: 'app.ui',
+			succ: 'app.ui',
+			from: 'end',
+			to: 'start',
+			state: 'engine',
+			sites: [],
+			gapDurationMin: 0,
+			gapLengthMin: 0,
+		} as const;
+		expect(buildGanttModel(input({ links: [self] })).links).toEqual([]);
+	});
+
 	it('keeps links of different types between the same rows apart', () => {
 		const links = [
 			{
@@ -236,6 +256,21 @@ describe('buildGanttModel', () => {
 		expect(m.links.filter((l) => l.critical).map((l) => l.pred)).toEqual(['app.ui']);
 	});
 
+	it('does not draw an analysis of another result revision (stale until the new one lands)', () => {
+		const analysis: GanttAnalysis = {
+			revision: 1,
+			critical: new Set(['app.ui']),
+			criticalLinks: new Set(['app.ui>app.api']),
+			floatMin: new Map([['docs', 2 * D]]),
+			lateEnd: new Map([['docs', 3 * D]]),
+		};
+		const current = buildGanttModel(input({ analysis }, result(1, { tasks: TASKS })));
+		expect(current.rows.some((r) => r.critical)).toBe(true);
+		const stale = buildGanttModel(input({ analysis }, result(2, { tasks: TASKS })));
+		expect(stale.rows.some((r) => r.critical || r.floatMin !== null)).toBe(false);
+		expect(stale.links.some((l) => l.critical)).toBe(false);
+	});
+
 	it('keeps the dimmed flag and reads the status date and today in minutes', () => {
 		const res = result(2, { tasks: TASKS });
 		if (res.project) {
@@ -247,6 +282,18 @@ describe('buildGanttModel', () => {
 		expect(m.statusMin).toBe(2 * D + 720);
 		expect(m.todayMin).toBe(D);
 		expect(m.calendar?.startEpoch).toBe(Date.parse('2026-01-05T00:00:00Z') / 1000);
+	});
+
+	it('keeps the clock out of the model when nowMs is left out, and reads it with todayOf', () => {
+		const res = result(2, { tasks: TASKS });
+		const nowMs = Date.parse('2026-01-06T00:00:00Z');
+		const m = buildGanttModel(input({}, res));
+		expect(m.todayMin).toBeNull();
+		expect(todayOf(res.project ?? null, nowMs)).toBe(D);
+		expect(todayOf(null, nowMs)).toBeNull();
+		expect(todayOf(res.project ?? null, null)).toBeNull();
+		// Without the clock the same inputs give the same model, so a tick does not rebuild it.
+		expect(buildGanttModel(input({}, res)).rows).toEqual(m.rows);
 	});
 
 	it('frames the schedule with some air, inside the project frame', () => {

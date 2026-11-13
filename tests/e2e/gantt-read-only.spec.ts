@@ -126,8 +126,24 @@ test.describe('gantt', () => {
 		await expect(gantt).toHaveAttribute('data-zoom', 'week');
 		await zoomWith(6);
 		await expect(gantt).toHaveAttribute('data-zoom', 'day');
-		// The page itself did not zoom, and a plain wheel still scrolls.
+		// The page itself did not zoom, and a plain wheel still scrolls the chart: at day zoom the
+		// content is wider than the view, so a wheel over it must move the scroller, and it must
+		// not have been swallowed by the zoom handler (which only takes Ctrl+wheel).
 		expect(await page.evaluate(() => visualViewport?.scale)).toBe(1);
+		const offsets = (): Promise<number> =>
+			gantt.locator('.scroller').evaluate((el) => el.scrollLeft + el.scrollTop);
+		const room = await gantt
+			.locator('.scroller')
+			.evaluate((el) => el.scrollWidth - el.clientWidth + (el.scrollHeight - el.clientHeight));
+		expect(room, 'the chart has something to scroll').toBeGreaterThan(100);
+		const before = await offsets();
+		const box = await page.getByTestId('gantt-overlay').boundingBox();
+		if (!box) throw new Error('no plot');
+		await page.mouse.move(box.x + 300, box.y + 100);
+		await page.mouse.wheel(300, 300);
+		await expect
+			.poll(offsets, { message: 'a plain wheel scrolled the chart' })
+			.toBeGreaterThan(before);
 		// A sample switch builds a new scroller: the wheel must still be bound to it.
 		await page
 			.getByRole('combobox', { name: 'Sample plan' })
@@ -360,6 +376,24 @@ test.describe('gantt', () => {
 				await page.getByRole('tab', { name: 'Text', exact: true }).click();
 				await check('text tab');
 			}
+			// The last good schedule: the Gantt dimmed, with its "Showing the last good schedule"
+			// notice (4.5:1 on the glass chip, both schemes).
+			if (info.project.name === 'desktop') {
+				await page.getByRole('button', { name: 'Split', exact: true }).click();
+			}
+			await page.getByRole('textbox', { name: /^Editor for / }).click();
+			await page.keyboard.press('ControlOrMeta+End');
+			await page.keyboard.insertText('\n}\n');
+			await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('last good', {
+				timeout: READY_TIMEOUT_MS,
+			});
+			if (info.project.name !== 'desktop') {
+				await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
+			} else {
+				await expect(page.getByText('Showing the last good schedule')).toBeVisible();
+			}
+			await page.waitForTimeout(300);
+			await check('dimmed last good schedule');
 		});
 	}
 });

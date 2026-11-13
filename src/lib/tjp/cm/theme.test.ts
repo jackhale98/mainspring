@@ -6,6 +6,8 @@ import { ROOT } from '../../../../tests/grammar/corpus';
 
 const THEME = fs.readFileSync(path.join(ROOT, 'src/lib/tjp/cm/theme.ts'), 'utf8');
 const TOKENS = fs.readFileSync(path.join(ROOT, 'src/styles/tokens.css'), 'utf8');
+const LIGHT_THEME = fs.readFileSync(path.join(ROOT, 'src/styles/theme-light.css'), 'utf8');
+const DARK_THEME = fs.readFileSync(path.join(ROOT, 'src/styles/theme-dark.css'), 'utf8');
 
 /** The custom properties a CSS block defines. */
 function defined(css: string): Set<string> {
@@ -27,9 +29,8 @@ describe('tjpTheme', () => {
 	});
 
 	it('uses tokens that tokens.css defines, colours in both light and dark', () => {
-		const darkStart = TOKENS.indexOf('@media (prefers-color-scheme: dark)');
-		const light = defined(TOKENS.slice(0, darkStart));
-		const dark = defined(TOKENS.slice(darkStart));
+		const light = defined(TOKENS + LIGHT_THEME);
+		const dark = defined(DARK_THEME);
 		for (const name of used) {
 			expect(light.has(name), name).toBe(true);
 			if (name.startsWith('color-')) expect(dark.has(name), name).toBe(true);

@@ -20,21 +20,29 @@ export interface MarkerState {
 /** Two lines closer than this are one. */
 export const MERGE_WITHIN_MIN = 60;
 
-/** `firstMinute` is the minute at the left edge of the chart (the model's origin and its padding). */
-export function markerState(model: GanttModel, firstMinute: Minutes): MarkerState {
+/**
+ * `firstMinute` is the minute at the left edge of the chart (the model's origin and its padding).
+ * `todayMin` is the clock, from `todayOf`; it defaults to the model's own, for a model built with
+ * `nowMs`.
+ */
+export function markerState(
+	model: GanttModel,
+	firstMinute: Minutes,
+	todayMin: Minutes | null = model.todayMin,
+): MarkerState {
 	const state = (at: Minutes | null): LineState => {
 		if (at === null) return null;
 		return at >= firstMinute && at <= model.endMin ? 'on' : 'off';
 	};
-	const today = state(model.todayMin);
+	const today = state(todayMin);
 	const status = state(model.statusMin);
 	return {
 		today,
 		status,
 		merged:
-			model.todayMin !== null &&
+			todayMin !== null &&
 			model.statusMin !== null &&
-			Math.abs(model.todayMin - model.statusMin) <= MERGE_WITHIN_MIN,
-		target: today === 'on' ? model.todayMin : status === 'on' ? model.statusMin : null,
+			Math.abs(todayMin - model.statusMin) <= MERGE_WITHIN_MIN,
+		target: today === 'on' ? todayMin : status === 'on' ? model.statusMin : null,
 	};
 }

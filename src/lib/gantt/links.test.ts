@@ -122,10 +122,60 @@ describe('resolveLinks when the text is newer than the result', () => {
 		]);
 	});
 
-	it('drops an engine-only link the text no longer declares', () => {
+	it('keeps an engine-only link (a macro) as pending while the text is newer, engine once current', () => {
 		const r = engineResult([withDeps('a', []), withDeps('b', [dep('a'), dep('gone')])]);
-		expect(brief(resolve(r, false))).not.toContain('gone>b end-start engine 0');
-		expect(resolve(r, true).some((l) => l.pred === 'gone')).toBe(true);
+		// Typing must not make a link vanish that the text cannot speak for.
+		expect(brief(resolve(r, false))).toContain('gone>b end-start pending 0');
+		expect(brief(resolve(r, true))).toContain('gone>b end-start engine 0');
+	});
+});
+
+describe("a child that writes its parent's dependency again", () => {
+	const PLAN2 = `project p "P" 2026-01-05 +30d
+task a "A"
+task app "App" {
+  depends a
+  task x "X" { depends a }
+  task y "Y"
+}
+`;
+	const own = buildIndex(inline({ 'plan.tjp': PLAN2 }).snapshot()).dependencies;
+	const tasks = [
+		withDeps('a', []),
+		withDeps('app', [dep('a')]),
+		withDeps('app.x', [dep('a')]),
+		withDeps('app.y', [dep('a')]),
+	];
+	const run = (current: boolean) =>
+		resolveLinks({ sites: own, result: engineResult(tasks), scenario: 'plan', current });
+
+	it("attaches the child's own site to the parent's line, which still stands for it", () => {
+		const links = run(true);
+		expect(brief(links)).toEqual(['a>app end-start declared 2']);
+		const succs = links[0]?.sites.map((x) => x.succ).sort();
+		expect(succs).toEqual(['app', 'app.x']);
+	});
+
+	it('does not draw it as a separate pending link while the text is newer', () => {
+		expect(brief(run(false))).toEqual(['a>app end-start declared 2']);
+	});
+
+	it('does the same for precedes', () => {
+		const text = `project p "P" 2026-01-05 +30d
+task z "Z"
+task app "App" {
+  precedes z
+  task x "X" { precedes z }
+}
+`;
+		const ps = buildIndex(inline({ 'plan.tjp': text }).snapshot()).dependencies;
+		const r = engineResult([
+			withDeps('z', []),
+			withDeps('app', [], [dep('z', { onEnd: false })]),
+			withDeps('app.x', [], [dep('z', { onEnd: false })]),
+		]);
+		const links = resolveLinks({ sites: ps, result: r, scenario: 'plan', current: true });
+		expect(brief(links)).toEqual(['app>z end-start declared 2']);
 	});
 });
 
@@ -185,7 +235,7 @@ describe('scenarios', () => {
 });
 
 describe('cycles (a failed run may contain them)', () => {
-	it('draws a link each way between two tasks that wait on each other, and none on a task itself', () => {
+	it('resolves a link each way between two tasks that wait on each other, and one on a task itself (the model drops that one)', () => {
 		const r = engineResult([withDeps('a', [dep('b'), dep('a')]), withDeps('b', [dep('a')])]);
 		const links = resolveLinks({ sites: [], result: r, scenario: 'plan', current: true });
 		expect(brief(links).sort()).toEqual([

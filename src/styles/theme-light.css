@@ -1,0 +1,165 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * The light theme: "Mainspring refined" (ADR-0009). Enamel dial white and warm paper, brass for
+ * work, ruby for the critical path and for errors, heat-blued steel only as a thin accent (the
+ * focus ring, the selection edge, the active-mode marker). It is the default. The other theme is
+ * theme-dark.css; both define the same tokens. The `data-theme` attribute is always set, by the
+ * inline script in layouts/Base.astro and then by src/lib/state/theme.svelte.ts, so there is no
+ * media query here.
+ *
+ * Every pair of text and ground, and every graphic that must be told from its neighbour, is
+ * checked at WCAG 2.2 AA and under protanopia and deuteranopia in tests/ci/palette.test.ts.
+ * Components and painters read these tokens and never a raw colour.
+ */
+:root,
+:root[data-theme='light'] {
+	color-scheme: light;
+
+	/* Grounds: the recessed canvas, the floating panels, inset wells inside a panel. */
+	--color-bg: #ece7dc;
+	--color-surface: #fffdf8;
+	--color-surface-sunken: #f4efe5;
+	--color-surface-raised: #fffdf8;
+	--color-text: #1c1a17;
+	--color-text-muted: #625b4f;
+	--color-text-faint: #6f675a;
+	--color-border: #e6e0d2;
+	--color-border-strong: #d5ccb8;
+	--color-overlay: rgb(28 26 23 / 0.45);
+
+	/* Brass carries the interface: primary buttons, active tabs, selection washes, filled chips. */
+	--color-brass: #b08d3c;
+	--color-brass-deep: #9a7424;
+	--color-brass-wash: #f6eeda;
+	--color-brass-ink: #5e4710;
+	--color-accent: #7a5c14;
+	--color-accent-hover: #664c0e;
+	--color-accent-text: #fffdf8;
+	--color-row-hover: #f4efe5;
+	--color-row-selected: #f6eeda;
+
+	/* Heat-blued steel: a thin accent only. Focus ring, selection edge, active-mode marker. */
+	--color-steel: #2346a0;
+	--color-focus: #2346a0;
+
+	/* The active segment of the mode switch: dark enamel ink with ivory text. */
+	--color-pill-on: #2b2620;
+	--color-pill-on-ink: #f6f1e6;
+	/* The thin blued-steel marker under the active mode's label. */
+	--color-pill-marker: #8fa9ec;
+
+	/* Ruby: the critical path, errors, over-allocation. */
+	--color-ruby: #a3123a;
+	--color-ruby-wash: #f7e3e8;
+	--color-ruby-ink: #8a0f31;
+
+	/* The brand mark (src/lib/brand/mark.ts): brushed-brass arcs and a ruby jewel, lit from above. */
+	--color-mark-brass-hi: #ddbb6e;
+	--color-mark-brass: #b08d3c;
+	--color-mark-brass-lo: #7e5f22;
+	--color-mark-ruby-hi: #e0577a;
+	--color-mark-ruby: #a3123a;
+	--color-mark-ruby-lo: #5e0820;
+	--color-mark-steel-hi: #4e74d0;
+	--color-mark-steel: #2346a0;
+	--color-mark-steel-lo: #142a66;
+	--color-mark-glint: #ffffff;
+
+	--color-status-neutral: #625b4f;
+	--color-status-ok: #2f7d4f;
+	--color-status-ok-halo: rgb(47 125 79 / 0.16);
+	--color-badge-bg: #ece6d8;
+	--color-badge-text: #3a352c;
+	--color-toast-bg: #1a2240;
+	--color-toast-ink: #f6f1e6;
+	--color-toast-accent: #e3c47e;
+
+	--shadow-chip: 0 1px 2px rgb(40 30 10 / 0.06);
+	--shadow-panel: 0 1px 2px rgb(40 30 10 / 0.05), 0 10px 30px rgb(40 30 10 / 0.07);
+	--shadow-dock: 0 2px 6px rgb(40 30 10 / 0.08), 0 18px 40px rgb(40 30 10 / 0.14);
+	--shadow-raised: 0 4px 24px rgb(40 30 10 / 0.2);
+	--shadow-inset: inset 0 1px 0 rgb(255 255 255 / 0.7);
+
+	/* Gantt (src/lib/gantt/paint/theme.ts reads every colour below through one theme object).
+	   Where a tint falls under the contrast the text or graphic needs, a darker value is used:
+	   the faint text (4.5:1), the bar outline and the links (3:1, WCAG 1.4.11). */
+	--color-gantt-surface: #fffdf8;
+	--color-gantt-surface-header: #fffdf8;
+	--color-gantt-inset: #f4efe5;
+	--color-gantt-text: #1c1a17;
+	--color-gantt-text-muted: #625b4f;
+	--color-gantt-text-faint: #6f675a;
+	--color-gantt-border: #eee8dc;
+	--color-gantt-border-strong: #e2dbcb;
+	--color-gantt-grid: #f1ece1;
+	--color-gantt-grid-major: #eee8dc;
+	--color-gantt-row-line: #eee8dc;
+	--color-gantt-weekend: #fbf8f1;
+	--color-gantt-holiday: #f5efe2;
+	--color-gantt-accent: #2346a0;
+	--color-gantt-accent-text: #ffffff;
+	--color-gantt-row-selected: #f6eeda;
+	--color-gantt-row-hover: #f4efe5;
+	--color-gantt-chip: rgb(255 253 248 / 0.92);
+	--color-gantt-crit-border: #e8bfcb;
+	--color-gantt-crit-wash: #f7e3e8;
+	--color-gantt-crit-ink: #8a0f31;
+	--color-gantt-bar-top: #f7efdc;
+	--color-gantt-bar-bottom: #eaddbd;
+	--color-gantt-bar-ink: #4a3912;
+	--color-gantt-bar-progress: rgb(176 141 60 / 0.28);
+	--color-gantt-bar-outline: #9a7424;
+	--color-gantt-bar-highlight: rgb(255 255 255 / 0.7);
+	--color-gantt-bar-lowlight: rgb(120 90 20 / 0.18);
+	--color-gantt-bar-shadow: rgb(80 60 10 / 0.12);
+	--color-gantt-critical-top: #c0264f;
+	--color-gantt-critical-bottom: #a3123a;
+	--color-gantt-critical-ink: #ffffff;
+	--color-gantt-critical-progress: rgb(255 255 255 / 0.2);
+	--color-gantt-critical-highlight: rgb(255 255 255 / 0.28);
+	--color-gantt-critical-shadow: rgb(163 18 58 / 0.3);
+	--color-gantt-summary: #7a7262;
+	--color-gantt-milestone: #b08d3c;
+	--color-gantt-jewel-high: #f1d99a;
+	--color-gantt-jewel-deep: #9a7424;
+	--color-gantt-jewel-glow: rgb(154 116 36 / 0.35);
+	--color-gantt-link: #9a7424;
+	--color-gantt-crown-top: #e3c47e;
+	--color-gantt-crown-edge: rgb(80 60 10 / 0.35);
+	--color-critical: #a3123a;
+	--color-float: #857d6e;
+	--color-pending: #8a5a00;
+	--color-status-date: #2b2620;
+	--color-today: #9a7424;
+	--color-text-only: #625b4f;
+	--color-done: #2f7d4f;
+	/* People: background and initial, for the avatars beside the bars. */
+	--color-gantt-avatar-1-bg: #e3e9f7;
+	--color-gantt-avatar-1-ink: #22408f;
+	--color-gantt-avatar-2-bg: #f3ead6;
+	--color-gantt-avatar-2-ink: #6e5316;
+	--color-gantt-avatar-3-bg: #f6e3e8;
+	--color-gantt-avatar-3-ink: #8e1b3a;
+	--color-gantt-avatar-4-bg: #e2f1e7;
+	--color-gantt-avatar-4-ink: #1f5c3a;
+	--color-gantt-avatar-5-bg: #eee5f6;
+	--color-gantt-avatar-5-ink: #5a2e8c;
+	--color-gantt-avatar-6-bg: #dff0ef;
+	--color-gantt-avatar-6-ink: #14615a;
+	--gantt-chip-shadow: var(--shadow-chip);
+
+	/* Code editor (src/lib/tjp/cm/theme.ts). AA contrast on --color-surface. */
+	--color-syntax-keyword: #7a5c14;
+	--color-syntax-definition: #7a2e8e;
+	--color-syntax-reference: #1c1a17;
+	--color-syntax-string: #1f6f35;
+	--color-syntax-literal: #8f4700;
+	--color-syntax-comment: #6b6455;
+	--color-syntax-macro: #a3216b;
+	--color-syntax-invalid: #a3123a;
+	--color-diagnostic-error: #a3123a;
+	--color-diagnostic-warning: #8a5a00;
+	--color-diagnostic-info: #625b4f;
+	--color-editor-selection: #eadfbf;
+	--color-editor-active-line: #f8f3e8;
+}

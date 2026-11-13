@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import { historyField } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { strings } from '../strings';
 import { workspaceExtensions } from '../tjp/cm';
 import { createWorkspace } from '../workspace/workspace';
@@ -23,6 +24,20 @@ describe('editorSetup', () => {
 		const keys = state.facet(keymap).flat();
 		expect(keys.length).toBeGreaterThan(10);
 		expect(keys.filter((k) => k.key === 'Tab' || k.mac === 'Tab')).toEqual([]);
+	});
+
+	it('binds Mod-Z, Mod-Shift-Z and Mod-Y to the given history, and no CodeMirror history', () => {
+		const h = { undo: vi.fn(() => true), redo: vi.fn(() => true) };
+		const s = EditorState.create({ extensions: [editorSetup('plan.tjp', h)] });
+		const keys = s.facet(keymap).flat();
+		for (const k of ['Mod-z', 'Mod-Shift-z', 'Mod-y']) {
+			expect(keys.filter((b) => b.key === k || b.mac === k)).toHaveLength(1);
+		}
+		expect(keys.some((b) => b.key === 'Mod-u')).toBe(false);
+		keys.find((b) => b.key === 'Mod-z')?.run?.({} as never);
+		keys.find((b) => b.key === 'Mod-y')?.run?.({} as never);
+		expect([h.undo.mock.calls.length, h.redo.mock.calls.length]).toEqual([1, 1]);
+		expect(s.field(historyField, false)).toBeUndefined();
 	});
 
 	it('builds a workspace with the editor setup and the TJP extensions together', () => {

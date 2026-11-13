@@ -80,6 +80,19 @@ export function zoomOut(pxPerDay: number): number {
 	return clampZoom(pxPerDay);
 }
 
+/**
+ * The zoom a key asks for in the task list: + (or =) one level in, - one level out; null for any
+ * other key and for Ctrl, Cmd or Alt, so Ctrl+plus stays the browser's own page zoom.
+ */
+export function zoomForKey(
+	e: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey'>,
+	pxPerDay: number,
+): number | null {
+	if (e.ctrlKey || e.metaKey || e.altKey) return null;
+	if (e.key === '=' || e.key === '+') return zoomIn(pxPerDay);
+	return e.key === '-' ? zoomOut(pxPerDay) : null;
+}
+
 export function canZoomIn(pxPerDay: number): boolean {
 	return zoomIn(pxPerDay) > pxPerDay * 1.05;
 }
