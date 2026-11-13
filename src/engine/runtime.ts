@@ -112,7 +112,7 @@ export function parseBridgeReply(json: string): Record<string, unknown> {
 function fastTimings(t: Record<string, unknown>): Partial<Timings> {
 	const out: Partial<Timings> = {};
 	if (t['path'] === 'full' || t['path'] === 'fast') out.path = t['path'];
-	for (const k of ['retainMs', 'cloneMs', 'applyMs'] as const) {
+	for (const k of ['retainMs', 'retainBytes', 'cloneMs', 'applyMs'] as const) {
 		if (typeof t[k] === 'number') out[k] = t[k];
 	}
 	if (typeof t['fastFallback'] === 'string') out.fastFallback = t['fastFallback'];

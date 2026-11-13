@@ -46,6 +46,7 @@ interface Row {
 	fastScheduleMs: number;
 	retainRunMs: number;
 	retainMs: number;
+	retainKB: number;
 	saved: number;
 	meetsBar: boolean | null;
 }
@@ -109,6 +110,7 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: timings', () => {
 				fastScheduleMs: m(runs.fast, (t) => t.scheduleMs),
 				retainRunMs: m(runs.base, (t) => t.totalMs),
 				retainMs: m(runs.base, (t) => t.retainMs),
+				retainKB: Math.round(m(runs.base, (t) => t.retainBytes) / 1024),
 				saved,
 				meetsBar: id === 'upstream-fedora-20' || id === 'gantt-200' ? saved >= BAR : null,
 			};
@@ -116,7 +118,8 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: timings', () => {
 			console.info(
 				`${id}: full ${fullMs} ms (parse ${row.fullParseMs}, schedule ${row.fullScheduleMs}); ` +
 					`fast ${fastMs} ms (clone ${row.fastCloneMs}, apply ${row.fastApplyMs}, schedule ${row.fastScheduleMs}); ` +
-					`saved ${(saved * 100).toFixed(1)}%; keeping the parse costs ${row.retainMs} ms on a full run`,
+					`saved ${(saved * 100).toFixed(1)}%; keeping the parse costs ${row.retainMs} ms on a full run ` +
+					`and ${row.retainKB} KB`,
 			);
 		}, 1_800_000);
 	}

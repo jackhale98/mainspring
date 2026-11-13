@@ -266,8 +266,9 @@ export interface Timings {
 	totalMs: number;
 	/** Which run gave the result; absent from engines before the fast path. */
 	path?: 'full' | 'fast';
-	/** A full run with `retain`: copying the parsed project. */
+	/** A full run with `retain`: copying the parsed project, and the size of the copy kept. */
 	retainMs?: number;
+	retainBytes?: number;
 	/** A full run with `retain` whose project could not be copied: why (nothing is kept). */
 	retainError?: string;
 	/** A fast run: loading the kept copy, and applying the edits. */

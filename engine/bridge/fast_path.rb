@@ -113,7 +113,7 @@ module MainspringBridge
           version: capture.version, timezone: capture.timezone,
           tz: TaskJuggler::TjTime.timeZone
         )
-        { 'retainMs' => (MainspringBridge.clock_ms - t0).round(1) }
+        { 'retainMs' => (MainspringBridge.clock_ms - t0).round(1), 'retainBytes' => blob.bytesize }
       end
 
       # The fast run of _req_ as [result, timings], or a String: why it must run in full.
