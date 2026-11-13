@@ -85,6 +85,10 @@ away because work was split or delegated too early. These rules refine the loop 
   recipe, docs formatting).
 - **Agents verify end to end.** An agent's report must include evidence that its change works in
   the real app or engine (a run, a screenshot, a trace), not only unit tests.
+- **CI is the full gate.** Before pushing, run the checks for what changed: typecheck, format, the
+  touched unit tests and the touched e2e specs. Then push and let CI run the full sharded suite.
+  Do not repeat the whole e2e suite locally. Nothing reaches `main` until CI is green. Batch
+  pushes, because a new push cancels the run in progress.
 - **Proportionate tests.** Test behaviour and correctness, not marketing copy or wording. The existing
   landing-copy test stays, but it is the exception, not the pattern.
 - **Interactive checkpoints.** Show the user visible progress early (screenshots, the Pages
