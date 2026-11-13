@@ -35,8 +35,9 @@ Three interaction defaults are also open:
    - An ALAP task always writes `end`, because TaskJuggler anchors it at the end.
    - Resizing mirrors this: an ASAP task's size handle is on its end edge, an ALAP task's on its
      start edge, so the anchored edge never moves (amended 2026-11-13, T12 review).
-3. **UI preferences (18.5).** Mode, zoom, collapse state, the split divider and the move
-   preference are stored in `localStorage`, one set per sample. Defaults:
+3. **UI preferences (18.5).** Mode, zoom, collapse state and the split divider are stored in
+   `localStorage`, one set per sample. The move preference is stored once per browser
+   (decision 2). Defaults:
    - Split on desktop;
    - Visual on tablet;
    - the Gantt tab on phone.
@@ -52,8 +53,9 @@ Three interaction defaults are also open:
   file, and the toast or status names that file. Text-mode end-to-end tests change to match.
 - The undo property tests cover mixed sequences of text and visual edits. A change that
   bypasses the history must give the `diverged` outcome in tests.
-- The move question appears once per plan, not once per drag. (Amended 2026-11-13: the user
-  chose per plan, matching decision 3; the earlier "once per user" wording contradicted it.)
+- The move question appears once per browser, not once per drag or per plan. A setting shows
+  the stored answer and lets the user change it or clear it (so the next move asks again).
+  (Amended 2026-11-13 by the user; decision 3 no longer lists the move preference.)
 - The touch rule needs a non-passive `touchmove` listener on the timeline. Its frame cost is
   measured on the device (section 8.2). If it costs frames, the fallback (touch-action none on
   the selected bar's handles only) needs its own ADR (19.4).
