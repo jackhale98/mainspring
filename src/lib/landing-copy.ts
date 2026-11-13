@@ -2,10 +2,18 @@
 /**
  * Copy for the public landing page (src/pages/index.astro, ADR-0011). The app keeps its own copy
  * in strings.ts; the marketing page has its own file so the two can change at different speeds.
- * Honesty rule: a feature is in `available` only if it works in the app today. Everything that
- * is only planned is in `coming`, taken from docs/BUILD_PLAN.md, and the page marks it with a
- * "Coming" tag.
+ * This file holds the top of the page (hero, plans as code, no syntax, the scheduler, the
+ * audience); landing-copy-more.ts holds the rest. `landing` joins them.
+ *
+ * Audience: technical project managers and engineering leads, not TaskJuggler users. The draw is
+ * to build a plan with visual tools and get a plain-text file that can be version controlled;
+ * TaskJuggler is the proof that the scheduling is serious, not a prerequisite.
+ *
+ * Honesty rule: a feature is described as available only if it works in the app today. Visual
+ * editing (drag, link, assign) is not built yet. Everything planned is in `coming`, taken from
+ * docs/BUILD_PLAN.md, and the page marks it with a "Coming" tag.
  */
+import { more } from './landing-copy-more';
 
 export type IconName =
 	| 'cpu'
@@ -23,7 +31,15 @@ export type IconName =
 	| 'arrow-right'
 	| 'check'
 	| 'github'
-	| 'external';
+	| 'external'
+	| 'git-pull-request'
+	| 'history'
+	| 'git-branch'
+	| 'clock'
+	| 'users'
+	| 'calendar'
+	| 'route'
+	| 'wrench';
 
 export interface FeatureCopy {
 	icon: IconName;
@@ -37,221 +53,205 @@ export const landingLinks = {
 	taskjuggler: 'https://taskjuggler.org/',
 } as const;
 
-export const landing = {
+const top = {
 	meta: {
-		title: 'Mainspring: TaskJuggler plans in your browser',
+		title: 'Mainspring: plan visually, version it like code',
 		description:
-			'Mainspring runs the real TaskJuggler scheduler in your browser. Write the plan as plain text and see it as a Gantt chart beside it. Free and open source.',
+			'Mainspring is project planning for technical teams. Plan on a Gantt chart and keep the plan as a plain-text file you can commit, diff and review. A proven scheduling engine works out the dates. Free and open source.',
 	},
 	nav: {
 		label: 'Main',
 		home: 'Mainspring, home',
-		how: 'How it works',
+		repo: 'Why plain text',
+		scheduler: 'The scheduler',
 		features: 'Features',
-		builtOn: 'Built on TaskJuggler',
+		faq: 'FAQ',
 		source: 'GitHub',
 		openApp: 'Open app',
 	},
 	hero: {
-		eyebrow: 'Open source · For TaskJuggler',
-		before: 'Plain text plans that ',
-		accent: 'keep time',
-		after: '.',
-		lead: 'Mainspring runs the real TaskJuggler scheduler in your browser. Write the plan as plain text. See it as a Gantt chart beside the text. The dates match the command-line tool.',
+		eyebrow: 'Project planning for technical teams',
+		before: 'Plan visually. ',
+		accent: 'Version it like code.',
+		after: '',
+		lead: 'Drag tasks, link dependencies and assign people on a Gantt chart. Mainspring writes everything to a plain-text plan you can commit, diff and review alongside your work, and a proven scheduling engine works out the dates.',
 		openApp: 'Open the app',
-		how: 'How it works',
-		facts: ['No sign-up', 'Runs in your browser', 'Plain .tjp files', 'Free and open source'],
-		note: 'Early preview. Changes stay in your browser tab until saving arrives.',
+		secondary: 'Why plain text',
+		facts: ['No syntax to learn', 'Your files, your repo', 'Real resource leveling', 'Open source'],
+		note: 'Early preview: today you edit the text and see the Gantt. Drag-and-drop editing is coming next.',
 		mockLabel:
-			'Mainspring in Split view. A TaskJuggler plan as text on the left and its Gantt chart on the right: five tasks, with the critical path in red.',
+			'Mainspring showing a Gantt chart of a five-task plan, with the critical path in red. A small card in front shows plan.tjp, the plain-text file behind the chart.',
 	},
 	mock: {
 		brand: 'Mainspring',
-		plan: 'relaunch.tjp',
+		plan: 'plan.tjp',
 		modes: ['Text', 'Split', 'Visual'],
-		activeMode: 1,
+		activeMode: 2,
 		status: 'Scheduled',
-		month: 'December',
-		year: '2026',
-		ticks: ['Dec 7', 'Dec 14', 'Dec 21', 'Dec 28'],
-		chips: ['Week', 'Today', 'Critical path'],
-	},
-	how: {
-		id: 'how',
-		eyebrow: 'How it works',
-		before: 'The text is the plan. The chart is ',
-		accent: 'a view',
-		after: '.',
-		lead: 'Everything lives in a plain .tjp file. Mainspring schedules it with TaskJuggler as you type and draws the result beside the text. Nothing in the chart is stored anywhere else.',
-		steps: [
-			{
-				title: 'Write the plan',
-				body: 'Tasks, effort, people and dependencies, in TaskJuggler’s own syntax. Completion and keyword docs come from TaskJuggler itself.',
-			},
-			{
-				title: 'It schedules as you type',
-				body: 'The real scheduler runs in a background worker in your browser. Errors show inline, on the line that caused them.',
-			},
-			{
-				title: 'The Gantt follows',
-				body: 'Change 10d to 8d and the bar gets shorter. The chart is read-only today, so the text is where you edit.',
-			},
+		months: [
+			{ name: 'December', year: '2025', day: 0 },
+			{ name: 'January', year: '2026', day: 10 },
 		],
-		demoLabel:
-			'A TaskJuggler plan beside its Gantt chart. The line “effort 10d” and the Build bar are highlighted: ten days of effort shared by two people makes a bar five working days long.',
-		demoFile: 'plan.tjp',
-		demoCaption: 'effort 10d, two people: a bar five working days long',
-		comingNote:
-			'Dragging bars and links to edit the plan, with undo, is coming. Each drag will write a small text change.',
+		ticks: ['Dec 22', 'Dec 29', 'Jan 5', 'Jan 12'],
+		chips: ['Today', 'Critical path'],
+		fileCaption: 'The plan, as plain text',
 	},
-	features: {
-		id: 'features',
-		eyebrow: 'What you get',
-		before: 'What works ',
-		accent: 'today',
+	repo: {
+		id: 'repo',
+		eyebrow: 'Plans as code',
+		before: 'Why your plan belongs in ',
+		accent: 'your repository',
 		after: '.',
-		lead: 'Everything in this list is in the app now.',
-		comingTitle: 'On the way',
-		comingLead: 'Planned in the build plan. Not in the app yet.',
-		comingTag: 'Coming',
-	},
-	available: [
-		{
-			icon: 'cpu',
-			title: 'The real TaskJuggler',
-			body: 'TaskJuggler 3.8.4 runs in your browser on ruby.wasm. On our golden test plans, its results are identical to the native tool.',
-		},
-		{
-			icon: 'file-text',
-			title: 'Plain text, always',
-			body: 'Your plan is a .tjp file, and the text is the only source of truth. There is no hidden project format.',
-		},
-		{
-			icon: 'code',
-			title: 'An editor that knows TaskJuggler',
-			body: 'Live scheduling, inline errors and completion. The keyword docs are generated from TaskJuggler itself, so they match the scheduler you run.',
-		},
-		{
-			icon: 'gantt',
-			title: 'A Gantt beside the text',
-			body: 'Split view shows the editor and a read-only Gantt chart side by side, with milestones, dependency links and the critical path.',
-		},
-		{
-			icon: 'contrast',
-			title: 'Light, dark and every screen',
-			body: 'It follows your system’s light or dark setting. Phone, tablet and desktop layouts show the same plan.',
-		},
-		{
-			icon: 'unlock',
-			title: 'Free and local',
-			body: 'No sign-up, and no server holds your plan. Mainspring is open source under GPL-2.0-or-later.',
-		},
-	] satisfies FeatureCopy[],
-	coming: [
-		{
-			icon: 'move',
-			title: 'Visual editing',
-			body: 'Drag bars, links and rows. Every change is written back as a minimal text edit, with undo.',
-		},
-		{
-			icon: 'grid',
-			title: 'Workload and resources',
-			body: 'A heatmap of who is busy and who is free, by day, week or month.',
-		},
-		{
-			icon: 'pulse',
-			title: 'Plan health checks',
-			body: 'Flags tasks with missing logic, hard date constraints and overloaded people.',
-		},
-		{
-			icon: 'folder',
-			title: 'Save and sync',
-			body: 'Save to a folder. Sync with GitHub and see a schedule diff before you commit.',
-		},
-		{
-			icon: 'download',
-			title: 'Install and work offline',
-			body: 'Install Mainspring as an app and keep working with no connection.',
-		},
-		{
-			icon: 'layers',
-			title: 'Scenarios and tracking',
-			body: 'Compare what-ifs against a baseline, and track progress against a status date.',
-		},
-	] satisfies FeatureCopy[],
-	builtOn: {
-		id: 'taskjuggler',
-		eyebrow: 'Built on TaskJuggler',
-		before: 'Real scheduling, not a ',
-		accent: 'lookalike',
-		after: '.',
-		lead: 'Mainspring does not reimplement scheduling. It runs TaskJuggler 3.8.4, the open-source project scheduler, inside a Web Worker. The dates you see are the dates the command-line tool gives.',
-		listTitle: 'What TaskJuggler schedules',
-		capabilities: [
+		lead: 'A plan in your repository gets everything your code already has.',
+		benefits: [
 			{
-				name: 'Effort',
-				body: 'Give a task effort. The scheduler works out its length from who is free.',
+				icon: 'git-pull-request',
+				title: 'Review plan changes like code',
+				body: 'A change to the plan is a diff. Your team comments on the lines and approves it before it lands.',
 			},
-			{ name: 'Resource leveling', body: 'A person is never booked for two things at once.' },
-			{ name: 'Shifts', body: 'Working hours, shifts and leave for each person.' },
-			{ name: 'Limits', body: 'Daily, weekly and monthly caps on work.' },
-			{ name: 'Scenarios', body: 'Variants of one plan, scheduled side by side.' },
-		],
-		capabilitiesNote:
-			'You write all of these in the text today. Visual controls for scenarios are coming.',
-		credit: 'TaskJuggler is the work of its authors and contributors. Learn more at ',
-		creditLink: 'taskjuggler.org',
-		gpl: 'TaskJuggler is free software under the GNU GPL, version 2. Mainspring ships it unmodified, with its notices. Mainspring itself is licensed GPL-2.0-or-later. It is an independent project, not an official TaskJuggler release.',
-		plateTitle: 'The movement',
-		plateLabel: 'Specification of the Mainspring engine',
-		plate: [
-			['Scheduler', 'TaskJuggler 3.8.4'],
-			['Runs on', 'ruby.wasm, in a Web Worker'],
-			['Source of truth', '.tjp and .tji text'],
-			['Server for your plan', 'None'],
-			['Licence', 'GPL-2.0-or-later'],
-		] as ReadonlyArray<readonly [string, string]>,
+			{
+				icon: 'history',
+				title: 'History and who changed what',
+				body: 'Every version is a commit with an author and a message. See when a date moved, and why.',
+			},
+			{
+				icon: 'git-branch',
+				title: 'Branch a what-if',
+				body: 'Try another staffing or scope on a branch. Merge it, or throw it away.',
+			},
+			{
+				icon: 'unlock',
+				title: 'No vendor lock-in',
+				body: 'Your plan is a text file in your repository, not a record in someone else’s database.',
+			},
+			{
+				icon: 'file-text',
+				title: 'Plain text outlives any tool',
+				body: 'Any editor and any tool can read it, now and later.',
+			},
+		] satisfies FeatureCopy[],
+		note: 'Mainspring does not commit for you yet. Copy the text into your repository today. Saving to a folder and GitHub sync are coming.',
+		pr: {
+			label:
+				'A pull request that changes one line of plan.tjp, from effort 5d to effort 8d. A note says the finish moves from Jan 6 to Jan 9.',
+			title: 'Give Design more time',
+			meta: 'ana wants to merge 1 commit into main',
+			open: 'Open',
+			file: 'plan.tjp',
+			stats: '+1 −1',
+			effect: 'Finish moves Jan 6 → Jan 9',
+			effectTag: 'Schedule diff',
+			caption:
+				'An illustration. The schedule diff is coming. The review itself works in any git host today.',
+		},
 	},
-	phone: {
-		eyebrow: 'On every screen',
-		before: 'The same plan, ',
-		accent: 'in your pocket',
-		after: '.',
-		lead: 'On a desktop, the text and the chart sit side by side. On a phone, a tab bar switches between the plan, the Gantt and the text. The layouts for phone, tablet and desktop are built together.',
+	syntax: {
+		id: 'syntax',
+		eyebrow: 'No syntax to learn',
+		before: 'No ',
+		accent: 'syntax',
+		after: ' to learn.',
+		lead: 'Build the plan on the Gantt chart. Every drag or field edit becomes a small, clean text change, so you never need to learn the file format. If you like the syntax, the text editor is right there, with completion and inline errors, and both views stay in sync.',
 		points: [
-			'Touch targets are at least 44 pixels on phones and tablets.',
-			'Light and dark follow your system.',
-			'The same scheduler runs on every screen.',
+			{
+				icon: 'move',
+				title: 'Drag, link and assign',
+				body: 'Resize a bar, draw a dependency, drop a person on a task.',
+				coming: true,
+			},
+			{
+				icon: 'file-text',
+				title: 'Every change is a small text edit',
+				body: 'Only the lines you touched change, so diffs stay clean and undo works.',
+				coming: true,
+			},
+			{
+				icon: 'code',
+				title: 'The text editor is right there',
+				body: 'Completion, inline errors and keyword docs. Edit the text and the chart follows.',
+				coming: false,
+			},
 		],
-		mockLabel:
-			'Mainspring on a phone. A Gantt chart of five tasks, with the Build task open in a card that shows 30 percent complete, and a tab bar for Plan, Gantt and Text.',
+		next: 'Visual editing is the next step.',
+		nextBody: 'Today you edit the text and the Gantt follows. Dragging comes next.',
 		mock: {
-			plan: 'relaunch.tjp',
-			chips: ['Week', 'Today', 'Critical path'],
-			task: 'Build',
-			critical: 'Critical',
-			complete: 'complete',
-			detail: 'Effort 10d · Ana, Ben',
-			tabs: ['Plan', 'Gantt', 'Text'],
-			activeTab: 1,
+			label:
+				'Resizing the Design bar on the Gantt from five days to eight changes one line of plan.tjp, effort 5d to effort 8d.',
+			gantt: 'On the Gantt',
+			text: 'In plan.tjp',
+			writes: 'becomes',
+			drag: '8d',
 		},
 	},
-	closing: {
-		before: 'Open a sample plan and ',
-		accent: 'try it',
+	scheduler: {
+		id: 'scheduler',
+		eyebrow: 'The scheduling engine',
+		before: 'A scheduler that does ',
+		accent: 'the hard part',
 		after: '.',
-		lead: 'The app opens with a sample plan. Edit the text and watch the schedule change. No account and nothing to install.',
-		openApp: 'Open the app',
-		source: 'Read the source',
-		note: 'Early preview: changes stay in your browser tab until saving arrives. Copy your text before you close the tab.',
+		lead: 'You say what needs doing and who is free. The scheduler works out the dates, and works them out again whenever anything changes.',
+		items: [
+			{
+				icon: 'clock',
+				title: 'Effort, not guesses',
+				body: 'Ten days of work for two people takes five days on the calendar. Swap who is on the task and the dates follow.',
+				art: 'effort',
+			},
+			{
+				icon: 'users',
+				title: 'Nobody is double-booked',
+				body: 'A person works on one thing at a time. If Ana is busy, the next task waits until she is free, or goes to someone you named instead.',
+				art: 'leveling',
+			},
+			{
+				icon: 'calendar',
+				title: 'Holidays and leave',
+				body: 'Mark public holidays and time off. Work skips them, and the finish date accounts for them.',
+				art: 'leave',
+			},
+			{
+				icon: 'route',
+				title: 'The critical path',
+				body: 'The chain of tasks that sets your finish date. A slip on it moves the finish, so the chart marks it in red.',
+				art: 'critical',
+			},
+		] satisfies Array<FeatureCopy & { art: 'effort' | 'leveling' | 'leave' | 'critical' }>,
+		art: {
+			work: '10d of work',
+			calendar: '5 days',
+			leave: 'Leave',
+			ana: 'Ana',
+			ben: 'Ben',
+			float: 'Has float',
+		},
+		poweredBy:
+			'Powered by TaskJuggler, a mature open-source scheduler. On our golden test plans, the results are identical to its own command-line tool.',
 	},
-	footer: {
-		label: 'Site footer',
-		legal:
-			'Mainspring is free software under the GNU GPL, version 2 or (at your option) any later version. It includes TaskJuggler, free software under the GNU GPL, version 2. Mainspring is an independent project.',
-		source: 'Source on GitHub',
-		licence: 'Licence',
-		taskjuggler: 'TaskJuggler',
-		external: '(opens in a new tab)',
+	audience: {
+		id: 'audience',
+		eyebrow: 'Who it is for',
+		before: 'For people who already ',
+		accent: 'live in git',
+		after: '.',
+		lead: 'If your code already has branches, reviews and history, your plan can too.',
+		who: [
+			{
+				icon: 'code',
+				title: 'Engineering leads',
+				body: 'Keep the plan beside the code. Review a change to the schedule the way you review a change to the software.',
+			},
+			{
+				icon: 'gantt',
+				title: 'Technical project managers',
+				body: 'Plan with real effort, people and dependencies, and keep a history of every change to the plan.',
+			},
+			{
+				icon: 'wrench',
+				title: 'Hardware and systems teams',
+				body: 'Boards, firmware, test rigs and suppliers in one plan, in the same repository as the project files.',
+			},
+		] satisfies FeatureCopy[],
 	},
-} as const;
+};
+
+export const landing = { ...top, ...more } as const;

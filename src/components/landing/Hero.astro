@@ -1,12 +1,11 @@
 ---
 // SPDX-License-Identifier: GPL-2.0-or-later
-import Accent from './Accent.astro';
 import { landing } from '../../lib/landing-copy';
 import { sitePath } from '../../lib/site-path';
 import Guilloche from './Guilloche.astro';
 import Icon from './Icon.astro';
 import SiteHeader from './SiteHeader.astro';
-import SplitMock from './SplitMock.astro';
+import HeroMock from './HeroMock.astro';
 
 const h = landing.hero;
 ---
@@ -21,7 +20,9 @@ const h = landing.hero;
 		<div class="copy">
 			<p class="lp-eyebrow">{h.eyebrow}</p>
 			<h1 id="hero-title" class="lp-display title">
-				<Accent before={h.before} accent={h.accent} after={h.after} />
+				<!-- prettier-ignore -->
+				<span class="first">{h.before}</span>
+				<em>{h.accent}</em>
 			</h1>
 			<p class="lp-lead">{h.lead}</p>
 			<p class="actions">
@@ -29,8 +30,8 @@ const h = landing.hero;
 					{h.openApp}
 					<Icon name="arrow-right" />
 				</a>
-				<a class="lp-btn lp-btn-secondary" href="#how">
-					{h.how}
+				<a class="lp-btn lp-btn-secondary" href="#repo">
+					{h.secondary}
 				</a>
 			</p>
 			<ul class="facts">
@@ -45,7 +46,7 @@ const h = landing.hero;
 		</div>
 		<div class="visual">
 			<div class="tilt">
-				<SplitMock />
+				<HeroMock />
 			</div>
 		</div>
 	</div>
@@ -93,7 +94,10 @@ const h = landing.hero;
 		align-items: center;
 	}
 	.title {
-		font-size: clamp(3.1rem, 1.3rem + 5.8vw, 6rem);
+		font-size: clamp(2.9rem, 1.2rem + 5vw, 5.4rem);
+	}
+	.first {
+		display: block;
 	}
 	.actions {
 		display: flex;
