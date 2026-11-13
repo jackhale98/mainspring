@@ -6,8 +6,10 @@ import { strings } from '../lib/strings';
 
 interface Props {
 	title?: string;
+	/** The page description for search results and link previews. */
+	description?: string;
 }
-const { title = strings.appName } = Astro.props;
+const { title = strings.appName, description = strings.tagline } = Astro.props;
 ---
 
 <!doctype html>
@@ -16,7 +18,7 @@ const { title = strings.appName } = Astro.props;
 		<meta charset="utf-8" />
 		<link rel="icon" href="data:," />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="description" content={strings.tagline} />
+		<meta name="description" content={description} />
 		<title>{title}</title>
 	</head>
 	<body>

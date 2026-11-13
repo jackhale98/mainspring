@@ -1,0 +1,205 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import Accent from './Accent.astro';
+import { tokenize, tokensToHtml } from '../../lib/landing-art';
+import { landing } from '../../lib/landing-copy';
+import { demoActiveLine, demoPlan, demoPlanText } from '../../lib/landing-sample';
+import GanttChart from './GanttChart.astro';
+
+const h = landing.how;
+const lines = demoPlanText.map((text, i) => ({
+	n: i + 1,
+	active: i === demoActiveLine,
+	html: tokensToHtml(tokenize(text)),
+}));
+---
+
+<section class="lp-section" id={h.id} aria-labelledby="how-title">
+	<div class="lp-wrap">
+		<div class="head">
+			<p class="lp-eyebrow">{h.eyebrow}</p>
+			<h2 id="how-title" class="lp-display lp-h2">
+				<Accent before={h.before} accent={h.accent} after={h.after} />
+			</h2>
+			<p class="lp-lead">{h.lead}</p>
+		</div>
+
+		<figure class="demo" role="img" aria-label={h.demoLabel}>
+			<div class="code-side" aria-hidden="true">
+				<div class="file">{h.demoFile}</div>
+				<div class="lp-code code">
+					{lines.map((l) => (
+						<div class={l.active ? 'line active' : 'line'}>
+							<span class="n">{l.n}</span>
+							<span class="src" set:html={l.html} />
+						</div>
+					))}
+				</div>
+			</div>
+			<div class="chart-side" aria-hidden="true">
+				<div class="chart">
+					<GanttChart
+						plan={demoPlan}
+						uid="how"
+						options={{ nameCol: 64, days: 16, dayW: 13 }}
+						ringId="build"
+						today={false}
+					/>
+				</div>
+				<p class="caption">{h.demoCaption}</p>
+			</div>
+		</figure>
+
+		<ol class="steps">
+			{h.steps.map((step, i) => (
+				<li class="step">
+					<span class="num" aria-hidden="true">
+						{i + 1}
+					</span>
+					<h3>{step.title}</h3>
+					<p>{step.body}</p>
+				</li>
+			))}
+		</ol>
+
+		<p class="coming">
+			<span class="lp-tag">{landing.features.comingTag}</span>
+			{h.comingNote}
+		</p>
+	</div>
+</section>
+
+<style>
+	.head {
+		max-inline-size: 46rem;
+	}
+	.demo {
+		display: grid;
+		margin: clamp(2.5rem, 2rem + 2vw, 4rem) 0 0;
+		border: 1px solid var(--lp-border);
+		border-radius: 1.5rem;
+		background: var(--lp-panel);
+		box-shadow: var(--lp-shadow-card);
+		overflow: hidden;
+	}
+	.code-side {
+		border-block-end: 1px solid var(--lp-border);
+		background: var(--lp-panel);
+	}
+	.file {
+		padding: 0.85rem 1.25rem;
+		border-block-end: 1px solid var(--lp-border);
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		font-weight: 500;
+		color: var(--lp-muted);
+	}
+	.code {
+		padding: 1rem 0;
+		font-size: 0.9rem;
+	}
+	.line {
+		display: flex;
+		gap: 1rem;
+		padding-inline-end: 1rem;
+		line-height: 1.75;
+		white-space: pre;
+		border-inline-start: 3px solid transparent;
+	}
+	.line.active {
+		background: var(--lp-brass-wash);
+		border-inline-start-color: var(--lp-brass-deep);
+	}
+	.n {
+		inline-size: 2.5rem;
+		flex: none;
+		text-align: end;
+		color: var(--lp-muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.chart-side {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 1.25rem;
+		padding: clamp(1rem, 0.5rem + 2vw, 2rem);
+		background: var(--lp-bg);
+	}
+	.chart {
+		border: 1px solid var(--lp-border);
+		border-radius: 1rem;
+		background: var(--lp-panel);
+		overflow: hidden;
+	}
+	.caption {
+		align-self: flex-start;
+		margin: 0;
+		padding: 0.45rem 0.95rem;
+		border: 1px solid var(--lp-border-strong);
+		border-radius: 999px;
+		background: var(--lp-panel);
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		color: var(--lp-text);
+	}
+	.steps {
+		display: grid;
+		gap: var(--space-4);
+		margin: clamp(2rem, 1.5rem + 2vw, 3rem) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.step {
+		padding: 1.5rem;
+		border: 1px solid var(--lp-border);
+		border-radius: 1rem;
+		background: var(--lp-panel);
+		box-shadow: var(--lp-shadow-card);
+	}
+	.num {
+		display: grid;
+		place-items: center;
+		inline-size: 2.25rem;
+		block-size: 2.25rem;
+		border: 1.5px solid var(--lp-brass);
+		border-radius: 50%;
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		line-height: 1;
+		color: var(--lp-text);
+	}
+	.step h3 {
+		margin: var(--space-4) 0 var(--space-2);
+		font-size: 1.05rem;
+		font-weight: 650;
+	}
+	.step p {
+		margin: 0;
+		color: var(--lp-muted);
+		line-height: 1.6;
+	}
+	.coming {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
+		margin: var(--space-6) 0 0;
+		color: var(--lp-muted);
+		font-size: 0.95rem;
+	}
+
+	@media (min-width: 48rem) {
+		.steps {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+	@media (min-width: 56rem) {
+		.demo {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+		}
+		.code-side {
+			border-block-end: 0;
+			border-inline-end: 1px solid var(--lp-border);
+		}
+	}
+</style>

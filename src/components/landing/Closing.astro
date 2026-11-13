@@ -1,0 +1,63 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import Accent from './Accent.astro';
+import { landing, landingLinks } from '../../lib/landing-copy';
+import { sitePath } from '../../lib/site-path';
+import Icon from './Icon.astro';
+
+const c = landing.closing;
+---
+
+<section class="lp-section closing" aria-labelledby="closing-title">
+	<div class="lp-wrap box">
+		<h2 id="closing-title" class="lp-display lp-h2">
+			<Accent before={c.before} accent={c.accent} after={c.after} />
+		</h2>
+		<p class="lp-lead">{c.lead}</p>
+		<p class="actions">
+			<a class="lp-btn lp-btn-primary" href={sitePath('app')}>
+				{c.openApp}
+				<Icon name="arrow-right" />
+			</a>
+			<a class="lp-btn lp-btn-secondary" href={landingLinks.source}>
+				<Icon name="github" />
+				{c.source}
+			</a>
+		</p>
+		<p class="note">{c.note}</p>
+	</div>
+</section>
+
+<style>
+	.closing {
+		padding-block-start: 0;
+	}
+	.box {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: clamp(2.5rem, 2rem + 4vw, 5rem) var(--space-4);
+		border: 1px solid var(--lp-border);
+		border-radius: 2rem;
+		background:
+			radial-gradient(40rem 20rem at 50% 0%, var(--lp-wash-a), transparent 70%), var(--lp-panel);
+		box-shadow: var(--lp-shadow-card);
+		text-align: center;
+	}
+	.box .lp-lead {
+		max-inline-size: 34rem;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--space-3);
+		margin: var(--space-8) 0 0;
+	}
+	.note {
+		max-inline-size: 32rem;
+		margin: var(--space-6) 0 0;
+		font-size: 0.9rem;
+		color: var(--lp-muted);
+	}
+</style>

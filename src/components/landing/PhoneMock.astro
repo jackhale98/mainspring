@@ -1,0 +1,278 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// The phone mock: the Gantt, a task card with the power-reserve gauge, and the floating pill tab
+// bar of the refined design (ADR-0009). HTML and SVG from the same tokens as the app, sized in
+// em. An illustration: one labelled image for assistive tech.
+import { gauge } from '../../lib/landing-art';
+import { landing } from '../../lib/landing-copy';
+import { samplePlan } from '../../lib/landing-sample';
+import GanttChart from './GanttChart.astro';
+import Mark from './Mark.astro';
+
+const p = landing.phone.mock;
+const PERCENT = 30;
+const g = gauge(PERCENT);
+---
+
+<div class="phone" role="img" aria-label={landing.phone.mockLabel}>
+	<div class="screen" aria-hidden="true">
+		<div class="top">
+			<span class="brand">
+				<Mark size={22} />
+				<span class="word">{landing.mock.brand}</span>
+			</span>
+			<span class="plan">{p.plan}</span>
+			<i class="dot"></i>
+		</div>
+
+		<div class="chips">
+			<span class="chip">
+				{p.chips[0]}
+				<b class="caret-down"></b>
+			</span>
+			<span class="chip">{p.chips[1]}</span>
+			<span class="chip">
+				<i class="crit-dot"></i>
+				{p.chips[2]}
+			</span>
+		</div>
+
+		<div class="card chart">
+			<GanttChart
+				plan={samplePlan}
+				uid="phone"
+				selectedId="build"
+				options={{ nameCol: 56, days: 15, rowH: 32, today: 8.5 }}
+			/>
+		</div>
+
+		<div class="card task">
+			<svg class="gauge" viewBox="0 0 96 62" aria-hidden="true">
+				<path d={g.track} fill="none" class="track" stroke-width="7" stroke-linecap="round"></path>
+				<path d={g.arc} fill="none" class="arc" stroke-width="7" stroke-linecap="round"></path>
+				{g.ticks.map((d) => (
+					<path d={d} class="tick" stroke-width="1.2" stroke-linecap="round" />
+				))}
+				<line
+					x1={g.hub.cx}
+					y1={g.hub.cy}
+					x2={g.needle.x2}
+					y2={g.needle.y2}
+					class="needle"
+					stroke-width="2"
+					stroke-linecap="round"
+				></line>
+				<circle cx={g.hub.cx} cy={g.hub.cy} r="4" class="hub"></circle>
+			</svg>
+			<div class="info">
+				<div class="line">
+					<span class="title">{p.task}</span>
+					<span class="crit">{p.critical}</span>
+				</div>
+				<div class="pct">
+					{PERCENT}
+					<small>%</small> <span class="done">{p.complete}</span>
+				</div>
+				<div class="detail">{p.detail}</div>
+			</div>
+		</div>
+
+		<div class="tabs">
+			{p.tabs.map((label, i) => (
+				<span class={i === p.activeTab ? 'tab on' : 'tab'}>{label}</span>
+			))}
+		</div>
+	</div>
+</div>
+
+<style>
+	.phone {
+		inline-size: 23.5em;
+		max-inline-size: 100%;
+		margin-inline: auto;
+		font-size: 13px;
+		padding: 0.7em;
+		border-radius: 3.2em;
+		background: var(--lp-bezel);
+		box-shadow:
+			inset 0 0 0 1px rgb(255 255 255 / 0.12),
+			var(--lp-shadow-mock);
+	}
+	.screen {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8em;
+		padding: 1.1em 0.9em 0.9em;
+		border-radius: 2.6em;
+		background: var(--lp-recess);
+		color: var(--lp-text);
+		font-family: var(--font-sans);
+		line-height: 1.3;
+	}
+	.top {
+		display: flex;
+		align-items: center;
+		gap: 0.7em;
+		padding: 0.6em 0.5em 0;
+	}
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 0.45em;
+	}
+	.brand :global(svg) {
+		inline-size: 1.7em;
+		block-size: 1.7em;
+	}
+	.word {
+		font-family: var(--font-display);
+		font-size: 1.6em;
+		line-height: 1;
+	}
+	.plan {
+		margin-inline-start: auto;
+		padding: 0.35em 0.8em;
+		border-radius: 0.7em;
+		border: 1px solid var(--lp-border);
+		background: var(--lp-panel);
+		font-size: 0.85em;
+		font-weight: 500;
+		color: var(--lp-muted);
+	}
+	.dot {
+		inline-size: 0.7em;
+		block-size: 0.7em;
+		border-radius: 50%;
+		background: var(--lp-ok);
+		box-shadow: 0 0 0 0.3em var(--lp-ok-halo);
+	}
+	.chips {
+		display: flex;
+		gap: 0.5em;
+		padding-inline: 0.2em;
+	}
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45em;
+		padding: 0.45em 0.95em;
+		border-radius: 999px;
+		background: var(--lp-glass);
+		border: 1px solid var(--lp-border-strong);
+		font-size: 0.85em;
+		font-weight: 500;
+		white-space: nowrap;
+	}
+	.crit-dot {
+		inline-size: 0.65em;
+		block-size: 0.65em;
+		border-radius: 50%;
+		background: var(--lp-ruby);
+	}
+	.caret-down {
+		inline-size: 0.4em;
+		block-size: 0.4em;
+		margin-inline-start: 0.2em;
+		border-inline-end: 1.5px solid currentColor;
+		border-block-end: 1.5px solid currentColor;
+		transform: translateY(-0.12em) rotate(45deg);
+	}
+	.card {
+		border-radius: 1.4em;
+		border: 1px solid var(--lp-border);
+		background: var(--lp-panel);
+		box-shadow: 0 6px 14px -8px rgb(60 45 10 / 0.18);
+		overflow: hidden;
+	}
+	.task {
+		display: flex;
+		align-items: center;
+		gap: 1em;
+		padding: 1em 1.1em;
+	}
+	.gauge {
+		flex: none;
+		inline-size: 7.2em;
+	}
+	.track {
+		stroke: var(--lp-border);
+	}
+	.arc {
+		stroke: var(--lp-steel);
+	}
+	.tick {
+		stroke: var(--lp-brass);
+	}
+	.needle {
+		stroke: var(--lp-brass-deep);
+	}
+	.hub {
+		fill: var(--lp-brass);
+	}
+	.info {
+		min-inline-size: 0;
+	}
+	.line {
+		display: flex;
+		align-items: center;
+		gap: 0.6em;
+	}
+	.title {
+		font-family: var(--font-display);
+		font-size: 1.9em;
+		line-height: 1;
+	}
+	.crit {
+		padding: 0.25em 0.65em;
+		border-radius: 999px;
+		background: var(--lp-ruby-soft);
+		color: var(--lp-ruby);
+		font-size: 0.78em;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+	.pct {
+		margin-top: 0.3em;
+		font-family: var(--font-display);
+		font-size: 1.5em;
+		line-height: 1.1;
+	}
+	.pct small {
+		font-size: 0.6em;
+	}
+	.done {
+		font-family: var(--font-sans);
+		font-size: 0.55em;
+		color: var(--lp-muted);
+	}
+	.detail {
+		margin-top: 0.15em;
+		font-size: 0.85em;
+		color: var(--lp-muted);
+	}
+	.tabs {
+		display: flex;
+		gap: 0.25em;
+		margin-top: 0.1em;
+		padding: 0.3em;
+		border-radius: 999px;
+		border: 1px solid var(--lp-border);
+		background: var(--lp-panel);
+		box-shadow: 0 6px 14px -8px rgb(60 45 10 / 0.25);
+	}
+	.tab {
+		flex: 1;
+		padding: 0.7em 0;
+		border-radius: 999px;
+		text-align: center;
+		font-size: 0.9em;
+		font-weight: 500;
+		color: var(--lp-muted);
+	}
+	.tab.on {
+		background: var(--lp-ink);
+		color: var(--lp-on-ink);
+		font-weight: 600;
+	}
+</style>
