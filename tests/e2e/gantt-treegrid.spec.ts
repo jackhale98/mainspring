@@ -270,7 +270,7 @@ test.describe('the engine in the status strip', () => {
 			'Scheduler total',
 			'Loading the files',
 			'Reading the plan',
-			'Scheduling',
+			'Computing the schedule',
 			'Preparing the result',
 			'Request to result',
 			'Handling the result',

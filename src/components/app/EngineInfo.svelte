@@ -91,8 +91,8 @@
 			inline-size: var(--size-tap);
 		}
 	}
+	/* The browser centres a popover (fixed, inset 0, auto margins); keep that, set the size. */
 	.popover {
-		inset: auto;
 		margin: auto;
 		inline-size: min(26rem, calc(100vw - 2rem));
 		max-block-size: 70dvh;

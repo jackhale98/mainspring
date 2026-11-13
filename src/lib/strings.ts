@@ -484,7 +484,7 @@ export const strings = {
 			engine: 'Scheduler total',
 			writeFs: 'Loading the files',
 			parse: 'Reading the plan',
-			schedule: 'Scheduling',
+			schedule: 'Computing the schedule',
 			serialize: 'Preparing the result',
 			roundTrip: 'Request to result',
 			process: 'Handling the result',

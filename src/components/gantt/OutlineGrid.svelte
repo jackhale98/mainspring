@@ -17,6 +17,11 @@
 
 	The grid only reads: it emits intents (toggle, select, open, rename) and the Gantt decides.
 	Critical is never colour alone: the Critical column says Yes or No in words (WCAG 1.4.1).
+
+	Over 400 lines on purpose: about a third is the styles (phone and coarse-pointer rules included),
+	and the rest is one invariant, which row or cell holds the focus. The mounted rows, the tab stop,
+	the key handler and the focus calls all read it, so splitting them would spread it over two files.
+	The logic that can stand alone is already in lib/gantt (columns, grid, grid-nav).
 -->
 <script lang="ts">
 	import Icon from '../Icon.svelte';
