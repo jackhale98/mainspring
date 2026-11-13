@@ -97,3 +97,93 @@ canvas, so bars need an outline (WCAG 1.4.11). Measured in the Gantt review:
 - Row selection uses accentWash (#E7ECF8 / #1A2443), not a separate tint.
 - Grid lines use the palette's border greys.
 - The dimmed last-good state fades fills and lines only; labels keep at least 4.5:1.
+
+## Refinement, 2026-11-13: the Mainspring refined design language
+
+### Context
+
+The user reviewed a refined mockup on the design canvas, row E, "Mainspring refined". The user said
+it is better than the flat version. The refined language is now the design language for every view.
+It keeps the Paper layout and the Mainspring palette. It adds an app shell, floating controls,
+a type system, icons, materials and a few signature details. The values below come from the
+THEMES objects in the refined mockups, for light and dark mode.
+
+### Decision
+
+1. **App shell.**
+   - The canvas is a recessed warm ground. It is #ECE7DC in light mode and #080B10 in dark mode.
+   - The task list, timeline and inspector are separate floating panels. Each has a 16 px radius.
+     Gaps between panels are 8 px. Panels have soft, layered shadows. Panel surfaces are #FFFDF8
+     in light mode and #11151D in dark mode.
+   - The top bar sits on the canvas, not in a panel. From left to right it holds:
+     - the brand mark and the wordmark;
+     - a plan chip;
+     - undo and redo icon buttons;
+     - a centred mode switch with Text, Split and Visual, each with an icon;
+     - an engine status pill with a green halo dot;
+     - a theme toggle.
+   - The active mode is a dark pill. It is #1C2A55 with ivory text in light mode. In dark mode it is
+     ivory (#EEE7D7) with dark ink.
+
+2. **Floating controls.**
+   - Controls over the chart are glass pill chips. They include zoom, Today and a Critical path
+     toggle. Light glass is rgba(255,253,248,0.92). Dark glass is rgba(17,21,29,0.9).
+   - A floating tool dock holds icon-and-label buttons: Task, Milestone, Link, Indent, Assign and
+     More.
+   - The toast sits in a corner. Its Undo action is brass in light mode (#E3C47E on #1A2240) and
+     blued steel in dark mode (#1E3C8C on #EEE7D7).
+   - On phones:
+     - a floating pill tab bar, inset from the edges;
+     - chip filters;
+     - a rounded chart card;
+     - a task card above the tab bar, with the power-reserve gauge.
+
+3. **Type.**
+   - Instrument Serif is the display face. It is used for the wordmark, month names, inspector
+     task titles and large numbers. Month names carry an italic, muted year.
+   - Inter is the interface font.
+   - JetBrains Mono is used for durations and ids.
+   - Small section labels are uppercase, 10.5 px, with 0.08em letter spacing.
+
+4. **Iconography.** Every control with a label uses a Lucide-style stroke icon at a 1.8 px stroke.
+   Lucide is ISC licensed, which is GPL-compatible.
+
+5. **Materials.**
+   - Normal work bars are brushed-brass pills. They are 22 px high with an 11 px radius. The fill
+     is a vertical gradient. Light mode runs from #F7EFDC to #EADDBD. Dark mode runs from #3B3322
+     to #2A2417. Each bar has an inset highlight and a soft shadow.
+   - Critical-path bars use a heat-blued steel gradient. Light mode runs from #3A60C2 to #1E3C8C.
+     Dark mode runs from #5F82E0 to #2D4CA4. Their text is white.
+   - Milestones are brass jewel diamonds with a highlight gradient. The brass is #B08D3C in light
+     mode and #D2AE5C in dark mode. The highlight is #F1D99A in light mode and #F6E3AE in dark mode.
+   - Summary bars are a thin 3 px stem with end caps. Their ink is a muted group colour: #7A7262 in
+     light mode and #B9AF98 in dark mode.
+   - Links are brass. On the critical path they are blued steel. Links have rounded elbows.
+     Light mode link colours are #B39A62 (brass) and #2346A0 (critical). Dark mode link colours are
+     #8C7A4C (brass) and #7D9BE8 (critical).
+
+6. **Signature details.** These are used sparingly.
+   - The brand mark is a brass coiled mainspring spiral.
+   - A power-reserve gauge shows % complete. It is a brass tick arc with a blued-steel progress arc
+     and a needle. It appears in the inspector and on the phone task card.
+   - A small brass crown knob tops the today line. Its top is #E3C47E in light mode and #F1D99A in
+     dark mode.
+   - Guilloché patterns appear in empty states only.
+
+### Consequences
+
+- The app shell (task T14) and the app-wide restyle build to this language.
+- The Gantt painters use these materials through tokens. No view hard-codes a value.
+- Fonts are added through @fontsource packages on the licence allow-list. Instrument Serif is OFL
+  and is allowed by ADR-0005.
+- Icons are inline SVG paths, or a Lucide package if it is ISC.
+- Where the refined mockup and the earlier sections differ, these values apply (they supersede the
+  earlier token table and Geometry section):
+  - Canvas: the app ground is the recessed #ECE7DC (light) / #080B10 (dark). Panels and cards
+    are the earlier bg and surface values (#FFFDF8 / #11151D).
+  - Links: the contrast note wins. Normal links are #9A7424 (light) and #C9A24D (dark); the
+    mockup's lighter #B39A62 and #8C7A4C are not used.
+  - Bar geometry: 22 px bars with an 11 px radius in 40 px rows on every pointer. The Gantt
+    task-list rows match.
+  - Bar outlines: brass bars keep a 1 px outline in the link colour (#9A7424 / #C9A24D) so the
+    bar edge meets WCAG 1.4.11. The blued-steel critical bars already exceed 3:1 and need none.
