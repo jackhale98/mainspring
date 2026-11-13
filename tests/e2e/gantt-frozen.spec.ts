@@ -42,7 +42,7 @@ declare global {
 	}
 }
 
-async function open(page: Page): Promise<void> {
+async function open(page: Page, sample = 'upstream-fedora-20'): Promise<void> {
 	// Counts the header canvas's paints: its draw asks for the 2d context each time.
 	await page.addInitScript(() => {
 		const original = HTMLCanvasElement.prototype.getContext;
@@ -53,7 +53,7 @@ async function open(page: Page): Promise<void> {
 			return (original as (...a: unknown[]) => unknown).apply(this, args);
 		} as typeof original;
 	});
-	await page.goto('/app?sample=upstream-fedora-20&mode=visual');
+	await page.goto(`/app?sample=${sample}&mode=visual`);
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,
 	});
@@ -283,6 +283,10 @@ test.describe('frozen header and name column', () => {
 					scrollLeft: scroller.scrollLeft,
 					scrollMax: scroller.scrollWidth - scroller.clientWidth,
 					namesLeft: Math.round((names.getBoundingClientRect().left - sr.left) * 100) / 100,
+					namesVisible: (() => {
+						const at = document.elementFromPoint(sr.left + 4, sr.top + sr.height / 2);
+						return at && names.contains(at) ? 1 : 0;
+					})(),
 					headMinusPlotX: Math.round((hr.left - pr.left) * 100) / 100,
 					minorDrift: Math.round(drift * 100) / 100,
 					minorShown: shown,
@@ -305,6 +309,7 @@ test.describe('frozen header and name column', () => {
 		expect(Math.max(...get('scrollLeft'))).toBeGreaterThanOrEqual(max - 2);
 		expect(frames[frames.length - 1]?.['scrollLeft'] ?? 0).toBeLessThan(max / 2);
 		// The name column's left never leaves the scroller's left, anywhere, momentum included.
+		expect(Math.min(...get('namesVisible'))).toBe(1); // visible in every frame, not just placed
 		expect(Math.max(...get('namesLeft'))).toBeLessThanOrEqual(0.5);
 		expect(Math.min(...get('namesLeft'))).toBeGreaterThanOrEqual(-0.5);
 		// The header tracks the bars, and every visible day or week label is where its content is.
@@ -319,10 +324,11 @@ test.describe('frozen header and name column', () => {
 		const get = (k: string): number[] => frames.map((f) => f[k] ?? 0);
 		return {
 			device,
-			plan: 'upstream-fedora-20 (Visual)',
+			plan: 'gantt-500 (Visual)',
 			frames: frames.length,
 			scrolledToXMax: Math.max(...get('scrollLeft')),
 			scrollXMax: Math.max(...get('scrollMax')),
+			framesWithNamesNotVisible: get('namesVisible').filter((v) => v !== 1).length,
 			namesLeftRange: [Math.min(...get('namesLeft')), Math.max(...get('namesLeft'))],
 			maxHeadVsBarsDriftPx: Math.max(...get('headMinusPlotX').map(Math.abs)),
 			maxLabelDriftPx: Math.max(...get('minorDrift')),
@@ -337,7 +343,7 @@ test.describe('frozen header and name column', () => {
 		browserName,
 	}, info) => {
 		test.skip(info.project.name !== 'pixel-7' || browserName !== 'chromium');
-		await open(page);
+		await open(page, 'gantt-500');
 		const cdp = await page.context().newCDPSession(page);
 		const drag = async (x0: number, x1: number, y: number): Promise<void> => {
 			await cdp.send('Input.dispatchTouchEvent', {
@@ -349,15 +355,14 @@ test.describe('frozen header and name column', () => {
 					type: 'touchMove',
 					touchPoints: [{ x: x0 + ((x1 - x0) * i) / 10, y }],
 				});
-				await page.waitForTimeout(12);
 			}
 			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 		};
 		const frames = await sampleWhile(page, async () => {
 			// Far right: swipes with a fling, past the end (the over-scroll), then all the way back.
-			for (let i = 0; i < 26; i++) await drag(380, 90, 430);
+			for (let i = 0; i < 40; i++) await drag(380, 90, 430);
 			await page.waitForTimeout(500);
-			for (let i = 0; i < 40; i++) await drag(90, 380, 430);
+			for (let i = 0; i < 60; i++) await drag(90, 380, 430);
 		});
 		assertLongPan(frames);
 		if (process.env['SCREENSHOTS']) {
@@ -376,20 +381,18 @@ test.describe('frozen header and name column', () => {
 		page,
 	}, info) => {
 		test.skip(info.project.name !== 'desktop');
-		await open(page);
+		await open(page, 'gantt-500');
 		const box = await page.getByTestId('gantt-overlay').boundingBox();
 		if (!box) throw new Error('no chart');
 		await page.mouse.move(box.x + box.width / 2, box.y + 200);
 		const frames = await sampleWhile(page, async () => {
 			await page.keyboard.down('Shift');
-			for (let i = 0; i < 90; i++) {
-				await page.mouse.wheel(0, 240);
-				await page.waitForTimeout(8);
+			for (let i = 0; i < 150; i++) {
+				await page.mouse.wheel(0, 900);
 			}
 			await page.waitForTimeout(400);
-			for (let i = 0; i < 120; i++) {
-				await page.mouse.wheel(0, -240);
-				await page.waitForTimeout(8);
+			for (let i = 0; i < 150; i++) {
+				await page.mouse.wheel(0, -900);
 			}
 			await page.keyboard.up('Shift');
 		});
