@@ -22,7 +22,11 @@ import { canonicalResult, eligibleSites, indexOf, rewrite, type Rewrite } from '
 const ENGINE = path.join(REPO, 'public/engine/manifest.json');
 const ON = process.env['FAST_PATH'] === '1';
 const ROUNDS = Number(process.env['FAST_PATH_TIMING_RUNS'] || 5);
-const PLANS = ['upstream-fedora-20', 'gantt-200', 'gantt-500', 'syn-20-scale-1000', 'upstream-tutorial'];
+const ALL_PLANS = ['upstream-fedora-20', 'gantt-200', 'gantt-500', 'syn-20-scale-1000', 'upstream-tutorial'];
+/** FAST_PATH_TIMING_PLANS=a,b runs only these. */
+const PLANS = (process.env['FAST_PATH_TIMING_PLANS'] ?? '').split(',').filter(Boolean).length
+	? (process.env['FAST_PATH_TIMING_PLANS'] ?? '').split(',').filter(Boolean)
+	: ALL_PLANS;
 /** The bar of phase-2.md 12, step 5 (and 18.12). */
 const BAR = 0.3;
 
