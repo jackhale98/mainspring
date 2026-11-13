@@ -26,8 +26,8 @@ export interface PlanCase {
 	readonly files: readonly string[];
 }
 
-export const GOLDEN_PLANS = 39;
-export const GOLDEN_FILES = 48;
+export const GOLDEN_PLANS = 40;
+export const GOLDEN_FILES = 49;
 /** The one file that is not valid UTF-8; compared as text (ADR-0003 #1). */
 export const INVALID_UTF8_FILE = 'engine/golden/plans/bridge/bom-invalid-utf8/plan.tjp';
 

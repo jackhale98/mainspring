@@ -1869,8 +1869,10 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2002-05-17T16:00:00Z",
       "id": "acso",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Accounting Software",
       "now": "2002-03-05T12:00:00Z",
       "scenarios": [
@@ -1890,7 +1892,359 @@
       "start": "2002-01-16T00:00:00Z",
       "timezone": "Europe/Paris",
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          480,
+          960
+        ],
+        [
+          1920,
+          2400
+        ],
+        [
+          3360,
+          3840
+        ],
+        [
+          7680,
+          8160
+        ],
+        [
+          9120,
+          9600
+        ],
+        [
+          10560,
+          11040
+        ],
+        [
+          12000,
+          12480
+        ],
+        [
+          13440,
+          13920
+        ],
+        [
+          17760,
+          18240
+        ],
+        [
+          19200,
+          19680
+        ],
+        [
+          20640,
+          21120
+        ],
+        [
+          22080,
+          22560
+        ],
+        [
+          23520,
+          24000
+        ],
+        [
+          27840,
+          28320
+        ],
+        [
+          29280,
+          29760
+        ],
+        [
+          30720,
+          31200
+        ],
+        [
+          32160,
+          32640
+        ],
+        [
+          33600,
+          34080
+        ],
+        [
+          37920,
+          38400
+        ],
+        [
+          39360,
+          39840
+        ],
+        [
+          40800,
+          41280
+        ],
+        [
+          42240,
+          42720
+        ],
+        [
+          43680,
+          44160
+        ],
+        [
+          48000,
+          48480
+        ],
+        [
+          49440,
+          49920
+        ],
+        [
+          50880,
+          51360
+        ],
+        [
+          52320,
+          52800
+        ],
+        [
+          53760,
+          54240
+        ],
+        [
+          58080,
+          58560
+        ],
+        [
+          59520,
+          60000
+        ],
+        [
+          60960,
+          61440
+        ],
+        [
+          62400,
+          62880
+        ],
+        [
+          63840,
+          64320
+        ],
+        [
+          68160,
+          68640
+        ],
+        [
+          69600,
+          70080
+        ],
+        [
+          71040,
+          71520
+        ],
+        [
+          72480,
+          72960
+        ],
+        [
+          73920,
+          74400
+        ],
+        [
+          78240,
+          78720
+        ],
+        [
+          79680,
+          80160
+        ],
+        [
+          81120,
+          81600
+        ],
+        [
+          82560,
+          83040
+        ],
+        [
+          84000,
+          84480
+        ],
+        [
+          88320,
+          88800
+        ],
+        [
+          89760,
+          90240
+        ],
+        [
+          91200,
+          91680
+        ],
+        [
+          92640,
+          93120
+        ],
+        [
+          94080,
+          94560
+        ],
+        [
+          98400,
+          98880
+        ],
+        [
+          99840,
+          100320
+        ],
+        [
+          101280,
+          101760
+        ],
+        [
+          102720,
+          103200
+        ],
+        [
+          108420,
+          108900
+        ],
+        [
+          109860,
+          110340
+        ],
+        [
+          111300,
+          111780
+        ],
+        [
+          112740,
+          113220
+        ],
+        [
+          114180,
+          114660
+        ],
+        [
+          118500,
+          118980
+        ],
+        [
+          119940,
+          120420
+        ],
+        [
+          121380,
+          121860
+        ],
+        [
+          122820,
+          123300
+        ],
+        [
+          124260,
+          124740
+        ],
+        [
+          128580,
+          129060
+        ],
+        [
+          130020,
+          130500
+        ],
+        [
+          131460,
+          131940
+        ],
+        [
+          132900,
+          133380
+        ],
+        [
+          134340,
+          134820
+        ],
+        [
+          138660,
+          139140
+        ],
+        [
+          140100,
+          140580
+        ],
+        [
+          141540,
+          142020
+        ],
+        [
+          142980,
+          143460
+        ],
+        [
+          144420,
+          144900
+        ],
+        [
+          148740,
+          149220
+        ],
+        [
+          150180,
+          150660
+        ],
+        [
+          151620,
+          152100
+        ],
+        [
+          153060,
+          153540
+        ],
+        [
+          154500,
+          154980
+        ],
+        [
+          158820,
+          159300
+        ],
+        [
+          160260,
+          160740
+        ],
+        [
+          161700,
+          162180
+        ],
+        [
+          163140,
+          163620
+        ],
+        [
+          164580,
+          165060
+        ],
+        [
+          168900,
+          169380
+        ],
+        [
+          170340,
+          170820
+        ],
+        [
+          171780,
+          172260
+        ],
+        [
+          173220,
+          173700
+        ],
+        [
+          174660,
+          175140
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {
@@ -2061,9 +2415,13 @@
               "test",
               "doc"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 144720,
             "pathCriticalness": 441.93835925174665,
+            "precedes": [],
             "scheduled": true,
             "start": 5700
           },
@@ -2075,9 +2433,13 @@
               "test",
               "doc"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 133260,
             "pathCriticalness": 403.2333784088348,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -2100,9 +2462,20 @@
               "dev2",
               "dev3"
             ],
+            "complete": null,
             "criticalness": 91.08947487040794,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.deliveries.start"
+              }
+            ],
+            "direction": "asap",
             "end": 19560,
             "pathCriticalness": 441.93835925174665,
+            "precedes": [],
             "scheduled": true,
             "start": 7680
           },
@@ -2112,9 +2485,20 @@
               "dev2",
               "dev3"
             ],
+            "complete": null,
             "criticalness": 87.9882803696191,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.deliveries.start"
+              }
+            ],
+            "direction": "asap",
             "end": 12360,
             "pathCriticalness": 403.2333784088348,
+            "precedes": [],
             "scheduled": true,
             "start": 480
           }
@@ -2137,9 +2521,20 @@
               "dev2",
               "dev3"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              }
+            ],
+            "direction": "asap",
             "end": 118740,
             "pathCriticalness": 350.8488843813387,
+            "precedes": [],
             "scheduled": true,
             "start": 19560
           },
@@ -2149,9 +2544,20 @@
               "dev2",
               "dev3"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              }
+            ],
+            "direction": "asap",
             "end": 103020,
             "pathCriticalness": 315.2450980392157,
+            "precedes": [],
             "scheduled": true,
             "start": 12360
           }
@@ -2173,9 +2579,20 @@
               "dev1",
               "dev2"
             ],
+            "complete": null,
             "criticalness": 88.04597701149426,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              }
+            ],
+            "direction": "asap",
             "end": 39720,
             "pathCriticalness": 350.8488843813387,
+            "precedes": [],
             "scheduled": true,
             "start": 19560
           },
@@ -2184,9 +2601,20 @@
               "dev1",
               "dev2"
             ],
+            "complete": null,
             "criticalness": 85.74712643678161,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              }
+            ],
+            "direction": "asap",
             "end": 32520,
             "pathCriticalness": 315.2450980392157,
+            "precedes": [],
             "scheduled": true,
             "start": 12360
           }
@@ -2208,9 +2636,32 @@
               "dev2",
               "dev3"
             ],
+            "complete": null,
             "criticalness": 196.71670047329275,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.database"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.backend"
+              }
+            ],
+            "direction": "asap",
             "end": 118740,
             "pathCriticalness": 262.80290736984443,
+            "precedes": [],
             "scheduled": true,
             "start": 69960
           },
@@ -2219,9 +2670,32 @@
               "dev2",
               "dev3"
             ],
+            "complete": null,
             "criticalness": 163.9864773495605,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.database"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.backend"
+              }
+            ],
+            "direction": "asap",
             "end": 103020,
             "pathCriticalness": 229.49797160243406,
+            "precedes": [],
             "scheduled": true,
             "start": 62760
           }
@@ -2243,9 +2717,26 @@
               "dev1",
               "dev2"
             ],
+            "complete": 95,
             "criticalness": 132.0689655172414,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.database"
+              }
+            ],
+            "direction": "asap",
             "end": 69960,
             "pathCriticalness": 198.15517241379308,
+            "precedes": [],
             "scheduled": true,
             "start": 39720
           },
@@ -2254,9 +2745,26 @@
               "dev1",
               "dev2"
             ],
+            "complete": 95,
             "criticalness": 128.6206896551724,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.spec"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.database"
+              }
+            ],
+            "direction": "asap",
             "end": 62760,
             "pathCriticalness": 194.132183908046,
+            "precedes": [],
             "scheduled": true,
             "start": 32520
           }
@@ -2279,9 +2787,13 @@
               "dev2",
               "test"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 144720,
             "pathCriticalness": 50.77011494252873,
+            "precedes": [],
             "scheduled": true,
             "start": 118740
           },
@@ -2291,9 +2803,13 @@
               "dev2",
               "test"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 133260,
             "pathCriticalness": 50.770114942528735,
+            "precedes": [],
             "scheduled": true,
             "start": 103020
           }
@@ -2315,9 +2831,20 @@
               "dev2",
               "test"
             ],
+            "complete": null,
             "criticalness": 15.316091954022987,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software"
+              }
+            ],
+            "direction": "asap",
             "end": 122940,
             "pathCriticalness": 66.08620689655172,
+            "precedes": [],
             "scheduled": true,
             "start": 118740
           },
@@ -2326,9 +2853,20 @@
               "dev2",
               "test"
             ],
+            "complete": null,
             "criticalness": 14.741379310344826,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software"
+              }
+            ],
+            "direction": "asap",
             "end": 111480,
             "pathCriticalness": 65.51149425287356,
+            "precedes": [],
             "scheduled": true,
             "start": 103020
           }
@@ -2350,9 +2888,20 @@
               "dev1",
               "test"
             ],
+            "complete": null,
             "criticalness": 49.770114942528735,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.test.alpha"
+              }
+            ],
+            "direction": "asap",
             "end": 144720,
             "pathCriticalness": 50.770114942528735,
+            "precedes": [],
             "scheduled": true,
             "start": 122940
           },
@@ -2361,9 +2910,20 @@
               "dev1",
               "test"
             ],
+            "complete": null,
             "criticalness": 49.770114942528735,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.test.alpha"
+              }
+            ],
+            "direction": "asap",
             "end": 133260,
             "pathCriticalness": 50.770114942528735,
+            "precedes": [],
             "scheduled": true,
             "start": 111480
           }
@@ -2385,9 +2945,20 @@
               "dev3",
               "doc"
             ],
+            "complete": null,
             "criticalness": 182.44619799139167,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.deliveries.start"
+              }
+            ],
+            "direction": "asap",
             "end": 64020,
             "pathCriticalness": 182.44619799139167,
+            "precedes": [],
             "scheduled": true,
             "start": 7680
           },
@@ -2396,9 +2967,20 @@
               "dev3",
               "doc"
             ],
+            "complete": null,
             "criticalness": 176.5638450502152,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.deliveries.start"
+              }
+            ],
+            "direction": "asap",
             "end": 59700,
             "pathCriticalness": 176.5638450502152,
+            "precedes": [],
             "scheduled": true,
             "start": 480
           }
@@ -2417,17 +2999,25 @@
         "scenarios": {
           "delayed": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 144720,
             "pathCriticalness": 351.84888438133873,
+            "precedes": [],
             "scheduled": true,
             "start": 5700
           },
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 133260,
             "pathCriticalness": 316.2450980392157,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -2446,17 +3036,25 @@
         "scenarios": {
           "delayed": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [],
+            "direction": "asap",
             "end": 5700,
             "pathCriticalness": 351.84888438133873,
+            "precedes": [],
             "scheduled": true,
             "start": 5700
           },
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [],
+            "direction": "asap",
             "end": 0,
             "pathCriticalness": 316.2450980392157,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -2475,17 +3073,39 @@
         "scenarios": {
           "delayed": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.backend"
+              }
+            ],
+            "direction": "asap",
             "end": 69960,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 69960
           },
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.software.backend"
+              }
+            ],
+            "direction": "asap",
             "end": 62760,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 62760
           }
@@ -2504,17 +3124,39 @@
         "scenarios": {
           "delayed": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.test.alpha"
+              }
+            ],
+            "direction": "asap",
             "end": 122940,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 122940
           },
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.test.alpha"
+              }
+            ],
+            "direction": "asap",
             "end": 111480,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 111480
           }
@@ -2533,17 +3175,51 @@
         "scenarios": {
           "delayed": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.test.beta"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.manual"
+              }
+            ],
+            "direction": "asap",
             "end": 144720,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 144720
           },
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.test.beta"
+              },
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "AcSo.manual"
+              }
+            ],
+            "direction": "asap",
             "end": 133260,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 133260
           }
@@ -2556,5 +3232,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

@@ -28,8 +28,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
-	canonical, canonicalJson, csvRows, diffPaths, expectedRows, firstError, manifestProblems,
-	messageDiffs, normaliseMessages, parseCsv, rowDiffs,
+	csvLinkRows, csvRows, expectedLinkRows, expectedRows, linkRowDiffs, parseCsv, rowDiffs,
+	withoutPrecursors,
+} from './cross-check-rows.mjs';
+import {
+	GOLDEN_SCHEMA_VERSION, canonical, canonicalJson, diffPaths, firstError, manifestProblems,
+	messageDiffs, normaliseMessages,
 } from './lib.mjs';
 import { checkTzEdgesNative } from './tz-edges.mjs';
 
@@ -197,7 +201,10 @@ function recordOnce(plan, workspace) {
 // with the golden on: every task's start and end per active scenario (its CSV
 // report), the project's start, end and now, the active scenarios, and every
 // message up to the end of scheduling (level, id, file, line, text). When
-// neither side parses, tj3 must also exit non-zero.
+// neither side parses, tj3 must also exit non-zero. Schema v2 (phase-2 spec
+// 5.3) adds the report's precursors and completion columns: the dependencies
+// that end at each task, and every `complete` the plan sets
+// (cross-check-rows.mjs expectedLinkRows).
 function crossCheck(plan, result, workspace, tmp) {
 	const template = fs.readFileSync(path.join(GOLDEN, 'cross-check.tji'), 'utf8');
 	if (!MACRO_RE.test(template)) throw new Error('cross-check.tji lost its scenario macro line');
@@ -205,8 +212,10 @@ function crossCheck(plan, result, workspace, tmp) {
 	if (fs.existsSync(path.join(root, CROSS_TJI))) throw new Error(`${CROSS_TJI} clashes with a plan file`);
 	const active = (result.project?.scenarios ?? []).filter((s) => s.active);
 	const ids = active.length ? active.map((s) => s.id) : ['plan'];
-	fs.writeFileSync(path.join(root, CROSS_TJI),
-		template.replace(MACRO_RE, `macro mainspring_crosscheck_scenarios [${ids.join(', ')}]`));
+	const report = template.replace(MACRO_RE, `macro mainspring_crosscheck_scenarios [${ids.join(', ')}]`);
+	// A result that is not ok compares no precursors, and tj3 cannot report them for a scenario
+	// scheduling never prepared (see withoutPrecursors), so that report leaves the column out.
+	fs.writeFileSync(path.join(root, CROSS_TJI), result.ok ? report : withoutPrecursors(report));
 	const outFile = path.join(tmp, 'tj3-state.json');
 	const env = { ...ENV, MAINSPRING_TJ3_OUT: outFile, MAINSPRING_CLOCK: plan.now ?? '' };
 	const r = run('bundle', ['exec', 'ruby', '-W0', '-EUTF-8', '-I', TJ_LIB,
@@ -246,10 +255,17 @@ function crossCheck(plan, result, workspace, tmp) {
 	if (!fs.existsSync(csvPath)) {
 		problems.push(`tj3 wrote no CSV (exit ${r.status}): ${r.stderr.trim().split('\n')[0] ?? ''}`);
 	} else {
-		problems.push(...rowDiffs(expectedRows(result), csvRows(parseCsv(fs.readFileSync(csvPath, 'utf8')))));
+		const csv = parseCsv(fs.readFileSync(csvPath, 'utf8'));
+		problems.push(...rowDiffs(expectedRows(result), csvRows(csv)));
+		// Precursors only for complete runs (see linkRowDiffs); completion always.
+		problems.push(...linkRowDiffs(expectedLinkRows(result), csvLinkRows(csv), 10, result.ok));
 	}
 	if (problems.length) throw new Error(`cross-check:\n  ${problems.join('\n  ')}`);
-	return `agree: ${result.tasks.length} tasks x ${active.length} scenario(s), project frame, ${msgs.length} message(s)`;
+	const edges = result.tasks.reduce((n, t) => n + active.reduce((m, s) =>
+		m + (t.scenarios[s.id]?.depends.length ?? 0) + (t.scenarios[s.id]?.precedes.length ?? 0), 0), 0);
+	const deps = result.ok ? `${edges} dependencies` : `dependencies not compared (not ok)`;
+	return `agree: ${result.tasks.length} tasks x ${active.length} scenario(s) (dates, ${deps}, ` +
+		`completion), project frame, ${msgs.length} message(s)`;
 }
 
 function processPlan(plan, verify) {
@@ -265,6 +281,9 @@ function processPlan(plan, verify) {
 			throw new Error(`nondeterministic: run 1 and run 2 differ at line ${i + 1}:\n  ${a[i]}\n  ${b[i]}`);
 		}
 		const golden = canonical(JSON.parse(first.out));
+		if (golden.schemaVersion !== GOLDEN_SCHEMA_VERSION) {
+			throw new Error(`record.rb wrote schemaVersion ${golden.schemaVersion}; lib.mjs expects ${GOLDEN_SCHEMA_VERSION}`);
+		}
 		const text = canonicalJson(golden);
 		const cross = crossCheck(plan, golden.result, workspace, tmp);
 		const timings = {};

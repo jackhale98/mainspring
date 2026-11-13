@@ -56,8 +56,10 @@
     ],
     "ok": false,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-04-01T10:00:00Z",
       "id": "se",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Schedule error",
       "now": "2026-03-02T09:00:00Z",
       "scenarios": [
@@ -71,7 +73,103 @@
       "start": "2026-03-02T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          43800
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {
@@ -102,9 +200,13 @@
             "allocated": [
               "r"
             ],
+            "complete": null,
             "criticalness": 3.2542372881355934,
+            "depends": [],
+            "direction": "asap",
             "end": 3900,
             "pathCriticalness": 3.2542372881355934,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -123,9 +225,20 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "a"
+              }
+            ],
+            "direction": "asap",
             "end": 1440,
             "pathCriticalness": 0,
+            "precedes": [],
             "scheduled": true,
             "start": 0
           }
@@ -138,5 +251,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

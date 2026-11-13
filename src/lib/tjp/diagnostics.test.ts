@@ -40,6 +40,7 @@ const EXPECTED: Record<string, { text: string; precision: string; line: number |
 	'bridge-parse-failure/no_reduce': { text: 'colour', precision: 'token', line: 14 },
 	'bridge-scenario-warning/maxend': { text: 'maxend 2026-03-13', precision: 'statement', line: 24 },
 	'bridge-schedule-error/task_pred_before': { text: 'a', precision: 'token', line: 17 },
+	'bridge-xref-stop/task_depend_unknown': { text: 'nosuch', precision: 'token', line: 31 },
 	'syn-04-limits-task-min-per-resource/maxend': {
 		text: 'maxend 2026-01-09',
 		precision: 'statement',

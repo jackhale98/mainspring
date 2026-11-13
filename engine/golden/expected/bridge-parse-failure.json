@@ -36,8 +36,10 @@
     ],
     "ok": false,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-04-01T10:00:00Z",
       "id": "pf",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Parse failure",
       "now": "2026-03-02T09:00:00Z",
       "scenarios": [
@@ -51,10 +53,13 @@
       "start": "2026-03-02T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "weeklyWorkingDays": 5,
+      "workingTime": [],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [],
     "tasks": []
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

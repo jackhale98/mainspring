@@ -111,6 +111,71 @@ describe('compareWithGolden', () => {
 		expect(compareWithGolden(golden, flipped).diffs[0]).toContain('/ok');
 	});
 
+	it('fails on a mutation of each schema v2 field', () => {
+		const golden = byId('upstream-fedora-20');
+		const mutations: Array<[string, (r: ScheduleResult) => void]> = [
+			[
+				'/project/dailyWorkingHours',
+				(r) => {
+					if (r.project) r.project.dailyWorkingHours += 1;
+				},
+			],
+			[
+				'/project/workingTime/0/1',
+				(r) => {
+					const first = r.project?.workingTime[0];
+					if (first) first[1] += 60;
+				},
+			],
+			[
+				'/direction',
+				(r) => {
+					const s = r.tasks[0]?.scenarios['plan'];
+					if (s) s.direction = s.direction === 'asap' ? 'alap' : 'asap';
+				},
+			],
+			[
+				'/complete',
+				(r) => {
+					const s = r.tasks[0]?.scenarios['plan'];
+					if (s) s.complete = (s.complete ?? 0) + 1;
+				},
+			],
+			[
+				'/onEnd',
+				(r) => {
+					const dep = r.tasks.flatMap((t) => t.scenarios['plan']?.depends ?? [])[0];
+					if (dep) dep.onEnd = !dep.onEnd;
+				},
+			],
+			[
+				'/gapLengthMin',
+				(r) => {
+					const dep = r.tasks.flatMap((t) => t.scenarios['plan']?.depends ?? [])[0];
+					if (dep) dep.gapLengthMin += 60;
+				},
+			],
+		];
+		for (const [path, mutate] of mutations) {
+			const result = asResult(golden);
+			mutate(result);
+			const comparison = compareWithGolden(golden, result);
+			expect(comparison.ok, path).toBe(false);
+			expect(comparison.diffs.join('\n'), path).toContain(path);
+		}
+	});
+
+	it('fails with one line on a golden of another schema', () => {
+		const golden = byId('upstream-tutorial');
+		const comparison = compareWithGolden({ ...golden, schemaVersion: 1 }, asResult(golden));
+		expect(comparison.ok).toBe(false);
+		expect(comparison.diffs).toHaveLength(1);
+		expect(comparison.diffs[0]).toMatch(
+			/^\/schemaVersion: the golden is schema 1, .* 2; re-record/,
+		);
+		expect(compareWithGolden({ result: golden.result }, asResult(golden)).ok).toBe(true);
+	});
+
 	it('limits the diff to the requested number of lines', () => {
 		const golden = byId('upstream-fedora-20');
 		const result = asResult(golden);
@@ -130,6 +195,11 @@ describe('annotateMinutes', () => {
 		expect(annotateMinutes('/bookings/0/intervals/1/0: expected 0, got null', start)).toContain(
 			'(2026-01-05T09:00:00Z), got null (null)',
 		);
+		expect(annotateMinutes('/project/workingTime/3/1: expected 540, got 600', start)).toBe(
+			'/project/workingTime/3/1: expected 540 (2026-01-05T18:00:00Z), got 600 (2026-01-05T19:00:00Z)',
+		);
+		const gap = '/tasks/0/scenarios/plan/depends/0/gapLengthMin: expected 480, got 540';
+		expect(annotateMinutes(gap, start)).toBe(gap);
 		const other = '/tasks/0/criticalness: expected 1, got 2';
 		expect(annotateMinutes(other, start)).toBe(other);
 		const nonNumeric = '/project/start: expected "a", got "b"';

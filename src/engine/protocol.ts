@@ -3,6 +3,10 @@
  * Engine protocol: the shared types (phase-0 spec 3.1) and the worker messages (spec 3.2).
  * Decisions on `now`, `bookings`, late results and dates are in ADR-0002.
  * This module holds types only; it has no runtime code.
+ *
+ * Result schema v2 (phase-2 spec 6.1) adds fields only; every v1 field keeps its meaning:
+ * `ProjectInfo.dailyWorkingHours` and `workingTime`, and per task scenario `direction`,
+ * `complete`, `depends` and `precedes` (`DependencyResult`). The worker messages are unchanged.
  */
 
 /** Strictly increasing per EngineClient. */
@@ -59,6 +63,49 @@ export interface ProjectInfo {
 	timingResolutionMin: number;
 	/** Declaration pre-order. */
 	scenarios: ScenarioInfo[];
+	/**
+	 * v2. Hours in a working day (`dailyworkinghours`, default 8).
+	 *
+	 * Working durations (`effort`, `effortdone`, `effortleft`, `length`, `gaplength`, limits) are
+	 * converted by TaskJuggler's workingDuration rule (TjpSyntaxRules.rb:7667-7682) to scoreboard
+	 * slots: `slots = round(value * factor / (timingResolutionMin * 60))`, with `factor` in seconds:
+	 * - 'min': 60; 'h': 3600;
+	 * - 'd': 3600 * dailyWorkingHours;
+	 * - 'w': 3600 * dailyWorkingHours * weeklyWorkingDays;
+	 * - 'm': 3600 * dailyWorkingHours * monthlyWorkingDays;
+	 * - 'y': 3600 * dailyWorkingHours * yearlyWorkingDays.
+	 *
+	 * The products are taken left to right in doubles, as here. Ruby keeps an integer value times
+	 * an integer factor an Integer and then divides as integers, truncating before the rounding;
+	 * that changes the result only for a whole number of minutes that is not a multiple of the
+	 * resolution ('10min' at 15-minute resolution is 0 slots). `duration` is calendar time instead:
+	 * `trunc(value * f / (timingResolutionMin * 60))` with f 60, 3600, 86400, 604800, 2628002.88
+	 * and 31536000 s (TjpSyntaxRules.rb:562-574); `gapduration` is in `gapDurationMin`.
+	 */
+	dailyWorkingHours: number;
+	/**
+	 * v2. Working days per week for the 'w' unit, as Project#weeklyWorkingDays computes it
+	 * (Project.rb:542-545): the weekly hours of the global working hours, in whole hours
+	 * (WorkingHours.rb:168-176 divides integers), divided by `dailyworkinghours` (also as integers
+	 * when the plan writes an integer). 5 for the default 40 h and 8 h. Null only when that is not
+	 * finite (`dailyworkinghours 0.0`).
+	 */
+	weeklyWorkingDays: number | null;
+	/**
+	 * v2. Working days per month for the 'm' unit: `yearlyworkingdays / 12` as the rule computes
+	 * it (TjpSyntaxRules.rb:7674-7675), so an integer `yearlyworkingdays 260` gives 21, not 21.67.
+	 */
+	monthlyWorkingDays: number;
+	/** v2. `yearlyworkingdays` (default 260.714, Project.rb:106), the 'y' unit's day count. */
+	yearlyWorkingDays: number;
+	/**
+	 * v2. Global working time over the project frame as [start, end) pairs: ascending, disjoint,
+	 * touching pairs merged, every bound a multiple of `timingResolutionMin`. Read slot by slot
+	 * from TaskJuggler's project scoreboard (`Project#isWorkingTime`): the global working hours
+	 * minus global leaves, in the plan's time zone, so DST is already applied. Empty when parsing
+	 * failed, because TaskJuggler builds the scoreboard only when it schedules.
+	 */
+	workingTime: Array<[start: Minutes, end: Minutes]>;
 }
 export interface ScenarioInfo {
 	id: string;
@@ -96,6 +143,52 @@ export interface TaskScenarioResult {
 	criticalness: number;
 	/** Null when scheduling stopped before TaskJuggler computed it (it starts as nil). */
 	pathCriticalness: number | null;
+	/**
+	 * v2. Scheduling direction as TaskJuggler holds it after scheduling (its `forward` flag). The
+	 * last of `scheduling`, `start` and `depends` (asap) or `end` and `precedes` (alap) in the task
+	 * wins, otherwise the parent's value, and `effortdone`/`effortleft` force asap. Containers
+	 * report the value they hold too.
+	 */
+	direction: 'asap' | 'alap';
+	/**
+	 * v2. `complete` in percent as TaskJuggler holds it for this scenario after scheduling: the
+	 * plan's value, or null when unset. TaskJuggler computes a completion only when something
+	 * queries it; the engine runs no reports, so only a `fail` or `warn` condition that reads
+	 * completion can make it non-null without a `complete` in the plan.
+	 */
+	complete: number | null;
+	/**
+	 * v2. This task's start waits on these (`depends` after inheritance: the parent's entries,
+	 * then the task's own), in TaskJuggler's order. When `ok` is false the dependency graph may
+	 * contain cycles: TaskJuggler's loop check runs after resolution (Project.rb:1103-1113), and a
+	 * run that stopped earlier never made it. Walk it with a visited set.
+	 */
+	depends: DependencyResult[];
+	/** v2. This task's end must come before these (`precedes` after inheritance), in
+	 *  TaskJuggler's order. */
+	precedes: DependencyResult[];
+}
+
+/**
+ * v2. One resolved `depends` or `precedes` entry of a task scenario. Entries TaskJuggler rejects
+ * are left out: an id that names no task, the task itself, its child or parent, and a task an
+ * earlier entry of the same list names (TaskScenario#checkDependency). TaskJuggler reports these
+ * as `task_depend_*` errors. When `ok` is false, `depends` and `precedes` may form cycles, so
+ * consumers must not assume a DAG (see `TaskScenarioResult.depends`).
+ */
+export interface DependencyResult {
+	/** The other task's full id. */
+	task: string;
+	/**
+	 * Whether the edge attaches to the other task's end (true) or start (false). The default is
+	 * true for `depends` (after the predecessor's end) and false for `precedes` (before the
+	 * successor's start); `onend` and `onstart` change it.
+	 */
+	onEnd: boolean;
+	/** `gapduration`: calendar minutes. 0 when unset. */
+	gapDurationMin: number;
+	/** `gaplength`: working minutes (scoreboard slots x `timingResolutionMin`). 0 when unset. */
+	gapLengthMin: number;
 }
 
 export interface ResourceResult {

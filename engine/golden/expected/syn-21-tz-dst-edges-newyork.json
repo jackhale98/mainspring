@@ -97,8 +97,10 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-22T00:00:00Z",
       "id": "ny21",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "New York DST edges",
       "now": "2026-03-08T07:00:00Z",
       "scenarios": [
@@ -112,7 +114,431 @@
       "start": "2025-10-26T00:00:00Z",
       "timezone": "America/New_York",
       "timingResolutionMin": 30,
-      "version": null
+      "version": null,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          2220,
+          2700
+        ],
+        [
+          3660,
+          4140
+        ],
+        [
+          5100,
+          5580
+        ],
+        [
+          6540,
+          7020
+        ],
+        [
+          7980,
+          8460
+        ],
+        [
+          12360,
+          12840
+        ],
+        [
+          13800,
+          14280
+        ],
+        [
+          15240,
+          15720
+        ],
+        [
+          16680,
+          17160
+        ],
+        [
+          18120,
+          18600
+        ],
+        [
+          22440,
+          22920
+        ],
+        [
+          23880,
+          24360
+        ],
+        [
+          25320,
+          25800
+        ],
+        [
+          26760,
+          27240
+        ],
+        [
+          28200,
+          28680
+        ],
+        [
+          32520,
+          33000
+        ],
+        [
+          33960,
+          34440
+        ],
+        [
+          35400,
+          35880
+        ],
+        [
+          36840,
+          37320
+        ],
+        [
+          38280,
+          38760
+        ],
+        [
+          42600,
+          43080
+        ],
+        [
+          44040,
+          44520
+        ],
+        [
+          45480,
+          45960
+        ],
+        [
+          46920,
+          47400
+        ],
+        [
+          48360,
+          48840
+        ],
+        [
+          52680,
+          53160
+        ],
+        [
+          54120,
+          54600
+        ],
+        [
+          55560,
+          56040
+        ],
+        [
+          57000,
+          57480
+        ],
+        [
+          58440,
+          58920
+        ],
+        [
+          62760,
+          63240
+        ],
+        [
+          64200,
+          64680
+        ],
+        [
+          65640,
+          66120
+        ],
+        [
+          67080,
+          67560
+        ],
+        [
+          68520,
+          69000
+        ],
+        [
+          72840,
+          73320
+        ],
+        [
+          74280,
+          74760
+        ],
+        [
+          75720,
+          76200
+        ],
+        [
+          77160,
+          77640
+        ],
+        [
+          78600,
+          79080
+        ],
+        [
+          82920,
+          83400
+        ],
+        [
+          84360,
+          84840
+        ],
+        [
+          85800,
+          86280
+        ],
+        [
+          87240,
+          87720
+        ],
+        [
+          88680,
+          89160
+        ],
+        [
+          93000,
+          93480
+        ],
+        [
+          94440,
+          94920
+        ],
+        [
+          95880,
+          96360
+        ],
+        [
+          97320,
+          97800
+        ],
+        [
+          98760,
+          99240
+        ],
+        [
+          103080,
+          103560
+        ],
+        [
+          104520,
+          105000
+        ],
+        [
+          105960,
+          106440
+        ],
+        [
+          107400,
+          107880
+        ],
+        [
+          108840,
+          109320
+        ],
+        [
+          113160,
+          113640
+        ],
+        [
+          114600,
+          115080
+        ],
+        [
+          116040,
+          116520
+        ],
+        [
+          117480,
+          117960
+        ],
+        [
+          118920,
+          119400
+        ],
+        [
+          123240,
+          123720
+        ],
+        [
+          124680,
+          125160
+        ],
+        [
+          126120,
+          126600
+        ],
+        [
+          127560,
+          128040
+        ],
+        [
+          129000,
+          129480
+        ],
+        [
+          133320,
+          133800
+        ],
+        [
+          134760,
+          135240
+        ],
+        [
+          136200,
+          136680
+        ],
+        [
+          137640,
+          138120
+        ],
+        [
+          139080,
+          139560
+        ],
+        [
+          143400,
+          143880
+        ],
+        [
+          144840,
+          145320
+        ],
+        [
+          146280,
+          146760
+        ],
+        [
+          147720,
+          148200
+        ],
+        [
+          149160,
+          149640
+        ],
+        [
+          153480,
+          153960
+        ],
+        [
+          154920,
+          155400
+        ],
+        [
+          156360,
+          156840
+        ],
+        [
+          157800,
+          158280
+        ],
+        [
+          159240,
+          159720
+        ],
+        [
+          163560,
+          164040
+        ],
+        [
+          165000,
+          165480
+        ],
+        [
+          166440,
+          166920
+        ],
+        [
+          167880,
+          168360
+        ],
+        [
+          169320,
+          169800
+        ],
+        [
+          173640,
+          174120
+        ],
+        [
+          175080,
+          175560
+        ],
+        [
+          176520,
+          177000
+        ],
+        [
+          177960,
+          178440
+        ],
+        [
+          179400,
+          179880
+        ],
+        [
+          183720,
+          184200
+        ],
+        [
+          185160,
+          185640
+        ],
+        [
+          186600,
+          187080
+        ],
+        [
+          188040,
+          188520
+        ],
+        [
+          189480,
+          189960
+        ],
+        [
+          193740,
+          194220
+        ],
+        [
+          195180,
+          195660
+        ],
+        [
+          196620,
+          197100
+        ],
+        [
+          198060,
+          198540
+        ],
+        [
+          199500,
+          199980
+        ],
+        [
+          203820,
+          204300
+        ],
+        [
+          205260,
+          205740
+        ],
+        [
+          206700,
+          207180
+        ],
+        [
+          208140,
+          208620
+        ],
+        [
+          209580,
+          210060
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {
@@ -177,9 +603,13 @@
               "edge",
               "leaver"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 10560,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 10350
           }
@@ -200,9 +630,13 @@
             "allocated": [
               "night"
             ],
+            "complete": null,
             "criticalness": 0.12698412698412698,
+            "depends": [],
+            "direction": "asap",
             "end": 10560,
             "pathCriticalness": 0.12698412698412698,
+            "precedes": [],
             "scheduled": true,
             "start": 10440
           }
@@ -223,9 +657,13 @@
             "allocated": [
               "edge"
             ],
+            "complete": null,
             "criticalness": 0.09523809523809523,
+            "depends": [],
+            "direction": "asap",
             "end": 10530,
             "pathCriticalness": 0.09523809523809523,
+            "precedes": [],
             "scheduled": true,
             "start": 10470
           }
@@ -246,9 +684,13 @@
             "allocated": [
               "leaver"
             ],
+            "complete": null,
             "criticalness": 0.0642570281124498,
+            "depends": [],
+            "direction": "alap",
             "end": 10440,
             "pathCriticalness": 0.0642570281124498,
+            "precedes": [],
             "scheduled": true,
             "start": 10380
           }
@@ -267,9 +709,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "alap",
             "end": 10470,
             "pathCriticalness": 0,
+            "precedes": [],
             "scheduled": true,
             "start": 10350
           }
@@ -288,9 +734,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 10560,
             "pathCriticalness": 0,
+            "precedes": [],
             "scheduled": true,
             "start": 10500
           }
@@ -309,9 +759,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [],
+            "direction": "asap",
             "end": 10470,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 10470
           }
@@ -334,9 +788,13 @@
               "edge",
               "leaver"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 201960,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 191880
           }
@@ -357,9 +815,13 @@
             "allocated": [
               "night"
             ],
+            "complete": null,
             "criticalness": 0.12698412698412698,
+            "depends": [],
+            "direction": "asap",
             "end": 192060,
             "pathCriticalness": 0.12698412698412698,
+            "precedes": [],
             "scheduled": true,
             "start": 191940
           }
@@ -380,9 +842,13 @@
             "allocated": [
               "edge"
             ],
+            "complete": null,
             "criticalness": 0.09523809523809523,
+            "depends": [],
+            "direction": "asap",
             "end": 201960,
             "pathCriticalness": 0.09523809523809523,
+            "precedes": [],
             "scheduled": true,
             "start": 201900
           }
@@ -403,9 +869,13 @@
             "allocated": [
               "leaver"
             ],
+            "complete": null,
             "criticalness": 0.19277108433734938,
+            "depends": [],
+            "direction": "asap",
             "end": 192120,
             "pathCriticalness": 0.19277108433734938,
+            "precedes": [],
             "scheduled": true,
             "start": 191880
           }
@@ -424,9 +894,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "alap",
             "end": 191970,
             "pathCriticalness": 0,
+            "precedes": [],
             "scheduled": true,
             "start": 191880
           }
@@ -445,9 +919,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 192000,
             "pathCriticalness": 0,
+            "precedes": [],
             "scheduled": true,
             "start": 191940
           }
@@ -466,9 +944,13 @@
         "scenarios": {
           "plan": {
             "allocated": [],
+            "complete": null,
             "criticalness": 1,
+            "depends": [],
+            "direction": "asap",
             "end": 191970,
             "pathCriticalness": 1,
+            "precedes": [],
             "scheduled": true,
             "start": 191970
           }
@@ -481,5 +963,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

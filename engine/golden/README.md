@@ -4,9 +4,38 @@ Plans whose native TaskJuggler outputs the browser engine must reproduce exactly
 (`docs/phases/phase-0.md`, section 6). `manifest.json` lists them; `expected/<id>.json`
 holds each plan's recorded output.
 
-The manifest holds 39 plans: the five upstream examples (read in place from
-`engine/tj/examples/`), the PoC sample, the 22 synthetic plans below, the 8 bridge fixtures
+The manifest holds 40 plans: the five upstream examples (read in place from
+`engine/tj/examples/`), the PoC sample, the 22 synthetic plans below, the 9 bridge fixtures
 (see "Bridge fixtures" further down), and the three Gantt plans (see "Gantt fixtures" below).
+
+Every golden holds result schema 2 (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in
+`lib.mjs`): the phase-0 fields plus the bridge v2 fields of `docs/phases/phase-2.md` 6.1, decided
+in `docs/decisions/0007-engine-data-and-derived-display-data.md` (see "Fields worth knowing").
+A golden of another schema fails the parity test with one line that says to re-record it.
+
+Cross-check limits: tj3's task report (`cross-check.tji`) checks task dates, dependencies (the
+other task and which ends each edge joins) and every `complete` the plan sets, but:
+
+- TaskJuggler has no report column for dependency gaps, the scheduling direction, the
+  project's working time or the unit day counts (`dailyworkinghours`, `weeklyWorkingDays`,
+  `monthlyWorkingDays`, `yearlyWorkingDays`). Only parity and the fixtures cover those.
+- The precursors column cannot tell a task's own `depends` entry from another task's
+  `precedes { onstart }` entry that names it: both print as `<other> ]->[`
+  (`TaskScenario#query_precursors`, `TaskScenario.rb:1466-1493`). Parity and the fixtures
+  `syn-07-deps-onstart-onend` and `syn-08-deps-gaps-alap` cover which list an edge is in.
+- Precursors are compared only for results that are `ok`. A run that stops with an error may
+  stop inside `TaskScenario#Xref`, so tj3's lists hold only the tasks it reached, while the
+  golden lists every entry TaskJuggler would accept (`bridge-xref-stop`). Completion is
+  compared for every run.
+
+Details are in "What a run does", step 4.
+
+Known item: `ProjectInfo.workingTime` is read one scoreboard slot at a time through the public
+`Project#isWorkingTime`, so its cost grows with the frame and the resolution. In the browser
+engine it measured 7 to 14 ms for Fedora (14,640 slots) and 28 ms at best for
+`upstream-todolist` (43,800 slots, five years at one hour); natively about 0.2 µs a slot. It is
+left as is for now (phase-2 T2 review); a faster read would need TaskJuggler's private
+scoreboard.
 
 ## Gantt fixtures
 
@@ -127,8 +156,9 @@ order must be identical to the plain run. It refuses to run if either fails, so 
 checked against native Ruby each time. Before the patch, `syn-15-allocate-select` picked a
 different resource in ruby.wasm.
 
-The goldens committed now were recorded with Ruby 3.3.6 and `--allow-ruby`. They are
-provisional and must be re-recorded with Ruby 3.4.x before the Phase 0 gate.
+The goldens committed now were recorded with Ruby 3.3.6 and `--allow-ruby`, most recently
+for result schema 2 (phase-2 T2). They are provisional until the user re-records them with
+Ruby 3.4.x (ADR-0003 #5, amended); one 3.4 recording after T2 covers schema 2.
 
 ### What a run does
 
@@ -145,13 +175,30 @@ bridge code (`engine/bridge/request.rb`, `engine/bridge/serialize.rb`), never th
 3. If the two runs' outputs differ, the plan fails (nondeterminism) and nothing is written.
 4. Serializer cross-check: the real `tj3` CLI (`engine/tj/bin/tj3`) runs on the same
    workspace with `cross-check.tji` as a second file and writes a CSV report of every task's
-   start and end per active scenario. Both sides of the parity test share `serialize.rb`, so
-   this is what catches serializer bugs. tj3 must agree with the golden on:
+   start, end, precursors and completion per active scenario. Both sides of the parity test
+   share `serialize.rb`, so this is what catches serializer bugs. tj3 must agree with the
+   golden on:
    - every task's start and end in every active scenario, row by row;
+   - every task's precursors in every active scenario: TaskJuggler's list of the
+     dependencies that end at the task (its own `depends` and the `precedes` of other tasks
+     that name it), each as the other task's id and which ends it joins (`]->[`, `[->[`,
+     `]->]`), compared as a sorted list with the one `cross-check-rows.mjs` derives from the golden's
+     `depends` and `precedes`, for results that are `ok` only (see "Cross-check limits"
+     above). For any other result the report runs without that column: tj3's
+     `query_precursors` reads lists only `TaskScenario#prepareScheduling` creates, so a
+     scenario that scheduling never prepared ends the report with a `NoMethodError`;
+   - every `complete` the plan sets, as tj3 prints it (integer part and `%`); tj3 prints a
+     computed completion for the others, which the golden leaves `null`;
    - the project's `start`, `end` and `now`, and the list of active scenarios;
    - every message up to the end of scheduling: level, id, file, line and text;
    - when neither side parses: tj3 exits non-zero and its first error has the same id,
      file and line as the golden's.
+
+   TaskJuggler's task report has no column for gaps, the scheduling direction (its
+   `scheduling` column prints ASAP for every leaf task, `TaskScenario.rb:1538`), the
+   project's working time or `dailyworkinghours`. Those schema v2 fields are covered by
+   parity and by the fixtures that exercise them (`syn-07`, `syn-08`, `syn-06`, `syn-13`,
+   `syn-14`, the time-zone plans) only.
 
    `cross-check-shim.rb` is preloaded into the tj3 process. It pins `Time.now` for plans
    without a `now` line, lets `-f` still write the report after a scheduling error (tj3
@@ -209,6 +256,28 @@ recorder sets `LANG=C.UTF-8`, passes `-EUTF-8` to Ruby, and the bridge sets
   `resources` and `bookings` are empty.
 - `milestone` is scenario-specific in TaskJuggler; `TaskResult.milestone` is its value in
   the first active scenario.
+- Schema 2 (`docs/phases/phase-2.md` 6.1; where TaskJuggler keeps each value is cited in
+  `engine/bridge/serialize.rb`):
+  - `ProjectInfo.dailyWorkingHours` is the plan's `dailyworkinghours` (default 8), and
+    `weeklyWorkingDays`, `monthlyWorkingDays` and `yearlyWorkingDays` are the day counts
+    TaskJuggler's working-duration rule uses for the `w`, `m` and `y` units, computed as that
+    rule computes them, Ruby's integer division included (`src/engine/protocol.ts` gives the
+    conversion of each unit). `weeklyWorkingDays` is `null` only for `dailyworkinghours 0.0`.
+  - `ProjectInfo.workingTime` is the project scoreboard after scheduling as merged
+    `[start, end)` minute pairs: global working hours minus global leaves, in the plan's
+    time zone. It is empty after a parse error, because TaskJuggler builds the scoreboard
+    only when it schedules.
+  - Per task and scenario, `direction` is `asap` or `alap` from TaskJuggler's `forward`
+    flag after scheduling, and `complete` is the plan's value or `null`.
+  - `depends` and `precedes` are TaskJuggler's lists after inheritance, in its order: the
+    other task's full id, `onEnd`, `gapDurationMin` (calendar minutes) and `gapLengthMin`
+    (working minutes). Entries TaskJuggler rejects are left out: an id that names no task,
+    the task itself, its child or parent, and a task an earlier entry of the same list names
+    (`TaskScenario#checkDependency`, `TaskScenario.rb:2318-2361`). TaskJuggler drops each of
+    these as it resolves dependencies and stops at the first one, so when a run stops there
+    the later tasks' entries were never checked; the bridge looks them up the same way and
+    applies the same rules (`bridge-xref-stop`). In results that are not `ok` the lists may
+    contain cycles: TaskJuggler's loop check runs only after every entry is resolved.
 
 ### Bridge fixtures
 
@@ -225,9 +294,11 @@ them in the browser too. Each header says what it targets and expects.
 | bridge-bom-invalid-utf8 | BOM plus invalid UTF-8 in a comment and a task name (raw bytes on disk) |
 | bridge-now-option | No `now` line: `options.now` becomes `now`, seen by `${now}` and `${today}` |
 | bridge-now-line | A `now` line wins over `options.now` |
+| bridge-xref-stop | Scheduling stops at the first broken dependency (`task_depend_unknown`), before the later tasks are resolved: their self, parent, child and repeated entries are left out in both scenarios, `ok: false`; integer `dailyworkinghours` and `yearlyworkingdays` give integer unit day counts |
 
-Unit tests for the recorder's pure helpers (`lib.mjs`) are in
-`tests/golden/record-lib.test.ts` and run with `npm run test:unit`.
+Unit tests for the recorder's pure helpers (`lib.mjs`, and `cross-check-rows.mjs` for the
+cross-check CSV) are in `tests/golden/record-lib.test.ts` and `tests/golden/cross-check-rows.test.ts`,
+and run with `npm run test:unit`.
 
 ### Time-zone edge cases
 
