@@ -5,10 +5,8 @@
  * model's `originMin`, y = 0 is the top of the first row. The header sits above, outside.
  *
  * - `GanttLayout` places bars, summary bars, milestones and link paths.
- * - `paintWindow` decides which part of the content the canvases hold. Canvases are bigger than
- *   the viewport by an overscan, and are moved with the content, so a scroll inside the window
- *   costs nothing and the browser's own scrolling stays smooth; they redraw only when the view
- *   gets near the window's edge (phase-2.md 8.1).
+ * - `paintWindow` (paint-window.ts, re-exported here) decides which part of the content the
+ *   canvases hold.
  */
 import type { GanttLink, GanttModel, GanttRow } from './model';
 import type { Theme } from './paint/theme';
@@ -24,11 +22,22 @@ import {
 import { MIN_PER_DAY, createScale, type TimeScale } from './scale';
 
 export type { Point, Rect, MutableRect } from './route';
+export {
+	MIN_MARGIN_X,
+	MIN_MARGIN_Y,
+	WINDOW_LEAD,
+	WINDOW_MARGIN,
+	WINDOW_SNAP_Y,
+	WINDOW_TRIGGER,
+	paintWindow,
+	type PaintWindow,
+	type WindowOptions,
+} from './paint-window';
 
 /** Rows kept painted above and below the viewport. */
 export const OVERSCAN_ROWS = 10;
 /** Horizontal overscan on each side, in CSS pixels. */
-export const OVERSCAN_X = 320;
+export const OVERSCAN_X = 200;
 /** Smallest hit areas (WCAG 2.5.8 asks for 24 px; 44 px for a coarse pointer): not styling. */
 export const HIT_MIN_FINE = 24;
 export const HIT_MIN_COARSE = 44;
@@ -277,48 +286,6 @@ export function rowRange(
 
 export function intersects(a: Rect, x: number, y: number, w: number, h: number): boolean {
 	return a.x < x + w && a.x + a.w > x && a.y < y + h && a.y + a.h > y;
-}
-
-/** What the canvases hold, in content coordinates. */
-export type PaintWindow = Rect;
-
-export interface WindowOptions {
-	overscanX: number;
-	overscanY: number;
-}
-
-/**
- * The window to paint for a view (the part of the content in the viewport), or `prev` when it
- * still covers the view with a margin. A window never leaves the content, and has a fixed size
- * (the view plus overscan, or all of the content when that is smaller), so the canvases only
- * resize when the viewport does.
- */
-export function paintWindow(
-	view: Rect,
-	content: { w: number; h: number },
-	o: WindowOptions,
-	prev: PaintWindow | null,
-): PaintWindow {
-	const w = Math.min(content.w, view.w + 2 * o.overscanX);
-	const h = Math.min(content.h, view.h + 2 * o.overscanY);
-	if (prev && prev.w === w && prev.h === h) {
-		const mx = o.overscanX / 3;
-		const my = o.overscanY / 3;
-		const okX =
-			(view.x >= prev.x + mx || prev.x <= 0) &&
-			(view.x + view.w <= prev.x + prev.w - mx || prev.x + prev.w >= content.w);
-		const okY =
-			(view.y >= prev.y + my || prev.y <= 0) &&
-			(view.y + view.h <= prev.y + prev.h - my || prev.y + prev.h >= content.h);
-		if (okX && okY) return prev;
-	}
-	const clamp = (v: number, max: number): number => Math.max(0, Math.min(max, v));
-	return {
-		x: clamp(Math.round(view.x - o.overscanX), content.w - w),
-		y: clamp(Math.round(view.y - o.overscanY), content.h - h),
-		w,
-		h,
-	};
 }
 
 /** The time scale of a zoom for a model: its first date sits `originPad` pixels from the left. */

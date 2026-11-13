@@ -13,7 +13,7 @@
  * and the arrow heads of a pass are kept in a typed array that only ever grows.
  */
 import type { GanttLink } from '../model';
-import { rowRange, type GanttLayout } from '../layout';
+import { rowRange, type GanttLayout, type Rect } from '../layout';
 import { newPath, type PathBuf } from '../route';
 import type { PaintFrame } from './canvas';
 import type { Theme } from './theme';
@@ -121,10 +121,11 @@ export function traceLink(ctx: CanvasRenderingContext2D, p: PathBuf, theme: Them
 	addHead(ctx, p.xy[last] ?? 0, p.xy[last + 1] ?? 0, dir.dx, dir.dy, theme.arrowSize);
 }
 
-export function paintLinks(f: PaintFrame): void {
-	const { ctx, win, layout, model, theme } = f;
+/** Strokes the links that touch `area` (the window by default). */
+export function paintLinks(f: PaintFrame, area: Rect = f.win): void {
+	const { ctx, layout, model, theme } = f;
 	const arrow = theme.arrowSize;
-	const { first, last } = rowRange(layout, win.y, win.h, 0);
+	const { first, last } = rowRange(layout, area.y, area.h, 0);
 	const dashed = [theme.dash, theme.dash * 0.75];
 	const dotted = [theme.linkWidth, theme.dash * 0.6];
 	const passes: Array<[Style, string, number, number[]]> = [
@@ -152,7 +153,7 @@ export function paintLinks(f: PaintFrame): void {
 				if (x < minX) minX = x;
 				if (x > maxX) maxX = x;
 			}
-			if (maxX < win.x - arrow || minX > win.x + win.w + arrow) continue;
+			if (maxX < area.x - arrow || minX > area.x + area.w + arrow) continue;
 			if (!any) {
 				ctx.strokeStyle = colour;
 				ctx.lineWidth = width;

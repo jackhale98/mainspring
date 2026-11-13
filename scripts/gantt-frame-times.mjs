@@ -376,6 +376,7 @@ if (OUT) {
 			{
 				when: new Date().toISOString(),
 				host: `${os.cpus()[0]?.model} x${os.cpus().length}`,
+				loadAverageAtEnd: os.loadavg().map((v) => round(v)),
 				results,
 			},
 			null,

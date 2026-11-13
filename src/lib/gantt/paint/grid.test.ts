@@ -98,4 +98,43 @@ describe('paintGrid', () => {
 		]);
 		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.rowSelected);
 	});
+
+	it('moves nothing but the canvas on a vertical move, and redraws only the tint', () => {
+		const base = frameOf(modelOf(rows), { win: { x: 0, y: 0, w: 1000, h: 112 } });
+		const frame = { ...base.frame, theme: { ...base.frame.theme, rowLineWidth: 0 } };
+		const rec = base.rec;
+		const ticks = { level: 'day' as const, major: [], minor: [{ at: D, end: 2 * D, label: '' }] };
+		paintGrid(frame, ticks, 1);
+		rec.clear();
+		// Down by one row: the canvas moves with the content, the lines still fill it.
+		const down = { ...frame, win: { x: 0, y: 28, w: 1000, h: 112 } };
+		paintGrid(down, ticks, 1);
+		expect(rec.of('drawImage')).toHaveLength(0);
+		// The tint was drawn at canvas y 28, which is content y 56 now; the selected row is at 28.
+		const cleared = rec
+			.of('clearRect')
+			.map((c) => c.slice(1))
+			.sort((a, b) => Number(a[1]) - Number(b[1]));
+		expect(cleared).toEqual([
+			[0, 28, 1000, 28],
+			[0, 56, 1000, 28],
+		]);
+		// Same window, same selection: nothing at all.
+		rec.clear();
+		paintGrid(down, ticks, 1);
+		expect(rec.calls.filter((c) => c[0] === 'clearRect')).toHaveLength(0);
+		// A move sideways paints it all again, and nothing is copied.
+		rec.clear();
+		paintGrid({ ...down, win: { x: 40, y: 28, w: 1000, h: 112 } }, ticks, 1);
+		expect(rec.of('drawImage')).toHaveLength(0);
+		expect(rec.of('clearRect').map((c) => c.slice(1))).toEqual([[0, 0, 1000, 600]]);
+	});
+
+	it('repaints in full on a vertical move when the theme draws row separators', () => {
+		const { frame, rec } = frameOf(modelOf(rows), { win: { x: 0, y: 0, w: 1000, h: 112 } });
+		paintGrid(frame, null, null);
+		rec.clear();
+		paintGrid({ ...frame, win: { x: 0, y: 28, w: 1000, h: 112 } }, null, null);
+		expect(rec.of('clearRect').map((c) => c.slice(1))).toEqual([[0, 0, 1000, 600]]);
+	});
 });

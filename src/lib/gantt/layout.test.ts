@@ -7,7 +7,6 @@ import {
 	intersects,
 	placeBar,
 	metricsFor,
-	paintWindow,
 	rowRange,
 	scaleFor,
 	type Rect,
@@ -222,51 +221,6 @@ describe('intersects', () => {
 		expect(intersects(r, 0, 0, 11, 11)).toBe(true);
 		expect(intersects(r, 20, 0, 5, 50)).toBe(false);
 		expect(intersects(r, 0, 20, 50, 5)).toBe(false);
-	});
-});
-
-describe('paintWindow', () => {
-	const opt = { overscanX: 300, overscanY: 280 };
-	const content = { w: 10_000, h: 14_000 };
-
-	it('covers the view with the overscan and stays inside the content', () => {
-		const w = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		expect(w).toEqual({ x: 1700, y: 2720, w: 1400, h: 1060 });
-		const edge = paintWindow({ x: 0, y: 0, w: 800, h: 500 }, content, opt, null);
-		expect(edge).toMatchObject({ x: 0, y: 0 });
-		const end = paintWindow({ x: 9200, y: 13_500, w: 800, h: 500 }, content, opt, null);
-		expect(end.x + end.w).toBe(10_000);
-		expect(end.y + end.h).toBe(14_000);
-	});
-
-	it('keeps the same window while the view is inside it with a margin', () => {
-		const first = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		const again = paintWindow({ x: 2050, y: 3100, w: 800, h: 500 }, content, opt, first);
-		expect(again).toBe(first);
-	});
-
-	it('moves the window when the view nears its edge, and back to the start', () => {
-		const first = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		const next = paintWindow({ x: 2000 + 250, y: 3000, w: 800, h: 500 }, content, opt, first);
-		expect(next).not.toBe(first);
-		expect(next.x).toBeLessThanOrEqual(2250 - 100);
-		const vertical = paintWindow({ x: 2000, y: 3000 + 400, w: 800, h: 500 }, content, opt, first);
-		expect(vertical).not.toBe(first);
-		const home = paintWindow({ x: 0, y: 0, w: 800, h: 500 }, content, opt, first);
-		expect(home).toMatchObject({ x: 0, y: 0 });
-	});
-
-	it('is a single window when the content is smaller than the view plus overscan', () => {
-		const small = { w: 900, h: 300 };
-		const first = paintWindow({ x: 0, y: 0, w: 800, h: 500 }, small, opt, null);
-		expect(first).toEqual({ x: 0, y: 0, w: 900, h: 300 });
-		expect(paintWindow({ x: 100, y: 0, w: 800, h: 500 }, small, opt, first)).toBe(first);
-	});
-
-	it('makes a new window when the viewport is resized', () => {
-		const first = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		const bigger = paintWindow({ x: 2000, y: 3000, w: 1000, h: 500 }, content, opt, first);
-		expect(bigger.w).toBe(1600);
 	});
 });
 

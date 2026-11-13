@@ -115,4 +115,77 @@ describe('paintOverlay', () => {
 		const { layout } = frameOf(modelOf(rows));
 		expect(linkPathOf(layout, modelOf(rows), 3)).toEqual([]);
 	});
+
+	it('erases only what it drew last, not the whole canvas, on the next paint', () => {
+		const { frame, rec } = frameOf(modelOf(rows));
+		paintOverlay(frame, { ...NO_OVERLAY, selectedRow: 1 });
+		// The first paint clears the canvas.
+		expect(rec.of('clearRect')).toEqual([['clearRect', 0, 0, 1000, 600]]);
+		rec.clear();
+		paintOverlay(frame, { ...NO_OVERLAY, hoverRow: 0 });
+		const cleared = rec.of('clearRect');
+		expect(cleared).toHaveLength(1);
+		// The ring round row 1's bar (96, 34, 144 x 16) grown by its gap and width, and a little.
+		const [, x, y, w, h] = cleared[0] as unknown as [string, number, number, number, number];
+		const t = frame.theme;
+		const pad = t.ringGap + t.ringWidth;
+		expect(x).toBeLessThanOrEqual(96 - pad);
+		expect(y).toBeLessThanOrEqual(34 - pad);
+		expect(x + w).toBeGreaterThanOrEqual(96 + 144 + pad);
+		expect(y + h).toBeGreaterThanOrEqual(34 + 16 + pad);
+		expect(w).toBeLessThan(400);
+		// A resize (the canvas size changed) clears it all again.
+		rec.clear();
+		paintOverlay({ ...frame, dpr: 2 }, NO_OVERLAY);
+		expect(rec.of('clearRect')).toEqual([['clearRect', 0, 0, 1000, 600]]);
+	});
+
+	it('erases the lines of the markers and of a hovered link too', () => {
+		const model = modelOf(rows, [link(0, 1)], { statusMin: 2 * D });
+		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 100 } });
+		paintOverlay(frame, { ...NO_OVERLAY, hoverLink: 0 });
+		rec.clear();
+		paintOverlay(frame, NO_OVERLAY);
+		// One rect for the status line, one for the link.
+		expect(rec.of('clearRect')).toHaveLength(2);
+	});
+
+	it('does not touch the canvas for a vertical move when only the full-height lines are on it', () => {
+		const model = modelOf(rows, [], { statusMin: 2 * D });
+		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 56 } });
+		paintOverlay(frame, NO_OVERLAY);
+		rec.clear();
+		// Down by whole dash steps (the window moves on multiples of 20): the lines are where they
+		// were on the canvas, and nothing else was drawn.
+		paintOverlay({ ...frame, win: { x: 0, y: 20, w: 1000, h: 56 } }, NO_OVERLAY);
+		expect(rec.calls).toEqual([]);
+		// A move that is not a whole step shifts the dashes against the content: drawn again.
+		paintOverlay({ ...frame, win: { x: 0, y: 28, w: 1000, h: 56 } }, NO_OVERLAY);
+		expect(rec.of('clearRect').length).toBeGreaterThan(0);
+		rec.clear();
+		// A move sideways puts the lines elsewhere on the canvas.
+		paintOverlay({ ...frame, win: { x: 20, y: 48, w: 1000, h: 56 } }, NO_OVERLAY);
+		expect(rec.of('clearRect').length).toBeGreaterThan(0);
+	});
+
+	it('paints again on a vertical move when a ring was drawn, or one comes into the window', () => {
+		const model = modelOf(rows);
+		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 56 } });
+		paintOverlay(frame, { ...NO_OVERLAY, selectedRow: 1 });
+		rec.clear();
+		paintOverlay(
+			{ ...frame, win: { x: 0, y: 28, w: 1000, h: 56 } },
+			{ ...NO_OVERLAY, selectedRow: 1 },
+		);
+		expect(rec.of('stroke')).toHaveLength(1);
+		// Selected row 2 is outside the first window and inside the second.
+		const other = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 28 } });
+		paintOverlay(other.frame, { ...NO_OVERLAY, selectedRow: 2 });
+		other.rec.clear();
+		paintOverlay(
+			{ ...other.frame, win: { x: 0, y: 56, w: 1000, h: 28 } },
+			{ ...NO_OVERLAY, selectedRow: 2 },
+		);
+		expect(other.rec.of('stroke')).toHaveLength(1);
+	});
 });

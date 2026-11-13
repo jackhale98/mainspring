@@ -20,15 +20,8 @@
  */
 import type { GanttRow } from '../model';
 import { rowRange, type GanttLayout, type MutableRect, type Rect } from '../layout';
-import {
-	barFont,
-	begin,
-	labelFont,
-	roundedRect,
-	textWidth,
-	toContent,
-	type PaintFrame,
-} from './canvas';
+import { barFont, labelFont, roundedRect, textWidth, toContent, type PaintFrame } from './canvas';
+import { layerFor } from './incremental';
 import { paintLinks } from './links';
 import { motionFor } from './motion';
 import type { Theme } from './theme';
@@ -291,19 +284,15 @@ function drawBeside(f: PaintFrame, row: GanttRow, x: number, cy: number, withNam
 
 const bar: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
 
-export function paintBars(f: PaintFrame): void {
-	const { ctx, win, dpr, model, theme } = f;
-	begin(ctx, win, dpr);
-	// A reschedule tween puts the bars that are moving between where they were and where they are.
-	const motion = f.motion ?? motionFor(ctx);
-	const layout: GanttLayout = motion.layoutFor(model, f.layout);
-	const g: PaintFrame = layout === f.layout ? f : { ...f, layout };
+/** Paints the links and bars that touch `area` (clipped and cleared by the layer). */
+function drawBars(f: PaintFrame, area: Rect): void {
+	const { ctx, model, theme, layout } = f;
 	const alpha = model.dimmed ? theme.dimOpacity : 1;
 	ctx.globalAlpha = alpha;
-	paintLinks(g);
+	paintLinks(f, area);
 
 	ctx.textBaseline = 'middle';
-	const { first, last } = rowRange(layout, win.y, win.h, 0);
+	const { first, last } = rowRange(layout, area.y, area.h, 0);
 	const rows = model.rows;
 	for (let i = first; i < last; i++) {
 		const row: GanttRow | undefined = rows[i];
@@ -311,20 +300,20 @@ export function paintBars(f: PaintFrame): void {
 		// The float tail and the label may reach right of the bar: look past it.
 		const tailReach = row.lateEnd !== null ? layout.scale.x(row.lateEnd) - bar.x - bar.w : 0;
 		const right = bar.x + bar.w + Math.max(0, tailReach) + LABEL_REACH;
-		if (bar.x > win.x + win.w || right < win.x) continue;
+		if (bar.x > area.x + area.w || right < area.x) continue;
 		const cy = bar.y + bar.h / 2;
 
 		if (row.floatMin !== null && row.floatMin > 0 && row.lateEnd !== null) {
 			const tail = layout.scale.x(row.lateEnd) - (bar.x + bar.w);
-			if (tail > 1) drawFloat(g, layout, row, bar, cy);
+			if (tail > 1) drawFloat(f, layout, row, bar, cy);
 		}
 
-		if (row.kind === 'milestone') drawJewel(g, bar, row.critical);
+		if (row.kind === 'milestone') drawJewel(f, bar, row.critical);
 		else if (row.kind === 'container') {
 			drawSummary(ctx, bar, row.critical ? theme.critical : theme.summary, theme);
-		} else if (row.textOnly) drawTextOnly(g, bar, alpha);
-		else drawPill(g, row, bar, row.critical);
-		if (row.critical && row.kind !== 'milestone') drawPost(g, bar);
+		} else if (row.textOnly) drawTextOnly(f, bar, alpha);
+		else drawPill(f, row, bar, row.critical);
+		if (row.critical && row.kind !== 'milestone') drawPost(f, bar);
 
 		// Labels are not faded with the rest.
 		ctx.globalAlpha = 1;
@@ -340,13 +329,29 @@ export function paintBars(f: PaintFrame): void {
 			row.lateEnd !== null && row.floatMin !== null && row.floatMin > 0
 				? Math.max(layout.scale.x(row.lateEnd), bar.x + bar.w)
 				: bar.x + bar.w;
-		drawBeside(g, row, tail + theme.labelGap, cy, !inside && row.kind !== 'container');
+		drawBeside(f, row, tail + theme.labelGap, cy, !inside && row.kind !== 'container');
 		// Tell hit testing where the avatars are, so that a link under them does not win.
-		f.layout.avatars[2 * i] = span.x0;
-		f.layout.avatars[2 * i + 1] = span.x1;
+		layout.avatars[2 * i] = span.x0;
+		layout.avatars[2 * i + 1] = span.x1;
 		ctx.globalAlpha = alpha;
 	}
 	ctx.globalAlpha = 1;
+}
+
+/**
+ * Paints the bars layer for a window. A move of the window paints it again in pieces over frames,
+ * the middle first (incremental.ts); a new model, layout, theme or ratio, and each frame of a
+ * reschedule tween, paint it all at once.
+ */
+export function paintBars(f: PaintFrame): void {
+	const { ctx, model } = f;
+	// A reschedule tween puts the bars that are moving between where they were and where they are.
+	const motion = f.motion ?? motionFor(ctx);
+	const layout: GanttLayout = motion.layoutFor(model, f.layout);
+	const frame: PaintFrame = layout === f.layout ? f : { ...f, layout };
+	// The layout in use is a key: a tween frame has a new one each time, and the frame after it
+	// the target again, so both are painted in full.
+	layerFor(ctx, 'bars', drawBars).paint(frame, [model, layout, f.theme, f.dpr], { sliced: true });
 	// A tween in progress asks for the next frame of the bars layer only.
 	motion.continueWith(() => paintBars(f));
 }
