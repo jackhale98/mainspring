@@ -87,6 +87,18 @@ describe('step order', () => {
 		expect(d.view).toMatchObject({ version: 1, indexVersion: 1, checksVersion: 1 });
 	});
 
+	it('links after one scan per file, even when typing goes on between idle tasks', () => {
+		const { ws, d } = setup();
+		typeInto(ws, '# a\n');
+		expect(d.step(true)?.kind).toBe('work');
+		typeInto(ws, '# b\n');
+		// The file changed again: the link scans it itself, rather than another scan step.
+		expect(d.step(true)?.kind).toBe('view');
+		expect(d.view.indexVersion).toBe(2);
+		typeInto(ws, '# c\n');
+		expect(d.step(true)?.kind).toBe('work');
+	});
+
 	it('scans one changed file per step before it links', () => {
 		const { ws, d } = setup({ ...FILES });
 		const snap = ws.snapshot();

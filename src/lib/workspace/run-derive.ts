@@ -21,7 +21,7 @@
  * is not tried again for the same input (version and hint base), so a broken derive cannot spin.
  * A result is shown even when its diagnostics could not be derived.
  */
-import type { Revision, ScheduleResult } from '../../engine/protocol';
+import type { Revision, ScheduleResult, WorkspacePath } from '../../engine/protocol';
 import { report } from '../report';
 import { engineDiagnostics, type TjpDiagnostic } from '../tjp/diagnostics';
 import type { TjpFile } from '../tjp/document';
@@ -106,6 +106,12 @@ export class Deriver {
 	/** An index of the text now that `ensureIndex` built and the view does not have yet. */
 	#prepared: { part: Prepared; base: HintBase | null } | null = null;
 	readonly #scanned = new WeakSet<TjpFile>();
+	/**
+	 * Files scanned in a step of their own since the index last caught up. Each file gets one
+	 * such step; a file typed into again since is scanned by the link, so typing between idle
+	 * tasks cannot keep the link waiting.
+	 */
+	readonly #prescanned = new Set<WorkspacePath>();
 	readonly #waiting: Waiting[] = [];
 	#indexFailed: { version: number; base: HintBase | null } | null = null;
 	/** The index the view's checks were computed with. */
@@ -250,7 +256,7 @@ export class Deriver {
 		return index !== this.#checksIndex && index !== this.#checksFailed;
 	}
 
-	/** Scans one file the index of `now` needs, or links the index when all are scanned. */
+	/** Scans one file the index of `now` needs, or links the index (module comment). */
 	#indexStep(now: WorkspaceSnapshot): StepOutcome {
 		const prepared = this.#prepared;
 		const ready =
@@ -258,8 +264,9 @@ export class Deriver {
 		if (!ready) {
 			for (const path of now.includes.order) {
 				const file = now.files.get(path);
-				if (!file || this.#scanned.has(file)) continue;
+				if (!file || this.#scanned.has(file) || this.#prescanned.has(path)) continue;
 				this.#scanned.add(file);
+				this.#prescanned.add(path);
 				this.#guard(() => factsOf(file));
 				return { kind: 'work' };
 			}
@@ -275,6 +282,7 @@ export class Deriver {
 			changed = true;
 		});
 		this.#prepared = null;
+		this.#prescanned.clear();
 		if (ok) {
 			this.#indexBase = base;
 			this.#scannedAll(now);
