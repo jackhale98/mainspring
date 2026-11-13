@@ -6,12 +6,20 @@
  * `workspaceDispatch`, so the view never owns the text.
  *
  * - `sync` brings the view back to the workspace's state when something changed that file without
- *   the view (`Workspace.apply`, the edit API of Phase 2, or a reconfiguration). Everything that
- *   dispatches (diagnostics, reveals, format) calls it first, because a transaction that starts
- *   from another state than the workspace's would throw in `commit`.
+ *   the view (`Workspace.apply`: the edit dispatcher, undo and redo; or a reconfiguration).
+ *   Everything that dispatches (diagnostics, reveals, format) calls it first, because a
+ *   transaction that starts from another state than the workspace's would throw in `commit`.
+ *   It follows the workspace with `view.update` on the transactions the workspace announced for
+ *   the shown file (`ChangeInfo.transactions`), so the view keeps its DOM, scroll, focus and
+ *   plugin state (phase-2.md 6.8). Only when they do not chain from the view's state to the
+ *   workspace's (a reconfiguration, `attachEditor`, a switch of file) does it fall back to
+ *   `setState`.
+ * - The edit dispatcher does not apply an edit to the shown file while an Android key is held
+ *   (`keyHeld`, tjp/cm/android-key.ts), so `sync` never meets one; it does not wait itself,
+ *   because CodeMirror's flush of the key must start from the workspace's state.
  * - `show` gives the view another file's state and puts its scroll position back, unless a
  *   reveal follows (the reveal scrolls to its target, and a restore after it would undo that).
- * - `reveal` selects a range and scrolls it to the middle, or, with `select` false, keeps the
+ * - `reveal` waits while an Android key is held (a selection change would drop it), then selects a range and scrolls it to the middle, or, with `select` false, keeps the
  *   selection and scrolls only as far as needed (`nearest`, so an undo on screen does not jump);
  *   with `focus` it then focuses the editor, after an open modal dialog (the tablet drawer) has
  *   closed, since a modal makes the editor inert.
@@ -19,8 +27,10 @@
  *   arrives (the layer maps it through later edits and marks it stale), the local channel
  *   whenever the document layer's checks change.
  */
+import type { EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import type { WorkspacePath } from '../../engine/protocol';
+import { afterAndroidKey, androidKeyPending } from '../tjp/cm/android-key';
 import {
 	formatCommand,
 	setEngineDiagnostics,
@@ -28,7 +38,30 @@ import {
 	workspaceDispatch,
 } from '../tjp/cm';
 import type { TjpDiagnostic } from '../tjp/diagnostics';
-import type { Workspace } from '../workspace/workspace';
+import type { ChangeInfo, Workspace } from '../workspace/workspace';
+
+/**
+ * The transactions in `queued` that lead from `from` to `to` one after another, or null when they
+ * do not (module comment).
+ */
+export function chainOf(
+	from: EditorState,
+	queued: readonly Transaction[],
+	to: EditorState,
+): Transaction[] | null {
+	const start = queued.findIndex((t) => t.startState === from);
+	if (start < 0) return null;
+	const chain: Transaction[] = [];
+	let at: EditorState = from;
+	for (let i = start; i < queued.length; i++) {
+		const t = queued[i];
+		if (!t || t.startState !== at) return null;
+		chain.push(t);
+		at = t.state;
+		if (at === to) return chain;
+	}
+	return null;
+}
 
 export class EditorController {
 	readonly view: EditorView;
@@ -37,6 +70,9 @@ export class EditorController {
 	readonly #off: () => void;
 	#shown: WorkspacePath;
 	#restore = 0;
+	/** The shown file's transactions announced since the last sync (module comment). */
+	#queued: Transaction[] = [];
+	#cancelReveal: () => void = () => undefined;
 
 	constructor(ws: Workspace, parent: HTMLElement, path: WorkspacePath) {
 		this.#ws = ws;
@@ -47,7 +83,26 @@ export class EditorController {
 			dispatchTransactions: workspaceDispatch(ws, () => this.#shown),
 		});
 		// Edits made without the view leave it behind the workspace: catch up once they are done.
-		this.#off = ws.subscribe(() => queueMicrotask(() => this.sync()));
+		this.#off = ws.subscribe((_s, _o, info) => {
+			this.#collect(info);
+			queueMicrotask(() => this.sync());
+		});
+	}
+
+	/** True while CodeMirror holds an Android key and one of `paths` is the shown file. */
+	keyHeld(paths: readonly WorkspacePath[]): boolean {
+		return paths.includes(this.#shown) && this.view.dom.isConnected && androidKeyPending(this.view);
+	}
+
+	#collect(info: ChangeInfo): void {
+		if (info.edit) {
+			info.paths.forEach((p, i) => {
+				const t = info.transactions[i];
+				if (p === this.#shown && t) this.#queued.push(t);
+			});
+		} else if (info.paths[0] === this.#shown) {
+			this.#queued.push(...info.transactions);
+		}
 	}
 
 	/** The file whose state the view shows. */
@@ -58,8 +113,12 @@ export class EditorController {
 	/** Shows the workspace's current state of the open file; true when the view was behind. */
 	sync(): boolean {
 		const current = this.#ws.state(this.#shown);
+		const queued = this.#queued;
+		this.#queued = [];
 		if (this.view.state === current) return false;
-		this.view.setState(current);
+		const chain = chainOf(this.view.state, queued, current);
+		if (chain) this.view.update(chain);
+		else this.view.setState(current);
 		return true;
 	}
 
@@ -71,6 +130,7 @@ export class EditorController {
 		}
 		this.#scrolls.set(this.#shown, this.view.scrollDOM.scrollTop);
 		this.#shown = path;
+		this.#queued = [];
 		this.view.setState(this.#ws.state(path));
 		const top = this.#scrolls.get(path) ?? 0;
 		const token = ++this.#restore;
@@ -82,6 +142,14 @@ export class EditorController {
 
 	/** Selects a range of a file and scrolls it to the middle (module comment). */
 	reveal(file: WorkspacePath, from: number, to: number, focus: boolean, select = true): void {
+		this.#cancelReveal();
+		this.#cancelReveal = afterAndroidKey(
+			() => androidKeyPending(this.view),
+			() => this.#reveal(file, from, to, focus, select),
+		);
+	}
+
+	#reveal(file: WorkspacePath, from: number, to: number, focus: boolean, select: boolean): void {
 		// The file may already have been switched to (the open-file effect runs first) with a scroll
 		// restore waiting: this reveal supersedes it.
 		this.#restore++;
@@ -134,6 +202,7 @@ export class EditorController {
 	}
 
 	destroy(): void {
+		this.#cancelReveal();
 		this.#off();
 		this.view.destroy();
 	}
