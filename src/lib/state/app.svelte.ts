@@ -45,9 +45,12 @@ import {
 } from '../workspace/schedule-runner';
 import { createHistory, type HistoryOutcome, type WorkspaceHistory } from '../workspace/history';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
+import { currentRange } from '../inspector/range';
+import type { SourceRange } from '../tjp/index';
 import { nextProblem } from './diagnostics-nav';
 import { EditDispatcher } from './edits.svelte';
 import { HistoryControls } from './history-controls.svelte';
+import { InspectorState } from './inspector.svelte';
 import { bindHistoryKeys } from './history-keys';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
 import { statusView, type StatusView } from './status';
@@ -112,6 +115,8 @@ export class AppState {
 	editorKeys: { keyHeld(paths: readonly WorkspacePath[]): boolean } | null = null;
 	/** The open plan's edit dispatcher (edits.svelte.ts); null while a plan loads. */
 	edits = $state.raw<EditDispatcher | null>(null);
+	/** What the inspector shows and where (inspector.svelte.ts); the Gantt publishes its view here. */
+	readonly inspector = new InspectorState();
 	/** Undo and redo for the top bar and the keys (module comment). */
 	readonly history = new HistoryControls((o) => this.#onHistory(o));
 
@@ -244,6 +249,7 @@ export class AppState {
 		this.dirty = false;
 		this.collapsed = new Set();
 		this.selectedTask = null;
+		this.inspector.reset();
 		this.#current = { ws, runner };
 		this.#attachEditor();
 		this.workspace = ws;
@@ -349,25 +355,22 @@ export class AppState {
 		this.#showNote(say(o.entry.label, files.join(', ')));
 	}
 
-	/** A node's declaration in the text now. The index may be older than the text: map it. */
-	#declaration(node: OutlineNode): { file: WorkspacePath; from: number; to: number } {
+	/** A range of the index's text in the text now: the index may be older than the text. */
+	#declaration(r: SourceRange): { file: WorkspacePath; from: number; to: number } {
 		const ws = this.workspace;
 		const version = this.run?.indexVersion;
-		let changes;
-		try {
-			changes =
-				ws && version !== undefined ? ws.changesSince(version).get(node.at.file) : undefined;
-		} catch {
-			changes = undefined;
-		}
-		const from = changes ? changes.mapPos(node.at.from, 1) : node.at.from;
-		const to = changes ? changes.mapPos(node.at.to, -1) : node.at.to;
-		return { file: node.at.file, from, to: Math.max(from, to) };
+		return ws ? currentRange(ws, version, r) : r;
+	}
+
+	/** Shows a range of the plan (from the index) in the text, as the editor's reveal does. */
+	showRange(r: SourceRange, focus = !coarsePointer()): void {
+		const d = this.#declaration(r);
+		this.revealRange(d.file, d.from, d.to, focus);
 	}
 
 	/** Selects an outline node's declaration. */
 	revealNode(node: OutlineNode): void {
-		const d = this.#declaration(node);
+		const d = this.#declaration(node.at);
 		if (node.kind === 'task') this.selectedTask = node.key;
 		// A touch keyboard would cover the editor: only a keyboard or mouse user gets the focus.
 		this.revealRange(d.file, d.from, d.to, !coarsePointer());
@@ -381,9 +384,10 @@ export class AppState {
 	 */
 	selectTask(key: string): void {
 		this.selectedTask = key;
+		this.inspector.clearLink();
 		const node = this.outline.byKey.get(key);
 		if (!node) return;
-		const d = this.#declaration(node);
+		const d = this.#declaration(node.at);
 		this.revealRange(d.file, d.from, d.to, false, false);
 	}
 

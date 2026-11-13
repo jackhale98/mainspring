@@ -645,6 +645,21 @@ Light and dark use the existing tokens. New semantic tokens, separate from the a
 - **Link.** Predecessor, successor, gap and Remove. Type (`onstart`/`onend`) is read-only (v1).
 - **Project sheet.** Name, frame start and end (`setProjectHeader`), status date (`setProjectAttr now`), time zone. This is the minimum the status-date line needs; the rest of the project frame is Phase 3 (19.9).
 
+**As built in T17** (`src/components/inspector/`, `src/lib/inspector/`):
+
+- **Placement.**
+  - Desktop: a 320 px side panel (collapsible), docked beside the Gantt when the Gantt pane would keep at least 640 px with it in (Visual always; Split by the divider's ratio, measured on the work area so docking cannot flip it).
+  - Desktop without that room: a 44 px rail with the Details toggle, and a click or Enter opens the details as a non-modal drawer over the Gantt's right edge, taking no width from the editor. Escape or the toggle closes it.
+  - Tablet and phone: a bottom sheet over the Gantt, not modal, half height of the room above the tab bar, dragged (or pressed: the grabber is a button) to full height. On a phone it ends above the tab bar (a bottom margin, with the iPhone-safe `inset: 0` and auto top margin kept) and its header carries a status chip, since it covers the status strip; with problems the chip goes to the next one.
+  - The selected row is scrolled above the sheet (WCAG 2.4.11). Toasts sit above the sheet, or over its bottom at full height, and always on screen.
+  - A tap opens the details without taking the focus; Enter on a row opens them and focuses the first field; Escape returns to the row. The project sheet (top bar button, "Project settings") and the show-source sheet (button in the details) are modal bottom sheets.
+- **Reads** come from the index and the shown result (`app.inspector.view`, published by `Gantt.svelte`). Size uses `sizingSite` (the task list's rule); it is editable only when the winning statement is the top scenario's. Dependencies come from `resolveLinks`, so gaps and sites match the chart.
+- **Edits** go through `app.edits` (`InspectorActions`): `rename`, `size-step`, `assign`, `unassign`, `replace-person` and `unlink` are the Gantt's actions, the rest are `dispatch` of `setAttr`, `removeAttr`, `setDependsGap`, `declareFlag`, `setProjectHeader` and `setProjectAttr`. Steppers send cumulative totals with a coalesce key; a burst ends on Enter, blur or after 1.2 s, and is one undo step.
+- **Inherited fields** (priority, scheduling, minstart, maxend, flags, responsible) say where the value comes from and stay editable: a value typed there is written on the task and overrides the parent's. Text-only fields (macros) are disabled with their reason and "Show in text".
+- **Open-ended warning (11.1).** Clearing `milestone` on a leaf with a person booked, no size and no end asks first, inline. "Set effort" clears the milestone and focuses the size field; "Change anyway" only clears it. A leaf already in that state shows the notice with "Set effort".
+- **Move preference** (ADR-0008 amendment): the project sheet shows it as three radios (ask next time, gap, start), reads and writes the browser's storage through the dispatcher, and "Ask me next time" clears it.
+- **Link selection.** `app.inspector.link` holds a selected link; `inspector.showLink(pred, succ)` is how T15 and T16 select one (a task's "Details" button on a dependency uses it today). `app.selectTask` clears it.
+
 ### 9.4 Toasts and status
 
 - Toasts live in a polite live region: one per edit, 6 s, with Undo (enabled while the entry is on top). Refusals and "no longer schedules" toasts stay until dismissed.
@@ -814,7 +829,7 @@ Each task runs in its own worktree and goes through `reviewer` before merge. UI 
 | T23 | Accessibility audit (section 10), 44 px carry-over | `perf-a11y-auditor` | `tests/e2e/gantt-a11y.spec.ts`, fixes in components | T16, T17, T18 |
 | T24 | Engine version and timings in the status strip (Phase 0 carry-over) | `ui-builder` | `src/components/StatusStrip.svelte`, `src/lib/state/status.ts` | none |
 | T25 | CI changes (13.4) | `test-writer`; `engine-specialist` reviews golden and fidelity | `.github/workflows/*.yml`, size script | as suites land |
-| T26 | Real-device run (8.5) and Text-mode keystroke latency on the device | **User** provides the device; `perf-a11y-auditor` prepares the procedure; main session runs it with the user | `test-results/gantt-perf-android.json`, gate file | T22 |
+| T26 | ~~Real-device run (8.5) and Text-mode keystroke latency on the device~~ **Dropped by the user, 2026-11-13: no real-device run in Phase 2. Criterion 2 is met under Pixel 7 emulation with CPU throttling (T22), and the gate file records the waiver.** | **User** provides the device; `perf-a11y-auditor` prepares the procedure; main session runs it with the user | `test-results/gantt-perf-android.json`, gate file | T22 |
 | T27 | Gate evidence | main session; `test-runner` runs suites | `docs/phases/phase-2-gate.md` | all |
 
 ### 14.1 Parallel waves
@@ -874,6 +889,8 @@ Copied word for word from the plan:
   - screenshots in light and dark, desktop and phone, in every mode.
 
 ### Criterion 2: "500-task scroll at 60 fps on a mid-range Android device"
+
+> **Waived by the user, 2026-11-13:** the real-device run (8.5, T26) is not done. Criterion 2 is judged on the emulated Pixel 7 runs with CPU throttling from T22 and the CI responsiveness gate; the gate file says so.
 
 - **How it is shown.**
   - `scripts/perf-android.mjs` on the user's device (8.5), `gantt-500`, all rows expanded, three runs.

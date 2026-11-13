@@ -36,7 +36,9 @@
 	class="toasts"
 	class:phone
 	aria-label={S.region}
-	style:inset-block-end={bottom === null ? undefined : `${bottom + 8}px`}
+	style:inset-block-end={bottom === null
+		? undefined
+		: `min(${bottom + 8}px, calc(100dvh - var(--toast-room)))`}
 >
 	<div role="status" aria-live="polite" aria-relevant="additions text" class="stack">
 		{#each list as t (t.id)}
@@ -82,6 +84,8 @@
 		inset-inline-end: max(calc(var(--gap-panel) * 2), env(safe-area-inset-right));
 		inset-block-end: calc(var(--space-8) + 30px + env(safe-area-inset-bottom));
 		z-index: 30;
+		/* However high the bottom is asked for, a toast stays fully on screen. */
+		--toast-room: 9rem;
 		inline-size: min(26rem, calc(100vw - 2 * var(--gutter)));
 		pointer-events: none;
 	}
