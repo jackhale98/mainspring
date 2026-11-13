@@ -8,13 +8,17 @@
 -->
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
+	import type { AppUpdates } from '../lib/state/updates.svelte';
 	import { announcesRun, type StatusKind } from '../lib/state/status';
 	import { strings } from '../lib/strings';
 	import EngineInfo from './app/EngineInfo.svelte';
 	import Mark from './app/Mark.svelte';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		app: AppState;
+		/** Whether a newer build is deployed (ADR-0012); a reload button shows when it is. */
+		updates?: AppUpdates;
 		compact: boolean;
 		/**
 		 * The Gantt is on screen and says what a reschedule moved (its treegrid's live region), so
@@ -23,7 +27,11 @@
 		 */
 		quiet?: boolean;
 	}
-	let { app, compact, quiet = false }: Props = $props();
+	let { app, updates, compact, quiet = false }: Props = $props();
+
+	function reload(): void {
+		void updates?.reload(app.dirty, () => globalThis.confirm(strings.update.confirmReload));
+	}
 
 	const s = $derived(app.status);
 	const problems = $derived(s ? s.errors + s.warnings : 0);
@@ -105,7 +113,25 @@
 				{strings.engine.retry}
 			</button>
 		{/if}
-		{#if s.engine}<EngineInfo info={s.engine} {compact} />{/if}
+		{#if updates?.status === 'available'}
+			<button
+				type="button"
+				class="update"
+				class:compact
+				aria-label={strings.update.reloadLabel}
+				title={strings.update.reloadLabel}
+				onclick={reload}
+				data-testid="update-reload"
+			>
+				{#if compact}
+					<Icon name="retry" size={18} /><span class="pip corner" aria-hidden="true"></span>
+				{:else}
+					<span class="pip" aria-hidden="true"></span>
+					<span aria-hidden="true">{`${strings.update.available} · ${strings.update.reload}`}</span>
+				{/if}
+			</button>
+		{/if}
+		{#if s.engine}<EngineInfo info={s.engine} {compact} {updates} onreload={reload} />{/if}
 	</div>
 	<div id="unlocated-popover" class="popover" popover="auto" bind:this={popover}>
 		<h2>{strings.status.unlocatedTitle}</h2>
@@ -290,5 +316,57 @@
 	}
 	.popover li + li {
 		margin-block-start: var(--space-2);
+	}
+	.update {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin-inline-start: auto;
+		padding: var(--space-1) var(--space-3);
+		border: 1px solid var(--color-mark-brass);
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font: inherit;
+		font-size: var(--text-xs);
+		font-weight: 600;
+		white-space: nowrap;
+		cursor: pointer;
+		min-block-size: 1.75rem;
+	}
+	/* On a phone the strip has no room for words: an icon the size of the engine button. */
+	.update.compact {
+		position: relative;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		inline-size: 1.75rem;
+	}
+	.update:hover {
+		background: var(--color-row-hover);
+	}
+	.update + :global(.engine-info) {
+		margin-inline-start: 0;
+	}
+	.pip {
+		flex: none;
+		inline-size: 7px;
+		block-size: 7px;
+		border-radius: 50%;
+		background: var(--color-mark-brass);
+	}
+	.corner {
+		position: absolute;
+		inset-block-start: 6px;
+		inset-inline-end: 6px;
+	}
+	@media (pointer: coarse) {
+		.update {
+			min-block-size: var(--size-tap);
+		}
+		.update.compact {
+			inline-size: var(--size-tap);
+		}
 	}
 </style>

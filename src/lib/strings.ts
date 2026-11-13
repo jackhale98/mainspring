@@ -343,6 +343,20 @@ export const strings = {
 		failure: engineFailureStrings,
 		retry: 'Try again',
 	},
+	/** A newer build of the app is deployed (ADR-0012). */
+	update: {
+		available: 'New version',
+		reload: 'Reload',
+		/** The status-strip button: says what it does and why. */
+		reloadLabel: 'A new version of Mainspring is available. Reload to use it',
+		title: 'This app',
+		build: 'Build',
+		check: 'Check for updates',
+		checking: 'Checking…',
+		current: 'Up to date',
+		unknown: 'Could not check',
+		confirmReload: 'Reloading discards your changes to this plan. Reload anyway?',
+	},
 	home: {
 		openApp: 'Open the app',
 	},
