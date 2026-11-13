@@ -291,16 +291,19 @@ test.describe('the table divider', () => {
 			await open(page);
 			await shot(`polish-10-desktop-default-${scheme}.png`);
 			await divider(page).focus();
-			for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowLeft');
+			await page.keyboard.press('Home');
 			await page.waitForTimeout(300);
 			await shot(`polish-10-desktop-narrow-${scheme}.png`);
-			for (let i = 0; i < 2; i++) await page.keyboard.press('Shift+ArrowRight');
+			for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight');
 			await page.waitForTimeout(300);
 			await shot(`polish-10-desktop-wide-${scheme}.png`);
 			await page.setViewportSize({ width: 820, height: 1180 });
 			await page.evaluate(() => localStorage.clear());
 			await page.reload();
-			await expect(page.locator('[role="row"][data-key]').first()).toBeVisible({
+			await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+				timeout: READY_TIMEOUT_MS,
+			});
+			await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 				timeout: READY_TIMEOUT_MS,
 			});
 			await page.waitForTimeout(900);
