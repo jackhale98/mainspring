@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Properties of planAction and checkAction (phase-2.md 6.6, 7.1, 13.1) over random Gantt actions on
+// the gantt-manipulation fixture, and of the dates they write across DST (syn-09, Berlin):
+//
+// 1. Total: planAction never throws and returns one of its statuses; checkAction refuses only with
+//    a known reason and always with a sentence.
+// 2. An edit is minimal and safe: its inverse restores every file byte for byte, it adds no syntax
+//    error, the index rebuilds, and the target task is still there (unless the action deletes it
+//    or moves it to a new id).
+// 3. A start written by a move is where the move put it: read back by TaskJuggler's date rules, it
+//    snaps to the same working minute as the shifted engine start, unless the dependencies clamp it.
+// 4. Resizing further never makes a size smaller.
+// 5. writeDate: across DST, a written start or end reads back to the same working minute.
+import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
+import type { ProjectInfo } from '../../engine/protocol';
+import { createTimeZoneHost } from '../../engine/timezone';
+import { workingTimeOf } from '../schedule/working-time';
+import { ganttActionStrings } from '../strings';
+import { buildIndex } from '../tjp/index';
+import { syntaxIssues } from '../tjp/tree';
+import { dateEpoch, parseDate } from '../tjp/values/date';
+import type { ZoneOffsets } from '../tjp/values/civil';
+import { createWorkspace, type WorkspaceSnapshot } from '../workspace/workspace';
+import { checkAction, earliestStart, planAction, type GanttAction, type MoveKind } from './intents';
+import { scenarioOf } from './intents-facts';
+import { goldenResult, manipulation } from './intents-testing';
+import { writeDate } from './intents-time';
+
+const RUNS = Number(process.env['GANTT_INTENT_RUNS'] ?? 200);
+const SEED = process.env['FC_SEED'] === undefined ? {} : { seed: Number(process.env['FC_SEED']) };
+const fx = manipulation();
+const TASKS = [...fx.index.tasks.keys()];
+const PEOPLE = ['dev1', 'dev2', 'dev3', 'ops1'];
+const FRAME_END = fx.ctx().wt?.frameEnd ?? 0;
+
+/** A task of the fixture, sometimes one that does not exist. */
+const task = fc.oneof(
+	{ arbitrary: fc.constantFrom(...TASKS), weight: 9 },
+	{ arbitrary: fc.constant('nope'), weight: 1 },
+);
+const parent = fc.oneof(fc.constant(null), fc.constantFrom(...TASKS));
+const person = fc.constantFrom(...PEOPLE);
+const action: fc.Arbitrary<GanttAction> = fc.oneof(
+	fc.record({
+		type: fc.constant('resize'),
+		task,
+		end: fc.integer({ min: -1440, max: FRAME_END + 1440 }),
+	}),
+	fc.record({ type: fc.constant('size-step'), task, steps: fc.integer({ min: -4, max: 4 }) }),
+	fc.record({ type: fc.constant('move'), task, days: fc.integer({ min: -15, max: 15 }) }),
+	// Most random pairs are refused (cycles, ALAP clashes), so links are drawn more often.
+	...Array.from({ length: 4 }, () =>
+		fc.record({
+			type: fc.constant('link' as const),
+			pred: fc.constantFrom(...TASKS),
+			succ: fc.constantFrom(...TASKS),
+		}),
+	),
+	fc.record({ type: fc.constant('unlink'), link: fc.constantFrom(...fx.links) }),
+	fc.record({ type: fc.constant('reorder'), task, parent, index: fc.nat({ max: 6 }) }),
+	fc.record({
+		type: fc.constantFrom('assign' as const, 'unassign' as const),
+		task,
+		resource: person,
+	}),
+	fc.record({ type: fc.constant('replace-person'), task, from: person, to: person }),
+	fc.record({ type: fc.constant('rename'), task, name: fc.string({ maxLength: 12 }) }),
+	fc.record({ type: fc.constant('progress'), task, percent: fc.integer({ min: -20, max: 130 }) }),
+	fc.record({
+		type: fc.constant('add'),
+		parent,
+		index: fc.nat({ max: 6 }),
+		name: fc.string({ minLength: 1, maxLength: 12 }),
+	}),
+	fc.record({ type: fc.constant('delete'), task }),
+);
+const move = fc.constantFrom<MoveKind | null>(null, 'start', 'gap');
+
+const issues = (snap: WorkspaceSnapshot): number =>
+	[...snap.files.values()].reduce((n, f) => n + syntaxIssues(f.tree, f.text).length, 0);
+const BASE_ISSUES = issues(fx.snap);
+
+function readBack(text: string, p: ProjectInfo, zones?: ZoneOffsets): number | null {
+	const d = parseDate(text);
+	if (!d.ok || d.value.kind !== 'date') return null;
+	const e = dateEpoch(d.value.date, { zone: p.timezone, ...(zones ? { zones } : {}) });
+	return e.ok ? Math.round((e.value - Date.parse(p.start) / 1000) / 60) : null;
+}
+
+describe('Gantt actions on the manipulation fixture', () => {
+	it('plan totally and edit minimally and safely', () => {
+		const tally = new Map<string, number>();
+		fc.assert(
+			fc.property(action, move, (a, m) => {
+				const ctx = fx.ctx({ move: m === null ? null : { kind: m } });
+				const planned = planAction(a, ctx);
+				expect(['intent', 'ask-move-preference', 'not-possible']).toContain(planned.status);
+				const out = checkAction(a, ctx, fx.snap);
+				const key = `${a.type} ${out.status}${out.status === 'refused' ? ` ${out.reason}` : ''}`;
+				tally.set(key, (tally.get(key) ?? 0) + 1);
+				if (out.status === 'refused') {
+					expect(out.message.length).toBeGreaterThan(0);
+					return;
+				}
+				if (out.status === 'noop') {
+					expect(out.message).toBe(ganttActionStrings.noop[out.reason]);
+					return;
+				}
+				if (out.status !== 'edit') return;
+				const files: Record<string, string> = {};
+				for (const [p, f] of fx.snap.files) {
+					const cs = out.edit.changes[p];
+					files[p] = cs ? cs.apply(f.text).toString() : f.text.toString();
+					if (cs) {
+						const inv = out.edit.inverse[p];
+						expect(inv?.apply(cs.apply(f.text)).toString()).toBe(f.text.toString());
+					}
+				}
+				const next = createWorkspace({ entry: fx.snap.entry, files }).snapshot();
+				expect(issues(next)).toBeLessThanOrEqual(BASE_ISSUES);
+				const index = buildIndex(next, undefined, { cache: null });
+				const i = out.intent;
+				// Rebuilt without engine hints: only ids the text names are checked.
+				const named = 'task' in i ? fx.index.tasks.get(i.task)?.idSource === 'text' : false;
+				if ('task' in i && named && i.type !== 'deleteTask' && i.type !== 'moveTask') {
+					expect(index.tasks.has(i.task)).toBe(true);
+				}
+			}),
+			{ numRuns: RUNS, ...SEED },
+		);
+		// The generator reaches edits of every kind, not only refusals.
+		for (const t of ['resize', 'move', 'link', 'reorder', 'assign', 'progress', 'add', 'delete']) {
+			expect(tally.get(`${t} edit`) ?? 0, `${t} ${JSON.stringify([...tally])}`).toBeGreaterThan(0);
+		}
+	});
+
+	it('write a moved start where the move put it, unless the dependencies clamp it', () => {
+		const ctx = fx.ctx({ move: { kind: 'start' } });
+		const wt = ctx.wt;
+		const project = fx.result.project;
+		if (!wt || !project) throw new Error('fixture has no schedule');
+		fc.assert(
+			fc.property(fc.constantFrom(...TASKS), fc.integer({ min: -10, max: 10 }), (id, days) => {
+				const p = planAction({ type: 'move', task: id, days }, ctx);
+				if (p.status !== 'intent' || p.intent.type !== 'setAttr' || p.intent.attr !== 'start')
+					return;
+				const s = scenarioOf(fx.result, id);
+				if (!s || s.start === null) throw new Error(`no dates for ${id}`);
+				const m = readBack(String(p.intent.value), project);
+				expect(m).not.toBeNull();
+				const target = wt.shiftDays(s.start, days, 'start');
+				const floor = earliestStart(id, ctx);
+				const expected = floor !== null && target < floor ? floor : target;
+				expect(wt.snap(m as number, 'start')).toBe(wt.snap(expected, 'start'));
+			}),
+			{ numRuns: RUNS, ...SEED },
+		);
+	});
+
+	it('never shrink a size when the end goes further', () => {
+		const ctx = fx.ctx();
+		const sized = [
+			'design.research',
+			'design.sketch',
+			'design.review',
+			'build.code',
+			'build.tests',
+		];
+		const value = (id: string, end: number): number | null => {
+			const p = planAction({ type: 'resize', task: id, end }, ctx);
+			return p.status === 'intent' && p.intent.type === 'setAttr'
+				? parseFloat(String(p.intent.value))
+				: null;
+		};
+		fc.assert(
+			fc.property(
+				fc.constantFrom(...sized),
+				fc.nat({ max: 60 * 1440 }),
+				fc.nat({ max: 20 * 1440 }),
+				(id, a, d) => {
+					const start = scenarioOf(fx.result, id)?.start ?? 0;
+					const x = value(id, start + 60 + a);
+					const y = value(id, start + 60 + a + d);
+					if (x !== null && y !== null) expect(y).toBeGreaterThanOrEqual(x);
+				},
+			),
+			{ numRuns: RUNS, ...SEED },
+		);
+	});
+});
+
+describe('writeDate across DST (syn-09, Berlin)', () => {
+	const zones = createTimeZoneHost();
+	const project = goldenResult('syn-09-tz-dst-berlin').project;
+	if (!project) throw new Error('syn-09 has no project');
+	const wt = workingTimeOf(project, zones);
+	const env = { project, zones, wt };
+
+	it('reads a written day start or end back to the same working minute', () => {
+		fc.assert(
+			fc.property(
+				fc.nat({ max: Math.max(0, wt.frameEnd - 1) }),
+				fc.boolean(),
+				fc.boolean(),
+				(m, isStart, exact) => {
+					const role = isStart ? 'start' : 'end';
+					const target = isStart ? wt.dayStart(m) : wt.dayEnd(m + 1);
+					const text = writeDate(target, role, env, exact);
+					if (text === null) return;
+					const back = readBack(text, project, zones);
+					expect(back).not.toBeNull();
+					if (exact) expect(back).toBe(target);
+					expect(wt.snap(back as number, role)).toBe(wt.snap(target, role));
+				},
+			),
+			{ numRuns: RUNS * 2, ...SEED },
+		);
+	});
+});
