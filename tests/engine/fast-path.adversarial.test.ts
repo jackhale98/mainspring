@@ -1,36 +1,30 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The T19 review's repros of the fast path (ADR-0010), as tests: patches that ran fast and differed
-// from a full run before the bridge checked its own parse, and patches that must still run fast.
-// Each keeps the plan (`retain`), rewrites the named lines, and compares the fast request with a
-// full run of the same text: the result must be equal, by the expected path and, when it runs in
-// full, for the expected reason. The edits are what a wrong or hostile main thread could send, so
-// the bridge alone must catch them. Opt-in with FAST_PATH=1, like the other engine suites.
+// The T19 reviews' repros of the fast path (ADR-0010, "Review history"), as tests: patches that
+// ran fast and differed from a full run before a fix, and patches that must still run fast. Each
+// keeps the plan (`retain`), rewrites the named lines, and compares the fast request with a full
+// run of the same text: the result must be equal, by the expected path and, when it runs in full,
+// for the expected reason. The edits are what a wrong or hostile main thread could send, so the
+// bridge alone must catch them. The first review's cases are below; the re-review's (scripts
+// r1.mjs to r4.mjs) are in fast-path-review-cases.ts; its wrapped.mjs is the last test: a run that
+// keeps its parse (and so runs with the recorder's hooks) gives every golden plan's result. Opt-in
+// with FAST_PATH=1, like the other engine suites.
 import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { bootNodeEngine } from '../../engine/golden/run-wasm.mjs';
 import type { FastEdit, ScheduleRequest, ScheduleResult } from '../../src/engine/protocol';
-import { REPO } from '../golden/corpus';
+import { compareWithGolden } from '../golden/compare';
+import { loadCorpus, planRequest, REPO } from '../golden/corpus';
 import { canonicalResult } from './fast-path-cases';
+import { E, P, rereviewCases, type Case, type Edit } from './fast-path-review-cases';
 
 const ENGINE = path.join(REPO, 'public/engine/manifest.json');
 const ON = process.env['FAST_PATH'] === '1';
 const NOW = { now: '2026-01-05T09:00:00Z' };
-const P = 'plan.tjp';
 
 type Engine = { schedule(r: ScheduleRequest): ScheduleResult };
 let engine: Engine;
 let revision = 0;
-
-interface Edit {
-	file?: string;
-	line: number;
-	/** The whole new line. */
-	text: string;
-	task: string;
-	attribute: FastEdit['attribute'];
-	value: string;
-}
 
 /** Keeps `files`, rewrites the lines, runs fast and in full; returns both. */
 function compare(files: Record<string, string>, edits: Edit[], options: { now?: string } = NOW) {
@@ -53,24 +47,6 @@ function compare(files: Record<string, string>, edits: Edit[], options: { now?: 
 	const fast = engine.schedule({ files: next, entry: P, options, revision: ++revision, fast: { base: base.revision, edits: fastEdits } });
 	const full = engine.schedule({ files: next, entry: P, options, revision: ++revision });
 	return { fast, full };
-}
-
-const E = (line: number, text: string, task: string, attribute: FastEdit['attribute'], value: string, file?: string): Edit => ({
-	line,
-	text,
-	task,
-	attribute,
-	value,
-	...(file ? { file } : {}),
-});
-
-interface Case {
-	name: string;
-	files: Record<string, string>;
-	edits: Edit[];
-	/** null: must run fast. */
-	reason: RegExp | null;
-	options?: { now?: string };
 }
 
 const SCENARIOS = 'project p "P" 2026-01-05 +3m {\n  scenario plan "Plan" {\n    scenario test "Test"\n  }\n}\nresource r "R"\n';
@@ -185,7 +161,7 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: the review repros', (
 		engine = (await bootNodeEngine({ log: () => {} })) as unknown as Engine;
 	}, 300_000);
 
-	for (const c of cases) {
+	for (const c of [...cases, ...rereviewCases]) {
 		it(`${c.name}: ${c.reason ? 'runs in full' : 'fast'}, same result`, () => {
 			const { fast, full } = compare(c.files, c.edits, c.options);
 			expect(fast.timings.path, fast.timings.fastFallback).toBe(c.reason ? 'full' : 'fast');
@@ -195,4 +171,21 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: the review repros', (
 			}
 		}, 120_000);
 	}
+
+	// wrapped.mjs: the recorder's hooks (wrapped patterns, the scanner's warning) run only while a
+	// kept run parses; such a run, and a plain run after it, give each golden plan's result.
+	it('a run that keeps its parse gives every golden plan its golden result', () => {
+		const bad: string[] = [];
+		for (const c of loadCorpus()) {
+			const { revision: _r, ...req } = planRequest(c.plan, c.golden, 0);
+			const kept = engine.schedule({ ...req, retain: true, revision: ++revision });
+			const plain = engine.schedule({ ...req, revision: ++revision });
+			const d1 = compareWithGolden(c.golden, kept);
+			const d2 = compareWithGolden(c.golden, plain);
+			if (!d1.ok || !d2.ok || canonicalResult(kept) !== canonicalResult(plain)) {
+				bad.push(`${c.plan.id}: ${[...d1.diffs, ...d2.diffs].slice(0, 3).join('; ')}`);
+			}
+		}
+		expect(bad).toEqual([]);
+	}, 1_200_000);
 });

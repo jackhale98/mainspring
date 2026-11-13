@@ -32,15 +32,18 @@
 # What the bridge checks itself, whatever the main thread sent (ADR-0010):
 # - it holds the base run, with the same entry, file set and options.now;
 #   when the plan took `now` from the clock, the clock's hour is unchanged;
-# - each value is strictly a value of its keyword (no space, brace, '#', '$'
-#   or quote can get in), and every file is the base text except the lines
-#   the edits name, each a lone `<keyword> <value>` statement before and
-#   after, with the same line count;
+# - each value, old and new, is strictly a value of its keyword (no space,
+#   brace, '#', '$' or quote can get in, so no macro call that could hide
+#   more statements), and every file is the base text except the lines the
+#   edits name, each a lone `<keyword> <value>` statement before and after,
+#   with the same line count;
 # - the keyword is effort, length, duration, start, end, priority or
 #   complete, for the top scenario only;
 # - the edited line ran exactly one noted action in the kept parse, of that
 #   keyword, on that task, in the top scenario, and no later action of the
-#   same family ran on that task (fast_path_sites.rb);
+#   same family ran on that task (fast_path_sites.rb; `period` is in the
+#   start and end families); file names are compared expanded;
+# - the base parse gave no attr_overwrite warning for that task;
 # - an attribute the pattern sets that children inherit (inheritedFromParent:
 #   of these, priority) is only rewritten on a leaf, since children copy it
 #   when they are created (PropertyTreeNode#inheritAttributes), not when they
@@ -70,8 +73,9 @@ module MainspringBridge
       'effort' => DURATIONS, 'length' => DURATIONS, 'duration' => DURATIONS,
       'start' => %w[start], 'end' => %w[end], 'priority' => %w[priority], 'complete' => %w[complete]
     }.freeze
-    # Keywords whose later action would set the same attributes again.
-    FAMILY = SETS
+    # Keywords whose later action would set the same attributes again: period sets start and end
+    # (TjpSyntaxRules.rb:6159-6163).
+    FAMILY = SETS.merge('start' => %w[start period], 'end' => %w[end period]).freeze
     # The direction ('forward') the start and end patterns set.
     FORWARD = { 'start' => true, 'end' => false }.freeze
     DURATION_VALUE = /\A\d+(?:\.\d+)?(?:min|h|d|w|m|y)\z/.freeze
@@ -108,7 +112,8 @@ module MainspringBridge
     # tz: TjTime's active zone after the parse, which scheduling reads (TjTime.rb:90-106; the
     # parser sets it from `timezone`, TjpSyntaxRules.rb:7137, and TaskJuggler.new resets it).
     Base = Struct.new(:revision, :entry, :files, :now_option, :clock_now, :blob, :messages,
-                      :version, :timezone, :tz, :by_line, :by_task, keyword_init: true)
+                      :version, :timezone, :tz, :by_line, :by_task, :overwritten,
+                      keyword_init: true)
 
     class << self
       attr_reader :base
@@ -137,7 +142,7 @@ module MainspringBridge
         rescue TypeError => e
           return { 'retainError' => unkept(e.message) }
         end
-        by_line, by_task = FastPathSites.index(log || [], root)
+        by_line, by_task, overwritten = FastPathSites.index(log || [], root)
         @base = Base.new(
           revision: revision, entry: entry,
           files: files.transform_values { |t| MainspringBridge.normalize_text(t) },
@@ -146,7 +151,7 @@ module MainspringBridge
           clock_now: capture.clock.nil? && !capture.now_line ? project['now'] : nil,
           blob: blob, messages: messages.map { |m| KeptMessage.of(m) },
           version: capture.version, timezone: capture.timezone, tz: TaskJuggler::TjTime.timeZone,
-          by_line: by_line, by_task: by_task
+          by_line: by_line, by_task: by_task, overwritten: overwritten
         )
         { 'retainMs' => (MainspringBridge.clock_ms - t0).round(1), 'retainBytes' => blob.bytesize }
       end
@@ -205,7 +210,7 @@ module MainspringBridge
           lines = by_file.fetch(path, {})
           old.each_index.all? do |i|
             e = lines[i + 1]
-            e ? statement?(old[i], e['attribute'], nil) && statement?(now[i], e['attribute'], e['value']) : old[i] == now[i]
+            e ? old_value?(old[i], e['attribute']) && statement?(now[i], e['attribute'], e['value']) : old[i] == now[i]
           end
         end && by_file.keys.all? { |p| files.key?(p) }
       end
@@ -214,6 +219,14 @@ module MainspringBridge
       def statement?(line, keyword, value)
         v = value ? Regexp.escape(value) : '[^\s#]+'
         /\A[ \t]*#{keyword}[ \t]+#{v}[ \t]*(?:(?:#|\/\/)[^\r]*)?\r?\z/.match?(line)
+      end
+
+      # The line before the rewrite: one statement whose value is strictly a value of _keyword_
+      # (so not a macro call, which can hide more statements: `effort ${d}` with `d` = `5d
+      # allocate s`).
+      def old_value?(line, keyword)
+        m = /\A[ \t]*#{keyword}[ \t]+([^\s#]+)[ \t]*(?:(?:#|\/\/)[^\r]*)?\r?\z/.match(line)
+        m && VALUES[keyword].match?(m[1])
       end
 
       # The edited line ran one noted action: this keyword, on this task, in the top scenario,
@@ -226,6 +239,7 @@ module MainspringBridge
         end
         later = b.by_task[e['task']].any? { |s| s.seq > site.seq && FAMILY[e['attribute']].include?(s.keyword) }
         fallback('a later statement sets it again') if later
+        fallback('the base parse overwrote an attribute of that task') if b.overwritten[e['task']]
       end
 
       def run(b, edits, root, now)
@@ -277,8 +291,7 @@ module MainspringBridge
         sfi = message.sourceFileInfo
         return false unless sfi && sfi.lineNo == edit['line']
 
-        file = sfi.fileName.to_s.delete_prefix("#{root}/")
-        file == edit['file']
+        FastPathSites.workspace_path(sfi.fileName, root) == edit['file']
       end
 
       # The checks that need the kept project (see the module comment).

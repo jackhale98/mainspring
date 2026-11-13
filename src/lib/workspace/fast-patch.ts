@@ -9,7 +9,8 @@
  *   bodies, and its declaration text gives no other task in another include visit (a file
  *   included twice, say with two `taskprefix`es: one line, two tasks);
  * - it is the task's only statement of that family (`effort`, `length`, `duration` and
- *   `milestone` are one family), in any scenario and any supplement;
+ *   `milestone` are one family; `period` sets `start` and `end`, so it joins both of theirs), in
+ *   any scenario and any supplement;
  * - for `priority`, the task is a leaf: children copy it when they are created;
  * - the value has no macro call.
  *
@@ -45,6 +46,14 @@ export interface FastSite {
 }
 
 const DURATIONS: ReadonlySet<string> = new Set(['effort', 'length', 'duration', 'milestone']);
+/** The statements that set the same attributes as a keyword (TjpSyntaxRules.rb, rule_taskPeriod). */
+const FAMILIES: Partial<Record<FastAttr, ReadonlySet<string>>> = {
+	effort: DURATIONS,
+	length: DURATIONS,
+	duration: DURATIONS,
+	start: new Set(['start', 'period']),
+	end: new Set(['end', 'period']),
+};
 /** Keywords children copy from their parent when they are created (Project.rb attribute table). */
 const INHERITED: ReadonlySet<string> = new Set(['priority']);
 const DURATION_VALUE = /^\d+(?:\.\d+)?(?:min|h|d|w|m|y)$/;
@@ -82,7 +91,7 @@ export function fastSites(snap: WorkspaceSnapshot, index: SymbolIndex): FastSite
 			const keyword = a.keyword;
 			if (!isFastAttr(keyword) || a.scenario !== null || !a.value || a.textOnly) continue;
 			if (INHERITED.has(keyword) && task.children.length > 0) continue;
-			const family = DURATIONS.has(keyword) ? DURATIONS : new Set([keyword]);
+			const family = FAMILIES[keyword] ?? new Set([keyword]);
 			if (task.attrs.filter((b) => family.has(b.keyword)).length !== 1) continue;
 			if ((visitsOf.get(a.statement.file) ?? 0) > 1) continue;
 			const text = snap.files.get(a.statement.file)?.text;

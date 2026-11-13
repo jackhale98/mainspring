@@ -78,6 +78,27 @@ describe('fastSites', () => {
 		// task (21); a macro body and its call (6, 23); a start written twice (27, 28); the file
 		// included twice, one line for top.x.w and top.y.w (common.tji:2).
 	});
+
+	it('leaves out a start or end that a period also sets (the T19 re-review, N1)', () => {
+		const plan = [
+			'project p "P" 2026-01-05 +3m', // 1
+			'task t "T" {', // 2
+			'  start 2026-01-06', // 3
+			'  period 2026-01-12 - 2026-01-30', // 4
+			'}', // 5
+			'task u "U" {', // 6
+			'  end 2026-02-20', // 7
+			'  period 2026-01-12 - 2026-01-30', // 8
+			'}', // 9
+			'task v "V" {', // 10
+			'  start 2026-01-06', // 11
+			'  effort 3d', // 12
+			'}', // 13
+			'',
+		].join('\n');
+		const ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': plan } });
+		expect(sitesOf(ws)).toEqual(['v start 2026-01-06 @plan.tjp:11', 'v effort 3d @plan.tjp:12']);
+	});
 });
 
 describe('statementValue', () => {
