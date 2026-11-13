@@ -31,8 +31,10 @@
 		ticks: TickRows | null;
 		theme: Theme;
 		dpr: number;
+		/** The wall-clock minute for the today crown (`todayOf`); the clock is not in the model. */
+		todayMin: number | null;
 	}
-	let { model, layout, win, ticks, theme, dpr }: Props = $props();
+	let { model, layout, win, ticks, theme, dpr, todayMin }: Props = $props();
 
 	let el: HTMLCanvasElement | undefined = $state();
 	let raf = 0;
@@ -57,14 +59,14 @@
 		paintHeader({
 			...base,
 			ticks: { level: ticks.level, major: [], minor: ticks.minor },
-			markers: markerLines(model),
+			markers: markerLines(model, todayMin),
 			viewLeft: win.x,
 		});
 	}
 
 	// Repaint when the window, zoom, model or colours change: not on scroll.
 	$effect(() => {
-		void [model, layout, win, ticks, theme, dpr, el];
+		void [model, layout, win, ticks, theme, dpr, todayMin, el];
 		untrack(() => {
 			if (raf === 0) raf = requestAnimationFrame(draw);
 		});

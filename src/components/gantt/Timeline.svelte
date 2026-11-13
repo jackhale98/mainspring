@@ -28,13 +28,26 @@
 		theme: Theme;
 		dpr: number;
 		selectedRow: number | null;
+		/** The wall-clock minute for the today line (`todayOf`); the clock is not in the model. */
+		todayMin: number | null;
 		/** The width of the viewport, for the placeholder before the first schedule. */
 		viewW: number;
 		onselect: (row: number) => void;
 		onhover: (row: number | null) => void;
 	}
-	let { model, layout, win, ticks, theme, dpr, selectedRow, viewW, onselect, onhover }: Props =
-		$props();
+	let {
+		model,
+		layout,
+		win,
+		ticks,
+		theme,
+		dpr,
+		selectedRow,
+		todayMin,
+		viewW,
+		onselect,
+		onhover,
+	}: Props = $props();
 
 	let gridEl: HTMLCanvasElement | undefined = $state();
 	let barsEl: HTMLCanvasElement | undefined = $state();
@@ -109,7 +122,7 @@
 	});
 
 	$effect(() => {
-		overlayState = { selectedRow, hoverRow, hoverLink };
+		overlayState = { selectedRow, hoverRow, hoverLink, todayMin };
 		untrack(() => request('overlay'));
 	});
 

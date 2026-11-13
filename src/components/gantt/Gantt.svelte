@@ -37,7 +37,7 @@
 		type PaintWindow,
 	} from '../../lib/gantt/layout';
 	import { markerState } from '../../lib/gantt/markers';
-	import { buildGanttModel } from '../../lib/gantt/model';
+	import { buildGanttModel, todayOf } from '../../lib/gantt/model';
 	import {
 		DEFAULT_ZOOM,
 		ZOOM_PRESETS,
@@ -101,7 +101,6 @@
 			}),
 			// Task T5 supplies the driving-path analysis here (when `criticalOn`).
 			analysis: null,
-			nowMs: env.nowMs,
 			zones,
 		});
 	});
@@ -141,7 +140,9 @@
 		hoverRow !== null && hoverRow !== selectedRow ? describeRow(model, hoverRow) : '',
 	);
 
-	const markers = $derived(markerState(model, scale.m(0)));
+	/** The clock stays out of the model: a tick of it must not rebuild the rows (model.ts). */
+	const today = $derived(todayOf(model.project, env.nowMs));
+	const markers = $derived(markerState(model, scale.m(0), today));
 
 	function onscroll(): void {
 		if (!scroller) return;
@@ -281,7 +282,15 @@
 			>
 				<div class="corner">{strings.gantt.taskColumn}</div>
 				<div class="head">
-					<TimeHeader {model} {layout} win={paintWin} {ticks} theme={env.theme} dpr={env.dpr} />
+					<TimeHeader
+						{model}
+						{layout}
+						win={paintWin}
+						{ticks}
+						theme={env.theme}
+						dpr={env.dpr}
+						todayMin={today}
+					/>
 				</div>
 				<div class="names" bind:clientWidth={namesW}>
 					<OutlineColumn
@@ -304,6 +313,7 @@
 						theme={env.theme}
 						dpr={env.dpr}
 						{selectedRow}
+						todayMin={today}
 						{viewW}
 						onselect={selectRow}
 						onhover={(r) => (hoverRow = r)}

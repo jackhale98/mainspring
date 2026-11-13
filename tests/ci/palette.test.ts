@@ -146,7 +146,6 @@ const GRAPHICS: ReadonlyArray<readonly [string, string, number]> = [
 	['color-today', 'color-gantt-surface', 3],
 	['color-status-date', 'color-gantt-surface', 3],
 	['color-gantt-critical-top', 'color-gantt-surface', 3],
-	['color-gantt-critical-edge', 'color-gantt-surface', 3],
 	['color-gantt-summary', 'color-gantt-surface', 3],
 	['color-gantt-milestone', 'color-gantt-surface', 2.2],
 ];

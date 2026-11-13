@@ -6,13 +6,13 @@
  * - A task is a brushed-brass pill: a vertical gradient, a lit top edge, a soft shadow, a thin
  *   brass outline (so that it reaches 3:1 against the panel, WCAG 1.4.11) and, when the plan has
  *   `complete`, a translucent brass overlay over the done part.
- * - A critical task is a blued-steel pill with white text, no outline and a blue shadow.
+ * - A critical task is a ruby pill with white text, a heavier edge and a post at its finish (ADR-0009).
  * - A summary is a thin stem with a short cap at each end, in a muted ink: no heavy slab.
  * - A milestone is a brass jewel: a rounded diamond with a gradient and a soft glow.
  * - Beside a bar, avatars with the initials of the people on it; the name of a task that is too
  *   short to hold its own name goes there too.
  *
- * Meaning never rests on colour alone (WCAG 1.4.1): a critical bar is also marked by its steel
+ * Meaning never rests on colour alone (WCAG 1.4.1): a critical bar is also marked by its heavier edge,
  * gradient and white text and the treegrid's critical column, a text-only bar is dashed, a summary
  * has end caps, a milestone is a diamond. When the schedule on screen is not the newest outcome
  * (an edit broke it) the shapes and lines are drawn faded, the "last good" rule; the labels stay
@@ -69,16 +69,16 @@ function gradientFor(
 		g.addColorStop(0, theme.barTop);
 		g.addColorStop(1, theme.barBottom);
 	} else if (key === 'steel') {
-		g.addColorStop(0, theme.steelTop);
-		g.addColorStop(1, theme.steelBottom);
+		g.addColorStop(0, theme.criticalTop);
+		g.addColorStop(1, theme.criticalBottom);
 	} else if (key === 'jewel') {
 		g.addColorStop(0, theme.jewelHigh);
 		g.addColorStop(0.55, theme.milestone);
 		g.addColorStop(1, theme.jewelDeep);
 	} else {
-		g.addColorStop(0, theme.steelTop);
+		g.addColorStop(0, theme.criticalTop);
 		g.addColorStop(0.55, theme.critical);
-		g.addColorStop(1, theme.steelBottom);
+		g.addColorStop(1, theme.criticalBottom);
 	}
 	cache.made[key] = g;
 	return g;
@@ -148,12 +148,12 @@ function drawPill(f: PaintFrame, row: GanttRow, bar: Rect, steel: boolean): void
 	const { ctx, theme } = f;
 	// A short bar keeps its width and a smaller radius, so it does not turn into a circle.
 	const radius = Math.min(theme.barRadius, bar.w / 3);
-	const dy = steel ? theme.steelShadowY : theme.barShadowY;
+	const dy = steel ? theme.criticalShadowY : theme.barShadowY;
 
 	softShadow(
 		ctx,
-		steel ? theme.steelShadow : theme.barShadow,
-		steel ? theme.steelShadowBlur : theme.barShadowBlur,
+		steel ? theme.criticalShadow : theme.barShadow,
+		steel ? theme.criticalShadowBlur : theme.barShadowBlur,
 		(g) => roundedRect(ctx, bar.x - g, bar.y + dy - g, bar.w + 2 * g, bar.h + 2 * g, radius + g),
 	);
 	roundedRect(ctx, bar.x, bar.y, bar.w, bar.h, radius);
@@ -164,10 +164,10 @@ function drawPill(f: PaintFrame, row: GanttRow, bar: Rect, steel: boolean): void
 	roundedRect(ctx, bar.x, bar.y, bar.w, bar.h, radius);
 	ctx.clip();
 	if (row.complete !== null && row.complete > 0) {
-		ctx.fillStyle = steel ? theme.steelProgress : theme.barProgress;
+		ctx.fillStyle = steel ? theme.criticalProgress : theme.barProgress;
 		ctx.fillRect(bar.x, bar.y, (bar.w * Math.min(100, row.complete)) / 100, bar.h);
 	}
-	ctx.fillStyle = steel ? theme.steelHighlight : theme.barHighlight;
+	ctx.fillStyle = steel ? theme.criticalHighlight : theme.barHighlight;
 	ctx.fillRect(bar.x, bar.y, bar.w, 1);
 	if (!steel) {
 		ctx.fillStyle = theme.barLowlight;
@@ -222,7 +222,7 @@ function drawJewel(f: PaintFrame, bar: Rect, critical: boolean): void {
 	const cx = bar.x + bar.w / 2;
 	const cy = bar.y + bar.h / 2;
 	const half = bar.w / 2;
-	softShadow(ctx, critical ? theme.steelShadow : theme.jewelGlow, theme.jewelBlur, (g) =>
+	softShadow(ctx, critical ? theme.criticalShadow : theme.jewelGlow, theme.jewelBlur, (g) =>
 		diamondPath(ctx, cx, cy + theme.jewelY, half + g, theme.milestoneRadius + g),
 	);
 	diamondPath(ctx, cx, cy, half, theme.milestoneRadius);
@@ -333,7 +333,7 @@ export function paintBars(f: PaintFrame): void {
 		const nameWidth = textWidth(ctx, row.name);
 		const inside = row.kind === 'task' && !row.textOnly && nameWidth + 2 * theme.labelPad <= bar.w;
 		if (inside) {
-			ctx.fillStyle = row.critical ? theme.steelInk : theme.barInk;
+			ctx.fillStyle = row.critical ? theme.criticalInk : theme.barInk;
 			ctx.fillText(row.name, bar.x + theme.labelPad, cy + 0.5);
 		}
 		const tail =

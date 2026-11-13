@@ -63,9 +63,6 @@
 	--gantt-bar-shadow-y: 1px;
 	--gantt-critical-shadow-blur: 6px;
 	--gantt-critical-shadow-y: 2px;
-	/* Legacy names read by src/lib/gantt/paint/theme.ts (see theme-light.css). */
-	--gantt-steel-shadow-blur: var(--gantt-critical-shadow-blur);
-	--gantt-steel-shadow-y: var(--gantt-critical-shadow-y);
 	--gantt-summary-height: 9px;
 	--gantt-summary-stem: 3px;
 	--gantt-summary-cap: 2px;
@@ -98,6 +95,8 @@
 	--gantt-arrow-size: 5px;
 	--gantt-outline-width: 1.5px;
 	--gantt-critical-edge-width: 2px;
+	--gantt-critical-post-width: 2px;
+	--gantt-critical-post-reach: 4px;
 	--gantt-marker-width: 1.5px;
 	--gantt-marker-size: 5px;
 	--gantt-crown-width: 12px;

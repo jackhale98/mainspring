@@ -3,7 +3,8 @@
 	The Gantt's floating chips (ADR-0009): the zoom (a dropdown), Today and the critical-path
 	toggle as pills with a glass background over the top left of the chart, and, at its foot, a
 	pill with the selected (or hovered) task and one with the legend of the today and status-date
-	lines. On a phone the chips are one compact row above the chart instead. Only DOM and tokens:
+	lines. On a desktop and a tablet they are one slim band above the chart, so they never cover a
+	row; on a phone the chips are one compact row above the chart and the task line floats. Only DOM and tokens:
 	it holds no state; the Gantt owns the zoom. The chips are a plain group: each is a normal tab
 	stop (a toolbar role would promise arrow-key navigation that three chips do not need). The
 	critical-path chip is not `disabled` while the analysis does not exist (a disabled control
@@ -52,86 +53,97 @@
 	const zoomExact = $derived(ZOOM_ORDER.some((z) => ZOOM_PRESETS[z] === pxPerDay));
 </script>
 
-<div class="chips" role="group" aria-label={strings.gantt.toolbar}>
-	<label class="chip select">
-		<span class="sr-only">{strings.gantt.zoom}</span>
-		<!-- Between two presets the select shows "Week (custom)", so that choosing Week still changes it. -->
-		<select
-			value={zoomExact ? level : 'custom'}
-			onchange={(e) => {
-				if (e.currentTarget.value !== 'custom') onlevel(e.currentTarget.value as ZoomLevel);
-			}}
-			aria-label={strings.gantt.zoom}
+<div class="bar">
+	<div class="chips" role="group" aria-label={strings.gantt.toolbar}>
+		<label class="chip select">
+			<span class="sr-only">{strings.gantt.zoom}</span>
+			<!-- Between two presets the select shows "Week (custom)", so that choosing Week still changes it. -->
+			<select
+				value={zoomExact ? level : 'custom'}
+				onchange={(e) => {
+					if (e.currentTarget.value !== 'custom') onlevel(e.currentTarget.value as ZoomLevel);
+				}}
+				aria-label={strings.gantt.zoom}
+			>
+				{#if !zoomExact}
+					<option value="custom" disabled
+						>{strings.gantt.levelCustom(strings.gantt.level[level])}</option
+					>
+				{/if}
+				{#each ZOOM_ORDER as z (z)}
+					<option value={z}>{strings.gantt.level[z]}</option>
+				{/each}
+			</select>
+			<span class="caret"><Icon name="chevronDown" size={12} /></span>
+		</label>
+		<button
+			type="button"
+			class="chip"
+			onclick={ontoday}
+			disabled={!hasMarker}
+			aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
 		>
-			{#if !zoomExact}
-				<option value="custom" disabled
-					>{strings.gantt.levelCustom(strings.gantt.level[level])}</option
-				>
+			<Icon name="today" size={14} />{strings.gantt.today}
+		</button>
+		<button
+			type="button"
+			class="chip critical"
+			aria-pressed={critical.available ? critical.pressed : undefined}
+			aria-disabled={critical.available ? undefined : 'true'}
+			aria-describedby={critical.available ? undefined : 'critical-why'}
+			title={critical.available ? undefined : strings.gantt.criticalUnavailable}
+			onclick={() => {
+				if (critical.available) oncritical();
+			}}
+		>
+			<Icon name="route" size={14} />{strings.gantt.criticalPath}
+		</button>
+		{#if !critical.available}
+			<span id="critical-why" class="sr-only">{strings.gantt.criticalUnavailable}</span>
+		{/if}
+	</div>
+
+	<!-- The task line is a live region that always exists; its pill shows only with text. -->
+	<p class="task" role="status" class:sr-only={selectedText === '' || hoverText !== ''}>
+		{selectedText}
+	</p>
+	{#if hoverText !== ''}<p class="task hover" aria-hidden="true">{hoverText}</p>{/if}
+	<ul class="legend" aria-label={strings.gantt.legend}>
+		{#if lines.merged}
+			<li class:off={lines.today === 'off'}>
+				<i class="line today"></i>{label(L.both, lines.today)}
+			</li>
+		{:else}
+			{#if lines.today}
+				<li class:off={lines.today === 'off'}>
+					<i class="line today"></i>{label(L.today, lines.today)}
+				</li>
 			{/if}
-			{#each ZOOM_ORDER as z (z)}
-				<option value={z}>{strings.gantt.level[z]}</option>
-			{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
-	</label>
-	<button
-		type="button"
-		class="chip"
-		onclick={ontoday}
-		disabled={!hasMarker}
-		aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
-	>
-		<Icon name="today" size={14} />{strings.gantt.today}
-	</button>
-	<button
-		type="button"
-		class="chip critical"
-		aria-pressed={critical.available ? critical.pressed : undefined}
-		aria-disabled={critical.available ? undefined : 'true'}
-		aria-describedby={critical.available ? undefined : 'critical-why'}
-		title={critical.available ? undefined : strings.gantt.criticalUnavailable}
-		onclick={() => {
-			if (critical.available) oncritical();
-		}}
-	>
-		<Icon name="route" size={14} />{strings.gantt.criticalPath}
-	</button>
-	{#if !critical.available}
-		<span id="critical-why" class="sr-only">{strings.gantt.criticalUnavailable}</span>
-	{/if}
+			{#if lines.status}
+				<li class:off={lines.status === 'off'}>
+					<i class="line status"></i>{label(L.status, lines.status)}
+				</li>
+			{/if}
+		{/if}
+		{#if dimmed}<li class="stale">{strings.gantt.lastGood}</li>{/if}
+	</ul>
 </div>
 
-<!-- The task line is a live region that always exists; its pill shows only with text. -->
-<p class="task" role="status" class:sr-only={selectedText === '' || hoverText !== ''}>
-	{selectedText}
-</p>
-{#if hoverText !== ''}<p class="task hover" aria-hidden="true">{hoverText}</p>{/if}
-<ul class="legend" aria-label={strings.gantt.legend}>
-	{#if lines.merged}
-		<li class:off={lines.today === 'off'}>
-			<i class="line today"></i>{label(L.both, lines.today)}
-		</li>
-	{:else}
-		{#if lines.today}
-			<li class:off={lines.today === 'off'}>
-				<i class="line today"></i>{label(L.today, lines.today)}
-			</li>
-		{/if}
-		{#if lines.status}
-			<li class:off={lines.status === 'off'}>
-				<i class="line status"></i>{label(L.status, lines.status)}
-			</li>
-		{/if}
-	{/if}
-	{#if dimmed}<li class="stale">{strings.gantt.lastGood}</li>{/if}
-</ul>
-
 <style>
+	/* A slim band above the chart (not over it): chips, then the selected task, then the legend.
+	   A phone has no band: its chips are the row, its task line floats (below). */
+	.bar {
+		flex: none;
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		min-inline-size: 0;
+		padding: 7px 14px;
+		border-block-end: 1px solid var(--color-gantt-border);
+		background: var(--color-gantt-surface);
+	}
 	.chips {
-		position: absolute;
-		z-index: 6;
-		inset-block-start: calc(var(--gantt-header-row-height) * 2 + 12px);
-		inset-inline-start: calc(var(--gantt-names) + 14px);
+		flex: none;
 		display: flex;
 		gap: var(--space-2);
 	}
@@ -201,11 +213,8 @@
 		opacity: 0.7;
 	}
 	.task {
-		position: absolute;
-		z-index: 6;
-		inset-block-end: 14px;
-		inset-inline-start: calc(var(--gantt-names) + 14px);
-		max-inline-size: calc(100% - var(--gantt-names) - 28px);
+		flex: 1 1 0;
+		min-inline-size: 0;
 		box-sizing: border-box;
 		margin: 0;
 		padding: 6px 14px;
@@ -213,36 +222,26 @@
 		border: 1px solid var(--color-gantt-border-strong);
 		border-radius: 999px;
 		background: var(--color-gantt-chip);
-		box-shadow: var(--gantt-chip-shadow);
 		color: var(--color-gantt-text);
 		font-size: var(--text-xs);
 		font-variant-numeric: tabular-nums;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		backdrop-filter: blur(6px);
 		pointer-events: none;
 	}
-	.task.hover {
-		z-index: 7;
-	}
 	.legend {
-		position: absolute;
-		z-index: 6;
-		inset-block-start: calc(var(--gantt-header-row-height) * 2 + 12px);
-		inset-inline-end: 22px;
+		flex: none;
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-1) var(--space-3);
-		margin: 0;
+		margin: 0 0 0 auto;
 		padding: 6px 12px;
 		list-style: none;
 		border: 1px solid var(--color-gantt-border-strong);
 		border-radius: 999px;
 		background: var(--color-gantt-chip);
-		box-shadow: var(--gantt-chip-shadow);
 		color: var(--color-gantt-text-muted);
 		font-size: var(--text-xs);
-		backdrop-filter: blur(6px);
 		pointer-events: none;
 	}
 	.legend:not(:has(li)) {
@@ -284,17 +283,9 @@
 			min-block-size: var(--size-tap);
 		}
 	}
-	/* A narrow chart (Split, a tablet) has no room for the legend beside the chips, and under
-	   them it would cover the first bars: only the "last good schedule" notice stays, under the
-	   chips, since that one is a state the user must see. */
-	@container gantt (max-width: 1099px) {
-		.legend {
-			inset-block-start: calc(
-				var(--gantt-header-row-height) * 2 + 12px + var(--gantt-chip-height) + 8px
-			);
-			inset-inline-start: calc(var(--gantt-names) + 14px);
-			inset-inline-end: auto;
-		}
+	/* A narrow chart (Split) has no room for the legend lines: only the "last good schedule"
+	   notice stays, since that one is a state the user must see. */
+	@container gantt (max-width: 899px) {
 		.legend li:not(.stale) {
 			display: none;
 		}
@@ -305,8 +296,10 @@
 	/* A phone: the chips are one compact row above the chart; nothing floats over it but the
 	   task line, which has no room to spare and shows only with a task. */
 	@media (max-width: 599px) {
+		.bar {
+			display: contents;
+		}
 		.chips {
-			position: static;
 			padding: var(--space-2) var(--space-2);
 			background: var(--color-gantt-surface);
 			border-block-end: 1px solid var(--color-gantt-border);
@@ -316,11 +309,18 @@
 			display: none;
 		}
 		.task {
+			position: absolute;
+			z-index: 6;
 			inset-inline-start: var(--space-2);
 			max-inline-size: calc(100% - 2 * var(--space-2));
+			box-shadow: var(--gantt-chip-shadow);
+			backdrop-filter: blur(6px);
 		}
 		.task:not(.sr-only) {
 			inset-block-end: var(--space-2);
+		}
+		.task.hover {
+			z-index: 7;
 		}
 	}
 </style>

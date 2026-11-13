@@ -221,9 +221,8 @@ the steel selection wash) and the "Role mapping" note above.
 | Non-working time | Light grey bands | Enamel shading |
 | Links | Neutral arrows; red on the critical path | Brass; ruby on the critical path |
 
-Rules: colour is never the only cue (WCAG 1.4.1). A critical bar also gets a heavier, contrasting
-edge (`--color-gantt-critical-edge`, `--gantt-critical-edge-width`: 2 px against the 1 px brass
-outline) and a critical link is 2.2 px against 1.2 px; the selected task's line in the live region
+Rules: colour is never the only cue (WCAG 1.4.1). A critical bar also gets a heavier edge in ruby (2 px against the 1 px brass
+outline) and a post at its finish and a critical link is 2.2 px against 1.2 px; the selected task's line in the live region
 adds "Critical path". The status dot differs in shape as well as colour (circle when fine,
 diamond for errors, ring while working) and always has words beside it. Every pair that must be
 told apart is checked under protanopia and deuteranopia simulation (Machado et al. 2009, severity
@@ -254,7 +253,6 @@ under `mainspring.theme`.
 | `--color-ruby` / `ruby-wash` / `ruby-ink` | #A3123A / #F7E3E8 / #8A0F31 | #F0627E / #3A1620 / #F6A3B5 | errors, critical |
 | `--color-critical` (links, summary) | #A3123A | #F0627E | critical path |
 | `--color-gantt-critical-top` / `bottom` | #C0264F / #A3123A | #C93E63 / #A3274A | critical bar gradient |
-| `--color-gantt-critical-edge` | #6E0B26 | #F0627E | critical bar edge |
 | `--color-gantt-critical-ink` | #FFFFFF | #FFFFFF | text on critical bars |
 | `--color-gantt-bar-top` / `bottom` / `outline` | #F7EFDC / #EADDBD / #9A7424 | #3B3322 / #2A2417 / #C9A24D | normal bars (brass) |
 | `--color-gantt-link` | #9A7424 | #C9A24D | links |
@@ -284,10 +282,9 @@ Measured (WCAG ratio; deuteranopia distance in parentheses):
 
 ### Consequences of this refinement
 
-- The Gantt painter reads the critical bar's colours through legacy `--color-gantt-steel-*` and
-  `--gantt-steel-shadow-*` names, which are now aliases of the `critical-*` tokens. The painter's
-  owner renames the reads, draws the second cue with `--color-gantt-critical-edge` and
-  `--gantt-critical-edge-width`, and then the aliases go.
+- The Gantt painter draws the second cue of the critical path (a 2 px edge in `--color-critical`
+  and a post at the bar's finish, `--gantt-critical-edge-width`, `--gantt-critical-post-width`,
+  `--gantt-critical-post-reach`) and reads the critical bar's colours from the `critical-*` tokens.
 - Pinch over the chart zooms the chart, not the page (phase-2.md 8.2: "pinch is ours"). The page
   stays an app-like fixed shell; browser zoom stays available from the keyboard and menu (WCAG
   1.4.4). A mouse or pen over the chart gets a non-passive wheel listener (a trackpad pinch is a
