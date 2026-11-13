@@ -9,6 +9,9 @@ const READY_TIMEOUT_MS = 120_000;
 const SCREENSHOT_DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-0');
 
 test.describe('app shell', () => {
+	// The whole test, not only the wait for Ready, must outlast a slow WebKit boot on a loaded runner.
+	test.setTimeout(READY_TIMEOUT_MS + 30_000);
+
 	test('shows the app name and engine status', async ({ page }) => {
 		await page.goto('/app');
 		await expect(page.getByRole('heading', { level: 1, name: 'Mainspring' })).toBeVisible();
