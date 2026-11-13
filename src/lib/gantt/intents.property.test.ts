@@ -22,59 +22,16 @@ import { syntaxIssues } from '../tjp/tree';
 import { dateEpoch, parseDate } from '../tjp/values/date';
 import type { ZoneOffsets } from '../tjp/values/civil';
 import { createWorkspace, type WorkspaceSnapshot } from '../workspace/workspace';
-import { checkAction, earliestStart, planAction, type GanttAction, type MoveKind } from './intents';
+import { checkAction, earliestStart, planAction, type MoveKind } from './intents';
 import { scenarioOf } from './intents-facts';
-import { goldenResult, manipulation } from './intents-testing';
+import { actionArb, goldenResult, manipulation } from './intents-testing';
 import { writeDate } from './intents-time';
 
 const RUNS = Number(process.env['GANTT_INTENT_RUNS'] ?? 200);
 const SEED = process.env['FC_SEED'] === undefined ? {} : { seed: Number(process.env['FC_SEED']) };
 const fx = manipulation();
 const TASKS = [...fx.index.tasks.keys()];
-const PEOPLE = ['dev1', 'dev2', 'dev3', 'ops1'];
-const FRAME_END = fx.ctx().wt?.frameEnd ?? 0;
-
-/** A task of the fixture, sometimes one that does not exist. */
-const task = fc.oneof(
-	{ arbitrary: fc.constantFrom(...TASKS), weight: 9 },
-	{ arbitrary: fc.constant('nope'), weight: 1 },
-);
-const parent = fc.oneof(fc.constant(null), fc.constantFrom(...TASKS));
-const person = fc.constantFrom(...PEOPLE);
-const action: fc.Arbitrary<GanttAction> = fc.oneof(
-	fc.record({
-		type: fc.constant('resize'),
-		task,
-		end: fc.integer({ min: -1440, max: FRAME_END + 1440 }),
-	}),
-	fc.record({ type: fc.constant('size-step'), task, steps: fc.integer({ min: -4, max: 4 }) }),
-	fc.record({ type: fc.constant('move'), task, days: fc.integer({ min: -15, max: 15 }) }),
-	// Most random pairs are refused (cycles, ALAP clashes), so links are drawn more often.
-	...Array.from({ length: 4 }, () =>
-		fc.record({
-			type: fc.constant('link' as const),
-			pred: fc.constantFrom(...TASKS),
-			succ: fc.constantFrom(...TASKS),
-		}),
-	),
-	fc.record({ type: fc.constant('unlink'), link: fc.constantFrom(...fx.links) }),
-	fc.record({ type: fc.constant('reorder'), task, parent, index: fc.nat({ max: 6 }) }),
-	fc.record({
-		type: fc.constantFrom('assign' as const, 'unassign' as const),
-		task,
-		resource: person,
-	}),
-	fc.record({ type: fc.constant('replace-person'), task, from: person, to: person }),
-	fc.record({ type: fc.constant('rename'), task, name: fc.string({ maxLength: 12 }) }),
-	fc.record({ type: fc.constant('progress'), task, percent: fc.integer({ min: -20, max: 130 }) }),
-	fc.record({
-		type: fc.constant('add'),
-		parent,
-		index: fc.nat({ max: 6 }),
-		name: fc.string({ minLength: 1, maxLength: 12 }),
-	}),
-	fc.record({ type: fc.constant('delete'), task }),
-);
+const action = actionArb(fx);
 const move = fc.constantFrom<MoveKind | null>(null, 'start', 'gap');
 
 const issues = (snap: WorkspaceSnapshot): number =>

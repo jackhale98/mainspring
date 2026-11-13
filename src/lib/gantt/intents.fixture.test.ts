@@ -5,6 +5,8 @@
 // written by hand from the spec's "Text change" column and the 7.2 layout rules (statement order
 // `start, end, ..., effort|duration|length, depends, precedes, allocate, complete`, then child
 // tasks), as a replacement of exact original lines; none is copied from the module's output.
+// Over 400 lines on purpose: the whole 7.1 table stays in one file, row by row, so its coverage
+// can be read against the spec in one place.
 //
 // Dates: the project starts Monday 2026-03-02 00:00 UTC; working time is Monday to Friday,
 // 09:00 to 17:00 (the default). `at('2026-03-06', 17)` is Friday 6 March at 17:00 in minutes.

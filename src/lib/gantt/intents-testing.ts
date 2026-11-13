@@ -6,6 +6,7 @@
  * see the files after an action.
  */
 import fs from 'node:fs';
+import fc from 'fast-check';
 import path from 'node:path';
 import type { ScheduleResult } from '../../engine/protocol';
 import { ROOT } from '../../../tests/grammar/corpus';
@@ -109,4 +110,71 @@ export function patched(text: string, from: string, to: string): string {
 		throw new Error(`expected exactly one ${JSON.stringify(from)}`);
 	}
 	return text.slice(0, at) + to + text.slice(at + from.length);
+}
+
+/**
+ * Random Gantt actions on a fixture: mostly its own tasks (sometimes a missing one), its
+ * resources and its drawn links, with links drawn more often (most random pairs are refused).
+ */
+export function actionArb(
+	fx: Fixture,
+	people: readonly string[] = ['dev1', 'dev2', 'dev3', 'ops1'],
+): fc.Arbitrary<GanttAction> {
+	const TASKS = [...fx.index.tasks.keys()];
+	const FRAME_END = fx.ctx().wt?.frameEnd ?? 0;
+	const task = fc.oneof(
+		{ arbitrary: fc.constantFrom(...TASKS), weight: 9 },
+		{ arbitrary: fc.constant('nope'), weight: 1 },
+	);
+	const parent = fc.oneof(fc.constant(null), fc.constantFrom(...TASKS));
+	const person = fc.constantFrom(...people);
+	const links =
+		fx.links.length > 0
+			? [fc.record({ type: fc.constant('unlink' as const), link: fc.constantFrom(...fx.links) })]
+			: [];
+	return fc.oneof(
+		fc.record({
+			type: fc.constant('resize' as const),
+			task,
+			end: fc.integer({ min: -1440, max: FRAME_END + 1440 }),
+		}),
+		fc.record({
+			type: fc.constant('size-step' as const),
+			task,
+			steps: fc.integer({ min: -4, max: 4 }),
+		}),
+		fc.record({
+			type: fc.constant('move' as const),
+			task,
+			days: fc.integer({ min: -15, max: 15 }),
+		}),
+		...Array.from({ length: 4 }, () =>
+			fc.record({
+				type: fc.constant('link' as const),
+				pred: fc.constantFrom(...TASKS),
+				succ: fc.constantFrom(...TASKS),
+			}),
+		),
+		...links,
+		fc.record({ type: fc.constant('reorder' as const), task, parent, index: fc.nat({ max: 6 }) }),
+		fc.record({
+			type: fc.constantFrom('assign' as const, 'unassign' as const),
+			task,
+			resource: person,
+		}),
+		fc.record({ type: fc.constant('replace-person' as const), task, from: person, to: person }),
+		fc.record({ type: fc.constant('rename' as const), task, name: fc.string({ maxLength: 12 }) }),
+		fc.record({
+			type: fc.constant('progress' as const),
+			task,
+			percent: fc.integer({ min: -20, max: 130 }),
+		}),
+		fc.record({
+			type: fc.constant('add' as const),
+			parent,
+			index: fc.nat({ max: 6 }),
+			name: fc.string({ minLength: 1, maxLength: 12 }),
+		}),
+		fc.record({ type: fc.constant('delete' as const), task }),
+	);
 }
