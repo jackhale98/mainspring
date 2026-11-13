@@ -96,5 +96,9 @@ away because work was split or delegated too early. These rules refine the loop 
 - Phase 1 approved 2026-11-12 (`docs/phases/phase-1-gate.md`). Phase 2 in progress
   (`docs/phases/phase-2.md`, approved 2026-11-12; ADR-0007, ADR-0008). Goldens are
   provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
+- The user approved moving into Phase 3 as soon as Phase 2 is done (2026-11-13). Record the gate
+  evidence in `docs/phases/phase-2-gate.md` as usual, then start Phase 3 without waiting. Show the
+  user the Phase 3 spec when it is written. Polish (`docs/phases/phase-2-polish.md`) waits until
+  Phase 2 is finished.
 - Public preview on GitHub Pages from `main` (ADR-0006); the OpenSSL issue in ADR-0001 still blocks a real release.
 - `poc/` is the frozen proof of concept; see `poc/INVENTORY.md`. Never edit it.
