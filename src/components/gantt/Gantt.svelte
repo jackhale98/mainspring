@@ -90,6 +90,8 @@
 	let nameColW = $state(0);
 	let remPx = $state(16);
 	let hoverRow = $state<number | null>(null);
+	/** The task pill's height while it shows (a phone floats it over the chart's foot). */
+	let pillH = $state(0);
 	const critical = new GanttAnalysis();
 
 	// Rows from the outline joined with a good result (gantt-analysis picks which; never computed
@@ -275,6 +277,7 @@
 	data-testid="gantt"
 	data-zoom={nearestLevel(pxPerDay)}
 	style:--gantt-extras="{columns.extraRem}rem"
+	style:--gantt-pill-h={pillH > 0 ? `${pillH}px` : undefined}
 	{onkeydown}
 >
 	<span class="probes" aria-hidden="true">
@@ -291,6 +294,7 @@
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
 		oncritical={() => critical.toggle()}
+		onpill={(h) => (pillH = h)}
 	/>
 
 	{#if model.rows.length === 0}
@@ -450,6 +454,12 @@
 	@media (max-width: 599px) {
 		.gantt {
 			--gantt-name-col: 7.75rem;
+			/* The floating task pill and its gap, while it shows (invalid without it: no room kept). */
+			--gantt-pill-reserve: calc(var(--gantt-pill-h) + 2 * var(--space-2));
+		}
+		/* So that the last row can be scrolled up out from under the pill. */
+		.scroller {
+			padding-block-end: var(--gantt-pill-reserve, 0px);
 		}
 	}
 </style>
