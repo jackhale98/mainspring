@@ -70,7 +70,9 @@ export interface RouteStyle {
 	readonly approach: number;
 	/**
 	 * Where the names beside bars are, by row (`GanttLayout.labels`): a vertical leg of a path
-	 * steps off a name that it would run through. Null to ignore them.
+	 * steps off the names of the rows between its ends that it would run through. The ends' own
+	 * names are never in play: a leg may not move so far that a horizontal run into or out of an
+	 * end crosses that end's own name. Null to ignore the names.
 	 */
 	readonly runs: Float64Array | null;
 }
@@ -91,11 +93,19 @@ function blocking(runs: Float64Array, lo: number, hi: number, x: number): number
 	return -1;
 }
 
+/** Where the name beside row `r`'s bar starts, or Infinity when it has none (or it is inside). */
+function nameStart(runs: Float64Array | null, r: number): number {
+	if (runs === null || LABEL_STRIDE * r >= runs.length || runs[LABEL_STRIDE * r + 2] !== 0) {
+		return Infinity;
+	}
+	return runs[LABEL_STRIDE * r] ?? Infinity;
+}
+
 /**
  * Where a vertical leg at `x` that crosses rows `lo` to `hi` can run without going through a
  * name beside a bar: `x` itself when it is free, else the nearest edge of the names in the way in
  * the preferred direction (1 right, -1 left) that stays within `[min, max]`, else the other way,
- * else `x` (a leg that cannot step off runs through, behind the text's own halo).
+ * else `x` (a leg that cannot step off runs through the name; it is not moved to somewhere worse).
  */
 function stepOff(
 	runs: Float64Array | null,
@@ -136,8 +146,15 @@ export function routeLink(
 	style: RouteStyle,
 ): void {
 	const { elbow, rowHeight, approach, runs } = style;
-	const top = Math.min(link.predRow, link.succRow);
-	const bottom = Math.max(link.predRow, link.succRow);
+	// The rows strictly between the ends: the only ones whose names a leg steps off.
+	const top = Math.min(link.predRow, link.succRow) + 1;
+	const bottom = Math.max(link.predRow, link.succRow) - 1;
+	// A leg right of an end that leaves or enters a bar by its end may not pass that bar's own name:
+	// the horizontal run to the end would cross it.
+	const capRight = Math.min(
+		link.from === 'end' ? nameStart(runs, link.predRow) - RUN_PAD : Infinity,
+		link.to === 'end' ? nameStart(runs, link.succRow) - RUN_PAD : Infinity,
+	);
 	out.n = 0;
 	const x0 = link.from === 'end' ? pred.x + pred.w : pred.x;
 	const y0 = pred.y + pred.h / 2;
@@ -170,7 +187,7 @@ export function routeLink(
 			bottom,
 			edge,
 			Math.min(edge, edge + d0 * MAX_SHIFT),
-			Math.max(edge, edge + d0 * MAX_SHIFT),
+			Math.min(Math.max(edge, edge + d0 * MAX_SHIFT), capRight),
 			d0 > 0 ? 1 : -1,
 		);
 		put(out, x0, y0);
@@ -182,7 +199,7 @@ export function routeLink(
 	if ((x1 - a) * d1 >= approach) {
 		// The leg may move along the run, between the first bend's room and the approach.
 		const lo = Math.min(x0 + d0 * 2, x1 - d1 * approach);
-		const hi = Math.max(x0 + d0 * 2, x1 - d1 * approach);
+		const hi = Math.min(Math.max(x0 + d0 * 2, x1 - d1 * approach), capRight);
 		const leg = stepOff(runs, top, bottom, a, lo, hi, d0 > 0 ? 1 : -1);
 		put(out, x0, y0);
 		put(out, leg, y0);
@@ -194,10 +211,16 @@ export function routeLink(
 	const yMid = (down ? link.predRow + 1 : link.predRow) * rowHeight;
 	// The second leg runs from the boundary to the target's row, past the rows between; it only
 	// steps further back from the target.
-	const lo = down ? link.predRow + 1 : link.succRow;
-	const hi = down ? link.succRow : link.predRow - 1;
 	const back = b - d1 * MAX_SHIFT;
-	const leg = stepOff(runs, lo, hi, b, Math.min(b, back), Math.max(b, back), d1 > 0 ? -1 : 1);
+	const leg = stepOff(
+		runs,
+		top,
+		bottom,
+		b,
+		Math.min(b, back),
+		Math.min(Math.max(b, back), capRight),
+		d1 > 0 ? -1 : 1,
+	);
 	put(out, x0, y0);
 	put(out, a, y0);
 	put(out, a, yMid);
