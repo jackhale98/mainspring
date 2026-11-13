@@ -3,15 +3,20 @@
  * Dependency lines (phase-2.md 8.1), drawn under the bars: routed paths from the predecessor's
  * start or end to the successor's start or end (finish to start, start to start, finish to
  * finish, start to finish), with rounded corners where there is room and a small open arrow head
- * along the last segment, a little short of the bar. Critical links are blued steel and thicker
- * (the thickness and the treegrid's critical column carry the meaning where colour cannot, WCAG
- * 1.4.1). A link only the engine knows is dashed; one the text declares but the schedule does not
- * show yet is dotted in the pending colour. Only links with a row in the painted range are looked
- * at, and the ones that share a style are stroked in one path.
+ * along the last segment, a little short of the bar. Critical links are in the critical colour
+ * and thicker (the thickness and the treegrid's critical column carry the meaning where colour
+ * cannot, WCAG 1.4.1). A link only the engine knows is dashed; one the text declares but the
+ * schedule does not show yet is dotted in the pending colour. Only links with a row in the painted
+ * range are looked at, and the ones that share a style are stroked in one path.
+ *
+ * A frame allocates nothing here (phase-2.md 6.3): paths are routed into one scratch `PathBuf`,
+ * and the arrow heads of a pass are kept in a typed array that only ever grows.
  */
 import type { GanttLink } from '../model';
-import { rowRange, type GanttLayout, type Point } from '../layout';
+import { rowRange, type GanttLayout } from '../layout';
+import { newPath, type PathBuf } from '../route';
 import type { PaintFrame } from './canvas';
+import type { Theme } from './theme';
 
 type Style = 'normal' | 'engine' | 'pending' | 'critical';
 
@@ -20,16 +25,24 @@ function styleOf(l: GanttLink): Style {
 	return l.state === 'declared' ? 'normal' : l.state;
 }
 
-/** The unit direction of the last segment that has a length, or null for a degenerate path. */
-function arrival(path: readonly Point[]): { dx: number; dy: number } | null {
-	for (let i = path.length - 1; i > 0; i--) {
-		const a = path[i - 1];
-		const b = path[i];
-		if (!a || !b) continue;
-		const len = Math.hypot(b.x - a.x, b.y - a.y);
-		if (len > 0.5) return { dx: (b.x - a.x) / len, dy: (b.y - a.y) / len };
+const path: PathBuf = newPath();
+const dir = { dx: 0, dy: 0 };
+/** Arrow heads of the pass being drawn: tip x, tip y, direction x, direction y. */
+let heads = new Float64Array(256);
+
+/** The unit direction of the last segment that has a length, into `dir`; false for a degenerate path. */
+function arrival(p: PathBuf): boolean {
+	for (let i = p.n - 1; i > 0; i--) {
+		const dx = (p.xy[2 * i] ?? 0) - (p.xy[2 * i - 2] ?? 0);
+		const dy = (p.xy[2 * i + 1] ?? 0) - (p.xy[2 * i - 1] ?? 0);
+		const len = Math.hypot(dx, dy);
+		if (len > 0.5) {
+			dir.dx = dx / len;
+			dir.dy = dy / len;
+			return true;
+		}
 	}
-	return null;
+	return false;
 }
 
 /**
@@ -37,70 +50,81 @@ function arrival(path: readonly Point[]): { dx: number; dy: number } | null {
  * at most `radius`, and at most half of each segment beside it, so a short segment keeps a sharp
  * corner rather than a kink.
  */
-export function roundedPolyline(
-	ctx: CanvasRenderingContext2D,
-	path: readonly Point[],
-	radius: number,
-): void {
-	const [head, ...rest] = path;
-	if (!head) return;
-	ctx.moveTo(head.x, head.y);
-	for (let i = 0; i < rest.length; i++) {
-		const p = rest[i];
-		if (!p) continue;
-		const prev = path[i];
-		const next = rest[i + 1];
-		if (!prev || !next) {
-			ctx.lineTo(p.x, p.y);
+export function roundedPolyline(ctx: CanvasRenderingContext2D, p: PathBuf, radius: number): void {
+	const xy = p.xy;
+	if (p.n === 0) return;
+	ctx.moveTo(xy[0] ?? 0, xy[1] ?? 0);
+	for (let i = 1; i < p.n; i++) {
+		const px = xy[2 * i] ?? 0;
+		const py = xy[2 * i + 1] ?? 0;
+		if (i === p.n - 1) {
+			ctx.lineTo(px, py);
 			continue;
 		}
-		const inLen = Math.hypot(p.x - prev.x, p.y - prev.y);
-		const outLen = Math.hypot(next.x - p.x, next.y - p.y);
+		const ax = xy[2 * i - 2] ?? 0;
+		const ay = xy[2 * i - 1] ?? 0;
+		const nx = xy[2 * i + 2] ?? 0;
+		const ny = xy[2 * i + 3] ?? 0;
+		const inLen = Math.hypot(px - ax, py - ay);
+		const outLen = Math.hypot(nx - px, ny - py);
 		const r = Math.min(radius, inLen / 2, outLen / 2);
 		if (r < 1) {
-			ctx.lineTo(p.x, p.y);
+			ctx.lineTo(px, py);
 			continue;
 		}
-		ctx.lineTo(p.x - ((p.x - prev.x) / inLen) * r, p.y - ((p.y - prev.y) / inLen) * r);
-		ctx.quadraticCurveTo(
-			p.x,
-			p.y,
-			p.x + ((next.x - p.x) / outLen) * r,
-			p.y + ((next.y - p.y) / outLen) * r,
-		);
+		ctx.lineTo(px - ((px - ax) / inLen) * r, py - ((py - ay) / inLen) * r);
+		ctx.quadraticCurveTo(px, py, px + ((nx - px) / outLen) * r, py + ((ny - py) / outLen) * r);
 	}
 }
 
-/** The path with its last point pulled back `gap` along the last segment. */
-function shortened(path: readonly Point[], gap: number): readonly Point[] {
-	const dir = arrival(path);
-	const end = path[path.length - 1];
-	if (!dir || !end || gap <= 0) return path;
-	return [...path.slice(0, -1), { x: end.x - dir.dx * gap, y: end.y - dir.dy * gap }];
+/** Pulls the last point back `gap` along the last segment, in place. */
+function shorten(p: PathBuf, gap: number): void {
+	if (gap <= 0 || p.n < 2 || !arrival(p)) return;
+	const last = 2 * (p.n - 1);
+	p.xy[last] = (p.xy[last] ?? 0) - dir.dx * gap;
+	p.xy[last + 1] = (p.xy[last + 1] ?? 0) - dir.dy * gap;
+}
+
+/** Adds the two strokes of an open arrow head with its tip at (x, y), pointing along (dx, dy). */
+function addHead(
+	ctx: CanvasRenderingContext2D,
+	x: number,
+	y: number,
+	dx: number,
+	dy: number,
+	size: number,
+): void {
+	const half = size * 0.7;
+	const bx = x - dx * size;
+	const by = y - dy * size;
+	ctx.moveTo(bx - dy * half, by + dx * half);
+	ctx.lineTo(x, y);
+	ctx.lineTo(bx + dy * half, by - dx * half);
+}
+
+/**
+ * Routes a link into the scratch path, pulled back by the link gap, ready to stroke; false when
+ * a bar is missing. Shared by the base layer and the hovered link, so that they run on the very
+ * same shortened, rounded path.
+ */
+export function routeShortened(layout: GanttLayout, link: GanttLink, theme: Theme): PathBuf | null {
+	if (!layout.linkInto(link, path)) return null;
+	shorten(path, theme.linkGap);
+	return path;
+}
+
+/** Adds a link's line and its arrow head to the current path (the hovered link's stroke). */
+export function traceLink(ctx: CanvasRenderingContext2D, p: PathBuf, theme: Theme): void {
+	roundedPolyline(ctx, p, theme.linkRadius);
+	if (!arrival(p)) return;
+	const last = 2 * (p.n - 1);
+	addHead(ctx, p.xy[last] ?? 0, p.xy[last + 1] ?? 0, dir.dx, dir.dy, theme.arrowSize);
 }
 
 export function paintLinks(f: PaintFrame): void {
 	const { ctx, win, layout, model, theme } = f;
 	const arrow = theme.arrowSize;
-	const half = arrow * 0.7;
 	const { first, last } = rowRange(layout, win.y, win.h, 0);
-	const visible: Array<{ link: GanttLink; path: ReturnType<GanttLayout['linkPath']> }> = [];
-	for (const link of model.links) {
-		const top = Math.min(link.predRow, link.succRow);
-		const bottom = Math.max(link.predRow, link.succRow);
-		if (bottom < first || top >= last) continue;
-		const path = layout.linkPath(link);
-		if (path.length < 2) continue;
-		let minX = Infinity;
-		let maxX = -Infinity;
-		for (const p of path) {
-			if (p.x < minX) minX = p.x;
-			if (p.x > maxX) maxX = p.x;
-		}
-		if (maxX < win.x - arrow || minX > win.x + win.w + arrow) continue;
-		visible.push({ link, path: shortened(path, theme.linkGap) });
-	}
-
 	const dashed = [theme.dash, theme.dash * 0.75];
 	const dotted = [theme.linkWidth, theme.dash * 0.6];
 	const passes: Array<[Style, string, number, number[]]> = [
@@ -110,28 +134,64 @@ export function paintLinks(f: PaintFrame): void {
 		['critical', theme.critical, theme.linkWidthCritical, []],
 	];
 	for (const [style, colour, width, dash] of passes) {
-		const mine = visible.filter((v) => styleOf(v.link) === style);
-		if (mine.length === 0) continue;
-		ctx.strokeStyle = colour;
-		ctx.lineWidth = width;
-		ctx.lineJoin = 'round';
-		ctx.lineCap = 'round';
-		ctx.setLineDash(dash);
-		ctx.beginPath();
-		for (const { path } of mine) roundedPolyline(ctx, path, theme.linkRadius);
+		let count = 0;
+		let any = false;
+		for (const link of model.links) {
+			if (styleOf(link) !== style) continue;
+			if (
+				Math.max(link.predRow, link.succRow) < first ||
+				Math.min(link.predRow, link.succRow) >= last
+			) {
+				continue;
+			}
+			if (!layout.linkInto(link, path)) continue;
+			let minX = Infinity;
+			let maxX = -Infinity;
+			for (let i = 0; i < path.n; i++) {
+				const x = path.xy[2 * i] ?? 0;
+				if (x < minX) minX = x;
+				if (x > maxX) maxX = x;
+			}
+			if (maxX < win.x - arrow || minX > win.x + win.w + arrow) continue;
+			if (!any) {
+				ctx.strokeStyle = colour;
+				ctx.lineWidth = width;
+				ctx.lineJoin = 'round';
+				ctx.lineCap = 'round';
+				ctx.setLineDash(dash);
+				ctx.beginPath();
+				any = true;
+			}
+			shorten(path, theme.linkGap);
+			roundedPolyline(ctx, path, theme.linkRadius);
+			if (arrival(path)) {
+				if (4 * (count + 1) > heads.length) {
+					const grown = new Float64Array(heads.length * 2);
+					grown.set(heads);
+					heads = grown;
+				}
+				const end = 2 * (path.n - 1);
+				heads[4 * count] = path.xy[end] ?? 0;
+				heads[4 * count + 1] = path.xy[end + 1] ?? 0;
+				heads[4 * count + 2] = dir.dx;
+				heads[4 * count + 3] = dir.dy;
+				count++;
+			}
+		}
+		if (!any) continue;
 		ctx.stroke();
 		ctx.setLineDash([]);
 		// Open arrow heads: two short strokes back from the tip.
 		ctx.beginPath();
-		for (const { path } of mine) {
-			const end = path[path.length - 1];
-			const dir = arrival(path);
-			if (!end || !dir) continue;
-			const bx = end.x - dir.dx * arrow;
-			const by = end.y - dir.dy * arrow;
-			ctx.moveTo(bx - dir.dy * half, by + dir.dx * half);
-			ctx.lineTo(end.x, end.y);
-			ctx.lineTo(bx + dir.dy * half, by - dir.dx * half);
+		for (let i = 0; i < count; i++) {
+			addHead(
+				ctx,
+				heads[4 * i] ?? 0,
+				heads[4 * i + 1] ?? 0,
+				heads[4 * i + 2] ?? 0,
+				heads[4 * i + 3] ?? 0,
+				arrow,
+			);
 		}
 		ctx.stroke();
 	}

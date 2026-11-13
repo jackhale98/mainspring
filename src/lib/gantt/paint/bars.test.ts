@@ -19,10 +19,14 @@ describe('paintBars', () => {
 		// The task's name is inside its pill; the milestone's name is right of the jewel.
 		expect(code?.[2]).toBe(frame.theme.labelPad);
 		expect(ship?.[2]).toBeGreaterThan(144);
-		// The pill's path three times (fill, clip, outline), four corners each, and the jewel's one:
-		// a rounded square turned a quarter.
-		expect(rec.of('arcTo').length).toBe(16);
-		expect(rec.of('rotate').length).toBe(2);
+		// The pill's path four times (shadow, fill, clip, outline), four corners each; the jewel's
+		// three (glow twice, body), each a rounded square turned a quarter.
+		expect(rec.of('arcTo').length).toBe(4 * 4 + 3 * 4);
+		expect(rec.of('rotate')).toEqual([
+			['rotate', Math.PI / 4],
+			['rotate', Math.PI / 4],
+			['rotate', Math.PI / 4],
+		]);
 	});
 
 	it('gives a brass pill a gradient, a shadow, a lit edge and an outline', () => {
@@ -30,24 +34,102 @@ describe('paintBars', () => {
 		paintBars(frame);
 		const stops = rec.of('addColorStop').map((c) => c[2]);
 		expect(stops).toEqual([frame.theme.barTop, frame.theme.barBottom]);
-		expect(rec.of('set:shadowColor')[0]?.[1]).toBe(frame.theme.barShadow);
-		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.barHighlight);
+		// The shadow is an offset fill in the shadow colour, under the bar's own fill.
+		const fills = rec.of('set:fillStyle').map((c) => c[1]);
+		expect(fills[0]).toBe(frame.theme.barShadow);
+		expect(fills).toContain(frame.theme.barHighlight);
 		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([frame.theme.barOutline]);
 		expect(rec.of('set:lineWidth').map((c) => c[1])).toContain(frame.theme.barOutlineWidth);
 		// Text inside, in the bar ink.
-		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.barInk);
+		expect(fills).toContain(frame.theme.barInk);
 	});
 
-	it('gives a critical bar a steel gradient and white text, and no outline', () => {
+	it('never uses shadowBlur, which costs several times the fill: shadows are offset fills', () => {
+		const m = modelOf([
+			row(0, 0, 10 * D, 'task', { critical: true }),
+			row(1, 0, 10 * D),
+			row(2, 2 * D, 2 * D, 'milestone'),
+			row(3, 2 * D, 2 * D, 'milestone', { critical: true }),
+		]);
+		const { frame, rec } = frameOf(m);
+		paintBars(frame);
+		expect(rec.calls.some((c) => c[0].startsWith('set:shadow'))).toBe(false);
+		// The brass pill's shadow is one fill moved down by the shadow offset and grown by half the blur.
+		const t = frame.theme;
+		const bar = frame.layout.barRect(1);
+		const pill = rec
+			.of('moveTo')
+			.find(
+				(c) =>
+					c[1] ===
+					(bar?.x ?? 0) -
+						t.barShadowBlur / 2 +
+						Math.min(t.barRadius, (bar?.w ?? 0) / 3) +
+						t.barShadowBlur / 2,
+			);
+		expect(pill).toBeDefined();
+	});
+
+	it('makes one gradient per style however many bars, and moves it onto each bar', () => {
+		const rows = Array.from({ length: 12 }, (_, i) =>
+			row(i, 0, 6 * D, 'task', { critical: i % 4 === 0 }),
+		);
+		const { frame, rec } = frameOf(modelOf(rows));
+		paintBars(frame);
+		// A brass and a steel gradient, in unit space (the bar's box is the transform's job).
+		expect(rec.of('createLinearGradient')).toEqual([
+			['createLinearGradient', 0, 0, 0, 1],
+			['createLinearGradient', 0, 0, 0, 1],
+		]);
+		const transforms = rec.of('transform');
+		expect(transforms.length).toBe(12);
+		const bar = frame.layout.barRect(1);
+		expect(transforms).toContainEqual(['transform', 1, 0, 0, bar?.h, bar?.x, bar?.y]);
+		// The frame is put back after each, so what follows draws in content coordinates.
+		expect(rec.of('setTransform').length).toBeGreaterThanOrEqual(12);
+		// A second frame on the same context and theme makes none.
+		rec.clear();
+		paintBars(frame);
+		expect(rec.of('createLinearGradient')).toHaveLength(0);
+	});
+
+	it('gives a critical bar a second cue besides its colour: a heavier edge and a finish post', () => {
 		const { frame, rec } = frameOf(modelOf([row(0, 0, 10 * D, 'task', { critical: true })]));
 		paintBars(frame);
-		expect(rec.of('addColorStop').map((c) => c[2])).toEqual([
-			frame.theme.steelTop,
-			frame.theme.steelBottom,
-		]);
-		expect(rec.of('set:shadowColor')[0]?.[1]).toBe(frame.theme.steelShadow);
-		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.steelInk);
-		expect(rec.of('stroke')).toHaveLength(0);
+		const t = frame.theme;
+		expect(rec.of('addColorStop').map((c) => c[2])).toEqual([t.steelTop, t.steelBottom]);
+		const fills = rec.of('set:fillStyle').map((c) => c[1]);
+		expect(fills[0]).toBe(t.steelShadow);
+		expect(fills).toContain(t.steelInk);
+		// The edge: heavier than the brass outline, in the critical colour.
+		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.critical]);
+		expect(rec.of('set:lineWidth').map((c) => c[1])).toEqual([t.criticalEdgeWidth]);
+		expect(t.criticalEdgeWidth).toBeGreaterThan(t.barOutlineWidth);
+		// The post: past the bar's finish edge, taller than the bar by the reach on each side.
+		const bar = frame.layout.barRect(0);
+		const post = rec
+			.of('fillRect')
+			.find(
+				(c) => c[3] === t.criticalPostWidth && c[4] === (bar?.h ?? 0) + 2 * t.criticalPostReach,
+			);
+		expect(post?.[1]).toBeGreaterThan((bar?.x ?? 0) + (bar?.w ?? 0));
+		// A plain bar has neither.
+		const plain = frameOf(modelOf([row(0, 0, 10 * D)]));
+		paintBars(plain.frame);
+		expect(plain.rec.of('fillRect').some((c) => c[3] === t.criticalPostWidth)).toBe(false);
+	});
+
+	it('marks a critical summary with the post too, and a critical milestone with a heavier edge', () => {
+		const t = frameOf(modelOf([])).frame.theme;
+		const summary = frameOf(modelOf([row(0, 0, 10 * D, 'container', { critical: true })]));
+		paintBars(summary.frame);
+		expect(summary.rec.of('set:fillStyle').map((c) => c[1])).toContain(t.critical);
+		expect(summary.rec.of('fillRect').some((c) => c[3] === t.criticalPostWidth)).toBe(true);
+		const jewel = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone', { critical: true })]));
+		paintBars(jewel.frame);
+		expect(jewel.rec.of('set:lineWidth').map((c) => c[1])).toEqual([t.criticalEdgeWidth]);
+		expect(jewel.rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.critical]);
+		expect(jewel.rec.of('fillRect').some((c) => c[3] === t.criticalPostWidth)).toBe(false);
 	});
 
 	it('draws a summary as a stem with a short cap at each end', () => {
@@ -69,18 +151,23 @@ describe('paintBars', () => {
 		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.summary);
 	});
 
-	it('draws a jewel with a glow, and a critical one in steel', () => {
+	it('draws a jewel with a glow, an edge, and a critical one in steel', () => {
 		const { frame, rec } = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone')]));
 		paintBars(frame);
-		expect(rec.of('set:shadowColor')[0]?.[1]).toBe(frame.theme.jewelGlow);
+		expect(rec.of('set:fillStyle')[0]?.[1]).toBe(frame.theme.jewelGlow);
 		expect(rec.of('addColorStop').map((c) => c[2])).toEqual([
 			frame.theme.jewelHigh,
 			frame.theme.milestone,
 			frame.theme.jewelDeep,
 		]);
+		// An edge in the link colour: the jewel's upper half alone is under 3:1 on the light panel.
+		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([frame.theme.link]);
+		expect(rec.of('set:lineWidth').map((c) => c[1])).toEqual([frame.theme.barOutlineWidth]);
+		expect(rec.of('stroke')).toHaveLength(1);
 		const steel = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone', { critical: true })]));
 		paintBars(steel.frame);
 		expect(steel.rec.of('addColorStop').map((c) => c[2])).toContain(steel.frame.theme.steelTop);
+		expect(steel.rec.of('set:fillStyle')[0]?.[1]).toBe(steel.frame.theme.steelShadow);
 	});
 
 	it('shows the people on a task as avatars right of the bar, with the initials', () => {
@@ -149,11 +236,46 @@ describe('paintBars', () => {
 		expect(rec.of('fillText').map((c) => c[1])).toEqual(['In']);
 	});
 
-	it('fades everything when the schedule shown is not the newest outcome', () => {
-		const { frame, rec } = frameOf(modelOf([row(0, 0, 2 * D)], [], { dimmed: true }));
+	it('fades the shapes when the schedule shown is not the newest outcome, and never the labels', () => {
+		const m = modelOf(
+			[
+				row(0, 0, 4 * D, 'task', { name: 'Code', people: ['Ana'], peopleIndex: [0] }),
+				row(1, 2 * D, 2 * D, 'milestone', { name: 'Ship' }),
+			],
+			[link(0, 1)],
+			{ dimmed: true },
+		);
+		const { frame, rec } = frameOf(m);
 		paintBars(frame);
-		expect(rec.of('set:globalAlpha')[0]?.[1]).toBe(0.5);
+		// The alpha in force at each call: the shapes at the dim opacity, every text at 1.
+		let alpha = 1;
+		const textAlpha: number[] = [];
+		const shapeAlpha = new Set<number>();
+		for (const c of rec.calls) {
+			if (c[0] === 'set:globalAlpha') alpha = c[1] as number;
+			else if (c[0] === 'fillText') textAlpha.push(alpha);
+			else if (c[0] === 'stroke' || c[0] === 'fill') shapeAlpha.add(alpha);
+		}
+		// "Code" inside the bar, "A" in the avatar, "Ship" beside the jewel.
+		expect(rec.of('fillText').map((c) => c[1])).toEqual(['Code', 'A', 'Ship']);
+		expect(textAlpha).toEqual([1, 1, 1]);
+		expect(shapeAlpha.has(frame.theme.dimOpacity)).toBe(true);
 		expect(rec.of('set:globalAlpha').at(-1)?.[1]).toBe(1);
+	});
+
+	it('reports where it drew the avatars, so that hit testing can leave links out of them', () => {
+		const m = modelOf([
+			row(0, 0, 4 * D, 'task', { people: ['Ana', 'Ben'], peopleIndex: [0, 1] }),
+			row(1, 0, 4 * D),
+		]);
+		const { frame, layout } = frameOf(m);
+		paintBars(frame);
+		const bar = layout.barRect(0);
+		const first = (bar?.x ?? 0) + (bar?.w ?? 0) + frame.theme.labelGap;
+		const t = frame.theme;
+		expect(layout.avatars[0]).toBe(first - 2);
+		expect(layout.avatars[1]).toBe(first + 2 * t.avatarSize + t.avatarGap + 2);
+		expect(Number.isNaN(layout.avatars[2])).toBe(true);
 	});
 
 	it('does not rely on colour for text-only and engine-only', () => {

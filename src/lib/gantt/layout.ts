@@ -12,18 +12,18 @@
  */
 import type { GanttLink, GanttModel, GanttRow } from './model';
 import type { Theme } from './paint/theme';
+import {
+	newPath,
+	pointsOf,
+	routeLink,
+	type MutableRect,
+	type PathBuf,
+	type Point,
+	type Rect,
+} from './route';
 import { MIN_PER_DAY, createScale, type TimeScale } from './scale';
 
-export interface Point {
-	readonly x: number;
-	readonly y: number;
-}
-export interface Rect {
-	readonly x: number;
-	readonly y: number;
-	readonly w: number;
-	readonly h: number;
-}
+export type { Point, Rect, MutableRect } from './route';
 
 /** Rows kept painted above and below the viewport. */
 export const OVERSCAN_ROWS = 10;
@@ -83,15 +83,79 @@ export interface GanttLayout {
 	readonly rowCount: number;
 	readonly width: number;
 	readonly height: number;
+	/**
+	 * Where each row's bar is, as typed arrays (phase-2.md 6.3): `x[i]` is NaN when row `i` has no
+	 * bar. Painting and hit testing read these, so a frame allocates nothing.
+	 */
+	readonly bars: BarArrays;
+	/**
+	 * Where the avatars beside each row's bar were last drawn, `[x0, x1]` per row, NaN for none.
+	 * Only the painter knows (it measures text), so it reports here and hit testing reads.
+	 */
+	readonly avatars: Float64Array;
 	rowTop(row: number): number;
 	/** The row at a content y, or null above the first or below the last. */
 	rowAt(y: number): number | null;
-	/** The drawn bar of a row, or null when it has none (unscheduled). */
+	/** Fills `out` with the drawn bar of a row; false (and `out` untouched) when it has none. */
+	barInto(row: number, out: MutableRect): boolean;
+	/** Fills `out` with what a pointer can hit; false when the row has no bar. */
+	hitInto(row: number, out: MutableRect): boolean;
+	/** Fills `out` with the polyline of a link; false when either end has no bar. */
+	linkInto(link: GanttLink, out: PathBuf): boolean;
+	/** The drawn bar of a row, or null when it has none (unscheduled). Allocates: not for hot paths. */
 	barRect(row: number): Rect | null;
 	/** What a pointer can hit: the bar grown to the minimum target size, and the row's height. */
 	hitRect(row: number): Rect | null;
-	/** The polyline of a link, or [] when either end has no bar. */
+	/** The polyline of a link, or [] when either end has no bar. Allocates: not for hot paths. */
 	linkPath(link: GanttLink): readonly Point[];
+	/** The same layout with other bar positions (the reschedule tween, paint/motion.ts). */
+	withBars(bars: BarArrays): GanttLayout;
+}
+
+/** Bar geometry by row, in typed arrays. `x` is NaN for a row without a bar. */
+export interface BarArrays {
+	readonly x: Float64Array;
+	readonly y: Float64Array;
+	readonly w: Float64Array;
+	readonly h: Float64Array;
+}
+
+export function newBars(rows: number): BarArrays {
+	return {
+		x: new Float64Array(rows),
+		y: new Float64Array(rows),
+		w: new Float64Array(rows),
+		h: new Float64Array(rows),
+	};
+}
+
+/**
+ * Places a bar for a row of `kind` between two minutes, with its row's top at `top`: a milestone
+ * is a diamond centred on `start`, other bars have at least the minimum width.
+ */
+export function placeBar(
+	out: MutableRect,
+	kind: GanttRow['kind'],
+	start: number,
+	end: number,
+	top: number,
+	scale: TimeScale,
+	m: Metrics,
+): void {
+	const x0 = scale.x(start);
+	if (kind === 'milestone') {
+		const h = m.milestoneHalf;
+		out.x = x0 - h;
+		out.y = top + m.rowHeight / 2 - h;
+		out.w = 2 * h;
+		out.h = 2 * h;
+		return;
+	}
+	const h = kind === 'container' ? m.summaryHeight : m.barHeight;
+	out.x = x0;
+	out.y = top + (m.rowHeight - h) / 2;
+	out.w = Math.max(m.minBarWidth, scale.x(end) - x0);
+	out.h = h;
 }
 
 /** `viewWidth` keeps the content at least as wide as the viewport. */
@@ -102,108 +166,99 @@ export function createLayout(
 	viewWidth = 0,
 ): GanttLayout {
 	const rows = model.rows;
+	const bars = newBars(rows.length);
+	const at: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
+	for (let i = 0; i < rows.length; i++) {
+		const r: GanttRow | undefined = rows[i];
+		if (!r || r.start === null || r.end === null) {
+			bars.x[i] = NaN;
+			continue;
+		}
+		placeBar(at, r.kind, r.start, r.end, i * metrics.rowHeight, scale, metrics);
+		bars.x[i] = at.x;
+		bars.y[i] = at.y;
+		bars.w[i] = at.w;
+		bars.h[i] = at.h;
+	}
+	const avatars = new Float64Array(2 * rows.length).fill(NaN);
+	const width = Math.max(viewWidth, Math.ceil(scale.x(model.endMin)));
+	return layoutOver(model, scale, metrics, bars, avatars, width);
+}
+
+function layoutOver(
+	model: GanttModel,
+	scale: TimeScale,
+	metrics: Metrics,
+	bars: BarArrays,
+	avatars: Float64Array,
+	width: number,
+): GanttLayout {
+	const rows = model.rows;
 	const { rowHeight, elbow } = metrics;
 	const rowTop = (row: number): number => row * rowHeight;
 
-	const barRect = (index: number): Rect | null => {
-		const r: GanttRow | undefined = rows[index];
-		if (!r || r.start === null || r.end === null) return null;
-		const x0 = scale.x(r.start);
-		if (r.kind === 'milestone') {
-			const h = metrics.milestoneHalf;
-			return { x: x0 - h, y: rowTop(index) + rowHeight / 2 - h, w: 2 * h, h: 2 * h };
-		}
-		const w = Math.max(metrics.minBarWidth, scale.x(r.end) - x0);
-		const h = r.kind === 'container' ? metrics.summaryHeight : metrics.barHeight;
-		return { x: x0, y: rowTop(index) + (rowHeight - h) / 2, w, h };
+	const barInto = (index: number, out: MutableRect): boolean => {
+		const x = bars.x[index];
+		if (x === undefined || Number.isNaN(x)) return false;
+		out.x = x;
+		out.y = bars.y[index] ?? 0;
+		out.w = bars.w[index] ?? 0;
+		out.h = bars.h[index] ?? 0;
+		return true;
 	};
 
-	const hitRect = (index: number): Rect | null => {
-		const bar = barRect(index);
-		if (!bar) return null;
-		const w = Math.max(bar.w, metrics.hitMin);
-		const h = Math.max(bar.h, Math.min(metrics.hitMin, rowHeight));
-		return {
-			x: bar.x - (w - bar.w) / 2,
-			y: bar.y - (h - bar.h) / 2,
-			w,
-			h,
-		};
+	const hitInto = (index: number, out: MutableRect): boolean => {
+		if (!barInto(index, out)) return false;
+		const w = Math.max(out.w, metrics.hitMin);
+		const h = Math.max(out.h, Math.min(metrics.hitMin, rowHeight));
+		out.x -= (w - out.w) / 2;
+		out.y -= (h - out.h) / 2;
+		out.w = w;
+		out.h = h;
+		return true;
 	};
 
-	const linkPath = (link: GanttLink): readonly Point[] => {
-		const pred = barRect(link.predRow);
-		const succ = barRect(link.succRow);
-		if (!pred || !succ) return [];
-		const x0 = link.from === 'end' ? pred.x + pred.w : pred.x;
-		const y0 = pred.y + pred.h / 2;
-		const x1 = link.to === 'start' ? succ.x : succ.x + succ.w;
-		const y1 = succ.y + succ.h / 2;
-		// The direction of travel leaving the predecessor and arriving at the successor.
-		const d0 = link.from === 'end' ? 1 : -1;
-		const d1 = link.to === 'start' ? 1 : -1;
-		const down = link.succRow > link.predRow;
-
-		// A milestone and a task that start at the same instant: a straight drop along the start
-		// edge, not a loop round it.
-		const centre = pred.x + pred.w / 2;
-		if (
-			rows[link.predRow]?.kind === 'milestone' &&
-			link.to === 'start' &&
-			Math.abs(x1 - centre) <= elbow
-		) {
-			return [
-				{ x: centre, y: down ? pred.y + pred.h : pred.y },
-				{ x: centre, y: y1 },
-			];
+	const pred: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
+	const succ: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
+	const linkInto = (link: GanttLink, out: PathBuf): boolean => {
+		if (!barInto(link.predRow, pred) || !barInto(link.succRow, succ)) {
+			out.n = 0;
+			return false;
 		}
-
-		const a = x0 + d0 * elbow;
-		const b = x1 - d1 * elbow;
-		if (d0 !== d1) {
-			// Both ends on the same side (end to end, start to start): one C-shaped bend.
-			const m = d0 > 0 ? Math.max(a, b) : Math.min(a, b);
-			return [
-				{ x: x0, y: y0 },
-				{ x: m, y: y0 },
-				{ x: m, y: y1 },
-				{ x: x1, y: y1 },
-			];
-		}
-		if ((x1 - a) * d1 >= 0) {
-			return [
-				{ x: x0, y: y0 },
-				{ x: a, y: y0 },
-				{ x: a, y: y1 },
-				{ x: x1, y: y1 },
-			];
-		}
-		// The successor's end is behind the predecessor's: go round through the row boundary.
-		const yMid = down ? rowTop(link.predRow + 1) : rowTop(link.predRow);
-		return [
-			{ x: x0, y: y0 },
-			{ x: a, y: y0 },
-			{ x: a, y: yMid },
-			{ x: b, y: yMid },
-			{ x: b, y: y1 },
-			{ x: x1, y: y1 },
-		];
+		const milestone = rows[link.predRow]?.kind === 'milestone';
+		routeLink(out, pred, succ, link, milestone, elbow, rowHeight);
+		return true;
 	};
 
 	return {
 		metrics,
 		scale,
 		rowCount: rows.length,
-		width: Math.max(viewWidth, Math.ceil(scale.x(model.endMin))),
+		width,
 		height: rows.length * rowHeight,
+		bars,
+		avatars,
 		rowTop,
 		rowAt: (y) => {
 			const row = Math.floor(y / rowHeight);
 			return y >= 0 && row < rows.length ? row : null;
 		},
-		barRect,
-		hitRect,
-		linkPath,
+		barInto,
+		hitInto,
+		linkInto,
+		barRect: (index) => {
+			const r: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
+			return barInto(index, r) ? r : null;
+		},
+		hitRect: (index) => {
+			const r: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
+			return hitInto(index, r) ? r : null;
+		},
+		linkPath: (link) => {
+			const buf = newPath();
+			return linkInto(link, buf) ? pointsOf(buf) : [];
+		},
+		withBars: (b) => layoutOver(model, scale, metrics, b, avatars, width),
 	};
 }
 

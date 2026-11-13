@@ -66,6 +66,11 @@ const NUMBERS = {
 	barHeight: ['--gantt-bar-height', 22],
 	barRadius: ['--gantt-bar-radius', 11],
 	barOutlineWidth: ['--gantt-bar-outline-width', 1],
+	// The second, non-colour cue of the critical path (WCAG 1.4.1): a heavier edge round the bar,
+	// and a post at its finish edge that stands this far above and below it.
+	criticalEdgeWidth: ['--gantt-critical-edge-width', 2],
+	criticalPostWidth: ['--gantt-critical-post-width', 2],
+	criticalPostReach: ['--gantt-critical-post-reach', 4],
 	barShadowBlur: ['--gantt-bar-shadow-blur', 2],
 	barShadowY: ['--gantt-bar-shadow-y', 1],
 	steelShadowBlur: ['--gantt-steel-shadow-blur', 6],
