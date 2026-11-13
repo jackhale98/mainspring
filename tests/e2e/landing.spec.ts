@@ -113,7 +113,10 @@ test.describe('landing page', () => {
 		await expect(page.getByRole('img', { name: /pull request/ })).toBeVisible();
 		await expect(page.getByRole('img', { name: /on a phone/ })).toBeVisible();
 		expect(await page.locator('img').count()).toBe(0);
-		expect(await page.locator('script').count()).toBe(0);
+		// No JavaScript is fetched; the only script is the inline theme boot (layouts/Base.astro),
+		// which applies the reader's light or dark choice before the first paint.
+		expect(await page.locator('script[src]').count()).toBe(0);
+		expect(await page.locator('script').count()).toBeLessThanOrEqual(1);
 	});
 
 	for (const scheme of SCHEMES) {

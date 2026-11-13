@@ -213,7 +213,7 @@ describe('where colour is never the only cue', () => {
 	// dial is dark, green is mid, and the hues collapse. They are therefore never alone: the
 	// critical bar has a heavier edge and "critical" in its accessible text, the status dot
 	// changes shape (circle, diamond, ring) and always has words beside it.
-	it('records that ruby and green are close for a deutan viewer', () => {
+	it('records that the Ruby token and green are close for a deutan viewer', () => {
 		const t = tokensOf('theme-light.css');
 		const d = distance(
 			simulate(colour(t, 'color-critical'), DEUTAN),
