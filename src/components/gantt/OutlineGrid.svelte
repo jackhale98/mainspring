@@ -218,7 +218,7 @@
 				class:name={col === 'name'}
 				data-col-head={col}
 				aria-colindex={c + 1}
-				style:width={nameRem(col)}
+				style:width={isShown(col) ? nameRem(col) : undefined}
 			>
 				{strings.grid.columns[col]}
 			</div>
@@ -262,7 +262,7 @@
 						aria-colindex={c + 1}
 						aria-label={cell.blank ? spokenText(cell) : undefined}
 						tabindex={on ? tabIndexOf(row, col) : undefined}
-						style:width={nameRem(col)}
+						style:width={on ? nameRem(col) : undefined}
 					>
 						{#if col === 'name'}
 							<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">

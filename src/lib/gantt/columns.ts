@@ -34,7 +34,7 @@ export const COLUMN_REM: Readonly<Record<Exclude<ColumnId, 'name'>, number>> = {
 	effort: 6,
 	people: 7,
 	float: 8.25,
-	critical: 5.5,
+	critical: 6,
 	status: 6.25,
 };
 

@@ -2,12 +2,13 @@
 <!--
 	The engine's version and the last run's timings in the status strip (phase-2.md 9.4, the Phase
 	0 carry-over). The button reads "TaskJuggler 3.8.4 · Last run 182 ms" and opens a popover with
-	every stage and the build's versions; on a phone the button is only the time. The popover is
+	every stage and the build's versions; on a phone the button is only a gauge icon, because the one-line strip has no room for words. The popover is
 	the native kind (light dismiss, Escape, focus returns to the button), so it works by touch,
 	where a tooltip would not.
 -->
 <script lang="ts">
 	import type { EngineInfo } from '../../lib/state/status';
+	import Icon from '../Icon.svelte';
 	import { strings } from '../../lib/strings';
 
 	interface Props {
@@ -27,14 +28,13 @@
 <button
 	type="button"
 	class="engine-info"
+	class:compact
 	popovertarget="engine-info-{id}"
 	aria-label={`${strings.status.engineDetails}: ${label}`}
 	title={strings.status.engineDetailsTitle}
 	data-testid="engine-info"
 >
-	{#if compact}<span aria-hidden="true">{info.last ?? info.version}</span>{:else}<span
-			aria-hidden="true">{label}</span
-		>{/if}
+	{#if compact}<Icon name="gauge" size={18} />{:else}<span aria-hidden="true">{label}</span>{/if}
 </button>
 <div id="engine-info-{id}" class="popover" popover="auto" data-testid="engine-info-details">
 	<h2>{strings.status.engineDetailsTitle}</h2>
@@ -74,12 +74,21 @@
 		cursor: pointer;
 		min-block-size: 1.75rem;
 	}
+	.engine-info.compact {
+		display: grid;
+		place-items: center;
+		padding: 0;
+		inline-size: 1.75rem;
+	}
 	.engine-info:hover {
 		background: var(--color-row-hover);
 	}
 	@media (pointer: coarse) {
 		.engine-info {
 			min-block-size: var(--size-tap);
+		}
+		.engine-info.compact {
+			inline-size: var(--size-tap);
 		}
 	}
 	.popover {

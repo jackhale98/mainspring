@@ -229,6 +229,15 @@
 	.compact .counts {
 		flex: none;
 	}
+	/* The plan chip above already says "Finish"; the word stays for screen readers only, which
+	   leaves room for the whole date beside the engine button. */
+	.compact .key {
+		position: absolute;
+		inline-size: 1px;
+		block-size: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
 	.compact .finish {
 		flex-wrap: nowrap;
 		min-inline-size: 0;
