@@ -17,6 +17,9 @@
 	and down, all by `position: sticky` on the compositor; nothing repaints per scroll event, only
 	when the window leaves its overscan (layout.ts). No scroll chains to the page.
 
+	Over 400 lines on purpose: this one component owns the scroll container, the zoom and the sticky
+	grid, and they only work together; splitting them would spread one invariant over two files.
+
 	Zoom is one step: the scale and the scroll offset are set together, so a single paint follows.
 	A continuous Ctrl+wheel zoom first stretches the canvases with a CSS transform about the point
 	under the pointer, and paints once when the wheel has been still for a moment.
@@ -350,9 +353,14 @@
 		overscroll-behavior: none;
 		-webkit-overflow-scrolling: touch;
 	}
+	/* As wide as its tracks, not as the scroller: a sticky cell (task column, corner) only stays in
+	   view inside its containing block, and a grid narrower than its tracks ended that block at
+	   the first screenful, pushing the names off at the far right. */
 	.space {
 		display: grid;
 		position: relative;
+		inline-size: max-content;
+		min-inline-size: 100%;
 	}
 	/* The corner is frozen both ways, the header only moves sideways (sticky at the top). */
 	.corner,

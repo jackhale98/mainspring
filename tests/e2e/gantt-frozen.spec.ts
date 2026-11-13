@@ -4,7 +4,10 @@
 // at the left and moves only up and down, and names and bars share one vertical scroll. The
 // header is not repainted per scroll event (it moves with the content on the compositor). Run on
 // Pixel 7 emulation (touch) and on desktop. With SCREENSHOTS=1 the Pixel 7 run also writes its
-// frame log to docs/phases/screenshots/phase-2/header-scroll-pixel7.json as evidence.
+// frame log to docs/phases/screenshots/phase-2/header-scroll-pixel7.json as evidence, with the long
+// pan to the far right and back (header-scroll-pixel7-longpan.json; on desktop with a shift-wheel pan, header-scroll-desktop.json):
+// the name column's left never leaves the scroller's left, and every header label (months, days,
+// weeks) sits exactly where the bars' content puts it at every sampled frame, 0 px drift.
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -28,6 +31,9 @@ interface Rects {
 	scrollLeft: number;
 	scrollTop: number;
 }
+
+const evidence = (name: string): string =>
+	path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2', name);
 
 declare global {
 	interface Window {
@@ -232,6 +238,167 @@ test.describe('frozen header and name column', () => {
 						scrolled: { x: spread('scrollLeft'), y: spread('scrollTop') },
 						samples: frames,
 					},
+					null,
+					1,
+				) + '\n',
+			);
+		}
+	});
+
+	/** Samples every frame while `pan` runs: the name column against the scroller, the header
+	 *  against the bars, and each day or week label against its own content position. */
+	async function sampleWhile(
+		page: Page,
+		pan: () => Promise<void>,
+	): Promise<Array<Record<string, number>>> {
+		await page.evaluate(() => {
+			window.__frames = [];
+			window.__headerPaints = 0;
+			const q = (s: string): HTMLElement => {
+				const el = document.querySelector<HTMLElement>(s);
+				if (!el) throw new Error(s);
+				return el;
+			};
+			const scroller = q('[data-testid="gantt"] .scroller');
+			const head = q('[data-testid="gantt"] .head');
+			const names = q('[data-testid="gantt"] .names');
+			const plot = q('[data-testid="gantt"] .plot');
+			const t0 = performance.now();
+			const tick = (): void => {
+				const sr = scroller.getBoundingClientRect();
+				const pr = plot.getBoundingClientRect();
+				const hr = head.getBoundingClientRect();
+				// A label's left, relative to the bars' content origin, must equal its own x (its `left`).
+				let drift = 0;
+				let shown = 0;
+				const nameLeft = names.getBoundingClientRect().left - sr.left;
+				for (const el of head.querySelectorAll<HTMLElement>('.minor')) {
+					const r = el.getBoundingClientRect();
+					if (r.right < sr.left + nameLeft || r.left > sr.right) continue;
+					shown++;
+					drift = Math.max(drift, Math.abs(r.left - pr.left - parseFloat(el.style.left)));
+				}
+				window.__frames?.push({
+					t: Math.round(performance.now() - t0),
+					scrollLeft: scroller.scrollLeft,
+					scrollMax: scroller.scrollWidth - scroller.clientWidth,
+					namesLeft: Math.round((names.getBoundingClientRect().left - sr.left) * 100) / 100,
+					headMinusPlotX: Math.round((hr.left - pr.left) * 100) / 100,
+					minorDrift: Math.round(drift * 100) / 100,
+					minorShown: shown,
+					headerPaints: window.__headerPaints ?? 0,
+				});
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		});
+		await pan();
+		await page.waitForTimeout(400);
+		return page.evaluate(() => window.__frames ?? []);
+	}
+
+	function assertLongPan(frames: Array<Record<string, number>>): void {
+		const get = (k: string): number[] => frames.map((f) => f[k] ?? 0);
+		expect(frames.length).toBeGreaterThan(30);
+		// It went to the far right and came back.
+		const max = Math.max(...get('scrollMax'));
+		expect(Math.max(...get('scrollLeft'))).toBeGreaterThanOrEqual(max - 2);
+		expect(frames[frames.length - 1]?.['scrollLeft'] ?? 0).toBeLessThan(max / 2);
+		// The name column's left never leaves the scroller's left, anywhere, momentum included.
+		expect(Math.max(...get('namesLeft'))).toBeLessThanOrEqual(0.5);
+		expect(Math.min(...get('namesLeft'))).toBeGreaterThanOrEqual(-0.5);
+		// The header tracks the bars, and every visible day or week label is where its content is.
+		expect(Math.max(...get('headMinusPlotX').map(Math.abs))).toBeLessThanOrEqual(0.5);
+		expect(Math.max(...get('minorDrift'))).toBeLessThanOrEqual(0.5);
+		// A label is always in view: none ever blinks out while the window changes.
+		const settled = frames.slice(2);
+		expect(Math.min(...settled.map((f) => f['minorShown'] ?? 0))).toBeGreaterThan(0);
+	}
+
+	function summary(frames: Array<Record<string, number>>, device: string): object {
+		const get = (k: string): number[] => frames.map((f) => f[k] ?? 0);
+		return {
+			device,
+			plan: 'upstream-fedora-20 (Visual)',
+			frames: frames.length,
+			scrolledToXMax: Math.max(...get('scrollLeft')),
+			scrollXMax: Math.max(...get('scrollMax')),
+			namesLeftRange: [Math.min(...get('namesLeft')), Math.max(...get('namesLeft'))],
+			maxHeadVsBarsDriftPx: Math.max(...get('headMinusPlotX').map(Math.abs)),
+			maxLabelDriftPx: Math.max(...get('minorDrift')),
+			minLabelsShown: Math.min(...get('minorShown').slice(2)),
+			headerCanvasRepaints: frames[frames.length - 1]?.['headerPaints'] ?? 0,
+			samples: frames,
+		};
+	}
+
+	test('a long touch pan to the far right and back keeps the name column and the labels in place (Pixel 7)', async ({
+		page,
+		browserName,
+	}, info) => {
+		test.skip(info.project.name !== 'pixel-7' || browserName !== 'chromium');
+		await open(page);
+		const cdp = await page.context().newCDPSession(page);
+		const drag = async (x0: number, x1: number, y: number): Promise<void> => {
+			await cdp.send('Input.dispatchTouchEvent', {
+				type: 'touchStart',
+				touchPoints: [{ x: x0, y }],
+			});
+			for (let i = 1; i <= 10; i++) {
+				await cdp.send('Input.dispatchTouchEvent', {
+					type: 'touchMove',
+					touchPoints: [{ x: x0 + ((x1 - x0) * i) / 10, y }],
+				});
+				await page.waitForTimeout(12);
+			}
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+		};
+		const frames = await sampleWhile(page, async () => {
+			// Far right: swipes with a fling, past the end (the over-scroll), then all the way back.
+			for (let i = 0; i < 26; i++) await drag(380, 90, 430);
+			await page.waitForTimeout(500);
+			for (let i = 0; i < 40; i++) await drag(90, 380, 430);
+		});
+		assertLongPan(frames);
+		if (process.env['SCREENSHOTS']) {
+			fs.writeFileSync(
+				evidence('header-scroll-pixel7-longpan.json'),
+				JSON.stringify(
+					summary(frames, 'Pixel 7 emulation, touch swipes with fling, far right and back'),
+					null,
+					1,
+				) + '\n',
+			);
+		}
+	});
+
+	test('a long shift-wheel pan to the far right and back keeps the name column and the labels in place (desktop)', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		const box = await page.getByTestId('gantt-overlay').boundingBox();
+		if (!box) throw new Error('no chart');
+		await page.mouse.move(box.x + box.width / 2, box.y + 200);
+		const frames = await sampleWhile(page, async () => {
+			await page.keyboard.down('Shift');
+			for (let i = 0; i < 90; i++) {
+				await page.mouse.wheel(0, 240);
+				await page.waitForTimeout(8);
+			}
+			await page.waitForTimeout(400);
+			for (let i = 0; i < 120; i++) {
+				await page.mouse.wheel(0, -240);
+				await page.waitForTimeout(8);
+			}
+			await page.keyboard.up('Shift');
+		});
+		assertLongPan(frames);
+		if (process.env['SCREENSHOTS']) {
+			fs.writeFileSync(
+				evidence('header-scroll-desktop.json'),
+				JSON.stringify(
+					summary(frames, 'Desktop Chrome, shift-wheel, far right and back'),
 					null,
 					1,
 				) + '\n',
