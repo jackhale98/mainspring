@@ -17,8 +17,8 @@
  *   original end from where the pointer went.
  *
  * Snapped values are targets for the live label, never schedule results (ADR-0007). The adapter is
- * tested against a stub that mirrors T4's semantics; it must be rerun against the real module when
- * T4 merges.
+ * tested against a stub that mirrors T4's semantics and, since T4 merged, against the real module,
+ * which agrees with the stub on every case.
  */
 import type { Minutes } from '../../engine/protocol';
 

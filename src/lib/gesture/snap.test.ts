@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import fc from 'fast-check';
+import { workingTimeFromPairs } from '../schedule/working-time';
 import { describe, expect, it } from 'vitest';
 import {
 	calendarDragSnapper,
@@ -228,5 +229,35 @@ describe('calendarDragSnapper', () => {
 		});
 		expect(s.move(100, 10)).toEqual({ days: 0, deltaMin: 0, snappedMin: 100 });
 		expect(s.resize(100, 37.4)).toEqual({ deltaMin: 37, snappedMin: 137 });
+	});
+});
+
+describe('against the real working-time module (T4, merged)', () => {
+	// The same Monday-to-Friday, 9:00 to 17:00 week as the stub, built by schedule/working-time.ts.
+	const real = workingTimeFromPairs(
+		DAYS.map((d) => [d.start, d.end] as const),
+		{ resolution: 60, frameEnd: 56 * DAY },
+	);
+	const realSnapper = dragSnapperFromWorkingDays(real);
+
+	it('shifts days exactly as the stub does', () => {
+		for (let m = 0; m < 21 * DAY; m += 60) {
+			for (const by of [-3, -1, 0, 1, 2, 6]) {
+				for (const role of ['start', 'end'] as const) {
+					expect(real.shiftDays(m, by, role), `${m} ${by} ${role}`).toBe(
+						stub.shiftDays(m, by, role),
+					);
+				}
+			}
+		}
+	});
+
+	it('snaps moves and resizes exactly as the stub does', () => {
+		for (const ref of [at(MON, 9), at(WED, 13), at(FRI, 17), at(THU, 10, 30)]) {
+			for (let d = -5 * DAY; d <= 5 * DAY; d += 90) {
+				expect(realSnapper.move(ref, d), `move ${ref} ${d}`).toEqual(snapper.move(ref, d));
+				expect(realSnapper.resize(ref, d), `resize ${ref} ${d}`).toEqual(snapper.resize(ref, d));
+			}
+		}
 	});
 });
