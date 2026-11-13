@@ -258,6 +258,19 @@ describe('cross-check dependency and completion rows', () => {
 		]);
 	});
 
+	it('skips precursors but still compares completion when the run is not ok', () => {
+		const r = structuredClone(result);
+		const y = r.tasks[2]?.scenarios;
+		if (!y?.['plan'] || !y['delayed']) throw new Error('fixture');
+		y['plan'].depends = [{ task: 'top.z', onEnd: false }];
+		expect(linkRowDiffs(expectedLinkRows(r), csvLinkRows(csv), 10, false)).toEqual([]);
+		y['delayed'].complete = 1;
+		expect(linkRowDiffs(expectedLinkRows(r), csvLinkRows(csv), 10, false)).toEqual([
+			'row 6: serializer Delayed | top.y | top.x [->[ | 1%; report Delayed | top.y | top.x [->[ | 0%',
+		]);
+		expect(linkRowDiffs(['a | b |  | *'], [], 10, false)).toHaveLength(1);
+	});
+
 	it('reports missing rows and never matches a wildcard to a missing row', () => {
 		expect(linkRowDiffs(['a | b |  | *'], [])).toEqual([
 			'row 1: serializer a | b |  | *; report (none)',

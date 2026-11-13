@@ -254,12 +254,14 @@ function crossCheck(plan, result, workspace, tmp) {
 	} else {
 		const csv = parseCsv(fs.readFileSync(csvPath, 'utf8'));
 		problems.push(...rowDiffs(expectedRows(result), csvRows(csv)));
-		problems.push(...linkRowDiffs(expectedLinkRows(result), csvLinkRows(csv)));
+		// Precursors only for complete runs (see linkRowDiffs); completion always.
+		problems.push(...linkRowDiffs(expectedLinkRows(result), csvLinkRows(csv), 10, result.ok));
 	}
 	if (problems.length) throw new Error(`cross-check:\n  ${problems.join('\n  ')}`);
 	const edges = result.tasks.reduce((n, t) => n + active.reduce((m, s) =>
 		m + (t.scenarios[s.id]?.depends.length ?? 0) + (t.scenarios[s.id]?.precedes.length ?? 0), 0), 0);
-	return `agree: ${result.tasks.length} tasks x ${active.length} scenario(s) (dates, ${edges} dependencies, ` +
+	const deps = result.ok ? `${edges} dependencies` : `dependencies not compared (not ok)`;
+	return `agree: ${result.tasks.length} tasks x ${active.length} scenario(s) (dates, ${deps}, ` +
 		`completion), project frame, ${msgs.length} message(s)`;
 }
 

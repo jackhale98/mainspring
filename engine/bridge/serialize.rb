@@ -25,12 +25,27 @@
 # TaskJuggler 3.8.4 tracks line numbers only: every SourceFileInfo has column
 # 0. Column 0 and line 0 mean "unknown" and are emitted as null.
 #
+# Over 400 lines on purpose (CLAUDE.md): the browser and the native recorder
+# must share one serializer, and a large part of it cites where TaskJuggler
+# keeps each value.
+#
 # Schema v2 adds fields only (phase-2 spec 6.1); every v1 field is unchanged.
 # Where TaskJuggler keeps each value (paths under engine/tj/lib/taskjuggler/,
 # TaskJuggler 3.8.4 at 3b36c79):
 #
 # - ProjectInfo.dailyWorkingHours: the project attribute 'dailyworkinghours'
 #   (Project.rb:80, default 8.0; Project#dailyWorkingHours at Project.rb:539).
+# - ProjectInfo.weeklyWorkingDays, monthlyWorkingDays and yearlyWorkingDays:
+#   the day counts TaskJuggler's working-duration rule multiplies by for the
+#   'w', 'm' and 'y' units (TjpSyntaxRules.rb:7667-7682), each computed the
+#   way that rule computes it: Project#weeklyWorkingDays (Project.rb:542-545:
+#   WorkingHours#weeklyWorkingHours, whole hours, WorkingHours.rb:168-176,
+#   divided by 'dailyworkinghours'), the attribute 'yearlyworkingdays' divided
+#   by 12 with Ruby's division (an integer `yearlyworkingdays 260` gives 21,
+#   not Project#monthlyWorkingDays' 21.67), and 'yearlyworkingdays' itself
+#   (Project.rb:106, default 260.714). The parser stores both attributes as
+#   written, Integer or Float (TjpSyntaxRules.rb:2932-2935, 3228-3229,
+#   3404-3405).
 # - ProjectInfo.workingTime: the project scoreboard, read slot by slot with
 #   Project#isWorkingTime(Integer) (Project.rb:880-886). Project#schedule
 #   builds it first (Project.rb:631-632, initScoreboards at Project.rb:1269):
@@ -54,8 +69,8 @@
 #   TjpSyntaxRules.rb:6347, 6596), lists of TaskDependency (TaskDependency.rb:
 #   taskId, task, onEnd, gapDuration in seconds, gapLength in slots).
 #   TaskScenario#Xref resolves each entry's task and drops the broken ones
-#   (TaskScenario.rb:166-179, checkDependency at TaskScenario.rb:2318); see
-#   #dependencies for runs that stop before it.
+#   (TaskScenario.rb:166-179, checkDependency at TaskScenario.rb:2318-2361);
+#   #dependencies applies the same rules to entries it never reached.
 require 'json'
 
 module MainspringBridge
@@ -85,7 +100,9 @@ module MainspringBridge
       info_source = project || header
       @start = info_source && info_source['start']
       # Only a parsed project went through Project#schedule, which builds the
-      # scoreboard that workingTime reads.
+      # scoreboard that workingTime reads: MainspringBridge.run schedules every
+      # project that parsed (request.rb:169), and Project#schedule builds the
+      # scoreboard before anything that can fail (Project.rb:631-632).
       info = info_source && project_info(info_source, meta, !project.nil?)
       out = {
         'ok' => ok ? true : false,
@@ -133,8 +150,20 @@ module MainspringBridge
             'active' => sc.get('active') ? true : false }
         end,
         'dailyWorkingHours' => p['dailyworkinghours'],
+        # A `dailyworkinghours 0.0` makes this Infinity, which JSON cannot hold
+        # (an integer 0 already stops TaskJuggler's parse with ZeroDivisionError).
+        'weeklyWorkingDays' => finite(p.weeklyWorkingDays),
+        # As TjpSyntaxRules.rb:7674-7675 computes it, so Integer#/ for an integer.
+        'monthlyWorkingDays' => p['yearlyworkingdays'] / 12,
+        'yearlyWorkingDays' => p['yearlyworkingdays'],
+        # _scheduled_ is true exactly for a parsed project; see #result
+        # (request.rb:169 schedules every project that parsed).
         'workingTime' => scheduled ? working_time(p) : []
       }
+    end
+
+    def finite(value)
+      value.is_a?(Float) && !value.finite? ? nil : value
     end
 
     # The project's working time as merged [start, end) minute pairs: maximal
@@ -179,8 +208,8 @@ module MainspringBridge
           # v2 (phase-2 spec 6.1); sources in the header comment.
           'direction' => t['forward', idx] ? 'asap' : 'alap',
           'complete' => t['complete', idx],
-          'depends' => dependencies(t['depends', idx]),
-          'precedes' => dependencies(t['precedes', idx])
+          'depends' => dependencies(t, t['depends', idx]),
+          'precedes' => dependencies(t, t['precedes', idx])
         }
       end
       # 'milestone' is scenario-specific in TaskJuggler; the protocol has one
@@ -194,19 +223,28 @@ module MainspringBridge
       }
     end
 
-    # DependencyResult entries for a 'depends' or 'precedes' list, in its
-    # order. TaskScenario#Xref sets each entry's task (TaskDependency#resolve,
+    # DependencyResult entries for _owner_'s 'depends' or 'precedes' list, in
+    # its order. TaskScenario#Xref sets each entry's task (TaskDependency#resolve,
     # TaskDependency.rb:42-44, which is Project#task(taskId), Project.rb:605)
-    # and removes broken entries before it reports them. A scheduling error
-    # stops the run, so later tasks, and scenarios not reached, keep entries
-    # that were never resolved; those are looked up the same way here, without
-    # mutating them, and an id that names no task is left out. The parser
-    # already made relative ids absolute (TjpSyntaxRules.rb:6082-6096).
-    def dependencies(list)
+    # and TaskScenario#checkDependency (TaskScenario.rb:2318-2361) removes, and
+    # reports, an entry whose task is unknown, the owner itself, a child of the
+    # owner or a parent of it, or a task an earlier entry of the same list
+    # already names. The first such error stops the run, so the entries of
+    # later tasks, and of scenarios never prepared, are neither resolved nor
+    # checked. Here every entry is looked up the same way (an entry Xref
+    # resolved keeps its task) and the same five rules leave entries out,
+    # without changing TaskJuggler's objects. Entries Xref accepted pass them
+    # all, so a complete run is unaffected. The parser already made relative
+    # ids absolute (TjpSyntaxRules.rb:6082-6096). Task has no #==, so tasks
+    # compare by identity, as in checkDependency.
+    def dependencies(owner, list)
+      seen = {}.compare_by_identity
       list.filter_map do |dep|
         task = dep.task || @project.task(dep.taskId)
-        next unless task
+        next if task.nil? || task.equal?(owner) || task.isChildOf?(owner) ||
+                owner.isChildOf?(task) || seen.key?(task)
 
+        seen[task] = true
         {
           'task' => task.fullId,
           'onEnd' => dep.onEnd ? true : false,

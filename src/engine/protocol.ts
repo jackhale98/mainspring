@@ -64,10 +64,40 @@ export interface ProjectInfo {
 	/** Declaration pre-order. */
 	scenarios: ScenarioInfo[];
 	/**
-	 * v2. Hours in a working day (`dailyworkinghours`, default 8); TaskJuggler converts the 'd',
-	 * 'w', 'm' and 'y' units of effort, length and gaplength with it.
+	 * v2. Hours in a working day (`dailyworkinghours`, default 8).
+	 *
+	 * Working durations (`effort`, `effortdone`, `effortleft`, `length`, `gaplength`, limits) are
+	 * converted by TaskJuggler's workingDuration rule (TjpSyntaxRules.rb:7667-7682) to scoreboard
+	 * slots: `slots = round(value * factor / (timingResolutionMin * 60))`, with `factor` in seconds:
+	 * - 'min': 60; 'h': 3600;
+	 * - 'd': 3600 * dailyWorkingHours;
+	 * - 'w': 3600 * dailyWorkingHours * weeklyWorkingDays;
+	 * - 'm': 3600 * dailyWorkingHours * monthlyWorkingDays;
+	 * - 'y': 3600 * dailyWorkingHours * yearlyWorkingDays.
+	 *
+	 * The products are taken left to right in doubles, as here. Ruby keeps an integer value times
+	 * an integer factor an Integer and then divides as integers, truncating before the rounding;
+	 * that changes the result only for a whole number of minutes that is not a multiple of the
+	 * resolution ('10min' at 15-minute resolution is 0 slots). `duration` is calendar time instead:
+	 * `trunc(value * f / (timingResolutionMin * 60))` with f 60, 3600, 86400, 604800, 2628002.88
+	 * and 31536000 s (TjpSyntaxRules.rb:562-574); `gapduration` is in `gapDurationMin`.
 	 */
 	dailyWorkingHours: number;
+	/**
+	 * v2. Working days per week for the 'w' unit, as Project#weeklyWorkingDays computes it
+	 * (Project.rb:542-545): the weekly hours of the global working hours, in whole hours
+	 * (WorkingHours.rb:168-176 divides integers), divided by `dailyworkinghours` (also as integers
+	 * when the plan writes an integer). 5 for the default 40 h and 8 h. Null only when that is not
+	 * finite (`dailyworkinghours 0.0`).
+	 */
+	weeklyWorkingDays: number | null;
+	/**
+	 * v2. Working days per month for the 'm' unit: `yearlyworkingdays / 12` as the rule computes
+	 * it (TjpSyntaxRules.rb:7674-7675), so an integer `yearlyworkingdays 260` gives 21, not 21.67.
+	 */
+	monthlyWorkingDays: number;
+	/** v2. `yearlyworkingdays` (default 260.714, Project.rb:106), the 'y' unit's day count. */
+	yearlyWorkingDays: number;
 	/**
 	 * v2. Global working time over the project frame as [start, end) pairs: ascending, disjoint,
 	 * touching pairs merged, every bound a multiple of `timingResolutionMin`. Read slot by slot
@@ -127,8 +157,12 @@ export interface TaskScenarioResult {
 	 * completion can make it non-null without a `complete` in the plan.
 	 */
 	complete: number | null;
-	/** v2. This task's start waits on these (`depends` after inheritance: the parent's entries,
-	 *  then the task's own), in TaskJuggler's order. */
+	/**
+	 * v2. This task's start waits on these (`depends` after inheritance: the parent's entries,
+	 * then the task's own), in TaskJuggler's order. When `ok` is false the dependency graph may
+	 * contain cycles: TaskJuggler's loop check runs after resolution (Project.rb:1103-1113), and a
+	 * run that stopped earlier never made it. Walk it with a visited set.
+	 */
 	depends: DependencyResult[];
 	/** v2. This task's end must come before these (`precedes` after inheritance), in
 	 *  TaskJuggler's order. */
@@ -136,8 +170,11 @@ export interface TaskScenarioResult {
 }
 
 /**
- * v2. One resolved `depends` or `precedes` entry of a task scenario. Entries that name no task
- * are left out (TaskJuggler reports them as `task_depend_unknown` messages).
+ * v2. One resolved `depends` or `precedes` entry of a task scenario. Entries TaskJuggler rejects
+ * are left out: an id that names no task, the task itself, its child or parent, and a task an
+ * earlier entry of the same list names (TaskScenario#checkDependency). TaskJuggler reports these
+ * as `task_depend_*` errors. When `ok` is false, `depends` and `precedes` may form cycles, so
+ * consumers must not assume a DAG (see `TaskScenarioResult.depends`).
  */
 export interface DependencyResult {
 	/** The other task's full id. */

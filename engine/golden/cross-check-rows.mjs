@@ -186,17 +186,24 @@ export function csvLinkRows(csv) {
 /**
  * Lines describing where expectedLinkRows and csvLinkRows differ (at most `limit`). A "*"
  * completion in an expected row matches any reported value.
+ *
+ * With `precursors` false the precursor lists are not compared. The caller passes the
+ * serializer's `ok`: precursors are the lists TaskScenario#Xref fills (TaskScenario.rb:166-179),
+ * and a run that stops with an error may have stopped inside Xref, before it reached the later
+ * tasks (or another scenario), while the golden lists every entry TaskJuggler would accept.
  * @param {string[]} expected
  * @param {string[]} actual
  * @param {number} [limit]
+ * @param {boolean} [precursors]
  */
-export function linkRowDiffs(expected, actual, limit = 10) {
+export function linkRowDiffs(expected, actual, limit = 10, precursors = true) {
 	const same = (/** @type {string | undefined} */ e, /** @type {string | undefined} */ a) => {
 		if (e === undefined || a === undefined) return e === a;
 		const ef = e.split(' | ');
 		const af = a.split(' | ');
+		const keep = precursors ? 3 : 2;
 		return ef.length === 4 && af.length === 4 &&
-			ef.slice(0, 3).join(' | ') === af.slice(0, 3).join(' | ') && (ef[3] === '*' || ef[3] === af[3]);
+			ef.slice(0, keep).join(' | ') === af.slice(0, keep).join(' | ') && (ef[3] === '*' || ef[3] === af[3]);
 	};
 	const out = [];
 	for (let i = 0; i < Math.max(expected.length, actual.length) && out.length < limit; i++) {
