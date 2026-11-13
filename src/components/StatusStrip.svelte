@@ -3,18 +3,25 @@
 	The status strip (phase-1.md 8.2): scheduler state, the finish date in the project's time zone
 	with its change, problem counts that jump to the next problem, messages that have no place in
 	the text (a popover), and a retry button after a failure. The last good finish stays visible
-	and is labelled, not faded, when the newest run did not succeed.
+	and is labelled, not faded, when the newest run did not succeed. At the end sit the engine's
+	version and the last run's time, which open a popover with every stage (phase-2.md 9.4).
 -->
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
 	import { strings } from '../lib/strings';
+	import EngineInfo from './app/EngineInfo.svelte';
 	import Mark from './app/Mark.svelte';
 
 	interface Props {
 		app: AppState;
 		compact: boolean;
+		/**
+		 * The Gantt is on screen and says what a reschedule moved (its treegrid's live region), so
+		 * a run that went well is not announced twice. Problems and failures always are.
+		 */
+		quiet?: boolean;
 	}
-	let { app, compact }: Props = $props();
+	let { app, compact, quiet = false }: Props = $props();
 
 	const s = $derived(app.status);
 	const problems = $derived(s ? s.errors + s.warnings : 0);
@@ -26,6 +33,7 @@
 	$effect(() => {
 		const v = s;
 		if (!v || v.kind === 'scheduling' || v.kind === 'booting' || v.kind === 'idle') return;
+		if (quiet && v.kind === 'ok') return;
 		const parts = [v.failure ?? v.label];
 		if (v.finish)
 			parts.push(`${strings.status.finish} ${v.finish}${v.delta ? `, ${v.delta}` : ''}`);
@@ -85,6 +93,7 @@
 				{strings.engine.retry}
 			</button>
 		{/if}
+		{#if s.engine}<EngineInfo info={s.engine} {compact} />{/if}
 	</div>
 	<div id="unlocated-popover" class="popover" popover="auto" bind:this={popover}>
 		<h2>{strings.status.unlocatedTitle}</h2>

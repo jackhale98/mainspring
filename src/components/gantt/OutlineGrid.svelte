@@ -192,6 +192,11 @@
 		tabKey === row.key && (focusKey === row.key ? heldCol === col : col === null) ? 0 : -1;
 </script>
 
+<!--
+	The treegrid has no tab stop of its own: the roving tabindex is on its rows and cells (the
+	ARIA pattern), and keys are handled here once, for whichever of them has the focus.
+-->
+<!-- svelte-ignore a11y_interactive_supports_focus -->
 <div
 	bind:this={grid}
 	role="treegrid"
@@ -223,6 +228,7 @@
 		{#each items as { row, index } (row.key)}
 			{@const n = row.node}
 			{@const cells = gridCells(row, input)}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<div
 				role="row"
 				class="row"
@@ -244,6 +250,7 @@
 				{#each cells as cell, c (cell.column)}
 					{@const col = cell.column}
 					{@const on = isShown(col)}
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 					<div
 						role={col === 'name' ? 'rowheader' : 'gridcell'}
 						class="cell"

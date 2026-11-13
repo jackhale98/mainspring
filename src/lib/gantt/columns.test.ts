@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { COLUMN_ORDER, COLUMN_REM, MIN_CHART_REM, layoutColumns, widthOf } from './columns';
+import {
+	COLUMN_ORDER,
+	COLUMN_REM,
+	MIN_CHART_REM,
+	MIN_CHART_SHARE,
+	layoutColumns,
+	widthOf,
+} from './columns';
 
 describe('layoutColumns', () => {
 	it('shows only the name on a phone', () => {
@@ -13,16 +20,22 @@ describe('layoutColumns', () => {
 		expect(l.extraRem).toBe(COLUMN_REM.start + COLUMN_REM.end);
 	});
 
-	it('shows every column on a wide desktop, in the order of the cells', () => {
-		const l = layoutColumns(1600, 300, 16);
-		expect(l.shown).toEqual(COLUMN_ORDER);
+	it('shows the critical column before the float and the people', () => {
+		const l = layoutColumns(1440, 300, 16);
+		expect(l.shown).toEqual(['name', 'start', 'end', 'effort', 'float', 'critical']);
+	});
+
+	it('shows every column on a very wide screen, in the order of the cells', () => {
+		expect(layoutColumns(2400, 300, 16).shown).toEqual(COLUMN_ORDER);
 	});
 
 	it('always leaves the chart its minimum, whatever the width', () => {
 		for (let w = 300; w <= 2400; w += 37) {
 			const l = layoutColumns(w, 300, 16);
 			if (l.shown.length === 1) continue;
-			expect(w - 300 - l.extraRem * 16).toBeGreaterThanOrEqual(MIN_CHART_REM * 16);
+			const chart = w - 300 - l.extraRem * 16;
+			expect(chart).toBeGreaterThanOrEqual(MIN_CHART_REM * 16);
+			expect(chart).toBeGreaterThanOrEqual(MIN_CHART_SHARE * w - 1e-9);
 		}
 	});
 
@@ -35,7 +48,7 @@ describe('layoutColumns', () => {
 		}
 	});
 
-	it('follows the reader’s text size: a larger rem fits fewer columns', () => {
+	it("follows the reader's text size: a larger rem fits fewer columns", () => {
 		expect(layoutColumns(1300, 300, 24).shown.length).toBeLessThan(
 			layoutColumns(1300, 300, 16).shown.length,
 		);

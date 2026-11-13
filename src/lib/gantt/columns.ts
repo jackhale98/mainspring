@@ -29,8 +29,8 @@ export const COLUMN_ORDER: readonly ColumnId[] = [
 
 /** The width of each column but the name, in rem. */
 export const COLUMN_REM: Readonly<Record<Exclude<ColumnId, 'name'>, number>> = {
-	start: 6.25,
-	end: 6.25,
+	start: 6.5,
+	end: 6.5,
 	effort: 6,
 	people: 7,
 	float: 8.25,
@@ -38,19 +38,25 @@ export const COLUMN_REM: Readonly<Record<Exclude<ColumnId, 'name'>, number>> = {
 	status: 6.25,
 };
 
-/** The columns shown, by priority: the first that does not fit ends the list. */
+/**
+ * The columns shown, by priority: the first that does not fit ends the list. Critical comes
+ * before the float and the people because it is the words that say what the bar's heavier edge
+ * only draws (WCAG 1.4.1); the people are also on the bars.
+ */
 const PRIORITY: readonly Exclude<ColumnId, 'name'>[] = [
 	'start',
 	'end',
 	'effort',
-	'people',
-	'float',
 	'critical',
+	'float',
+	'people',
 	'status',
 ];
 
-/** The chart keeps at least this much to the right of the task list. */
+/** The chart keeps at least this much to the right of the task list, in rem... */
 export const MIN_CHART_REM = 24;
+/** ...and at least this share of the Gantt's width, so the chart stays the main thing. */
+export const MIN_CHART_SHARE = 0.4;
 
 export interface ColumnLayout {
 	/** The columns drawn, in cell order, the name first. */
@@ -64,7 +70,8 @@ export interface ColumnLayout {
  * `remPx` the size of a rem, all in CSS px.
  */
 export function layoutColumns(ganttPx: number, nameColPx: number, remPx: number): ColumnLayout {
-	const room = remPx > 0 ? (ganttPx - nameColPx) / remPx - MIN_CHART_REM : 0;
+	const chart = Math.max(MIN_CHART_REM, (MIN_CHART_SHARE * ganttPx) / (remPx || 1));
+	const room = remPx > 0 ? (ganttPx - nameColPx) / remPx - chart : 0;
 	const shown: ColumnId[] = ['name'];
 	let used = 0;
 	for (const id of PRIORITY) {

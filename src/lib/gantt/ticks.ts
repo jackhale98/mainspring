@@ -89,13 +89,7 @@ function formatter(locale: string | undefined, key: string, o: Intl.DateTimeForm
 }
 
 export type DateStyle =
-	| 'weekday-day'
-	| 'month-day'
-	| 'medium'
-	| 'month'
-	| 'month-year'
-	| 'year'
-	| 'full';
+	'weekday-day' | 'month-day' | 'medium' | 'month' | 'month-year' | 'year' | 'full';
 const STYLES: Record<DateStyle, Intl.DateTimeFormatOptions> = {
 	// Written as the weekday, then the day, whatever the locale's own order (see `dayLabel`).
 	'weekday-day': { weekday: 'short' },

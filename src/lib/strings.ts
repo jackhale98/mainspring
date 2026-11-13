@@ -472,6 +472,27 @@ export const strings = {
 					]
 						.filter(Boolean)
 						.join(', '),
+		/** "TaskJuggler 3.8.4": the scheduler the plan runs on (it is the real one, in the browser). */
+		engineVersion: (v: string) => `TaskJuggler ${v}`,
+		lastRun: (time: string) => `Last run ${time}`,
+		/** The button that opens the engine details; the accessible name says what it opens. */
+		engineDetails: 'Engine details',
+		engineDetailsTitle: 'The scheduler and its last run',
+		timingTitle: 'Last run',
+		versionsTitle: 'Versions',
+		timing: {
+			engine: 'Scheduler total',
+			writeFs: 'Loading the files',
+			parse: 'Reading the plan',
+			schedule: 'Scheduling',
+			serialize: 'Preparing the result',
+			roundTrip: 'Request to result',
+			process: 'Handling the result',
+			tj: 'TaskJuggler',
+			commit: 'TaskJuggler commit',
+			ruby: 'Ruby on WebAssembly',
+			bundle: 'Engine bundle',
+		},
 		nextProblem: 'Go to the next problem',
 		unlocated: (n: number) => plural(n, 'message without a place', 'messages without a place'),
 		unlocatedTitle: 'Messages without a place in the text',

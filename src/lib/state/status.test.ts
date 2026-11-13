@@ -2,10 +2,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { strings } from '../strings';
 import { createScheduleRunner, type ScheduleRunner } from '../workspace/schedule-runner';
-import { FakeEngineClient, flush, message, task } from '../workspace/testing/fake-engine-client';
+import {
+	FakeEngineClient,
+	TIMINGS,
+	flush,
+	message,
+	task,
+} from '../workspace/testing/fake-engine-client';
 import { PLAN, TASKS, typeInto } from '../workspace/testing/runner-fixture';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
-import { formatDelta, formatSpan, statusView } from './status';
+import { formatDelta, formatMs, formatSpan, statusView } from './status';
 
 let ws: Workspace;
 let client: FakeEngineClient;
@@ -118,5 +124,59 @@ describe('statusView', () => {
 			kind: 'errors',
 			label: strings.status.errors,
 		});
+	});
+});
+
+describe('formatMs', () => {
+	it('writes a time for reading: a decimal below 10 ms, whole ms, then seconds', () => {
+		expect(formatMs(0.42, 'en')).toBe('0.4 ms');
+		expect(formatMs(7, 'en')).toBe('7 ms');
+		expect(formatMs(182.4, 'en')).toBe('182 ms');
+		expect(formatMs(1234, 'en')).toBe('1.2 s');
+		expect(formatMs(-3, 'en')).toBe('0 ms');
+	});
+});
+
+describe('statusView engine info', () => {
+	const versions = {
+		tj: '3.8.4' as const,
+		tjCommit: '3b36c799605621103d7d065c69e3f958a3dd6698',
+		rubyWasm: '2.10.1',
+		bundleHash: '32a71b8ca68e0123',
+	};
+
+	it('has nothing to say before a run and before the engine has booted', () => {
+		expect(statusView(runner.state, 'en').engine).toBeNull();
+	});
+
+	it('names the version as soon as the engine has booted, before any timing', () => {
+		const info = statusView(runner.state, 'en', versions).engine;
+		expect(info?.version).toBe('TaskJuggler 3.8.4');
+		expect(info?.last).toBeNull();
+		expect(info?.timings).toEqual([]);
+		expect(info?.versions.map((l) => l.value)).toEqual([
+			'3.8.4',
+			'3b36c79',
+			'2.10.1',
+			'32a71b8ca68e',
+		]);
+	});
+
+	it('shows the last run: the engine total, then each stage in pipeline order', async () => {
+		client.done(1, { tasks: TASKS });
+		await flush();
+		const info = statusView(runner.state, 'en', versions).engine;
+		expect(info?.last).toBe(`${TIMINGS.totalMs} ms`);
+		const labels = info?.timings.map((l) => l.label);
+		expect(labels).toEqual([
+			strings.status.timing.engine,
+			strings.status.timing.writeFs,
+			strings.status.timing.parse,
+			strings.status.timing.schedule,
+			strings.status.timing.serialize,
+			strings.status.timing.roundTrip,
+			strings.status.timing.process,
+		]);
+		expect(info?.timings[2]?.value).toBe(`${TIMINGS.parseMs} ms`);
 	});
 });
