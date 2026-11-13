@@ -184,43 +184,45 @@ text before it, and the fast run.
 The engine time saved by the fast run, from every run so far (4-core machines; the load is the
 1-minute load average during the run):
 
-| Plan | Draft (my machine, load 1.4 to 2, two runs) | Review (load about 3) | After the fixes (my machine, load 6 to 11) | Range |
-| --- | ---: | ---: | ---: | ---: |
-| Fedora 20 (414 tasks) | 44.4% / 43.7% | 37.3% | 39.4% | **37 to 44%** |
-| gantt-200 | 37.1% / 41.7% | 34.6% | 41.6% | **35 to 42%** |
-| gantt-500 | 44.2% / 41.7% | 34.8% | 38.3% | 35 to 44% |
-| scale-1000 (1,225 tasks) | 30.9% / 32.3% | not run | 27.1% | 27 to 32% |
-| Tutorial | 78.7% (timed alone) | not run | 91.4% (see below) | |
+| Plan | Draft (my machine, load 1.4 to 2, two runs) | Review (load about 3) | After the fixes, run A (my machine, load 6 to 11) | After the fixes, run B (load 3.7 to 12, median 4.5) | Range |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fedora 20 (414 tasks) | 44.4% / 43.7% | 37.3% | 39.4% | 45.4% | **37 to 45%** |
+| gantt-200 | 37.1% / 41.7% | 34.6% | 41.6% | 33.9% | **34 to 42%** |
+| gantt-500 | 44.2% / 41.7% | 34.8% | 38.3% | 37.8% | 35 to 44% |
+| scale-1000 (1,225 tasks) | 30.9% / 32.3% | not run | 27.1% | 34.2% | 27 to 34% |
+| Tutorial | 78.7% (timed alone) | not run | 91.4% | 93.6% | (see below) |
 
-The run after the fixes, in detail (ms):
+Run B after the fixes, in detail (ms):
 
 | Plan | Full run | of which parse | of which schedule | Fast run | of which copy | of which schedule | Retaining full run | of which `retainMs` | Copy size |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Fedora 20 | 3,003 | 1,428 | 1,503 | 1,820 | 166 | 1,552 | 3,290 | 214 | 1,389 KB |
-| gantt-200 | 1,962 | 847 | 1,014 | 1,145 | 49 | 933 | 2,048 | 57 | 358 KB |
-| gantt-500 | 4,381 | 1,553 | 2,608 | 2,705 | 108 | 2,340 | 4,416 | 143 | 821 KB |
-| scale-1000 | 9,677 | 3,285 | 5,845 | 7,056 | 398 | 5,972 | 8,950 | 405 | 2,031 KB |
-| Tutorial | 3,207 | 3,098 | 98 | 274 | 22 | 206 | 2,546 | 76 | 158 KB |
+| Fedora 20 | 3,006 | 1,462 | 1,465 | 1,642 | 202 | 1,411 | 3,122 | 266 | 1,389 KB |
+| gantt-200 | 1,986 | 839 | 967 | 1,312 | 54 | 1,002 | 1,911 | 55 | 358 KB |
+| gantt-500 | 3,977 | 1,571 | 2,117 | 2,472 | 101 | 2,047 | 3,754 | 148 | 821 KB |
+| scale-1000 | 12,735 | 3,226 | 8,732 | 8,377 | 292 | 7,125 | 10,350 | 410 | 2,031 KB |
+| Tutorial | 3,607 | 3,362 | 191 | 231 | 23 | 142 | 4,236 | 93 | 158 KB |
 
-- **Fedora, before and after:** a full run takes 3,003 ms of engine time and the fast run of the
-  same rewrite 1,820 ms (39.4% saved); in the draft, 3,429 / 3,037 ms against 1,907 / 1,711 ms.
-- **The spread is load.** A second run after the fixes, at load 10 to 26 (median 18) on the
+- **Fedora, before and after:** a full run takes 3,006 ms of engine time and the fast run of the
+  same rewrite 1,642 ms (45.4% saved) in run B; 3,003 against 1,820 ms (39.4%) in run A; in the
+  draft, 3,429 / 3,037 ms against 1,907 / 1,711 ms.
+- **The spread is load.** A third run after the fixes, at load 10 to 26 (median 18) on the
   same 4 cores, gave Fedora 10.5 s full against 4.8 s fast and gantt-200 4.9 s against 4.1 s,
   with schedule steps varying by up to half between paths: too noisy to use, and left out of
-  the tables. The bar should be read against the lowest figures, the review's.
-- **The schedule step of a fast run may be a few percent slower.** The review measured it 4.5 to 7%
-  slower than the full run's at load about 3. In the run above it was within noise (-10% to +3%
-  on the four large plans). The cause is not established; the copy's objects are laid out in
-  load order and the worker's heap also holds the kept dump. The savings above are net of it.
-- **Applying the rewrite** costs 1.4 to 1.7 ms.
-- **Keeping the parse** costs `retainMs` on a retaining full run (57 to 405 ms, 214 ms on
+  the tables. The lowest figures that count are gantt-200's 33.9% (run B) and the review's.
+- **The schedule step of a fast run may be a few percent slower.** The review measured it 4.5 to
+  7% slower than the full run's at load about 3. In runs A and B it was within noise (-10% to
+  +4% on Fedora, gantt-200 and gantt-500). The cause is not established; the copy's objects are
+  laid out in load order and the worker's heap also holds the kept dump. The savings above are
+  net of it.
+- **Applying the rewrite** costs 1.4 to 1.8 ms.
+- **Keeping the parse** costs `retainMs` on a retaining full run (55 to 410 ms, 214 to 266 ms on
   Fedora). Noting the sites while it parses (new after the review) is below what these runs can
-  resolve: the retaining run minus the full run minus `retainMs` is +73 ms on Fedora and
-  negative on the others.
-- **Tutorial's** full-run parse measures 1.6 to 3.1 s in the complete runs, where it runs last,
+  resolve: the retaining run minus the full run minus `retainMs` is between -372 and +73 ms on
+  Fedora, gantt-200 and gantt-500 in runs A and B.
+- **Tutorial's** full-run parse measures 1.6 to 3.4 s in the complete runs, where it runs last,
   and about 0.5 s when timed alone (draft); kept copies do not slow later parses (checked in the
   draft after eight scale-1000 runs). Its percentage is not meaningful; it is not part of the bar.
-- **scale-1000**, not part of the bar, falls just under 30% in the run after the fixes.
+- **scale-1000**, not part of the bar, measured 27 to 34%: its full runs vary most with load.
 
 ## Decision
 
@@ -229,8 +231,9 @@ The run after the fixes, in detail (ms):
 1. Zero differences: 3,829 cases at two seeds (1,887 and 1,942; at seed 20261113, 1,136 on
    golden and generated plans, as in the draft, and 751 on the direction family) and 388
    shuffled fast runs, plus the 15 review repros and 22 guards.
-2. A median saving of 37 to 44% on Fedora 20 and 35 to 42% on gantt-200 over every run so far,
-   against a bar of 30%. The lowest figures are the review's (37.3% and 34.6%).
+2. A median saving of 37 to 45% on Fedora 20 and 34 to 42% on gantt-200 over every usable run
+   so far (two of mine before the review, the review's, two of mine after it), against a bar of
+   30%. The lowest are 37.3% on Fedora (the review) and 33.9% on gantt-200 (run B).
 3. Golden parity is unchanged: golden runs never send `retain` or `fast`. On the branch after the
    fixes, `npm run test:golden` passes (4 of 4, every golden plan in one long-lived worker,
    shuffled), `npm run golden:wasm` matches 40 of 40 plans and 71 of 71 time-zone edge cases, and
