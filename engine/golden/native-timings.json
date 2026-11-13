@@ -290,6 +290,30 @@
       "serializeMs": 0.1,
       "totalMs": 55.3,
       "processMs": 475.7
+    },
+    "gantt-manipulation": {
+      "tasks": 16,
+      "parseMs": 57.6,
+      "scheduleMs": 14,
+      "serializeMs": 1.4,
+      "totalMs": 74.2,
+      "processMs": 568
+    },
+    "gantt-200": {
+      "tasks": 200,
+      "parseMs": 164.8,
+      "scheduleMs": 268.7,
+      "serializeMs": 30.4,
+      "totalMs": 464.9,
+      "processMs": 910.9
+    },
+    "gantt-500": {
+      "tasks": 500,
+      "parseMs": 270.7,
+      "scheduleMs": 583.3,
+      "serializeMs": 67.3,
+      "totalMs": 921.4,
+      "processMs": 1398.4
     }
   }
 }

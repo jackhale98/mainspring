@@ -1,0 +1,37 @@
+# Feature: gantt-manipulation - the build container, included from plan.tjp; depends on a task in plan.tjp.
+# Macros defined here: checkTask declares a task with depends (a macro call declares it, and its
+# source line is the macro body); codePriority is a statement-level call inside a task body;
+# lintSuffix builds a task id (the id is macro-built, the line is the task's own).
+# SPDX-License-Identifier: GPL-2.0-or-later
+macro checkTask [
+  task check_${1} "Check ${1}" {
+    depends !tests
+    length 2d
+    allocate ops1
+  }
+]
+
+macro codePriority [priority 600]
+macro lintSuffix [_style]
+
+task build "Build" {
+  depends design.gate
+  task code "Write code" {
+    effort 6d
+    allocate dev2, dev3
+    complete 25
+    ${codePriority}
+  }
+  task tests "Write tests" {
+    effort 3d
+    allocate ops1
+    depends !code { gaplength 1d }
+  }
+  ${checkTask "unit"}
+  task checks "Checks" {
+    task lint${lintSuffix} "Lint style" {
+      effort 1d
+      allocate ops1
+    }
+  }
+}

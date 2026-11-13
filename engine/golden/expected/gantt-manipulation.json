@@ -1,0 +1,947 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "lib/build.tji",
+    "lib/resources.tji",
+    "plan.tjp"
+  ],
+  "id": "gantt-manipulation",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": null
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "dev1",
+        "scenario": "plan",
+        "task": "design.research"
+      },
+      {
+        "intervals": [
+          [
+            34080,
+            34140
+          ],
+          [
+            35100,
+            35580
+          ]
+        ],
+        "resource": "dev1",
+        "scenario": "plan",
+        "task": "design.docs"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ]
+        ],
+        "resource": "dev2",
+        "scenario": "plan",
+        "task": "design.sketch"
+      },
+      {
+        "intervals": [
+          [
+            34080,
+            34140
+          ],
+          [
+            35100,
+            35580
+          ]
+        ],
+        "resource": "dev2",
+        "scenario": "plan",
+        "task": "design.docs"
+      },
+      {
+        "intervals": [
+          [
+            36540,
+            37020
+          ],
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            43740,
+            43920
+          ]
+        ],
+        "resource": "dev2",
+        "scenario": "plan",
+        "task": "build.code"
+      },
+      {
+        "intervals": [
+          [
+            30780,
+            31260
+          ],
+          [
+            32220,
+            32700
+          ],
+          [
+            33660,
+            34140
+          ],
+          [
+            35100,
+            35580
+          ],
+          [
+            43920,
+            44220
+          ],
+          [
+            45180,
+            45660
+          ],
+          [
+            46620,
+            47100
+          ],
+          [
+            50940,
+            51420
+          ],
+          [
+            52380,
+            52860
+          ],
+          [
+            53820,
+            54300
+          ],
+          [
+            55260,
+            55740
+          ],
+          [
+            56700,
+            57180
+          ],
+          [
+            61020,
+            61500
+          ],
+          [
+            62460,
+            62940
+          ],
+          [
+            63900,
+            64380
+          ],
+          [
+            65340,
+            65820
+          ],
+          [
+            66780,
+            67260
+          ],
+          [
+            71100,
+            71580
+          ],
+          [
+            72540,
+            73020
+          ],
+          [
+            73980,
+            74460
+          ],
+          [
+            75420,
+            75900
+          ],
+          [
+            76860,
+            77340
+          ],
+          [
+            81180,
+            81660
+          ],
+          [
+            82620,
+            83100
+          ],
+          [
+            84060,
+            84540
+          ],
+          [
+            85500,
+            85980
+          ],
+          [
+            86940,
+            87420
+          ],
+          [
+            91260,
+            91740
+          ],
+          [
+            92700,
+            93180
+          ],
+          [
+            94140,
+            94620
+          ],
+          [
+            95580,
+            96060
+          ],
+          [
+            97020,
+            97500
+          ],
+          [
+            101340,
+            101820
+          ],
+          [
+            102780,
+            103260
+          ],
+          [
+            104220,
+            104700
+          ],
+          [
+            105660,
+            106140
+          ],
+          [
+            107100,
+            107580
+          ],
+          [
+            111420,
+            111900
+          ],
+          [
+            112860,
+            113340
+          ],
+          [
+            114300,
+            114780
+          ],
+          [
+            115740,
+            116220
+          ],
+          [
+            117180,
+            117660
+          ],
+          [
+            121500,
+            121980
+          ],
+          [
+            122940,
+            123420
+          ],
+          [
+            124380,
+            124860
+          ],
+          [
+            125820,
+            126300
+          ],
+          [
+            127260,
+            127740
+          ],
+          [
+            131580,
+            132060
+          ],
+          [
+            133020,
+            133500
+          ],
+          [
+            134460,
+            134940
+          ],
+          [
+            135900,
+            136380
+          ],
+          [
+            137340,
+            137820
+          ],
+          [
+            141660,
+            142140
+          ],
+          [
+            143100,
+            143580
+          ],
+          [
+            144540,
+            145020
+          ],
+          [
+            145980,
+            146460
+          ],
+          [
+            147420,
+            147900
+          ],
+          [
+            151740,
+            152220
+          ],
+          [
+            153180,
+            153660
+          ],
+          [
+            154620,
+            155100
+          ],
+          [
+            156060,
+            156540
+          ],
+          [
+            157500,
+            157980
+          ],
+          [
+            161820,
+            162300
+          ],
+          [
+            163260,
+            163740
+          ],
+          [
+            164700,
+            165180
+          ],
+          [
+            166140,
+            166620
+          ],
+          [
+            167580,
+            168060
+          ],
+          [
+            171900,
+            172380
+          ]
+        ],
+        "resource": "dev3",
+        "scenario": "plan",
+        "task": "spike"
+      },
+      {
+        "intervals": [
+          [
+            36540,
+            37020
+          ],
+          [
+            40860,
+            41340
+          ],
+          [
+            42300,
+            42780
+          ],
+          [
+            43740,
+            43920
+          ]
+        ],
+        "resource": "dev3",
+        "scenario": "plan",
+        "task": "build.code"
+      },
+      {
+        "intervals": [
+          [
+            36540,
+            37020
+          ]
+        ],
+        "resource": "ops1",
+        "scenario": "plan",
+        "task": "support.hotfix"
+      },
+      {
+        "intervals": [
+          [
+            45360,
+            45660
+          ],
+          [
+            46620,
+            47100
+          ],
+          [
+            50940,
+            51420
+          ],
+          [
+            52380,
+            52560
+          ]
+        ],
+        "resource": "ops1",
+        "scenario": "plan",
+        "task": "build.tests"
+      },
+      {
+        "intervals": [
+          [
+            52560,
+            52860
+          ],
+          [
+            53820,
+            54300
+          ],
+          [
+            55260,
+            55440
+          ]
+        ],
+        "resource": "ops1",
+        "scenario": "plan",
+        "task": "build.check_unit"
+      },
+      {
+        "intervals": [
+          [
+            40860,
+            41340
+          ]
+        ],
+        "resource": "ops1",
+        "scenario": "plan",
+        "task": "build.checks.lint_style"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "end": "2026-06-30T00:00:00Z",
+      "id": "ganttm",
+      "name": "Gantt manipulation",
+      "now": "2026-03-09T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-03-02T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "dev1",
+        "name": "Dev 1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/resources.tji",
+          "line": 3
+        }
+      },
+      {
+        "group": false,
+        "id": "dev2",
+        "name": "Dev 2",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 0.8
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/resources.tji",
+          "line": 7
+        }
+      },
+      {
+        "group": false,
+        "id": "dev3",
+        "name": "Dev 3",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/resources.tji",
+          "line": 11
+        }
+      },
+      {
+        "group": false,
+        "id": "ops1",
+        "name": "Ops 1",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/resources.tji",
+          "line": 13
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "design",
+        "milestone": false,
+        "name": "Design",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev1",
+              "dev2"
+            ],
+            "criticalness": 0,
+            "end": 36000,
+            "pathCriticalness": 5.465116279069768,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 18
+        }
+      },
+      {
+        "id": "design.research",
+        "milestone": false,
+        "name": "Research",
+        "parent": "design",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev1"
+            ],
+            "criticalness": 1.1162790697674418,
+            "end": 3900,
+            "pathCriticalness": 5.465116279069768,
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "id": "design.sketch",
+        "milestone": false,
+        "name": "Sketch",
+        "parent": "design",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev2"
+            ],
+            "criticalness": 0,
+            "end": 15420,
+            "pathCriticalness": 4.348837209302326,
+            "scheduled": true,
+            "start": 6780
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      },
+      {
+        "id": "design.review",
+        "milestone": false,
+        "name": "Review",
+        "parent": "design",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 9660,
+            "pathCriticalness": 4.348837209302326,
+            "scheduled": true,
+            "start": 6780
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 29
+        }
+      },
+      {
+        "id": "design.docs",
+        "milestone": false,
+        "name": "Write docs",
+        "parent": "design",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev1",
+              "dev2"
+            ],
+            "criticalness": 0.7441860465116279,
+            "end": 35580,
+            "pathCriticalness": 4.093023255813954,
+            "scheduled": true,
+            "start": 34080
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 33
+        }
+      },
+      {
+        "id": "design.gate",
+        "milestone": true,
+        "name": "Design gate",
+        "parent": "design",
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 1,
+            "end": 36000,
+            "pathCriticalness": 4.348837209302326,
+            "scheduled": true,
+            "start": 36000
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 39
+        }
+      },
+      {
+        "id": "spike",
+        "milestone": false,
+        "name": "Spike",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev3"
+            ],
+            "criticalness": 0,
+            "end": 172800,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 30240
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 47
+        }
+      },
+      {
+        "id": "launch",
+        "milestone": false,
+        "name": "Launch",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [],
+            "criticalness": 0,
+            "end": 96480,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 90720
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 53
+        }
+      },
+      {
+        "id": "support",
+        "milestone": false,
+        "name": "Support",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ops1"
+            ],
+            "criticalness": 0,
+            "end": 37020,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 36540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 60
+        }
+      },
+      {
+        "id": "support.hotfix",
+        "milestone": false,
+        "name": "Hotfix",
+        "parent": "support",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ops1"
+            ],
+            "criticalness": 0.46511627906976744,
+            "end": 37020,
+            "pathCriticalness": 0.46511627906976744,
+            "scheduled": true,
+            "start": 36540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 62
+        }
+      },
+      {
+        "id": "build",
+        "milestone": false,
+        "name": "Build",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev2",
+              "dev3",
+              "ops1"
+            ],
+            "criticalness": 0,
+            "end": 55440,
+            "pathCriticalness": 3.3488372093023258,
+            "scheduled": true,
+            "start": 36540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/build.tji",
+          "line": 17
+        }
+      },
+      {
+        "id": "build.code",
+        "milestone": false,
+        "name": "Write code",
+        "parent": "build",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "dev2",
+              "dev3"
+            ],
+            "criticalness": 1.9534883720930234,
+            "end": 43920,
+            "pathCriticalness": 3.3488372093023258,
+            "scheduled": true,
+            "start": 36540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/build.tji",
+          "line": 19
+        }
+      },
+      {
+        "id": "build.tests",
+        "milestone": false,
+        "name": "Write tests",
+        "parent": "build",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ops1"
+            ],
+            "criticalness": 1.3953488372093024,
+            "end": 52560,
+            "pathCriticalness": 1.3953488372093024,
+            "scheduled": true,
+            "start": 45360
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/build.tji",
+          "line": 25
+        }
+      },
+      {
+        "id": "build.check_unit",
+        "milestone": false,
+        "name": "Check unit",
+        "parent": "build",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ops1"
+            ],
+            "criticalness": 0,
+            "end": 55440,
+            "pathCriticalness": 0,
+            "scheduled": true,
+            "start": 52560
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/build.tji",
+          "line": 30
+        }
+      },
+      {
+        "id": "build.checks",
+        "milestone": false,
+        "name": "Checks",
+        "parent": "build",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ops1"
+            ],
+            "criticalness": 0,
+            "end": 41340,
+            "pathCriticalness": 0.46511627906976744,
+            "scheduled": true,
+            "start": 40860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/build.tji",
+          "line": 31
+        }
+      },
+      {
+        "id": "build.checks.lint_style",
+        "milestone": false,
+        "name": "Lint style",
+        "parent": "build.checks",
+        "scenarios": {
+          "plan": {
+            "allocated": [
+              "ops1"
+            ],
+            "criticalness": 0.46511627906976744,
+            "end": 41340,
+            "pathCriticalness": 0.46511627906976744,
+            "scheduled": true,
+            "start": 40860
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "lib/build.tji",
+          "line": 32
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

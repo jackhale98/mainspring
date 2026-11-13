@@ -229,6 +229,9 @@ export const strings = {
 		'upstream-tutorial': 'TaskJuggler tutorial',
 		'syn-18-structure-include-macro': 'Includes, macros and supplements',
 		'upstream-fedora-20': 'Fedora 20 release schedule',
+		'gantt-manipulation': 'Gantt manipulation shapes',
+		'gantt-200': 'Gantt scale: 200 tasks',
+		'gantt-500': 'Gantt scale: 500 tasks',
 	},
 	topBar: {
 		sample: 'Sample plan',
