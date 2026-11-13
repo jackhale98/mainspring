@@ -5,17 +5,26 @@
  * file short.
  *
  * Contract for the edit dispatcher (phase-2.md 6.8, T13). These members are stable:
+ * - Every published state describes the text as it is: `state.version` equals
+ *   `workspace.snapshot().version` (the diagnostics are mapped to it at once, as for a
+ *   keystroke). Only `indexVersion` (with `index` and `hints`) and the value checks lag, until the
+ *   runner's idle tasks catch up. (After an error deriving them, reported, the previous view
+ *   stays until the next change.)
  * - `ensureIndex()` returns an index of the workspace as it is now (`index.version` equals
  *   `workspace.snapshot().version`), built at once when `state.index` lags. It does not publish:
  *   `state` catches up in the runner's own idle tasks and reuses that index while the text is
- *   unchanged. Call it right before `applyIntent`.
+ *   unchanged. Call it right before `applyIntent`. It throws when the index cannot be built (an
+ *   error in the index code, never the text's fault); the dispatcher then refuses the intent.
  * - Origins 'intent', 'format' and 'history' (an undo or redo) post the schedule request in the
- *   change's own task and publish `pending: true` at once; the view (`index`, `diagnostics`, their
- *   versions) follows in idle tasks. 'typing' waits for `debounceMs` of quiet before it posts.
+ *   change's own task and publish `pending: true` at once; the index and checks follow in idle
+ *   tasks. 'typing' waits for `debounceMs` of quiet before it posts.
  * - A result is shown by one published state that holds its `latest` record and its engine
- *   diagnostics together. The edit an intent made is settled by the first state whose
- *   `latest.workspaceVersion` is at least the version that edit produced (`result.ok` and the
- *   error ids tell whether it still schedules).
+ *   diagnostics together.
+ * - Settling an edit that produced workspace version `v`: the first state with
+ *   `latest.workspaceVersion >= v` (a result: `result.ok` and the error ids tell whether it still
+ *   schedules) or `failure.workspaceVersion >= v` (the run that covered it failed) settles it;
+ *   when both hold, the one with the newer revision wins. `engine === 'failed'` (the engine gave
+ *   up) settles every pending edit as failed.
  */
 import type { EngineClient, EngineState } from '../../engine/client';
 import type { EngineError, Revision, ScheduleResult, Timings } from '../../engine/protocol';
@@ -83,6 +92,8 @@ export interface RunRecord {
 
 export interface RunnerFailure {
 	readonly revision: Revision;
+	/** The version of the workspace snapshot that run was sent with (settles edits, see above). */
+	readonly workspaceVersion: number;
 	readonly error: EngineError;
 	/** From the start of its round trip (as `RunTimings.roundTripMs`) to the failure. */
 	readonly roundTripMs: number;
@@ -98,10 +109,7 @@ export interface RunnerState {
 	readonly status: RunnerStatus;
 	readonly engine: EngineState;
 	readonly pending: boolean;
-	/**
-	 * The workspace version that `diagnostics` and `counts` describe. Behind the workspace for a
-	 * moment after an intent, format or history change (module comment).
-	 */
+	/** The workspace version that `diagnostics` and `counts` describe: the current one. */
 	readonly version: number;
 	/** The workspace version that `index` and `hints` describe; at most `version`. */
 	readonly indexVersion: number;
@@ -147,7 +155,9 @@ export interface ScheduleRunnerOptions {
 	debounceMs?: number;
 	/**
 	 * Defaults use the global timers at call time, so fake timers apply. `requestIdle` defaults to
-	 * `requestIdleCallback`, or where there is none to `setTimeout` with `IDLE_FALLBACK_MS`.
+	 * `requestIdleCallback`; where there is none (Safari), to a zero `setTimeout` after the next
+	 * animation frame, or without frames (Node) to a zero `setTimeout`: one yield, since each idle
+	 * task is already short.
 	 */
 	timers?: Partial<Timers>;
 	/**
@@ -159,8 +169,8 @@ export interface ScheduleRunnerOptions {
 	/** Schedule the workspace at once when the runner starts; default true. */
 	runAtStart?: boolean;
 	/**
-	 * How long one idle task may keep taking derive steps (default `SLICE_MS`). A step that
-	 * changes the published state always ends its task. 0 takes one step per task (tests).
+	 * How long one idle task may keep scanning files (default `SLICE_MS`); every other step ends
+	 * its task. 0 takes one step per task (tests).
 	 */
 	sliceMs?: number;
 }
@@ -175,18 +185,17 @@ export const TYPING_PAUSE_MS = 150;
 export const MAX_TYPING_WAIT_MS = 1000;
 /** The longest the runner's idle work then waits for an idle moment. */
 export const IDLE_TIMEOUT_MS = 100;
-export const IDLE_FALLBACK_MS = 50;
 /**
- * One idle task takes further derive steps while it has run for less than this. Each step is
- * at most one file scan, one index link, the value checks or one result's diagnostics; together
- * they stay under 50 ms on `scale-1000` (phase-2.md 6.9).
+ * One idle task scans further files while it has run for less than this. Every other step (one
+ * index link, the value checks, one result's diagnostics, an index of the sent text) has a task
+ * of its own (phase-2.md 6.9).
  */
 export const SLICE_MS = 8;
 
 /**
  * Each task of the runner's own (an idle task of derive steps, or the post of an intent, format or
  * history change) is recorded as a `performance` measure with this name; its detail lists the
- * steps (`post`, `shown`, `view`, `work`). For the gate's timings (phase-2.md 6.9, 8.4).
+ * steps (`post`, `shown`, `view`, `scan`, `work`). For the gate's timings (phase-2.md 6.9, 8.4).
  */
 export const RUNNER_MEASURE = 'mainspring:runner-task';
 
@@ -213,9 +222,39 @@ export function defaultTimers(o: Partial<Timers>): Timers {
 			o.requestIdle ??
 			(idle
 				? (fn, timeout) => globalThis.requestIdleCallback(() => fn(), { timeout })
-				: (fn) => setTimeout(fn, IDLE_FALLBACK_MS)),
+				: (fn) => afterFrame(fn, setTimeout)),
 		cancelIdle:
-			o.cancelIdle ?? (idle ? (h) => globalThis.cancelIdleCallback(h as number) : clearTimeout),
+			o.cancelIdle ??
+			(idle
+				? (h) => globalThis.cancelIdleCallback(h as number)
+				: (h) => cancelAfterFrame(h as FrameYield, clearTimeout)),
 		now: o.now ?? (() => globalThis.performance.now()),
 	};
+}
+
+/** The handle of `afterFrame`: the frame request, then the timeout. */
+interface FrameYield {
+	frame: number | null;
+	timer: unknown;
+	cancelled: boolean;
+}
+
+/** `fn` in a task after the next animation frame, or in the next task without frames. */
+function afterFrame(fn: () => void, setTimeout: Timers['setTimeout']): FrameYield {
+	const h: FrameYield = { frame: null, timer: null, cancelled: false };
+	if (typeof globalThis.requestAnimationFrame === 'function') {
+		h.frame = globalThis.requestAnimationFrame(() => {
+			h.frame = null;
+			if (!h.cancelled) h.timer = setTimeout(fn, 0);
+		});
+	} else {
+		h.timer = setTimeout(fn, 0);
+	}
+	return h;
+}
+
+function cancelAfterFrame(h: FrameYield, clearTimeout: Timers['clearTimeout']): void {
+	h.cancelled = true;
+	if (h.frame !== null) globalThis.cancelAnimationFrame(h.frame);
+	if (h.timer !== null) clearTimeout(h.timer);
 }

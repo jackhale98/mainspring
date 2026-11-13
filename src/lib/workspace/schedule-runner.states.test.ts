@@ -21,8 +21,13 @@ let client: FakeEngineClient;
 let runner: ScheduleRunner;
 let idleTasks: IdleQueue;
 
+/** A clock that never moves, so how idle tasks group their steps does not depend on load. */
 function start(): void {
-	runner = createScheduleRunner({ workspace: ws, client, timers: idleTasks.timers });
+	runner = createScheduleRunner({
+		workspace: ws,
+		client,
+		timers: { ...idleTasks.timers, now: () => 0 },
+	});
 }
 
 const type = (insert: string, at?: TypeAt): void => typeInto(ws, insert, at);
@@ -102,7 +107,9 @@ describe('derived state while typing', () => {
 		expect(runner.state.diagnostics.some((d) => d.source === 'syntax')).toBe(true);
 		vi.advanceTimersByTime(1);
 		expect(idleTasks.timeouts).toEqual([IDLE_TIMEOUT_MS]);
-		// The index in one task, the value checks in the next.
+		// The changed file is scanned in one task, the index linked in the next, then the checks.
+		idleTasks.runOne();
+		expect(runner.state).toMatchObject({ version: 4, indexVersion: 0 });
 		idleTasks.runOne();
 		expect(runner.state).toMatchObject({ version: 4, indexVersion: 4, pending: true });
 		expect(runner.state.index.tasks.has('c')).toBe(true);

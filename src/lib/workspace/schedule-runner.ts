@@ -33,12 +33,13 @@
  * - The runner never schedules anything itself: finish dates and hints are read from results.
  *
  * Derived state (run-derive.ts, run-view.ts)
- * - A typed change updates engine diagnostic positions and syntax diagnostics at once
- *   (`quickView`). Everything else is derived in idle tasks (`requestIdle`, at most
- *   `IDLE_TIMEOUT_MS` later), a step or a few at a time (`sliceMs`), so that no task handles a
- *   whole result or a whole index (6.9): show a waiting result, scan a changed file, link the
- *   index, check values. A step that changes what is shown ends its task and is published, so
- *   the listeners' work lands in its own task too.
+ * - Every change, typed or not, updates engine diagnostic positions and syntax diagnostics at
+ *   once (`quickView`), so every state describes the text as it is. Everything else is derived
+ *   in idle tasks (`requestIdle`, at most `IDLE_TIMEOUT_MS` later), one step per task, so that no
+ *   task handles a whole result or a whole index (6.9): show a waiting result, scan a changed
+ *   file, link the index, check values. Only file scans are chained, while `sliceMs` lasts.
+ *   Each step that changes what is shown is published, so the listeners' work lands in a task
+ *   of its own too.
  * - The steps that follow the text wait while typing goes on: until `TYPING_PAUSE_MS` without a
  *   keystroke, or `MAX_TYPING_WAIT_MS` after the first keystroke of a burst that never pauses,
  *   so in ordinary typing they fall in a pause. Until then `indexVersion` is behind `version`.
@@ -191,10 +192,13 @@ class Runner implements ScheduleRunner {
 				this.#typingGoesOn();
 				this.#debounce();
 			} else {
-				// 'intent', 'format', 'history': post first, derive in the next idle tasks.
+				// 'intent', 'format', 'history': post first; then the diagnostics follow the text at
+				// once, as for a keystroke (every state describes the text as it is); the index and
+				// checks follow in idle tasks.
 				const start = this.#timers.now();
 				this.#runNow();
 				measureTask(start, this.#timers.now(), ['post']);
+				this.#derive.typed();
 				this.#typingStopped();
 				this.#kick();
 			}
@@ -244,7 +248,10 @@ class Runner implements ScheduleRunner {
 		}, IDLE_TIMEOUT_MS);
 	}
 
-	/** One idle task: steps until one changes what is shown or the slice is used up. */
+	/**
+	 * One idle task: one step, or file scans while the slice lasts. A task never chains a scan with
+	 * a link, an index of the sent text or checks, so the longest task is the longest single step.
+	 */
 	#work(): void {
 		const d = this.#derive;
 		const start = this.#timers.now();
@@ -257,7 +264,8 @@ class Runner implements ScheduleRunner {
 			if (out.kind === 'shown') this.#show(out.shown);
 			// Caught up with the text: the next keystroke starts a new burst (and a new cap).
 			if (d.indexCurrent) this.#typingStopped();
-			if (out.kind !== 'work' || this.#timers.now() - start >= this.#sliceMs) break;
+			if (out.kind !== 'scan' || this.#timers.now() - start >= this.#sliceMs) break;
+			if (!d.nextIsScan(this.#follow())) break;
 		}
 		d.endTask();
 		if (steps.length > 0) measureTask(start, this.#timers.now(), steps);
@@ -315,8 +323,12 @@ class Runner implements ScheduleRunner {
 				this.#kick();
 			} else if (outcome.status === 'failed') {
 				if (!this.#failure || sent.revision > this.#failure.revision) {
-					const roundTripMs = this.#timers.now() - this.#startOf(sent);
-					this.#failure = { revision: sent.revision, error: outcome.error, roundTripMs };
+					this.#failure = {
+						revision: sent.revision,
+						workspaceVersion: sent.snapshot.version,
+						error: outcome.error,
+						roundTripMs: this.#timers.now() - this.#startOf(sent),
+					};
 				}
 			}
 		});

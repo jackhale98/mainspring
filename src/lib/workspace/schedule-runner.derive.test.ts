@@ -60,9 +60,10 @@ describe('post before derive', () => {
 		runner.subscribe((s) => seen.push(s));
 		applyEdit(ws, 'setAttr', 'effort 2d', 'effort 3d');
 		expect(client.lastRequest.files['plan.tjp']).toContain('effort 3d');
-		// Published once, pending, with the view of the text before the edit.
+		// Published once, pending: diagnostics of the text as it is, the index still of the text
+		// before the edit.
 		expect(seen).toHaveLength(2);
-		expect(runner.state).toMatchObject({ status: 'scheduling', version: 0, indexVersion: 0 });
+		expect(runner.state).toMatchObject({ status: 'scheduling', version: 1, indexVersion: 0 });
 		expect(idleTasks.size).toBe(1);
 		idleTasks.run();
 		expect(runner.state).toMatchObject({ version: 1, indexVersion: 1 });
@@ -307,7 +308,7 @@ describe('results in idle tasks', () => {
 		return tasks;
 	}
 
-	it('keeps each task of a 1,000-task plan under 50 ms', async () => {
+	it('keeps each idle task of the 1,000-task plan under 50 ms of CPU (best of 3 warm rounds, Node, unthrottled)', async () => {
 		const file = path.join(ROOT, 'engine/golden/expected/syn-20-scale-1000.json');
 		const result = (JSON.parse(fs.readFileSync(file, 'utf8')) as { result: ScheduleResult }).result;
 		// Best of three rounds: the first also pays for the compiler's warm-up.

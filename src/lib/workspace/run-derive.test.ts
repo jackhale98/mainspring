@@ -84,20 +84,22 @@ describe('step order', () => {
 		expect(d.due(false)).toBe(true);
 		expect(d.step(false)?.kind).toBe('shown');
 		expect(d.step(false)).toBeNull();
-		expect(drain(d)).toEqual(['work', 'view', 'view']);
+		expect(drain(d)).toEqual(['scan', 'view', 'view']);
 		expect(d.view).toMatchObject({ version: 1, indexVersion: 1, checksVersion: 1 });
 	});
 
 	it('links after one scan per file, even when typing goes on between idle tasks', () => {
 		const { ws, d } = setup();
 		typeInto(ws, '# a\n');
-		expect(d.step(true)?.kind).toBe('work');
+		expect(d.nextIsScan(true)).toBe(true);
+		expect(d.step(true)?.kind).toBe('scan');
 		typeInto(ws, '# b\n');
+		expect(d.nextIsScan(true)).toBe(false);
 		// The file changed again: the link scans it itself, rather than another scan step.
 		expect(d.step(true)?.kind).toBe('view');
 		expect(d.view.indexVersion).toBe(2);
 		typeInto(ws, '# c\n');
-		expect(d.step(true)?.kind).toBe('work');
+		expect(d.step(true)?.kind).toBe('scan');
 	});
 
 	it('scans one changed file per step before it links', () => {
@@ -116,7 +118,7 @@ describe('step order', () => {
 			changes: { 'a.tji': edit('a.tji', '1d', '2d'), 'b.tji': edit('b.tji', '4d', '5d') },
 		});
 		expect(r).toBe('applied');
-		expect(drain(d)).toEqual(['work', 'work', 'view', 'view']);
+		expect(drain(d)).toEqual(['scan', 'scan', 'view', 'view']);
 		expect(d.view.indexVersion).toBe(ws.snapshot().version);
 	});
 });
@@ -209,13 +211,13 @@ describe('errors', () => {
 		typeInto(ws, '# a\n');
 		broken = true;
 		const view = d.view;
-		expect(drain(d)).toEqual(['work', 'work']);
+		expect(drain(d)).toEqual(['scan', 'work']);
 		expect(thrown).toEqual([new Error('broken')]);
 		expect(d.view).toBe(view);
 		expect(d.due(true)).toBe(false);
 		broken = false;
 		typeInto(ws, '# b\n');
-		expect(drain(d)).toEqual(['work', 'view', 'view']);
+		expect(drain(d)).toEqual(['scan', 'view', 'view']);
 		expect(d.view.indexVersion).toBe(2);
 	});
 

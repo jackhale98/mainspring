@@ -14,8 +14,13 @@
  * 3. **Check values and attributes** with that index.
  * Steps 2 and 3 follow the text; the runner holds them back while typing goes on (`follow`).
  *
- * A step that changes the view returns it; the runner publishes after each such step, so the
- * listeners' own work (the outline, the Gantt model, the editor's marks) lands in separate tasks.
+ * The runner gives each step a task of its own, and chains only file scans (`nextIsScan`), so its
+ * longest task is its longest single step; it publishes after each step that changes the view,
+ * so the listeners' own work (the outline, the Gantt model, the editor's marks) lands in separate
+ * tasks too.
+ *
+ * (Over 400 lines: the step planner and the steps share the derive state, which no other module
+ * should touch.)
  *
  * Errors: a step that throws reports the error (report.ts) and keeps the previous view; the step
  * is not tried again for the same input (version and hint base), so a broken derive cannot spin.
@@ -78,11 +83,25 @@ export interface Shown {
 }
 
 export type StepOutcome =
-	/** Work that changed nothing shown (a file scan, an index of the sent text). */
+	/** One file scanned; the only step a task takes more of (the runner chains scans). */
+	| { readonly kind: 'scan' }
+	/** Other work that changed nothing shown (an index of the sent text, a link to the same index). */
 	| { readonly kind: 'work' }
 	/** The view changed: an index linked, or checks computed. */
 	| { readonly kind: 'view' }
 	| { readonly kind: 'shown'; readonly shown: Shown };
+
+type Plan =
+	| { readonly kind: 'show'; readonly now: WorkspaceSnapshot; readonly w: Waiting }
+	| { readonly kind: 'sent-index'; readonly now: WorkspaceSnapshot; readonly w: Waiting }
+	| {
+			readonly kind: 'scan';
+			readonly now: WorkspaceSnapshot;
+			readonly path: WorkspacePath;
+			readonly file: TjpFile;
+	  }
+	| { readonly kind: 'link'; readonly now: WorkspaceSnapshot }
+	| { readonly kind: 'checks'; readonly now: WorkspaceSnapshot };
 
 interface Waiting {
 	readonly arrival: Arrival;
@@ -228,22 +247,48 @@ export class Deriver {
 		return null;
 	}
 
-	#next(follow: boolean): StepOutcome | null {
+	/** Whether the next step would be a file scan (the runner chains those in one task). */
+	nextIsScan(follow: boolean): boolean {
+		return this.#plan(follow)?.kind === 'scan';
+	}
+
+	/** The next step, without taking it (reading a waiting result's hints is the only effect). */
+	#plan(follow: boolean): Plan | null {
 		const now = this.#ws.snapshot();
 		const w = this.#waiting[0];
 		if (w) {
 			this.#readHints(w);
-			if (this.#placeable(w)) return this.#show(w, now);
+			if (this.#placeable(w)) return { kind: 'show', now, w };
 			if (w.arrival.sent.snapshot.version === now.version && this.#indexBehind(now)) {
-				return this.#indexStep(now);
+				return this.#indexPlan(now);
 			}
-			this.#buildSentIndex(w);
-			return { kind: 'work' };
+			return { kind: 'sent-index', now, w };
 		}
 		if (!follow) return null;
-		if (this.#indexBehind(now)) return this.#indexStep(now);
-		if (this.#checksBehind()) return this.#checksStep(now);
+		if (this.#indexBehind(now)) return this.#indexPlan(now);
+		if (this.#checksBehind()) return { kind: 'checks', now };
 		return null;
+	}
+
+	#next(follow: boolean): StepOutcome | null {
+		const p = this.#plan(follow);
+		if (!p) return null;
+		switch (p.kind) {
+			case 'show':
+				return this.#show(p.w, p.now);
+			case 'sent-index':
+				this.#buildSentIndex(p.w);
+				return { kind: 'work' };
+			case 'scan':
+				this.#scanned.add(p.file);
+				this.#prescanned.add(p.path);
+				this.#guard(() => factsOf(p.file));
+				return { kind: 'scan' };
+			case 'link':
+				return this.#link(p.now);
+			case 'checks':
+				return this.#checksStep(p.now);
+		}
 	}
 
 	#indexBehind(now: WorkspaceSnapshot): boolean {
@@ -258,26 +303,32 @@ export class Deriver {
 		return index !== this.#checksIndex && index !== this.#checksFailed;
 	}
 
-	/** Scans one file the index of `now` needs, or links the index (module comment). */
-	#indexStep(now: WorkspaceSnapshot): StepOutcome {
-		const prepared = this.#prepared;
-		const ready =
-			prepared && prepared.part.indexVersion === now.version && prepared.base === this.#hintBase;
-		if (!ready) {
+	/** The prepared index of `now` when ensureIndex built it with the newest hints. */
+	#ready(now: WorkspaceSnapshot): Prepared | null {
+		const p = this.#prepared;
+		return p && p.part.indexVersion === now.version && p.base === this.#hintBase ? p.part : null;
+	}
+
+	/** A file the index of `now` needs scanned in a step of its own, else the link. */
+	#indexPlan(now: WorkspaceSnapshot): Plan {
+		if (!this.#ready(now)) {
 			for (const path of now.includes.order) {
 				const file = now.files.get(path);
 				if (!file || this.#scanned.has(file) || this.#prescanned.has(path)) continue;
-				this.#scanned.add(file);
-				this.#prescanned.add(path);
-				this.#guard(() => factsOf(file));
-				return { kind: 'work' };
+				return { kind: 'scan', now, path, file };
 			}
 		}
+		return { kind: 'link', now };
+	}
+
+	/** Links the index of `now` (the files it needs scanned are scanned on the way). */
+	#link(now: WorkspaceSnapshot): StepOutcome {
+		const ready = this.#ready(now);
 		const base = this.#hintBase;
 		let changed = false;
 		const ok = this.#guard(() => {
 			const v = this.#view;
-			const part = ready ? prepared.part : prepareIndex(this.#ws, now, base, v, this.#zones);
+			const part = ready ?? prepareIndex(this.#ws, now, base, v, this.#zones);
 			// An index equal to the view's (same version, same hints) changes nothing shown.
 			if (part === v) return;
 			this.#view = composeView(this.#ws, now, part, checksOfView(v), this.#diagnosticBase);

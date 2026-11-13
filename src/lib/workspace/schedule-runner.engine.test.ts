@@ -169,9 +169,10 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('schedule runner on the rea
 		});
 		if (plan.status !== 'edit') throw new Error(`intent ${plan.status}`);
 		expect(applyEdit(ws, plan.edit)).not.toBe('stale');
-		// Posted before anything is derived: the view still shows the text before the edit.
+		// Posted before the index is derived: diagnostics follow the text at once, the index lags.
 		expect(runner.state).toMatchObject({ pending: true, status: 'scheduling' });
-		expect(runner.state.version).toBeLessThan(ws.snapshot().version);
+		expect(runner.state.version).toBe(ws.snapshot().version);
+		expect(runner.state.indexVersion).toBeLessThan(ws.snapshot().version);
 		expect(runner.ensureIndex().version).toBe(ws.snapshot().version);
 		const edited = await waitFor(runner, settled(first.latest?.revision ?? 0));
 		expect(edited.latest?.workspaceVersion).toBe(ws.snapshot().version);
