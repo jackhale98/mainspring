@@ -15,7 +15,7 @@ const pred: Rect = { x: 0, y: 10, w: 50, h: 16 };
 const succ: Rect = { x: 100, y: 38, w: 50, h: 16 };
 const ends = { predRow: 0, succRow: 1, from: 'end', to: 'start' } as const;
 /** An elbow of 8, rows of 28, and an arrow head of 5 that wants 4 more: an approach of 9. */
-const style = { elbow: 8, rowHeight: 28, approach: 9 };
+const style = { elbow: 8, rowHeight: 28, approach: 9, runs: null };
 
 describe('routeLink', () => {
 	it('runs an elbow from the end of one bar to the start of the next, in one buffer', () => {
@@ -100,6 +100,58 @@ describe('the straight run into the target', () => {
 		const run = lastRun(out);
 		expect(run.horizontal).toBe(true);
 		expect(run.len).toBeGreaterThanOrEqual(style.approach);
+	});
+});
+
+describe('names beside bars', () => {
+	/** Runs of three rows: `[x0, x1, inside]` each, NaN for a row without one. */
+	const runsOf = (...rows: Array<[number, number, 0 | 1] | null>): Float64Array =>
+		Float64Array.from(rows.flatMap((r) => r ?? [NaN, NaN, NaN]));
+	const p: Rect = { x: 0, y: 10, w: 50, h: 16 };
+	const q: Rect = { x: 120, y: 66, w: 50, h: 16 };
+	const down = { predRow: 0, succRow: 2, from: 'end', to: 'start' } as const;
+	/** The x of the vertical leg of a four point path. */
+	const legX = (out: ReturnType<typeof newPath>): number => pointsOf(out)[1]?.x ?? NaN;
+
+	it('keeps its leg where it is when no name is in the way', () => {
+		const out = newPath();
+		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [200, 240, 0], null) });
+		expect(legX(out)).toBe(58);
+	});
+
+	it('moves the leg past a name that a row between would have it run through', () => {
+		const out = newPath();
+		// A name from 50 to 70 on the row between; the leg wants 58 and goes to the name's end plus 3.
+		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [50, 70, 0], null) });
+		expect(legX(out)).toBe(73);
+		expect(out.n).toBe(4);
+	});
+
+	it('does not move for a name inside a bar, which covers the line anyway', () => {
+		const out = newPath();
+		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [50, 70, 1], null) });
+		expect(legX(out)).toBe(58);
+	});
+
+	it('goes back before the name when there is no room after it, and stays when there is none', () => {
+		const out = newPath();
+		// The leg may run from 52 (just right of the bar's end) to 111 (the approach before the target
+		// at 120): 58 is blocked by a name to 112, so it steps back to the name's start less the pad.
+		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [60, 112, 0], null) });
+		expect(legX(out)).toBe(57);
+		// A name that spans the whole run: nowhere to go.
+		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [-10, 300, 0], null) });
+		expect(legX(out)).toBe(58);
+	});
+
+	it('moves the second leg of a go-round further back from the target', () => {
+		const out = newPath();
+		const target: Rect = { x: 30, y: 66, w: 50, h: 16 };
+		// The target starts behind the predecessor's end: down at 58, along the boundary, then down
+		// at 30 - 9 = 21 past row 1, where a name sits from 10 to 40: the leg goes to 7.
+		routeLink(out, p, target, down, false, { ...style, runs: runsOf(null, [10, 40, 0], null) });
+		expect(pointsOf(out)[3]?.x).toBe(7);
+		expect(pointsOf(out)[4]?.x).toBe(7);
 	});
 });
 

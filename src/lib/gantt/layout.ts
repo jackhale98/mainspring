@@ -8,6 +8,7 @@
  * - `paintWindow` (paint-window.ts, re-exported here) decides which part of the content the
  *   canvases hold.
  */
+import { LABEL_STRIDE, labelRunInto, type LabelRun, type TextMeasure } from './labels';
 import type { GanttLink, GanttModel, GanttRow } from './model';
 import type { Theme } from './paint/theme';
 import {
@@ -56,6 +57,9 @@ export interface Metrics {
 	readonly minBarWidth: number;
 	/** Space left of a link's first bend. */
 	readonly elbow: number;
+	/** Space inside a bar around its name, and between a bar's end and a name beside it. */
+	readonly labelPad: number;
+	readonly labelGap: number;
 	/** The shortest straight run into a link's target: the arrow head and 4 px. */
 	readonly approach: number;
 	/** Space before the first date, so a start milestone is not clipped: half a diamond and a gap. */
@@ -83,6 +87,8 @@ export function metricsFor(theme: Theme, coarse: boolean): Metrics {
 		minBarWidth: theme.minBarWidth,
 		elbow: theme.linkElbow,
 		approach: theme.arrowSize + LINK_APPROACH_PAD,
+		labelPad: theme.labelPad,
+		labelGap: theme.labelGap,
 		originPad: theme.milestoneHalf + theme.originGap,
 		headerRow: theme.headerRow,
 		headerHeight: theme.headerRow * 2,
@@ -107,6 +113,12 @@ export interface GanttLayout {
 	 * Only the painter knows (it measures text), so it reports here and hit testing reads.
 	 */
 	readonly avatars: Float64Array;
+	/**
+	 * Where each row's name is, `LABEL_STRIDE` numbers per row (x0, x1, 1 when inside its bar, else
+	 * 0), NaN for none (labels.ts). Known from the layout alone, so that hit testing, the links and
+	 * the marker lines leave it alone before anything is painted. Empty without a text measure.
+	 */
+	readonly labels: Float64Array;
 	rowTop(row: number): number;
 	/** The row at a content y, or null above the first or below the last. */
 	rowAt(y: number): number | null;
@@ -178,6 +190,7 @@ export function createLayout(
 	scale: TimeScale,
 	metrics: Metrics,
 	viewWidth = 0,
+	measure: TextMeasure | null = null,
 ): GanttLayout {
 	const rows = model.rows;
 	const bars = newBars(rows.length);
@@ -195,8 +208,21 @@ export function createLayout(
 		bars.h[i] = at.h;
 	}
 	const avatars = new Float64Array(2 * rows.length).fill(NaN);
+	const labels = new Float64Array(measure ? LABEL_STRIDE * rows.length : 0).fill(NaN);
+	if (measure) {
+		const run: LabelRun = { x0: 0, x1: 0, inside: false };
+		for (let i = 0; i < rows.length; i++) {
+			const r: GanttRow | undefined = rows[i];
+			const x = bars.x[i];
+			if (!r || x === undefined || Number.isNaN(x)) continue;
+			if (!labelRunInto(run, r, scale, x, bars.w[i] ?? 0, metrics, measure)) continue;
+			labels[LABEL_STRIDE * i] = run.x0;
+			labels[LABEL_STRIDE * i + 1] = run.x1;
+			labels[LABEL_STRIDE * i + 2] = run.inside ? 1 : 0;
+		}
+	}
 	const width = Math.max(viewWidth, Math.ceil(scale.x(model.endMin)));
-	return layoutOver(model, scale, metrics, bars, avatars, width);
+	return layoutOver(model, scale, metrics, bars, avatars, labels, width);
 }
 
 function layoutOver(
@@ -205,11 +231,17 @@ function layoutOver(
 	metrics: Metrics,
 	bars: BarArrays,
 	avatars: Float64Array,
+	labels: Float64Array,
 	width: number,
 ): GanttLayout {
 	const rows = model.rows;
 	const { rowHeight } = metrics;
-	const style = { elbow: metrics.elbow, rowHeight, approach: metrics.approach };
+	const style = {
+		elbow: metrics.elbow,
+		rowHeight,
+		approach: metrics.approach,
+		runs: labels.length > 0 ? labels : null,
+	};
 	const rowTop = (row: number): number => row * rowHeight;
 
 	const barInto = (index: number, out: MutableRect): boolean => {
@@ -253,6 +285,7 @@ function layoutOver(
 		height: rows.length * rowHeight,
 		bars,
 		avatars,
+		labels,
 		rowTop,
 		rowAt: (y) => {
 			const row = Math.floor(y / rowHeight);
@@ -273,7 +306,7 @@ function layoutOver(
 			const buf = newPath();
 			return linkInto(link, buf) ? pointsOf(buf) : [];
 		},
-		withBars: (b) => layoutOver(model, scale, metrics, b, avatars, width),
+		withBars: (b) => layoutOver(model, scale, metrics, b, avatars, labels, width),
 	};
 }
 

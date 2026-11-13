@@ -278,6 +278,22 @@ describe('paintBars', () => {
 		expect(Number.isNaN(layout.avatars[2])).toBe(true);
 	});
 
+	it('draws every name where the layout reserved it, inside the bar or beside it', () => {
+		const m = modelOf([
+			row(0, 0, 10 * D, 'task', { name: 'Code' }),
+			row(1, 0, D / 3, 'task', { name: 'A short one', floatMin: 3 * D, lateEnd: 4 * D }),
+			row(2, 3 * D, 3 * D, 'milestone', { name: 'Ship' }),
+			row(3, 0, 10 * D, 'task', { name: 'Not editable', textOnly: 'unresolved' }),
+		]);
+		const { frame, rec, layout } = frameOf(m, { names: true });
+		paintBars(frame);
+		const drawn = new Map(rec.of('fillText').map((c) => [c[1], c[2]] as const));
+		for (const [i, name] of ['Code', 'A short one', 'Ship', 'Not editable'].entries()) {
+			expect(drawn.get(name)).toBe(layout.labels[3 * i]);
+		}
+		expect([0, 1, 2, 3].map((i) => layout.labels[3 * i + 2])).toEqual([1, 0, 0, 0]);
+	});
+
 	it('does not rely on colour for text-only and engine-only', () => {
 		const m = modelOf(
 			[row(0, 0, 4 * D, 'task', { textOnly: 'unresolved' }), row(1, 0, 4 * D), row(2, 0, 4 * D)],

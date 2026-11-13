@@ -51,6 +51,7 @@
 	} from '../../lib/gantt/layout';
 	import { markerState } from '../../lib/gantt/markers';
 	import { buildGanttModel, todayOf } from '../../lib/gantt/model';
+	import { measureFor } from '../../lib/gantt/paint/canvas';
 	import {
 		DEFAULT_ZOOM,
 		ZOOM_PRESETS,
@@ -140,7 +141,9 @@
 	const scale = $derived(scaleFor(model, pxPerDay, metrics));
 	const viewW = $derived(Math.max(0, scrollerW - namesW));
 	const viewH = $derived(Math.max(0, scrollerH - metrics.headerHeight));
-	const layout = $derived(createLayout(model, scale, metrics, viewW));
+	// The layout reserves where the names are (labels.ts) with a scratch canvas set in the theme's fonts.
+	const measure = $derived(measureFor(env.theme));
+	const layout = $derived(createLayout(model, scale, metrics, viewW, measure));
 
 	let paintWin = $state.raw<PaintWindow>({ x: 0, y: 0, w: 0, h: 0 });
 	$effect(() => {

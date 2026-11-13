@@ -39,7 +39,7 @@ interface Drawn {
 	what: readonly unknown[];
 	x: number;
 	y: number;
-	/** Whether anything but the full-height marker lines was drawn. */
+	/** Whether anything but the uncut, full-height marker lines was drawn. */
 	rings: boolean;
 }
 const drawn = new WeakMap<object, Drawn>();
@@ -158,7 +158,11 @@ export function paintOverlay(f: PaintFrame, state: OverlayState): void {
 	}
 	erase(f, what);
 
-	paintMarkers(f, today, (x, y, w, h) => note(f, x, y, w, h));
+	if (paintMarkers(f, today, (x, y, w, h) => note(f, x, y, w, h))) {
+		// A gap in a line sits on a row: a move of the window up or down shows it in the wrong place.
+		const d = drawn.get(ctx);
+		if (d) d.rings = true;
+	}
 
 	if (inRange(state.hoverRow) && state.hoverRow !== state.selectedRow) {
 		outlineAround(f, state.hoverRow, theme.borderStrong, theme.hoverRingWidth, 1);
