@@ -35,8 +35,8 @@ Three interaction defaults are also open:
    - An ALAP task always writes `end`, because TaskJuggler anchors it at the end.
    - Resizing mirrors this: an ASAP task's size handle is on its end edge, an ALAP task's on its
      start edge, so the anchored edge never moves (amended 2026-11-13, T12 review).
-3. **UI preferences (18.5).** Mode, zoom, collapse state and the split divider are stored in
-   `localStorage`, one set per sample. The move preference is stored once per browser
+3. **UI preferences (18.5).** Mode, zoom, collapse state, the split divider and the Gantt's
+   table divider are stored in `localStorage`, one set per sample. The move preference is stored once per browser
    (decision 2). Defaults:
    - Split on desktop;
    - Visual on tablet;
@@ -61,3 +61,14 @@ Three interaction defaults are also open:
   the selected bar's handles only) needs its own ADR (19.4).
 - Preferences are local to one browser. Nothing is synced, and no plan text leaves the
   device through this path.
+
+## Amendment 2026-11-13: the Gantt table divider (user)
+
+In the Visual view the task table and the chart are split by a divider the user drags, like the
+text Split view's divider. The table keeps its columns at their natural widths and scrolls
+sideways inside its own pane when it is narrower than its columns; it no longer hides columns to
+fit (T18's automatic column choice is replaced). The Task column stays frozen at the table's left
+edge, and both panes share one vertical scroll. The divider is keyboard operable, has a 44 px
+touch target, and its position is stored per sample (decision 3). On a phone the single frozen
+name column stays (polish item 8 covers phone widths).
+
