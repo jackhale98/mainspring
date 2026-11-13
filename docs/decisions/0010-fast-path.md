@@ -266,15 +266,21 @@ Scope of adoption:
 - **When the runner keeps a parse.** It sends `retain: true` on runs whose origin is 'intent' or
   'history': visual editing, where the next change is likely another value rewrite. Typing never
   retains and never sends `fast` (6.12, section 12 step 5).
-- **The edit sites, from the dispatcher (T13).** The dispatcher knows the intent and the edit
-  API's change; the runner knows the base. The channel between them, to be added with the
-  wiring:
-  - With each intent, undo or redo it hands to the workspace, the dispatcher passes the runner
-    `{ workspaceVersion, edits: FastEdit[] | null }`: the result of `fastEditsOf(before, index,
-    changes)`, computed on the snapshot and index the intent was applied to. `null` means "not
-    a fast change" (any change it cannot express as in-place site rewrites).
-  - Typing, file operations and anything else that changes the text without that call carry no
-    edits, which the runner treats as `null`.
+- **The edit sites, from the dispatcher (T13, now merged: `src/lib/state/edits.svelte.ts`).**
+  The dispatcher knows the intent and the edit API's change; the runner knows the base. The
+  channel between them, to be added with the wiring:
+  - One runner method, `noteFastEdits(workspaceVersion, edits: FastEdit[] | null)`, added to
+    the `runner` the dispatcher's deps pick (`EditDispatcherDeps`).
+  - The dispatcher calls it in step 4, right after `applyEdit` succeeds, with the version the
+    apply produced and `fastEditsOf(snapshot, index, p.edit.changes)`, where `snapshot` and
+    `index` are the ones the intent was planned on (version `p.version`, from `ensureIndex`).
+    A coalesced gesture's unwinding is an undo followed by a new apply, so each step is noted.
+  - Undo and redo (`WorkspaceHistory.undo` and `redo`, from `HistoryControls` or the
+    dispatcher) note the step the same way: the step's changes against the snapshot and index
+    from before the step.
+  - `null` means "not a fast change" (any change `fastEditsOf` cannot express as in-place site
+    rewrites). Typing, file operations and anything else that moves the version without a note
+    count as `null`.
   - The runner never computes sites itself and never reads the edit API's internals.
 - **When it sends `fast`.** When every change since the base run carried edits: the request
   carries the base's revision and the edits accumulated since the base, one per file and line,
