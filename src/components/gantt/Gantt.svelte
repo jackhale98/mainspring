@@ -28,6 +28,10 @@
 	and down, all by `position: sticky` on the compositor; nothing repaints per scroll event, only
 	when the window leaves its overscan (layout.ts). No scroll chains to the page.
 
+	Text to visual (phase-2.md 6.10): when the cursor in the text moves into another task, the app
+	asks the chart to follow (`app.selection.follow`) and it scrolls that row and bar into view
+	(lib/gantt/follow.ts), without taking the focus.
+
 	Over 400 lines on purpose: this one component owns the scroll container, the zoom and the sticky
 	grid, and they only work together; splitting them would spread one invariant over two files.
 
@@ -54,6 +58,7 @@
 		scaleFor,
 		type PaintWindow,
 	} from '../../lib/gantt/layout';
+	import { followOffsets } from '../../lib/gantt/follow';
 	import { markerState } from '../../lib/gantt/markers';
 	import { buildGanttModel, todayOf } from '../../lib/gantt/model';
 	import { measureFor } from '../../lib/gantt/paint/canvas';
@@ -314,6 +319,39 @@
 		scroller.scrollTop = revealTop(index, metrics.rowHeight, scroller.scrollTop, viewH);
 		scrollTop = scroller.scrollTop;
 		await tick();
+	}
+
+	// Text to visual (phase-2.md 6.10): the cursor moved into another task in the text. Its row and
+	// bar scroll into view, without taking the focus. The request is read once, when the chart is
+	// on screen (a hidden chart has no height), and does nothing for a row that is not drawn.
+	let followed = 0;
+	$effect(() => {
+		const f = app.selection.follow;
+		if (!f || f.nonce === followed || !scroller || viewH <= 0) return;
+		followed = f.nonce;
+		const i = model.rowOf.get(f.key);
+		if (i !== undefined) untrack(() => followRow(i));
+	});
+	function followRow(index: number): void {
+		const row = model.rows[index];
+		if (!scroller || !row) return;
+		const bar =
+			row.start !== null && row.end !== null
+				? { x0: scale.x(row.start), x1: scale.x(row.end) }
+				: null;
+		const to = followOffsets({
+			row: index,
+			rowHeight: metrics.rowHeight,
+			top: scroller.scrollTop,
+			left: scroller.scrollLeft,
+			viewW,
+			viewH,
+			bar,
+		});
+		scroller.scrollTop = to.top;
+		scroller.scrollLeft = to.left;
+		scrollTop = scroller.scrollTop;
+		scrollLeft = scroller.scrollLeft;
 	}
 
 	function selectRow(index: number): void {

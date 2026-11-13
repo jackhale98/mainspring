@@ -166,4 +166,8 @@
 	--color-diagnostic-info: #625b4f;
 	--color-editor-selection: #eadfbf;
 	--color-editor-active-line: #f8f3e8;
+	/* The block of the task selected in a visual (tjp/cm/source-highlight.ts): a background and a
+	   left rule, so that it is not told by colour alone. Syntax text keeps 4.5:1 on the background. */
+	--color-source-highlight: #f1e7cc;
+	--color-source-rule: #7a5c14;
 }

@@ -144,4 +144,6 @@
 	--color-diagnostic-info: #a9a291;
 	--color-editor-selection: #3a3220;
 	--color-editor-active-line: #181d28;
+	--color-source-highlight: #2a2414;
+	--color-source-rule: #d2ae5c;
 }

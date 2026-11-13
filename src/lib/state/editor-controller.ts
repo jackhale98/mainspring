@@ -23,22 +23,42 @@
  *   selection and scrolls only as far as needed (`nearest`, so an undo on screen does not jump);
  *   with `focus` it then focuses the editor, after an open modal dialog (the tablet drawer) has
  *   closed, since a modal makes the editor inert.
+ * - `mark` shows a selection that came from a visual (phase-2.md 6.10): it sets the selected-source
+ *   highlight of a file, and for a new selection scrolls the block to the middle and, only when the
+ *   editor does not have the focus, puts the cursor on it. Its transactions carry `selectionSync`,
+ *   and wait on the Android key guard like `reveal`. A highlight in a file other than the shown
+ *   one is set in the workspace's state of that file, so a file switch shows it; the controller
+ *   keeps at most one highlighted file. A scroll asked while the editor is hidden (Visual mode)
+ *   is done when the editor is shown (`becameVisible()`).
+ * - `onCursor` hears where the cursor is after the user moved it or typed (text to visual): after
+ *   a click, an arrow key or a search straight away (one callback per task), after typing once
+ *   `TYPING_QUIET_MS` of quiet has passed. Transactions annotated `selectionSync` are the app's
+ *   own and are ignored, so a selection never comes back round as a new one.
  * - Diagnostics go on the lint layer's two channels. The engine channel is pushed when a result
  *   arrives (the layer maps it through later edits and marks it stale), the local channel
  *   whenever the document layer's checks change.
  */
-import type { EditorState, Transaction } from '@codemirror/state';
+import {
+	EditorSelection,
+	type EditorState,
+	type StateEffect,
+	type Transaction,
+} from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import type { WorkspacePath } from '../../engine/protocol';
 import { afterAndroidKey, androidKeyPending } from '../tjp/cm/android-key';
 import {
 	formatCommand,
+	selectionSync,
 	setEngineDiagnostics,
 	setLocalDiagnostics,
+	setSourceHighlight,
+	sourceHighlightField,
 	workspaceDispatch,
 } from '../tjp/cm';
 import type { TjpDiagnostic } from '../tjp/diagnostics';
 import type { ChangeInfo, Workspace } from '../workspace/workspace';
+import type { SourceMark } from './selection.svelte';
 
 /**
  * The transactions in `queued` that lead from `from` to `to` one after another, or null when they
@@ -63,6 +83,14 @@ export function chainOf(
 	return null;
 }
 
+/** How long typing must pause before the cursor's task is looked up. */
+export const TYPING_QUIET_MS = 120;
+
+export interface EditorControllerOptions {
+	/** The cursor's place after the user moved it or typed (module comment). */
+	readonly onCursor?: (file: WorkspacePath, pos: number) => void;
+}
+
 export class EditorController {
 	readonly view: EditorView;
 	readonly #ws: Workspace;
@@ -73,14 +101,31 @@ export class EditorController {
 	/** The shown file's transactions announced since the last sync (module comment). */
 	#queued: Transaction[] = [];
 	#cancelReveal: () => void = () => undefined;
+	#cancelMark: () => void = () => undefined;
+	/** The file that holds the selected-source highlight, if any. */
+	#highlighted: WorkspacePath | null = null;
+	/** A scroll to the highlight was asked while the editor was hidden. */
+	#scrollPending = false;
+	readonly #onCursor: EditorControllerOptions['onCursor'];
+	#cursorTimer: ReturnType<typeof setTimeout> | null = null;
 
-	constructor(ws: Workspace, parent: HTMLElement, path: WorkspacePath) {
+	constructor(
+		ws: Workspace,
+		parent: HTMLElement,
+		path: WorkspacePath,
+		opts: EditorControllerOptions = {},
+	) {
 		this.#ws = ws;
 		this.#shown = path;
+		this.#onCursor = opts.onCursor;
+		const dispatch = workspaceDispatch(ws, () => this.#shown);
 		this.view = new EditorView({
 			parent,
 			state: ws.state(path),
-			dispatchTransactions: workspaceDispatch(ws, () => this.#shown),
+			dispatchTransactions: (trs, view) => {
+				dispatch(trs, view);
+				this.#noteCursor(trs);
+			},
 		});
 		// Edits made without the view leave it behind the workspace: catch up once they are done.
 		this.#off = ws.subscribe((_s, _o, info) => {
@@ -183,6 +228,120 @@ export class EditorController {
 		else this.view.focus();
 	}
 
+	/**
+	 * Shows a selection that came from a visual, or clears it (null). Waits while an Android key is
+	 * held (module comment).
+	 */
+	mark(m: SourceMark | null): void {
+		this.#cancelMark();
+		this.#cancelMark = afterAndroidKey(
+			() => androidKeyPending(this.view),
+			() => this.#mark(m),
+		);
+	}
+
+	/** Puts a highlight into one file's state: through the view when it shows that file. */
+	#highlight(file: WorkspacePath, span: { from: number; to: number } | null): void {
+		const effect = setSourceHighlight.of(span);
+		if (file === this.#shown) {
+			this.sync();
+			this.view.dispatch({ effects: effect, annotations: selectionSync.of(true) });
+		} else {
+			this.#ws.commit(file, this.#ws.state(file).update({ effects: effect }), 'typing');
+		}
+	}
+
+	#mark(m: SourceMark | null): void {
+		const before = this.#highlighted;
+		if (before !== null && before !== m?.file) {
+			this.#highlight(before, null);
+			this.#highlighted = null;
+		}
+		if (!m) return;
+		if (m.scroll && m.file !== this.#shown) {
+			this.#restore++;
+			this.show(m.file, { restoreScroll: false });
+		}
+		if (m.file !== this.#shown) {
+			this.#highlight(m.file, { from: m.from, to: m.to });
+			this.#highlighted = m.file;
+			return;
+		}
+		this.sync();
+		const len = this.view.state.doc.length;
+		const from = Math.min(Math.max(0, m.from), len);
+		const to = Math.min(Math.max(from, m.to), len);
+		const effects: StateEffect<unknown>[] = [setSourceHighlight.of({ from, to })];
+		if (m.scroll) effects.push(EditorView.scrollIntoView(from, { y: 'center' }));
+		// The cursor moves only when the user is not in the editor (a click in the text is theirs).
+		const c = m.cursor;
+		const cursor =
+			m.scroll && c && !this.view.hasFocus
+				? EditorSelection.single(Math.min(c.from, len), Math.min(Math.max(c.from, c.to), len))
+				: null;
+		this.view.dispatch({
+			effects,
+			annotations: selectionSync.of(true),
+			...(cursor ? { selection: cursor, userEvent: 'select' } : {}),
+		});
+		this.#highlighted = m.file;
+		if (!m.scroll) return;
+		this.#scrollPending = this.view.scrollDOM.clientHeight === 0;
+		// After a switch the new state has not been laid out yet, and the scroll may find no layout.
+		requestAnimationFrame(() => {
+			if (this.#shown !== m.file || this.view.scrollDOM.clientHeight === 0) return;
+			this.#cancelMark = afterAndroidKey(
+				() => androidKeyPending(this.view),
+				() =>
+					this.view.dispatch({
+						effects: EditorView.scrollIntoView(Math.min(from, this.view.state.doc.length), {
+							y: 'center',
+						}),
+						annotations: selectionSync.of(true),
+					}),
+			);
+		});
+	}
+
+	/** The editor was shown (a mode switch): scrolls to the highlight a hidden editor could not. */
+	becameVisible(): void {
+		if (!this.#scrollPending || this.view.scrollDOM.clientHeight === 0) return;
+		this.#scrollPending = false;
+		const span = this.view.state.field(sourceHighlightField, false);
+		if (!span) return;
+		afterAndroidKey(
+			() => androidKeyPending(this.view),
+			() =>
+				this.view.dispatch({
+					effects: EditorView.scrollIntoView(span.from, { y: 'center' }),
+					annotations: selectionSync.of(true),
+				}),
+		);
+	}
+
+	/** Tells `onCursor` where the cursor is, once the user has moved it or typed (module comment). */
+	#noteCursor(trs: readonly Transaction[]): void {
+		if (!this.#onCursor) return;
+		let typed = false;
+		let moved = false;
+		for (const t of trs) {
+			if (t.annotation(selectionSync)) continue;
+			if (t.docChanged) typed = true;
+			else if (!t.startState.selection.eq(t.newSelection)) moved = true;
+		}
+		if (!typed && !moved) return;
+		if (this.#cursorTimer !== null) clearTimeout(this.#cursorTimer);
+		this.#cursorTimer = setTimeout(
+			() => {
+				this.#cursorTimer = null;
+				if (this.view.dom.isConnected) {
+					this.#onCursor?.(this.#shown, this.view.state.selection.main.head);
+				}
+			},
+			typed ? TYPING_QUIET_MS : 0,
+		);
+	}
+
 	/** Pushes the engine's diagnostics (the engine channel) to the open file's marks. */
 	setEngine(list: readonly TjpDiagnostic[]): void {
 		this.sync();
@@ -203,6 +362,8 @@ export class EditorController {
 
 	destroy(): void {
 		this.#cancelReveal();
+		this.#cancelMark();
+		if (this.#cursorTimer !== null) clearTimeout(this.#cursorTimer);
 		this.#off();
 		this.view.destroy();
 	}

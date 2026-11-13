@@ -134,7 +134,7 @@ describe('AppState', () => {
 		expect(app.outlineOpen).toBe(false);
 	});
 
-	it('selects a task from the Gantt: cursor to its declaration, no focus, no tab switch', async () => {
+	it('selects a task from the Gantt: its source is marked, no focus, no tab switch', async () => {
 		const { app, client } = await open();
 		client.done(1, { tasks: [task('a', 2, 600), task('b', 3, 1500)] });
 		await flush();
@@ -144,12 +144,19 @@ describe('AppState', () => {
 		app.selectTask('task:b');
 		expect(app.selectedTask).toBe('task:b');
 		expect(app.phoneTab).toBe('gantt');
-		expect(app.reveal).toMatchObject({ file: 'plan.tjp', from: node.at.from, focus: false });
+		// The editor shows the block and, without the focus, puts its cursor on the id (the panel does).
+		expect(app.reveal).toBeNull();
+		expect(app.sourceMark).toMatchObject({
+			file: 'plan.tjp',
+			from: node.block.from,
+			to: node.block.to,
+			scroll: true,
+			cursor: { from: node.at.from, to: node.at.to },
+		});
 		// A task the outline does not know is selected without moving the editor.
-		const before = app.reveal;
 		app.selectTask('task:gone');
 		expect(app.selectedTask).toBe('task:gone');
-		expect(app.reveal).toBe(before);
+		expect(app.sourceMark).toBeNull();
 		// Opening another plan clears the selection.
 		await app.openSample('two');
 		expect(app.selectedTask).toBeNull();

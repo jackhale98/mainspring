@@ -10,6 +10,7 @@
  * - hover: keyword docs and id declarations (hover.ts), also by keyboard (docs-tooltip.ts);
  * - lint: pushed diagnostics with a gutter (lint.ts);
  * - the editor keys: format, docs at the cursor, Enter in strings, lint (commands.ts);
+ * - the selected-source highlight a visual selection draws (source-highlight.ts);
  * - CodeMirror's own phrases from strings.ts (`codemirrorPhrases`);
  * - the theme (theme.ts);
  * - '\n' as the only line separator, so '\r' stays in the text (spec 6; the workspace sets it
@@ -35,6 +36,7 @@ import { keywordHover } from './hover';
 import { tjpIndent } from './indent';
 import { tjpLanguage } from './language';
 import { tjpLint } from './lint';
+import { sourceHighlight } from './source-highlight';
 import { tjpTheme } from './theme';
 
 export { contextAt } from './context';
@@ -65,6 +67,14 @@ export {
 	tjpLint,
 	type DiagnosticChannel,
 } from './lint';
+export {
+	selectionSync,
+	setSourceHighlight,
+	SOURCE_CLASS,
+	sourceHighlight,
+	sourceHighlightField,
+	type SourceSpan,
+} from './source-highlight';
 export { tjpEditorTheme, tjpHighlightStyle, tjpTheme } from './theme';
 
 export interface TjpExtensionOptions extends TjpEditorOptions {
@@ -89,6 +99,7 @@ export function tjp(opts: TjpExtensionOptions): Extension {
 		docsTooltipField,
 		EditorState.phrases.of(codemirrorPhrases),
 		tjpLint({ gutter: opts.gutter ?? true }),
+		sourceHighlight(),
 		Prec.high(keymap.of(tjpKeymap)),
 		opts.theme === false ? [] : tjpTheme(),
 	];
