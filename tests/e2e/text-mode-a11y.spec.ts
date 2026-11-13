@@ -166,6 +166,6 @@ test.describe('keyboard only', () => {
 		await expect(docs).toBeFocused();
 		await page.getByRole('button', { name: 'Format' }).focus();
 		await page.keyboard.press('Enter');
-		await expect(page.locator('.note')).not.toHaveText('');
+		await expect(page.locator('p.note[role="status"]')).not.toHaveText('');
 	});
 });
