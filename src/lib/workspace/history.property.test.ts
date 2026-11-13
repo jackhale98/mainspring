@@ -170,11 +170,22 @@ function step(ws: Workspace, h: WorkspaceHistory, m: Model, o: Op, clock: { t: n
 	const top = h.top();
 	// The "x" of a typo is recorded, and clears redo, before Backspace takes it away.
 	if (o.k === 'typo') m.undone = [];
-	if (JSON.stringify(after) === JSON.stringify(before) || !top) return;
-	const last = m.done[m.done.length - 1];
-	if (last && last.id === top.id) last.texts = after;
-	else m.done.push({ id: top.id, texts: after });
+	if (JSON.stringify(after) === JSON.stringify(before)) return;
 	m.undone = [];
+	// A typing group that came to nothing ("é", then Delete) is dropped (history.ts): the top is
+	// then an older entry, or none, and the text is exactly as after it.
+	const k = top ? m.done.findIndex((e) => e.id === top.id) : -1;
+	if (!top) {
+		m.done = [];
+	} else if (k >= 0 && k < m.done.length - 1) {
+		m.done.length = k + 1;
+		expect(after).toEqual(m.done[k]?.texts);
+	} else if (k >= 0) {
+		const last = m.done[k];
+		if (last) last.texts = after;
+	} else {
+		m.done.push({ id: top.id, texts: after });
+	}
 }
 
 function check(ws: Workspace, h: WorkspaceHistory, m: Model): void {
@@ -182,6 +193,54 @@ function check(ws: Workspace, h: WorkspaceHistory, m: Model): void {
 	expect(h.canRedo).toBe(m.undone.length > 0);
 	const top = h.top();
 	if (top) expect(undoEdit(top.applied, ws.snapshot())).not.toBeNull();
+}
+
+/**
+ * Runs `ops` and `undos` undos, changes file `bypassed` outside the history (an insertion, or a
+ * same-length replacement that only the version check catches), then undoes until the history
+ * is empty or diverges: `diverged`, with nothing applied, exactly for the first entry that
+ * touches that file; every undo before it gives the model's text there.
+ */
+function bypassThenUndo(
+	ops: readonly Op[],
+	bypassed: number,
+	undos: number,
+	sameLength: boolean,
+): void {
+	const ws = seedWorkspace();
+	const h = createHistory(ws);
+	const m: Model = { done: [], undone: [] };
+	const clock = { t: 0 };
+	for (const o of ops) step(ws, h, m, o, clock);
+	for (let i = 0; i < undos; i++) step(ws, h, m, { k: 'undo' }, clock);
+	const path = pathOf(bypassed);
+	const bypass = { annotations: [Transaction.addToHistory.of(false)] };
+	const first = ws.state(path).doc.sliceString(0, 1);
+	if (sameLength && first !== '') {
+		type(ws, path, 0, first === '#' ? '%' : '#', { to: 1, spec: bypass });
+	} else {
+		type(ws, path, 0, '#', { spec: bypass });
+	}
+	for (;;) {
+		const top = h.top();
+		const before = ws.texts();
+		const r = h.undo();
+		if (!top) {
+			expect(r.status).toBe('empty');
+			return;
+		}
+		if (path in top.applied.edit.changes) {
+			expect(r.status).toBe('diverged');
+			expect(ws.texts()).toEqual(before);
+			expect([h.canUndo, h.canRedo]).toEqual([false, false]);
+			return;
+		}
+		expect(r.status).toBe('done');
+		m.done.pop();
+		const want: Record<string, string> = { ...(m.done[m.done.length - 1]?.texts ?? FILES) };
+		want[path] = ws.texts()[path] ?? '';
+		expect(ws.texts()).toEqual(want);
+	}
 }
 
 describe('workspace history (property)', () => {
@@ -215,45 +274,25 @@ describe('workspace history (property)', () => {
 				file,
 				fc.nat({ max: 3 }),
 				fc.boolean(),
-				(ops, bypassed, undos, sameLength) => {
-					const ws = seedWorkspace();
-					const h = createHistory(ws);
-					const m: Model = { done: [], undone: [] };
-					const clock = { t: 0 };
-					for (const o of ops) step(ws, h, m, o, clock);
-					for (let i = 0; i < undos; i++) step(ws, h, m, { k: 'undo' }, clock);
-					const path = pathOf(bypassed);
-					const bypass = { annotations: [Transaction.addToHistory.of(false)] };
-					// A same-length replacement keeps every length check happy: only versions tell.
-					const first = ws.state(path).doc.sliceString(0, 1);
-					if (sameLength && first !== '') {
-						type(ws, path, 0, first === '#' ? '%' : '#', { to: 1, spec: bypass });
-					} else {
-						type(ws, path, 0, '#', { spec: bypass });
-					}
-					for (;;) {
-						const top = h.top();
-						const before = ws.texts();
-						const r = h.undo();
-						if (!top) {
-							expect(r.status).toBe('empty');
-							break;
-						}
-						if (path in top.applied.edit.changes) {
-							expect(r.status).toBe('diverged');
-							expect(ws.texts()).toEqual(before);
-							expect([h.canUndo, h.canRedo]).toEqual([false, false]);
-							break;
-						}
-						expect(r.status).toBe('done');
-						m.done.pop();
-						const want: Record<string, string> = { ...(m.done[m.done.length - 1]?.texts ?? FILES) };
-						want[path] = ws.texts()[path] ?? '';
-						expect(ws.texts()).toEqual(want);
-					}
-				},
+				(ops, bypassed, undos, sameLength) => bypassThenUndo(ops, bypassed, undos, sameLength),
 			),
 			{ numRuns: 60 },
+		);
+	});
+
+	// Regression (fast-check seed -1396103505): "é" typed and deleted at once is a group that
+	// comes to nothing; the history drops it, and the model must not count the intent below twice.
+	it('follows a dropped typing group between two intents (regression)', () => {
+		bypassThenUndo(
+			[
+				{ k: 'intent', kind: 0, task: 1, value: 1 },
+				{ k: 'type', file: 2, line: 39, text: 'é', dt: 0, event: 'input.type' },
+				{ k: 'del', file: 2, line: 19, dt: 0, back: false },
+				{ k: 'intent', kind: 0, task: 0, value: 0 },
+			],
+			0,
+			0,
+			false,
 		);
 	});
 });
