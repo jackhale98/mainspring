@@ -25,16 +25,26 @@ describe('brand mark', () => {
 		}
 	});
 
-	it('uses the small form at 32 px and below: a bold coil, no fine parts', () => {
+	it('uses the small form at 32 px and below: the mainspring coil, no fine parts', () => {
 		expect(markForm(16)).toBe('small');
 		expect(markForm(32)).toBe('small');
 		expect(markForm(33)).toBe('full');
 		const small = markGeometry('small');
 		const full = markGeometry('full');
 		expect(small.innerRing).toBeNull();
-		expect(small.hairspringWidth).toBeGreaterThan(full.hairspringWidth * 3);
+		expect(small.hairspring).toBeNull();
+		expect(small.coil).not.toBeNull();
+		expect(full.coil).toBeNull();
+		expect(full.hairspring).not.toBeNull();
 
 		expect(full.arcWidth).toBeLessThan(small.arcWidth);
+	});
+
+	it('gives every gradient stop class in the standalone SVG a colour rule', () => {
+		const svg = markSvg('small', FAVICON_LIGHT, FAVICON_DARK);
+		const used = new Set([...svg.matchAll(/<stop class="(\w+)"/g)].map((m) => m[1]!));
+		expect(used.size).toBeGreaterThan(0);
+		for (const cls of used) expect(svg, cls).toContain(`.${cls}{stop-color:`);
 	});
 
 	it('keeps public/favicon.svg in step with the geometry (npm run gen:favicon)', () => {
@@ -60,6 +70,9 @@ describe('brand mark', () => {
 				'ruby-hi': c.rubyHi,
 				ruby: c.ruby,
 				'ruby-lo': c.rubyLo,
+				'steel-hi': c.steelHi,
+				steel: c.steel,
+				'steel-lo': c.steelLo,
 				glint: '#ffffff',
 			});
 		}

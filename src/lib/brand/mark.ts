@@ -5,8 +5,9 @@
 //
 // A watch seen from above, in a 120 x 120 box: three brass task arcs on the dial at equal gaps, a
 // hairline inner dial ring, a blued-steel hairspring, and a ruby cap jewel in a brass setting. The
-// small form (32 px and below) drops the inner ring, thickens the arcs and draws the spring as a bold
-// blued-steel coil, so it stays crisp, and still says "mainspring", at favicon size.
+// small form (32 px and below) drops the inner ring and the hairspring, thickens the arcs and draws
+// the mainspring itself: a lit blued-steel coil (option E) that starts under the jewel and tapers to
+// a fine tail, so it stays crisp, and still says "mainspring", at favicon size.
 
 export const VIEWBOX = 120;
 const C = VIEWBOX / 2;
@@ -28,11 +29,15 @@ export interface MarkGeometry {
 	readonly arcWidth: number;
 	/** The inner dial ring radius, or null in the small form. */
 	readonly innerRing: number | null;
-	/** The spring: a fine hairspring in the full form, a bold coil in the small form. */
-	readonly hairspring: string;
+	/** The full form's hairspring (a stroke), or null in the small form. */
+	readonly hairspring: string | null;
 	readonly hairspringWidth: number;
-	/** The ruby jewel radius; its brass setting is drawn 1.6 units outside it. */
+	/** The small form's mainspring coil (a filled, tapering strip), or null in the full form. */
+	readonly coil: string | null;
+	/** The ruby jewel radius. */
 	readonly jewel: number;
+	/** The radius of the jewel's brass setting, drawn under the jewel with a soft shadow. */
+	readonly setting: number;
 	/** The ruby's radial gradient, lit from the top left. */
 	readonly jewelLight: { readonly cx: number; readonly cy: number; readonly r: number };
 	/** The highlight on the jewel: centre and radii. */
@@ -82,6 +87,36 @@ function spiralPath(r0: number, r1: number, turns: number, a0: number): string {
 	return `M${pts.join(' L')}`;
 }
 
+/**
+ * A filled spiral strip from r0 to r1: `w0` wide at the inner end, `w1` at the outer, easing to a
+ * point over the last `tip` of its run (the spring's tail).
+ */
+function coilPath(
+	r0: number,
+	r1: number,
+	turns: number,
+	a0: number,
+	w0: number,
+	w1: number,
+	tip = 0.18,
+): string {
+	const n = Math.round(turns * 120);
+	const outer: string[] = [];
+	const inner: string[] = [];
+	for (let i = 0; i <= n; i++) {
+		const u = i / n;
+		const r = r0 + (r1 - r0) * u;
+		const a = a0 + 360 * turns * u;
+		let w = w0 + (w1 - w0) * u;
+		if (u > 1 - tip) w *= Math.sin((((1 - u) / tip) * Math.PI) / 2);
+		const [ox, oy] = at(r + w / 2, a);
+		const [ix, iy] = at(r - w / 2, a);
+		outer.push(`${fmt(ox)} ${fmt(oy)}`);
+		inner.push(`${fmt(ix)} ${fmt(iy)}`);
+	}
+	return `M${outer.concat(inner.reverse()).join(' L')}Z`;
+}
+
 let markIds = 0;
 /** A gradient id prefix unique within a page, deterministic across builds (Mark.astro). */
 export function nextMarkId(): string {
@@ -95,15 +130,17 @@ export function markForm(sizePx: number): MarkForm {
 
 export function markGeometry(form: MarkForm): MarkGeometry {
 	const small = form === 'small';
-	const jewel = small ? 7 : 5.2;
+	const jewel = small ? 9 : 5.2;
 	return {
 		arcs: arcAngles().map(([a0, a1]) => arcPath(ARC_RADIUS, a0, a1)),
 		arcWidth: small ? 11 : 3.6,
 		innerRing: small ? null : 38.5,
-		// The small form keeps the spring as a bold coil of 1.6 turns, so it still reads at 16 px.
-		hairspring: small ? spiralPath(11, 31, 1.6, 200) : spiralPath(9, 26, 2.5, 90),
-		hairspringWidth: small ? 5.5 : 1.15,
+		hairspring: small ? null : spiralPath(9, 26, 2.5, 90),
+		hairspringWidth: 1.15,
+		// Two and a half turns from under the jewel to just inside the dial (option E).
+		coil: small ? coilPath(4, 34, 2.5, 30, 5.2, 3.8) : null,
 		jewel,
+		setting: jewel + 1.8,
 		jewelLight: { cx: C - jewel * 0.58, cy: C - jewel * 0.58, r: jewel * 1.55 },
 		highlight: {
 			cx: C - jewel * 0.35,
@@ -118,7 +155,9 @@ export interface MarkColours {
 	readonly brassHi: string;
 	readonly brass: string;
 	readonly brassLo: string;
+	readonly steelHi: string;
 	readonly steel: string;
+	readonly steelLo: string;
 	readonly rubyHi: string;
 	readonly ruby: string;
 	readonly rubyLo: string;
@@ -141,6 +180,7 @@ export function markSvg(
 	const css = (c: MarkColours): string =>
 		`.bh{stop-color:${c.brassHi}}.bm{stop-color:${c.brass}}.bl{stop-color:${c.brassLo}}` +
 		`.rh{stop-color:${c.rubyHi}}.rm{stop-color:${c.ruby}}.rl{stop-color:${c.rubyLo}}` +
+		`.sh{stop-color:${c.steelHi}}.sm{stop-color:${c.steel}}.sl{stop-color:${c.steelLo}}` +
 		`.hs{stroke:${c.steel}}.ir{stroke:${c.brass}}`;
 	const style = css(light) + (dark ? `@media (prefers-color-scheme:dark){${css(dark)}}` : '');
 	return [
@@ -153,6 +193,12 @@ export function markSvg(
 		`<radialGradient id="r" cx="${fmt(g.jewelLight.cx)}" cy="${fmt(g.jewelLight.cy)}" r="${fmt(g.jewelLight.r)}" gradientUnits="userSpaceOnUse">`,
 		'<stop class="rh" offset="0"/><stop class="rm" offset=".55"/><stop class="rl" offset="1"/>',
 		'</radialGradient>',
+		'<linearGradient id="s" x1="0" y1="24" x2="0" y2="96" gradientUnits="userSpaceOnUse">',
+		'<stop class="sh" offset="0"/><stop class="sm" offset=".5"/><stop class="sl" offset="1"/>',
+		'</linearGradient>',
+		'<filter id="d" x="-50%" y="-50%" width="200%" height="200%">',
+		'<feDropShadow dx="0" dy=".8" stdDeviation=".9" flood-color="#000" flood-opacity=".3"/>',
+		'</filter>',
 		'</defs>',
 		tile ? `<rect width="${VIEWBOX}" height="${VIEWBOX}" fill="${tile.background}"/>` : '',
 		`<g${fit}>`,
@@ -162,9 +208,12 @@ export function markSvg(
 		g.innerRing === null
 			? ''
 			: `<circle class="ir" cx="${C}" cy="${C}" r="${g.innerRing}" fill="none" stroke-width=".6" opacity=".55"/>`,
-		`<path class="hs" d="${g.hairspring}" fill="none" stroke-width="${g.hairspringWidth}" stroke-linecap="round"/>`,
-		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel + 1.6)}" fill="none" stroke="url(#b)" stroke-width="1.4"/>`,
-		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel)}" fill="url(#r)"/>`,
+		g.hairspring === null
+			? ''
+			: `<path class="hs" d="${g.hairspring}" fill="none" stroke-width="${g.hairspringWidth}" stroke-linecap="round"/>`,
+		g.coil === null ? '' : `<path d="${g.coil}" fill="url(#s)"/>`,
+		`<g filter="url(#d)"><circle cx="${C}" cy="${C}" r="${fmt(g.setting)}" fill="url(#b)"/>`,
+		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel)}" fill="url(#r)"/></g>`,
 		`<ellipse cx="${fmt(g.highlight.cx)}" cy="${fmt(g.highlight.cy)}" rx="${fmt(g.highlight.rx)}" ry="${fmt(g.highlight.ry)}" fill="#fff" opacity=".55" transform="rotate(-35 ${fmt(g.highlight.cx)} ${fmt(g.highlight.cy)})"/>`,
 		'</g>',
 		'</svg>',
@@ -189,7 +238,9 @@ export const FAVICON_LIGHT: MarkColours = {
 	brassHi: '#ddbb6e',
 	brass: '#b08d3c',
 	brassLo: '#7e5f22',
+	steelHi: '#4e74d0',
 	steel: '#2346a0',
+	steelLo: '#142a66',
 	rubyHi: '#e0577a',
 	ruby: '#a3123a',
 	rubyLo: '#5e0820',
@@ -198,7 +249,9 @@ export const FAVICON_DARK: MarkColours = {
 	brassHi: '#f6e3ae',
 	brass: '#d2ae5c',
 	brassLo: '#9c7a34',
+	steelHi: '#a9bef2',
 	steel: '#7d9be8',
+	steelLo: '#3d5fb8',
 	rubyHi: '#ff8fa6',
 	ruby: '#e0456a',
 	rubyLo: '#8a1534',

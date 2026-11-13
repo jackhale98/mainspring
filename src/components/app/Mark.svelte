@@ -1,9 +1,13 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
 	The brand mark (ADR-0009, mark note; geometry in src/lib/brand/mark.ts): three brass task arcs
-	on a dial, a blued-steel hairspring and a ruby jewel. At 32 px and below it draws the small form, with the spring as a bold coil.
-	With `busy` it doubles as the loader: the dial steps through twelve eased ticks a turn while the
-	hairspring swings; under reduced motion it holds still and pulses gently instead.
+	on a dial and a ruby jewel in a brass setting. The full form has a blued-steel hairspring; at
+	32 px and below the small form draws the mainspring coil instead.
+	With `busy` it doubles as the loader, moving as a movement does. The dial is the escapement: it
+	ticks forward twelve eased steps a turn, one every half second. The small form's mainspring
+	unwinds steadily in one direction; the full form's hairspring beats once a second, and each
+	half-beat lets the dial tick. The moving parts are masks over fixed gradients, so the light
+	stays from above while they turn. Under reduced motion the mark holds still and pulses gently.
 	Decorative unless `label` is given (then it is an image with that name).
 -->
 <script lang="ts">
@@ -38,6 +42,11 @@
 			<stop offset=".45" class="bm" />
 			<stop offset="1" class="bl" />
 		</linearGradient>
+		<linearGradient id="{uid}-s" x1="0" y1="24" x2="0" y2="96" gradientUnits="userSpaceOnUse">
+			<stop offset="0" class="sh" />
+			<stop offset=".5" class="sm" />
+			<stop offset="1" class="sl" />
+		</linearGradient>
 		<radialGradient
 			id="{uid}-r"
 			cx={g.jewelLight.cx}
@@ -49,18 +58,36 @@
 			<stop offset=".55" class="rm" />
 			<stop offset="1" class="rl" />
 		</radialGradient>
-	</defs>
-	<g class="dial">
-		{#each g.arcs as d (d)}
-			<path {d} fill="none" stroke="url(#{uid}-b)" stroke-width={g.arcWidth} />
-		{/each}
-		{#if g.innerRing !== null}
-			<circle class="inner" cx={c} cy={c} r={g.innerRing} />
+		<filter id="{uid}-d" x="-50%" y="-50%" width="200%" height="200%">
+			<feDropShadow dx="0" dy="0.8" stdDeviation="0.9" class="shadow" />
+		</filter>
+		<mask id="{uid}-dm" maskUnits="userSpaceOnUse" x="0" y="0" width={VIEWBOX} height={VIEWBOX}>
+			<g class="dial">
+				{#each g.arcs as d (d)}
+					<path {d} fill="none" stroke="#fff" stroke-width={g.arcWidth} />
+				{/each}
+			</g>
+		</mask>
+		{#if g.coil !== null}
+			<mask id="{uid}-cm" maskUnits="userSpaceOnUse" x="0" y="0" width={VIEWBOX} height={VIEWBOX}>
+				<path class="coil" d={g.coil} fill="#fff" />
+			</mask>
 		{/if}
+	</defs>
+	<rect width={VIEWBOX} height={VIEWBOX} fill="url(#{uid}-b)" mask="url(#{uid}-dm)" />
+	{#if g.innerRing !== null}
+		<circle class="inner" cx={c} cy={c} r={g.innerRing} />
+	{/if}
+	{#if g.coil !== null}
+		<rect width={VIEWBOX} height={VIEWBOX} fill="url(#{uid}-s)" mask="url(#{uid}-cm)" />
+	{/if}
+	{#if g.hairspring !== null}
+		<path class="hairspring" d={g.hairspring} stroke-width={g.hairspringWidth} />
+	{/if}
+	<g filter="url(#{uid}-d)">
+		<circle cx={c} cy={c} r={g.setting} fill="url(#{uid}-b)" />
+		<circle cx={c} cy={c} r={g.jewel} fill="url(#{uid}-r)" />
 	</g>
-	<path class="hairspring" d={g.hairspring} stroke-width={g.hairspringWidth} />
-	<circle cx={c} cy={c} r={g.jewel + 1.6} fill="none" stroke="url(#{uid}-b)" stroke-width="1.4" />
-	<circle cx={c} cy={c} r={g.jewel} fill="url(#{uid}-r)" />
 	<ellipse
 		cx={g.highlight.cx}
 		cy={g.highlight.cy}
@@ -87,6 +114,15 @@
 	.bl {
 		stop-color: var(--color-mark-brass-lo);
 	}
+	.sh {
+		stop-color: var(--color-mark-steel-hi);
+	}
+	.sm {
+		stop-color: var(--color-mark-steel);
+	}
+	.sl {
+		stop-color: var(--color-mark-steel-lo);
+	}
 	.rh {
 		stop-color: var(--color-mark-ruby-hi);
 	}
@@ -95,6 +131,10 @@
 	}
 	.rl {
 		stop-color: var(--color-mark-ruby-lo);
+	}
+	.shadow {
+		flood-color: #000;
+		flood-opacity: 0.3;
 	}
 	.glint {
 		fill: var(--color-mark-glint);
@@ -111,111 +151,124 @@
 		stroke-linecap: round;
 	}
 	.dial,
+	.coil,
 	.hairspring {
 		transform-box: view-box;
 		transform-origin: 50% 50%;
 	}
+	/* The escapement: a tick every half second, on the hairspring's half-beats. */
 	.busy .dial {
-		animation: mark-step 3s infinite;
+		animation: mark-tick 6s 0.25s infinite;
 	}
+	/* The mainspring unwinds: one steady turn every 8 s, against the coil's winding. */
+	.busy .coil {
+		animation: mark-unwind 8s linear infinite;
+	}
+	/* The balance beats: one swing a second. */
 	.busy .hairspring {
-		animation: mark-swing 1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+		animation: mark-beat 1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 	}
-	/* Twelve ticks a turn: each glides 30 degrees in 0.15 s, then rests until the next. */
-	@keyframes mark-step {
-		0% {
+	@keyframes mark-tick {
+		0.000% {
 			transform: rotate(0deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		5% {
+		2.000% {
 			transform: rotate(30deg);
 		}
 		8.333% {
 			transform: rotate(30deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		13.333% {
+		10.333% {
 			transform: rotate(60deg);
 		}
 		16.667% {
 			transform: rotate(60deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		21.667% {
+		18.667% {
 			transform: rotate(90deg);
 		}
-		25% {
+		25.000% {
 			transform: rotate(90deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		30% {
+		27.000% {
 			transform: rotate(120deg);
 		}
 		33.333% {
 			transform: rotate(120deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		38.333% {
+		35.333% {
 			transform: rotate(150deg);
 		}
 		41.667% {
 			transform: rotate(150deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		46.667% {
+		43.667% {
 			transform: rotate(180deg);
 		}
-		50% {
+		50.000% {
 			transform: rotate(180deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		55% {
+		52.000% {
 			transform: rotate(210deg);
 		}
 		58.333% {
 			transform: rotate(210deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		63.333% {
+		60.333% {
 			transform: rotate(240deg);
 		}
 		66.667% {
 			transform: rotate(240deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		71.667% {
+		68.667% {
 			transform: rotate(270deg);
 		}
-		75% {
+		75.000% {
 			transform: rotate(270deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		80% {
+		77.000% {
 			transform: rotate(300deg);
 		}
 		83.333% {
 			transform: rotate(300deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		88.333% {
+		85.333% {
 			transform: rotate(330deg);
 		}
 		91.667% {
 			transform: rotate(330deg);
 			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
 		}
-		96.667%,
+		93.667% {
+			transform: rotate(360deg);
+		}
 		100% {
 			transform: rotate(360deg);
 		}
 	}
-	@keyframes mark-swing {
+	@keyframes mark-unwind {
+		to {
+			transform: rotate(-360deg);
+		}
+	}
+	@keyframes mark-beat {
 		0%,
 		100% {
-			transform: rotate(-36deg);
+			transform: rotate(-40deg) scale(0.95);
 		}
 		50% {
-			transform: rotate(36deg);
+			transform: rotate(40deg) scale(1.04);
 		}
 	}
 	@keyframes mark-pulse {
@@ -225,6 +278,7 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.busy .dial,
+		.busy .coil,
 		.busy .hairspring {
 			animation: none;
 		}

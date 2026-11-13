@@ -35,6 +35,11 @@ const hl = g.highlight;
 			<stop offset=".45" style="stop-color: var(--color-mark-brass)"></stop>
 			<stop offset="1" style="stop-color: var(--color-mark-brass-lo)"></stop>
 		</linearGradient>
+		<linearGradient id={`${uid}-s`} x1="0" y1="24" x2="0" y2="96" gradientUnits="userSpaceOnUse">
+			<stop offset="0" style="stop-color: var(--color-mark-steel-hi)"></stop>
+			<stop offset=".5" style="stop-color: var(--color-mark-steel)"></stop>
+			<stop offset="1" style="stop-color: var(--color-mark-steel-lo)"></stop>
+		</linearGradient>
 		<radialGradient
 			id={`${uid}-r`}
 			cx={g.jewelLight.cx}
@@ -46,6 +51,15 @@ const hl = g.highlight;
 			<stop offset=".55" style="stop-color: var(--color-mark-ruby)"></stop>
 			<stop offset="1" style="stop-color: var(--color-mark-ruby-lo)"></stop>
 		</radialGradient>
+		<filter id={`${uid}-d`} x="-50%" y="-50%" width="200%" height="200%">
+			<feDropShadow
+				dx="0"
+				dy="0.8"
+				stdDeviation="0.9"
+				flood-color="#000"
+				flood-opacity="0.3"
+			></feDropShadow>
+		</filter>
 	</defs>
 	{g.arcs.map((d) => (
 		<path d={d} fill="none" stroke={`url(#${uid}-b)`} stroke-width={g.arcWidth} />
@@ -61,22 +75,20 @@ const hl = g.highlight;
 			opacity="0.55"
 		/>
 	)}
-	<path
-		d={g.hairspring}
-		fill="none"
-		stroke="var(--color-steel)"
-		stroke-width={g.hairspringWidth}
-		stroke-linecap="round"
-	/>
-	<circle
-		cx={c}
-		cy={c}
-		r={g.jewel + 1.6}
-		fill="none"
-		stroke={`url(#${uid}-b)`}
-		stroke-width="1.4"
-	></circle>
-	<circle cx={c} cy={c} r={g.jewel} fill={`url(#${uid}-r)`}></circle>
+	{g.hairspring !== null && (
+		<path
+			d={g.hairspring}
+			fill="none"
+			stroke="var(--color-steel)"
+			stroke-width={g.hairspringWidth}
+			stroke-linecap="round"
+		/>
+	)}
+	{g.coil !== null && <path d={g.coil} fill={`url(#${uid}-s)`} />}
+	<g filter={`url(#${uid}-d)`}>
+		<circle cx={c} cy={c} r={g.setting} fill={`url(#${uid}-b)`}></circle>
+		<circle cx={c} cy={c} r={g.jewel} fill={`url(#${uid}-r)`}></circle>
+	</g>
 	<ellipse
 		cx={hl.cx}
 		cy={hl.cy}
