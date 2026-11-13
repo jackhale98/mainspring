@@ -3,8 +3,9 @@
 	The read-only Gantt (phase-2.md 8.1, 9): a toolbar and one native scroll container holding a
 	grid of four cells, which is what makes scrolling smooth and keeps the header and the task
 	column in place with `position: sticky`: the corner and the time header on top, the task list on
-	the left, the plot (three canvases) in the middle. Rows are virtualised: the task list mounts
-	the rows near the viewport, the canvases hold a window of the content (layout.ts).
+	the left (the treegrid, whose header row is the corner), the plot (three canvases) in the
+	middle. Rows are virtualised: the task list mounts the rows near the viewport, the canvases
+	hold a window of the content (layout.ts).
 
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
@@ -12,6 +13,10 @@
 	Gestures and the inspector (T16, T17) come later. Zoom is on
 	the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and - while the
 	task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
+
+	The task list is the treegrid (OutlineGrid.svelte, phase-2.md 10.1). Which of its columns are
+	drawn depends on this component's own width (lib/gantt/columns.ts), so the frozen region is as
+	wide as the columns it shows, and it says aloud what a reschedule moved (lib/gantt/announce.ts).
 
 	Frozen like a native app (phase-2.md 9.2): one scroll container, so names and bars share one
 	vertical scroll. The corner is fixed, the header moves only sideways, the task column only up
@@ -29,6 +34,9 @@
 	import { flushSync, onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
+	import { RescheduleAnnouncer } from '../../lib/gantt/announce';
+	import { layoutColumns } from '../../lib/gantt/columns';
+	import { scenarioChain, sizingOf } from '../../lib/gantt/grid';
 	import { NO_LINE, describeRowParts } from '../../lib/gantt/describe';
 	import { resolveLinks } from '../../lib/gantt/links';
 	import {
@@ -60,7 +68,7 @@
 	import { GanttAnalysis } from './gantt-analysis.svelte';
 	import { GanttEnv } from './gantt-env.svelte';
 	import GanttToolbar from './GanttToolbar.svelte';
-	import OutlineColumn from './OutlineColumn.svelte';
+	import OutlineGrid from './OutlineGrid.svelte';
 	import TimeHeader from './TimeHeader.svelte';
 	import Timeline from './Timeline.svelte';
 
@@ -77,6 +85,9 @@
 	let scrollerW = $state(0);
 	let scrollerH = $state(0);
 	let namesW = $state(0);
+	/** Probes: the name column's own width, and a rem, in px (the columns are laid out in both). */
+	let nameColW = $state(0);
+	let remPx = $state(16);
 	let hoverRow = $state<number | null>(null);
 	const critical = new GanttAnalysis();
 
@@ -105,6 +116,23 @@
 			}),
 			analysis: critical.drawn,
 			zones,
+		});
+	});
+
+	/** The shown scenario and its parents: which of a task's `effort` statements applies. */
+	const chain = $derived(scenarioChain(model.project, model.scenario));
+	// The columns of the task list that fit beside a chart of a useful width.
+	const columns = $derived(layoutColumns(scrollerW, nameColW, remPx));
+
+	// What a reschedule moved, for the treegrid's live region (announce.ts forgets the last result
+	// when there is none, so a new plan is not compared with the old one).
+	let announcement = $state('');
+	const announcer = new RescheduleAnnouncer();
+	$effect(() => {
+		const next = result;
+		untrack(() => {
+			const text = announcer.next(next);
+			if (text !== null) announcement = text;
 		});
 	});
 
@@ -219,7 +247,7 @@
 
 	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's (zoomForKey). */
 	function onkeydown(event: KeyboardEvent): void {
-		if (!(event.target instanceof Element) || !event.target.closest('[role="tree"]')) return;
+		if (!(event.target instanceof Element) || !event.target.closest('[role="treegrid"]')) return;
 		const target = zoomForKey(event, zoomPreview.target ?? pxPerDay);
 		if (target === null) return;
 		event.preventDefault();
@@ -243,8 +271,12 @@
 	aria-label={strings.gantt.region}
 	data-testid="gantt"
 	data-zoom={nearestLevel(pxPerDay)}
+	style:--gantt-extras="{columns.extraRem}rem"
 	{onkeydown}
 >
+	<span class="probes" aria-hidden="true">
+		<i bind:clientWidth={nameColW}></i><b bind:clientWidth={remPx}></b>
+	</span>
 	<GanttToolbar
 		{pxPerDay}
 		{selected}
@@ -275,7 +307,6 @@
 				style:grid-template-columns="var(--gantt-names) {layout.width}px"
 				style:grid-template-rows="{metrics.headerHeight}px {layout.height}px"
 			>
-				<div class="corner">{strings.gantt.taskColumn}</div>
 				<div class="head">
 					<TimeHeader
 						{model}
@@ -288,12 +319,19 @@
 					/>
 				</div>
 				<div class="names" bind:clientWidth={namesW}>
-					<OutlineColumn
-						rows={model.rows}
+					<OutlineGrid
+						{model}
+						outline={app.outline.byKey}
+						analysis={critical.shown.analysis}
+						sizing={(id) => sizingOf(app.index?.tasks.get(id), chain)}
+						shown={columns.shown}
 						first={firstRow}
 						last={lastRow}
 						rowHeight={metrics.rowHeight}
+						headerHeight={metrics.headerHeight}
+						page={Math.max(1, Math.floor(viewH / metrics.rowHeight) - 1)}
 						selectedKey={app.selectedTask}
+						{announcement}
 						ontoggle={(k) => app.toggleNode(k)}
 						onselect={(k) => app.selectTask(k)}
 						onreveal={revealRow}
@@ -323,7 +361,10 @@
 	.gantt {
 		/* The toolbar's floating pills answer to the chart's own width (Split makes it narrow). */
 		container: gantt / inline-size;
-		--gantt-names: var(--size-gantt-names);
+		/* The name column's own width, and the frozen region: it and the extra columns drawn. */
+		--gantt-name-col: var(--size-gantt-names);
+		--gantt-extras: 0rem;
+		--gantt-names: calc(var(--gantt-name-col) + var(--gantt-extras));
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -354,40 +395,25 @@
 		inline-size: max-content;
 		min-inline-size: 100%;
 	}
-	/* The corner is frozen both ways, the header only moves sideways (sticky at the top). */
-	.corner,
+	/* The header sticks to the top and moves only sideways; the corner (the task list's header
+	   row) is frozen both ways, inside the treegrid. `clip`, not `hidden`: the month labels inside
+	   are sticky against the scroller, and a hidden overflow would make this box their scroll
+	   container. */
 	.head {
+		grid-area: 1 / 2;
 		position: sticky;
 		inset-block-start: 0;
+		z-index: 3;
+		overflow: clip;
 		border-block-end: 1px solid var(--color-gantt-border);
 		background: var(--color-gantt-surface-header);
 	}
-	.corner {
-		grid-area: 1 / 1;
-		inset-inline-start: 0;
-		z-index: 4;
-		display: flex;
-		align-items: flex-end;
-		padding: var(--space-1) var(--space-3);
-		border-inline-end: 1px solid var(--color-gantt-border);
-		color: var(--color-gantt-text-faint);
-		font-size: 10.5px;
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-	/* `clip`, not `hidden`: the month labels inside are sticky against the scroller, and a
-	   hidden overflow would make this box their scroll container. */
-	.head {
-		grid-area: 1 / 2;
-		z-index: 3;
-		overflow: clip;
-	}
+	/* The treegrid: its header row sticks to the top inside it, so it spans both grid rows. */
 	.names {
-		grid-area: 2 / 1;
+		grid-area: 1 / 1 / 3 / 2;
 		position: sticky;
 		inset-inline-start: 0;
-		z-index: 2;
+		z-index: 4;
 		border-inline-end: 1px solid var(--color-gantt-border);
 		background: var(--color-gantt-surface);
 	}
@@ -395,14 +421,31 @@
 		grid-area: 2 / 2;
 		position: relative;
 	}
+	/* Two sizeless probes: the script reads the name column and a rem from them, in px. */
+	.probes {
+		position: absolute;
+		visibility: hidden;
+		pointer-events: none;
+	}
+	.probes i,
+	.probes b {
+		display: block;
+		block-size: 0;
+	}
+	.probes i {
+		inline-size: var(--gantt-name-col);
+	}
+	.probes b {
+		inline-size: 1rem;
+	}
 	@media (max-width: 1023px) {
 		.gantt {
-			--gantt-names: 14rem;
+			--gantt-name-col: 14rem;
 		}
 	}
 	@media (max-width: 599px) {
 		.gantt {
-			--gantt-names: 7.75rem;
+			--gantt-name-col: 7.75rem;
 		}
 	}
 </style>

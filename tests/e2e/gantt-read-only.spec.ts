@@ -20,7 +20,7 @@ async function open(page: Page, query = ''): Promise<void> {
 	await expect(page.getByTestId('gantt')).toBeVisible();
 }
 
-const rows = (page: Page) => page.getByTestId('gantt').getByRole('treeitem');
+const rows = (page: Page) => page.getByTestId('gantt').locator('[role="row"][data-key]');
 
 /** Whether the overlay canvas holds painted pixels (the bars canvas sits under it). */
 async function barsPainted(page: Page): Promise<boolean> {
@@ -40,7 +40,7 @@ test.describe('gantt', () => {
 
 	test('draws the schedule, with the tasks listed beside it', async ({ page }, info) => {
 		await open(page);
-		const labelled = page.getByTestId('gantt').getByRole('tree', { name: 'Tasks' });
+		const labelled = page.getByTestId('gantt').getByRole('treegrid', { name: 'Tasks' });
 		await expect(labelled).toBeVisible();
 		await expect(rows(page).first()).toBeVisible();
 		await expect.poll(() => barsPainted(page)).toBe(true);
@@ -223,7 +223,10 @@ test.describe('gantt', () => {
 			.evaluate((el) => {
 				el.scrollTop = 12_000;
 			});
-		await expect(rows(page).first()).not.toHaveAttribute('data-key', key ?? '');
+		// The window moved far past the first row: the next mounted row is a different one, far
+		// down (the focused row is kept mounted first, in row order, and not moved in the DOM).
+		await expect(rows(page).nth(1)).not.toHaveAttribute('data-key', key ?? '');
+		await expect(rows(page).first()).toHaveAttribute('data-key', key ?? '');
 		// The focused row stayed mounted, and still has the focus.
 		const active = await page.evaluate(() => document.activeElement?.getAttribute('data-key'));
 		expect(active).toBe(key);
