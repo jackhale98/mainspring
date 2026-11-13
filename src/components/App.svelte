@@ -31,6 +31,7 @@
 	import { strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
 	import Gantt from './gantt/Gantt.svelte';
+	import InspectorHost from './inspector/InspectorHost.svelte';
 	import OutlinePanel from './OutlinePanel.svelte';
 	import Sheet from './Sheet.svelte';
 	import StatusStrip from './StatusStrip.svelte';
@@ -40,6 +41,7 @@
 	import TopBar from './app/TopBar.svelte';
 	import { AppUpdates } from '../lib/state/updates.svelte';
 	import { sitePath } from '../lib/site-path';
+	import type { SourceRange } from '../lib/tjp/index';
 
 	const params = new URLSearchParams(location.search);
 	const app = new AppState({ initial: params.get('sample') });
@@ -116,6 +118,17 @@
 	const axis = $derived(kind === 'desktop' ? 'col' : 'row');
 	const ratio = $derived(axis === 'col' ? modes.ratios.col : modes.ratios.row);
 	/** The editor (side by side) or the Gantt (stacked, above) takes `ratio`; the divider is the gap. */
+	/**
+	 * The details dock beside the chart when the chart keeps at least `CHART_MIN` px of width
+	 * with the panel in (Split shares the width with the editor, by the divider's ratio);
+	 * otherwise they are a rail and a drawer over the chart. Measured on `.work`, which docking
+	 * does not change, so there is no flip-flop. Before the first measure: docked.
+	 */
+	const CHART_MIN = 640;
+	const PANEL_SLOT = 328;
+	let workW = $state(0);
+	const chartShare = $derived(split && axis === 'col' ? 1 - ratio : 1);
+	const dock = $derived(workW === 0 || (workW - PANEL_SLOT) * chartShare >= CHART_MIN);
 	const splitTracks = $derived(`minmax(0, ${ratio}fr) var(--gap-panel) minmax(0, ${1 - ratio}fr)`);
 
 	/**
@@ -142,11 +155,32 @@
 		};
 	});
 
+	/**
+	 * Where the toasts stand: above the footer, and above an open details sheet, which covers the
+	 * footer. At full height there is no room above the sheet, so they sit over its bottom instead
+	 * (the toasts are above the sheet in z-order), where Undo stays reachable.
+	 */
+	const toastRoom = $derived(
+		app.inspector.sheetHeight > 0 && app.inspector.detent !== 'full'
+			? Math.max(toastBottom ?? 0, app.inspector.sheetHeight)
+			: toastBottom,
+	);
+
 	function onkeydown(event: KeyboardEvent): void {
 		const next = phone ? null : modeForKey(event);
 		if (next === null) return;
 		event.preventDefault();
 		modes.set(next);
+	}
+
+	/**
+	 * The inspector's "Show in text": the editor has to be on screen first (Split, or Text on a
+	 * phone), then the range is revealed in it.
+	 */
+	function showInText(at: SourceRange): void {
+		if (phone) modes.set('text');
+		else if (mode === 'visual') modes.set('split');
+		app.showRange(at);
 	}
 
 	function pickTab(tab: 'plan' | 'gantt' | 'text'): void {
@@ -159,89 +193,92 @@
 
 <div class="app" data-layout={kind}>
 	<TopBar {app} {theme} layout={kind} {mode} {drawer} onmode={(m) => modes.set(m)} />
-	<main
-		id="main"
-		class="body"
-		data-mode={mode}
-		data-axis={split ? axis : undefined}
-		tabindex="-1"
-		bind:this={body}
-		style:grid-template-columns={split && axis === 'col' ? splitTracks : undefined}
-		style:grid-template-rows={split && axis === 'row' ? splitTracks : undefined}
-	>
-		{#if kind === 'desktop' && mode === 'text'}
-			<aside class="panel outline" aria-label={strings.outline.title}>
-				<OutlinePanel {app} />
-			</aside>
-		{/if}
-		{#if phone}
-			<div
-				id="panel-plan"
-				class="panel plan"
-				role="tabpanel"
-				aria-labelledby="tab-plan"
-				hidden={app.phoneTab !== 'plan'}
-			>
-				<!-- Unmounted while another tab shows: a plan of hundreds of tasks is thousands of nodes. The
+	<div class="work" bind:clientWidth={workW}>
+		<main
+			id="main"
+			class="body"
+			data-mode={mode}
+			data-axis={split ? axis : undefined}
+			tabindex="-1"
+			bind:this={body}
+			style:grid-template-columns={split && axis === 'col' ? splitTracks : undefined}
+			style:grid-template-rows={split && axis === 'row' ? splitTracks : undefined}
+		>
+			{#if kind === 'desktop' && mode === 'text'}
+				<aside class="panel outline" aria-label={strings.outline.title}>
+					<OutlinePanel {app} />
+				</aside>
+			{/if}
+			{#if phone}
+				<div
+					id="panel-plan"
+					class="panel plan"
+					role="tabpanel"
+					aria-labelledby="tab-plan"
+					hidden={app.phoneTab !== 'plan'}
+				>
+					<!-- Unmounted while another tab shows: a plan of hundreds of tasks is thousands of nodes. The
 				     collapse state is the app's; the scroll and the selection are kept in `planViews`. -->
-				{#if app.phoneTab === 'plan'}
-					<div class="grow">
-						<OutlinePanel {app} showTitle={false} showNotice={false} views={planViews} />
-					</div>
+					{#if app.phoneTab === 'plan'}
+						<div class="grow">
+							<OutlinePanel {app} showTitle={false} showNotice={false} views={planViews} />
+						</div>
+					{/if}
+				</div>
+			{/if}
+			<div
+				id="panel-text"
+				class="panel text"
+				role={phone ? 'tabpanel' : undefined}
+				aria-labelledby={phone ? 'tab-text' : undefined}
+				hidden={!showEditor}
+			>
+				{#if app.phase === 'failed'}
+					<p class="message error" role="alert">{app.loadError}</p>
+				{:else if app.workspace && EditorPanel}
+					{#key app.workspace}
+						<EditorPanel {app} ws={app.workspace} layout={kind} />
+					{/key}
+				{:else}
+					<p class="message">{strings.topBar.loading}</p>
 				{/if}
 			</div>
-		{/if}
-		<div
-			id="panel-text"
-			class="panel text"
-			role={phone ? 'tabpanel' : undefined}
-			aria-labelledby={phone ? 'tab-text' : undefined}
-			hidden={!showEditor}
-		>
-			{#if app.phase === 'failed'}
-				<p class="message error" role="alert">{app.loadError}</p>
-			{:else if app.workspace && EditorPanel}
-				{#key app.workspace}
-					<EditorPanel {app} ws={app.workspace} layout={kind} />
-				{/key}
-			{:else}
-				<p class="message">{strings.topBar.loading}</p>
-			{/if}
-		</div>
-		{#if split}
-			<SplitDivider
-				{axis}
-				value={ratio}
-				container={body}
-				onchange={(v) => modes.setRatio(axis, v)}
-				oncommit={() => modes.saveRatios()}
-			/>
-		{/if}
-		{#if ganttSeen}
-			<div
-				id="panel-gantt"
-				class="panel gantt"
-				role={phone ? 'tabpanel' : undefined}
-				aria-labelledby={phone ? 'tab-gantt' : undefined}
-				hidden={!showGantt}
-			>
-				<Gantt
-					{app}
-					{phone}
-					tableRatio={modes.table}
-					ontable={(v) => modes.setTable(v)}
-					ontablecommit={() => modes.saveTable()}
+			{#if split}
+				<SplitDivider
+					{axis}
+					value={ratio}
+					container={body}
+					onchange={(v) => modes.setRatio(axis, v)}
+					oncommit={() => modes.saveRatios()}
 				/>
-			</div>
-		{/if}
-	</main>
+			{/if}
+			{#if ganttSeen}
+				<div
+					id="panel-gantt"
+					class="panel gantt"
+					role={phone ? 'tabpanel' : undefined}
+					aria-labelledby={phone ? 'tab-gantt' : undefined}
+					hidden={!showGantt}
+				>
+					<Gantt
+						{app}
+						{phone}
+						tableRatio={modes.table}
+						ontable={(v) => modes.setTable(v)}
+						ontablecommit={() => modes.saveTable()}
+					/>
+				</div>
+			{/if}
+		</main>
+		<InspectorHost {app} layout={kind} {dock} active={showGantt} onshowtext={showInText} />
+	</div>
 	<div class="footer" bind:this={footer}>
 		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 		{#if phone}<p class="notice compact">{strings.noticeShort}</p>{/if}
 		<StatusStrip {app} {updates} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
-	<Toasts {app} {phone} bottom={toastBottom} />
+	<Toasts {app} {phone} bottom={toastRoom} />
 	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
@@ -269,7 +306,18 @@
 	.app[data-layout='phone'] {
 		padding-inline: max(10px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-right));
 	}
+	/* The Gantt and its inspector side by side on a desktop; the body is what the Split divider
+	   measures, so the inspector sits outside it. */
+	.work {
+		position: relative;
+		display: flex;
+		gap: var(--gap-panel);
+		min-block-size: 0;
+		min-inline-size: 0;
+	}
 	.body {
+		flex: 1 1 0;
+		min-inline-size: 0;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: minmax(0, 1fr);

@@ -145,6 +145,11 @@
 		});
 	});
 
+	// The inspector reads what is drawn: the model, the result and its analysis as one pair.
+	$effect(() => {
+		app.inspector.view = { model, result, analysis: critical.shown.analysis, current };
+	});
+
 	/** The shown scenario and its parents: which of a task's `effort` statements applies. */
 	const chain = $derived(scenarioChain(model.project, model.scenario));
 	// The columns drawn and their natural width together; the divider decides how much of it shows.
@@ -313,7 +318,9 @@
 
 	function selectRow(index: number): void {
 		const row = model.rows[index];
-		if (row) app.selectTask(row.key);
+		if (!row) return;
+		app.selectTask(row.key);
+		app.inspector.show();
 	}
 
 	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's (zoomForKey). */
@@ -410,7 +417,11 @@
 						selectedKey={app.selectedTask}
 						{announcement}
 						ontoggle={(k) => app.toggleNode(k)}
-						onselect={(k) => app.selectTask(k)}
+						onselect={(k) => {
+							app.selectTask(k);
+							app.inspector.show();
+						}}
+						onopen={() => app.inspector.focus()}
 						onreveal={revealRow}
 					/>
 				</div>
@@ -448,6 +459,8 @@
 					/>
 				</div>
 			</div>
+			<!-- Room to scroll the last rows above the details sheet (inspector, WCAG 2.4.11). -->
+			<div class="inset" aria-hidden="true" style:block-size="{app.inspector.sheetHeight}px"></div>
 		</div>
 	{/if}
 </div>

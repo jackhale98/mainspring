@@ -17,6 +17,11 @@ const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 const FEDORA = 'upstream-fedora-20';
 
 async function open(page: Page, sample = FEDORA): Promise<void> {
+	// A desktop docks the details panel (320 px) beside the chart: this wide, the chart pane is the
+	// width these tests were written for (1264 px at the default 1280 px window before T17).
+	if (page.viewportSize() && (page.viewportSize()?.width ?? 0) >= 1024) {
+		await page.setViewportSize({ width: 1600, height: 860 });
+	}
 	await page.goto(`/app?sample=${sample}&mode=visual`);
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,

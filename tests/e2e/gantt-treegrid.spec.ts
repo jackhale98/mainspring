@@ -217,6 +217,9 @@ test.describe('the treegrid', () => {
 		await page.keyboard.press('ArrowDown');
 		await page.keyboard.press('Enter');
 		await expect(spec).toHaveAttribute('aria-selected', 'true');
+		// Enter also opens the details and moves the focus into them (T17); Escape comes back.
+		await expect(page.getByLabel('Name', { exact: true })).toBeFocused();
+		await page.keyboard.press('Escape');
 		await expect(spec).toBeFocused();
 		await page.keyboard.press('PageDown');
 		await expect(spec).not.toBeFocused();
@@ -324,6 +327,8 @@ for (const scheme of ['light', 'dark'] as const) {
 			await check(page, 'a cell focused');
 			await page.keyboard.press('Enter');
 			await check(page, 'a task opened');
+			// The details (a sheet on a phone) are closed again: they cover the status strip.
+			await page.keyboard.press('Escape');
 			// The grid is a treegrid to a screen reader, with no stray roles.
 			const names = await page.getByTestId('gantt-treegrid').evaluate((g) => ({
 				rowgroups: g.querySelectorAll('[role="rowgroup"]').length,
