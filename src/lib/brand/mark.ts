@@ -128,8 +128,15 @@ export interface MarkColours {
  * palette, when given, is applied under prefers-color-scheme: dark, so the tab icon follows the
  * browser.
  */
-export function markSvg(form: MarkForm, light: MarkColours, dark?: MarkColours): string {
+export function markSvg(
+	form: MarkForm,
+	light: MarkColours,
+	dark?: MarkColours,
+	tile?: MarkTile,
+): string {
 	const g = markGeometry(form);
+	const s = tile?.scale ?? 1;
+	const fit = s === 1 ? '' : ` transform="translate(${C} ${C}) scale(${s}) translate(${-C} ${-C})"`;
 	const css = (c: MarkColours): string =>
 		`.bh{stop-color:${c.brassHi}}.bm{stop-color:${c.brass}}.bl{stop-color:${c.brassLo}}` +
 		`.rh{stop-color:${c.rubyHi}}.rm{stop-color:${c.ruby}}.rl{stop-color:${c.rubyLo}}` +
@@ -146,6 +153,8 @@ export function markSvg(form: MarkForm, light: MarkColours, dark?: MarkColours):
 		'<stop class="rh" offset="0"/><stop class="rm" offset=".55"/><stop class="rl" offset="1"/>',
 		'</radialGradient>',
 		'</defs>',
+		tile ? `<rect width="${VIEWBOX}" height="${VIEWBOX}" fill="${tile.background}"/>` : '',
+		`<g${fit}>`,
 		...g.arcs.map(
 			(d) => `<path d="${d}" fill="none" stroke="url(#b)" stroke-width="${g.arcWidth}"/>`,
 		),
@@ -158,10 +167,23 @@ export function markSvg(form: MarkForm, light: MarkColours, dark?: MarkColours):
 		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel + 1.6)}" fill="none" stroke="url(#b)" stroke-width="1.4"/>`,
 		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel)}" fill="url(#r)"/>`,
 		`<ellipse cx="${fmt(g.highlight.cx)}" cy="${fmt(g.highlight.cy)}" rx="${fmt(g.highlight.rx)}" ry="${fmt(g.highlight.ry)}" fill="#fff" opacity=".55" transform="rotate(-35 ${fmt(g.highlight.cx)} ${fmt(g.highlight.cy)})"/>`,
+		'</g>',
 		'</svg>',
 		'',
 	].join('');
 }
+
+/** An app icon tile: the mark centred on a solid ground, at `scale` of the tile. */
+export interface MarkTile {
+	readonly background: string;
+	readonly scale: number;
+}
+
+/** The app icons in the web manifest (scripts/gen-icons.mjs): the small form on the enamel ground. */
+export const APP_ICON: MarkTile = { background: '#ece7dc', scale: 0.78 };
+/** Maskable: inside the 80% safe circle a launcher may crop to (the small form's arcs reach 0.84 of
+ * the half-box, so 0.62 keeps them within 0.52 of it). */
+export const APP_ICON_MASKABLE: MarkTile = { background: '#ece7dc', scale: 0.62 };
 
 /** The favicon palettes: the light and dark theme tokens of the mark (theme-light.css, theme-dark.css). */
 export const FAVICON_LIGHT: MarkColours = {
