@@ -12,7 +12,7 @@ export interface Pt {
 }
 
 export interface PinchFrame {
-	/** Cumulative scale since the pinch began, or null while inside the dead zone. */
+	/** Cumulative scale since the pinch engaged (1 at that moment), or null while not engaged. */
 	readonly scale: number | null;
 	/** Incremental centroid movement since the last frame, or null while inside the dead zone. */
 	readonly pan: { readonly dx: number; readonly dy: number } | null;
@@ -24,30 +24,41 @@ export interface PinchTracker {
 	update(a: Pt, b: Pt): PinchFrame;
 }
 
-const centroid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-const gap = (a: Pt, b: Pt): number => Math.hypot(b.x - a.x, b.y - a.y);
+/**
+ * The narrowest horizontal finger gap a pinch can engage at. Time runs left to right, so only the
+ * horizontal gap zooms it; two fingers stacked vertically have a gap near zero, and a ratio of two
+ * tiny numbers would be noise.
+ */
+export const MIN_PINCH_SPAN = 24;
 
-/** `slop` is the dead zone in px, for the distance between the fingers and for the centroid. */
+const centroid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+const span = (a: Pt, b: Pt): number => Math.abs(b.x - a.x);
+
+/**
+ * Both points are in viewport coordinates: a scroll the wiring does in response must not read as
+ * finger movement. `slop` is the dead zone in px for the gap and for the centroid. When scaling
+ * engages the reference gap is rebased to the current one, so the scale starts at exactly 1
+ * instead of jumping by the dead zone.
+ */
 export function createPinchTracker(a: Pt, b: Pt, slop: number): PinchTracker {
 	const anchor = centroid(a, b);
-	// Fingers that start on top of each other would divide by zero.
-	const d0 = Math.max(gap(a, b), 1);
-	let scaling = false;
+	const span0 = span(a, b);
+	let base = 0; // the gap the scale is measured against; 0 until scaling engages
 	let panning = false;
 	let last = anchor;
 	return {
 		anchor,
 		update(p, q) {
 			const c = centroid(p, q);
-			const d = gap(p, q);
-			if (!scaling && Math.abs(d - d0) > slop) scaling = true;
+			const d = span(p, q);
+			if (base === 0 && Math.abs(d - span0) > slop && d >= MIN_PINCH_SPAN) base = d;
 			if (!panning && Math.hypot(c.x - anchor.x, c.y - anchor.y) > slop) panning = true;
 			let pan: PinchFrame['pan'] = null;
 			if (panning) {
 				pan = { dx: c.x - last.x, dy: c.y - last.y };
 				last = c;
 			}
-			return { scale: scaling ? d / d0 : null, pan };
+			return { scale: base === 0 ? null : Math.max(d, 1) / base, pan };
 		},
 	};
 }

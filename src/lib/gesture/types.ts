@@ -2,8 +2,14 @@
 /**
  * Types of the gesture library (phase-2.md 6.5). The machine is pure and framework free: the
  * wiring (T16) turns DOM pointer events into `GestureInput`, feeds the machine, and maps the
- * outputs to the canvas, to native scrolling and to edit intents. Coordinates are content
- * coordinates (the same ones `hitTest` takes); time is whatever clock the wiring reads, in ms.
+ * outputs to the canvas, to native scrolling and to edit intents. Time is whatever clock the wiring
+ * reads, in ms.
+ *
+ * Two coordinate systems, on purpose. Drags (`x`, `y`) are in content coordinates, the ones
+ * `hitTest` takes, so a drag follows the content when the wiring auto-scrolls. Everything that asks
+ * whether a finger moved (slop, long-press tolerance, double tap, pinch, two-finger pan) uses
+ * viewport coordinates (`clientX`, `clientY`), because a scroll moves the content under a finger
+ * that has not moved. Pinch and pan2 outputs are in viewport coordinates too.
  */
 import type { Minutes } from '../../engine/protocol';
 
@@ -53,13 +59,20 @@ export interface PointerInput {
 	/** `PointerEvent.pointerId`. */
 	readonly id: number;
 	readonly kind: PointerKind;
+	/** Content coordinates (scroll offset added), for the drag and for `target`. */
 	readonly x: number;
 	readonly y: number;
+	/** Viewport coordinates (`PointerEvent.clientX`, `clientY`), for slop, pinch and pan. */
+	readonly clientX: number;
+	readonly clientY: number;
 	/** ms, any monotonic clock (`PointerEvent.timeStamp`). */
 	readonly t: number;
 	/** The hit under the pointer now (on `down`: where the press began). */
 	readonly target: GestureTarget;
-	/** `PointerEvent.buttons`: a mouse press needs exactly the primary button. */
+	/**
+	 * `PointerEvent.buttons`. A mouse or pen press needs exactly the primary button (a barrel
+	 * button, the eraser and right or middle clicks are not gestures); touch is not checked.
+	 */
 	readonly buttons: number;
 	readonly modifiers: Modifiers;
 }
@@ -69,10 +82,15 @@ export type GestureInput =
 	| { readonly type: 'timer'; readonly t: number }
 	/** The scroll container scrolled. Only a scroll before the long-press fires cancels the press. */
 	| { readonly type: 'scroll'; readonly t: number }
-	| { readonly type: 'escape' };
+	| { readonly type: 'escape' }
+	/**
+	 * Return to idle from any state, with the cleanup outputs. Send it on `lostpointercapture`,
+	 * `visibilitychange` and window `blur`, where no up or cancel may ever arrive.
+	 */
+	| { readonly type: 'reset' };
 
 export type CancelReason =
-	'escape' | 'pointer-cancel' | 'back-to-origin' | 'second-pointer' | 'lost-release';
+	'escape' | 'reset' | 'pointer-cancel' | 'back-to-origin' | 'second-pointer' | 'lost-release';
 
 export type GestureOutput =
 	| {
@@ -117,10 +135,14 @@ export type GestureOutput =
 	| { readonly type: 'drag-cancel'; readonly reason: CancelReason }
 	/** Hand over to native scrolling; the pointercancel that follows is swallowed. */
 	| { readonly type: 'pan-native' }
-	/** `scale` is cumulative since the pinch began; (`cx`, `cy`) is the centroid where it began. */
+	/**
+	 * Pinch in viewport coordinates. `scale` is the horizontal finger gap now over the gap when the
+	 * pinch engaged (1 at that moment), cumulative since. (`cx`, `cy`) is the centroid where the two
+	 * fingers began: the zoom anchor. See README.md for how it combines with `pan2`.
+	 */
 	| { readonly type: 'pinch'; readonly scale: number; readonly cx: number; readonly cy: number }
 	| { readonly type: 'pinch-end' }
-	/** Incremental movement of the two-finger centroid. */
+	/** Incremental movement of the two-finger centroid, in viewport px. */
 	| { readonly type: 'pan2'; readonly dx: number; readonly dy: number }
 	/** Pointer capture semantics: call `setPointerCapture(id)` / `releasePointerCapture(id)`. */
 	| { readonly type: 'capture'; readonly id: number }
@@ -136,6 +158,13 @@ export interface GestureMachine {
 	 * never reads a clock: it also fires a due long-press on any later event.
 	 */
 	readonly timerAt: number | null;
+	/**
+	 * Whether the machine owns the touch: the wiring must `preventDefault` on `touchmove` while it
+	 * is true, and only then. True for a touch press that will drag at once (a selected bar's
+	 * handle), a lifted item, a drag and a pinch; false while a long-press is still pending, where
+	 * the browser must stay free to scroll.
+	 */
+	readonly claimsTouch: boolean;
 }
 
 export interface GestureHooks {
@@ -145,4 +174,10 @@ export interface GestureHooks {
 	 * drag still fires a touch long-press (the source sheet) but never starts a drag.
 	 */
 	readonly canDrag?: (hit: GestureTarget) => boolean;
+	/**
+	 * Whether the bar on this row is selected. A touch press on a handle drags at once only for a
+	 * selected bar (ADR-0008 #4); on any other bar it needs the long-press. Without this hook no
+	 * bar counts as selected, so the safe rule applies.
+	 */
+	readonly isSelected?: (row: number) => boolean;
 }

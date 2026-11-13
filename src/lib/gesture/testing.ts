@@ -27,6 +27,8 @@ interface Opts {
 	id?: number;
 	target?: GestureTarget;
 	buttons?: number;
+	/** Viewport position when it differs from the content position (the content scrolled). */
+	client?: readonly [number, number];
 }
 
 function ptr(
@@ -43,6 +45,8 @@ function ptr(
 		kind,
 		x,
 		y,
+		clientX: o.client?.[0] ?? x,
+		clientY: o.client?.[1] ?? y,
 		t,
 		target: o.target ?? BODY,
 		// A mouse button is held from down to the last move; the final up reports none.
@@ -61,7 +65,10 @@ export const cancel = (kind: PointerKind, x: number, y: number, t: number, o: Op
 	ptr('cancel', kind, x, y, t, o);
 export const timer = (t: number): GestureInput => ({ type: 'timer', t });
 export const scroll = (t: number): GestureInput => ({ type: 'scroll', t });
+/** Hooks for a selected bar: its handles drag at once on touch. */
+export const SELECTED: GestureHooks = { isSelected: () => true };
 export const ESCAPE: GestureInput = { type: 'escape' };
+export const RESET: GestureInput = { type: 'reset' };
 
 /** Sends every event and returns all outputs in order. */
 export function run(m: GestureMachine, events: readonly GestureInput[]): GestureOutput[] {

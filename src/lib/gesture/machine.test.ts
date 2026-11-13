@@ -15,6 +15,7 @@ import {
 	move,
 	run,
 	runCases,
+	SELECTED,
 	timer,
 	up,
 	type Case,
@@ -133,7 +134,7 @@ describe('gesture machine details', () => {
 		expect(m.timerAt).toBe(1350);
 		m.send(timer(1350));
 		expect(m.timerAt).toBeNull();
-		const handle = createGestureMachine();
+		const handle = createGestureMachine({}, SELECTED);
 		handle.send(down(T, 10, 10, 0, { target: END_HANDLE }));
 		expect(handle.timerAt).toBeNull();
 		const mouse = createGestureMachine();
@@ -168,7 +169,7 @@ describe('gesture machine details', () => {
 	});
 
 	it('hands the pointer under it to the drag outputs (link drops need the target)', () => {
-		const m = createGestureMachine();
+		const m = createGestureMachine({}, SELECTED);
 		const out = run(m, [
 			down(T, 10, 10, 0, { target: LINK_DOT }),
 			move(T, 50, 10, 10, { target: { kind: 'bar', row: 5 } }),

@@ -1,7 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
 import { createGestureMachine } from './machine';
-import { BODY, END_HANDLE, ESCAPE, cancel, down, kinds, move, run, timer, up } from './testing';
+import {
+	BODY,
+	END_HANDLE,
+	ESCAPE,
+	SELECTED,
+	cancel,
+	down,
+	kinds,
+	move,
+	run,
+	timer,
+	up,
+} from './testing';
 import type { GestureOutput } from './types';
 
 const M = 'mouse' as const;
@@ -29,12 +41,12 @@ describe('two pointers: pinch and two-finger pan', () => {
 		run(m, [down(T, 100, 100, 0, a), down(T, 200, 100, 5, b)]);
 		const first = m.send(move(T, 50, 100, 10, a)); // gap 150, centroid 125
 		expect(first).toEqual([
-			{ type: 'pinch', scale: 1.5, cx: 150, cy: 100 },
+			{ type: 'pinch', scale: 1, cx: 150, cy: 100 },
 			{ type: 'pan2', dx: -25, dy: 0 },
 		]);
 		const second = m.send(move(T, 250, 100, 20, b)); // gap 200, centroid 150
 		expect(second).toEqual([
-			{ type: 'pinch', scale: 2, cx: 150, cy: 100 },
+			{ type: 'pinch', scale: 200 / 150, cx: 150, cy: 100 },
 			{ type: 'pan2', dx: 25, dy: 0 },
 		]);
 	});
@@ -84,7 +96,7 @@ describe('two pointers: pinch and two-finger pan', () => {
 	});
 
 	it('a second finger during a drag cancels it, releases the capture and pinches', () => {
-		const m = createGestureMachine();
+		const m = createGestureMachine({}, SELECTED);
 		run(m, [down(T, 100, 100, 0, { ...a, target: END_HANDLE }), move(T, 150, 100, 20, a)]);
 		expect(m.state).toBe('dragging');
 		expect(kinds(m.send(down(T, 300, 100, 40, b)))).toEqual(['release', 'drag-cancel']);
@@ -200,5 +212,73 @@ describe('pointers that are not a pinch', () => {
 			move(T, 80, 10, 400, a),
 		]);
 		expect(out.filter((o) => o.type === 'capture')).toEqual([{ type: 'capture', id: 1 }]);
+	});
+});
+
+describe('two-finger geometry is in viewport coordinates (the content scrolls under still fingers)', () => {
+	it('fingers that do not move give no pinch and no pan, whatever the content does', () => {
+		const m = createGestureMachine();
+		run(m, [
+			down(T, 100, 100, 0, { ...a, client: [100, 100] }),
+			down(T, 200, 100, 5, { ...b, client: [200, 100] }),
+		]);
+		// The wiring scrolls the timeline in response to a pan: the content x of both fingers shifts
+		// by 70 and 140, the fingers stay where they are.
+		const out = run(m, [
+			move(T, 170, 100, 10, { ...a, client: [100, 100] }),
+			move(T, 340, 100, 20, { ...b, client: [200, 100] }),
+			move(T, 400, 100, 30, { ...a, client: [100, 100] }),
+		]);
+		expect(out).toEqual([]);
+		expect(m.state).toBe('pinching');
+	});
+
+	it('moving fingers pan by their viewport movement, not the content scroll that follows', () => {
+		const m = createGestureMachine();
+		run(m, [down(T, 100, 100, 0, a), down(T, 200, 100, 5, b)]);
+		let pan = 0;
+		let scrolled = 0;
+		for (let i = 1; i <= 10; i++) {
+			scrolled += 4; // the wiring scrolls by what pan2 reported: content x moves with it
+			const ca = 100 + 4 * i;
+			const cb = 200 + 4 * i;
+			for (const [id, c0] of [
+				[1, ca],
+				[2, cb],
+			] as const) {
+				const e = move(T, c0 + scrolled, 100, 10 * i + id, { id, client: [c0, 100] });
+				for (const o of m.send(e)) {
+					if (o.type === 'pan2') pan += o.dx;
+					expect(o.type).not.toBe('pinch');
+				}
+			}
+		}
+		expect(pan).toBeCloseTo(40);
+	});
+
+	it('a press does not become a scroll or a drag because the content moved under a still finger', () => {
+		const m = createGestureMachine();
+		m.send(down(T, 100, 100, 0, { client: [100, 100] }));
+		expect(m.send(move(T, 300, 100, 100, { client: [100, 100] }))).toEqual([]);
+		expect(m.state).toBe('pressed');
+		expect(kinds(m.send(timer(350)))).toEqual(['long-press']);
+	});
+
+	it('a mouse press does not drag from a wheel scroll either', () => {
+		const m = createGestureMachine();
+		m.send(down(M, 100, 100, 0, { client: [100, 100] }));
+		expect(m.send(move(M, 400, 100, 100, { client: [100, 100] }))).toEqual([]);
+		expect(m.state).toBe('pressed');
+	});
+
+	it('the drag itself follows the content: auto-scroll moves it under a still pointer', () => {
+		const m = createGestureMachine();
+		run(m, [
+			down(M, 100, 100, 0, { client: [100, 100] }),
+			move(M, 200, 100, 10, { client: [200, 100] }),
+		]);
+		expect(m.send(move(M, 330, 100, 20, { client: [200, 100] }))).toEqual([
+			expect.objectContaining({ type: 'drag-move', x: 330 }),
+		]);
 	});
 });

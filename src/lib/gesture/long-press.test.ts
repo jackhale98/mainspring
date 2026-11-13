@@ -37,25 +37,35 @@ describe('long-press timing', () => {
 });
 
 describe('press mode (ADR-0008 #4)', () => {
-	const cases: Array<[string, PointerKind, GestureTarget, boolean, PressMode]> = [
-		['mouse on a bar body', 'mouse', BODY, true, 'immediate'],
-		['mouse on a handle', 'mouse', END_HANDLE, true, 'immediate'],
-		['pen on a row handle', 'pen', ROW_HANDLE, true, 'immediate'],
-		['mouse on empty space', 'mouse', EMPTY, true, 'none'],
-		['mouse on a link', 'mouse', LINK, true, 'none'],
-		['mouse on a bar that cannot drag', 'mouse', BODY, false, 'none'],
-		['touch on a bar body', 'touch', BODY, true, 'long-press'],
-		['touch on the end handle', 'touch', END_HANDLE, true, 'immediate'],
-		['touch on the link dot', 'touch', LINK_DOT, true, 'immediate'],
-		['touch on the progress handle', 'touch', PROGRESS, true, 'immediate'],
-		['touch on a handle that cannot drag', 'touch', END_HANDLE, false, 'long-press'],
-		['touch on a text-only bar', 'touch', BODY, false, 'long-press'],
-		['touch on a row handle', 'touch', ROW_HANDLE, true, 'long-press'],
-		['touch on empty space', 'touch', EMPTY, true, 'none'],
-		['touch on a link', 'touch', LINK, true, 'none'],
+	// kind, target, canDrag, selected -> mode
+	const cases: Array<[string, PointerKind, GestureTarget, boolean, boolean, PressMode]> = [
+		['mouse on a bar body', 'mouse', BODY, true, true, 'immediate'],
+		['mouse on a handle', 'mouse', END_HANDLE, true, true, 'immediate'],
+		['pen on a row handle', 'pen', ROW_HANDLE, true, true, 'immediate'],
+		['mouse on empty space', 'mouse', EMPTY, true, true, 'none'],
+		['mouse on a link', 'mouse', LINK, true, true, 'none'],
+		['mouse on a bar that cannot drag', 'mouse', BODY, false, true, 'none'],
+		['touch on a bar body', 'touch', BODY, true, true, 'long-press'],
+		['touch on the end handle', 'touch', END_HANDLE, true, true, 'immediate'],
+		['touch on the link dot', 'touch', LINK_DOT, true, true, 'immediate'],
+		['touch on the progress handle', 'touch', PROGRESS, true, true, 'immediate'],
+		['touch on a handle that cannot drag', 'touch', END_HANDLE, false, true, 'long-press'],
+		['touch on a text-only bar', 'touch', BODY, false, true, 'long-press'],
+		[
+			'touch on the end handle of an unselected bar',
+			'touch',
+			END_HANDLE,
+			true,
+			false,
+			'long-press',
+		],
+		['mouse on the end handle of an unselected bar', 'mouse', END_HANDLE, true, false, 'immediate'],
+		['touch on a row handle', 'touch', ROW_HANDLE, true, true, 'long-press'],
+		['touch on empty space', 'touch', EMPTY, true, true, 'none'],
+		['touch on a link', 'touch', LINK, true, true, 'none'],
 	];
-	it.each(cases)('%s', (_name, kind, hit, can, mode) => {
-		expect(pressMode(kind, hit, can)).toBe(mode);
+	it.each(cases)('%s', (_name, kind, hit, can, selected, mode) => {
+		expect(pressMode(kind, hit, can, selected)).toBe(mode);
 	});
 	it('knows the handles of a bar', () => {
 		expect([BODY, END_HANDLE, LINK_DOT, PROGRESS, EMPTY].map(isBarHandle)).toEqual([

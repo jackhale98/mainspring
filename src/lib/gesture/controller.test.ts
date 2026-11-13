@@ -2,7 +2,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { createGestureController, type GestureEnv, type GestureIntent } from './controller';
-import type { SnapRole } from './snap';
+import { calendarDragSnapper, type DragSnapper } from './snap';
 import {
 	BODY,
 	EMPTY,
@@ -11,7 +11,9 @@ import {
 	LINK_DOT,
 	OTHER_BAR,
 	PROGRESS,
+	RESET,
 	ROW_HANDLE,
+	SELECTED,
 	down,
 	move,
 	timer,
@@ -23,14 +25,11 @@ const M = 'mouse' as const;
 const T = 'touch' as const;
 const DAY = 1440;
 
-/** 1 px = 60 minutes; snaps to whole days, and records the roles it was asked about. */
-function env(over: Partial<GestureEnv> = {}, roles: SnapRole[] = []): GestureEnv {
+/** 1 px = 60 minutes, calendar-day snapping; the start is on day 2, the end on day 5. */
+function env(over: Partial<GestureEnv> = {}): GestureEnv {
 	return {
 		minutesAt: (x) => x * 60,
-		snap: (m, role) => {
-			roles.push(role);
-			return Math.round(m / DAY) * DAY || 0;
-		},
+		snap: calendarDragSnapper(),
 		edgeMin: (_bar, mode) => (mode === 'move' ? 2 * DAY : 5 * DAY),
 		...over,
 	};
@@ -45,9 +44,9 @@ function run(
 const types = (xs: readonly { type: string }[]) => xs.map((x) => x.type);
 
 describe('time drags', () => {
-	it('a body drag reports the snapped movement of the start, live and at the drop', () => {
+	it('a body drag reports the snapped working days and movement, live and at the drop', () => {
 		const c = createGestureController(env());
-		// +100 px = 6000 min; start 2880 + 6000 = 8880 -> 8640 (6 days): delta 5760.
+		// +100 px = 6000 min = 4.2 days: 4 days; the start goes from day 2 to day 6.
 		const out = run(c, [down(M, 0, 0, 0), move(M, 100, 0, 10), up(M, 100, 0, 20)]);
 		expect(types(out)).toEqual(['capture', 'drag-start', 'drag-move', 'release', 'drag-end']);
 		expect(out[1]).toMatchObject({ type: 'drag-start', mode: 'move', x: 0, y: 0 });
@@ -55,32 +54,40 @@ describe('time drags', () => {
 			type: 'drag-move',
 			mode: 'move',
 			dx: 100,
-			time: { deltaMin: 3 * DAY + DAY, snappedMin: 6 * DAY },
+			time: { deltaMin: 4 * DAY, snappedMin: 6 * DAY, days: 4 },
 		});
 		expect(out[4]).toMatchObject({
 			type: 'drag-end',
-			time: { deltaMin: 4 * DAY, snappedMin: 6 * DAY },
+			time: { deltaMin: 4 * DAY, snappedMin: 6 * DAY, days: 4 },
 		});
 	});
 
-	it('snaps the start role for a move and the end role for a resize', () => {
-		const roles: SnapRole[] = [];
-		const c = createGestureController(env({}, roles));
-		run(c, [down(M, 0, 0, 0), move(M, 100, 0, 10), up(M, 100, 0, 20)]);
-		expect(new Set(roles)).toEqual(new Set(['start']));
-		roles.length = 0;
-		const r = createGestureController(env({}, roles));
-		const out = run(r, [
+	it('asks the snapper to move for a body and to resize for the end handle', () => {
+		const calls: string[] = [];
+		const inner = calendarDragSnapper();
+		const spy: DragSnapper = {
+			...inner,
+			move: (r, d) => (calls.push('move'), inner.move(r, d)),
+			resize: (r, d) => (calls.push('resize'), inner.resize(r, d)),
+		};
+		run(createGestureController(env({ snap: spy })), [
+			down(M, 0, 0, 0),
+			move(M, 100, 0, 10),
+			up(M, 100, 0, 20),
+		]);
+		expect(new Set(calls)).toEqual(new Set(['move']));
+		calls.length = 0;
+		const out = run(createGestureController(env({ snap: spy })), [
 			down(M, 0, 0, 0, { target: END_HANDLE }),
 			move(M, 50, 0, 10),
 			up(M, 50, 0, 20),
 		]);
-		expect(new Set(roles)).toEqual(new Set(['end']));
+		expect(new Set(calls)).toEqual(new Set(['resize']));
 		expect(out[1]).toMatchObject({ mode: 'resize-end' });
-		// +50 px = 3000 min; end 7200 + 3000 = 10200 -> 7 days (10080): delta 2880.
+		// +50 px = 3000 min on an end at day 5 (7200).
 		expect(out.at(-1)).toMatchObject({
 			type: 'drag-end',
-			time: { deltaMin: 2 * DAY, snappedMin: 7 * DAY },
+			time: { deltaMin: 3000, snappedMin: 7200 + 3000, days: null },
 		});
 	});
 
@@ -91,12 +98,12 @@ describe('time drags', () => {
 		expect(types(out)).not.toContain('drag-end');
 	});
 
-	it('back at the origin the label shows no movement even off the grid', () => {
+	it('back at the origin the label shows no movement even for an off-grid edge', () => {
 		const c = createGestureController(env({ edgeMin: () => 2 * DAY + 77 }));
 		const out = run(c, [down(M, 0, 0, 0), move(M, 100, 0, 10), move(M, 1, 0, 20)]);
 		expect(out.at(-1)).toMatchObject({
 			atOrigin: true,
-			time: { deltaMin: 0, snappedMin: 2 * DAY + 77 },
+			time: { deltaMin: 0, snappedMin: 2 * DAY + 77, days: 0 },
 		});
 	});
 
@@ -109,18 +116,36 @@ describe('time drags', () => {
 	it('uses the pointer minute as the reference when the row has no dates', () => {
 		const c = createGestureController(env({ edgeMin: () => null }));
 		const out = run(c, [down(M, 40, 0, 0), move(M, 140, 0, 10)]);
-		// Reference 40 px = 2400 min; +6000 = 8400 -> 6 days (8640): delta 6240.
-		expect(out.at(-1)).toMatchObject({ time: { deltaMin: 8640 - 2400, snappedMin: 8640 } });
-		const bare = createGestureController({ minutesAt: (x) => x * 60, snap: (m) => m });
-		const o2 = run(bare, [down(M, 0, 0, 0), move(M, 10, 0, 10)]);
-		expect(o2.at(-1)).toMatchObject({ time: { deltaMin: 600 } });
+		// Reference: 40 px = 2400 min. +6000 min = 4 days.
+		expect(out.at(-1)).toMatchObject({ time: { deltaMin: 4 * DAY, snappedMin: 2400 + 4 * DAY } });
+		const r = run(createGestureController(env({ edgeMin: () => null })), [
+			down(M, 0, 0, 0, { target: END_HANDLE }),
+			move(M, 10, 0, 10),
+		]);
+		expect(r.at(-1)).toMatchObject({ time: { deltaMin: 600 } });
 	});
 
-	it('Escape cancels with its reason, and the drop afterwards is nothing', () => {
-		const c = createGestureController(env());
-		const out = run(c, [down(M, 0, 0, 0), move(M, 100, 0, 10), ESCAPE, up(M, 100, 0, 20)]);
-		expect(out.slice(-2).map((o) => o.type)).toEqual(['release', 'cancel']);
-		expect(out.at(-1)).toEqual({ type: 'cancel', reason: 'escape' });
+	it('reads the origin minute once, at the drag start: a zoom mid-drag does not move it', () => {
+		let scale = 60;
+		const c = createGestureController(env({ minutesAt: (x) => x * scale, edgeMin: () => 0 }));
+		run(c, [down(M, 10, 0, 0, { target: END_HANDLE }), move(M, 100, 0, 10)]);
+		scale = 120;
+		const out = run(c, [move(M, 90, 0, 20, { target: END_HANDLE })]);
+		// Origin 10 px at 60 = 600 min; the pointer is now at 90 px * 120 = 10800: 10200 min.
+		expect(out.at(-1)).toMatchObject({ time: { deltaMin: 10200 } });
+	});
+
+	it('Escape and reset cancel with their reason, and the drop afterwards is nothing', () => {
+		for (const [input, reason] of [
+			[ESCAPE, 'escape'],
+			[RESET, 'reset'],
+		] as const) {
+			const c = createGestureController(env());
+			const out = run(c, [down(M, 0, 0, 0), move(M, 100, 0, 10), input, up(M, 100, 0, 20)]);
+			expect(out.slice(-2).map((o) => o.type)).toEqual(['release', 'cancel']);
+			expect(out.at(-1)).toEqual({ type: 'cancel', reason });
+			expect(c.state).toBe('idle');
+		}
 	});
 
 	it('a touch body drag needs the long-press, and reports the lift first', () => {
@@ -136,11 +161,20 @@ describe('time drags', () => {
 		]);
 		expect(c.timerAt).toBeNull();
 	});
+
+	it('exposes claimsTouch from the machine', () => {
+		const c = createGestureController(env(), {}, SELECTED);
+		c.send(down(T, 0, 0, 0, { target: END_HANDLE }));
+		expect(c.claimsTouch).toBe(true);
+		c.send(ESCAPE);
+		c.send(down(T, 0, 0, 10));
+		expect(c.claimsTouch).toBe(false);
+	});
 });
 
 describe('other drag modes', () => {
 	it('progress and row drags carry pixels and no time', () => {
-		const c = createGestureController(env());
+		const c = createGestureController(env(), {}, SELECTED);
 		const p = run(c, [
 			down(T, 0, 0, 0, { target: PROGRESS }),
 			move(T, 30, 5, 10),
@@ -172,8 +206,10 @@ describe('other drag modes', () => {
 });
 
 describe('link drags', () => {
-	it('reports linkStart, linkHover when the target bar changes, and linkDrop', () => {
-		const c = createGestureController(env());
+	const linkMoves = (out: GestureIntent[]) => out.filter((o) => o.type === 'link-hover');
+
+	it('reports linkStart, a linkMove per move, linkHover when the target bar changes, and linkDrop', () => {
+		const c = createGestureController(env(), {}, SELECTED);
 		const out = run(c, [
 			down(T, 0, 0, 0, { target: LINK_DOT }),
 			move(T, 30, 0, 10, { target: EMPTY }),
@@ -186,18 +222,26 @@ describe('link drags', () => {
 		expect(types(out)).toEqual([
 			'capture',
 			'link-start',
+			'link-move',
+			'link-move',
 			'link-hover',
+			'link-move',
+			'link-move',
 			'link-hover',
+			'link-move',
 			'link-hover',
 			'release',
 			'link-drop',
 		]);
 		expect(out[1]).toEqual({ type: 'link-start', from: 2, x: 0, y: 0 });
 		expect(
-			out
-				.filter((o) => o.type === 'link-hover')
-				.map((o) => (o.type === 'link-hover' ? o.target?.row : -1)),
-		).toEqual([5, undefined, 5]);
+			out.filter((o) => o.type === 'link-move').map((o) => (o.type === 'link-move' ? o.x : 0)),
+		).toEqual([30, 60, 62, 90, 120]);
+		expect(linkMoves(out).map((o) => (o.type === 'link-hover' ? o.target?.row : -1))).toEqual([
+			5,
+			undefined,
+			5,
+		]);
 		expect(out.at(-1)).toEqual({ type: 'link-drop', from: 2, to: OTHER_BAR });
 	});
 
@@ -232,7 +276,7 @@ describe('link drags', () => {
 	});
 
 	it('a tap on the link dot is a tap (link mode starts from it)', () => {
-		const c = createGestureController(env());
+		const c = createGestureController(env(), {}, SELECTED);
 		expect(
 			types(
 				run(c, [down(T, 0, 0, 0, { target: LINK_DOT }), up(T, 0, 0, 50, { target: LINK_DOT })]),
@@ -242,7 +286,7 @@ describe('link drags', () => {
 });
 
 describe('pass-through and hooks', () => {
-	it('passes taps, pinch and two-finger pan on unchanged', () => {
+	it('passes pinch and two-finger pan on unchanged, in viewport coordinates', () => {
 		const c = createGestureController(env());
 		const out = run(c, [
 			down(T, 100, 100, 0, { id: 1 }),
@@ -251,7 +295,7 @@ describe('pass-through and hooks', () => {
 			up(T, 50, 100, 20, { id: 1 }),
 		]);
 		expect(types(out)).toEqual(['pinch', 'pan2', 'pinch-end']);
-		expect(out[0]).toEqual({ type: 'pinch', scale: 1.5, cx: 150, cy: 100 });
+		expect(out[0]).toEqual({ type: 'pinch', scale: 1, cx: 150, cy: 100 });
 	});
 
 	it('exposes the machine state and honours the canDrag hook', () => {
@@ -263,20 +307,21 @@ describe('pass-through and hooks', () => {
 
 describe('controller properties', () => {
 	const stepArb = fc.record({
-		kind: fc.constantFrom('down', 'move', 'move', 'move', 'up', 'escape'),
+		kind: fc.constantFrom('down', 'move', 'move', 'move', 'up', 'escape', 'reset'),
 		x: fc.integer({ min: -80, max: 200 }),
 		target: fc.constantFrom(BODY, END_HANDLE, LINK_DOT, PROGRESS, ROW_HANDLE, OTHER_BAR, EMPTY),
 		dt: fc.integer({ min: 0, max: 400 }),
 	});
-	it('every drag-end carries a real change, snapped onto the grid, and Escape ends idle', () => {
+	it('every drag-end carries a real change, and Escape ends idle', () => {
 		fc.assert(
 			fc.property(fc.constantFrom(M, T), fc.array(stepArb, { maxLength: 40 }), (kind, steps) => {
-				const c = createGestureController(env());
+				const c = createGestureController(env(), {}, SELECTED);
 				let t = 0;
 				const out: GestureIntent[] = [];
 				for (const s of steps) {
 					t += s.dt;
 					if (s.kind === 'escape') out.push(...c.send(ESCAPE));
+					else if (s.kind === 'reset') out.push(...c.send(RESET));
 					else if (s.kind === 'down')
 						out.push(...c.send(down(kind, s.x, 0, t, { target: s.target })));
 					else if (s.kind === 'move')
@@ -287,10 +332,9 @@ describe('controller properties', () => {
 				expect(c.state).toBe('idle');
 				for (const o of out) {
 					if (o.type !== 'drag-end' && o.type !== 'drag-move') continue;
-					if (o.time) {
-						expect(Math.abs(o.time.snappedMin % DAY)).toBe(0);
-						if (o.type === 'drag-end') expect(o.time.deltaMin).not.toBe(0);
-					}
+					if (!o.time) continue;
+					if (o.time.days !== null) expect(Math.abs(o.time.snappedMin % DAY)).toBe(0);
+					if (o.type === 'drag-end') expect(o.time.deltaMin).not.toBe(0);
 				}
 			}),
 			{ numRuns: 300 },

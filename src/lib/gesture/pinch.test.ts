@@ -14,14 +14,27 @@ describe('pinch tracker', () => {
 	it('is silent in the dead zone and then reports a cumulative scale', () => {
 		const t = createPinchTracker(a, b, 8);
 		expect(t.update({ x: 104, y: 100 }, { x: 196, y: 100 })).toEqual({ scale: null, pan: null });
-		expect(t.update({ x: 50, y: 100 }, { x: 250, y: 100 })).toEqual({ scale: 2, pan: null });
-		expect(t.update({ x: 25, y: 100 }, { x: 275, y: 100 }).scale).toBe(2.5);
+		// Engages here: the scale starts at 1, with no jump by the dead zone, and is cumulative after.
+		expect(t.update({ x: 50, y: 100 }, { x: 250, y: 100 })).toEqual({ scale: 1, pan: null });
+		expect(t.update({ x: 25, y: 100 }, { x: 275, y: 100 }).scale).toBe(1.25);
+		expect(t.update({ x: 100, y: 100 }, { x: 200, y: 100 }).scale).toBe(0.5);
 	});
 
 	it('reports centroid movement as increments, starting from the anchor', () => {
 		const t = createPinchTracker(a, b, 8);
 		expect(t.update({ x: 120, y: 100 }, { x: 220, y: 100 }).pan).toEqual({ dx: 20, dy: 0 });
 		expect(t.update({ x: 130, y: 110 }, { x: 230, y: 110 }).pan).toEqual({ dx: 10, dy: 10 });
+	});
+
+	it('measures the horizontal gap: fingers moving apart vertically do not zoom time', () => {
+		const t = createPinchTracker({ x: 100, y: 50 }, { x: 100, y: 150 }, 8);
+		expect(t.update({ x: 100, y: 0 }, { x: 100, y: 300 }).scale).toBeNull();
+	});
+
+	it('does not engage on a gap narrower than the minimum, then engages without a jump', () => {
+		const t = createPinchTracker({ x: 100, y: 100 }, { x: 100, y: 100 }, 8);
+		expect(t.update({ x: 95, y: 100 }, { x: 105, y: 100 }).scale).toBeNull();
+		expect(t.update({ x: 80, y: 100 }, { x: 120, y: 100 }).scale).toBe(1);
 	});
 
 	it('a pair that begins together stays finite', () => {

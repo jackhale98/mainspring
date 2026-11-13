@@ -48,9 +48,15 @@ export type PressMode =
 	/** Nothing to drag: a tap on release, native scrolling (touch) on movement. */
 	| 'none';
 
-export function pressMode(kind: PointerKind, hit: GestureTarget, canDrag: boolean): PressMode {
+export function pressMode(
+	kind: PointerKind,
+	hit: GestureTarget,
+	canDrag: boolean,
+	selected: boolean,
+): PressMode {
 	if (kind !== 'touch') return isDragTarget(hit) && canDrag ? 'immediate' : 'none';
-	if (isBarHandle(hit) && canDrag) return 'immediate';
+	// Only the handles of a selected bar drag at once; an unselected bar needs the long-press.
+	if (isBarHandle(hit) && canDrag && selected) return 'immediate';
 	// Text-only bars still long-press (they open the source sheet), they just never drag.
 	return isDragTarget(hit) ? 'long-press' : 'none';
 }

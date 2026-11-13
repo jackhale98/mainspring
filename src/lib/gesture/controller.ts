@@ -12,7 +12,7 @@
  */
 import type { Minutes } from '../../engine/protocol';
 import { createGestureMachine } from './machine';
-import { snapDelta, type SnapFn, type SnapRole } from './snap';
+import type { DragSnapper } from './snap';
 import type {
 	CancelReason,
 	GestureConfig,
@@ -31,7 +31,7 @@ type BarTarget = Extract<GestureTarget, { kind: 'bar' }>;
 export interface GestureEnv {
 	/** Content x to minutes (`TimeScale.m`), read live so a zoom during a drag is respected. */
 	minutesAt(x: number): Minutes;
-	snap: SnapFn;
+	snap: DragSnapper;
 	/**
 	 * The minute of the edge being dragged: the start for `move`, the end for `resize-end`.
 	 * Null or absent (an unscheduled row): the pointer's own minute at the press stands in.
@@ -43,6 +43,8 @@ export interface GestureEnv {
 export interface TimeDelta {
 	readonly deltaMin: Minutes;
 	readonly snappedMin: Minutes;
+	/** Whole working days, for a move (what the `move` action takes); null for a resize. */
+	readonly days: number | null;
 }
 
 type Pass = Extract<
@@ -87,6 +89,8 @@ export type GestureIntent =
 	  }
 	| { readonly type: 'cancel'; readonly reason: CancelReason | 'no-change' | 'no-target' }
 	| { readonly type: 'link-start'; readonly from: number; readonly x: number; readonly y: number }
+	/** Every pointer move of a link drag (the rubber band); `link-hover` follows when the target changes. */
+	| { readonly type: 'link-move'; readonly from: number; readonly x: number; readonly y: number }
 	/** `target` is the bar under the pointer, or null off any bar. Sent when it changes. */
 	| {
 			readonly type: 'link-hover';
@@ -102,13 +106,17 @@ export interface GestureController {
 	readonly state: GestureState;
 	/** See `GestureMachine.timerAt`. */
 	readonly timerAt: number | null;
+	/** See `GestureMachine.claimsTouch`. */
+	readonly claimsTouch: boolean;
 }
 
 interface Drag {
 	readonly mode: DragMode | 'link';
 	readonly x0: number;
 	readonly y0: number;
-	readonly role: SnapRole;
+	/** The minute under the pointer when the drag started, read once: a zoom or scroll must not move it. */
+	readonly originMin: Minutes;
+	/** The dragged edge's minute at the start of the drag. */
 	readonly refMin: Minutes;
 	readonly fromRow: number;
 	hoverRow: number | null;
@@ -141,14 +149,15 @@ export function createGestureController(
 		const mode = classify(hit);
 		if (mode === null) return null;
 		const row = hit.kind === 'bar' || hit.kind === 'row-handle' ? hit.row : -1;
+		const originMin = env.minutesAt(x);
 		const timed = mode === 'move' || mode === 'resize-end';
 		const edge = timed && hit.kind === 'bar' ? env.edgeMin?.(hit, mode) : null;
 		return {
 			mode,
 			x0: x,
 			y0: y,
-			role: mode === 'resize-end' ? 'end' : 'start',
-			refMin: edge ?? env.minutesAt(x),
+			originMin,
+			refMin: edge ?? originMin,
 			fromRow: row,
 			hoverRow: null,
 		};
@@ -156,9 +165,14 @@ export function createGestureController(
 
 	function timeDelta(d: Drag, x: number, atOrigin: boolean): TimeDelta | null {
 		if (d.mode !== 'move' && d.mode !== 'resize-end') return null;
-		if (atOrigin) return { deltaMin: 0, snappedMin: d.refMin };
-		const raw = env.minutesAt(x) - env.minutesAt(d.x0);
-		return snapDelta(env.snap, d.refMin, raw, d.role);
+		if (atOrigin) return { deltaMin: 0, snappedMin: d.refMin, days: d.mode === 'move' ? 0 : null };
+		const raw = env.minutesAt(x) - d.originMin;
+		if (d.mode === 'move') {
+			const m = env.snap.move(d.refMin, raw);
+			return { deltaMin: m.deltaMin, snappedMin: m.snappedMin, days: m.days };
+		}
+		const r = env.snap.resize(d.refMin, raw);
+		return { deltaMin: r.deltaMin, snappedMin: r.snappedMin, days: null };
 	}
 
 	function map(o: GestureOutput, out: GestureIntent[]): void {
@@ -176,6 +190,7 @@ export function createGestureController(
 				if (drag.mode === 'link') {
 					const target = o.target.kind === 'bar' ? o.target : null;
 					const row = target ? target.row : null;
+					out.push({ type: 'link-move', from: drag.fromRow, x: o.x, y: o.y });
 					if (row !== drag.hoverRow) {
 						drag.hoverRow = row;
 						out.push({ type: 'link-hover', from: drag.fromRow, target, x: o.x, y: o.y });
@@ -238,6 +253,9 @@ export function createGestureController(
 		},
 		get timerAt() {
 			return machine.timerAt;
+		},
+		get claimsTouch() {
+			return machine.claimsTouch;
 		},
 		send(e) {
 			const out: GestureIntent[] = [];
