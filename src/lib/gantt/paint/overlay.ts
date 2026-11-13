@@ -18,10 +18,7 @@ export interface OverlayState {
 	readonly selectedRow: number | null;
 	readonly hoverRow: number | null;
 	readonly hoverLink: number | null;
-	/**
-	 * The wall-clock minute for the today line (`todayOf`); the model's own `todayMin` when left
-	 * out. Passing it here keeps the clock out of the model.
-	 */
+	/** The wall-clock minute for the today line (`todayOf`); the clock is not in the model. */
 	readonly todayMin?: Minutes | null;
 }
 
@@ -42,7 +39,7 @@ interface Drawn {
 	what: readonly unknown[];
 	x: number;
 	y: number;
-	/** Whether anything but the full-height marker lines was drawn. */
+	/** Whether anything but the uncut, full-height marker lines was drawn. */
 	rings: boolean;
 }
 const drawn = new WeakMap<object, Drawn>();
@@ -134,7 +131,7 @@ export function paintOverlay(f: PaintFrame, state: OverlayState): void {
 		Math.max(link.predRow, link.succRow) >= first &&
 		Math.min(link.predRow, link.succRow) < last;
 	const rings = inRange(state.selectedRow) || inRange(state.hoverRow) || linkInRange;
-	const today = state.todayMin === undefined ? model.todayMin : state.todayMin;
+	const today = state.todayMin ?? null;
 	const what = [model, layout, theme, state.selectedRow, state.hoverRow, state.hoverLink, today];
 
 	// A move of the window up or down, with nothing else changed: the marker lines run the full
@@ -161,9 +158,11 @@ export function paintOverlay(f: PaintFrame, state: OverlayState): void {
 	}
 	erase(f, what);
 
-	paintMarkers(f, state.todayMin === undefined ? model.todayMin : state.todayMin, (x, y, w, h) =>
-		note(f, x, y, w, h),
-	);
+	if (paintMarkers(f, today, (x, y, w, h) => note(f, x, y, w, h))) {
+		// A gap in a line sits on a row: a move of the window up or down shows it in the wrong place.
+		const d = drawn.get(ctx);
+		if (d) d.rings = true;
+	}
 
 	if (inRange(state.hoverRow) && state.hoverRow !== state.selectedRow) {
 		outlineAround(f, state.hoverRow, theme.borderStrong, theme.hoverRingWidth, 1);

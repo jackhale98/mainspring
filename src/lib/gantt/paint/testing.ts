@@ -6,7 +6,7 @@
  */
 import type { GanttLayout } from '../layout';
 import { createLayout } from '../layout';
-import { TEST_THEME, metricsOf } from '../testing';
+import { FIXED_MEASURE, TEST_THEME, metricsOf } from '../testing';
 import type { GanttModel } from '../model';
 import { createScale } from '../scale';
 import type { PaintFrame } from './canvas';
@@ -66,7 +66,14 @@ export function recorder(width = 1000, height = 600): Recorder {
 
 export function frameOf(
 	model: GanttModel,
-	over: { pxPerDay?: number; win?: PaintFrame['win']; dpr?: number; coarse?: boolean } = {},
+	over: {
+		pxPerDay?: number;
+		win?: PaintFrame['win'];
+		dpr?: number;
+		coarse?: boolean;
+		/** Reserve where the names are (the layout's `labels`), as the app does. */
+		names?: boolean;
+	} = {},
 ): { frame: PaintFrame; rec: Recorder; layout: GanttLayout } {
 	const rec = recorder();
 	const layout = createLayout(
@@ -74,6 +81,7 @@ export function frameOf(
 		createScale(over.pxPerDay ?? 48, model.originMin),
 		metricsOf(over.coarse ?? false),
 		1000,
+		over.names ? FIXED_MEASURE : null,
 	);
 	const win = over.win ?? { x: 0, y: 0, w: 1000, h: Math.max(layout.height, 100) };
 	return {

@@ -80,7 +80,9 @@ test.describe('ui screenshots', () => {
 			await open(page, TUTORIAL, 'visual');
 			await shot(page, `ui-tablet-${scheme}.png`);
 			await page.getByRole('button', { name: 'Split' }).click();
-			await expect(page.getByRole('separator')).toBeVisible();
+			await expect(
+				page.getByRole('separator', { name: 'Resize the editor and the chart' }),
+			).toBeVisible();
 			await page.waitForTimeout(500);
 			await shot(page, `ui-tablet-split-${scheme}.png`);
 		});

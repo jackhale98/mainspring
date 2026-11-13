@@ -118,6 +118,10 @@
 	--color-gantt-critical-progress: rgb(255 255 255 / 0.2);
 	--color-gantt-critical-highlight: rgb(255 255 255 / 0.28);
 	--color-gantt-critical-shadow: rgb(163 18 58 / 0.3);
+	/* The critical bar's edge: a lighter ruby, 3.4:1 or more against both ends of the fill and 2.5:1
+	   against the done part's tinted fill, also for protan and deutan viewers (tests/ci/palette.test.ts). The ruby edge it replaced was the
+	   fill's own colour. */
+	--color-gantt-critical-edge: #fbc9d5;
 	--color-gantt-summary: #7a7262;
 	--color-gantt-milestone: #b08d3c;
 	--color-gantt-jewel-high: #f1d99a;

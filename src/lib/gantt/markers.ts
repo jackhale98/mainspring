@@ -22,13 +22,13 @@ export const MERGE_WITHIN_MIN = 60;
 
 /**
  * `firstMinute` is the minute at the left edge of the chart (the model's origin and its padding).
- * `todayMin` is the clock, from `todayOf`; it defaults to the model's own, for a model built with
- * `nowMs`.
+ * `todayMin` is the clock, from `todayOf`: the model does not hold it, so that a tick of the clock
+ * does not rebuild the model (phase-2.md 6.3).
  */
 export function markerState(
 	model: GanttModel,
 	firstMinute: Minutes,
-	todayMin: Minutes | null = model.todayMin,
+	todayMin: Minutes | null,
 ): MarkerState {
 	const state = (at: Minutes | null): LineState => {
 		if (at === null) return null;

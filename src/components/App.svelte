@@ -26,6 +26,7 @@
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { modeForKey } from '../lib/state/shortcuts';
 	import { ThemeState } from '../lib/state/theme.svelte';
+	import { newOutlineView } from '../lib/state/outline';
 	import { effectiveMode, modeFromParam, phoneTabFor } from '../lib/state/view-mode';
 	import { strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
@@ -62,11 +63,17 @@
 		app.dispose();
 	});
 
+	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
+	const planViews = { tasks: newOutlineView(), resources: newOutlineView() };
+
 	// The preferences of the open sample: its mode and its divider.
 	$effect(() => {
 		const id = app.sampleId;
 		if (id === '') return;
 		untrack(() => {
+			// Another plan's outline starts at the top with nothing selected.
+			Object.assign(planViews.tasks, newOutlineView());
+			Object.assign(planViews.resources, newOutlineView());
 			modes.use(id);
 			// A phone starts on the tab of the remembered mode.
 			if (modes.choice !== null) app.phoneTab = phoneTabFor(modes.choice);
@@ -188,7 +195,13 @@
 					aria-labelledby="tab-plan"
 					hidden={app.phoneTab !== 'plan'}
 				>
-					<div class="grow"><OutlinePanel {app} showTitle={false} showNotice={false} /></div>
+					<!-- Unmounted while another tab shows: a plan of hundreds of tasks is thousands of nodes. The
+				     collapse state is the app's; the scroll and the selection are kept in `planViews`. -->
+					{#if app.phoneTab === 'plan'}
+						<div class="grow">
+							<OutlinePanel {app} showTitle={false} showNotice={false} views={planViews} />
+						</div>
+					{/if}
 				</div>
 			{/if}
 			<div
@@ -225,7 +238,13 @@
 					aria-labelledby={phone ? 'tab-gantt' : undefined}
 					hidden={!showGantt}
 				>
-					<Gantt {app} />
+					<Gantt
+						{app}
+						{phone}
+						tableRatio={modes.table}
+						ontable={(v) => modes.setTable(v)}
+						ontablecommit={() => modes.saveTable()}
+					/>
 				</div>
 			{/if}
 		</main>

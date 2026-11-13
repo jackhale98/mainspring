@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { ModeState, modeKey, splitKey } from './mode.svelte';
+import { ModeState, modeKey, splitKey, tableKey } from './mode.svelte';
 import { DEFAULT_RATIOS } from './split';
 import type { PrefStorage } from './storage';
 
@@ -70,6 +70,29 @@ describe('ModeState', () => {
 		expect(again.ratios).toEqual({ col: 0.55, row: 0.8 });
 		again.use('y');
 		expect(again.ratios).toEqual(DEFAULT_RATIOS);
+	});
+
+	it("keeps and saves the Gantt's table divider per sample, none meaning the default", () => {
+		const storage = memory();
+		const s = new ModeState({ storage });
+		s.use('x');
+		expect(s.table).toBeNull();
+		s.saveTable();
+		expect(storage.data.has(tableKey('x'))).toBe(false);
+		s.setTable(0.45);
+		s.setTable(9);
+		expect(s.table).toBe(0.8);
+		expect(storage.data.has(tableKey('x'))).toBe(false);
+		s.setTable(0.45);
+		s.saveTable();
+		const again = new ModeState({ storage });
+		again.use('x');
+		expect(again.table).toBe(0.45);
+		again.use('y');
+		expect(again.table).toBeNull();
+		storage.data.set(tableKey('z'), 'junk');
+		again.use('z');
+		expect(again.table).toBeNull();
 	});
 
 	it('works with no storage at all', () => {

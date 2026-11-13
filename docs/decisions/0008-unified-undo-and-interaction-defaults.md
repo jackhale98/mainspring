@@ -72,3 +72,14 @@ edge, and both panes share one vertical scroll. The divider is keyboard operable
 touch target, and its position is stored per sample (decision 3). On a phone the single frozen
 name column stays (polish item 8 covers phone widths).
 
+
+As built (polish item 10): the divider is `SplitDivider.svelte` (arrow keys, Shift, Home and End, a
+44 px target on a coarse pointer), its position is the table pane's share of the Gantt's width
+(20% to 80%) stored per sample under `mainspring.table.<sample>`. Without a stored position the
+pane is as wide as Task, Start, End and Effort need, capped so that the chart keeps 40% (the table
+then scrolls sideways). The task table is its own pane: its rows scroll sideways inside it behind
+the frozen Task column, its header row follows them, and both panes are cells of the Gantt's one
+scroll container, so there is one vertical scroll and a row is always level with its bar. The
+pane's scrollbar is drawn by hand (a pointer affordance at the foot of the view, hidden from
+assistive technology), because a native bar would sit at the foot of the whole plan; the cells are
+reachable by keyboard, which scrolls a focused cell into view.

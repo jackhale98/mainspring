@@ -5,7 +5,7 @@ import { distanceToPath, hitTest } from './hit';
 import { createLayout } from './layout';
 import type { GanttRow } from './model';
 import { createScale } from './scale';
-import { D, link, metricsOf, modelOf, row } from './testing';
+import { D, FIXED_MEASURE, link, metricsOf, modelOf, row } from './testing';
 
 const scale = createScale(48, 0);
 const fine = metricsOf(false);
@@ -51,6 +51,26 @@ describe('hitTest', () => {
 		// Other rows and the other side of the avatars are as before.
 		expect(hitTest(fresh, model, leg.x, 28 - 6)).toEqual({ kind: 'link', link: 0 });
 		expect(hitTest(fresh, model, leg.x + 60, 29)).toMatchObject({ kind: 'empty' });
+	});
+
+	it('leaves links out of the name beside a short bar, but not out of a name inside its bar', () => {
+		const names = modelOf(
+			[row(0, 0, 2 * D), row(1, 4 * D, 4 * D + 12), row(2, 6 * D, 7 * D)],
+			[link(0, 2)],
+		);
+		const l = createLayout(names, scale, fine, 0, FIXED_MEASURE);
+		// The link's leg runs down at x 104, past row 1, whose name is far to the right.
+		const leg = l.linkPath(names.links[0]!)[1]!;
+		expect(leg.x).toBe(104);
+		expect(hitTest(l, names, leg.x, 42)).toEqual({ kind: 'link', link: 0 });
+		// Put the name under the leg: it wins over the line.
+		expect(l.labels[5]).toBe(0);
+		l.labels[3] = leg.x - 10;
+		l.labels[4] = leg.x + 30;
+		expect(hitTest(l, names, leg.x, 42)).toMatchObject({ kind: 'empty', row: 1 });
+		// A name inside its bar is the bar's own: the link is hit as before.
+		l.labels[5] = 1;
+		expect(hitTest(l, names, leg.x, 42)).toEqual({ kind: 'link', link: 0 });
 	});
 
 	it('does not allocate per call: a pointer move makes no garbage', () => {

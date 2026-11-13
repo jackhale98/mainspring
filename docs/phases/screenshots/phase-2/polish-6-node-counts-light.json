@@ -1,0 +1,7 @@
+{
+  "sample": "gantt-500",
+  "ganttTabNodes": 492,
+  "planTabNodes": 552,
+  "ganttAgainNodes": 492,
+  "planScrollTopAfterRoundTrip": 900
+}

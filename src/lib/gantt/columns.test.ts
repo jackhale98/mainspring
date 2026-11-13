@@ -3,59 +3,24 @@ import { describe, expect, it } from 'vitest';
 import {
 	COLUMN_ORDER,
 	COLUMN_REM,
-	MIN_CHART_REM,
-	MIN_CHART_SHARE,
-	layoutColumns,
+	DEFAULT_COLUMNS,
+	extrasRem,
+	shownColumns,
 	widthOf,
 } from './columns';
 
-describe('layoutColumns', () => {
-	it('shows only the name on a phone', () => {
-		expect(layoutColumns(412, 124, 16)).toEqual({ shown: ['name'], extraRem: 0 });
+describe('shownColumns', () => {
+	it('draws every column, in the order of the cells, except on a phone', () => {
+		expect(shownColumns(false)).toEqual(COLUMN_ORDER);
+		expect(shownColumns(true)).toEqual(['name']);
 	});
+});
 
-	it('adds the dates on a portrait tablet, and nothing the chart needs', () => {
-		const l = layoutColumns(820, 224, 16);
-		expect(l.shown).toEqual(['name', 'start', 'end']);
-		expect(l.extraRem).toBe(COLUMN_REM.start + COLUMN_REM.end);
-	});
-
-	it('shows the critical column before the float and the people', () => {
-		const l = layoutColumns(1440, 300, 16);
-		expect(l.shown).toEqual(['name', 'start', 'end', 'effort', 'float', 'critical']);
-	});
-
-	it('shows every column on a very wide screen, in the order of the cells', () => {
-		expect(layoutColumns(2400, 300, 16).shown).toEqual(COLUMN_ORDER);
-	});
-
-	it('always leaves the chart its minimum, whatever the width', () => {
-		for (let w = 300; w <= 2400; w += 37) {
-			const l = layoutColumns(w, 300, 16);
-			if (l.shown.length === 1) continue;
-			const chart = w - 300 - l.extraRem * 16;
-			expect(chart).toBeGreaterThanOrEqual(MIN_CHART_REM * 16);
-			expect(chart).toBeGreaterThanOrEqual(MIN_CHART_SHARE * w - 1e-9);
-		}
-	});
-
-	it('shows more columns as the Gantt grows, never fewer', () => {
-		let before = 0;
-		for (let w = 300; w <= 2400; w += 10) {
-			const n = layoutColumns(w, 300, 16).shown.length;
-			expect(n).toBeGreaterThanOrEqual(before);
-			before = n;
-		}
-	});
-
-	it("follows the reader's text size: a larger rem fits fewer columns", () => {
-		expect(layoutColumns(1300, 300, 24).shown.length).toBeLessThan(
-			layoutColumns(1300, 300, 16).shown.length,
-		);
-	});
-
-	it('copes with a rem of zero (not laid out yet)', () => {
-		expect(layoutColumns(1300, 300, 0).shown).toEqual(['name']);
+describe('extrasRem', () => {
+	it('adds the natural widths of the columns but the name', () => {
+		expect(extrasRem(['name'])).toBe(0);
+		expect(extrasRem(DEFAULT_COLUMNS)).toBe(COLUMN_REM.start + COLUMN_REM.end + COLUMN_REM.effort);
+		expect(extrasRem(COLUMN_ORDER)).toBe(Object.values(COLUMN_REM).reduce((sum, w) => sum + w, 0));
 	});
 });
 

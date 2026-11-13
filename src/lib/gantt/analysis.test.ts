@@ -150,7 +150,6 @@ describe('AnalysisGate', () => {
 				dimmed: false,
 				links: [],
 				analysis: p.analysis,
-				nowMs: null,
 			});
 		g.offer(chain(1));
 		s.flush();

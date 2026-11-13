@@ -8,6 +8,7 @@
  * - `paintWindow` (paint-window.ts, re-exported here) decides which part of the content the
  *   canvases hold.
  */
+import { LABEL_STRIDE, labelRunInto, sideFont, type LabelRun, type TextMeasure } from './labels';
 import type { GanttLink, GanttModel, GanttRow } from './model';
 import type { Theme } from './paint/theme';
 import {
@@ -43,6 +44,8 @@ export const HIT_MIN_FINE = 24;
 export const HIT_MIN_COARSE = 44;
 export const LINK_SLOP_FINE = 8;
 export const LINK_SLOP_COARSE = 12;
+/** What a link runs straight into its target beyond the arrow head's length, in px. */
+export const LINK_APPROACH_PAD = 4;
 
 export interface Metrics {
 	readonly rowHeight: number;
@@ -54,6 +57,11 @@ export interface Metrics {
 	readonly minBarWidth: number;
 	/** Space left of a link's first bend. */
 	readonly elbow: number;
+	/** Space inside a bar around its name, and between a bar's end and a name beside it. */
+	readonly labelPad: number;
+	readonly labelGap: number;
+	/** The shortest straight run into a link's target: the arrow head and 4 px. */
+	readonly approach: number;
 	/** Space before the first date, so a start milestone is not clipped: half a diamond and a gap. */
 	readonly originPad: number;
 	/** Each of the two header rows. */
@@ -78,6 +86,9 @@ export function metricsFor(theme: Theme, coarse: boolean): Metrics {
 		milestoneHalf: theme.milestoneHalf,
 		minBarWidth: theme.minBarWidth,
 		elbow: theme.linkElbow,
+		approach: theme.arrowSize + LINK_APPROACH_PAD,
+		labelPad: theme.labelPad,
+		labelGap: theme.labelGap,
 		originPad: theme.milestoneHalf + theme.originGap,
 		headerRow: theme.headerRow,
 		headerHeight: theme.headerRow * 2,
@@ -102,6 +113,12 @@ export interface GanttLayout {
 	 * Only the painter knows (it measures text), so it reports here and hit testing reads.
 	 */
 	readonly avatars: Float64Array;
+	/**
+	 * Where each row's name is, `LABEL_STRIDE` numbers per row (x0, x1, 1 when inside its bar, else
+	 * 0), NaN for none (labels.ts). Known from the layout alone, so that hit testing, the links and
+	 * the marker lines leave it alone before anything is painted. Empty without a text measure.
+	 */
+	readonly labels: Float64Array;
 	rowTop(row: number): number;
 	/** The row at a content y, or null above the first or below the last. */
 	rowAt(y: number): number | null;
@@ -167,12 +184,34 @@ export function placeBar(
 	out.h = h;
 }
 
+/**
+ * The widths of every row's name, in the bar's font and beside it, kept per model and measure: a
+ * layout that is built again for the same rows and fonts (a zoom step, a move of the window) reads
+ * them back and measures no text.
+ */
+const widthMemo = new WeakMap<GanttModel, WeakMap<TextMeasure, Float64Array>>();
+
+function nameWidths(model: GanttModel, measure: TextMeasure): Float64Array {
+	let byMeasure = widthMemo.get(model);
+	if (!byMeasure) widthMemo.set(model, (byMeasure = new WeakMap()));
+	let out = byMeasure.get(measure);
+	if (out) return out;
+	out = new Float64Array(2 * model.rows.length);
+	model.rows.forEach((r, i) => {
+		out[2 * i] = measure.width('bar', r.name);
+		out[2 * i + 1] = measure.width(sideFont(r), r.name);
+	});
+	byMeasure.set(measure, out);
+	return out;
+}
+
 /** `viewWidth` keeps the content at least as wide as the viewport. */
 export function createLayout(
 	model: GanttModel,
 	scale: TimeScale,
 	metrics: Metrics,
 	viewWidth = 0,
+	measure: TextMeasure | null = null,
 ): GanttLayout {
 	const rows = model.rows;
 	const bars = newBars(rows.length);
@@ -190,8 +229,28 @@ export function createLayout(
 		bars.h[i] = at.h;
 	}
 	const avatars = new Float64Array(2 * rows.length).fill(NaN);
+	const labels = new Float64Array(measure ? LABEL_STRIDE * rows.length : 0).fill(NaN);
+	if (measure) {
+		const run: LabelRun = { x0: 0, x1: 0, inside: false };
+		const widths = nameWidths(model, measure);
+		let at = 0;
+		// Reads the remembered width of the row being placed instead of measuring it again.
+		const remembered: TextMeasure = {
+			width: (font) => widths[2 * at + (font === 'bar' ? 0 : 1)] ?? 0,
+		};
+		for (let i = 0; i < rows.length; i++) {
+			at = i;
+			const r: GanttRow | undefined = rows[i];
+			const x = bars.x[i];
+			if (!r || x === undefined || Number.isNaN(x)) continue;
+			if (!labelRunInto(run, r, scale, x, bars.w[i] ?? 0, metrics, remembered)) continue;
+			labels[LABEL_STRIDE * i] = run.x0;
+			labels[LABEL_STRIDE * i + 1] = run.x1;
+			labels[LABEL_STRIDE * i + 2] = run.inside ? 1 : 0;
+		}
+	}
 	const width = Math.max(viewWidth, Math.ceil(scale.x(model.endMin)));
-	return layoutOver(model, scale, metrics, bars, avatars, width);
+	return layoutOver(model, scale, metrics, bars, avatars, labels, width);
 }
 
 function layoutOver(
@@ -200,10 +259,17 @@ function layoutOver(
 	metrics: Metrics,
 	bars: BarArrays,
 	avatars: Float64Array,
+	labels: Float64Array,
 	width: number,
 ): GanttLayout {
 	const rows = model.rows;
-	const { rowHeight, elbow } = metrics;
+	const { rowHeight } = metrics;
+	const style = {
+		elbow: metrics.elbow,
+		rowHeight,
+		approach: metrics.approach,
+		runs: labels.length > 0 ? labels : null,
+	};
 	const rowTop = (row: number): number => row * rowHeight;
 
 	const barInto = (index: number, out: MutableRect): boolean => {
@@ -235,7 +301,7 @@ function layoutOver(
 			return false;
 		}
 		const milestone = rows[link.predRow]?.kind === 'milestone';
-		routeLink(out, pred, succ, link, milestone, elbow, rowHeight);
+		routeLink(out, pred, succ, link, milestone, style);
 		return true;
 	};
 
@@ -247,6 +313,7 @@ function layoutOver(
 		height: rows.length * rowHeight,
 		bars,
 		avatars,
+		labels,
 		rowTop,
 		rowAt: (y) => {
 			const row = Math.floor(y / rowHeight);
@@ -267,7 +334,7 @@ function layoutOver(
 			const buf = newPath();
 			return linkInto(link, buf) ? pointsOf(buf) : [];
 		},
-		withBars: (b) => layoutOver(model, scale, metrics, b, avatars, width),
+		withBars: (b) => layoutOver(model, scale, metrics, b, avatars, labels, width),
 	};
 }
 
