@@ -21,6 +21,9 @@
  * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
  * editor first mounts and then gives each workspace its editor support, so a Visual-first load
  * does not fetch them (phase-2.md 11.3).
+ *
+ * Over 400 lines: one class holds the app state and its derived views so the runes stay in one
+ * reactive graph; splitting it would spread the effects that keep them in step.
  */
 import type { EditorView } from '@codemirror/view';
 import { createTimeZoneHost } from '../../engine/timezone';

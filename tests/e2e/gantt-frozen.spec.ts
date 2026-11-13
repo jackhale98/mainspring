@@ -6,8 +6,13 @@
 // Pixel 7 emulation (touch) and on desktop. With SCREENSHOTS=1 the Pixel 7 run also writes its
 // frame log to docs/phases/screenshots/phase-2/header-scroll-pixel7.json as evidence, with the long
 // pan to the far right and back (header-scroll-pixel7-longpan.json; on desktop with a shift-wheel pan, header-scroll-desktop.json):
-// the name column's left never leaves the scroller's left, and every header label (months, days,
-// weeks) sits exactly where the bars' content puts it at every sampled frame, 0 px drift.
+// the name column's left never leaves the scroller's left and the column is the element under the
+// left edge in every frame; the header box moves with the bars; every visible day or week label is
+// DOM text at its content position (so the compositor moves it with the bars; read on the main
+// thread, this guards against a return to painted labels rather than measuring compositor jitter);
+// and every visible month label sits where `position: sticky` should hold it, clamped between the
+// name column's edge and the end of its month. This file is over 400 lines: the frame sampler and
+// the evidence writer belong with the tests that read them.
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -278,7 +283,18 @@ test.describe('frozen header and name column', () => {
 					shown++;
 					drift = Math.max(drift, Math.abs(r.left - pr.left - parseFloat(el.style.left)));
 				}
+				// A month label sticks at the name column's edge, inside its month cell.
+				let monthDrift = 0;
+				const namesRight = names.getBoundingClientRect().right;
+				for (const el of head.querySelectorAll<HTMLElement>('.months .label')) {
+					const r = el.getBoundingClientRect();
+					const cell = el.parentElement?.getBoundingClientRect();
+					if (!cell || cell.right < namesRight || cell.left > sr.right) continue;
+					const want = Math.min(Math.max(namesRight, cell.left), cell.right - r.width);
+					monthDrift = Math.max(monthDrift, Math.abs(r.left - want));
+				}
 				window.__frames?.push({
+					monthDrift: Math.round(monthDrift * 100) / 100,
 					t: Math.round(performance.now() - t0),
 					scrollLeft: scroller.scrollLeft,
 					scrollMax: scroller.scrollWidth - scroller.clientWidth,
@@ -315,6 +331,7 @@ test.describe('frozen header and name column', () => {
 		// The header tracks the bars, and every visible day or week label is where its content is.
 		expect(Math.max(...get('headMinusPlotX').map(Math.abs))).toBeLessThanOrEqual(0.5);
 		expect(Math.max(...get('minorDrift'))).toBeLessThanOrEqual(0.5);
+		expect(Math.max(...get('monthDrift'))).toBeLessThanOrEqual(0.5);
 		// A label is always in view: none ever blinks out while the window changes.
 		const settled = frames.slice(2);
 		expect(Math.min(...settled.map((f) => f['minorShown'] ?? 0))).toBeGreaterThan(0);

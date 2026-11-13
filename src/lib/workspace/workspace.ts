@@ -29,6 +29,9 @@
  * (history.ts) records every change from the listeners' `ChangeInfo` and undoes through `apply`
  * with origin 'history'. `apply` takes the origin, per-file selections, annotations and a user
  * event for that; `ChangeInfo.edit` is the edit an `apply` dispatched.
+ *
+ * Over 400 lines: the parse, include-graph and version bookkeeping change together on every
+ * commit, so they stay in one module.
  */
 import {
 	Annotation,

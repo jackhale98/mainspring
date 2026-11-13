@@ -145,11 +145,21 @@ test.describe('modes', () => {
 		await expect(html).toHaveAttribute('data-theme-pref', 'dark');
 		const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 		expect(bg).toBe('rgb(8, 11, 16)');
+		// The chart canvases repaint in the new theme too, not only the DOM around them: the grid
+		// canvas's top-left pixel is the dark plot ground, not the light one (#FFFDF8).
+		const gridPixel = (): Promise<number[]> =>
+			page.evaluate(() => {
+				const c = document.querySelector<HTMLCanvasElement>('[data-testid="gantt"] .layers canvas');
+				const d = c?.getContext('2d')?.getImageData(1, 1, 1, 1).data;
+				return d ? [d[0]!, d[1]!, d[2]!] : [];
+			});
+		await expect.poll(async () => (await gridPixel())[0] ?? 255).toBeLessThan(60);
 		await page.reload();
 		await expect(html).toHaveAttribute('data-theme', 'dark');
 		await toggle.click(); // system again, which is light here
 		await expect(html).toHaveAttribute('data-theme-pref', 'system');
 		await expect(html).toHaveAttribute('data-theme', 'light');
+		await expect.poll(async () => (await gridPixel())[0] ?? 0).toBeGreaterThan(200);
 		// The system choice follows the system.
 		await page.emulateMedia({ colorScheme: 'dark' });
 		await expect(html).toHaveAttribute('data-theme', 'dark');

@@ -89,7 +89,7 @@
 	}
 	@media (pointer: coarse) {
 		button {
-			min-block-size: 40px;
+			min-block-size: var(--size-tap);
 		}
 	}
 	/* A narrow bar keeps the icons, and the label of the active segment only. */
