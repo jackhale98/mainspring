@@ -5,8 +5,8 @@
 //
 // A watch seen from above, in a 120 x 120 box: three brass task arcs on the dial at equal gaps, a
 // hairline inner dial ring, a blued-steel hairspring, and a ruby cap jewel in a brass setting. The
-// small form (32 px and below) drops the inner ring and the hairspring and thickens the arcs, so it
-// stays crisp at favicon size.
+// small form (32 px and below) drops the inner ring, thickens the arcs and draws the spring as a bold
+// blued-steel coil, so it stays crisp, and still says "mainspring", at favicon size.
 
 export const VIEWBOX = 120;
 const C = VIEWBOX / 2;
@@ -28,8 +28,8 @@ export interface MarkGeometry {
 	readonly arcWidth: number;
 	/** The inner dial ring radius, or null in the small form. */
 	readonly innerRing: number | null;
-	/** The hairspring path data, or null in the small form. */
-	readonly hairspring: string | null;
+	/** The spring: a fine hairspring in the full form, a bold coil in the small form. */
+	readonly hairspring: string;
 	readonly hairspringWidth: number;
 	/** The ruby jewel radius; its brass setting is drawn 1.6 units outside it. */
 	readonly jewel: number;
@@ -95,13 +95,14 @@ export function markForm(sizePx: number): MarkForm {
 
 export function markGeometry(form: MarkForm): MarkGeometry {
 	const small = form === 'small';
-	const jewel = small ? 12 : 5.2;
+	const jewel = small ? 7 : 5.2;
 	return {
 		arcs: arcAngles().map(([a0, a1]) => arcPath(ARC_RADIUS, a0, a1)),
 		arcWidth: small ? 11 : 3.6,
 		innerRing: small ? null : 38.5,
-		hairspring: small ? null : spiralPath(9, 26, 2.5, 90),
-		hairspringWidth: 1.15,
+		// The small form keeps the spring as a bold coil of 1.6 turns, so it still reads at 16 px.
+		hairspring: small ? spiralPath(11, 31, 1.6, 200) : spiralPath(9, 26, 2.5, 90),
+		hairspringWidth: small ? 5.5 : 1.15,
 		jewel,
 		jewelLight: { cx: C - jewel * 0.58, cy: C - jewel * 0.58, r: jewel * 1.55 },
 		highlight: {
@@ -161,9 +162,7 @@ export function markSvg(
 		g.innerRing === null
 			? ''
 			: `<circle class="ir" cx="${C}" cy="${C}" r="${g.innerRing}" fill="none" stroke-width=".6" opacity=".55"/>`,
-		g.hairspring === null
-			? ''
-			: `<path class="hs" d="${g.hairspring}" fill="none" stroke-width="${g.hairspringWidth}" stroke-linecap="round"/>`,
+		`<path class="hs" d="${g.hairspring}" fill="none" stroke-width="${g.hairspringWidth}" stroke-linecap="round"/>`,
 		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel + 1.6)}" fill="none" stroke="url(#b)" stroke-width="1.4"/>`,
 		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel)}" fill="url(#r)"/>`,
 		`<ellipse cx="${fmt(g.highlight.cx)}" cy="${fmt(g.highlight.cy)}" rx="${fmt(g.highlight.rx)}" ry="${fmt(g.highlight.ry)}" fill="#fff" opacity=".55" transform="rotate(-35 ${fmt(g.highlight.cx)} ${fmt(g.highlight.cy)})"/>`,

@@ -61,15 +61,13 @@ const hl = g.highlight;
 			opacity="0.55"
 		/>
 	)}
-	{g.hairspring !== null && (
-		<path
-			d={g.hairspring}
-			fill="none"
-			stroke="var(--color-steel)"
-			stroke-width={g.hairspringWidth}
-			stroke-linecap="round"
-		/>
-	)}
+	<path
+		d={g.hairspring}
+		fill="none"
+		stroke="var(--color-steel)"
+		stroke-width={g.hairspringWidth}
+		stroke-linecap="round"
+	/>
 	<circle
 		cx={c}
 		cy={c}

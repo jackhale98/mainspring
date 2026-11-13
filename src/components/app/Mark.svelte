@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
 	The brand mark (ADR-0009, mark note; geometry in src/lib/brand/mark.ts): three brass task arcs
-	on a dial, a blued-steel hairspring and a ruby jewel. At 32 px and below it draws the small form.
+	on a dial, a blued-steel hairspring and a ruby jewel. At 32 px and below it draws the small form, with the spring as a bold coil.
 	With `busy` it doubles as the loader: the dial steps through twelve eased ticks a turn while the
 	hairspring swings; under reduced motion it holds still and pulses gently instead.
 	Decorative unless `label` is given (then it is an image with that name).
@@ -58,9 +58,7 @@
 			<circle class="inner" cx={c} cy={c} r={g.innerRing} />
 		{/if}
 	</g>
-	{#if g.hairspring !== null}
-		<path class="hairspring" d={g.hairspring} stroke-width={g.hairspringWidth} />
-	{/if}
+	<path class="hairspring" d={g.hairspring} stroke-width={g.hairspringWidth} />
 	<circle cx={c} cy={c} r={g.jewel + 1.6} fill="none" stroke="url(#{uid}-b)" stroke-width="1.4" />
 	<circle cx={c} cy={c} r={g.jewel} fill="url(#{uid}-r)" />
 	<ellipse

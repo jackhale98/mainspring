@@ -307,10 +307,11 @@ palette.
   - The arcs and the setting are brushed brass: a vertical gradient through `--color-mark-brass-hi`, `--color-mark-brass` and `--color-mark-brass-lo`.
   - The jewel is a ruby radial gradient, lit from the top left.
   - The hairspring is `--color-steel`. Blued steel stays a thin accent.
-- **Small form:** at 32 px and below, the inner ring and the hairspring are dropped and the arcs are thickened. The favicon and the top bar use this form.
+- **Small form:** at 32 px and below, the inner ring is dropped, the arcs are thickened, and the spring is drawn as a bold blued-steel coil of 1.6 turns around a smaller jewel. The user chose this coil (option A, 2026-11-13) so the small mark still reads as a mainspring at 16 px. The favicon, the app icons and the top bar use this form.
 - **Loader:** with `busy`, the dial steps through twelve eased ticks a turn (3 s) while the hairspring swings once a second. Under reduced motion the mark holds still and pulses. It replaces the brass ring in three places:
   - the engine pill and the status strip, while the engine starts or schedules;
   - the Gantt's "Scheduling…" placeholder, at 44 px.
+- **App icons:** `public/manifest.webmanifest` lists the SVG favicon and 192, 512 and maskable 512 px PNGs, plus an apple-touch-icon, all rendered from the small form by `npm run gen:icons`. The small form's coil also swings in the loader.
 - **Uses:**
   - `Mark.svelte` in the app;
   - `Mark.astro` on the landing page;

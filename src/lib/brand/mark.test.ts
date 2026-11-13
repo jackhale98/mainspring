@@ -25,15 +25,15 @@ describe('brand mark', () => {
 		}
 	});
 
-	it('uses the small form at 32 px and below, without the fine parts', () => {
+	it('uses the small form at 32 px and below: a bold coil, no fine parts', () => {
 		expect(markForm(16)).toBe('small');
 		expect(markForm(32)).toBe('small');
 		expect(markForm(33)).toBe('full');
 		const small = markGeometry('small');
-		expect(small.hairspring).toBeNull();
-		expect(small.innerRing).toBeNull();
 		const full = markGeometry('full');
-		expect(full.hairspring).not.toBeNull();
+		expect(small.innerRing).toBeNull();
+		expect(small.hairspringWidth).toBeGreaterThan(full.hairspringWidth * 3);
+
 		expect(full.arcWidth).toBeLessThan(small.arcWidth);
 	});
 
