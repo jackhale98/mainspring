@@ -66,9 +66,9 @@ const edit = (task: string, attribute: FastEdit['attribute'], value: string, lin
 	line,
 });
 
-/** Keeps PLAN, then runs `text` fast with `edits` and in full; returns both. */
-function both(text: string, edits: FastEdit[], base?: number): { fast: ScheduleResult; full: ScheduleResult } {
-	const kept = engine.schedule({ files: { 'plan.tjp': PLAN }, entry: 'plan.tjp', options: NOW, retain: true, revision: ++revision });
+/** Keeps `from` (default PLAN), then runs `text` fast with `edits` and in full; returns both. */
+function both(text: string, edits: FastEdit[], base?: number, from = PLAN): { fast: ScheduleResult; full: ScheduleResult } {
+	const kept = engine.schedule({ files: { 'plan.tjp': from }, entry: 'plan.tjp', options: NOW, retain: true, revision: ++revision });
 	const req = { files: { 'plan.tjp': text }, entry: 'plan.tjp', options: NOW };
 	const fast = engine.schedule({ ...req, revision: ++revision, fast: { base: base ?? kept.revision, edits } });
 	const full = engine.schedule({ ...req, revision: ++revision });
@@ -103,6 +103,30 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: its own checks', () =
 			const { fast, full } = both(c.text, c.edits, c.base);
 			expect(fast.timings.path, fast.timings.fastFallback).toBe(c.fast ? 'fast' : 'full');
 			if (c.reason) expect(fast.timings.fastFallback).toMatch(c.reason);
+			expect(canonicalResult(fast)).toBe(canonicalResult(full));
+		}, CASE_MS);
+	}
+
+	// The direction in a derived scenario (the T19 review, H1): `start` and `end` set it in every
+	// scenario, so a rewrite runs fast only when no scenario's direction would change.
+	const DERIVED = (body: string) =>
+		`project p "P" 2026-01-05 +3m {\n  scenario plan "Plan" {\n    scenario delayed "Delayed"\n  }\n}\nresource dev "Dev"\ntask m "M" { start 2026-03-02 }\ntask a "A" {\n  effort 2d\n  allocate dev\n}\ntask t "T" {\n${body}\n}\n`;
+	const derived = [
+		{ name: 'start, then delayed:end', body: ['  start 2026-01-08', '  effort 3d', '  allocate dev', '  delayed:end 2026-02-20'], line: 13, value: '2026-01-12', fast: false },
+		{ name: 'end, then delayed:scheduling asap', body: ['  end 2026-02-20', '  effort 3d', '  allocate dev', '  delayed:scheduling asap'], line: 13, value: '2026-02-18', fast: false },
+		{ name: 'start, then delayed:depends (ASAP in both)', body: ['  start 2026-01-08', '  effort 3d', '  allocate dev', '  delayed:depends a'], line: 13, value: '2026-01-12', fast: true },
+		{ name: 'end, then delayed:precedes (ALAP in both)', body: ['  end 2026-02-20', '  effort 3d', '  allocate dev', '  delayed:precedes m'], line: 13, value: '2026-02-18', fast: true },
+	] as const;
+	for (const c of derived) {
+		it(`${c.name}: ${c.fast ? 'fast' : 'runs in full'}, same result`, () => {
+			const from = DERIVED(c.body.join('\n'));
+			const attribute = c.body[0].trim().split(' ')[0] as FastEdit['attribute'];
+			const lines = from.split('\n');
+			expect(lines[c.line - 1]).toBe(c.body[0]);
+			lines[c.line - 1] = `  ${attribute} ${c.value}`;
+			const { fast, full } = both(lines.join('\n'), [edit('t', attribute, c.value, c.line)], undefined, from);
+			expect(fast.timings.path, fast.timings.fastFallback).toBe(c.fast ? 'fast' : 'full');
+			if (!c.fast) expect(fast.timings.fastFallback).toMatch(/direction/);
 			expect(canonicalResult(fast)).toBe(canonicalResult(full));
 		}, CASE_MS);
 	}
