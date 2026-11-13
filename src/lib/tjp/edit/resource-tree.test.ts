@@ -62,7 +62,8 @@ describe('addResource', () => {
 
 	it('inserts before the first sibling at index 0', () => {
 		expect(after({ type: 'addResource', parent: 'team', index: 0, name: 'Dee' })).toContain(
-			'  efficiency 1.0\n  resource dee "Dee"\n  resource ann',
+			// 7.2: at index 0 the separation between the first two (ann, bob) is copied.
+			'  efficiency 1.0\n  resource dee "Dee"\n\n  resource ann',
 		);
 	});
 
@@ -215,10 +216,18 @@ describe('deleteResource', () => {
 });
 
 describe('moveResource', () => {
+	it('to the first place copies the separation between the first two (7.2)', () => {
+		const h = 'project p "P" 2026-01-05 +1m\n';
+		const plan = h + 'resource r1 "R1"\n\nresource r2 "R2"\n\nresource r3 "R3"\n';
+		expect(after({ type: 'moveResource', resource: 'r3', parent: null, index: 0 }, plan)).toBe(
+			h + 'resource r3 "R3"\n\nresource r1 "R1"\n\nresource r2 "R2"\n',
+		);
+	});
+
 	it('moves a block with its comments into a group, re-indented', () => {
 		const text = after({ type: 'moveResource', resource: 'cid', parent: 'team', index: 0 });
 		expect(text).toContain(
-			'  efficiency 1.0\n  # about cid\n  resource cid "Cid" {\n    managers ann\n  }\n  resource ann',
+			'  efficiency 1.0\n  # about cid\n  resource cid "Cid" {\n    managers ann\n  }\n\n  resource ann',
 		);
 		expect(text).not.toContain('}\n# about');
 	});

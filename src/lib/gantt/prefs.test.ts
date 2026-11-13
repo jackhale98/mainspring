@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { PrefStorage } from '../state/storage';
 import {
 	MAX_PX_PER_DAY,
+	clearMovePreference,
 	MOVE_KEY,
 	readCollapsed,
 	readMovePreference,
@@ -40,6 +41,10 @@ describe('Gantt preferences', () => {
 		expect(readMovePreference(s)).toEqual({ kind: 'gap' });
 		s.data.set(MOVE_KEY, 'sideways');
 		expect(readMovePreference(s)).toBeNull();
+		writeMovePreference(s, { kind: 'start' });
+		clearMovePreference(s);
+		expect(readMovePreference(s)).toBeNull();
+		clearMovePreference(null);
 	});
 
 	it('shows the constraint warning once', () => {

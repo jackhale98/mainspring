@@ -5,9 +5,11 @@
  * preferences only: no plan text is ever stored. Every read and write goes through storage.ts, so
  * blocked or full storage means "no preference" and the defaults apply.
  *
- * - The move preference is asked once per browser, not once per sample: ADR-0008's consequence
- *   is "The move question appears once per user, not once per drag", and a choice of how moves
- *   change plans is about the user, not the plan. The constraint warning is shown once with it.
+ * - The move preference is stored once per browser, not per sample (the user's decision on
+ *   ADR-0008). A settings control shows it with `readMovePreference`, changes it with
+ *   `writeMovePreference`, and clears it with `clearMovePreference`, after which the next move
+ *   asks again (`ActionContext.move` null gives `ask-move-preference`). The constraint warning is
+ *   shown once per browser.
  * - Zoom (pixels per day) and the collapsed rows (outline keys) are per sample, like the mode and
  *   the divider (mode.svelte.ts).
  *
@@ -37,6 +39,12 @@ export function readMovePreference(storage: PrefStorage | null): MovePreference 
 
 export function writeMovePreference(storage: PrefStorage | null, p: MovePreference): void {
 	writePref(storage, MOVE_KEY, p.kind);
+}
+
+/** Forgets the move preference: the next move asks again. */
+export function clearMovePreference(storage: PrefStorage | null): void {
+	// PrefStorage has no removeItem; an empty value reads as no preference.
+	writePref(storage, MOVE_KEY, '');
 }
 
 /**
