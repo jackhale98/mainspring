@@ -271,6 +271,11 @@ test.describe('the engine in the status strip', () => {
 		await button.click();
 		const details = page.getByTestId('engine-info-details');
 		await expect(details).toBeVisible();
+		// Centred in the window, not pinned to a corner.
+		const box = await details.boundingBox();
+		const view = page.viewportSize();
+		expect((box?.x ?? 0) + (box?.width ?? 0) / 2).toBeCloseTo((view?.width ?? 0) / 2, -1);
+		expect((box?.y ?? 0) + (box?.height ?? 0) / 2).toBeCloseTo((view?.height ?? 0) / 2, -1);
 		for (const label of [
 			'Scheduler total',
 			'Loading the files',

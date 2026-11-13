@@ -223,7 +223,10 @@ test.describe('gantt', () => {
 			.evaluate((el) => {
 				el.scrollTop = 12_000;
 			});
-		await expect(rows(page).first()).not.toHaveAttribute('data-key', key ?? '');
+		// The window moved far past the first row: the next mounted row is a different one, far
+		// down (the focused row is kept mounted first, in row order, and not moved in the DOM).
+		await expect(rows(page).nth(1)).not.toHaveAttribute('data-key', key ?? '');
+		await expect(rows(page).first()).toHaveAttribute('data-key', key ?? '');
 		// The focused row stayed mounted, and still has the focus.
 		const active = await page.evaluate(() => document.activeElement?.getAttribute('data-key'));
 		expect(active).toBe(key);
