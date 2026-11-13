@@ -287,10 +287,7 @@ test.describe('frozen header and name column', () => {
 				// its month cell.
 				let monthDrift = 0;
 				const namesRight =
-					sr.left +
-					parseFloat(
-						getComputedStyle(head.closest('.gantt') ?? head).getPropertyValue('--gantt-names'),
-					);
+					sr.left + parseFloat(getComputedStyle(head).getPropertyValue('--gantt-names'));
 				for (const el of head.querySelectorAll<HTMLElement>('.months .label')) {
 					const r = el.getBoundingClientRect();
 					const cell = el.parentElement?.getBoundingClientRect();

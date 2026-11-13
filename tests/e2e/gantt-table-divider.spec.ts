@@ -49,8 +49,9 @@ test.describe('the table divider', () => {
 		// 44 px is the coarse target; a fine pointer has 24 px: the box itself is the visible gap.
 		await expect(divider(page)).toHaveAttribute('aria-orientation', 'vertical');
 
-		// A drag 150 px to the left narrows the table by about that much and widens the chart.
-		const plotBefore = (await page.getByTestId('gantt-overlay').boundingBox())?.width ?? 0;
+		// A drag 150 px to the left narrows the table by about that much and the chart starts that
+		// much further left (its canvases are the same size: nothing is repainted).
+		const plotBefore = (await page.getByTestId('gantt-overlay').boundingBox())?.x ?? 0;
 		if (handle) {
 			const x = handle.x + handle.width / 2;
 			const y = handle.y + handle.height / 2;
@@ -64,18 +65,19 @@ test.describe('the table divider', () => {
 		expect(start - dragged).toBeGreaterThan(130);
 		expect(start - dragged).toBeLessThan(170);
 		expect(
-			((await page.getByTestId('gantt-overlay').boundingBox())?.width ?? 0) - plotBefore,
+			plotBefore - ((await page.getByTestId('gantt-overlay').boundingBox())?.x ?? 0),
 		).toBeGreaterThan(100);
 
-		// The keys: arrows, Shift for a bigger step, Home and End for the limits.
+		// The keys: arrows, Shift for a bigger step, Home and End for the limits the separator reports
+		// (the least is the name and the widest column, not the Split divider's 20%).
 		const at = await valueOf(page);
 		await divider(page).focus();
 		await page.keyboard.press('ArrowRight');
 		expect(await valueOf(page)).toBe(at + 2);
-		await page.keyboard.press('Shift+ArrowLeft');
-		expect(await valueOf(page)).toBe(at + 2 - 10);
+		await page.keyboard.press('Shift+ArrowRight');
+		expect(await valueOf(page)).toBe(at + 12);
 		await page.keyboard.press('Home');
-		expect(await valueOf(page)).toBe(20);
+		expect(await valueOf(page)).toBe(Number(await divider(page).getAttribute('aria-valuemin')));
 		await page.keyboard.press('End');
 		expect(await valueOf(page)).toBe(80);
 		await page.keyboard.press('ArrowLeft');
