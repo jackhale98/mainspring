@@ -5,6 +5,9 @@ import { buildIndex, NO_HINTS } from '../tjp/index';
 import { fixture } from '../tjp/index/testing';
 import {
 	changesFrom,
+	checksOf,
+	checksOfView,
+	composeView,
 	countDiagnostics,
 	engineDiagnosticsNow,
 	fullView,
@@ -144,6 +147,39 @@ describe('fullView and quickView', () => {
 		type(ws, '# a\n');
 		expect(prepareIndex(ws, ws.snapshot(), base, prepared)).not.toBe(prepared);
 		expect(fullView(ws, ws.snapshot(), base, null, prepared).index).not.toBe(prepared.index);
+	});
+});
+
+describe('composeView and checksOf (parts of their own versions)', () => {
+	it('maps checks of an older version to a newer index part, then replaces them', () => {
+		const { ws, base } = setup();
+		const prev = fullView(ws, ws.snapshot(), base, null);
+		const line = (v: { diagnostics: readonly TjpDiagnostic[] }) =>
+			v.diagnostics.find((d) => d.source === 'value');
+		expect(line(prev)).toMatchObject({ line: 7, stale: false });
+		type(ws, '# a\n');
+		const now = ws.snapshot();
+		const part = prepareIndex(ws, now, base);
+		const linked = composeView(ws, now, part, checksOfView(prev), null);
+		expect(linked).toMatchObject({ version: 1, indexVersion: 1, checksVersion: 0 });
+		expect(linked.index).toBe(part.index);
+		expect(linked.checks).toBe(prev.checks);
+		expect(line(linked)).toMatchObject({ line: 8, stale: true });
+		const checks = checksOf(linked);
+		expect(checks.version).toBe(1);
+		const checked = composeView(ws, now, linked, checks, null);
+		expect(checked).toMatchObject({ version: 1, indexVersion: 1, checksVersion: 1 });
+		expect(line(checked)).toMatchObject({ line: 8, stale: false });
+		expect(checked.diagnostics).toEqual(fullView(ws, now, base, null).diagnostics);
+	});
+
+	it('drops checks whose changes the workspace no longer keeps', () => {
+		const { ws, base } = setup(4);
+		const prev = fullView(ws, ws.snapshot(), base, null);
+		for (let i = 0; i < 6; i++) type(ws, '#\n');
+		const now = ws.snapshot();
+		const view = composeView(ws, now, prev, checksOfView(prev), null);
+		expect(view.diagnostics.filter((d) => d.source === 'value')).toEqual([]);
 	});
 });
 

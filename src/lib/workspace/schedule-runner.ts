@@ -6,10 +6,9 @@
  *
  * Runs
  * - The runner subscribes to the workspace (15.7). A change with origin 'typing' waits for
- *   `debounceMs` (300) of quiet. 'intent', 'format' and 'history' (an undo or redo, history.ts)
- *   post the request at once, in the change's own task, before anything is derived: the request
- *   needs only the text. So does the workspace as it is when the runner starts (`runAtStart`).
- *   `changed()` asks for the same from outside (a retry button); workspace edits never need it.
+ *   `debounceMs` (300) of quiet. 'intent', 'format' and 'history' (an undo or redo) post the
+ *   request in the change's own task, before anything is derived: it needs only the text. So
+ *   does the start (`runAtStart`), and `changed('now')` (a retry button).
  * - Each run sends the full workspace text (`scheduleRequestOf`, never `options.now`) with a new
  *   revision, and keeps the snapshot it sent until the outcome. The runner must be the only
  *   caller of `schedule` on its client: revisions count up per client (shared by runners on the
@@ -21,11 +20,10 @@
  *   already received are ignored.
  *
  * Results
- * - A result is shown in an idle task after it arrives, in one published state with its engine
- *   diagnostics (run-derive.ts): placed in the snapshot that was sent, then mapped through the
- *   edits made since (stale until the next result) and merged with the local diagnostics of the
- *   current text. The index follows with the result's engine hints, mapped the same way: a line
- *   touched since the run has no hint.
+ * - A result is shown in an idle task, in one published state with its engine diagnostics:
+ *   placed in the snapshot that was sent, mapped through the edits made since (stale until the
+ *   next result) and merged with the local diagnostics of the current text. The index follows
+ *   with the result's hints, mapped the same way: a line touched since the run has no hint.
  * - `ok: false` keeps `lastGood` (and its finish date) from the previous good run; `outdated`
  *   tells the status strip to dim them. A failed run (crash, timeout, bridge error) leaves every
  *   result in place and sets `failure`; the client restarts its worker, and the next change
@@ -42,7 +40,7 @@
  * - The steps that follow the text wait while typing goes on: until `TYPING_PAUSE_MS` without a
  *   keystroke, or `MAX_TYPING_WAIT_MS` after the first keystroke of a burst that never pauses,
  *   so in ordinary typing they fall in a pause. Until then `indexVersion` is behind `version`.
- *   Intent, format and history changes, and results, let them start at once.
+ *   An intent, format or history change ends the wait; showing a result never waits.
  * - `ensureIndex()` derives the index now when it lags, without publishing (run-types.ts).
  * - An exception while deriving keeps the previous view and is rethrown asynchronously, so it
  *   never breaks `Workspace.commit` or other subscribers; listener exceptions are handled the
@@ -61,7 +59,7 @@ import {
 	defaultTimers,
 	IDLE_TIMEOUT_MS,
 	MAX_TYPING_WAIT_MS,
-	RUNNER_MEASURE,
+	measureTask,
 	SLICE_MS,
 	TYPING_PAUSE_MS,
 	type RunnerFailure,
@@ -180,7 +178,7 @@ class Runner implements ScheduleRunner {
 				// 'intent', 'format', 'history': post first, derive in the next idle tasks.
 				const start = this.#timers.now();
 				this.#runNow();
-				measure(start, this.#timers.now(), ['post']);
+				measureTask(start, this.#timers.now(), ['post']);
 				this.#typingStopped();
 				this.#kick();
 			}
@@ -246,7 +244,7 @@ class Runner implements ScheduleRunner {
 			if (out.kind !== 'work' || this.#timers.now() - start >= this.#sliceMs) break;
 		}
 		d.endTask();
-		if (steps.length > 0) measure(start, this.#timers.now(), steps);
+		if (steps.length > 0) measureTask(start, this.#timers.now(), steps);
 	}
 
 	#debounce(): void {
@@ -388,15 +386,6 @@ class Runner implements ScheduleRunner {
 			timings: latest?.timings ?? null,
 			failure,
 		};
-	}
-}
-
-/** Records one runner task (`RUNNER_MEASURE`); a runtime without User Timing Level 3 skips it. */
-function measure(start: number, end: number, steps: readonly string[]): void {
-	try {
-		globalThis.performance.measure(RUNNER_MEASURE, { start, end, detail: { steps } });
-	} catch {
-		// Timings only: nothing depends on the measure.
 	}
 }
 

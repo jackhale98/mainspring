@@ -181,6 +181,15 @@ export const SLICE_MS = 8;
  */
 export const RUNNER_MEASURE = 'mainspring:runner-task';
 
+/** Records one runner task as `RUNNER_MEASURE`; a runtime without User Timing Level 3 skips it. */
+export function measureTask(start: number, end: number, steps: readonly string[]): void {
+	try {
+		globalThis.performance.measure(RUNNER_MEASURE, { start, end, detail: { steps } });
+	} catch {
+		// Timings only: nothing depends on the measure.
+	}
+}
+
 /** `o` completed with the defaults (see ScheduleRunnerOptions.timers). */
 export function defaultTimers(o: Partial<Timers>): Timers {
 	const setTimeout = o.setTimeout ?? ((fn, ms) => globalThis.setTimeout(fn, ms));
