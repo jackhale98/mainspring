@@ -4,9 +4,11 @@
 // (testing/node-worker.ts). On golden plans: the first run matches the golden, an edit typed in
 // the workspace is scheduled after the debounce and moves the finish date, an error shows as an
 // engine diagnostic on its line while the last good run stays, and Fedora's macro ids resolve
-// through engine hints. Prints the Fedora timings. Needs the built engine (npm run
-// build:engine); skipped without it, except with SCHEDULE_RUNNER_ENGINE=1 (the CI engine job),
-// where a missing engine fails.
+// through engine hints. An intent is posted before the view is derived, and its undo and redo
+// (origin 'history') are scheduled at once and show the schedules of the texts they restore
+// (phase-2.md 6.9). Prints the Fedora timings, with the longest task of the result handling.
+// Needs the built engine (npm run build:engine); skipped without it, except with
+// SCHEDULE_RUNNER_ENGINE=1 (the CI engine job), where a missing engine fails.
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,6 +23,8 @@ import { createEngineClient, type EngineClient } from '../../engine/client';
 import type { EngineLike } from '../../engine/dispatch';
 import type { ScheduleResult } from '../../engine/protocol';
 import { finishMinutes } from '../schedule/finish';
+import { applyEdit, applyIntent } from '../tjp/edit/apply';
+import { createHistory } from './history';
 import { createScheduleRunner, type RunnerState, type ScheduleRunner } from './schedule-runner';
 import { NodeWorker } from './testing/node-worker';
 import { createWorkspace, type Workspace } from './workspace';
@@ -79,6 +83,14 @@ function typeOver(ws: Workspace, path: string, find: string, insert: string): nu
 
 const settled = (after: number) => (s: RunnerState) =>
 	!s.pending && s.latest !== null && s.latest.revision > after;
+
+/** Start and end of every task in the first scenario: what the Gantt draws. */
+function dates(s: RunnerState): string[] {
+	return (s.latest?.result.tasks ?? []).map((t) => {
+		const sc = Object.values(t.scenarios)[0];
+		return `${t.id} ${sc?.start ?? '-'} ${sc?.end ?? '-'}`;
+	});
+}
 
 describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('schedule runner on the real engine', () => {
 	let engine: EngineLike;
@@ -141,6 +153,53 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('schedule runner on the rea
 		expect(fixed.finish?.delta).toBe(0);
 	}, 120_000);
 
+	it('posts an intent first, and schedules its undo and redo at once', async () => {
+		const { entry, files } = seed('upstream-tutorial');
+		const ws = createWorkspace({ entry, files });
+		const runner = start(ws);
+		const history = createHistory(ws);
+		const first = await waitFor(runner, settled(0));
+		expect(first.status).toBe('ok');
+
+		const plan = applyIntent(ws.snapshot(), runner.ensureIndex(), {
+			type: 'setAttr',
+			task: 'AcSo.test.beta',
+			attr: 'effort',
+			value: '8w',
+		});
+		if (plan.status !== 'edit') throw new Error(`intent ${plan.status}`);
+		expect(applyEdit(ws, plan.edit)).not.toBe('stale');
+		// Posted before the index is derived: diagnostics follow the text at once, the index lags.
+		expect(runner.state).toMatchObject({ pending: true, status: 'scheduling' });
+		expect(runner.state.version).toBe(ws.snapshot().version);
+		expect(runner.state.indexVersion).toBeLessThan(ws.snapshot().version);
+		expect(runner.ensureIndex().version).toBe(ws.snapshot().version);
+		const edited = await waitFor(runner, settled(first.latest?.revision ?? 0));
+		expect(edited.latest?.workspaceVersion).toBe(ws.snapshot().version);
+		expect(edited.finish?.delta).toBeGreaterThan(0);
+		expect(dates(edited)).not.toEqual(dates(first));
+
+		// Undo: no debounce, and the schedule of the text it restores.
+		expect(history.undo().status).toBe('done');
+		expect(runner.state.pending).toBe(true);
+		const undone = await waitFor(runner, settled(edited.latest?.revision ?? 0));
+		expect(undone.latest?.workspaceVersion).toBe(ws.snapshot().version);
+		expect(ws.texts()).toEqual(files);
+		expect(undone.finish?.minutes).toBe(first.finish?.minutes);
+		expect(dates(undone)).toEqual(dates(first));
+		expect(undone).toMatchObject({ version: ws.snapshot().version, outdated: false });
+
+		expect(history.redo().status).toBe('done');
+		const redone = await waitFor(runner, settled(undone.latest?.revision ?? 0));
+		expect(redone.latest?.workspaceVersion).toBe(ws.snapshot().version);
+		expect(redone.finish?.minutes).toBe(edited.finish?.minutes);
+		expect(dates(redone)).toEqual(dates(edited));
+		// The view catches up in idle tasks after the result.
+		const caughtUp = await waitFor(runner, (s) => s.indexVersion === ws.snapshot().version);
+		expect(caughtUp.index.tasks.get('AcSo.test.beta')).toBeDefined();
+		history.dispose();
+	}, 120_000);
+
 	it('resolves Fedora macro ids through engine hints and keeps them through an edit', async () => {
 		const { entry, files } = seed('upstream-fedora-20');
 		const ws = createWorkspace({ entry, files });
@@ -164,7 +223,8 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('schedule runner on the rea
 			[...runner.state.index.tasks.values()].filter((t) => t.idSource === 'engine'),
 		).toHaveLength(fromEngine.length);
 		const second = await waitFor(runner, settled(first.latest?.revision ?? 0), 120_000);
-		expect(second.index.tasks.size).toBe(result.tasks.length);
+		const caughtUp = await waitFor(runner, (s) => s.indexVersion === ws.snapshot().version);
+		expect(caughtUp.index.tasks.size).toBe(result.tasks.length);
 		expect(second.finish?.minutes).toBe(first.finish?.minutes);
 		for (const [label, s] of [
 			['first run', first],
@@ -172,7 +232,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('schedule runner on the rea
 		] as const) {
 			const t = s.timings;
 			console.info(
-				`runner on Fedora 20, ${label}: engine total ${t?.engine.totalMs} ms (parse ${t?.engine.parseMs}, schedule ${t?.engine.scheduleMs}), round trip ${t?.roundTripMs.toFixed(0)} ms, processing ${t?.processMs.toFixed(1)} ms`,
+				`runner on Fedora 20, ${label}: engine total ${t?.engine.totalMs} ms (parse ${t?.engine.parseMs}, schedule ${t?.engine.scheduleMs}), round trip ${t?.roundTripMs.toFixed(0)} ms, processing ${t?.processMs.toFixed(1)} ms in tasks of at most ${t?.longestTaskMs.toFixed(1)} ms, shown ${t?.shownMs.toFixed(0)} ms after it arrived`,
 			);
 		}
 	}, 240_000);

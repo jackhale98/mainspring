@@ -12,16 +12,20 @@
  *   (syntax for every file, value and attribute checks from the index) as `localDiagnostics`
  *   and `mergeDiagnostics` do.
  *
- * Two ways to get there. `fullView` derives everything for the snapshot. `quickView`, for a
- * keystroke, keeps the previous view's hints, index and value/attribute checks (`indexVersion`
- * stays behind `version`; the checks are mapped through the edits since, and marked stale) and
- * recomputes only what must follow the text at once: engine diagnostic positions and syntax
- * diagnostics (6.6 #5), cached per file version so only the edited file is walked again.
+ * A view has three parts, each of its own workspace version (phase-2.md 6.9): the index part
+ * (hints and index, `indexVersion`), the value and attribute checks (`checksVersion`, at most
+ * `indexVersion`) and the diagnostics (`version`, the newest). `composeView` puts the parts
+ * together for a snapshot, mapping the checks to it (marked stale when the text changed). The
+ * runner brings the parts up to date one at a time in idle tasks (run-derive.ts): the index with
+ * `prepareIndex`, then the checks with `checksOf`. `fullView` derives every part at once.
+ * `quickView`, for a keystroke, keeps the previous view's index part and checks and recomputes
+ * only what must follow the text at once: engine diagnostic positions and syntax diagnostics
+ * (6.6 #5), cached per file version so only the edited file is walked again.
  *
  * A result that stopped while parsing (ok false, no task and no resource) names no ids, so it is
  * no hint base: the earlier hints stay, mapped from their own snapshot. When the workspace no
  * longer keeps the changes since a base's snapshot (`changesSince` throws RangeError), that
- * base's hints or engine diagnostics are dropped until the next result.
+ * base's hints or engine diagnostics are dropped until the next result, and so are checks.
  */
 import type { ChangeSet } from '@codemirror/state';
 import type { EngineState } from '../../engine/client';
@@ -67,19 +71,27 @@ export interface DiagnosticCounts {
 	readonly infos: number;
 }
 
-/** The index part of a view: hints, index and value/attribute checks of one version. */
+/** The index part of a view: hints and index of one version. */
 export interface Prepared {
 	readonly indexVersion: number;
+	/** The snapshot of `indexVersion`, which its checks are computed on. */
+	readonly snapshot: WorkspaceSnapshot;
 	readonly hints: EngineHints;
 	readonly index: SymbolIndex;
-	/** Value and attribute diagnostics of `indexVersion`; null until computed. */
-	readonly checks: readonly TjpDiagnostic[] | null;
+}
+
+/** Value and attribute diagnostics, in the texts of the version they were computed at. */
+export interface Checks {
+	readonly version: number;
+	readonly list: readonly TjpDiagnostic[];
 }
 
 export interface View extends Prepared {
 	/** The workspace version `diagnostics` describe. */
 	readonly version: number;
+	/** Value and attribute diagnostics of `checksVersion` (at most `indexVersion`), in its texts. */
 	readonly checks: readonly TjpDiagnostic[];
+	readonly checksVersion: number;
 	readonly diagnostics: readonly TjpDiagnostic[];
 	readonly counts: DiagnosticCounts;
 }
@@ -204,31 +216,52 @@ function local(now: WorkspaceSnapshot, checks: readonly TjpDiagnostic[]): TjpDia
 	return sortDiagnostics([...s, ...kept]);
 }
 
-function view(
+/**
+ * The view of `now` from an index part and checks of earlier or equal versions: the checks and
+ * the base's engine diagnostics are mapped to `now` and merged with its syntax diagnostics.
+ */
+export function composeView(
 	ws: Workspace,
 	now: WorkspaceSnapshot,
-	prepared: Prepared,
-	checks: readonly TjpDiagnostic[],
+	part: Prepared,
+	checks: Checks,
 	base: DiagnosticBase | null,
 ): View {
 	const engine = engineDiagnosticsNow(ws, now, base);
-	const diagnostics = mergeDiagnostics(engine, local(now, checks));
-	const { indexVersion, hints, index } = prepared;
+	const mapped = mappedFrom(ws, now, checks.version, checks.list);
+	const diagnostics = mergeDiagnostics(engine, local(now, mapped));
+	const { indexVersion, snapshot, hints, index } = part;
 	return {
 		version: now.version,
 		indexVersion,
+		snapshot,
 		hints,
 		index,
-		checks: prepared.checks ?? checks,
+		checks: checks.list,
+		checksVersion: checks.version,
 		diagnostics,
 		counts: countDiagnostics(diagnostics),
 	};
 }
 
+/** The value and attribute checks of an index part, in the texts of its version. */
+export function checksOf(p: Prepared): Checks {
+	return {
+		version: p.indexVersion,
+		list: [...valueDiagnostics(p.snapshot, p.index), ...attributeDiagnostics(p.snapshot, p.index)],
+	};
+}
+
+/** A view's checks with their version. */
+export function checksOfView(v: View): Checks {
+	return { version: v.checksVersion, list: v.checks };
+}
+
 /**
- * The index of `now` with the hint base's hints (and `zones`, the time-zone data that zone
- * names and zone-dependent value checks need; without it they are skipped as uncheckable); `reuse` (an earlier view) is kept when it is of
- * the same version and its hints are equal, so its index and checks need no rebuild.
+ * The index of `now` with the hint base's hints (and `zones`, the time-zone data that zone names
+ * and zone-dependent value checks need; without it they are skipped as uncheckable). `reuse` (an
+ * earlier view or index part) is returned when it is of the same version and its hints are equal,
+ * so its index needs no rebuild.
  */
 export function prepareIndex(
 	ws: Workspace,
@@ -241,13 +274,13 @@ export function prepareIndex(
 	if (reuse && reuse.indexVersion === now.version && sameHints(reuse.hints, hints)) return reuse;
 	return {
 		indexVersion: now.version,
+		snapshot: now,
 		hints,
 		index: buildIndex(now, hints, zones === undefined ? {} : { zones }),
-		checks: null,
 	};
 }
 
-/** Everything shown for `now`; `prepared` (from `prepareIndex` for `now`) saves the index. */
+/** Every part derived for `now`; `prepared` (from `prepareIndex` for `now`) saves the index. */
 export function fullView(
 	ws: Workspace,
 	now: WorkspaceSnapshot,
@@ -260,22 +293,17 @@ export function fullView(
 		prepared && prepared.indexVersion === now.version
 			? prepared
 			: prepareIndex(ws, now, hintBase, null, zones);
-	const checks = p.checks ?? [
-		...valueDiagnostics(now, p.index),
-		...attributeDiagnostics(now, p.index),
-	];
-	return view(ws, now, { ...p, checks }, checks, diagnosticBase);
+	return composeView(ws, now, p, checksOf(p), diagnosticBase);
 }
 
-/** For a keystroke: `prev`'s index part kept, diagnostics brought to `now` (module comment). */
+/** For a keystroke: `prev`'s index part and checks kept, diagnostics brought to `now`. */
 export function quickView(
 	ws: Workspace,
 	now: WorkspaceSnapshot,
 	prev: View,
 	diagnosticBase: DiagnosticBase | null,
 ): View {
-	const checks = mappedFrom(ws, now, prev.indexVersion, prev.checks);
-	return view(ws, now, prev, checks, diagnosticBase);
+	return composeView(ws, now, prev, checksOfView(prev), diagnosticBase);
 }
 
 export type RunnerStatus = 'idle' | 'scheduling' | 'ok' | 'errors' | 'failed';

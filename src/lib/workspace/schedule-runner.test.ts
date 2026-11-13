@@ -5,37 +5,41 @@
 // schedule-runner.states.test.ts, latest-wins through the real client in
 // schedule-runner.client.test.ts, the real engine in schedule-runner.engine.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	createScheduleRunner,
-	IDLE_FALLBACK_MS,
-	TYPING_PAUSE_MS,
-	type ScheduleRunner,
-} from './schedule-runner';
+import { createScheduleRunner, TYPING_PAUSE_MS, type ScheduleRunner } from './schedule-runner';
 import { FakeEngineClient, flush, message, task } from './testing/fake-engine-client';
+import { IdleQueue } from './testing/idle-queue';
 import { applyEdit, PLAN, sliceOf, TASKS, typeInto, type TypeAt } from './testing/runner-fixture';
 import { createWorkspace, type Workspace } from './workspace';
 
 let ws: Workspace;
 let client: FakeEngineClient;
 let runner: ScheduleRunner;
+let idleTasks: IdleQueue;
 
 function start(opts: { debounceMs?: number; runAtStart?: boolean } = {}): void {
-	runner = createScheduleRunner({ workspace: ws, client, ...opts });
+	runner = createScheduleRunner({ workspace: ws, client, timers: idleTasks.timers, ...opts });
 }
 
 const type = (insert: string, at?: TypeAt): void => typeInto(ws, insert, at);
 const apply = (intent: string, find: string, insert: string): void =>
 	applyEdit(ws, intent, find, insert);
 const textOf = (d: { from: number; to: number }): string => sliceOf(ws, d);
-/** Lets the idle refresh run (Node has no requestIdleCallback: the setTimeout fallback). */
+/** Lets the typing pause pass and the runner's idle tasks run. */
 const idle = (): void => {
-	vi.advanceTimersByTime(TYPING_PAUSE_MS + IDLE_FALLBACK_MS);
+	vi.advanceTimersByTime(TYPING_PAUSE_MS);
+	idleTasks.run();
+};
+/** Delivers settled outcomes, then runs the idle tasks that show them. */
+const shown = async (): Promise<void> => {
+	await flush();
+	idleTasks.run();
 };
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 	ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': PLAN } });
 	client = new FakeEngineClient();
+	idleTasks = new IdleQueue();
 });
 
 afterEach(() => {
@@ -92,7 +96,7 @@ describe('runs', () => {
 	it('continues the revisions of an earlier runner on the same client', async () => {
 		start();
 		client.done(1);
-		await flush();
+		await shown();
 		runner.dispose();
 		start();
 		expect(client.requests.map((r) => r.revision)).toEqual([1, 2]);
@@ -113,7 +117,7 @@ describe('results', () => {
 	it('publishes diagnostics, counts, hints, finish and timings', async () => {
 		start();
 		client.done(1, { ok: false, tasks: TASKS, messages: [message('error', 7, 'Bad effort')] });
-		await flush();
+		await shown();
 		const s = runner.state;
 		expect(s).toMatchObject({ status: 'errors', pending: false, outdated: false, version: 0 });
 		expect(s.latest).toMatchObject({ revision: 1, workspaceVersion: 0, latest: true });
@@ -130,12 +134,15 @@ describe('results', () => {
 		expect(s.finish).toBeNull();
 		expect(s.timings?.engine.totalMs).toBe(7);
 		expect(s.timings?.roundTripMs).toBeGreaterThanOrEqual(0);
+		expect(s.timings?.processMs).toBeGreaterThanOrEqual(0);
+		expect(s.timings?.longestTaskMs).toBeGreaterThanOrEqual(0);
+		expect(s.timings?.shownMs).toBeGreaterThanOrEqual(0);
 	});
 
 	it('publishes the finish of a good result with the delta against the previous one', async () => {
 		start();
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'ok', outdated: false });
 		expect(runner.state.finish).toMatchObject({
 			minutes: 1500,
@@ -145,18 +152,18 @@ describe('results', () => {
 		});
 		apply('setAttr', 'effort 2d', 'effort 3d');
 		client.done(2, { tasks: [task('t1', 3, 600), task('b', 6, 1980)] });
-		await flush();
+		await shown();
 		expect(runner.state.finish).toMatchObject({ minutes: 1980, delta: 480, revision: 2 });
 	});
 
 	it('keeps the last good run on errors and failures, and marks it outdated', async () => {
 		start();
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		const good = runner.state.lastGood;
 		apply('setAttr', 'effort 2d', 'effort x');
 		client.done(2, { ok: false, messages: [message('error', 7)] });
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'errors', outdated: true, lastGood: good });
 		expect(runner.state.finish?.revision).toBe(1);
 		expect(runner.state.latest?.revision).toBe(2);
@@ -166,7 +173,7 @@ describe('results', () => {
 		client.fail(3, { kind: 'timeout', message: 'slow' });
 		await flush();
 		expect(runner.state).toMatchObject({ status: 'failed', outdated: true, lastGood: good });
-		expect(runner.state.failure).toEqual({
+		expect(runner.state.failure).toMatchObject({
 			revision: 3,
 			error: { kind: 'timeout', message: 'slow' },
 		});
@@ -180,13 +187,13 @@ describe('latest-wins interplay', () => {
 		vi.advanceTimersByTime(300);
 		expect(client.open).toEqual([1, 2]);
 		client.done(1, { tasks: TASKS, messages: [message('warning', 7)] });
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'scheduling', pending: true });
 		expect(runner.state.latest).toMatchObject({ revision: 1, latest: false });
 		expect(runner.state.lastGood?.revision).toBe(1);
 		expect(runner.state.diagnostics.map((d) => [d.line, d.stale])).toEqual([[8, true]]);
 		client.done(2, { tasks: [task('t1', 4, 600), task('b', 7, 1500)] });
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'ok', pending: false });
 		expect(runner.state.diagnostics).toEqual([]);
 	});
@@ -198,12 +205,12 @@ describe('latest-wins interplay', () => {
 		type('# b\n');
 		vi.advanceTimersByTime(300);
 		client.supersede(2, 3);
-		await flush();
+		await shown();
 		expect(runner.state.status).toBe('scheduling');
 		client.done(3, { tasks: TASKS });
-		await flush();
+		await shown();
 		client.done(1, { ok: false, messages: [message('error', 1)] });
-		await flush();
+		await shown();
 		expect(runner.state.latest?.revision).toBe(3);
 		expect(runner.state.status).toBe('ok');
 	});
@@ -212,11 +219,11 @@ describe('latest-wins interplay', () => {
 		start();
 		type('# a\n');
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'scheduling', pending: true });
 		vi.advanceTimersByTime(300);
 		client.done(2, { tasks: TASKS });
-		await flush();
+		await shown();
 		expect(runner.state.status).toBe('ok');
 	});
 });
@@ -225,7 +232,7 @@ describe('mapping through later edits', () => {
 	it('maps engine diagnostics as stale until the next result replaces them', async () => {
 		start();
 		client.done(1, { ok: false, tasks: TASKS, messages: [message('error', 7)] });
-		await flush();
+		await shown();
 		type('# new first line\n');
 		const [d] = runner.state.diagnostics;
 		expect(d).toMatchObject({ line: 8, stale: true, revision: 1 });
@@ -233,7 +240,7 @@ describe('mapping through later edits', () => {
 		expect(runner.state.status).toBe('scheduling');
 		vi.advanceTimersByTime(300);
 		client.done(2, { tasks: [task('t1', 4, 600), task('b', 7, 1500)] });
-		await flush();
+		await shown();
 		expect(runner.state.diagnostics).toEqual([]);
 	});
 
@@ -241,7 +248,7 @@ describe('mapping through later edits', () => {
 		start();
 		type('# during the run\n');
 		client.done(1, { ok: false, tasks: TASKS, messages: [message('error', 7)] });
-		await flush();
+		await shown();
 		const [d] = runner.state.diagnostics;
 		expect(d).toMatchObject({ line: 8, stale: true });
 		expect(textOf(d ?? { from: 0, to: 0 })).toBe('effort 2d');
@@ -250,7 +257,7 @@ describe('mapping through later edits', () => {
 	it('applies hints to untouched lines only, shifted by the edits since the run', async () => {
 		start();
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		type('# shift\n');
 		// The index follows the text in an idle task.
 		expect(runner.state).toMatchObject({ version: 1, indexVersion: 0 });
@@ -275,13 +282,15 @@ describe('mapping through later edits', () => {
 	it('drops every hint once a macro definition changed', async () => {
 		start();
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		// `task ${tid}` reads as before, but now declares zz.
 		type('z', { after: '[t1' });
 		idle();
 		expect(runner.state.hints).toEqual({ tasks: [], resources: [] });
 		expect(runner.state.index.tasks.has('t1')).toBe(false);
 		apply('setAttr', '[t1z]', '[zz]');
+		idleTasks.run();
+		expect(runner.state.indexVersion).toBe(runner.state.version);
 		expect(runner.state.hints).toEqual({ tasks: [], resources: [] });
 		expect(runner.state.index.tasks.has('t1')).toBe(false);
 		expect(runner.state.index.tasks.get('b')?.idSource).toBe('text');

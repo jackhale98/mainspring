@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEngineClient, type EngineClient } from '../../engine/client';
 import { FakeWorkerFactory, flush } from '../../engine/testing/fake-worker';
 import { createScheduleRunner, type ScheduleRunner } from './schedule-runner';
+import { IdleQueue } from './testing/idle-queue';
 import { createWorkspace, type Workspace } from './workspace';
 
 const PLAN = 'project p "P" 2026-01-05 +1m\ntask a "A" {\n  effort 1d\n}\n';
@@ -14,6 +15,13 @@ let ws: Workspace;
 let factory: FakeWorkerFactory;
 let client: EngineClient;
 let runner: ScheduleRunner;
+let idleTasks: IdleQueue;
+
+/** Delivers the worker's replies, then runs the runner's idle tasks that show results. */
+async function shown(): Promise<void> {
+	await flush();
+	idleTasks.run();
+}
 
 function type(insert: string): void {
 	const state = ws.state('plan.tjp');
@@ -25,7 +33,8 @@ beforeEach(() => {
 	ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': PLAN } });
 	factory = new FakeWorkerFactory();
 	client = createEngineClient({ transport: factory.create });
-	runner = createScheduleRunner({ workspace: ws, client });
+	idleTasks = new IdleQueue();
+	runner = createScheduleRunner({ workspace: ws, client, timers: idleTasks.timers });
 });
 
 afterEach(() => {
@@ -47,12 +56,12 @@ describe('runner and engine client', () => {
 		// Revision 2 waited in the client's pending slot and was replaced by 3.
 		expect(factory.current.postedRevisions()).toEqual([1]);
 		factory.current.answerNext();
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'scheduling', pending: true });
 		expect(runner.state.latest).toMatchObject({ revision: 1, latest: false });
 		expect(factory.current.postedRevisions()).toEqual([1, 3]);
 		factory.current.answerNext();
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'ok', pending: false, engine: 'idle' });
 		expect(runner.state.latest).toMatchObject({ revision: 3, latest: true, workspaceVersion: 2 });
 	});
@@ -60,7 +69,7 @@ describe('runner and engine client', () => {
 	it('reports a crash, follows the restart and runs again on the next change', async () => {
 		factory.current.boot();
 		factory.current.answerNext();
-		await flush();
+		await shown();
 		type('# a\n');
 		vi.advanceTimersByTime(300);
 		factory.current.emitError('error', 'wasm trap');
@@ -73,7 +82,7 @@ describe('runner and engine client', () => {
 		type('# b\n');
 		vi.advanceTimersByTime(300);
 		factory.current.answerNext();
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'ok', failure: null });
 		expect(runner.state.latest?.revision).toBe(3);
 	});

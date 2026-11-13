@@ -1,34 +1,47 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Schedule runner (phase-1.md 6.8) against a fake EngineClient with fake timers: failures,
-// restarts and a failed engine; derived state while typing (the idle index refresh) and
-// exceptions while deriving; the store contract, listener errors and dispose.
+// restarts and a failed engine; derived state while typing (the index follows in idle tasks after
+// a pause) and exceptions while deriving; the store contract, listener errors and dispose.
+// Intents, history and chunked results (phase-2.md 6.9) are in schedule-runner.derive.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	createScheduleRunner,
-	IDLE_FALLBACK_MS,
 	IDLE_TIMEOUT_MS,
 	MAX_TYPING_WAIT_MS,
 	TYPING_PAUSE_MS,
 	type ScheduleRunner,
 } from './schedule-runner';
 import { FakeEngineClient, flush, message } from './testing/fake-engine-client';
-import { applyEdit, PLAN, TASKS, typeInto, type TypeAt } from './testing/runner-fixture';
+import { IdleQueue } from './testing/idle-queue';
+import { PLAN, TASKS, typeInto, type TypeAt } from './testing/runner-fixture';
 import { createWorkspace, type Workspace } from './workspace';
 
 let ws: Workspace;
 let client: FakeEngineClient;
 let runner: ScheduleRunner;
+let idleTasks: IdleQueue;
 
+/** A clock that never moves, so how idle tasks group their steps does not depend on load. */
 function start(): void {
-	runner = createScheduleRunner({ workspace: ws, client });
+	runner = createScheduleRunner({
+		workspace: ws,
+		client,
+		timers: { ...idleTasks.timers, now: () => 0 },
+	});
 }
 
 const type = (insert: string, at?: TypeAt): void => typeInto(ws, insert, at);
+/** Delivers settled outcomes, then runs the idle tasks that show them. */
+const shown = async (): Promise<void> => {
+	await flush();
+	idleTasks.run();
+};
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 	ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': PLAN } });
 	client = new FakeEngineClient();
+	idleTasks = new IdleQueue();
 });
 
 afterEach(() => {
@@ -40,7 +53,7 @@ describe('engine states', () => {
 	it('follows a crash and restart, and runs again on the next change', async () => {
 		start();
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		type('# a\n');
 		vi.advanceTimersByTime(300);
 		client.setState('busy');
@@ -58,7 +71,7 @@ describe('engine states', () => {
 		type('# b\n');
 		vi.advanceTimersByTime(300);
 		client.done(3, { tasks: TASKS });
-		await flush();
+		await shown();
 		expect(runner.state).toMatchObject({ status: 'ok', failure: null, outdated: false });
 	});
 
@@ -80,75 +93,68 @@ describe('engine states', () => {
 });
 
 describe('derived state while typing', () => {
-	/** Idle requests the runner made, run with a 20 ms timer here. */
-	function idleTimers(): { calls: number[]; cancelled: number } {
-		const log = { calls: [] as number[], cancelled: 0 };
-		runner = createScheduleRunner({
-			workspace: ws,
-			client,
-			timers: {
-				requestIdle: (fn, timeoutMs) => {
-					log.calls.push(timeoutMs);
-					return setTimeout(fn, 20);
-				},
-				cancelIdle: (h) => {
-					log.cancelled++;
-					clearTimeout(h as ReturnType<typeof setTimeout>);
-				},
-			},
-		});
-		return log;
-	}
-
-	it('shows syntax at once and brings the index along in one idle task', () => {
-		const log = idleTimers();
+	it('shows syntax at once and brings the index along in idle tasks after a pause', () => {
+		start();
 		type('# a\n');
 		type('task c "C" {\n', { line: 10 });
 		type('# b\n');
-		// No idle task during a burst of typing: it is requested after a pause.
+		// No idle task during a burst of typing: it is asked for after a pause.
 		vi.advanceTimersByTime(TYPING_PAUSE_MS - 1);
 		type('# b2\n');
 		vi.advanceTimersByTime(TYPING_PAUSE_MS - 1);
-		expect(log.calls).toEqual([]);
+		expect(idleTasks.timeouts).toEqual([]);
 		expect(runner.state).toMatchObject({ version: 4, indexVersion: 0 });
 		expect(runner.state.diagnostics.some((d) => d.source === 'syntax')).toBe(true);
 		vi.advanceTimersByTime(1);
-		expect(log.calls).toEqual([IDLE_TIMEOUT_MS]);
-		vi.advanceTimersByTime(20);
+		expect(idleTasks.timeouts).toEqual([IDLE_TIMEOUT_MS]);
+		// The changed file is scanned in one task, the index linked in the next, then the checks.
+		idleTasks.runOne();
+		expect(runner.state).toMatchObject({ version: 4, indexVersion: 0 });
+		idleTasks.runOne();
 		expect(runner.state).toMatchObject({ version: 4, indexVersion: 4, pending: true });
 		expect(runner.state.index.tasks.has('c')).toBe(true);
+		expect(idleTasks.size).toBe(1);
+		const checks = runner.state.diagnostics;
+		idleTasks.runOne();
+		expect(runner.state.diagnostics).not.toBe(checks);
+		expect(idleTasks.size).toBe(0);
 		type('# c\n');
 		vi.advanceTimersByTime(TYPING_PAUSE_MS);
-		expect(log.calls).toHaveLength(2);
+		expect(idleTasks.size).toBe(1);
 	});
 
 	it('brings the index along during a burst that never pauses, at most MAX_TYPING_WAIT_MS late', () => {
-		const log = idleTimers();
+		start();
 		let caughtUpAt = -1;
 		for (let i = 0; i < 30; i++) {
 			type('# k\n');
 			vi.advanceTimersByTime(TYPING_PAUSE_MS - 50);
+			// The main thread is idle between keystrokes.
+			idleTasks.run();
 			if (caughtUpAt < 0 && runner.state.indexVersion > 0)
 				caughtUpAt = (i + 1) * (TYPING_PAUSE_MS - 50);
 		}
-		expect(log.calls.length).toBeGreaterThan(0);
+		expect(idleTasks.ran).toBeGreaterThan(0);
 		expect(caughtUpAt).toBeGreaterThan(0);
 		expect(caughtUpAt).toBeLessThanOrEqual(MAX_TYPING_WAIT_MS + TYPING_PAUSE_MS);
+		// Caught up again within the cap of the next burst too.
+		expect(runner.state.indexVersion).toBeGreaterThan(30 - MAX_TYPING_WAIT_MS / 100 - 2);
 	});
 
-	it('derives everything at once for intents and results, cancelling a waiting refresh', async () => {
-		const log = idleTimers();
+	it('shows a result while typing goes on, and leaves the index for the pause', async () => {
+		start();
 		type('# a\n');
-		vi.advanceTimersByTime(TYPING_PAUSE_MS);
-		applyEdit(ws, 'setAttr', 'effort 2d', 'effort 3d');
-		expect(runner.state).toMatchObject({ version: 2, indexVersion: 2 });
-		expect(log.cancelled).toBe(1);
-		type('# b\n');
-		vi.advanceTimersByTime(TYPING_PAUSE_MS);
 		client.done(1, { tasks: TASKS });
 		await flush();
-		expect(runner.state).toMatchObject({ version: 3, indexVersion: 3 });
-		expect(log.cancelled).toBe(2);
+		vi.advanceTimersByTime(TYPING_PAUSE_MS - 1);
+		type('# b\n');
+		idleTasks.run();
+		expect(runner.state.latest?.revision).toBe(1);
+		expect(runner.state).toMatchObject({ version: 2, indexVersion: 0 });
+		vi.advanceTimersByTime(TYPING_PAUSE_MS);
+		idleTasks.run();
+		expect(runner.state).toMatchObject({ version: 2, indexVersion: 2 });
+		expect(runner.state.index.tasks.get('t1')?.idSource).toBe('engine');
 	});
 
 	it('keeps the previous view when deriving throws; commit and other subscribers go on', async () => {
@@ -164,9 +170,10 @@ describe('derived state while typing', () => {
 				return typeof v === 'function' ? v.bind(target) : v;
 			},
 		});
-		runner = createScheduleRunner({ workspace: failing, client });
+		runner = createScheduleRunner({ workspace: failing, client, timers: idleTasks.timers });
 		client.done(1, { tasks: TASKS, messages: [message('warning', 7)] });
 		await flush();
+		idleTasks.run();
 		let other = 0;
 		ws.subscribe(() => other++);
 		const thrown: unknown[] = [];
@@ -179,7 +186,9 @@ describe('derived state while typing', () => {
 		});
 		broken = true;
 		type('# a\n');
-		vi.advanceTimersByTime(TYPING_PAUSE_MS + IDLE_FALLBACK_MS);
+		vi.advanceTimersByTime(TYPING_PAUSE_MS);
+		// A step that threw is not tried again for the same text: the idle tasks end.
+		idleTasks.run();
 		spy.mockRestore();
 		expect(other).toBe(1);
 		expect(thrown).toEqual([new Error('broken'), new Error('broken')]);
@@ -188,6 +197,9 @@ describe('derived state while typing', () => {
 		type('# b\n');
 		expect(runner.state.version).toBe(2);
 		expect(runner.state.diagnostics[0]).toMatchObject({ line: 9, stale: true });
+		vi.advanceTimersByTime(TYPING_PAUSE_MS);
+		idleTasks.run();
+		expect(runner.state).toMatchObject({ version: 2, indexVersion: 2 });
 	});
 });
 
@@ -197,7 +209,7 @@ describe('store contract and dispose', () => {
 		const seen: string[] = [];
 		const off = runner.subscribe((s) => seen.push(s.status));
 		client.done(1);
-		await flush();
+		await shown();
 		off();
 		type('# a\n');
 		expect(seen).toEqual(['scheduling', 'ok']);
