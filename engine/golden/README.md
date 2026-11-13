@@ -297,7 +297,8 @@ them in the browser too. Each header says what it targets and expects.
 | bridge-xref-stop | Scheduling stops at the first broken dependency (`task_depend_unknown`), before the later tasks are resolved: their self, parent, child and repeated entries are left out in both scenarios, `ok: false`; integer `dailyworkinghours` and `yearlyworkingdays` give integer unit day counts |
 
 Unit tests for the recorder's pure helpers (`lib.mjs`, and `cross-check-rows.mjs` for the
-cross-check CSV) are in `tests/golden/record-lib.test.ts` and run with `npm run test:unit`.
+cross-check CSV) are in `tests/golden/record-lib.test.ts` and `tests/golden/cross-check-rows.test.ts`,
+and run with `npm run test:unit`.
 
 ### Time-zone edge cases
 

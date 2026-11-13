@@ -5,8 +5,8 @@
 // CSV that tj3 writes from cross-check.tji, and the rows that report should
 // hold for a golden's result (dates, and since schema 2 the precursors and
 // completion columns). No file system and no child processes, so
-// tests/golden/record-lib.test.ts tests them directly. Split from lib.mjs to
-// keep both files under 400 lines.
+// tests/golden/cross-check-rows.test.ts tests them directly. Split from
+// lib.mjs to keep both files under 400 lines.
 
 import { minutesToIso } from './lib.mjs';
 
