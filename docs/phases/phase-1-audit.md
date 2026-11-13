@@ -23,6 +23,7 @@ Scope: phase-1.md 8.4 (timings), BUILD_PLAN.md "Performance budgets", WCAG 2.2 A
   these keys; the 200 ms case is the slow typist where it does.
   JS size: every `.js` response of `/app`, raw and gzip level 9. Output goes to
   `test-results/text-mode-perf.json` with browser, machine and load average.
+  Since 2026-11-13 these run nightly (`nightly.yml`, `npm run test:e2e:perf`), not on every push.
 - **Accessibility**: `@axe-core/playwright` with tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag22aa
   (`tests/e2e/text-mode-a11y.spec.ts`), light and dark, plus a keyboard-only walkthrough by script
   and by hand-written probes (tab order, focus ring, target sizes, live regions).

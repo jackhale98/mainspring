@@ -1,0 +1,15 @@
+# Phase 2 polish list
+
+Small visual and behaviour fixes found while reviewing the live build. Each one is small: it is
+fixed in the main session or folded into the task that owns the code, and each fix ships with a
+phone and a desktop screenshot. An item is struck through when its fix merges.
+
+| # | Found | Item | Where | Suggested fix |
+| --- | --- | --- | --- | --- |
+| 1 | User, 2026-11-13 | **Dependency arrows on a straight drop look misaligned.** When a link drops vertically to a task whose start is at, or just right of, the line's x, there is almost no horizontal run before the arrowhead. The right-pointing head then sits beside the vertical line instead of at the end of a segment. Seen on the proof-of-concept plan: the arrows into "Sign in with a GitHub App" and into the task after it. | `src/lib/gantt/route.ts`, link painter | Give every finish-to-start route a minimum horizontal approach: the arrowhead length plus 4 px. When the gap is shorter, use the go-round shape: step left of the target, then in. Check against the Fedora and gantt-500 plans. |
+| 2 | Screenshot review | **The today and status-date lines cross bar labels.** Most visible in dark mode ("Item 9" and "Item 10" on gantt-500). | Overlay or bars painter | Paint the marker lines under the label layer, or give labels a ground-coloured halo. |
+| 3 | Screenshot review | **Labels of short bars sit outside the bar and can collide** with links and the today line. | Bars painter, layout | Reserve the label run in hit testing and layout, and route links around it where possible. |
+| 4 | T14 review (6) | **A sliver of the ending month's label ("l 2013") shows by the task column** as the next month pushes it out. | `src/components/gantt/TimeHeader.svelte` | Fade the label out as its cell's remaining width falls below the label width. |
+| 5 | T14 report | **The critical bar's edge is drawn in the critical colour,** so on a ruby fill it barely shows. The finish post carries the cue for now. | Bars painter | A lighter or darker ruby edge. Check under protanopia and deuteranopia. |
+| 6 | T14 review (7) | **On a phone, the hidden Plan tab's outline stays mounted.** That is about 2,800 extra DOM nodes on gantt-500. | `App.svelte`, outline | Unmount, or virtualise, while hidden. Measure in T22. |
+| 7 | T14 review | **`model.todayMin` is now always null.** The overlay and header take `todayMin` from `todayOf`, so a future caller that reads the model's field gets nothing. | `src/lib/gantt/model.ts` | Remove the field, or fill it from `todayOf`. |

@@ -208,6 +208,24 @@ Rules:
 - **Total float.** A backward pass over the resolved lists. A task's late end is the minimum of the finish and, over its outgoing edges, the successor's late start minus the gap. A successor's late start is its late end minus its scheduled working span. A container's late end bounds its descendants. Hard constraints and resources are ignored, so float is an upper bound. The UI says "about" and the treegrid column says "float (estimate)".
 - **Cost.** Runs once per result, in an idle task: at most 10 ms for 500 tasks on desktop, recorded at 4x throttle.
 
+#### 6.2.1 Estimates (T5; settled during implementation)
+
+TaskJuggler does not schedule by CPM. It books resources slot by slot: a task waits for its people, their leaves and limits, and its own date constraints, and an effort task's start moves to its first booked slot. The analysis takes the engine's dates as given and derives only what the dependencies imply.
+
+1. The highlight is a driving path. A task whose start the dependencies do not explain has driver `unexplained`, and the walk stops there.
+2. Float ignores resources and hard constraints, so it is an upper bound: under leveling, slipping a task can push others that share its people. The exception is an `onstart` edge from a container, which bounds every child that starts with the container and so errs low.
+3. The walk follows only driving edges that leave the predecessor no working slack against the successor's late start or end. A `gapduration` that meets non-working time can drive a successor without making its predecessor critical, so critical tasks always have zero float.
+4. Containers are critical when they hold a critical task; a container's float is the least in its subtree.
+5. Tasks that end at or before the status date stay on `path` but are not highlighted. A plan without `now` uses the clock (19.17), and the UI says when the whole path is already done.
+
+Interface changes from 6.2:
+
+- `dateText` returns `string | null`: null when the instant cannot be written as a TaskJuggler date (outside 1970 to 2035, or zone data missing).
+- `durationText(min, unit, project, use = 'effort')` takes the use (`effort`, `length`, `gaplength`, `duration`, `gapduration`), since `duration` counts calendar time; joined by `durationMinutes` and `unitMinutes`.
+- `DrivingAnalysis` adds `revision` (drawn only over that result), `status` (the status date used), `path` (the whole driving path, including tasks before the status date) and `clamped` (late ends raised to the end).
+- `WorkingTime` adds `resolution`, `frameEnd`, `total`, `isWorking` and `snap`; `workingBetween` is signed.
+- Also added: `analyseResult` (first active scenario) and `displayDate` (Intl display).
+
 ### 6.3 Gantt model (`src/lib/gantt/model.ts`)
 
 ```ts

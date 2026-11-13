@@ -8,11 +8,18 @@
 
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
-	editor cursor on its declaration. The critical path and float are display estimates derived
-	from that result once, in an idle task (lib/gantt/analysis.ts, ADR-0007); the Critical path
-	chip shows or hides them. Gestures and the inspector (T16, T17) come later. Zoom is on
-	the toolbar, with Ctrl+wheel, and with + and - while the task list has the focus (never
-	Ctrl+plus: that is the browser's own page zoom).
+	editor cursor on its declaration. Critical path and float: gantt-analysis.svelte.ts (ADR-0007).
+	Gestures and the inspector (T16, T17) come later. Zoom is on
+	the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and - while the
+	task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
+
+	Frozen like a native app (phase-2.md 9.2): one scroll container, so names and bars share one
+	vertical scroll. The corner is fixed, the header moves only sideways, the task column only up
+	and down, all by `position: sticky` on the compositor; nothing repaints per scroll event, only
+	when the window leaves its overscan (layout.ts). No scroll chains to the page.
+
+	Over 400 lines on purpose: this one component owns the scroll container, the zoom and the sticky
+	grid, and they only work together; splitting them would spread one invariant over two files.
 
 	Zoom is one step: the scale and the scroll offset are set together, so a single paint follows.
 	A continuous Ctrl+wheel zoom first stretches the canvases with a CSS transform about the point
@@ -22,9 +29,7 @@
 	import { flushSync, onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
-	import type { DrivingAnalysis } from '../../lib/schedule/critical';
-	import { analyseWhenIdle } from '../../lib/gantt/analysis';
-	import { describeRow } from '../../lib/gantt/describe';
+	import { NO_LINE, describeRowParts } from '../../lib/gantt/describe';
 	import { resolveLinks } from '../../lib/gantt/links';
 	import {
 		OVERSCAN_ROWS,
@@ -32,18 +37,18 @@
 		createLayout,
 		metricsFor,
 		paintWindow,
+		revealTop,
 		scaleFor,
 		type PaintWindow,
 	} from '../../lib/gantt/layout';
 	import { markerState } from '../../lib/gantt/markers';
-	import { buildGanttModel } from '../../lib/gantt/model';
+	import { buildGanttModel, todayOf } from '../../lib/gantt/model';
 	import {
 		DEFAULT_ZOOM,
 		ZOOM_PRESETS,
 		clampZoom,
 		nearestLevel,
-		zoomIn,
-		zoomOut,
+		zoomForKey,
 		type ZoomLevel,
 	} from '../../lib/gantt/scale';
 	import { ticksFor } from '../../lib/gantt/ticks';
@@ -52,6 +57,7 @@
 	import { strings } from '../../lib/strings';
 	import { ctrlWheel } from './ctrl-wheel';
 	import { ZoomPreview } from './zoom-preview';
+	import { GanttAnalysis } from './gantt-analysis.svelte';
 	import { GanttEnv } from './gantt-env.svelte';
 	import GanttToolbar from './GanttToolbar.svelte';
 	import OutlineColumn from './OutlineColumn.svelte';
@@ -72,8 +78,7 @@
 	let scrollerH = $state(0);
 	let namesW = $state(0);
 	let hoverRow = $state<number | null>(null);
-	/** The critical path and float are shown when there is an analysis and the chip is on. */
-	let criticalOn = $state(true);
+	const critical = new GanttAnalysis();
 
 	// The model: rows from the outline joined with the newest good result (never computed here).
 	// The links come from the engine's result while it describes the text, and from the text,
@@ -84,26 +89,7 @@
 			app.run.lastGood.workspaceVersion === app.run.indexVersion &&
 			!app.run.outdated,
 	);
-	// The driving-path analysis of the shown result: once per result, in an idle task. The previous
-	// one stays until it is ready.
-	let analysis = $state.raw<DrivingAnalysis | null>(null);
-	$effect(() => {
-		const r = result;
-		if (!r) {
-			analysis = null;
-			return;
-		}
-		return analyseWhenIdle(r, (a) => (analysis = a));
-	});
-	const E = strings.gantt.estimate;
-	const criticalNote = $derived(
-		analysis === null
-			? strings.gantt.criticalUnavailable
-			: analysis.critical.size === 0 && analysis.path.size > 0
-				? E.allDone
-				: E.hint,
-	);
-
+	critical.watch(() => result);
 	const model = $derived.by(() => {
 		const scenario = result ? finishScenario(result) : null;
 		return buildGanttModel({
@@ -117,8 +103,7 @@
 				scenario,
 				current,
 			}),
-			analysis: criticalOn ? analysis : null,
-			nowMs: env.nowMs,
+			analysis: critical.shown,
 			zones,
 		});
 	});
@@ -153,12 +138,14 @@
 			: null,
 	);
 	const selectedRow = $derived(model.rowOf.get(app.selectedTask ?? '') ?? null);
-	const selectedText = $derived(describeRow(model, selectedRow));
-	const hoverText = $derived(
-		hoverRow !== null && hoverRow !== selectedRow ? describeRow(model, hoverRow) : '',
+	const selected = $derived(describeRowParts(model, selectedRow));
+	const hover = $derived(
+		hoverRow !== null && hoverRow !== selectedRow ? describeRowParts(model, hoverRow) : NO_LINE,
 	);
 
-	const markers = $derived(markerState(model, scale.m(0)));
+	/** The clock stays out of the model: a tick of it must not rebuild the rows (model.ts). */
+	const today = $derived(todayOf(model.project, env.nowMs));
+	const markers = $derived(markerState(model, scale.m(0), today));
 
 	function onscroll(): void {
 		if (!scroller) return;
@@ -220,11 +207,7 @@
 	/** Scrolls a row into view below the sticky header. */
 	async function revealRow(index: number): Promise<void> {
 		if (!scroller) return;
-		const top = index * metrics.rowHeight;
-		if (top < scroller.scrollTop) scroller.scrollTop = top;
-		else if (top + metrics.rowHeight > scroller.scrollTop + viewH) {
-			scroller.scrollTop = top + metrics.rowHeight - viewH;
-		}
+		scroller.scrollTop = revealTop(index, metrics.rowHeight, scroller.scrollTop, viewH);
 		scrollTop = scroller.scrollTop;
 		await tick();
 	}
@@ -234,17 +217,13 @@
 		if (row) app.selectTask(row.key);
 	}
 
-	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's, left alone. */
+	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's (zoomForKey). */
 	function onkeydown(event: KeyboardEvent): void {
-		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if (!(event.target instanceof Element) || !event.target.closest('[role="tree"]')) return;
-		if (event.key === '=' || event.key === '+') {
-			event.preventDefault();
-			zoomBy(zoomIn(pxPerDay));
-		} else if (event.key === '-') {
-			event.preventDefault();
-			zoomBy(zoomOut(pxPerDay));
-		}
+		const target = zoomForKey(event, zoomPreview.target ?? pxPerDay);
+		if (target === null) return;
+		event.preventDefault();
+		zoomBy(target);
 	}
 
 	onMount(() => {
@@ -268,15 +247,15 @@
 >
 	<GanttToolbar
 		{pxPerDay}
-		{selectedText}
-		{hoverText}
+		{selected}
+		{hover}
 		hasMarker={markers.target !== null}
 		lines={markers}
 		dimmed={model.dimmed}
-		critical={{ available: analysis !== null, pressed: criticalOn, note: criticalNote }}
+		critical={critical.chip}
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
-		oncritical={() => (criticalOn = !criticalOn)}
+		oncritical={() => critical.toggle()}
 	/>
 
 	{#if model.rows.length === 0}
@@ -305,7 +284,7 @@
 						{ticks}
 						theme={env.theme}
 						dpr={env.dpr}
-						{scrollLeft}
+						todayMin={today}
 					/>
 				</div>
 				<div class="names" bind:clientWidth={namesW}>
@@ -329,6 +308,7 @@
 						theme={env.theme}
 						dpr={env.dpr}
 						{selectedRow}
+						todayMin={today}
 						{viewW}
 						onselect={selectRow}
 						onhover={(r) => (hoverRow = r)}
@@ -341,6 +321,8 @@
 
 <style>
 	.gantt {
+		/* The toolbar's floating pills answer to the chart's own width (Split makes it narrow). */
+		container: gantt / inline-size;
 		--gantt-names: var(--size-gantt-names);
 		position: relative;
 		display: flex;
@@ -354,17 +336,25 @@
 		padding: var(--space-6) var(--gutter);
 		color: var(--color-gantt-text-muted);
 	}
+	/* The one scroll container: pan on the chart, never chaining to the page. */
 	.scroller {
 		position: relative;
 		flex: 1 1 0;
 		min-block-size: 0;
 		overflow: auto;
-		overscroll-behavior: contain;
+		overscroll-behavior: none;
+		-webkit-overflow-scrolling: touch;
 	}
+	/* As wide as its tracks, not as the scroller: a sticky cell (task column, corner) only stays in
+	   view inside its containing block, and a grid narrower than its tracks ended that block at
+	   the first screenful, pushing the names off at the far right. */
 	.space {
 		display: grid;
 		position: relative;
+		inline-size: max-content;
+		min-inline-size: 100%;
 	}
+	/* The corner is frozen both ways, the header only moves sideways (sticky at the top). */
 	.corner,
 	.head {
 		position: sticky;
@@ -378,16 +368,20 @@
 		z-index: 4;
 		display: flex;
 		align-items: flex-end;
-		padding: var(--space-1) var(--space-2);
+		padding: var(--space-1) var(--space-3);
 		border-inline-end: 1px solid var(--color-gantt-border);
-		color: var(--color-gantt-text-muted);
-		font-size: var(--text-xs);
+		color: var(--color-gantt-text-faint);
+		font-size: 10.5px;
 		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
+	/* `clip`, not `hidden`: the month labels inside are sticky against the scroller, and a
+	   hidden overflow would make this box their scroll container. */
 	.head {
 		grid-area: 1 / 2;
 		z-index: 3;
-		overflow: hidden;
+		overflow: clip;
 	}
 	.names {
 		grid-area: 2 / 1;

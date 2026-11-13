@@ -1,0 +1,193 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// "No syntax to learn": a drag on the Gantt becomes one small text change. Visual editing is not
+// built yet, so everything about dragging carries the "Coming" tag and the page says plainly that
+// today you edit the text and the chart follows.
+import { landing } from '../../lib/landing-copy';
+import { demoPlan, planDiff } from '../../lib/landing-sample';
+import Accent from './Accent.astro';
+import DiffBlock from './DiffBlock.astro';
+import GanttChart from './GanttChart.astro';
+import Icon from './Icon.astro';
+
+const s = landing.syntax;
+const tag = landing.features.comingTag;
+---
+
+<section class="lp-section band" id={s.id} aria-labelledby="syntax-title">
+	<div class="lp-wrap">
+		<div class="head">
+			<p class="lp-eyebrow">{s.eyebrow}</p>
+			<h2 id="syntax-title" class="lp-display lp-h2">
+				<Accent before={s.before} accent={s.accent} after={s.after} />
+			</h2>
+			<p class="lp-lead">{s.lead}</p>
+		</div>
+
+		<div class="flow" role="img" aria-label={s.mock.label}>
+			<div class="card chart" aria-hidden="true">
+				<div class="card-head">
+					<span>{s.mock.gantt}</span>
+					<span class="lp-tag">{tag}</span>
+				</div>
+				<GanttChart
+					plan={demoPlan}
+					uid="syn"
+					selectedId="design"
+					today={false}
+					options={{ nameCol: 64, days: 16, dayW: 14, rowH: 36 }}
+					ghost={{ id: 'design', days: 5, label: s.mock.drag }}
+				/>
+			</div>
+			<div class="arrow" aria-hidden="true">
+				<Icon name="arrow-right" />
+				<span>{s.mock.writes}</span>
+			</div>
+			<div class="card text" aria-hidden="true">
+				<div class="card-head file">
+					<span>{s.mock.text}</span>
+				</div>
+				<DiffBlock lines={planDiff} />
+			</div>
+		</div>
+
+		<ul class="points">
+			{s.points.map((p) => (
+				<li>
+					<span class="icon">
+						<Icon name={p.icon} />
+					</span>
+					<h3>
+						{p.title}
+						{p.coming && <span class="lp-tag">{tag}</span>}
+					</h3>
+					<p>{p.body}</p>
+				</li>
+			))}
+		</ul>
+
+		<!-- prettier-ignore -->
+		<p class="next"><strong>{s.next}</strong> {s.nextBody}</p>
+	</div>
+</section>
+
+<style>
+	.band {
+		border-block: 1px solid var(--lp-border);
+		background: linear-gradient(var(--lp-surface2), var(--lp-bg));
+	}
+	.head {
+		max-inline-size: 48rem;
+	}
+	.flow {
+		display: grid;
+		gap: var(--space-4);
+		align-items: center;
+		margin-top: clamp(2.5rem, 2rem + 2vw, 4rem);
+	}
+	.card {
+		border: 1px solid var(--lp-border-strong);
+		border-radius: 1.25rem;
+		background: var(--lp-panel);
+		box-shadow: var(--lp-shadow-card);
+		overflow: hidden;
+	}
+	.card-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: 0.8rem 1.1rem;
+		border-block-end: 1px solid var(--lp-border);
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--lp-muted);
+	}
+	.card-head.file {
+		font-family: var(--font-mono);
+	}
+	.arrow {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
+		color: var(--lp-brass-text);
+		font-size: 0.8rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.arrow :global(svg) {
+		inline-size: 1.6rem;
+		block-size: 1.6rem;
+		transform: rotate(90deg);
+	}
+	.points {
+		display: grid;
+		gap: var(--space-4);
+		margin: clamp(2rem, 1.5rem + 2vw, 3rem) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.points li {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		column-gap: var(--space-4);
+		padding: 1.4rem;
+		border: 1px solid var(--lp-border);
+		border-radius: 1rem;
+		background: var(--lp-panel);
+	}
+	.icon {
+		grid-row: 1 / span 2;
+		display: grid;
+		place-items: center;
+		inline-size: 2.5rem;
+		block-size: 2.5rem;
+		border-radius: 0.75rem;
+		background: var(--lp-surface2);
+		color: var(--lp-brass-deep);
+	}
+	.icon :global(svg) {
+		inline-size: 1.3rem;
+		block-size: 1.3rem;
+	}
+	.points h3 {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 650;
+		line-height: 1.3;
+	}
+	.points p {
+		margin: 0.35rem 0 0;
+		color: var(--lp-muted);
+		line-height: 1.55;
+	}
+	.next {
+		margin: var(--space-6) 0 0;
+		padding-inline-start: var(--space-4);
+		border-inline-start: 3px solid var(--lp-brass);
+		color: var(--lp-muted);
+		line-height: 1.6;
+	}
+	.next strong {
+		color: var(--lp-text);
+	}
+
+	@media (min-width: 56rem) {
+		.flow {
+			grid-template-columns: minmax(0, 6fr) auto minmax(0, 5fr);
+			gap: var(--space-6);
+		}
+		.arrow :global(svg) {
+			transform: none;
+		}
+		.points {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+</style>

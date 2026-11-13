@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { strings } from '../lib/strings';
+	import Icon from './Icon.svelte';
 	import { visibleRows, windowRows, type OutlineNode, type OutlineRow } from '../lib/state/outline';
 
 	interface Props {
@@ -150,7 +151,9 @@
 					onkeydown={(e) => onkeydown(e, row, win.start + i)}
 				>
 					<span class="twisty" aria-hidden="true">
-						{#if row.expandable}{row.expanded ? '▾' : '▸'}{/if}
+						{#if row.expandable}<span class="chevron" class:open={row.expanded}
+								><Icon name="chevronRight" size={14} /></span
+							>{/if}
 					</span>
 					<span class="text">
 						{#if n.id === null}
@@ -206,9 +209,17 @@
 	.row:hover {
 		background: var(--color-row-hover);
 	}
+	/* Selection: a brass wash and a thin blued-steel edge (ADR-0009). */
 	.row.selected {
 		background: var(--color-row-selected);
-		border-inline-start-color: var(--color-accent);
+		border-inline-start-color: var(--color-steel);
+	}
+	.chevron {
+		display: inline-grid;
+		transition: transform var(--motion-fast);
+	}
+	.chevron.open {
+		transform: rotate(90deg);
 	}
 	.row:focus-visible {
 		outline: 3px solid var(--color-focus);
@@ -245,7 +256,7 @@
 	.badge {
 		flex: none;
 		padding: 0 var(--space-2);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-pill);
 		background: var(--color-badge-bg);
 		color: var(--color-badge-text);
 		font-size: var(--text-xs);

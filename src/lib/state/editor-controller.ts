@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The editor view's side of Text mode (phase-1.md 8.2, 15.21): one `EditorView` that shows the
- * workspace's `EditorState` for the open file. The workspace owns the states (text, undo history,
- * cursor, lint marks); the view only displays one of them, and every transaction goes through
+ * workspace's `EditorState` for the open file. The workspace owns the states (text, cursor, lint
+ * marks; undo is the workspace history's); the view only displays one of them, and every transaction goes through
  * `workspaceDispatch`, so the view never owns the text.
  *
  * - `sync` brings the view back to the workspace's state when something changed that file without
@@ -11,9 +11,10 @@
  *   from another state than the workspace's would throw in `commit`.
  * - `show` gives the view another file's state and puts its scroll position back, unless a
  *   reveal follows (the reveal scrolls to its target, and a restore after it would undo that).
- * - `reveal` selects a range and scrolls it into view; with `focus` it then focuses the editor,
- *   after an open modal dialog (the tablet drawer) has closed, since a modal makes the editor
- *   inert.
+ * - `reveal` selects a range and scrolls it to the middle, or, with `select` false, keeps the
+ *   selection and scrolls only as far as needed (`nearest`, so an undo on screen does not jump);
+ *   with `focus` it then focuses the editor, after an open modal dialog (the tablet drawer) has
+ *   closed, since a modal makes the editor inert.
  * - Diagnostics go on the lint layer's two channels. The engine channel is pushed when a result
  *   arrives (the layer maps it through later edits and marks it stale), the local channel
  *   whenever the document layer's checks change.
@@ -80,7 +81,7 @@ export class EditorController {
 	}
 
 	/** Selects a range of a file and scrolls it to the middle (module comment). */
-	reveal(file: WorkspacePath, from: number, to: number, focus: boolean): void {
+	reveal(file: WorkspacePath, from: number, to: number, focus: boolean, select = true): void {
 		// The file may already have been switched to (the open-file effect runs first) with a scroll
 		// restore waiting: this reveal supersedes it.
 		this.#restore++;
@@ -89,16 +90,23 @@ export class EditorController {
 		const length = this.view.state.doc.length;
 		const start = Math.min(Math.max(0, from), length);
 		const end = Math.min(Math.max(start, to), length);
-		this.view.dispatch({
-			selection: { anchor: start, head: end },
-			effects: EditorView.scrollIntoView(start, { y: 'center' }),
-			userEvent: 'select',
-		});
+		this.view.dispatch(
+			select
+				? {
+						selection: { anchor: start, head: end },
+						effects: EditorView.scrollIntoView(start, { y: 'center' }),
+						userEvent: 'select',
+					}
+				: // On screen already (an undo of typing just done): do not recenter.
+					{ effects: EditorView.scrollIntoView(start, { y: 'nearest' }) },
+		);
 		// After a switch the new state has not been laid out yet, and the scroll above may find no
 		// layout to scroll in: ask again once the view has measured it.
 		requestAnimationFrame(() => {
-			if (this.#shown === file && this.view.state.selection.main.from === start) {
-				this.view.dispatch({ effects: EditorView.scrollIntoView(start, { y: 'center' }) });
+			if (this.#shown === file && (!select || this.view.state.selection.main.from === start)) {
+				this.view.dispatch({
+					effects: EditorView.scrollIntoView(start, { y: select ? 'center' : 'nearest' }),
+				});
 			}
 		});
 		if (!focus) return;

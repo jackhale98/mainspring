@@ -125,8 +125,14 @@ export interface GanttModel {
 	/** The time frame drawn: minutes at x = 0 and at the right edge. */
 	readonly originMin: Minutes;
 	readonly endMin: Minutes;
-	/** The plan's status date (`now`) and the wall-clock today, in minutes; null when unknown. */
+	/** The plan's status date (`now`) in minutes; null when unknown. It comes from the result. */
 	readonly statusMin: Minutes | null;
+	/**
+	 * The wall-clock today in minutes, only when `nowMs` was given to `buildGanttModel`. Prefer to
+	 * keep the clock out of the model (`todayOf`, passed to the overlay): the clock changes every
+	 * minute, and a model that depends on it is rebuilt, its layout made and every layer
+	 * repainted each time.
+	 */
 	readonly todayMin: Minutes | null;
 	readonly scenario: string | null;
 	/** True when the schedule shown is not the newest outcome (errors): draw it dimmed. */
@@ -146,8 +152,12 @@ export interface ModelInput {
 	dimmed: boolean;
 	links: readonly RawLink[];
 	analysis: GanttAnalysis | null;
-	/** `Date.now()`, passed in so the model stays pure. */
-	nowMs: number | null;
+	/**
+	 * Transitional: `Date.now()`, which sets the model's `todayMin`. Leave it out and give the
+	 * clock to the overlay and `markerState` through `todayOf`, so that a tick of the clock does
+	 * not rebuild the model (phase-2.md 6.3).
+	 */
+	nowMs?: number | null;
 	zones?: ZoneOffsets;
 	locale?: string;
 }
@@ -174,6 +184,15 @@ export const EMPTY_MODEL: GanttModel = {
 };
 
 const taskKey = (id: TaskId): string => `task:${id}`;
+
+/** The wall-clock moment in minutes of the plan's own axis, or null without a plan or a clock. */
+export function todayOf(
+	project: ProjectInfo | null,
+	nowMs: number | null | undefined,
+): Minutes | null {
+	if (!project || nowMs === null || nowMs === undefined) return null;
+	return Math.round((nowMs - Date.parse(project.start)) / MINUTE_MS);
+}
 
 function minutesAt(project: ProjectInfo, iso: string): Minutes {
 	return Math.round((Date.parse(iso) - Date.parse(project.start)) / MINUTE_MS);
@@ -321,10 +340,7 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 		originMin,
 		endMin,
 		statusMin: project ? minutesAt(project, project.now) : null,
-		todayMin:
-			project && i.nowMs !== null
-				? Math.round((i.nowMs - Date.parse(project.start)) / MINUTE_MS)
-				: null,
+		todayMin: todayOf(project, i.nowMs),
 		scenario,
 		dimmed: i.dimmed,
 		revision: result?.revision ?? null,

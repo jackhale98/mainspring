@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { describeRow, floatAmount } from './describe';
+import { NO_LINE, describeRow, describeRowParts, floatAmount } from './describe';
 import { project } from '../schedule/testing';
 import { D, modelOf, row } from './testing';
 
@@ -12,6 +12,7 @@ const model = modelOf(
 		row(2, null, null, 'task', { name: 'Later' }),
 		row(3, 0, 5, 'task', { name: 'Tiny' }),
 		row(4, 0, 3 * D, 'task', { name: 'Team', people: ['Ana', 'Ben'] }),
+		row(5, 0, 3 * D, 'task', { name: 'Hot', critical: true }),
 	],
 	[],
 	{ calendar },
@@ -26,6 +27,21 @@ describe('describeRow', () => {
 
 	it('adds the people on a task', () => {
 		expect(describeRow(model, 4)).toBe('Team: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. Ana, Ben');
+	});
+
+	it('says once that a critical task is on the critical path, not by colour alone', () => {
+		const line = describeRow(model, 5);
+		expect(line).toBe('Hot: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. On the critical path (estimate)');
+		expect(line.match(/critical/gi)).toHaveLength(1);
+	});
+
+	it('keeps the note apart, so a cut line can still show it', () => {
+		expect(describeRowParts(model, 5)).toEqual({
+			text: 'Hot: Mon, Jan 5, 2026 to Wed, Jan 7, 2026',
+			note: 'On the critical path (estimate)',
+		});
+		expect(describeRowParts(model, 0).note).toBeNull();
+		expect(describeRowParts(model, null)).toBe(NO_LINE);
 	});
 
 	it('writes a milestone as its day', () => {

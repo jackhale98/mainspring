@@ -1,0 +1,81 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import { landing } from '../../lib/landing-copy';
+import Accent from './Accent.astro';
+import Icon from './Icon.astro';
+
+const a = landing.audience;
+---
+
+<section class="lp-section" id={a.id} aria-labelledby="audience-title">
+	<div class="lp-wrap">
+		<div class="head">
+			<p class="lp-eyebrow">{a.eyebrow}</p>
+			<h2 id="audience-title" class="lp-display lp-h2">
+				<Accent before={a.before} accent={a.accent} after={a.after} />
+			</h2>
+			<p class="lp-lead">{a.lead}</p>
+		</div>
+		<ul class="grid">
+			{a.who.map((w) => (
+				<li class="card">
+					<span class="icon">
+						<Icon name={w.icon} />
+					</span>
+					<h3>{w.title}</h3>
+					<p>{w.body}</p>
+				</li>
+			))}
+		</ul>
+	</div>
+</section>
+
+<style>
+	.head {
+		max-inline-size: 46rem;
+	}
+	.grid {
+		display: grid;
+		gap: var(--space-4);
+		margin: clamp(2rem, 1.5rem + 2vw, 3rem) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.card {
+		padding: 1.75rem;
+		border: 1px solid var(--lp-border);
+		border-radius: 1.25rem;
+		background: var(--lp-panel);
+		box-shadow: var(--lp-shadow-card);
+	}
+	.icon {
+		display: grid;
+		place-items: center;
+		inline-size: 2.75rem;
+		block-size: 2.75rem;
+		border-radius: 0.85rem;
+		background: var(--lp-surface2);
+		color: var(--lp-brass-deep);
+	}
+	.icon :global(svg) {
+		inline-size: 1.4rem;
+		block-size: 1.4rem;
+	}
+	.card h3 {
+		margin: var(--space-4) 0 var(--space-2);
+		font-family: var(--font-display);
+		font-size: 1.75rem;
+		font-weight: 400;
+		line-height: 1.1;
+	}
+	.card p {
+		margin: 0;
+		color: var(--lp-muted);
+		line-height: 1.6;
+	}
+	@media (min-width: 56rem) {
+		.grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+</style>

@@ -1,15 +1,19 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
 	The editor panel (phase-1.md 8.2): a toolbar with the file switcher, Format and Docs, and one
-	CodeMirror view. The workspace holds an EditorState per file (text, undo history, cursor);
+	CodeMirror view. The workspace holds an EditorState per file (text, cursor; undo is one history);
 	switching files gives the view another of them, so each file keeps its own state. Typing,
 	format and every other transaction are committed to the workspace through `workspaceDispatch`;
 	the view never owns the text. The panel is created again for each workspace (`{#key}` in the
-	parent), so a new sample gets a fresh view.
+	parent), so a new sample gets a fresh view. This component is imported with the editor packages,
+	when a mode first shows the editor (App.svelte); `ensureEditor` loads the rest and gives the
+	workspace its editor support before the view is made.
 -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { EditorController } from '../lib/state/editor-controller';
+	import Icon from './Icon.svelte';
+	import UndoRedo from './app/UndoRedo.svelte';
 	import type { AppState } from '../lib/state/app.svelte';
 	import type { LayoutKind } from '../lib/state/layout.svelte';
 	import { editorStrings, strings } from '../lib/strings';
@@ -32,17 +36,27 @@
 	const C = editorStrings.commands;
 
 	onMount(() => {
-		if (!host) return;
-		const c = new EditorController(
-			ws,
-			host,
-			untrack(() => app.activeFile),
-		);
-		app.editor = c.view;
-		ctl = c;
+		let made: EditorController | null = null;
+		let gone = false;
+		// The workspace gets its editor support first: the states then have history and the TJP
+		// extensions, and the view is made on them.
+		void app.ensureEditor().then(() => {
+			if (gone || !host) return;
+			const c = new EditorController(
+				ws,
+				host,
+				untrack(() => app.activeFile),
+			);
+			made = c;
+			app.editor = c.view;
+			ctl = c;
+		});
 		return () => {
-			if (app.editor === c.view) app.editor = null;
-			c.destroy();
+			gone = true;
+			if (made) {
+				if (app.editor === made.view) app.editor = null;
+				made.destroy();
+			}
 			ctl = null;
 		};
 	});
@@ -83,7 +97,7 @@
 	$effect(() => {
 		const r = app.reveal;
 		const c = ctl;
-		if (r && c) untrack(() => c.reveal(r.file, r.from, r.to, r.focus));
+		if (r && c) untrack(() => c.reveal(r.file, r.from, r.to, r.focus, r.select ?? true));
 	});
 </script>
 
@@ -92,20 +106,21 @@
 		<FileSwitcher {app} {layout} />
 		<p class="note" role="status">{app.note ?? ''}</p>
 		<div class="actions">
+			{#if layout === 'phone'}<UndoRedo {app} />{/if}
 			<button
 				type="button"
 				onclick={() => ctl?.format()}
 				title="{C.format.label} ({keys(C.format)})"
 				aria-keyshortcuts={keys(C.format).replaceAll(' ', '+')}
 			>
-				{strings.editor.format}
+				<Icon name="format" size={15} />{strings.editor.format}
 			</button>
 			<button
 				type="button"
 				onclick={() => app.openDocs()}
 				title="{C.showDocs.label} ({keys(C.showDocs)})"
 			>
-				{strings.editor.docs}
+				<Icon name="book" size={15} />{strings.editor.docs}
 			</button>
 		</div>
 	</div>
@@ -133,26 +148,33 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-2) var(--space-3);
+		min-block-size: 52px;
 		padding-inline: var(--space-2) var(--gutter);
 		border-block-end: 1px solid var(--color-border);
-		background: var(--color-surface-sunken);
+		background: var(--color-surface);
 	}
 	.actions {
 		display: flex;
+		align-items: center;
 		gap: var(--space-2);
 	}
-	.actions button {
-		min-block-size: 2rem;
-		padding-inline: var(--space-3);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+	.actions button:not([data-testid]) {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-block-size: 32px;
+		padding-inline: 12px;
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-pill);
 		background: var(--color-surface);
+		box-shadow: var(--shadow-chip);
 		color: var(--color-text);
 		font: inherit;
 		font-size: var(--text-sm);
+		font-weight: 500;
 		cursor: pointer;
 	}
-	.actions button:hover {
+	.actions button:not([data-testid]):hover {
 		background: var(--color-row-hover);
 	}
 	.note {
@@ -170,9 +192,10 @@
 	}
 	.host :global(.cm-scroller) {
 		overflow: auto;
+		overscroll-behavior: none;
 	}
 	@media (pointer: coarse) {
-		.actions button {
+		.actions button:not([data-testid]) {
 			min-block-size: var(--size-tap);
 		}
 	}

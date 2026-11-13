@@ -23,7 +23,7 @@
  * - Enter inside a quoted string inserts a bare line break (indent.ts `enterInString`).
  * - F8 and Mod-Shift-m come from @codemirror/lint (lint.ts).
  */
-import { isolateHistory } from '@codemirror/commands';
+import { isolateHistory } from '../../workspace/history-steps';
 import {
 	Annotation,
 	type EditorState,

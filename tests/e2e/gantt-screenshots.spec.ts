@@ -48,12 +48,12 @@ test.describe('gantt screenshots', () => {
 				await shot(page, `gantt-desktop-split-${scheme}.png`);
 			});
 
-			test(`gantt-desktop-gantt-${scheme}.png and the zoom levels`, async ({ page }, info) => {
+			test(`gantt-desktop-visual-${scheme}.png and the zoom levels`, async ({ page }, info) => {
 				test.skip(info.project.name !== 'desktop');
 				await page.setViewportSize({ width: 1440, height: 860 });
 				await page.emulateMedia({ colorScheme: scheme });
 				await open(page, 'upstream-fedora-20', 'visual');
-				await shot(page, `gantt-desktop-gantt-${scheme}.png`);
+				await shot(page, `gantt-desktop-visual-${scheme}.png`);
 				if (scheme !== 'light') return;
 				const gantt = page.getByTestId('gantt');
 				const zoom = page.getByRole('combobox', { name: 'Zoom' });
@@ -111,6 +111,51 @@ test.describe('gantt screenshots', () => {
 			await page.waitForTimeout(400);
 			await shot(page, `gantt-critical-pixel7-${scheme}.png`);
 		});
+
+		// The critical path on the two large plans (T5): gantt-500 has a `now` and a highlighted
+		// path at its end (Phase 10), shown with a critical task selected; Fedora 20 has no `now`,
+		// so its status date is the clock and the pill says the whole path is before it.
+		const toPath = async (page: Page, sample: string): Promise<void> => {
+			if (sample !== 'gantt-500') return;
+			await page.getByTestId('gantt').evaluate((g) => {
+				const s = g.querySelector('.scroller');
+				if (!s) return;
+				s.scrollTop = s.scrollHeight * 0.9;
+				// Package 10.2, the end of the path, sits at about 91% of the frame's width.
+				s.scrollLeft = s.scrollWidth * 0.915 - s.clientWidth / 2;
+			});
+			await page.waitForTimeout(300);
+			await page.getByRole('treeitem').filter({ hasText: 'Item 386' }).first().click();
+			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
+		};
+		for (const sample of ['gantt-500', 'upstream-fedora-20']) {
+			test(`gantt-critical-${sample}-desktop-${scheme}.png`, async ({ page }, info) => {
+				test.skip(info.project.name !== 'desktop');
+				await page.setViewportSize({ width: 1440, height: 860 });
+				await page.emulateMedia({ colorScheme: scheme });
+				await open(page, sample, 'visual');
+				await expect(page.getByRole('button', { name: 'Critical path' })).toHaveAttribute(
+					'aria-pressed',
+					'true',
+				);
+				await toPath(page, sample);
+				await page.waitForTimeout(400);
+				await shot(page, `gantt-critical-${sample}-desktop-${scheme}.png`);
+			});
+
+			test(`gantt-critical-${sample}-pixel7-${scheme}.png`, async ({ page }, info) => {
+				test.skip(info.project.name !== 'pixel-7');
+				await page.emulateMedia({ colorScheme: scheme });
+				await open(page, sample);
+				await expect(page.getByRole('button', { name: 'Critical path' })).toHaveAttribute(
+					'aria-pressed',
+					'true',
+				);
+				await toPath(page, sample);
+				await page.waitForTimeout(400);
+				await shot(page, `gantt-critical-${sample}-pixel7-${scheme}.png`);
+			});
+		}
 
 		test(`gantt-pixel7-${scheme}.png`, async ({ page }, info) => {
 			test.skip(info.project.name !== 'pixel-7');

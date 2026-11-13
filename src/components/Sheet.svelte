@@ -7,6 +7,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { strings } from '../lib/strings';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		open: boolean;
@@ -45,7 +46,9 @@
 		<div class="inner">
 			<header>
 				<h2 id="sheet-title-{side}">{title}</h2>
-				<button type="button" class="close" onclick={() => dialog?.close()}>{closeLabel}</button>
+				<button type="button" class="close" onclick={() => dialog?.close()}>
+					<Icon name="close" size={15} />{closeLabel}
+				</button>
 			</header>
 			<!--
 				The bottom sheet holds plain text that can scroll. Safari does not make a scrolling
@@ -78,12 +81,13 @@
 	.sheet::backdrop {
 		background: var(--color-overlay);
 	}
+	/* The drawer floats like a panel: inset from the edges, rounded on the open side. */
 	.sheet[data-side='start'] {
-		inset: 0 auto 0 0;
+		inset: var(--gap-panel) auto var(--gap-panel) var(--gap-panel);
 		inline-size: min(22rem, 90vw);
-		block-size: 100dvh;
-		border-block: 0;
-		border-inline-start: 0;
+		block-size: calc(100dvh - 2 * var(--gap-panel));
+		border: 0;
+		border-radius: var(--radius-panel);
 		animation: slide-start var(--motion-base) ease-out;
 	}
 	.sheet[data-side='bottom'] {
@@ -92,7 +96,7 @@
 		inline-size: min(40rem, 100vw);
 		max-block-size: 80dvh;
 		border-block-end: 0;
-		border-radius: var(--radius-md) var(--radius-md) 0 0;
+		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
 		animation: slide-bottom var(--motion-base) ease-out;
 	}
 	.inner {
@@ -111,22 +115,31 @@
 	}
 	h2 {
 		margin: 0;
-		font-size: var(--text-md);
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		font-weight: 400;
 	}
 	.close {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
 		min-block-size: var(--size-tap);
 		padding-inline: var(--space-4);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-pill);
 		background: var(--color-surface);
 		color: var(--color-text);
 		font: inherit;
 		cursor: pointer;
 	}
+	.close:hover {
+		background: var(--color-row-hover);
+	}
 	.content {
 		flex: 1;
 		min-block-size: 0;
 		overflow: auto;
+		overscroll-behavior: contain;
 		padding: var(--space-3) var(--space-4) var(--space-6);
 	}
 	.content:focus-visible {

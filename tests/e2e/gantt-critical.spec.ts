@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The critical path and float in the Gantt (phase-2.md 6.2, T5): the Critical path chip is
-// available once the analysis exists, shows the estimate on the selected task's line, and turns it
-// off; the copy says "estimate". Desktop Chrome and Pixel 7.
+// available once the analysis exists (until then `aria-disabled`, with its reason), describes the
+// values as estimates, shows the estimate note on the selected task's line (visible past the cut
+// on a phone, and said once), says so when the whole path is before the status date, and turns
+// it all off. Desktop Chrome and Pixel 7.
 //
 // Timings (desktop only): the analysis runs once per result in an idle task and records a
 // `performance` measure (src/lib/gantt/analysis.ts). This reads it for gantt-500 and Fedora 20:
@@ -50,13 +52,21 @@ test.describe('gantt critical path', () => {
 
 	test('the chip shows the estimate on the selected task, and turns it off', async ({ page }) => {
 		await open(page, 'upstream-tutorial');
-		await expect(chip(page)).toBeEnabled();
 		await expect(chip(page)).toHaveAttribute('aria-pressed', 'true');
-		await expect(chip(page)).toHaveAttribute('title', /estimates: they ignore resource limits/);
+		await expect(chip(page)).not.toHaveAttribute('aria-disabled', 'true');
+		await expect(chip(page)).toHaveAccessibleDescription(/estimates: they ignore resource limits/);
 		const line = page.getByRole('status').filter({ hasText: 'Graphical User Interface:' });
 
 		await rows(page).filter({ hasText: 'Graphical User Interface' }).first().click();
 		await expect(line).toContainText('On the critical path (estimate)');
+		// Said once, and visible in full even where the line itself is cut (a phone).
+		expect((await line.textContent())?.match(/critical/gi)).toHaveLength(1);
+		const note = line.locator('.note');
+		await expect(note).toBeVisible();
+		const [noteBox, lineBox] = [await note.boundingBox(), await line.boundingBox()];
+		if (!noteBox || !lineBox) throw new Error('no task line');
+		expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(lineBox.x + lineBox.width + 1);
+		expect(await note.evaluate((n) => n.scrollWidth <= n.clientWidth + 1)).toBe(true);
 		await rows(page).filter({ hasText: 'Manual' }).first().click();
 		await expect(page.getByRole('status').filter({ hasText: 'Manual:' })).toContainText(
 			/Float about \d+ working days \(estimate\)/,
@@ -76,8 +86,12 @@ test.describe('gantt critical path', () => {
 	}) => {
 		// Fedora 20 sets no `now`, so the status date is today's clock, after its 2014 finish.
 		await open(page, 'upstream-fedora-20', 'visual');
-		await expect(chip(page)).toBeEnabled();
-		await expect(chip(page)).toHaveAttribute('title', /ends before the status date/);
+		const note = page
+			.getByRole('status')
+			.filter({ hasText: 'Every task on the critical path ends before the status date' });
+		await expect(note).toBeVisible();
+		await chip(page).click();
+		await expect(note).toHaveCount(0);
 	});
 
 	test('times the analysis in the browser: cold, warm and warm at 4x', async ({

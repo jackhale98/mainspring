@@ -1,27 +1,36 @@
 ---
 // SPDX-License-Identifier: GPL-2.0-or-later
+// The public landing page (ADR-0011): static, no client script. Copy is in src/lib/landing-copy.ts.
+import '../styles/landing.css';
+import AudienceSection from '../components/landing/AudienceSection.astro';
+import BuiltOn from '../components/landing/BuiltOn.astro';
+import Closing from '../components/landing/Closing.astro';
+import FaqSection from '../components/landing/FaqSection.astro';
+import Features from '../components/landing/Features.astro';
+import Hero from '../components/landing/Hero.astro';
+import PhoneSection from '../components/landing/PhoneSection.astro';
+import RepoSection from '../components/landing/RepoSection.astro';
+import SchedulerSection from '../components/landing/SchedulerSection.astro';
+import SiteFooter from '../components/landing/SiteFooter.astro';
+import SyntaxSection from '../components/landing/SyntaxSection.astro';
 import Base from '../layouts/Base.astro';
-import { sitePath } from '../lib/site-path';
-import { strings } from '../lib/strings';
+import { landing } from '../lib/landing-copy';
 ---
 
-<Base title={strings.appName}>
-	<main id="main" class="home">
-		<h1>{strings.appName}</h1>
-		<p>{strings.tagline}</p>
-		<p>
-			<a href={sitePath('app')}>{strings.home.openApp}</a>
-		</p>
-	</main>
+<Base title={landing.meta.title} description={landing.meta.description}>
+	<div class="lp">
+		<main id="main">
+			<Hero />
+			<RepoSection />
+			<SyntaxSection />
+			<SchedulerSection />
+			<AudienceSection />
+			<Features />
+			<PhoneSection />
+			<FaqSection />
+			<BuiltOn />
+			<Closing />
+		</main>
+		<SiteFooter />
+	</div>
 </Base>
-
-<style>
-	.home {
-		max-inline-size: 60rem;
-		margin-inline: auto;
-		padding: var(--space-6) var(--gutter);
-	}
-	a {
-		color: var(--color-accent);
-	}
-</style>

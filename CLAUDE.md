@@ -64,6 +64,32 @@ Haiku-sized work (fixtures, test runs, log triage, docs formatting) in the main 
 6. Record the gate evidence (test output, desktop and phone screenshots, timings) in
    `docs/phases/phase-N-gate.md` and stop for approval.
 
+## Process rules (user, 2026-11-13)
+
+Goal: develop fast and interactively, stay thorough, and never write code that has to be thrown
+away because work was split or delegated too early. These rules refine the loop above.
+
+- **Two or three parallel tracks at most.** Never run tasks in parallel when one consumes an
+  interface the other is still defining. Settle the interface first (types and a short contract,
+  merged), then build its consumers.
+- **Sequence over speculation.** Do not build against a guessed or stubbed version of unmerged
+  work when waiting a step would avoid rework. Merge in dependency order.
+- **Independent review where it pays:** engine, bridge, edit API, and anything checkable against
+  native TaskJuggler get a `reviewer` pass with native or engine reproduction. UI work: the main
+  session checks behaviour and screenshots during the work, and one review runs before merge, not
+  one per fix round.
+- **Small fixes in the main session.** A fix of a few lines is made directly, with its test, rather
+  than sent back through a fix round and re-review.
+- **Strong models for judgment.** Design, engine, edit API, reviews and test design use the
+  strongest model. Lighter models only for mechanical work (test runs, fixtures from a clear
+  recipe, docs formatting).
+- **Agents verify end to end.** An agent's report must include evidence that its change works in
+  the real app or engine (a run, a screenshot, a trace), not only unit tests.
+- **Proportionate tests.** Test behaviour and correctness, not marketing copy or wording. The existing
+  landing-copy test stays, but it is the exception, not the pattern.
+- **Interactive checkpoints.** Show the user visible progress early (screenshots, the Pages
+  preview) and ask before large design or scope turns.
+
 ## Current status
 
 - Phase 0 approved 2026-11-11 (`docs/phases/phase-0-gate.md`).

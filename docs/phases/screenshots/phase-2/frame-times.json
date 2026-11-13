@@ -1,290 +1,730 @@
 {
-  "when": "2026-11-13T00:10:47.224Z",
+  "when": "2026-11-13T04:19:46.680Z",
   "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
   "results": [
     {
-      "plan": "fedora",
+      "sample": "upstream-fedora-20",
       "profile": "desktop",
-      "rowsHeightPx": 16608,
+      "scrollHeightPx": 16624,
+      "scrollWidthPx": 3878,
+      "input": "mouse",
+      "inputNote": "mouse-wheel gesture",
+      "inputProbe": [
+        "mouse: 400 px"
+      ],
       "scrollDown": {
-        "frames": 269,
+        "frames": 185,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
+        "p95Ms": 83.4,
+        "maxMs": 233.3,
+        "over50ms": 27,
+        "loafCount": 1,
+        "loafMaxMs": 183.7,
+        "presented": 311,
+        "dropped": 0,
+        "droppedPct": 0,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 142,
+          "STATE_PRESENTED_PARTIAL": 169
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": 15845
+        }
       },
       "scrollUp": {
-        "frames": 264,
+        "frames": 165,
         "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
+        "p95Ms": 100,
+        "maxMs": 183.3,
+        "over50ms": 28,
+        "loafCount": 1,
+        "loafMaxMs": 56.7,
+        "presented": 298,
+        "dropped": 4,
+        "droppedPct": 1.3,
+        "checkerboardedFrames": 1,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 123,
+          "STATE_PRESENTED_PARTIAL": 175,
+          "STATE_DROPPED": 4
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": -15845
+        }
       },
       "panRight": {
-        "frames": 126,
+        "frames": 45,
         "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
+        "p95Ms": 100,
+        "maxMs": 183.3,
+        "over50ms": 3,
         "loafCount": 0,
-        "loafMaxMs": 0
+        "loafMaxMs": 0,
+        "presented": 50,
+        "dropped": 5,
+        "droppedPct": 9.1,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 21,
+          "STATE_PRESENTED_ALL": 25,
+          "STATE_PRESENTED_PARTIAL": 25,
+          "STATE_DROPPED": 5
+        },
+        "scrolledPx": {
+          "x": 2388,
+          "y": 0
+        }
       },
       "panLeft": {
-        "frames": 190,
+        "frames": 44,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
-      },
-      "diagonal": {
-        "frames": 378,
-        "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
-      },
-      "zoomCycle": {
-        "frames": 513,
-        "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 33.4,
-        "maxMs": 83.4,
-        "over20msPct": 3.9,
+        "p95Ms": 66.8,
+        "maxMs": 266.7,
         "over50ms": 5,
-        "loafCount": 6,
-        "loafMaxMs": 62.3
+        "loafCount": 0,
+        "loafMaxMs": 0,
+        "presented": 38,
+        "dropped": 11,
+        "droppedPct": 22.4,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 26,
+          "STATE_PRESENTED_ALL": 15,
+          "STATE_PRESENTED_PARTIAL": 23,
+          "STATE_DROPPED": 11
+        },
+        "scrolledPx": {
+          "x": -2388,
+          "y": 0
+        }
+      },
+      "diagonal": {
+        "frames": 53,
+        "medianMs": 16.7,
+        "p95Ms": 133.4,
+        "maxMs": 266.7,
+        "over50ms": 7,
+        "loafCount": 0,
+        "loafMaxMs": 0,
+        "presented": 78,
+        "dropped": 3,
+        "droppedPct": 3.7,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 24,
+          "STATE_PRESENTED_PARTIAL": 54,
+          "STATE_DROPPED": 3
+        },
+        "scrolledPx": {
+          "x": 1500,
+          "y": 3000
+        }
+      },
+      "zoom": {
+        "frames": 228,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "maxMs": 66.6,
+        "over50ms": 1,
+        "loafCount": 1,
+        "loafMaxMs": 51.4,
+        "presented": 16,
+        "dropped": 17,
+        "droppedPct": 51.5,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 166,
+          "STATE_PRESENTED_ALL": 16,
+          "STATE_DROPPED": 17
+        }
+      },
+      "zoomSteps": [
+        {
+          "level": "day",
+          "firstFrameMs": 43.4,
+          "settledMs": 138.3
+        },
+        {
+          "level": "week",
+          "firstFrameMs": 51.8,
+          "settledMs": 157.2
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 55.2,
+          "settledMs": 213
+        },
+        {
+          "level": "quarter",
+          "firstFrameMs": 28.3,
+          "settledMs": 147.2
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 43.1,
+          "settledMs": 142
+        }
+      ],
+      "wheelZoom": {
+        "frames": 167,
+        "medianMs": 16.7,
+        "p95Ms": 50,
+        "maxMs": 66.6,
+        "over50ms": 2,
+        "loafCount": 1,
+        "loafMaxMs": 87,
+        "presented": 54,
+        "dropped": 62,
+        "droppedPct": 53.4,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 91,
+          "STATE_PRESENTED_ALL": 54,
+          "STATE_DROPPED": 62
+        }
       }
     },
     {
-      "plan": "fedora",
+      "sample": "upstream-fedora-20",
       "profile": "pixel-7",
-      "rowsHeightPx": 16608,
+      "scrollHeightPx": 16624,
+      "scrollWidthPx": 3702,
+      "input": "mouse",
+      "inputNote": "mouse-wheel gesture on the emulated phone (touch synthesis did not scroll)",
+      "inputProbe": [
+        "touch: 0 px",
+        "mouse: 400 px"
+      ],
       "scrollDown": {
-        "frames": 270,
+        "frames": 232,
         "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 33.4,
-        "over20msPct": 0.7,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
-      },
-      "scrollUp": {
-        "frames": 536,
-        "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 33.2,
-        "over20msPct": 0.4,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
-      },
-      "panRight": {
-        "frames": 229,
-        "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 33.3,
-        "maxMs": 33.3,
-        "over20msPct": 1.3,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
-      },
-      "panLeft": {
-        "frames": 306,
-        "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 33.3,
-        "maxMs": 33.3,
-        "over20msPct": 1.3,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
-      },
-      "diagonal": {
-        "frames": 473,
-        "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 33.3,
-        "maxMs": 33.3,
-        "over20msPct": 1.1,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
-      },
-      "zoomCycle": {
-        "frames": 736,
-        "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 150,
-        "maxMs": 300.1,
-        "over20msPct": 4.1,
+        "p95Ms": 66.6,
+        "maxMs": 100,
         "over50ms": 30,
-        "loafCount": 12,
-        "loafMaxMs": 165.6
-      }
-    },
-    {
-      "plan": "scale",
-      "profile": "desktop",
-      "rowsHeightPx": 49048,
-      "scrollDown": {
-        "frames": 630,
-        "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
         "loafCount": 0,
-        "loafMaxMs": 0
+        "loafMaxMs": 0,
+        "presented": 324,
+        "dropped": 0,
+        "droppedPct": 0,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 165,
+          "STATE_PRESENTED_PARTIAL": 159
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": 15966
+        }
       },
       "scrollUp": {
-        "frames": 1256,
+        "frames": 210,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 33.3,
-        "over20msPct": 0.2,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
+        "p95Ms": 66.6,
+        "maxMs": 150,
+        "over50ms": 21,
+        "loafCount": 1,
+        "loafMaxMs": 110.8,
+        "presented": 318,
+        "dropped": 3,
+        "droppedPct": 0.9,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 155,
+          "STATE_PRESENTED_PARTIAL": 163,
+          "STATE_DROPPED": 3
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": -15966
+        }
       },
       "panRight": {
-        "frames": 147,
+        "frames": 67,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
+        "p95Ms": 50.1,
+        "maxMs": 83.3,
+        "over50ms": 5,
         "loafCount": 0,
-        "loafMaxMs": 0
+        "loafMaxMs": 0,
+        "presented": 70,
+        "dropped": 0,
+        "droppedPct": 0,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 21,
+          "STATE_PRESENTED_ALL": 36,
+          "STATE_PRESENTED_PARTIAL": 34
+        },
+        "scrolledPx": {
+          "x": 3240,
+          "y": 0
+        }
       },
       "panLeft": {
-        "frames": 296,
+        "frames": 61,
         "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
+        "p95Ms": 50,
+        "maxMs": 83.4,
+        "over50ms": 1,
         "loafCount": 0,
-        "loafMaxMs": 0
+        "loafMaxMs": 0,
+        "presented": 72,
+        "dropped": 1,
+        "droppedPct": 1.4,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 21,
+          "STATE_PRESENTED_ALL": 39,
+          "STATE_PRESENTED_PARTIAL": 33,
+          "STATE_DROPPED": 1
+        },
+        "scrolledPx": {
+          "x": -3240,
+          "y": 0
+        }
       },
       "diagonal": {
-        "frames": 283,
+        "frames": 65,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 16.8,
-        "over20msPct": 0,
-        "over50ms": 0,
+        "p95Ms": 83.3,
+        "maxMs": 83.4,
+        "over50ms": 13,
         "loafCount": 0,
-        "loafMaxMs": 0
+        "loafMaxMs": 0,
+        "presented": 88,
+        "dropped": 2,
+        "droppedPct": 2.2,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 36,
+          "STATE_PRESENTED_PARTIAL": 52,
+          "STATE_DROPPED": 2
+        },
+        "scrolledPx": {
+          "x": 1500,
+          "y": 3000
+        }
       },
-      "zoomCycle": {
-        "frames": 354,
+      "zoom": {
+        "frames": 199,
         "medianMs": 16.7,
         "p95Ms": 33.3,
-        "p99Ms": 116.7,
-        "maxMs": 116.7,
-        "over20msPct": 6.8,
+        "maxMs": 150,
+        "over50ms": 3,
+        "loafCount": 3,
+        "loafMaxMs": 107.4,
+        "presented": 20,
+        "dropped": 31,
+        "droppedPct": 60.8,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 172,
+          "STATE_PRESENTED_ALL": 20,
+          "STATE_DROPPED": 31
+        }
+      },
+      "zoomSteps": [
+        {
+          "level": "day",
+          "firstFrameMs": 33.2,
+          "settledMs": 177.3
+        },
+        {
+          "level": "week",
+          "firstFrameMs": 32.4,
+          "settledMs": 178.5
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 36.7,
+          "settledMs": 179
+        },
+        {
+          "level": "quarter",
+          "firstFrameMs": 39.1,
+          "settledMs": 228.4
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 54.4,
+          "settledMs": 262
+        }
+      ]
+    },
+    {
+      "sample": "gantt-500",
+      "profile": "desktop",
+      "scrollHeightPx": 20064,
+      "scrollWidthPx": 10463,
+      "input": "mouse",
+      "inputNote": "mouse-wheel gesture",
+      "inputProbe": [
+        "mouse: 400 px"
+      ],
+      "scrollDown": {
+        "frames": 257,
+        "medianMs": 16.7,
+        "p95Ms": 50,
+        "maxMs": 316.7,
+        "over50ms": 12,
+        "loafCount": 1,
+        "loafMaxMs": 51.1,
+        "presented": 430,
+        "dropped": 4,
+        "droppedPct": 0.9,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 21,
+          "STATE_PRESENTED_ALL": 267,
+          "STATE_PRESENTED_PARTIAL": 163,
+          "STATE_DROPPED": 4
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": 19282
+        }
+      },
+      "scrollUp": {
+        "frames": 178,
+        "medianMs": 16.7,
+        "p95Ms": 116.6,
+        "maxMs": 283.3,
+        "over50ms": 38,
+        "loafCount": 3,
+        "loafMaxMs": 148.5,
+        "presented": 345,
+        "dropped": 28,
+        "droppedPct": 7.5,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 23,
+          "STATE_PRESENTED_ALL": 144,
+          "STATE_PRESENTED_PARTIAL": 201,
+          "STATE_DROPPED": 28
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": -19282
+        }
+      },
+      "panRight": {
+        "frames": 105,
+        "medianMs": 16.7,
+        "p95Ms": 100.1,
+        "maxMs": 200,
+        "over50ms": 10,
+        "loafCount": 0,
+        "loafMaxMs": 0,
+        "presented": 158,
+        "dropped": 6,
+        "droppedPct": 3.7,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 81,
+          "STATE_PRESENTED_PARTIAL": 77,
+          "STATE_DROPPED": 6
+        },
+        "scrolledPx": {
+          "x": 8000,
+          "y": 0
+        }
+      },
+      "panLeft": {
+        "frames": 115,
+        "medianMs": 16.7,
+        "p95Ms": 66.6,
+        "maxMs": 233.3,
         "over50ms": 8,
-        "loafCount": 12,
-        "loafMaxMs": 84.1
+        "loafCount": 0,
+        "loafMaxMs": 0,
+        "presented": 171,
+        "dropped": 2,
+        "droppedPct": 1.2,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 21,
+          "STATE_PRESENTED_ALL": 99,
+          "STATE_PRESENTED_PARTIAL": 72,
+          "STATE_DROPPED": 2
+        },
+        "scrolledPx": {
+          "x": -8000,
+          "y": 0
+        }
+      },
+      "diagonal": {
+        "frames": 70,
+        "medianMs": 16.7,
+        "p95Ms": 100,
+        "maxMs": 149.9,
+        "over50ms": 10,
+        "loafCount": 0,
+        "loafMaxMs": 0,
+        "presented": 90,
+        "dropped": 1,
+        "droppedPct": 1.1,
+        "checkerboardedFrames": 2,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 24,
+          "STATE_PRESENTED_ALL": 40,
+          "STATE_PRESENTED_PARTIAL": 50,
+          "STATE_DROPPED": 1
+        },
+        "scrolledPx": {
+          "x": 1500,
+          "y": 3000
+        }
+      },
+      "zoom": {
+        "frames": 188,
+        "medianMs": 16.7,
+        "p95Ms": 33.3,
+        "maxMs": 100,
+        "over50ms": 2,
+        "loafCount": 2,
+        "loafMaxMs": 64.8,
+        "presented": 17,
+        "dropped": 23,
+        "droppedPct": 57.5,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 165,
+          "STATE_PRESENTED_ALL": 17,
+          "STATE_DROPPED": 23
+        }
+      },
+      "zoomSteps": [
+        {
+          "level": "day",
+          "firstFrameMs": 52.5,
+          "settledMs": 137.9
+        },
+        {
+          "level": "week",
+          "firstFrameMs": 70.3,
+          "settledMs": 147.9
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 52.9,
+          "settledMs": 163.4
+        },
+        {
+          "level": "quarter",
+          "firstFrameMs": 32.7,
+          "settledMs": 230.5
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 26.3,
+          "settledMs": 208.3
+        }
+      ],
+      "wheelZoom": {
+        "frames": 162,
+        "medianMs": 16.7,
+        "p95Ms": 50,
+        "maxMs": 83.4,
+        "over50ms": 4,
+        "loafCount": 1,
+        "loafMaxMs": 62.2,
+        "presented": 63,
+        "dropped": 73,
+        "droppedPct": 53.7,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 97,
+          "STATE_PRESENTED_ALL": 63,
+          "STATE_DROPPED": 73
+        }
       }
     },
     {
-      "plan": "scale",
+      "sample": "gantt-500",
       "profile": "pixel-7",
-      "rowsHeightPx": 49048,
+      "scrollHeightPx": 20064,
+      "scrollWidthPx": 10287,
+      "input": "mouse",
+      "inputNote": "mouse-wheel gesture on the emulated phone (touch synthesis did not scroll)",
+      "inputProbe": [
+        "touch: 0 px",
+        "mouse: 400 px"
+      ],
       "scrollDown": {
-        "frames": 630,
-        "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 33.4,
-        "over20msPct": 0.2,
-        "over50ms": 0,
+        "frames": 214,
+        "medianMs": 16.8,
+        "p95Ms": 50.1,
+        "maxMs": 100.1,
+        "over50ms": 22,
         "loafCount": 0,
-        "loafMaxMs": 0
+        "loafMaxMs": 0,
+        "presented": 395,
+        "dropped": 1,
+        "droppedPct": 0.3,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 21,
+          "STATE_PRESENTED_ALL": 198,
+          "STATE_PRESENTED_PARTIAL": 197,
+          "STATE_DROPPED": 1
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": 19381
+        }
       },
       "scrollUp": {
-        "frames": 1254,
+        "frames": 223,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 33.2,
-        "over20msPct": 0.3,
-        "over50ms": 0,
-        "loafCount": 2,
-        "loafMaxMs": 54.2
+        "p95Ms": 66.6,
+        "maxMs": 83.4,
+        "over50ms": 24,
+        "loafCount": 0,
+        "loafMaxMs": 0,
+        "presented": 399,
+        "dropped": 1,
+        "droppedPct": 0.3,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 212,
+          "STATE_PRESENTED_PARTIAL": 187,
+          "STATE_DROPPED": 1
+        },
+        "scrolledPx": {
+          "x": 0,
+          "y": -19381
+        }
       },
       "panRight": {
-        "frames": 146,
+        "frames": 125,
         "medianMs": 16.7,
-        "p95Ms": 16.8,
-        "p99Ms": 16.8,
-        "maxMs": 33.4,
-        "over20msPct": 0.7,
-        "over50ms": 0,
+        "p95Ms": 83.2,
+        "maxMs": 150.1,
+        "over50ms": 14,
         "loafCount": 0,
-        "loafMaxMs": 0
+        "loafMaxMs": 0,
+        "presented": 157,
+        "dropped": 0,
+        "droppedPct": 0,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 22,
+          "STATE_PRESENTED_ALL": 68,
+          "STATE_PRESENTED_PARTIAL": 89
+        },
+        "scrolledPx": {
+          "x": 8000,
+          "y": 0
+        }
       },
       "panLeft": {
-        "frames": 296,
+        "frames": 118,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 16.8,
-        "maxMs": 33.4,
-        "over20msPct": 0.7,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
+        "p95Ms": 66.7,
+        "maxMs": 183.3,
+        "over50ms": 18,
+        "loafCount": 2,
+        "loafMaxMs": 67.6,
+        "presented": 157,
+        "dropped": 2,
+        "droppedPct": 1.3,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 27,
+          "STATE_PRESENTED_ALL": 67,
+          "STATE_PRESENTED_PARTIAL": 90,
+          "STATE_DROPPED": 2
+        },
+        "scrolledPx": {
+          "x": -8000,
+          "y": 0
+        }
       },
       "diagonal": {
-        "frames": 286,
+        "frames": 76,
         "medianMs": 16.7,
-        "p95Ms": 16.7,
-        "p99Ms": 33.4,
-        "maxMs": 33.4,
-        "over20msPct": 1,
-        "over50ms": 0,
-        "loafCount": 0,
-        "loafMaxMs": 0
+        "p95Ms": 83.3,
+        "maxMs": 166.7,
+        "over50ms": 12,
+        "loafCount": 1,
+        "loafMaxMs": 52.7,
+        "presented": 86,
+        "dropped": 2,
+        "droppedPct": 2.3,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 27,
+          "STATE_PRESENTED_ALL": 33,
+          "STATE_PRESENTED_PARTIAL": 53,
+          "STATE_DROPPED": 2
+        },
+        "scrolledPx": {
+          "x": 1500,
+          "y": 3000
+        }
       },
-      "zoomCycle": {
-        "frames": 510,
+      "zoom": {
+        "frames": 199,
         "medianMs": 16.7,
         "p95Ms": 16.8,
-        "p99Ms": 116.7,
-        "maxMs": 133.3,
-        "over20msPct": 3.9,
-        "over50ms": 20,
+        "maxMs": 50.1,
+        "over50ms": 1,
         "loafCount": 0,
-        "loafMaxMs": 0
-      }
+        "loafMaxMs": 0,
+        "presented": 20,
+        "dropped": 19,
+        "droppedPct": 48.7,
+        "checkerboardedFrames": 0,
+        "pipelineStates": {
+          "STATE_NO_UPDATE_DESIRED": 173,
+          "STATE_PRESENTED_ALL": 20,
+          "STATE_DROPPED": 19
+        }
+      },
+      "zoomSteps": [
+        {
+          "level": "day",
+          "firstFrameMs": 38.8,
+          "settledMs": 160.2
+        },
+        {
+          "level": "week",
+          "firstFrameMs": 36.8,
+          "settledMs": 161
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 39.5,
+          "settledMs": 178.4
+        },
+        {
+          "level": "quarter",
+          "firstFrameMs": 33.3,
+          "settledMs": 189.2
+        },
+        {
+          "level": "month",
+          "firstFrameMs": 40.4,
+          "settledMs": 181.1
+        }
+      ]
     }
+  ],
+  "note": "After: grid y-invariant, overlay erase-only and skipped on vertical moves, bars painted in pieces, window 20% margin with 75% of the room ahead. Headless Chrome, software canvas, shared 4-core host at load average 9 to 12 (other agents running), so absolute numbers are inflated; the before and after runs were made back to back. Phone profile = Pixel 7 emulation at 4x CPU throttle, scrolled with a mouse-wheel gesture because touch synthesis does not scroll in headless Chrome.",
+  "loadAverageAtEnd": [
+    9.4,
+    11.1,
+    12.6
   ]
 }

@@ -1,0 +1,238 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// "Why your plan belongs in your repository": the benefits of a plain-text plan, beside a mock pull
+// request that changes one line of it. The schedule-diff note on the mock is a planned feature and
+// carries the "Coming" tag.
+import { landing } from '../../lib/landing-copy';
+import { planDiff } from '../../lib/landing-sample';
+import Accent from './Accent.astro';
+import DiffBlock from './DiffBlock.astro';
+import Icon from './Icon.astro';
+
+const r = landing.repo;
+---
+
+<section class="lp-section" id={r.id} aria-labelledby="repo-title">
+	<div class="lp-wrap grid">
+		<div class="copy">
+			<p class="lp-eyebrow">{r.eyebrow}</p>
+			<h2 id="repo-title" class="lp-display lp-h2">
+				<Accent before={r.before} accent={r.accent} after={r.after} />
+			</h2>
+			<p class="lp-lead">{r.lead}</p>
+			<ul class="benefits">
+				{r.benefits.map((b) => (
+					<li>
+						<span class="icon">
+							<Icon name={b.icon} />
+						</span>
+						<div>
+							<h3>{b.title}</h3>
+							<p>{b.body}</p>
+						</div>
+					</li>
+				))}
+			</ul>
+			<p class="note">{r.note}</p>
+		</div>
+
+		<div class="stage">
+			<div class="pr" role="img" aria-label={r.pr.label}>
+				<div aria-hidden="true">
+					<header class="head">
+						<span class="pr-icon">
+							<Icon name="git-pull-request" />
+						</span>
+						<div>
+							<div class="title">{r.pr.title}</div>
+							<div class="meta">
+								<span class="state">
+									<i class="dot"></i>
+									{r.pr.open}
+								</span>
+								{r.pr.meta}
+							</div>
+						</div>
+					</header>
+					<div class="file">
+						<b>{r.pr.file}</b>
+						<span class="stats">{r.pr.stats}</span>
+					</div>
+					<DiffBlock lines={planDiff} />
+					<div class="effect">
+						<span class="what">{r.pr.effect}</span>
+						<span class="soon">
+							{r.pr.effectTag}
+							<span class="lp-tag">{landing.features.comingTag}</span>
+						</span>
+					</div>
+				</div>
+			</div>
+			<p class="caption">{r.pr.caption}</p>
+		</div>
+	</div>
+</section>
+
+<style>
+	.grid {
+		display: grid;
+		gap: clamp(2.5rem, 2rem + 3vw, 5rem);
+		align-items: start;
+	}
+	.benefits {
+		display: grid;
+		gap: var(--space-4);
+		margin: var(--space-8) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.benefits li {
+		display: flex;
+		gap: var(--space-4);
+	}
+	.icon {
+		flex: none;
+		display: grid;
+		place-items: center;
+		inline-size: 2.5rem;
+		block-size: 2.5rem;
+		border-radius: 0.75rem;
+		background: var(--lp-surface2);
+		color: var(--lp-brass-deep);
+	}
+	.icon :global(svg) {
+		inline-size: 1.3rem;
+		block-size: 1.3rem;
+	}
+	.benefits h3 {
+		margin: 0.1rem 0 0.15rem;
+		font-size: 1.05rem;
+		font-weight: 650;
+	}
+	.benefits p {
+		margin: 0;
+		color: var(--lp-muted);
+		line-height: 1.55;
+	}
+	.note {
+		margin: var(--space-8) 0 0;
+		padding-inline-start: var(--space-4);
+		border-inline-start: 3px solid var(--lp-brass);
+		color: var(--lp-muted);
+		line-height: 1.6;
+	}
+
+	/* The mock pull request */
+	.stage {
+		position: relative;
+	}
+	.pr {
+		border: 1px solid var(--lp-border-strong);
+		border-radius: 1.25rem;
+		background: var(--lp-panel);
+		box-shadow: var(--lp-shadow-mock);
+		overflow: hidden;
+	}
+	.head {
+		display: flex;
+		gap: var(--space-3);
+		padding: 1.1rem 1.25rem;
+		border-block-end: 1px solid var(--lp-border);
+	}
+	.pr-icon {
+		display: grid;
+		place-items: center;
+		flex: none;
+		inline-size: 2.25rem;
+		block-size: 2.25rem;
+		border-radius: 50%;
+		background: color-mix(in srgb, var(--lp-ok) 16%, var(--lp-panel));
+		color: var(--lp-ok);
+	}
+	.pr-icon :global(svg) {
+		inline-size: 1.15rem;
+		block-size: 1.15rem;
+	}
+	.title {
+		font-size: 1.05rem;
+		font-weight: 650;
+	}
+	.meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem 0.6rem;
+		margin-top: 0.2rem;
+		font-size: 0.85rem;
+		color: var(--lp-muted);
+	}
+	.state {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.1rem 0.6rem;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--lp-ok) 16%, var(--lp-panel));
+		color: var(--lp-ok-text);
+		font-weight: 600;
+	}
+	.dot {
+		inline-size: 0.5rem;
+		block-size: 0.5rem;
+		border-radius: 50%;
+		background: currentcolor;
+	}
+	.file {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.7rem 1.25rem;
+		background: var(--lp-surface2);
+		border-block-end: 1px solid var(--lp-border);
+		font-family: var(--font-mono);
+		font-size: 0.82rem;
+	}
+	.stats {
+		color: var(--lp-muted);
+	}
+	.effect {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2) var(--space-4);
+		padding: 1.1rem 1.25rem;
+		border-block-start: 1px solid var(--lp-border);
+		background: var(--lp-brass-wash);
+	}
+	.what {
+		font-family: var(--font-display);
+		font-size: 1.6rem;
+		line-height: 1.1;
+	}
+	.soon {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--lp-muted);
+	}
+	.soon :global(.lp-tag) {
+		background: var(--lp-panel);
+	}
+	.caption {
+		margin: var(--space-4) 0 0;
+		font-size: 0.875rem;
+		color: var(--lp-muted);
+	}
+
+	@media (min-width: 64rem) {
+		.grid {
+			grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+		}
+		.stage {
+			position: sticky;
+			top: 2rem;
+		}
+	}
+</style>

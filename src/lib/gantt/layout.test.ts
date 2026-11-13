@@ -5,8 +5,9 @@ import {
 	HIT_MIN_FINE,
 	createLayout,
 	intersects,
+	placeBar,
 	metricsFor,
-	paintWindow,
+	revealTop,
 	rowRange,
 	scaleFor,
 	type Rect,
@@ -224,47 +225,64 @@ describe('intersects', () => {
 	});
 });
 
-describe('paintWindow', () => {
-	const opt = { overscanX: 300, overscanY: 280 };
-	const content = { w: 10_000, h: 14_000 };
+describe('layout typed arrays (phase-2.md 6.3)', () => {
+	const m = modelOf([row(0, 0, 2 * D), row(1, null, null), row(2, 3 * D, 3 * D, 'milestone')]);
+	const layout = createLayout(m, createScale(48, 0), metricsOf(false), 1000);
 
-	it('covers the view with the overscan and stays inside the content', () => {
-		const w = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		expect(w).toEqual({ x: 1700, y: 2720, w: 1400, h: 1060 });
-		const edge = paintWindow({ x: 0, y: 0, w: 800, h: 500 }, content, opt, null);
-		expect(edge).toMatchObject({ x: 0, y: 0 });
-		const end = paintWindow({ x: 9200, y: 13_500, w: 800, h: 500 }, content, opt, null);
-		expect(end.x + end.w).toBe(10_000);
-		expect(end.y + end.h).toBe(14_000);
+	it('keeps the bars in typed arrays, NaN for a row without one, and agrees with barRect', () => {
+		expect(layout.bars.x).toBeInstanceOf(Float64Array);
+		expect(Number.isNaN(layout.bars.x[1])).toBe(true);
+		for (const i of [0, 2]) {
+			const into = { x: 0, y: 0, w: 0, h: 0 };
+			expect(layout.barInto(i, into)).toBe(true);
+			expect(into).toEqual(layout.barRect(i));
+		}
+		const untouched = { x: 1, y: 2, w: 3, h: 4 };
+		expect(layout.barInto(1, untouched)).toBe(false);
+		expect(untouched).toEqual({ x: 1, y: 2, w: 3, h: 4 });
 	});
 
-	it('keeps the same window while the view is inside it with a margin', () => {
-		const first = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		const again = paintWindow({ x: 2050, y: 3100, w: 800, h: 500 }, content, opt, first);
-		expect(again).toBe(first);
+	it('places a bar as the layout does, for the tween', () => {
+		const out = { x: 0, y: 0, w: 0, h: 0 };
+		placeBar(out, 'task', 0, 2 * D, 0, layout.scale, layout.metrics);
+		expect(out).toEqual(layout.barRect(0));
+		placeBar(out, 'milestone', 3 * D, 3 * D, 2 * 28, layout.scale, layout.metrics);
+		expect(out).toEqual(layout.barRect(2));
 	});
 
-	it('moves the window when the view nears its edge, and back to the start', () => {
-		const first = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		const next = paintWindow({ x: 2000 + 250, y: 3000, w: 800, h: 500 }, content, opt, first);
-		expect(next).not.toBe(first);
-		expect(next.x).toBeLessThanOrEqual(2250 - 100);
-		const vertical = paintWindow({ x: 2000, y: 3000 + 400, w: 800, h: 500 }, content, opt, first);
-		expect(vertical).not.toBe(first);
-		const home = paintWindow({ x: 0, y: 0, w: 800, h: 500 }, content, opt, first);
-		expect(home).toMatchObject({ x: 0, y: 0 });
+	it('fills a link path into a buffer, the same as linkPath', () => {
+		const m2 = modelOf([row(0, 0, 2 * D), row(1, 4 * D, 6 * D)], [link(0, 1)]);
+		const l = createLayout(m2, createScale(48, 0), metricsOf(false), 1000);
+		const buf = { n: 0, xy: new Float64Array(12) };
+		expect(l.linkInto(m2.links[0]!, buf)).toBe(true);
+		const points = l.linkPath(m2.links[0]!);
+		expect(buf.n).toBe(points.length);
+		expect(points.map((p) => [p.x, p.y])).toEqual(
+			Array.from({ length: buf.n }, (_, i) => [buf.xy[2 * i], buf.xy[2 * i + 1]]),
+		);
+		expect(l.linkInto(link(0, 5), buf)).toBe(false);
+		expect(buf.n).toBe(0);
 	});
 
-	it('is a single window when the content is smaller than the view plus overscan', () => {
-		const small = { w: 900, h: 300 };
-		const first = paintWindow({ x: 0, y: 0, w: 800, h: 500 }, small, opt, null);
-		expect(first).toEqual({ x: 0, y: 0, w: 900, h: 300 });
-		expect(paintWindow({ x: 100, y: 0, w: 800, h: 500 }, small, opt, first)).toBe(first);
+	it('gives the same layout with other bars, sharing everything else', () => {
+		const other = {
+			x: new Float64Array([5, NaN, 7]),
+			y: layout.bars.y,
+			w: layout.bars.w,
+			h: layout.bars.h,
+		};
+		const moved = layout.withBars(other);
+		expect(moved.barRect(0)?.x).toBe(5);
+		expect(moved.avatars).toBe(layout.avatars);
+		expect(moved.width).toBe(layout.width);
+		expect(moved.rowTop(2)).toBe(layout.rowTop(2));
 	});
+});
 
-	it('makes a new window when the viewport is resized', () => {
-		const first = paintWindow({ x: 2000, y: 3000, w: 800, h: 500 }, content, opt, null);
-		const bigger = paintWindow({ x: 2000, y: 3000, w: 1000, h: 500 }, content, opt, first);
-		expect(bigger.w).toBe(1600);
+describe('revealTop', () => {
+	it('keeps the offset while the row is in view, and scrolls the least to show it', () => {
+		expect(revealTop(5, 28, 0, 280)).toBe(0);
+		expect(revealTop(2, 28, 100, 280)).toBe(56);
+		expect(revealTop(20, 28, 0, 280)).toBe(20 * 28 + 28 - 280);
 	});
 });

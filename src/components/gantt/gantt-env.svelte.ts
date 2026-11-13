@@ -2,8 +2,8 @@
 /**
  * What the Gantt reads from the browser: the theme (from the CSS tokens), the device pixel ratio,
  * the pointer type and the clock. Each is a rune, and `attach` keeps them current: the theme is
- * resolved again when the colour scheme, the pointer type (the coarse-pointer sizes are token
- * overrides) or the fonts change, the ratio when the window moves to another screen, the clock
+ * resolved again when the colour scheme or the app's theme choice (the `data-theme` attribute on
+ * <html>), the pointer type (the coarse-pointer sizes are token overrides) or the fonts change, the ratio when the window moves to another screen, the clock
  * once a minute. It returns the function that stops listening.
  */
 import { clearTextCache, effectiveDpr } from '../../lib/gantt/paint/canvas';
@@ -44,6 +44,12 @@ export class GanttEnv {
 		watchResolution();
 		scheme.addEventListener('change', onScheme);
 		pointer.addEventListener('change', onPointer);
+		// The theme toggle sets data-theme without a media change; the tokens change with it.
+		const themeAttr = new MutationObserver(onScheme);
+		themeAttr.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['data-theme'],
+		});
 		void document.fonts?.ready.then(() => {
 			clearTextCache();
 			read();
@@ -52,6 +58,7 @@ export class GanttEnv {
 		return () => {
 			scheme.removeEventListener('change', onScheme);
 			pointer.removeEventListener('change', onPointer);
+			themeAttr.disconnect();
 			resolution?.removeEventListener('change', onResolution);
 			clearInterval(clock);
 		};

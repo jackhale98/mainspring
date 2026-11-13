@@ -26,4 +26,12 @@ describe('markerState', () => {
 		expect(markerState(model({ todayMin: 10 * D + 61, statusMin: 10 * D }), 0).merged).toBe(false);
 		expect(markerState(model({ todayMin: 10 * D }), 0).merged).toBe(false);
 	});
+
+	it('takes today from the caller, so that the clock is not part of the model', () => {
+		const m = model({ statusMin: 20 * D });
+		expect(markerState(m, 0, 10 * D)).toMatchObject({ today: 'on', target: 10 * D });
+		expect(markerState(m, 0, 20 * D + 30)).toMatchObject({ merged: true });
+		// An explicit null means no clock, whatever the model holds.
+		expect(markerState(model({ todayMin: 10 * D }), 0, null).today).toBeNull();
+	});
 });

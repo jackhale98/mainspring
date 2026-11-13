@@ -83,6 +83,39 @@ describe('AppState', () => {
 		expect(app.activeFile).toBe('x.tji');
 	});
 
+	it('undoes across files through app.history, revealing and naming the change', async () => {
+		const { app } = await open();
+		await app.openSample('two');
+		const ws = app.workspace;
+		if (!ws) throw new Error('no workspace');
+		expect(app.history.canUndo).toBe(false);
+		const typed = ws.state('x.tji').update({
+			changes: { from: 0, insert: '# x\n' },
+			userEvent: 'input.type',
+		});
+		ws.commit('x.tji', typed, 'typing');
+		expect(app.history.canUndo).toBe(true);
+		expect(app.history.undoLabel).toBe('Undo: typing');
+		// The editor shows plan.tjp: the undo opens x.tji at the change and says what it undid.
+		expect(app.activeFile).toBe('plan.tjp');
+		app.phoneTab = 'plan';
+		expect(app.history.undo()).toBe(true);
+		expect(ws.texts()['x.tji']).toBe('task c "C"\n');
+		expect(app.activeFile).toBe('x.tji');
+		expect(app.phoneTab).toBe('plan');
+		expect(app.reveal).toMatchObject({
+			file: 'x.tji',
+			from: 0,
+			to: 0,
+			focus: false,
+			select: false,
+		});
+		expect(app.note).toBe(strings.history.undone('typing', 'x.tji'));
+		expect(app.history.redoLabel).toBe('Redo: typing');
+		expect(app.history.redo()).toBe(true);
+		expect(ws.texts()['x.tji']).toBe('# x\ntask c "C"\n');
+	});
+
 	it('maps an outline node through the edits made since the index', async () => {
 		const { app, client } = await open();
 		client.done(1, { tasks: [task('a', 2, 600), task('b', 3, 1500)] });

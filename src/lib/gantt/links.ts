@@ -5,7 +5,8 @@
  * - The engine's result (bridge schema v2) is the source of truth for which links exist, and for
  *   their type (`onstart` and `onend`) and gaps, whenever it is current: TaskJuggler has resolved
  *   inheritance, scenarios and macros. A child's entry that only repeats its parent's is left out:
- *   the parent's line stands for it.
+ *   the parent's line stands for it. When the child also writes that dependency itself, its site
+ *   is attached to the parent's line, so that removing the line finds every place it is written.
  * - The index's `DependencySite`s say where each link is written, so that it can later be removed.
  *   A site belongs to a link when the pred, the succ and the form (`depends` or `precedes`) agree
  *   and its scenario is the active one or one of its parents (an attribute set for a parent
@@ -13,8 +14,10 @@
  *
  * When the text is newer than the result, as while typing or after an edit that broke the
  * schedule, the engine no longer describes the text: a declared link the schedule lacks is
- * 'pending', and an engine link the text does not declare is dropped. A result from an engine
- * that does not emit the v2 fields leaves the text's links, all 'declared'.
+ * 'pending', and so is an engine link the text does not declare (a macro's, say: the text cannot
+ * say whether it still stands, so it stays, drawn as unconfirmed, until a current result decides).
+ * A result from an engine that does not emit the v2 fields leaves the text's links, all
+ * 'declared'.
  */
 import type { ScheduleResult, TaskResult, TaskScenarioResult } from '../../engine/protocol';
 import type { DependencySite, TaskId } from '../tjp/index';
@@ -53,38 +56,53 @@ const linkKey = (l: Pick<RawLink, 'pred' | 'succ' | 'from' | 'to'>): string =>
 const pairKey = (form: string, pred: TaskId, succ: TaskId): string => `${form}|${pred}|${succ}`;
 
 interface EngineLink {
+	/** The link to draw: the task's own, or for an inherited entry the ancestor's. */
 	readonly link: Omit<RawLink, 'state' | 'sites'>;
 	readonly form: 'depends' | 'precedes';
+	/** Where the sites of the task's own entry are looked up: its pair, whatever `link` is. */
+	readonly siteKey: string;
+	/** An ancestor has the same entry: `link` is the ancestor's line. */
+	readonly inherited: boolean;
 }
 
 /**
  * The engine's links for a scenario, or null when the result carries no v2 dependency fields.
- * `depends` entries lead to the task, `precedes` entries from it; an entry that an ancestor
- * has too (inheritance) is skipped.
+ * `depends` entries lead to the task, `precedes` entries from it. An entry that an ancestor has
+ * too (inheritance) is returned as the ancestor's link, marked inherited, so that a site the task
+ * writes itself can be attached to it.
  */
 function engineLinks(result: ScheduleResult, scenario: string): EngineLink[] | null {
 	const of = (t: TaskResult): Partial<TaskScenarioResult> | undefined => t.scenarios[scenario];
 	const byId = new Map(result.tasks.map((t) => [t.id, t] as const));
 	if (!result.tasks.some((t) => Array.isArray(of(t)?.depends))) return null;
 	const out: EngineLink[] = [];
-	const inherited = (id: string, list: 'depends' | 'precedes', task: string, onEnd: boolean) =>
-		ancestors(id).some((a) => {
+	/** The nearest ancestor that has the same entry, or null. */
+	const inheritedFrom = (
+		id: string,
+		list: 'depends' | 'precedes',
+		task: string,
+		onEnd: boolean,
+	): string | null =>
+		ancestors(id).find((a) => {
 			const parent = byId.get(a);
 			return (parent ? (of(parent)?.[list] ?? []) : []).some(
 				(d) => d.task === task && d.onEnd === onEnd,
 			);
-		});
+		}) ?? null;
 	for (const t of result.tasks) {
 		const s = of(t);
 		for (const d of s?.depends ?? []) {
-			if (inherited(t.id, 'depends', d.task, d.onEnd)) continue;
 			// This task starts after the other's end (the default) or its start (`onstart`).
+			const from = d.onEnd ? 'end' : 'start';
+			const above = inheritedFrom(t.id, 'depends', d.task, d.onEnd);
 			out.push({
 				form: 'depends',
+				siteKey: pairKey('depends', d.task, t.id),
+				inherited: above !== null,
 				link: {
 					pred: d.task,
-					succ: t.id,
-					from: d.onEnd ? 'end' : 'start',
+					succ: above ?? t.id,
+					from,
 					to: 'start',
 					gapDurationMin: d.gapDurationMin,
 					gapLengthMin: d.gapLengthMin,
@@ -92,12 +110,14 @@ function engineLinks(result: ScheduleResult, scenario: string): EngineLink[] | n
 			});
 		}
 		for (const d of s?.precedes ?? []) {
-			if (inherited(t.id, 'precedes', d.task, d.onEnd)) continue;
 			// This task ends before the other's start (the default) or its end (`onend`).
+			const above = inheritedFrom(t.id, 'precedes', d.task, d.onEnd);
 			out.push({
 				form: 'precedes',
+				siteKey: pairKey('precedes', t.id, d.task),
+				inherited: above !== null,
 				link: {
-					pred: t.id,
+					pred: above ?? t.id,
 					succ: d.task,
 					from: 'end',
 					to: d.onEnd ? 'end' : 'start',
@@ -137,11 +157,17 @@ export function resolveLinks(i: LinkInput): RawLink[] {
 	const matched = new Set<string>();
 	if (engine) {
 		for (const e of engine) {
-			const key = pairKey(e.form, e.link.pred, e.link.succ);
-			const own = sites.get(key) ?? [];
-			matched.add(key);
-			if (own.length === 0 && !i.current) continue; // The text no longer declares it.
-			add({ ...e.link, state: own.length > 0 ? 'declared' : 'engine', sites: own });
+			const own = sites.get(e.siteKey) ?? [];
+			matched.add(e.siteKey);
+			if (e.inherited) {
+				// The ancestor's line stands for it; a site this task writes itself belongs to that line.
+				if (own.length > 0) add({ ...e.link, state: 'declared', sites: own });
+				continue;
+			}
+			// No site: only the engine knows it (a macro). While the text is newer it may be gone, so
+			// it stays as unconfirmed rather than vanishing under the person's typing.
+			const state = own.length > 0 ? 'declared' : i.current ? 'engine' : 'pending';
+			add({ ...e.link, state, sites: own });
 		}
 	}
 	// What the text declares and the engine does not show: all of it without engine data, and

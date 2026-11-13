@@ -6,6 +6,7 @@ import {
 	MIN_PX_PER_DAY,
 	ZOOM_PRESETS,
 	canZoomIn,
+	zoomForKey,
 	canZoomOut,
 	clampZoom,
 	createScale,
@@ -69,5 +70,24 @@ describe('scrollAfterZoom', () => {
 
 	it('never scrolls before the start', () => {
 		expect(scrollAfterZoom(createScale(56, 0), 0, 300)).toBe(0);
+	});
+});
+
+describe('zoomForKey', () => {
+	const key = (k: string, mods: Partial<KeyboardEvent> = {}) => ({
+		key: k,
+		ctrlKey: false,
+		metaKey: false,
+		altKey: false,
+		...mods,
+	});
+	it('zooms in on + and =, out on -, and leaves other keys and the browser zoom alone', () => {
+		const week = ZOOM_PRESETS.week;
+		expect(zoomForKey(key('+'), week)).toBe(ZOOM_PRESETS.day);
+		expect(zoomForKey(key('='), week)).toBe(ZOOM_PRESETS.day);
+		expect(zoomForKey(key('-'), week)).toBe(ZOOM_PRESETS.month);
+		expect(zoomForKey(key('a'), week)).toBeNull();
+		expect(zoomForKey(key('+', { ctrlKey: true }), week)).toBeNull();
+		expect(zoomForKey(key('-', { metaKey: true }), week)).toBeNull();
 	});
 });
