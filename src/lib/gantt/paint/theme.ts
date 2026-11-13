@@ -111,7 +111,7 @@ const NUMBERS = {
 	ringWidth: ['--gantt-ring-width', 2],
 	ringGap: ['--gantt-ring-gap', 3],
 	hoverRingWidth: ['--gantt-hover-ring-width', 1.5],
-	floatHeight: ['--gantt-float-height', 3],
+	floatHeight: ['--gantt-float-height', 1.5],
 	dash: ['--gantt-dash', 4],
 	dimOpacity: ['--gantt-dim-opacity', 0.5],
 	textOnlyOpacity: ['--gantt-text-only-opacity', 0.25],
