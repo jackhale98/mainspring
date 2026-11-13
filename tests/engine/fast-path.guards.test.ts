@@ -87,12 +87,12 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: its own checks', () =
 		{ name: 'two rewrites in one patch', text: withLine(11, '    effort 5d').replace('    complete 20', '    complete 40'), edits: [edit('top.a', 'effort', '5d', 11), edit('top.a', 'complete', '40', 13)], fast: true },
 		{ name: 'a start before a later end (the direction would change)', text: withLine(22, '    start 2026-01-08'), edits: [edit('top.c', 'start', '2026-01-08', 22)], fast: false, reason: /direction/ },
 		{ name: 'a priority its children inherit', text: withLine(9, '  priority 450'), edits: [edit('top', 'priority', '450', 9)], fast: false, reason: /inherited by children/ },
-		{ name: 'a value another scenario sets too', text: withLine(17, '    length 3d'), edits: [edit('top.b', 'length', '3d', 17)], fast: false, reason: /another scenario/ },
+		{ name: 'a value another scenario sets too', text: withLine(17, '    length 3d'), edits: [edit('top.b', 'length', '3d', 17)], fast: false, reason: /later statement|another scenario/ },
 		{ name: 'a value TaskJuggler refuses', text: withLine(13, '    complete 150'), edits: [edit('top.a', 'complete', '150', 13)], fast: false, reason: /task_complete/ },
 		{ name: 'an edit at the wrong line', text: withLine(11, '    effort 5d'), edits: [edit('top.a', 'effort', '5d', 12)], fast: false, reason: /in-place/ },
 		{ name: 'a keyword change', text: withLine(11, '    length 5d'), edits: [edit('top.a', 'length', '5d', 11)], fast: false, reason: /in-place/ },
 		{ name: 'an unknown base', text: withLine(11, '    effort 5d'), edits: [edit('top.a', 'effort', '5d', 11)], base: 999_999, fast: false, reason: /another base/ },
-		{ name: 'a task that does not exist', text: withLine(11, '    effort 5d'), edits: [edit('top.zz', 'effort', '5d', 11)], fast: false, reason: /no task/ },
+		{ name: 'a task that does not exist', text: withLine(11, '    effort 5d'), edits: [edit('top.zz', 'effort', '5d', 11)], fast: false, reason: /not one statement|no task/ },
 		{ name: 'a line added', text: PLAN.replace('    effort 3d\n', '    effort 5d\n\n'), edits: [edit('top.a', 'effort', '5d', 11)], fast: false, reason: /in-place/ },
 	];
 

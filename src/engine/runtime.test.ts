@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { EngineFailure, toEngineError } from './failure';
 import {
 	bootEngine,
+	bridgeRequest,
 	createTimeZoneHost,
+	fastTimings,
 	installTimeZoneHost,
 	parseBridgeReply,
 	parseBundle,
@@ -112,5 +114,60 @@ describe('toEngineError', () => {
 		expect(toEngineError(new RangeError('Maximum call stack size exceeded')).kind).toBe('crash');
 		expect(toEngineError(new Error('x')).kind).toBe('internal');
 		expect(toEngineError('x', 'boot')).toMatchObject({ kind: 'boot', detail: 'x' });
+	});
+});
+
+describe('bridgeRequest', () => {
+	const base = { files: { 'plan.tjp': 'x' }, entry: 'plan.tjp', revision: 3 };
+
+	it('passes retain and fast through only when set', () => {
+		expect(bridgeRequest(base)).toEqual({ ...base, options: {} });
+		expect(bridgeRequest({ ...base, retain: false })).toEqual({ ...base, options: {} });
+		const fast = {
+			base: 2,
+			edits: [
+				{
+					task: 'a',
+					attribute: 'effort' as const,
+					scenario: null,
+					value: '3d',
+					file: 'plan.tjp',
+					line: 4,
+				},
+			],
+		};
+		expect(bridgeRequest({ ...base, options: { now: '2026-01-05T09:00:00Z' }, retain: true, fast })).toEqual({
+			...base,
+			options: { now: '2026-01-05T09:00:00Z' },
+			retain: true,
+			fast,
+		});
+	});
+});
+
+describe('fastTimings', () => {
+	it('keeps the fast-path fields of the right types and nothing else', () => {
+		expect(
+			fastTimings({
+				path: 'fast',
+				retainMs: 12.5,
+				retainBytes: 4096,
+				cloneMs: 3,
+				applyMs: 1.2,
+				fastFallback: 'another base',
+				retainError: 'no _dump_data',
+				parseMs: 9,
+			}),
+		).toEqual({
+			path: 'fast',
+			retainMs: 12.5,
+			retainBytes: 4096,
+			cloneMs: 3,
+			applyMs: 1.2,
+			fastFallback: 'another base',
+			retainError: 'no _dump_data',
+		});
+		expect(fastTimings({ path: 'sideways', retainMs: '12', fastFallback: 3 })).toEqual({});
+		expect(fastTimings({})).toEqual({});
 	});
 });

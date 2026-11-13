@@ -106,8 +106,9 @@ tj-bundle.*.json.gz
   Chris Schlaeger and contributors, under the GNU General Public License
   version 2 only. The license text is below and inside the bundle as
   /tj/COPYING. The bundle also holds Mainspring's bridge (/tj/bridge) and
-  stubs (/tj/stubs), GPL-2.0-or-later, except /tj/bridge/wasm/tj_wasm_time.rb,
-  which is GPL-2.0-only because it re-implements TaskJuggler code.
+  stubs (/tj/stubs), GPL-2.0-or-later, except /tj/bridge/wasm/tj_wasm_time.rb
+  and /tj/bridge/fast_path_procs.rb, which are GPL-2.0-only because they
+  re-implement TaskJuggler code.
 
 ruby.*.wasm.gz
   CRuby 3.4 compiled to WebAssembly by ruby.wasm (${RUBY_WASM_PACKAGE}

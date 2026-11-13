@@ -122,12 +122,15 @@ module TJBridge
     MainspringBridge.write_workspace(WORKSPACE, files)
     t1 = MainspringBridge.clock_ms
     fp = MainspringBridge::FastPath
+    sites = MainspringBridge::FastPathSites
     keep = if req['retain'] == true
              fp.drop
+             # Note the lines of the statements the fast path may rewrite while this run parses.
+             sites.start
              lambda do |project, messages|
                fp.retain(revision: req['revision'], entry: entry, files: files,
-                         now_option: options['now'], project: project,
-                         messages: messages, capture: MainspringBridge::Capture)
+                         now_option: options['now'], project: project, messages: messages,
+                         capture: MainspringBridge::Capture, root: WORKSPACE, log: sites.stop)
              end
            end
     result, timings = MainspringBridge.run(WORKSPACE, entry, now, on_parsed: keep)
@@ -136,6 +139,8 @@ module TJBridge
       timings['retainError'] = fp.unkept('the parse gave errors')
     end
     [result, timings.merge('path' => 'full', 't1' => t1)]
+  ensure
+    sites&.stop
   end
 
   def syntax

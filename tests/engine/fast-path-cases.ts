@@ -1,51 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * Cases for the fast-path spike (phase-2.md section 12, T19): in-place value rewrites of a
- * workspace, each with the `FastPatch` edit the runner would send and the edited text the full
- * run gets.
+ * Cases for the fast-path suites (phase-2.md section 12, T19; ADR-0010): in-place value
+ * rewrites of a workspace, each with the `FastEdit` the runner would send and the edited text the
+ * full run gets.
  *
- * Eligibility (section 12, step 2) is decided here from the symbol index, as the main thread
- * would: a task's own single-line `effort`, `length`, `duration`, `start`, `end`, `priority` or
- * `complete` statement for the top scenario, in a task that is not text-only, not built by a
- * macro and has no macro call in its body; no other site of the same keyword in the task
- * (another scenario, a supplement); `priority` only on a leaf (children copy it when they are
- * created; `start` and `end` they do not). The edit API (`setAttr`) writes the new value, and the change must stay on that
- * one line. The bridge checks again what it can (engine/bridge/fast_path.rb) and runs in full
- * when it cannot vouch for a patch, so a case may also fall back; the result must match anyway.
+ * Which statements may be rewritten, and the edits of a change, come from the app's own module
+ * (src/lib/workspace/fast-patch.ts), as the runner will use them. The edit API (`setAttr`)
+ * writes the new value. The bridge checks everything again against its own parse
+ * (engine/bridge/fast_path.rb) and runs in full when it cannot vouch for a patch, so a case may
+ * fall back; the result must match anyway.
  *
  * Values: a different duration, a date moved by up to ten days, a priority or a completion,
  * and now and then one out of range (complete 150, priority 2000) that TaskJuggler refuses while
  * parsing, which must fall back.
  */
-import type { FastAttr, FastEdit, ScheduleResult } from '../../src/engine/protocol';
+import type { FastEdit, ScheduleResult } from '../../src/engine/protocol';
 import { applyIntent } from '../../src/lib/tjp/edit/apply';
 import type { TaskAttr } from '../../src/lib/tjp/edit/types';
-import { buildIndex, type EngineHints, type SymbolIndex, type TaskSymbol } from '../../src/lib/tjp/index';
+import { buildIndex, type EngineHints, type SymbolIndex } from '../../src/lib/tjp/index';
+import { fastEditsOf, fastSites, type FastSite } from '../../src/lib/workspace/fast-patch';
 import type { Workspace } from '../../src/lib/workspace/workspace';
 import { Rng } from '../fidelity/gen/rng';
 
-export const FAST_ATTRS: readonly FastAttr[] = [
-	'effort',
-	'length',
-	'duration',
-	'start',
-	'end',
-	'priority',
-	'complete',
-];
-const DURATIONS = new Set(['effort', 'length', 'duration', 'milestone']);
-/** Keywords children copy from their parent when they are created (Project.rb attribute table). */
-const INHERITED = new Set(['priority']);
-
-export interface Site {
-	readonly task: TaskSymbol;
-	readonly attribute: FastAttr;
-	readonly file: string;
-	/** 1-based. */
-	readonly line: number;
-	/** The value as written now. */
-	readonly value: string;
-}
+export type Site = FastSite;
 
 export interface Rewrite {
 	readonly site: Site;
@@ -54,33 +31,9 @@ export interface Rewrite {
 	readonly files: Record<string, string>;
 }
 
-/** The sites a fast patch may rewrite (module comment). */
+/** The sites a fast patch may rewrite (fast-patch.ts). */
 export function eligibleSites(ws: Workspace, index: SymbolIndex): Site[] {
-	const snap = ws.snapshot();
-	const out: Site[] = [];
-	for (const task of index.tasks.values()) {
-		if (task.textOnly || task.expandedOnly || task.bodyMacroCalls.length > 0) continue;
-		for (const a of task.attrs) {
-			const attribute = a.keyword as FastAttr;
-			if (!FAST_ATTRS.includes(attribute) || a.scenario !== null || !a.value || a.textOnly) continue;
-			if (INHERITED.has(attribute) && task.children.length > 0) continue;
-			const family = DURATIONS.has(attribute) ? DURATIONS : new Set([attribute]);
-			const same = task.attrs.filter((b) => family.has(b.keyword));
-			if (same.length !== 1) continue;
-			const file = snap.files.get(a.statement.file);
-			if (!file) continue;
-			const text = file.text;
-			const line = text.lineAt(a.statement.from);
-			if (text.lineAt(a.statement.to).number !== line.number) continue;
-			const value = text.sliceString(a.value.from, a.value.to).trim();
-			if (value.includes('$') || value.includes('\n')) continue;
-			// The statement alone on its line (not `task a "A" { effort 1d }`).
-			if (!new RegExp(`^\\s*${attribute}\\s`).test(line.text)) continue;
-			if (line.text.trim().endsWith('}')) continue;
-			out.push({ task, attribute, file: a.statement.file, line: line.number, value });
-		}
-	}
-	return out;
+	return fastSites(ws.snapshot(), index);
 }
 
 const pad = (n: number, w = 2): string => String(n).padStart(w, '0');
@@ -113,8 +66,8 @@ export function newValue(site: Site, rng: Rng): string {
 }
 
 /**
- * The rewrite of a site to `value` through the edit API, or null when the edit API does not
- * rewrite that statement in place on its own line (another statement, a refusal, a no-op).
+ * The rewrite of a site to `value` through the edit API, or null when it is not one in-place
+ * rewrite of that site (another statement, a refusal, a no-op).
  */
 export function rewrite(ws: Workspace, index: SymbolIndex, site: Site, value: string): Rewrite | null {
 	const snap = ws.snapshot();
@@ -125,36 +78,17 @@ export function rewrite(ws: Workspace, index: SymbolIndex, site: Site, value: st
 		value,
 	});
 	if (r.status !== 'edit') return null;
-	const paths = Object.keys(r.edit.changes);
-	if (paths.length !== 1 || paths[0] !== site.file) return null;
-	const cs = r.edit.changes[site.file];
-	const before = snap.files.get(site.file)?.text;
-	if (!cs || !before) return null;
-	const after = cs.apply(before);
-	if (after.lines !== before.lines) return null;
-	const at = before.line(site.line);
-	let inPlace = true;
-	cs.iterChangedRanges((from, to) => {
-		if (from < at.from || to > at.to) inPlace = false;
-	});
-	if (!inPlace) return null;
-	const newLine = after.line(site.line).text;
+	const edits = fastEditsOf(snap, index, r.edit.changes);
+	const edit = edits?.[0];
+	if (!edits || edits.length !== 1 || !edit || edit.line !== site.line || edit.file !== site.file) {
+		return null;
+	}
 	const files: Record<string, string> = {};
-	for (const [p, f] of snap.files) files[p] = p === site.file ? after.toString() : f.text.toString();
-	// The value as written in the new statement: the line's text after the keyword.
-	const written = newLine.trim().slice(site.attribute.length).trim().replace(/\s*(#|\/\/).*$/, '');
-	return {
-		site,
-		edit: {
-			task: site.task.id,
-			attribute: site.attribute,
-			scenario: null,
-			value: written,
-			file: site.file,
-			line: site.line,
-		},
-		files,
-	};
+	for (const [p, f] of snap.files) {
+		const cs = r.edit.changes[p];
+		files[p] = cs ? cs.apply(f.text).toString() : f.text.toString();
+	}
+	return { site, edit, files };
 }
 
 /** The index of a workspace, with engine hints when ids come from macros. */

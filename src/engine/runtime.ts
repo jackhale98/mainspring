@@ -108,8 +108,23 @@ export function parseBridgeReply(json: string): Record<string, unknown> {
 	throw new EngineFailure(kind, message, detail);
 }
 
-/** The fast-path fields of the bridge's timings (protocol.ts `Timings`), when present. */
-function fastTimings(t: Record<string, unknown>): Partial<Timings> {
+/**
+ * The request the bridge reads (tj_bridge.rb): `options` always present; `retain` and `fast` only
+ * when set, so a request without them is the same as before the fast path.
+ */
+export function bridgeRequest(request: ScheduleRequest): Record<string, unknown> {
+	return {
+		files: request.files,
+		entry: request.entry,
+		revision: request.revision,
+		options: request.options ?? {},
+		...(request.retain ? { retain: true } : {}),
+		...(request.fast ? { fast: request.fast } : {}),
+	};
+}
+
+/** The fast-path fields of the bridge's timings (protocol.ts `Timings`), when present and typed. */
+export function fastTimings(t: Record<string, unknown>): Partial<Timings> {
 	const out: Partial<Timings> = {};
 	if (t['path'] === 'full' || t['path'] === 'fast') out.path = t['path'];
 	for (const k of ['retainMs', 'retainBytes', 'cloneMs', 'applyMs'] as const) {
@@ -163,14 +178,7 @@ class WasmEngine implements NodeEngine {
 		const t0 = this.#now();
 		let json: string;
 		try {
-			json = JSON.stringify({
-				files: request.files,
-				entry: request.entry,
-				revision: request.revision,
-				options: request.options ?? {},
-				...(request.retain ? { retain: true } : {}),
-				...(request.fast ? { fast: request.fast } : {}),
-			});
+			json = JSON.stringify(bridgeRequest(request));
 		} catch (error) {
 			throw new EngineFailure('invalid-request', 'The request cannot be encoded.', String(error));
 		}
