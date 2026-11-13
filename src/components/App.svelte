@@ -37,6 +37,8 @@
 	import TabBar from './app/TabBar.svelte';
 	import Toasts from './app/Toasts.svelte';
 	import TopBar from './app/TopBar.svelte';
+	import { AppUpdates } from '../lib/state/updates.svelte';
+	import { sitePath } from '../lib/site-path';
 
 	const params = new URLSearchParams(location.search);
 	const app = new AppState({ initial: params.get('sample') });
@@ -45,9 +47,13 @@
 	const modes = new ModeState({ linked });
 	app.phoneTab = phoneTabFor(linked);
 	const layout = new LayoutState();
+	// A newer deployed build offers a reload (ADR-0012).
+	const updates = new AppUpdates({ url: sitePath('version.json'), visibility: document });
+	updates.start();
 	// End-to-end tests only, with ?hooks=edits (edit-hooks.ts).
 	const offHooks = installEditHooks(app, params);
 	onDestroy(() => {
+		updates.stop();
 		offHooks();
 		layout.dispose();
 		theme.dispose();
@@ -189,7 +195,7 @@
 	<div class="footer">
 		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 		{#if phone}<p class="notice compact">{strings.noticeShort}</p>{/if}
-		<StatusStrip {app} compact={phone} quiet={showGantt} />
+		<StatusStrip {app} {updates} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
 	<Toasts {app} {phone} />
