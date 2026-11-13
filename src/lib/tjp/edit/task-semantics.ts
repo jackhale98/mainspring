@@ -32,18 +32,6 @@ import { SIZING, bookingsOf, isContainer } from './task-attrs-checks';
 import type { Edited } from './task-verify';
 import { refused, type EditContext, type Refused } from './types';
 
-/** The loops of the edit's own index, computed once per index (a UI makes many edits on one). */
-const loopsOf = new WeakMap<SymbolIndex, ReturnType<typeof graphLoops>>();
-
-function beforeLoops(ctx: EditContext): ReturnType<typeof graphLoops> {
-	let l = loopsOf.get(ctx.index);
-	if (!l) {
-		l = graphLoops(ctx.ws, ctx.index);
-		loopsOf.set(ctx.index, l);
-	}
-	return l;
-}
-
 /**
  * `conflicting-attribute` when `parent` is a leaf with its own sizing, `milestone` or bookings.
  */
@@ -72,7 +60,8 @@ export interface EditedTasks {
 export function checkEdited(ctx: EditContext, edited: Edited, t: EditedTasks): Refused | null {
 	const moved = t.moved ?? [];
 	const added = t.added ?? null;
-	const before = beforeLoops(ctx);
+	// Cached per index (dep-graph.ts): many edits are planned on one index.
+	const before = graphLoops(ctx.ws, ctx.index);
 	for (const [sc, now] of graphLoops(edited.snap, edited.index)) {
 		const was = before.get(sc);
 		if ((now.loop && !was?.loop) || (now.cycle && !was?.cycle)) return refused('cycle', t.at);

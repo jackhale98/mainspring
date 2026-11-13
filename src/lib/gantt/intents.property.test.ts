@@ -84,13 +84,14 @@ describe('Gantt actions on the manipulation fixture', () => {
 					expect(index.tasks.has(i.task)).toBe(true);
 				}
 			}),
-			{ numRuns: RUNS, ...SEED },
+			// At least 600: a reorder is valid about one time in seven, and every kind must reach an edit.
+			{ numRuns: Math.max(RUNS, 600), ...SEED },
 		);
 		// The generator reaches edits of every kind, not only refusals.
 		for (const t of ['resize', 'move', 'link', 'reorder', 'assign', 'progress', 'add', 'delete']) {
 			expect(tally.get(`${t} edit`) ?? 0, `${t} ${JSON.stringify([...tally])}`).toBeGreaterThan(0);
 		}
-	});
+	}, 60_000);
 
 	it('move a task by the asked working days, unless its dependencies clamp it', () => {
 		const ctx = fx.ctx({ move: { kind: 'start' } });

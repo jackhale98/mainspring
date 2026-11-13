@@ -59,8 +59,10 @@ describe('dependency loop walks', () => {
 			}),
 			{ numRuns: RUNS, ...SEED },
 		);
-		// Both answers occur, so the comparison means something.
+		// Both answers occur for both walks, so the comparison means something.
 		expect(loops).toBeGreaterThan(0);
+		expect(loops).toBeLessThan(RUNS);
+		expect(cycles).toBeGreaterThan(0);
 		expect(cycles).toBeLessThan(RUNS);
 	});
 });

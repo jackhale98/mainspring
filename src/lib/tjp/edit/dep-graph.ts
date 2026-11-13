@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// Over 400 lines on purpose: the port of TaskJuggler's dependency reading (direction, inherited
+// lists, milestones, scenarios) is one state machine whose parts share the event order; split, its
+// readers would each need the whole of it.
 /**
  * Dependency loops as TaskJuggler finds them (phase-1.md 7.1 `addDepends` `cycle`), over the
  * declared graph in the index. A port of the parts of TaskScenario.rb (3.8.4) that decide it:
@@ -370,10 +373,12 @@ const declared = new WeakMap<SymbolIndex, Map<string, Loops>>();
  * moved to another parent, task-semantics.ts). Cached per index: `index` must be built from `ws`.
  */
 export function graphLoops(ws: WorkspaceSnapshot, index: SymbolIndex): Map<string, Loops> {
-	let l = declared.get(index);
+	// The cache holds only answers for the snapshot the index was built from.
+	const own = index.isFor(ws);
+	let l = own ? declared.get(index) : undefined;
 	if (!l) {
 		l = loopsOf(new Graph(ws, index, []), index);
-		declared.set(index, l);
+		if (own) declared.set(index, l);
 	}
 	return l;
 }

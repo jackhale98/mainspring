@@ -9,8 +9,9 @@
  *   since its work starts on Monday. "No change" is compared on those snapped instants.
  * - The target is the working day `n` days on (`shiftDays`). A working-time task lands on that
  *   day's first (or, ALAP, last) working minute; a calendar-time one (a milestone, a `duration`)
- *   keeps its time of day.
- * - A gap aims at the same target `T`. `gaplength` is walked over working slots
+ *   keeps the engine instant's time of day when that instant is on the day it works.
+ * - A gap aims at the same day, at the task's time of day when that is working time there (so a
+ *   whole-day gap stays whole), else at the day's first working minute: `T`. `gaplength` is walked over working slots
  *   (TaskScenario#earliestStart counts `gapLength` slots of the project's working time), so it
  *   changes by the working minutes between the old start and `T`: one working day of the plan's
  *   calendar, whatever `dailyworkinghours` says, written in TaskJuggler's `d` units when whole.
@@ -107,14 +108,21 @@ export function writtenDriver(
 
 /** The target of a move: `n` working days on from the snapped `base` (module comment). */
 function targetOf(
+	raw: Minutes,
 	base: Minutes,
 	n: number,
 	role: 'start' | 'end',
 	env: DateEnv,
 	keepTime: boolean,
 ): Minutes {
-	const t = env.wt.shiftDays(base, n, role);
-	return keepTime ? t + (base - env.wt.shiftDays(base, 0, role)) : t;
+	const wt = env.wt;
+	const t = wt.shiftDays(base, n, role);
+	if (!keepTime) return t;
+	// A calendar-time task keeps the engine instant's time of day when that instant is on the
+	// working day it works (Monday 00:00 moves to Tuesday 00:00); one placed outside it (Friday
+	// 17:00, working from Monday) lands on the target day's working edge.
+	const day = wt.shiftDays(base, 0, role);
+	return wt.shiftDays(raw, 0, role) === day ? t + (raw - day) : t;
 }
 
 /** R2 with `gap`: the driving dependency's gap, so that the task starts on the target day. */
@@ -132,7 +140,11 @@ function planGap(
 	if (entry.gapLengthMin > 0 && entry.gapDurationMin > 0) return notPossible('two-gaps', f);
 	const wt = env.wt;
 	const base = wt.snap(f.s.start as number, 'start');
-	const T = wt.shiftDays(base, n, 'start');
+	// The same time of day `n` working days on, when that is working time there; else that
+	// day's first working minute. Gaps then stay in whole units for a task that starts mid-day.
+	const day = wt.shiftDays(base, n, 'start');
+	const kept = day + (base - wt.shiftDays(base, 0, 'start'));
+	const T = wt.isWorking(kept) ? kept : day;
 	const calendar = entry.gapDurationMin > 0;
 	const old = calendar ? entry.gapDurationMin : entry.gapLengthMin;
 	// Earlier than the predecessor allows with no gap at all: nothing to take away.
@@ -196,7 +208,7 @@ export function planMove(
 	if (f.s.direction === 'alap') {
 		if (f.container) return notPossible('container', f);
 		const base = wt.snap(f.s.end as number, 'end');
-		let end = targetOf(base, n, 'end', env, exact);
+		let end = targetOf(f.s.end as number, base, n, 'end', env, exact);
 		const ceiling = ceilingOf(f.s, ctx, at);
 		if (ceiling !== null && wt.snap(end, 'end') > wt.snap(ceiling, 'end')) end = ceiling;
 		if (wt.snap(end, 'end') === base) return notPossible('at-limit', f);
@@ -232,7 +244,7 @@ export function planMove(
 	}
 	if (f.container) return notPossible('container', f);
 	const base = wt.snap(f.s.start as number, 'start');
-	let start = targetOf(base, n, 'start', env, exact);
+	let start = targetOf(f.s.start as number, base, n, 'start', env, exact);
 	// A start before the dependencies allow is a schedule error (task_pred_before): clamp.
 	const floor = floorOf(f.s, ctx, at);
 	if (floor !== null && wt.snap(start, 'start') < wt.snap(floor, 'start')) start = floor;
