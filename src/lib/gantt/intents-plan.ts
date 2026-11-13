@@ -122,8 +122,9 @@ export function suggestedMoveKind(task: TaskId, ctx: ActionContext): MoveKind {
 }
 
 /**
- * The earliest start the task's own `depends` entries allow in the shown schedule, snapped to
- * working time: where a move preview of an ASAP task clamps (7.1 R2). Null without one.
+ * The earliest start the task's own `depends` entries allow in the shown schedule (where
+ * TaskJuggler's earliestStart puts it, not snapped): where a move preview of an ASAP task clamps
+ * (7.1 R2). Null without one.
  */
 export function earliestStart(task: TaskId, ctx: ActionContext): Minutes | null {
 	const s = scenarioOf(ctx.result, task);

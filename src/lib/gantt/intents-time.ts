@@ -188,7 +188,7 @@ export function floorOf(
 		const x = p ? (d.onEnd ? p.end : p.start) : null;
 		if (x === null || x === undefined) continue;
 		const byLength = d.gapLengthMin > 0 ? wt.addWorking(x, d.gapLengthMin) : x;
-		const e = wt.snap(Math.max(byLength, x + d.gapDurationMin), 'start');
+		const e = Math.max(byLength, x + d.gapDurationMin);
 		if (floor === null || e > floor) floor = e;
 	}
 	return floor;
@@ -208,7 +208,7 @@ export function ceilingOf(
 		const y = q ? (d.onEnd ? q.end : q.start) : null;
 		if (y === null || y === undefined) continue;
 		const byLength = d.gapLengthMin > 0 ? wt.addWorking(y, -d.gapLengthMin) : y;
-		const l = wt.snap(Math.min(byLength, y - d.gapDurationMin), 'end');
+		const l = Math.min(byLength, y - d.gapDurationMin);
 		if (ceiling === null || l < ceiling) ceiling = l;
 	}
 	return ceiling;
@@ -278,7 +278,7 @@ export function planMove(
 		let end = env.wt.shiftDays(oldEnd, n, 'end');
 		const ceiling = ceilingOf(f.s, ctx, at);
 		if (ceiling !== null && end > ceiling) end = Math.max(oldEnd, ceiling);
-		if (end === oldEnd) return notPossible('at-limit', f);
+		if (env.wt.snap(end, 'end') === env.wt.snap(oldEnd, 'end')) return notPossible('at-limit', f);
 		const text = writeDate(end, 'end', env, exact);
 		if (text === null) return notPossible('at-limit', f);
 		const label = S.label.value(
@@ -308,7 +308,9 @@ export function planMove(
 	// A start before the dependencies allow is a schedule error (task_pred_before): clamp.
 	const floor = floorOf(f.s, ctx, at);
 	if (floor !== null && start < floor) start = Math.min(oldStart, floor);
-	if (start === oldStart) return notPossible('at-limit', f);
+	if (env.wt.snap(start, 'start') === env.wt.snap(oldStart, 'start')) {
+		return notPossible('at-limit', f);
+	}
 	const text = writeDate(start, 'start', env, exact);
 	if (text === null) return notPossible('at-limit', f);
 	const label = S.label.value(
