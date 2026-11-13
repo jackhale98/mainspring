@@ -43,6 +43,8 @@ export const HIT_MIN_FINE = 24;
 export const HIT_MIN_COARSE = 44;
 export const LINK_SLOP_FINE = 8;
 export const LINK_SLOP_COARSE = 12;
+/** What a link runs straight into its target beyond the arrow head's length, in px. */
+export const LINK_APPROACH_PAD = 4;
 
 export interface Metrics {
 	readonly rowHeight: number;
@@ -54,6 +56,8 @@ export interface Metrics {
 	readonly minBarWidth: number;
 	/** Space left of a link's first bend. */
 	readonly elbow: number;
+	/** The shortest straight run into a link's target: the arrow head and 4 px. */
+	readonly approach: number;
 	/** Space before the first date, so a start milestone is not clipped: half a diamond and a gap. */
 	readonly originPad: number;
 	/** Each of the two header rows. */
@@ -78,6 +82,7 @@ export function metricsFor(theme: Theme, coarse: boolean): Metrics {
 		milestoneHalf: theme.milestoneHalf,
 		minBarWidth: theme.minBarWidth,
 		elbow: theme.linkElbow,
+		approach: theme.arrowSize + LINK_APPROACH_PAD,
 		originPad: theme.milestoneHalf + theme.originGap,
 		headerRow: theme.headerRow,
 		headerHeight: theme.headerRow * 2,
@@ -203,7 +208,8 @@ function layoutOver(
 	width: number,
 ): GanttLayout {
 	const rows = model.rows;
-	const { rowHeight, elbow } = metrics;
+	const { rowHeight } = metrics;
+	const style = { elbow: metrics.elbow, rowHeight, approach: metrics.approach };
 	const rowTop = (row: number): number => row * rowHeight;
 
 	const barInto = (index: number, out: MutableRect): boolean => {
@@ -235,7 +241,7 @@ function layoutOver(
 			return false;
 		}
 		const milestone = rows[link.predRow]?.kind === 'milestone';
-		routeLink(out, pred, succ, link, milestone, elbow, rowHeight);
+		routeLink(out, pred, succ, link, milestone, style);
 		return true;
 	};
 

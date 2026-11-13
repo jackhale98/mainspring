@@ -55,19 +55,29 @@ export interface RouteEnds {
 	readonly to: 'start' | 'end';
 }
 
-/**
- * Routes a link between two bars into `out` (cleared first). `elbow` is the room left of the first
- * bend, `rowHeight` places the row boundary that a path going back round runs along.
- */
+export interface RouteStyle {
+	/** The room left of the first bend. */
+	readonly elbow: number;
+	/** Places the row boundary that a path going back round runs along. */
+	readonly rowHeight: number;
+	/**
+	 * The shortest straight run into the target, the arrow head's length and a little more: with
+	 * less the head sits beside the vertical line instead of at the end of a segment. When the
+	 * target is nearer than that, the path goes round and steps in from further left.
+	 */
+	readonly approach: number;
+}
+
+/** Routes a link between two bars into `out` (cleared first). */
 export function routeLink(
 	out: PathBuf,
 	pred: Rect,
 	succ: Rect,
 	link: RouteEnds,
 	predIsMilestone: boolean,
-	elbow: number,
-	rowHeight: number,
+	style: RouteStyle,
 ): void {
+	const { elbow, rowHeight, approach } = style;
 	out.n = 0;
 	const x0 = link.from === 'end' ? pred.x + pred.w : pred.x;
 	const y0 = pred.y + pred.h / 2;
@@ -88,7 +98,8 @@ export function routeLink(
 	}
 
 	const a = x0 + d0 * elbow;
-	const b = x1 - d1 * elbow;
+	// The last bend keeps the approach, even where the elbow alone would be shorter.
+	const b = x1 - d1 * Math.max(elbow, approach);
 	if (d0 !== d1) {
 		// Both ends on the same side (end to end, start to start): one C-shaped bend.
 		const m = d0 > 0 ? Math.max(a, b) : Math.min(a, b);
@@ -98,14 +109,14 @@ export function routeLink(
 		put(out, x1, y1);
 		return;
 	}
-	if ((x1 - a) * d1 >= 0) {
+	if ((x1 - a) * d1 >= approach) {
 		put(out, x0, y0);
 		put(out, a, y0);
 		put(out, a, y1);
 		put(out, x1, y1);
 		return;
 	}
-	// The successor's end is behind the predecessor's: go round through the row boundary.
+	// The target is behind, or too near for the head: go round through the row boundary.
 	const yMid = (down ? link.predRow + 1 : link.predRow) * rowHeight;
 	put(out, x0, y0);
 	put(out, a, y0);

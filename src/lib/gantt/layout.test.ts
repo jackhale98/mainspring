@@ -149,8 +149,8 @@ describe('link routing by type', () => {
 		const path = layout.linkPath(link(0, 1, { from: 'end', to: 'end' }));
 		expect(path).toEqual([
 			{ x: 192, y: 14 },
-			{ x: 248, y: 14 },
-			{ x: 248, y: 42 },
+			{ x: 249, y: 14 },
+			{ x: 249, y: 42 },
 			{ x: 240, y: 42 },
 		]);
 	});
@@ -161,8 +161,8 @@ describe('link routing by type', () => {
 			{ x: 96, y: 14 },
 			{ x: 88, y: 14 },
 			{ x: 88, y: 28 },
-			{ x: 248, y: 28 },
-			{ x: 248, y: 42 },
+			{ x: 249, y: 28 },
+			{ x: 249, y: 42 },
 			{ x: 240, y: 42 },
 		]);
 	});
