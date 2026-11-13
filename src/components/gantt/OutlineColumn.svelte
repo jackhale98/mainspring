@@ -8,6 +8,7 @@
 	hook: rows, the mounted range and the callbacks.
 -->
 <script lang="ts">
+	import Icon from '../Icon.svelte';
 	import { strings } from '../../lib/strings';
 	import type { GanttRow } from '../../lib/gantt/model';
 
@@ -147,7 +148,9 @@
 			onkeydown={(e) => onkeydown(e, row, index)}
 		>
 			<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">
-				{#if row.expanded !== null}{row.expanded ? '▾' : '▸'}{/if}
+				{#if row.expanded !== null}<span class="chevron" class:open={row.expanded}
+						><Icon name="chevronRight" size={14} /></span
+					>{/if}
 			</span>
 			<span class="name" class:summary={row.kind === 'container'}>{row.name}</span>
 			{#if row.textOnly}
@@ -183,9 +186,17 @@
 	.row:hover {
 		background: var(--color-gantt-row-hover);
 	}
+	/* Selection: a brass wash and a thin blued-steel edge (ADR-0009). */
 	.row.selected {
 		background: var(--color-gantt-row-selected);
 		box-shadow: inset 3px 0 0 var(--color-gantt-accent);
+	}
+	.chevron {
+		display: inline-grid;
+		transition: transform var(--motion-fast);
+	}
+	.chevron.open {
+		transform: rotate(90deg);
 	}
 	.row:focus-visible {
 		outline: 3px solid var(--color-gantt-accent);
@@ -216,6 +227,7 @@
 		border-radius: var(--radius-sm);
 		background: var(--color-badge-bg);
 		color: var(--color-badge-text);
+		border-radius: var(--radius-pill);
 		font-size: var(--text-xs);
 		line-height: 1.3rem;
 	}
@@ -239,8 +251,15 @@
 			line-clamp: 2;
 			-webkit-box-orient: vertical;
 		}
+		/* The badge is not drawn on a phone, but its words ("text only" and the reason) stay for
+		   screen readers: hidden visually, not display: none (WCAG 1.3.1). */
 		.badge {
-			display: none;
+			position: absolute;
+			inline-size: 1px;
+			block-size: 1px;
+			padding: 0;
+			overflow: hidden;
+			clip-path: inset(50%);
 		}
 	}
 	@media (pointer: coarse) {

@@ -32,18 +32,31 @@ The ruby.wasm binary statically links further libraries. Its own `NOTICE` (repro
 
 ## Shipped as fonts
 
-The app self-hosts two variable fonts (Latin subset, `dist/_astro/*.woff2`), under ADR-0005.
+The app self-hosts three fonts (Inter and JetBrains Mono as variable fonts, Instrument Serif in one weight, regular and italic; Latin subset, `dist/_astro/*.woff2`), under ADR-0005.
 Fonts are data files that the page loads; they are not linked into Mainspring's code, so the
 combination stays GPL-2.0. Their license texts ship at `/fonts/NOTICES.txt`
 (`public/fonts/NOTICES.txt`; `tests/ci/fonts.test.ts` checks it against the packages).
 
-| Component                                             | Version | Use                  | License                               |
-| ----------------------------------------------------- | ------- | -------------------- | ------------------------------------- |
-| Inter, `@fontsource-variable/inter`                   | 5.3.0   | UI text              | SIL Open Font License 1.1 (`OFL-1.1`) |
-| JetBrains Mono, `@fontsource-variable/jetbrains-mono` | 5.3.0   | Source text and ids  | SIL Open Font License 1.1 (`OFL-1.1`) |
-| Instrument Serif, `@fontsource/instrument-serif`      | 5.3.0   | Gantt header, titles | SIL Open Font License 1.1 (`OFL-1.1`) |
+| Component                                             | Version | Use                            | License                               |
+| ----------------------------------------------------- | ------- | ------------------------------ | ------------------------------------- |
+| Inter, `@fontsource-variable/inter`                   | 5.3.0   | UI text                        | SIL Open Font License 1.1 (`OFL-1.1`) |
+| JetBrains Mono, `@fontsource-variable/jetbrains-mono` | 5.3.0   | Source text and ids            | SIL Open Font License 1.1 (`OFL-1.1`) |
+| Instrument Serif, `@fontsource/instrument-serif`      | 5.3.0   | Wordmark, titles, Gantt header | SIL Open Font License 1.1 (`OFL-1.1`) |
 
-`scripts/ci/licenses.mjs` accepts `OFL-1.1` only for these two named packages (`FONT_PACKAGES`).
+`scripts/ci/licenses.mjs` accepts `OFL-1.1` only for these three named packages (`FONT_PACKAGES`).
+
+## Shipped as icons
+
+The interface icons (`src/lib/icons.ts`, drawn by `src/components/Icon.svelte`) are inline SVG path
+data that follows glyphs of Lucide (<https://lucide.dev>). Lucide is ISC licensed; the package is
+not a dependency, only the path data is copied, so the notice below ships with it. ISC is
+compatible with GPL-2.0-or-later (ADR-0001).
+
+> ISC License. Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of
+> Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+> Permission to use, copy, modify, and/or distribute this software for any purpose with or without
+> fee is hereby granted, provided that the above copyright notice and this permission notice appear
+> in all copies.
 
 ## Shipped in the page scripts
 

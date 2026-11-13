@@ -34,7 +34,6 @@
  *   adjacency (departure, as CodeMirror: an IME composition is one step). After an undo or
  *   redo, typing never joins the uncovered entry (as CodeMirror).
  */
-import { isolateHistory } from '@codemirror/commands';
 import {
 	Annotation,
 	Transaction,
@@ -178,6 +177,17 @@ export function joins(
 	if (timeOf(tr) - top.lastTime >= groupMs) return false;
 	return adjacent(step.changes, tr.changes);
 }
+
+/**
+ * Marks a transaction as its own step: 'before' or 'full' starts a new typing group, 'after' or
+ * 'full' closes it (the format command sets 'full'). The workspace's own annotation, with the
+ * semantics of CodeMirror's `isolateHistory` but defined here, so that this module, which the
+ * Visual-only bundle needs, does not import `@codemirror/commands` and with it the editor
+ * (phase-2.md 11.3).
+ */
+export const isolateHistory: AnnotationType<'before' | 'after' | 'full'> = Annotation.define<
+	'before' | 'after' | 'full'
+>();
 
 /** Whether a transaction closes its typing group after it (`isolateHistory` after or full). */
 export function isolatesAfter(tr: Transaction): boolean {

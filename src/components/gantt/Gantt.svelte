@@ -9,8 +9,16 @@
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
 	editor cursor on its declaration. Gestures and the inspector (T16, T17) come later. Zoom is on
-	the toolbar, with Ctrl+wheel, and with + and - while the task list has the focus (never
-	Ctrl+plus: that is the browser's own page zoom).
+	the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and - while the
+	task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
+
+	Frozen like a native app (phase-2.md 9.2): one scroll container, so names and bars share one
+	vertical scroll. The corner is fixed, the header moves only sideways, the task column only up
+	and down, all by `position: sticky` on the compositor; nothing repaints per scroll event, only
+	when the window leaves its overscan (layout.ts). No scroll chains to the page.
+
+	Over 400 lines on purpose: this one component owns the scroll container, the zoom and the sticky
+	grid, and they only work together; splitting them would spread one invariant over two files.
 
 	Zoom is one step: the scale and the scroll offset are set together, so a single paint follows.
 	A continuous Ctrl+wheel zoom first stretches the canvases with a CSS transform about the point
@@ -32,7 +40,7 @@
 		type PaintWindow,
 	} from '../../lib/gantt/layout';
 	import { markerState } from '../../lib/gantt/markers';
-	import { buildGanttModel } from '../../lib/gantt/model';
+	import { buildGanttModel, todayOf } from '../../lib/gantt/model';
 	import {
 		DEFAULT_ZOOM,
 		ZOOM_PRESETS,
@@ -96,7 +104,6 @@
 			}),
 			// Task T5 supplies the driving-path analysis here (when `criticalOn`).
 			analysis: null,
-			nowMs: env.nowMs,
 			zones,
 		});
 	});
@@ -136,7 +143,9 @@
 		hoverRow !== null && hoverRow !== selectedRow ? describeRow(model, hoverRow) : '',
 	);
 
-	const markers = $derived(markerState(model, scale.m(0)));
+	/** The clock stays out of the model: a tick of it must not rebuild the rows (model.ts). */
+	const today = $derived(todayOf(model.project, env.nowMs));
+	const markers = $derived(markerState(model, scale.m(0), today));
 
 	function onscroll(): void {
 		if (!scroller) return;
@@ -218,10 +227,10 @@
 		if (!(event.target instanceof Element) || !event.target.closest('[role="tree"]')) return;
 		if (event.key === '=' || event.key === '+') {
 			event.preventDefault();
-			zoomBy(zoomIn(pxPerDay));
+			zoomBy(zoomIn(zoomPreview.target ?? pxPerDay));
 		} else if (event.key === '-') {
 			event.preventDefault();
-			zoomBy(zoomOut(pxPerDay));
+			zoomBy(zoomOut(zoomPreview.target ?? pxPerDay));
 		}
 	}
 
@@ -283,7 +292,7 @@
 						{ticks}
 						theme={env.theme}
 						dpr={env.dpr}
-						{scrollLeft}
+						todayMin={today}
 					/>
 				</div>
 				<div class="names" bind:clientWidth={namesW}>
@@ -307,6 +316,7 @@
 						theme={env.theme}
 						dpr={env.dpr}
 						{selectedRow}
+						todayMin={today}
 						{viewW}
 						onselect={selectRow}
 						onhover={(r) => (hoverRow = r)}
@@ -319,6 +329,8 @@
 
 <style>
 	.gantt {
+		/* The toolbar's floating pills answer to the chart's own width (Split makes it narrow). */
+		container: gantt / inline-size;
 		--gantt-names: var(--size-gantt-names);
 		position: relative;
 		display: flex;
@@ -332,17 +344,25 @@
 		padding: var(--space-6) var(--gutter);
 		color: var(--color-gantt-text-muted);
 	}
+	/* The one scroll container: pan on the chart, never chaining to the page. */
 	.scroller {
 		position: relative;
 		flex: 1 1 0;
 		min-block-size: 0;
 		overflow: auto;
-		overscroll-behavior: contain;
+		overscroll-behavior: none;
+		-webkit-overflow-scrolling: touch;
 	}
+	/* As wide as its tracks, not as the scroller: a sticky cell (task column, corner) only stays in
+	   view inside its containing block, and a grid narrower than its tracks ended that block at
+	   the first screenful, pushing the names off at the far right. */
 	.space {
 		display: grid;
 		position: relative;
+		inline-size: max-content;
+		min-inline-size: 100%;
 	}
+	/* The corner is frozen both ways, the header only moves sideways (sticky at the top). */
 	.corner,
 	.head {
 		position: sticky;
@@ -356,16 +376,20 @@
 		z-index: 4;
 		display: flex;
 		align-items: flex-end;
-		padding: var(--space-1) var(--space-2);
+		padding: var(--space-1) var(--space-3);
 		border-inline-end: 1px solid var(--color-gantt-border);
-		color: var(--color-gantt-text-muted);
-		font-size: var(--text-xs);
+		color: var(--color-gantt-text-faint);
+		font-size: 10.5px;
 		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
+	/* `clip`, not `hidden`: the month labels inside are sticky against the scroller, and a
+	   hidden overflow would make this box their scroll container. */
 	.head {
 		grid-area: 1 / 2;
 		z-index: 3;
-		overflow: hidden;
+		overflow: clip;
 	}
 	.names {
 		grid-area: 2 / 1;

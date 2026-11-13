@@ -376,6 +376,24 @@ test.describe('gantt', () => {
 				await page.getByRole('tab', { name: 'Text', exact: true }).click();
 				await check('text tab');
 			}
+			// The last good schedule: the Gantt dimmed, with its "Showing the last good schedule"
+			// notice (4.5:1 on the glass chip, both schemes).
+			if (info.project.name === 'desktop') {
+				await page.getByRole('button', { name: 'Split', exact: true }).click();
+			}
+			await page.getByRole('textbox', { name: /^Editor for / }).click();
+			await page.keyboard.press('ControlOrMeta+End');
+			await page.keyboard.insertText('\n}\n');
+			await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('last good', {
+				timeout: READY_TIMEOUT_MS,
+			});
+			if (info.project.name !== 'desktop') {
+				await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
+			} else {
+				await expect(page.getByText('Showing the last good schedule')).toBeVisible();
+			}
+			await page.waitForTimeout(300);
+			await check('dimmed last good schedule');
 		});
 	}
 });

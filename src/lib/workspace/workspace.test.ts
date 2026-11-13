@@ -137,6 +137,24 @@ describe('commit', () => {
 	});
 });
 
+describe('attachEditor', () => {
+	it('gives every file the editor extensions, keeping the text and the parse', () => {
+		const marker = Facet.define<string, string>({ combine: (v) => v.join(',') });
+		const ws = seed();
+		const before = ws.texts();
+		const version = ws.snapshot().version;
+		expect(ws.state('x.tji').facet(marker)).toBe('');
+		ws.attachEditor({ extensions: (path) => marker.of(path) });
+		expect(ws.texts()).toEqual(before);
+		expect(ws.snapshot().version).toBe(version);
+		expect(ws.state('x.tji').facet(marker)).toBe('x.tji');
+		expect(ws.state('plan.tjp').facet(marker)).toBe('plan.tjp');
+		// Edits still go through, and the extensions stay.
+		expect(ws.apply(edit(ws, 'x.tji', '1d', '4d'))).toBe('applied');
+		expect(ws.state('x.tji').facet(marker)).toBe('x.tji');
+	});
+});
+
 describe('apply', () => {
 	it('applies one transaction per file with the edit id and user event', () => {
 		const ws = seed();

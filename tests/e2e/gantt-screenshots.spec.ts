@@ -48,12 +48,12 @@ test.describe('gantt screenshots', () => {
 				await shot(page, `gantt-desktop-split-${scheme}.png`);
 			});
 
-			test(`gantt-desktop-gantt-${scheme}.png and the zoom levels`, async ({ page }, info) => {
+			test(`gantt-desktop-visual-${scheme}.png and the zoom levels`, async ({ page }, info) => {
 				test.skip(info.project.name !== 'desktop');
 				await page.setViewportSize({ width: 1440, height: 860 });
 				await page.emulateMedia({ colorScheme: scheme });
 				await open(page, 'upstream-fedora-20', 'visual');
-				await shot(page, `gantt-desktop-gantt-${scheme}.png`);
+				await shot(page, `gantt-desktop-visual-${scheme}.png`);
 				if (scheme !== 'light') return;
 				const gantt = page.getByTestId('gantt');
 				const zoom = page.getByRole('combobox', { name: 'Zoom' });

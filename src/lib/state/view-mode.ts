@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * The minimal view switch for the first Gantt slice (phase-2.md 9.1). It is deliberately small
- * and isolated: task T14 replaces it with the real modes, shortcuts, per-workspace persistence
- * and dividers. Until then:
+ * The view modes and their defaults (phase-2.md 9.1): the pure rules. The state that remembers
+ * the choice per sample is mode.svelte.ts, the keyboard shortcuts are shortcuts.ts.
  * - Text is Phase 1's layout, Split puts the editor and the Gantt together, Visual shows the
- *   Gantt alone. The editor stays mounted in every mode, so its state and
+ *   Gantt alone. The editor stays mounted in every mode once it has been shown, so its state and
  *   cursor survive a switch.
  * - The defaults follow the spec (18.5): Split on desktop, Visual on tablet and phone. Phones
  *   have no Split; they use the tab bar instead.
- * - `?mode=text|split|visual` picks a mode for a link or a test. Nothing is stored.
+ * - `?mode=text|split|visual` picks a mode for a link or a test and wins once over the stored one.
  */
 import type { LayoutKind } from './layout.svelte';
 

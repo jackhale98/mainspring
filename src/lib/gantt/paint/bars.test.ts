@@ -97,10 +97,10 @@ describe('paintBars', () => {
 		const { frame, rec } = frameOf(modelOf([row(0, 0, 10 * D, 'task', { critical: true })]));
 		paintBars(frame);
 		const t = frame.theme;
-		expect(rec.of('addColorStop').map((c) => c[2])).toEqual([t.steelTop, t.steelBottom]);
+		expect(rec.of('addColorStop').map((c) => c[2])).toEqual([t.criticalTop, t.criticalBottom]);
 		const fills = rec.of('set:fillStyle').map((c) => c[1]);
-		expect(fills[0]).toBe(t.steelShadow);
-		expect(fills).toContain(t.steelInk);
+		expect(fills[0]).toBe(t.criticalShadow);
+		expect(fills).toContain(t.criticalInk);
 		// The edge: heavier than the brass outline, in the critical colour.
 		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.critical]);
 		expect(rec.of('set:lineWidth').map((c) => c[1])).toEqual([t.criticalEdgeWidth]);
@@ -166,8 +166,8 @@ describe('paintBars', () => {
 		expect(rec.of('stroke')).toHaveLength(1);
 		const steel = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone', { critical: true })]));
 		paintBars(steel.frame);
-		expect(steel.rec.of('addColorStop').map((c) => c[2])).toContain(steel.frame.theme.steelTop);
-		expect(steel.rec.of('set:fillStyle')[0]?.[1]).toBe(steel.frame.theme.steelShadow);
+		expect(steel.rec.of('addColorStop').map((c) => c[2])).toContain(steel.frame.theme.criticalTop);
+		expect(steel.rec.of('set:fillStyle')[0]?.[1]).toBe(steel.frame.theme.criticalShadow);
 	});
 
 	it('shows the people on a task as avatars right of the bar, with the initials', () => {

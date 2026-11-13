@@ -19,6 +19,12 @@
  * the extensions for the new top and lists it in `ChangeInfo.reconfigured`; an editor showing that
  * file then takes `state(path)` again.
  *
+ * The workspace does not import the editor packages (view, language, commands, ...): Visual mode
+ * needs the text, the parse and the edit API but not an editor, and those packages are a separate
+ * chunk that loads when an editor first mounts (phase-2.md 11.3). The editor side comes in with
+ * `attachEditor`: its extensions, for every file's state. Until then the states are plain
+ * `EditorState`s.
+ *
  * Undo (phase-2.md 6.7, 6.11): the file states carry no CodeMirror history. One workspace history
  * (history.ts) records every change from the listeners' `ChangeInfo` and undoes through `apply`
  * with origin 'history'. `apply` takes the origin, per-file selections, annotations and a user
@@ -115,11 +121,22 @@ export interface Workspace {
 	/** Per-file composition of the changes made since a workspace version (changed files only). */
 	changesSince(version: number): ReadonlyMap<WorkspacePath, ChangeSet>;
 	subscribe(listener: WorkspaceListener): () => void;
+	/**
+	 * Gives every file's state the editor's extensions, once the editor chunk has loaded. Open
+	 * editors must take `state(path)` again; nothing is announced, as the text is unchanged.
+	 */
+	attachEditor(editor: EditorSupport): void;
 }
 
 export interface WorkspaceSeed {
 	entry: WorkspacePath;
 	files: Readonly<Record<WorkspacePath, string>>;
+}
+
+/** What the editor chunk gives the workspace when it loads (module comment). */
+export interface EditorSupport {
+	/** Extra extensions for each file's EditorState (the TJP language and keys), per parse context. */
+	readonly extensions: (path: WorkspacePath, top: TopContext) => Extension;
 }
 
 export interface WorkspaceOptions {
@@ -166,7 +183,7 @@ class MemoryWorkspace implements Workspace {
 
 	constructor(
 		seed: WorkspaceSeed,
-		private readonly opts: WorkspaceOptions,
+		private opts: WorkspaceOptions,
 	) {
 		for (const [path, text] of Object.entries(seed.files)) {
 			this.seedTexts.set(assertWorkspacePath(path), text);
@@ -179,6 +196,16 @@ class MemoryWorkspace implements Workspace {
 		this.graph = this.walk();
 		for (const [path, file] of this.files) this.states.set(path, this.newState(path, file));
 		this.seedTexts.clear();
+	}
+
+	attachEditor(editor: EditorSupport): void {
+		this.opts = { ...this.opts, extensions: editor.extensions };
+		for (const [path, state] of [...this.states]) {
+			const file = this.files.get(path);
+			if (!file) continue;
+			const effects = this.editorExtensions.reconfigure(editor.extensions(path, file.top));
+			this.states.set(path, state.update({ effects }).state);
+		}
 	}
 
 	snapshot(): WorkspaceSnapshot {

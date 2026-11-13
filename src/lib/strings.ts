@@ -298,8 +298,21 @@ export const strings = {
 		loading: 'Loading the plan…',
 		loadFailed: (label: string) => `Could not load “${label}”.`,
 		confirmSwitch: 'Switching plans discards your changes to this one. Switch anyway?',
+		history: 'Undo and redo',
+		undo: 'Undo',
+		redo: 'Redo',
+		/** The phone's subtitle under the plan name, e.g. "Finish Wed, Jan 6, 2027". */
+		finish: (date: string) => `Finish ${date}`,
+	},
+	/** The theme toggle: the preference now, and what pressing it switches to. */
+	theme: {
+		label: 'Theme',
+		pref: { system: 'System', light: 'Light', dark: 'Dark' },
+		button: (current: string, next: string) => `Theme: ${current}. Switch to ${next}`,
 	},
 	notice: 'Changes stay in this tab until saving arrives. Reloading the page discards them.',
+	/** The same notice in the compact form that a phone shows on every tab. */
+	noticeShort: 'Changes stay in this tab',
 	panels: {
 		plan: 'Plan',
 		gantt: 'Gantt',
@@ -307,6 +320,11 @@ export const strings = {
 		tabs: 'Panels',
 		outlineOpen: 'Outline',
 		outlineClose: 'Close outline',
+		/** The draggable divider between the editor and the Gantt in Split mode. */
+		divider: 'Resize the editor and the chart',
+		dividerValue: (percent: number, what: string) => `${what} ${percent}%`,
+		dividerEditor: 'Editor',
+		dividerChart: 'Chart',
 	},
 	outline: {
 		title: 'Outline',
@@ -324,12 +342,16 @@ export const strings = {
 		text: 'Text',
 		split: 'Split',
 		visual: 'Visual',
+		/** The tooltip of a mode button: the shortcut Ctrl or Cmd plus the mode's number. */
+		shortcut: (n: number) => `Ctrl or Cmd+${n}`,
 	},
 	gantt: {
 		region: 'Gantt chart',
 		toolbar: 'Gantt controls',
 		zoom: 'Zoom',
 		level: { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' },
+		/** The zoom is between two presets (after a pinch or Ctrl+wheel), nearest to this one. */
+		levelCustom: (nearest: string) => `${nearest} (custom)`,
 		criticalPath: 'Critical path',
 		criticalUnavailable: 'The critical path is not computed yet',
 		/** Today has no line on the chart to go to (it is before or after the plan). */
@@ -355,6 +377,8 @@ export const strings = {
 		milestoneOn: (name: string, at: string) => `${name}: milestone on ${at}`,
 		/** The task's line with the people on it, e.g. "Code: 3 Mar to 9 Mar 2026. Ana, Ben". */
 		withPeople: (line: string, people: string) => `${line}. ${people}`,
+		/** Added to a critical row's line so that the critical path is never colour alone. */
+		withCritical: (line: string) => `${line}. Critical path`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
 	},
 	editor: {
