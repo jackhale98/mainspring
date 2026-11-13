@@ -90,10 +90,14 @@
 		border-radius: var(--radius-panel);
 		animation: slide-start var(--motion-base) ease-out;
 	}
+	/* Pinned to the bottom the way the browser centres a dialog: inset 0, fit-content height, and
+	   an auto top margin. With top: auto instead, Safari on iPhone placed the sheet off screen and
+	   only the backdrop showed. */
 	.sheet[data-side='bottom'] {
-		inset: auto 0 0 0;
-		margin-inline: auto;
+		inset: 0;
+		margin: auto auto 0;
 		inline-size: min(40rem, 100vw);
+		block-size: fit-content;
 		max-block-size: 80dvh;
 		border-block-end: 0;
 		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;

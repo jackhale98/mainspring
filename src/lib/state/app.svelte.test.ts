@@ -42,7 +42,8 @@ describe('AppState', () => {
 		expect(app.files).toEqual(['plan.tjp']);
 		expect(app.status?.kind).toBe('scheduling');
 		client.done(1, { tasks: [task('a', 2, 600), task('b', 3, 1500)] });
-		await flush();
+		// The runner shows a result in an idle task (Node: a 50 ms timer).
+		await vi.waitFor(() => expect(app.status?.kind).toBe('ok'));
 		expect(app.status).toMatchObject({ kind: 'ok', counts: strings.status.counts(0, 0) });
 		expect(app.outline.tasks.map((n) => n.localId)).toEqual(['a', 'b']);
 	});
@@ -170,7 +171,7 @@ describe('AppState', () => {
 			tasks: [],
 			messages: [message('error', 2, 'bad a'), message('warning', 3, 'odd b')],
 		});
-		await flush();
+		await vi.waitFor(() => expect(app.run?.latest?.revision).toBe(1));
 		expect(app.goToNextProblem()).toBe(true);
 		const first = app.reveal;
 		expect(first?.file).toBe('plan.tjp');

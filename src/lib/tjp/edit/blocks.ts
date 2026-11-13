@@ -81,7 +81,9 @@ export function childPlace(
 		const file = ctx.ws.files.get(sib.decl.block.file);
 		if (!file) return refused('unknown-target', [sib.decl.block]);
 		const owner = containerOf(parent, sib.decl);
-		const blank = blankLineBefore(file, sib.decl.block);
+		// After a sibling: copy its separation; at index 0, the one between the first two (7.2).
+		const ref = prev ? sib : (siblings[1] ?? sib);
+		const blank = blankLineBefore(file, ref.decl.block);
 		if (prev)
 			return { file, owner, place: { after: prev.decl.block }, blank: blank ? 'before' : null };
 		return { file, owner, place: { before: sib.decl.block }, blank: blank ? 'after' : null };

@@ -266,6 +266,69 @@ export const historyStrings = {
 	} satisfies Record<Exclude<IntentType, AttrIntent>, string>,
 } as const;
 
+/**
+ * Gantt actions (src/lib/gantt/intents.ts, phase-2.md 6.6 and 7.1): the label of each edit, for
+ * its toast and its undo entry, and why an action cannot be done. Values in labels are written as
+ * in the plan ("3d") or as display dates; `about` marks a rounded effort.
+ */
+export const ganttActionStrings = {
+	label: {
+		/** "Effort of Research: 3d to about 5d". */
+		value: (what: string, task: string, from: string | null, to: string, about: boolean) =>
+			`${what} of ${task}: ${from === null ? '' : `${from} to `}${about ? 'about ' : ''}${to}`,
+		gap: (task: string, pred: string, to: string | null) =>
+			to === null
+				? `No gap before ${task} after ${pred}`
+				: `Gap before ${task}: ${to} after ${pred}`,
+		link: (pred: string, succ: string) => `${succ} now depends on ${pred}`,
+		unlink: (pred: string, succ: string) => `${succ} no longer depends on ${pred}`,
+		move: (task: string) => `Moved ${task}`,
+		assign: (person: string, task: string) => `${person} assigned to ${task}`,
+		unassign: (person: string, task: string) => `${person} removed from ${task}`,
+		replace: (from: string, to: string, task: string) => `${to} replaces ${from} on ${task}`,
+		rename: (from: string, to: string) => `Renamed ${from} to ${to}`,
+		progress: (task: string, percent: number) => `${task} is ${percent}% complete`,
+		add: (task: string) => `Added ${task}`,
+		delete: (task: string) => `Deleted ${task}`,
+	},
+	/** Attribute names in labels. */
+	attr: {
+		effort: 'Effort',
+		length: 'Length',
+		duration: 'Duration',
+		start: 'Start',
+		end: 'End',
+	},
+	/** Why a Gantt action is not possible before it reaches the edit API (`NotPossibleReason`). */
+	notPossible: {
+		milestone: 'A milestone has no length to change.',
+		container: 'This task gets its dates from the tasks inside it.',
+		'text-only': 'That part of the plan is written with macros, so it can only be edited as text.',
+		'no-driver': 'This task does not wait on another task, so there is no gap to change.',
+		'start-and-end': 'This task has a fixed start and end. Change them in the task details.',
+		'engine-only': 'This link is written in a macro. Edit it as text.',
+		'not-scheduled': 'This task has no dates yet. Wait for the schedule.',
+		'at-limit': 'The task cannot move further that way.',
+		'two-gaps':
+			'This dependency has two gaps, a working-time one and a calendar one. Change them in the dependency details.',
+		analysing: 'The schedule is still being analysed. Try again in a moment.',
+	},
+	/** Why an edit was a no-op (`NoopReason`). */
+	noop: {
+		'already-set': 'Nothing changed: the plan already says that.',
+		'already-linked': 'These tasks are already linked.',
+		'not-present': 'Nothing to remove.',
+	},
+	/** The move question (ADR-0008 #2), asked once. */
+	movePreference: {
+		title: 'How should moving a task change the plan?',
+		gap: 'Add a gap after the task it waits for',
+		start: 'Give the task a fixed start date',
+		startWarning:
+			'A fixed start is a constraint: the task stays there even if work before it moves.',
+	},
+} as const;
+
 const plural = (n: number, one: string, other: string): string => `${n} ${n === 1 ? one : other}`;
 
 export const strings = {
@@ -371,15 +434,21 @@ export const strings = {
 			float: (amount: string) => `Float about ${amount} (estimate)`,
 			days: (n: number) => (n === 1 ? '1 working day' : `${n} working days`),
 			hours: (n: number) => (n === 1 ? '1 working hour' : `${n} working hours`),
-			/** The treegrid's float column (T18). */
-			floatColumn: 'Float (estimate)',
 		},
+		/** The treegrid's live region says this after a reschedule (phase-2.md 10.1). */
+		rescheduled: (finish: string | null, delta: string | null, moved: number) =>
+			[
+				'Rescheduled.',
+				finish === null ? null : `Finish ${finish}${delta ? `, ${delta}` : ''}.`,
+				moved === 0 ? 'No tasks moved.' : `${plural(moved, 'task moved', 'tasks moved')}.`,
+			]
+				.filter((p) => p !== null)
+				.join(' '),
 		/** Today has no line on the chart to go to (it is before or after the plan). */
 		todayOff: 'Today (off the chart)',
 		today: 'Today',
 		legend: 'Lines on the chart',
 		quarter: (q: number) => `Q${q}`,
-		taskColumn: 'Task',
 		tasks: 'Tasks',
 		noTasks: 'No tasks yet.',
 		scheduling: 'Scheduling…',
@@ -400,6 +469,39 @@ export const strings = {
 		/** The task's line with its estimate note, e.g. "Code: 3 Mar to 9 Mar 2026. On the critical path (estimate)". */
 		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
+	},
+	/** The Gantt's task list, a treegrid (src/components/gantt/OutlineGrid.svelte, phase-2.md 10.1). */
+	grid: {
+		label: 'Tasks',
+		/** The column headers, in the order of the cells. */
+		columns: {
+			name: 'Task',
+			start: 'Start',
+			end: 'End',
+			effort: 'Effort or length',
+			people: 'People',
+			float: 'Float (estimate)',
+			critical: 'Critical (estimate)',
+			status: 'Status',
+		},
+		/** A cell with nothing to say: an en dash for the eye, a word for a screen reader. */
+		empty: '–',
+		emptyWords: 'none',
+		yes: 'Yes',
+		no: 'No',
+		status: {
+			scheduled: 'Scheduled',
+			notScheduled: 'Not scheduled',
+			pending: 'Pending',
+			textOnly: 'Text only',
+			/** The newest run failed: the dates are the last good schedule's. */
+			outOfDate: 'Out of date',
+		},
+		/** The effort cell when the size is written with a macro or a variable, or does not parse. */
+		sizingMacro: 'From a macro',
+		sizingText: 'See the text',
+		/** The effort or length cell: the value and which attribute it is, e.g. "5d effort". */
+		sizing: (value: string, attr: string) => `${value} ${attr}`,
 	},
 	editor: {
 		label: (path: string) => `Editor for ${path}`,
@@ -433,6 +535,30 @@ export const strings = {
 					]
 						.filter(Boolean)
 						.join(', '),
+		/** "TaskJuggler 3.8.4": the scheduler the plan runs on (it is the real one, in the browser). */
+		engineVersion: (v: string) => `TaskJuggler ${v}`,
+		lastRun: (time: string) => `Last run ${time}`,
+		/** The button that opens the engine details; the accessible name says what it opens. */
+		engineDetails: 'Engine details',
+		engineDetailsTitle: 'The scheduler and its last run',
+		timingTitle: 'Last run',
+		/** Under the timings: the round trip is not all scheduling. */
+		timingNote:
+			'Waiting and round trip is the time from sending the plan to getting the result, queueing included. The first run also includes the scheduler starting up.',
+		versionsTitle: 'Versions',
+		timing: {
+			engine: 'Scheduler total',
+			writeFs: 'Loading the files',
+			parse: 'Reading the plan',
+			schedule: 'Computing the schedule',
+			serialize: 'Preparing the result',
+			roundTrip: 'Waiting and round trip',
+			process: 'Handling the result',
+			tj: 'TaskJuggler',
+			commit: 'TaskJuggler commit',
+			ruby: 'Ruby on WebAssembly',
+			bundle: 'Engine bundle',
+		},
 		nextProblem: 'Go to the next problem',
 		unlocated: (n: number) => plural(n, 'message without a place', 'messages without a place'),
 		unlocatedTitle: 'Messages without a place in the text',

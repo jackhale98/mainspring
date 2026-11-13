@@ -1,8 +1,13 @@
 name: CI
 
 on:
+  # A push that changes only Markdown (ADRs, phase notes, README) does not start a run, so it
+  # cannot cancel the run of the code commit before it. Main is still fast-forwarded only to a
+  # commit whose last code change ran green.
   push:
+    paths-ignore: ['**/*.md']
   pull_request:
+    paths-ignore: ['**/*.md']
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -77,6 +82,12 @@ jobs:
       # Task tree edits (add, delete, move) on golden, generated and Fedora (with hints) plans must
       # still schedule on this engine with the intended task tree (phase-1 spec 9.3 P4); same flags.
       - run: npx vitest run src/lib/tjp/edit/task-tree.engine.test.ts src/lib/tjp/edit/task-tree.fedora.test.ts
+        env:
+          TJP_EDIT_ENGINE: '1'
+          FC_SEED: '20261112'
+      # Gantt actions (phase-2 spec 7.1) on the gantt-manipulation fixture must still schedule on
+      # this engine, with the effect the gesture showed; same flags.
+      - run: npx vitest run src/lib/gantt/intents.engine.test.ts
         env:
           TJP_EDIT_ENGINE: '1'
           FC_SEED: '20261112'

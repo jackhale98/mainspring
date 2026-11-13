@@ -207,7 +207,7 @@ export function planDeleteResource(
 	const byFile = new Map<string, Removal[]>();
 	for (const r of removals) {
 		const list = byFile.get(r.at.file) ?? [];
-		list.push({ stmt: r.at, leading: r.leading });
+		list.push({ stmt: r.at, leading: r.leading, block: true });
 		byFile.set(r.at.file, list);
 	}
 	for (const [path, list] of byFile) {
@@ -278,7 +278,9 @@ export function planMoveResource(ctx: EditContext, intent: IntentOf<'moveResourc
 	const select = { from: moved.header, to: moved.header + (header.to - header.from) };
 	const ins = insertBlock(where, moved.text, select);
 	if (isRefused(ins)) return ins;
-	const cut = removeStatements(src, [{ stmt: sym.decl.block, leading: sym.decl.leadingComments }]);
+	const cut = removeStatements(src, [
+		{ stmt: sym.decl.block, leading: sym.decl.leadingComments, block: true },
+	]);
 	return [...cut, ...ins];
 }
 

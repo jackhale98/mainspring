@@ -29,7 +29,7 @@ import type { EditorView } from '@codemirror/view';
 import { createTimeZoneHost } from '../../engine/timezone';
 import { createEngineClient, type EngineClient } from '../../engine/client';
 import type { EngineState } from '../../engine/client';
-import type { SyntaxDocs, WorkspacePath } from '../../engine/protocol';
+import type { EngineVersions, SyntaxDocs, WorkspacePath } from '../../engine/protocol';
 import { editorStrings, strings } from '../strings';
 import type { FormatOutcome, HoverContent } from '../tjp/cm';
 import { SAMPLES, type Sample, type SampleWorkspace } from '../workspace/samples';
@@ -126,7 +126,11 @@ export class AppState {
 	readonly errors = $derived(
 		errorCounts([...this.outline.tasks, ...this.outline.resources], this.diagnostics),
 	);
-	readonly status = $derived<StatusView | null>(this.run ? statusView(this.run) : null);
+	/** The engine's versions, once it has booted (the status strip shows them). */
+	engineVersions = $state.raw<EngineVersions | null>(null);
+	readonly status = $derived<StatusView | null>(
+		this.run ? statusView(this.run, undefined, this.engineVersions) : null,
+	);
 
 	/** Intl-backed zone data for the index: zone names and zone-dependent value checks. */
 	readonly #zones = createTimeZoneHost();
@@ -157,6 +161,11 @@ export class AppState {
 			last = s;
 		});
 		if (this.engine === 'idle') this.#fetchDocs();
+		// Only the strip's text depends on it: a boot that fails shows no version, and says so elsewhere.
+		this.client.ready().then(
+			(v) => (this.engineVersions = v),
+			() => undefined,
+		);
 		const keys = opts.keyTarget === undefined ? (globalThis.window ?? null) : opts.keyTarget;
 		this.#offKeys = keys ? bindHistoryKeys(keys, this.history) : () => undefined;
 		const first = this.samples.find((s) => s.id === opts.initial) ?? this.samples[0];

@@ -76,14 +76,23 @@ export function updateFile(file: TjpFile, changes: ChangeSet): TjpFile {
 		);
 	}
 	if (changes.empty) return file;
+	// The edit API reparses one edit twice (its checks, then buildEdit): the last result per file
+	// is kept, keyed by the change set's content, and given back for the same change.
+	const key = JSON.stringify(changes.toJSON());
+	const known = lastUpdate.get(file);
+	if (known?.key === key) return known.out;
 	const ranges: ChangedRange[] = [];
 	changes.iterChangedRanges((fromA, toA, fromB, toB) => {
 		ranges.push({ fromA, toA, fromB, toB });
 	});
 	const text = changes.apply(file.text);
 	const { tree } = reparse(tjpParser(file.top), text.toString(), file.tree, ranges);
-	return { path: file.path, text, tree, version: file.version + 1, top: file.top };
+	const out = { path: file.path, text, tree, version: file.version + 1, top: file.top };
+	lastUpdate.set(file, { key, out });
+	return out;
 }
+
+const lastUpdate = new WeakMap<TjpFile, { readonly key: string; readonly out: TjpFile }>();
 
 /** The file parsed with another top context (a full reparse); `file` itself if it is the same. */
 export function withTop(file: TjpFile, top: TopContext): TjpFile {

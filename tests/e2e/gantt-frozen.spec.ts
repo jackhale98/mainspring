@@ -66,7 +66,7 @@ async function open(page: Page, sample = 'upstream-fedora-20'): Promise<void> {
 		timeout: READY_TIMEOUT_MS,
 	});
 	await expect(page.getByTestId('gantt')).toBeVisible();
-	await expect(page.getByRole('treeitem').first()).toBeVisible();
+	await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
 	await page.waitForTimeout(600);
 }
 

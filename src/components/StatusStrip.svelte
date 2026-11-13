@@ -3,18 +3,27 @@
 	The status strip (phase-1.md 8.2): scheduler state, the finish date in the project's time zone
 	with its change, problem counts that jump to the next problem, messages that have no place in
 	the text (a popover), and a retry button after a failure. The last good finish stays visible
-	and is labelled, not faded, when the newest run did not succeed.
+	and is labelled, not faded, when the newest run did not succeed. At the end sit the engine's
+	version and the last run's time, which open a popover with every stage (phase-2.md 9.4).
 -->
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
+	import { announcesRun, type StatusKind } from '../lib/state/status';
 	import { strings } from '../lib/strings';
+	import EngineInfo from './app/EngineInfo.svelte';
 	import Mark from './app/Mark.svelte';
 
 	interface Props {
 		app: AppState;
 		compact: boolean;
+		/**
+		 * The Gantt is on screen and says what a reschedule moved (its treegrid's live region), so
+		 * a plain ok run after an ok run is not announced twice. Everything else is
+		 * (`announcesRun`): problems, warnings, and an ok run after a problem.
+		 */
+		quiet?: boolean;
 	}
-	let { app, compact }: Props = $props();
+	let { app, compact, quiet = false }: Props = $props();
 
 	const s = $derived(app.status);
 	const problems = $derived(s ? s.errors + s.warnings : 0);
@@ -23,9 +32,20 @@
 
 	/** The sentence a screen reader hears when a run settles; empty until the first one does. */
 	let announcement = $state('');
+	/** The kind of the run before this one (null at the start, and while another plan loads). */
+	let previous: StatusKind | null = null;
 	$effect(() => {
 		const v = s;
-		if (!v || v.kind === 'scheduling' || v.kind === 'booting' || v.kind === 'idle') return;
+		if (!v) return;
+		if (v.kind === 'booting' || v.kind === 'idle') previous = null;
+		if (v.kind === 'scheduling' || v.kind === 'booting' || v.kind === 'idle') return;
+		const say = announcesRun(v, previous, quiet);
+		previous = v.kind;
+		// Skipping clears the region, so the next problem is a change in it and is always spoken.
+		if (!say) {
+			announcement = '';
+			return;
+		}
 		const parts = [v.failure ?? v.label];
 		if (v.finish)
 			parts.push(`${strings.status.finish} ${v.finish}${v.delta ? `, ${v.delta}` : ''}`);
@@ -85,6 +105,7 @@
 				{strings.engine.retry}
 			</button>
 		{/if}
+		{#if s.engine}<EngineInfo info={s.engine} {compact} />{/if}
 	</div>
 	<div id="unlocated-popover" class="popover" popover="auto" bind:this={popover}>
 		<h2>{strings.status.unlocatedTitle}</h2>
@@ -220,6 +241,15 @@
 	.compact .counts {
 		flex: none;
 	}
+	/* The plan chip above already says "Finish"; the word stays for screen readers only, which
+	   leaves room for the whole date beside the engine button. */
+	.compact .key {
+		position: absolute;
+		inline-size: 1px;
+		block-size: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
 	.compact .finish {
 		flex-wrap: nowrap;
 		min-inline-size: 0;
@@ -235,8 +265,8 @@
 			min-block-size: 0;
 		}
 	}
+	/* The browser centres a popover (fixed, inset 0, auto margins); keep that, set the size. */
 	.popover {
-		inset: auto;
 		margin: auto;
 		inline-size: min(30rem, calc(100vw - 2rem));
 		max-block-size: 70dvh;

@@ -22,8 +22,10 @@
  * :2415 in `calcPathCriticalnessEndSuccs`), which Project.rb:1123 runs after the loop check and
  * before scheduling. `hasCycle` is the plain test the edit API adds: a
  * cycle among the time points (a task's start before its end, a container around its
- * children, each dependency from the end or start it names). Every loop `hasLoop` finds is one
- * of these, since its walk follows those edges in one direction per pass.
+ * children, each dependency from the end or start it names). The two can differ the other way
+ * too: a task that depends on its own parent's start is a `hasLoop` loop without a cycle (the
+ * backward pass walks the dependency against its direction, then into the container), which
+ * TaskJuggler also refuses as task_depend_parent.
  */
 import type { TaskId } from '../index';
 
@@ -40,85 +42,148 @@ export interface LoopNode {
 	readonly endsuccs: [TaskId, boolean][];
 }
 
+/**
+ * The graph by integer index, so the walks below use typed arrays instead of string keys: node
+ * `i`'s start is time point `2i`, its end `2i + 1`. A name the graph does not hold is -1 in the
+ * lists: it still counts there (a dependency on it keeps TaskJuggler's walk from going on to the
+ * parent), and a visit to it finds nothing.
+ */
+interface Indexed {
+	readonly n: number;
+	readonly parent: Int32Array;
+	readonly children: readonly number[][];
+	readonly forward: Uint8Array;
+	readonly milestone: Uint8Array;
+	/** (index, at its end) pairs. */
+	readonly startpreds: readonly [number, boolean][][];
+	readonly endsuccs: readonly [number, boolean][][];
+	readonly roots: readonly number[];
+}
+
+function indexed(nodes: ReadonlyMap<TaskId, LoopNode>): Indexed {
+	const list = [...nodes.values()];
+	const ix = new Map<TaskId, number>();
+	list.forEach((t, i) => ix.set(t.id, i));
+	const n = list.length;
+	const parent = new Int32Array(n).fill(-1);
+	const forward = new Uint8Array(n);
+	const milestone = new Uint8Array(n);
+	const pairs = (xs: readonly [TaskId, boolean][]): [number, boolean][] => {
+		const out: [number, boolean][] = [];
+		for (const [x, e] of xs) out.push([ix.get(x) ?? -1, e]);
+		return out;
+	};
+	const children: number[][] = [];
+	const startpreds: [number, boolean][][] = [];
+	const endsuccs: [number, boolean][][] = [];
+	const roots: number[] = [];
+	list.forEach((t, i) => {
+		const p = t.parent === null ? undefined : ix.get(t.parent);
+		if (p !== undefined) parent[i] = p;
+		if (t.parent === null) roots.push(i);
+		forward[i] = t.forward ? 1 : 0;
+		milestone[i] = t.milestone ? 1 : 0;
+		children.push(t.children.map((c) => ix.get(c) ?? -1));
+		startpreds.push(pairs(t.startpreds));
+		endsuccs.push(pairs(t.endsuccs));
+	});
+	return { n, parent, children, forward, milestone, startpreds, endsuccs, roots };
+}
+
 /** Whether the loop check (module comment) finds a loop. */
 export function hasLoop(nodes: ReadonlyMap<TaskId, LoopNode>): boolean {
-	const onPath = new Set<string>();
-	let dead = new Set<string>();
-	const visit = (id: TaskId, atEnd: boolean, outside: boolean, forward: boolean): boolean => {
-		const t = nodes.get(id);
-		if (!t) return false;
-		const here = `${id}\0${atEnd}`;
-		if (onPath.has(here)) return true;
-		const flag = `${here}\0${outside}`;
-		if (dead.has(flag)) return false;
-		onPath.add(here);
-		const each = (list: readonly [TaskId, boolean][]): boolean =>
+	const g = indexed(nodes);
+	// Per time point: on the walk's path; per (time point, from outside): a dead end.
+	const onPath = new Uint8Array(2 * g.n);
+	let dead = new Uint8Array(4 * g.n);
+	const visit = (i: number, atEnd: boolean, outside: boolean, forward: boolean): boolean => {
+		if (i < 0) return false;
+		const here = 2 * i + (atEnd ? 1 : 0);
+		if (onPath[here]) return true;
+		const flag = 2 * here + (outside ? 1 : 0);
+		if (dead[flag]) return false;
+		onPath[here] = 1;
+		const each = (list: readonly [number, boolean][]): boolean =>
 			list.some(([x, e]) => visit(x, e, true, forward));
-		const kids = (end: boolean): boolean => t.children.some((c) => visit(c, end, true, forward));
+		const kids = (end: boolean): boolean =>
+			(g.children[i] ?? []).some((c) => visit(c, end, true, forward));
+		const children = g.children[i]?.length ?? 0;
+		const own = g.forward[i] === 1;
+		const milestone = g.milestone[i] === 1;
+		const parent = g.parent[i] ?? -1;
 		let loop = false;
 		if (!atEnd) {
+			const preds = g.startpreds[i] ?? [];
 			if (outside) {
-				if (t.children.length > 0) loop = kids(false);
-				else if ((forward && t.forward) || t.milestone) loop = visit(id, true, false, forward);
-			} else if (t.startpreds.length === 0) {
-				loop = t.parent !== null && visit(t.parent, false, false, forward);
-			} else loop = each(t.startpreds);
+				if (children > 0) loop = kids(false);
+				else if ((forward && own) || milestone) loop = visit(i, true, false, forward);
+			} else if (preds.length === 0) {
+				loop = parent >= 0 && visit(parent, false, false, forward);
+			} else loop = each(preds);
 		} else if (outside) {
-			if (t.children.length > 0) loop = kids(true);
-			else if ((!forward && !t.forward) || t.milestone) loop = visit(id, false, false, forward);
-		} else if (t.endsuccs.length === 0) {
-			loop = t.parent !== null && visit(t.parent, true, false, forward);
-		} else loop = each(t.endsuccs);
+			if (children > 0) loop = kids(true);
+			else if ((!forward && !own) || milestone) loop = visit(i, false, false, forward);
+		} else {
+			const succs = g.endsuccs[i] ?? [];
+			if (succs.length === 0) loop = parent >= 0 && visit(parent, true, false, forward);
+			else loop = each(succs);
+		}
 		if (loop) return true;
-		onPath.delete(here);
-		dead.add(flag);
+		onPath[here] = 0;
+		dead[flag] = 1;
 		return false;
 	};
-	const roots = [...nodes.values()].filter((n) => n.parent === null);
-	for (const r of roots) if (visit(r.id, false, true, true)) return true;
-	dead = new Set();
-	for (const r of roots) if (visit(r.id, true, true, false)) return true;
+	for (const r of g.roots) if (visit(r, false, true, true)) return true;
+	dead = new Uint8Array(4 * g.n);
+	for (const r of g.roots) if (visit(r, true, true, false)) return true;
 	return false;
 }
 
 /** Whether the time points (module comment) form a cycle; iterative, for deep plans. */
 export function hasCycle(nodes: ReadonlyMap<TaskId, LoopNode>): boolean {
-	const key = (id: TaskId, end: boolean): string => `${id}\0${end ? 1 : 0}`;
-	const next = new Map<string, string[]>();
-	const edge = (a: string, b: string): void => {
-		const list = next.get(a);
-		if (list) list.push(b);
-		else next.set(a, [b]);
+	const g = indexed(nodes);
+	const next: number[][] = Array.from({ length: 2 * g.n }, () => []);
+	const edge = (a: number, b: number): void => {
+		next[a]?.push(b);
 	};
-	for (const t of nodes.values()) {
-		edge(key(t.id, false), key(t.id, true));
-		if (t.parent !== null && nodes.has(t.parent)) {
-			edge(key(t.parent, false), key(t.id, false));
-			edge(key(t.id, true), key(t.parent, true));
+	const point = (i: number, end: boolean): number => 2 * i + (end ? 1 : 0);
+	for (let i = 0; i < g.n; i++) {
+		edge(point(i, false), point(i, true));
+		const p = g.parent[i] ?? -1;
+		if (p >= 0) {
+			edge(point(p, false), point(i, false));
+			edge(point(i, true), point(p, true));
 		}
-		for (const [p, e] of t.startpreds) if (nodes.has(p)) edge(key(p, e), key(t.id, false));
-		for (const [s, e] of t.endsuccs) if (nodes.has(s)) edge(key(t.id, true), key(s, e));
+		for (const [x, e] of g.startpreds[i] ?? []) if (x >= 0) edge(point(x, e), point(i, false));
+		for (const [x, e] of g.endsuccs[i] ?? []) if (x >= 0) edge(point(i, true), point(x, e));
 	}
-	const state = new Map<string, 1 | 2>();
-	for (const start of next.keys()) {
-		if (state.has(start)) continue;
-		const stack: Array<{ at: string; i: number }> = [{ at: start, i: 0 }];
-		state.set(start, 1);
-		while (stack.length > 0) {
-			const top = stack[stack.length - 1];
-			if (!top) break;
-			const out = next.get(top.at) ?? [];
-			const to = out[top.i++];
-			if (to === undefined) {
-				state.set(top.at, 2);
-				stack.pop();
+	// 0: not seen, 1: on the stack, 2: done.
+	const state = new Uint8Array(2 * g.n);
+	const at: number[] = [];
+	const pos: number[] = [];
+	for (let start = 0; start < 2 * g.n; start++) {
+		if (state[start]) continue;
+		at.push(start);
+		pos.push(0);
+		state[start] = 1;
+		while (at.length > 0) {
+			const top = at.length - 1;
+			const here = at[top] as number;
+			const k = pos[top] as number;
+			const out = next[here] ?? [];
+			if (k >= out.length) {
+				state[here] = 2;
+				at.pop();
+				pos.pop();
 				continue;
 			}
-			const s = state.get(to);
-			if (s === 1) return true;
-			if (s === undefined) {
-				state.set(to, 1);
-				stack.push({ at: to, i: 0 });
+			pos[top] = k + 1;
+			const to = out[k] as number;
+			if (state[to] === 1) return true;
+			if (state[to] === 0) {
+				state[to] = 1;
+				at.push(to);
+				pos.push(0);
 			}
 		}
 	}

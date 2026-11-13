@@ -102,7 +102,7 @@ away because work was split or delegated too early. These rules refine the loop 
   provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
 - The user approved moving into Phase 3 as soon as Phase 2 is done (2026-11-13). Record the gate
   evidence in `docs/phases/phase-2-gate.md` as usual, then start Phase 3 without waiting. Show the
-  user the Phase 3 spec when it is written. Polish (`docs/phases/phase-2-polish.md`) waits until
-  Phase 2 is finished.
+  user the Phase 3 spec when it is written. Polish (`docs/phases/phase-2-polish.md`) runs in
+  parallel with Phase 2 (user, 2026-11-13); item 8 (phone layout) waits for T17's bottom sheet.
 - Public preview on GitHub Pages from `main` (ADR-0006); the OpenSSL issue in ADR-0001 still blocks a real release.
 - `poc/` is the frozen proof of concept; see `poc/INVENTORY.md`. Never edit it.
