@@ -202,3 +202,24 @@ watch, heat-blued steel is an accent (the hands, a few screws), not a surface. T
 
 This will be applied in one restyle pass after the Gantt and the app frame merge, and recorded
 here with the final values.
+
+Human-factors mapping for that pass (the user, 2026-11-13: colours must match what people expect
+from other planning tools; for example, a blue critical path would be unexpected):
+
+| Meaning | Convention | Mainspring colour |
+| --- | --- | --- |
+| Critical path (bars and links) | Red | Ruby (the jewels of a movement) |
+| Over-allocation | Red | Ruby, as a hatch or outline on heatmap cells and lanes, not a bar fill |
+| Error / warning / ok | Red / amber / green | Ruby / amber-brass / green |
+| Selection, focus, active item | Blue (OS norm) | Blued steel, as a thin accent |
+| Normal work | Neutral or blue | Brass |
+| Summary bars | Dark brackets | Dark enamel ink |
+| Milestones | Dark diamonds | Brass jewel, darker than bars |
+| Today line | Red or orange | Brass, not red, so it is not read as critical |
+| Non-working time | Light grey bands | Enamel shading |
+| Links | Neutral arrows; red on the critical path | Neutral or brass; ruby on the critical path |
+
+Rules: colour is never the only cue (critical bars also get a heavier edge or marker and say
+"critical" in their accessible text, WCAG 1.4.1), and every pair that must be told apart is
+checked under protanopia and deuteranopia simulation (ruby and brass differ strongly in
+lightness).
