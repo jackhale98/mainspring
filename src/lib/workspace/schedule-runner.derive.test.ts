@@ -176,6 +176,68 @@ describe('ensureIndex', () => {
 	});
 });
 
+describe('timings', () => {
+	let clock: number;
+	const timed = (): Partial<ScheduleRunnerOptions> => ({
+		timers: { ...idleTasks.timers, now: () => clock },
+	});
+
+	beforeEach(() => {
+		clock = 1000;
+	});
+
+	it('starts the round trip when the engine is ready, not while it boots', async () => {
+		client.state = 'booting';
+		start(timed());
+		clock = 4000;
+		client.setState('idle');
+		clock = 4300;
+		client.done(1, { tasks: TASKS });
+		await shown();
+		expect(runner.state.timings?.roundTripMs).toBe(300);
+		// Ready already: from the send.
+		clock = 5000;
+		applyEdit(ws, 'setAttr', 'effort 2d', 'effort 3d');
+		clock = 5200;
+		client.done(2, { tasks: TASKS });
+		await shown();
+		expect(runner.state.timings?.roundTripMs).toBe(200);
+		// A restart after the send: from the moment it is ready again.
+		clock = 6000;
+		applyEdit(ws, 'setAttr', 'effort 3d', 'effort 4d');
+		client.setState('booting');
+		clock = 9000;
+		client.setState('idle');
+		clock = 9500;
+		client.done(3, { tasks: TASKS });
+		await shown();
+		expect(runner.state.timings?.roundTripMs).toBe(500);
+	});
+
+	it('shows no older run’s timings after a failed run, and its own round trip instead', async () => {
+		start(timed());
+		clock = 1400;
+		client.done(1, { tasks: TASKS });
+		await shown();
+		expect(runner.state.timings?.roundTripMs).toBe(400);
+		clock = 2000;
+		applyEdit(ws, 'setAttr', 'effort 2d', 'effort 3d');
+		clock = 2600;
+		client.fail(2, { kind: 'timeout', message: 'slow' });
+		await flush();
+		expect(runner.state.timings).toBeNull();
+		expect(runner.state.failure).toMatchObject({ revision: 2, roundTripMs: 600 });
+		expect(runner.state.latest?.timings.roundTripMs).toBe(400);
+		clock = 3000;
+		applyEdit(ws, 'setAttr', 'effort 3d', 'effort 4d');
+		clock = 3100;
+		client.done(3, { tasks: TASKS });
+		await shown();
+		expect(runner.state).toMatchObject({ failure: null });
+		expect(runner.state.timings?.roundTripMs).toBe(100);
+	});
+});
+
 describe('results in idle tasks', () => {
 	it('shows a result in one state with its diagnostics; the index and checks follow apart', async () => {
 		start({ sliceMs: 0 });
@@ -201,7 +263,9 @@ describe('results in idle tasks', () => {
 
 	/**
 	 * One round: the first result, an intent (the edited file scanned and linked again, and
-	 * checked) and its result. Returns the length of every idle task, in ms.
+	 * checked) and its result. Returns the CPU time of every idle task, in ms: the work in the
+	 * task, which a busy machine (other test files run in parallel) does not stretch as it does
+	 * wall-clock time.
 	 */
 	async function roundOn1000(result: ScheduleResult): Promise<number[]> {
 		ws = golden('syn-20-scale-1000');
@@ -211,9 +275,10 @@ describe('results in idle tasks', () => {
 		const tasks: number[] = [];
 		const timed = (): void => {
 			while (idleTasks.size > 0) {
-				const t0 = performance.now();
+				const c0 = process.cpuUsage();
 				idleTasks.runOne();
-				tasks.push(performance.now() - t0);
+				const c = process.cpuUsage(c0);
+				tasks.push((c.user + c.system) / 1000);
 			}
 		};
 		client.done(client.requests.length, { ...result, revision: client.requests.length });
@@ -245,14 +310,13 @@ describe('results in idle tasks', () => {
 	it('keeps each task of a 1,000-task plan under 50 ms', async () => {
 		const file = path.join(ROOT, 'engine/golden/expected/syn-20-scale-1000.json');
 		const result = (JSON.parse(fs.readFileSync(file, 'utf8')) as { result: ScheduleResult }).result;
-		// Best of three rounds, so that a busy machine (other test files run in parallel) does not
-		// fail it; the first round also pays for the compiler's warm-up.
+		// Best of three rounds: the first also pays for the compiler's warm-up.
 		const rounds: number[][] = [];
 		for (let i = 0; i < 3; i++) rounds.push(await roundOn1000(result));
 		const longest = rounds.map((r) => Math.max(...r));
 		for (const r of rounds) {
 			console.info(
-				`runner on scale-1000: ${r.length} idle tasks, longest ${Math.max(...r).toFixed(1)} ms ` +
+				`runner on scale-1000: ${r.length} idle tasks, longest ${Math.max(...r).toFixed(1)} ms CPU ` +
 					`(${r.map((t) => t.toFixed(1)).join(', ')})`,
 			);
 			expect(r.length).toBeGreaterThanOrEqual(5);

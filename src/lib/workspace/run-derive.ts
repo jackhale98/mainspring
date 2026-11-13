@@ -60,6 +60,8 @@ export interface Arrival {
 	readonly latest: boolean;
 	/** `Timers.now()` when it arrived. */
 	readonly at: number;
+	/** `Timers.now()` when its round trip started (`RunTimings.roundTripMs`). */
+	readonly started: number;
 }
 
 /** What showing a result produced, for the runner's record of it. */

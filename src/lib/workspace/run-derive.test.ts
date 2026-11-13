@@ -26,6 +26,7 @@ function arrival(ws: Workspace, over: Parameters<typeof result>[1] = {}, revisio
 	const snapshot = ws.snapshot();
 	return {
 		sent: { revision, snapshot, at: 0 },
+		started: 0,
 		result: result(revision, over),
 		latest: true,
 		at: 0,

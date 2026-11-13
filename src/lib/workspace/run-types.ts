@@ -49,7 +49,11 @@ export interface ScheduleRunner {
 export interface RunTimings {
 	/** The engine's own timings, measured in the worker. */
 	readonly engine: Timings;
-	/** From sending the request to its outcome on the main thread, queueing included. */
+	/**
+	 * From sending the request to its outcome on the main thread, or from the moment the engine
+	 * became ready when it was still starting (or restarting) then: engine boot is not in it
+	 * (the runtime reports `bootMs`). Waiting behind another run in the worker is.
+	 */
 	readonly roundTripMs: number;
 	/**
 	 * Main-thread time the runner spent from the outcome's arrival to the state that shows it:
@@ -80,6 +84,8 @@ export interface RunRecord {
 export interface RunnerFailure {
 	readonly revision: Revision;
 	readonly error: EngineError;
+	/** From the start of its round trip (as `RunTimings.roundTripMs`) to the failure. */
+	readonly roundTripMs: number;
 }
 
 export interface RunnerState {
@@ -113,7 +119,10 @@ export interface RunnerState {
 	readonly index: SymbolIndex;
 	/** `lastGood`'s finish date, with the delta against the good run before it. */
 	readonly finish: Finish | null;
-	/** The latest result's timings. */
+	/**
+	 * The timings of the newest outcome: the latest result's, or null when a newer run failed
+	 * (its round trip is `failure.roundTripMs`), so a failed run never shows an older run's times.
+	 */
 	readonly timings: RunTimings | null;
 	readonly failure: RunnerFailure | null;
 }

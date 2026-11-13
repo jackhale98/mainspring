@@ -2,7 +2,9 @@
 /**
  * The schedule runner (phase-1.md 6.8, phase-2.md 6.9): keeps the engine's view of the plan up to
  * date while the text changes, and publishes what the status strip, the outline, the Gantt and
- * the lint layer show. The contract the edit dispatcher builds on is in run-types.ts.
+ * the lint layer show. The contract the edit dispatcher builds on is in run-types.ts. (A little
+ * over 400 lines: one class owns the runner's private state; the derive steps are in
+ * run-derive.ts, the view in run-view.ts and the types in run-types.ts.)
  *
  * Runs
  * - The runner subscribes to the workspace (15.7). A change with origin 'typing' waits for
@@ -110,6 +112,8 @@ class Runner implements ScheduleRunner {
 	#failure: RunnerFailure | null = null;
 	readonly #derive: Deriver;
 	#engine: EngineState;
+	/** When the engine last became ready; null while it starts. Round trips start no earlier. */
+	#readyAt: number | null;
 	#state: RunnerState;
 	readonly #listeners = new Set<RunnerListener>();
 	readonly #unsubscribe: Array<() => void> = [];
@@ -126,10 +130,11 @@ class Runner implements ScheduleRunner {
 		if (o.runAtStart ?? true) this.#runNow();
 		this.#derive = new Deriver(this.#ws, o.zones, () => this.#timers.now());
 		this.#engine = o.client.state;
+		this.#readyAt = this.#engine === 'booting' ? null : -Infinity;
 		this.#state = this.#compose();
 		this.#unsubscribe.push(
 			this.#ws.subscribe((_snap, origin) => this.#onChange(origin)),
-			this.#client.onState((s) => this.#batch(() => (this.#engine = s))),
+			this.#client.onState((s) => this.#batch(() => this.#onEngine(s))),
 		);
 	}
 
@@ -165,6 +170,17 @@ class Runner implements ScheduleRunner {
 		for (const revision of [...this.#open.keys()]) this.#client.cancel(revision);
 		this.#open.clear();
 		this.#listeners.clear();
+	}
+
+	#onEngine(s: EngineState): void {
+		this.#engine = s;
+		if (s === 'booting') this.#readyAt = null;
+		else if (s !== 'failed' && this.#readyAt === null) this.#readyAt = this.#timers.now();
+	}
+
+	/** Where a run's round trip starts: when it was sent, or when the engine became ready. */
+	#startOf(sent: Sent): number {
+		return Math.max(sent.at, this.#readyAt ?? sent.at);
 	}
 
 	#onChange(origin: ChangeOrigin): void {
@@ -294,11 +310,13 @@ class Runner implements ScheduleRunner {
 					result: outcome.result,
 					latest: outcome.latest,
 					at: this.#timers.now(),
+					started: this.#startOf(sent),
 				});
 				this.#kick();
 			} else if (outcome.status === 'failed') {
 				if (!this.#failure || sent.revision > this.#failure.revision) {
-					this.#failure = { revision: sent.revision, error: outcome.error };
+					const roundTripMs = this.#timers.now() - this.#startOf(sent);
+					this.#failure = { revision: sent.revision, error: outcome.error, roundTripMs };
 				}
 			}
 		});
@@ -306,7 +324,7 @@ class Runner implements ScheduleRunner {
 
 	/** Records a result the derive step just showed. */
 	#show(s: Shown): void {
-		const { sent, result, latest, at } = s.arrival;
+		const { sent, result, latest, at, started } = s.arrival;
 		const record: RunRecord = {
 			revision: sent.revision,
 			workspaceVersion: sent.snapshot.version,
@@ -317,7 +335,7 @@ class Runner implements ScheduleRunner {
 			finish: finishOf(result, this.#lastGood?.finish ?? null),
 			timings: {
 				engine: result.timings,
-				roundTripMs: at - sent.at,
+				roundTripMs: at - started,
 				processMs: s.processMs,
 				longestTaskMs: s.longestTaskMs,
 				shownMs: this.#timers.now() - at,
@@ -383,7 +401,11 @@ class Runner implements ScheduleRunner {
 			hints: view.hints,
 			index: view.index,
 			finish: lastGood?.finish ?? null,
-			timings: latest?.timings ?? null,
+			// A newer failed run has no record: its time is in `failure`, never an older run's.
+			timings:
+				failure && (!latest || failure.revision > latest.revision)
+					? null
+					: (latest?.timings ?? null),
 			failure,
 		};
 	}

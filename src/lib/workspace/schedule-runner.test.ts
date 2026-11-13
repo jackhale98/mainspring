@@ -173,7 +173,7 @@ describe('results', () => {
 		client.fail(3, { kind: 'timeout', message: 'slow' });
 		await flush();
 		expect(runner.state).toMatchObject({ status: 'failed', outdated: true, lastGood: good });
-		expect(runner.state.failure).toEqual({
+		expect(runner.state.failure).toMatchObject({
 			revision: 3,
 			error: { kind: 'timeout', message: 'slow' },
 		});
