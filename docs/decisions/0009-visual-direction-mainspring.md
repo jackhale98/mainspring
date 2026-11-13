@@ -291,3 +291,27 @@ Measured (WCAG ratio; deuteranopia distance in parentheses):
   Ctrl+wheel with no key down); touch never does. T22 measures the scroll cost.
 - Lucide icon path data (ISC) is inlined in `src/lib/icons.ts`; the notice is in
   `THIRD_PARTY_NOTICES.md`.
+
+## Mark note, 2026-11-13: the brand mark doubles as the loader
+
+The user chose option C1, "Tick, refined, all brass", from board F of the design canvas. They had
+asked for a sleek, sophisticated mark rather than a toy-like one, with every colour from this
+palette.
+
+- **Geometry:** one source, `src/lib/brand/mark.ts`, in a 120 × 120 box.
+  - Three task arcs on the dial, of 120°, 96° and 108°, with equal 12° gaps.
+  - A hairline inner dial ring.
+  - A blued-steel hairspring.
+  - A ruby cap jewel in a brass setting.
+- **Colours:**
+  - The arcs and the setting are brushed brass: a vertical gradient through `--color-mark-brass-hi`, `--color-mark-brass` and `--color-mark-brass-lo`.
+  - The jewel is a ruby radial gradient, lit from the top left.
+  - The hairspring is `--color-steel`. Blued steel stays a thin accent.
+- **Small form:** at 32 px and below, the inner ring and the hairspring are dropped and the arcs are thickened. The favicon and the top bar use this form.
+- **Loader:** with `busy`, the dial steps through twelve eased ticks a turn (3 s) while the hairspring swings once a second. Under reduced motion the mark holds still and pulses. It replaces the brass ring in three places:
+  - the engine pill and the status strip, while the engine starts or schedules;
+  - the Gantt's "Scheduling…" placeholder, at 44 px.
+- **Uses:**
+  - `Mark.svelte` in the app;
+  - `Mark.astro` on the landing page;
+  - `public/favicon.svg`, written by `npm run gen:favicon`, with the dark colours under `prefers-color-scheme`. `mark.test.ts` checks that it is current.

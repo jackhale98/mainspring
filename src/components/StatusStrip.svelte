@@ -8,6 +8,7 @@
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
 	import { strings } from '../lib/strings';
+	import Mark from './app/Mark.svelte';
 
 	interface Props {
 		app: AppState;
@@ -50,7 +51,10 @@
 {#if s}
 	<div class="strip" class:compact role="group" aria-label={strings.status.region}>
 		<span class="state" data-kind={s.kind}>
-			<span class="dot" aria-hidden="true"></span>{s.label}
+			{#if s.kind === 'scheduling' || s.kind === 'booting'}<Mark size={14} busy />{:else}<span
+					class="dot"
+					aria-hidden="true"
+				></span>{/if}{s.label}
 		</span>
 		<span class="finish" class:outdated={s.outdated}>
 			<span class="key">{strings.status.finish}</span>
@@ -111,8 +115,8 @@
 		gap: var(--space-2);
 		font-weight: 600;
 	}
-	/* The dot differs in shape as well as colour: a circle when fine, a diamond for errors, a ring
-	   while working (WCAG 1.4.1). */
+	/* The dot differs in shape as well as colour: a circle when fine, a diamond for errors, and while it
+	   works the ticking brand mark instead (WCAG 1.4.1). */
 	.dot {
 		flex: none;
 		inline-size: 8px;
@@ -130,11 +134,6 @@
 		transform: rotate(45deg);
 		background: var(--color-diagnostic-error);
 		box-shadow: 0 0 0 3px var(--color-ruby-wash);
-	}
-	.state[data-kind='scheduling'] .dot,
-	.state[data-kind='booting'] .dot {
-		background: transparent;
-		border: 2px solid var(--color-brass);
 	}
 	.finish {
 		display: inline-flex;

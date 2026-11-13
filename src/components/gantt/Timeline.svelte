@@ -19,6 +19,7 @@
 	import { paintGrid } from '../../lib/gantt/paint/grid';
 	import { NO_OVERLAY, paintOverlay, type OverlayState } from '../../lib/gantt/paint/overlay';
 	import type { Theme } from '../../lib/gantt/paint/theme';
+	import Mark from '../app/Mark.svelte';
 
 	interface Props {
 		model: GanttModel;
@@ -184,7 +185,9 @@
 
 <div class="plot" style:width="{layout.width}px" style:height="{layout.height}px">
 	{#if !model.scheduled}
-		<p class="placeholder" role="status" style:width="{viewW}px">{strings.gantt.scheduling}</p>
+		<p class="placeholder" role="status" style:width="{viewW}px">
+			<Mark size={44} busy />{strings.gantt.scheduling}
+		</p>
 	{/if}
 	<div class="layers">
 		<canvas bind:this={gridEl} aria-hidden="true"></canvas>
@@ -215,13 +218,18 @@
 		margin: 0;
 		padding-block-start: var(--space-6);
 		overflow: visible;
-		text-align: center;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-3);
 		color: var(--color-gantt-text-muted);
 		pointer-events: none;
 	}
+	/* `clip`, not `hidden`: the placeholder inside is sticky against the scroller, and a hidden
+	   overflow would make this box its scroll container (it then sat a name column too far right). */
 	.plot {
 		position: relative;
-		overflow: hidden;
+		overflow: clip;
 	}
 	/* A continuous zoom stretches the layers about the point under the pointer (Gantt.svelte). */
 	.layers {

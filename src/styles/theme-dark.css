@@ -40,6 +40,15 @@
 	--color-ruby-wash: #3a1620;
 	--color-ruby-ink: #f6a3b5;
 
+	/* The brand mark (src/lib/brand/mark.ts): brushed-brass arcs and a ruby jewel, lit from above. */
+	--color-mark-brass-hi: #f6e3ae;
+	--color-mark-brass: #d2ae5c;
+	--color-mark-brass-lo: #9c7a34;
+	--color-mark-ruby-hi: #ff8fa6;
+	--color-mark-ruby: #e0456a;
+	--color-mark-ruby-lo: #8a1534;
+	--color-mark-glint: #ffffff;
+
 	--color-status-neutral: #a9a291;
 	--color-status-ok: #6fcf97;
 	--color-status-ok-halo: rgb(111 207 151 / 0.16);

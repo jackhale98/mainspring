@@ -6,6 +6,7 @@ import '../styles/theme-light.css';
 import '../styles/theme-dark.css';
 import { strings } from '../lib/strings';
 import { themeBootScript } from '../lib/state/theme';
+import { sitePath } from '../lib/site-path';
 
 interface Props {
 	title?: string;
@@ -21,7 +22,7 @@ const { title = strings.appName, description = strings.tagline, shell = false } 
 <html lang="en" data-shell={shell ? '' : undefined}>
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" href="data:," />
+		<link rel="icon" type="image/svg+xml" href={sitePath('favicon.svg')} />
 		<!-- viewport-fit=cover lets the shell use the safe-area insets; the page still zooms (WCAG 1.4.4). -->
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="description" content={description} />

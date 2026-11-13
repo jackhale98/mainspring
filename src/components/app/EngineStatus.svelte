@@ -1,13 +1,14 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
 	The engine status pill (ADR-0009): a halo dot and "Engine: Ready". The state is in the text,
-	not only the colour: the dot also changes shape (a diamond for a failure, a ring while it
-	works). On a narrow bar or a phone the words are kept for screen readers and the title, and the
+	not only the colour: the dot also changes shape (a diamond for a failure, and while it works the
+	brand mark, ticking, as the loader). On a narrow bar or a phone the words are kept for screen readers and the title, and the
 	pill shrinks to the dot.
 -->
 <script lang="ts">
 	import type { EngineState } from '../../engine/client';
 	import { engineLine } from '../../lib/strings';
+	import Mark from './Mark.svelte';
 
 	interface Props {
 		state: EngineState;
@@ -17,6 +18,7 @@
 		adaptive?: boolean;
 	}
 	let { state, compact = false, adaptive = false }: Props = $props();
+	const working = $derived(state === 'busy' || state === 'booting');
 </script>
 
 <p
@@ -27,6 +29,7 @@
 	data-state={state}
 	title={engineLine(state)}
 >
+	{#if working}<Mark size={16} busy />{/if}
 	<span class="words">{engineLine(state)}</span>
 </p>
 
@@ -59,12 +62,10 @@
 		background: var(--color-status-ok);
 		box-shadow: 0 0 0 3px var(--color-status-ok-halo);
 	}
-	/* Working: a ring, so that it differs from "ready" without colour. */
+	/* Working: the ticking mark replaces the dot, so it differs from "ready" without colour. */
 	.engine[data-state='busy']::before,
 	.engine[data-state='booting']::before {
-		background: transparent;
-		border: 2px solid var(--color-brass);
-		box-shadow: 0 0 0 3px var(--color-brass-wash);
+		display: none;
 	}
 	/* Failed: a diamond in ruby. */
 	.engine[data-state='failed']::before {
