@@ -54,19 +54,23 @@ module MainspringBridge
 
     def []=(name, value)
       Capture.timezone = value if name == 'timezone'
+      Capture.now_line = true if name == 'now'
       super
     end
   end
 
   module Capture
     class << self
-      attr_accessor :clock, :header, :version, :timezone
+      # now_line: the plan set `now` itself (the fast path, fast_path.rb, needs to know
+      # whether `now` came from the clock).
+      attr_accessor :clock, :header, :version, :timezone, :now_line
 
       def reset(clock)
         @clock = clock
         @header = nil
         @version = nil
         @timezone = nil
+        @now_line = false
       end
     end
   end
@@ -147,7 +151,11 @@ module MainspringBridge
 
   # Parse, schedule and serialize <root>/<entry>. The workspace must already
   # hold the files. _now_ is a Time or nil. Returns [result Hash, timings Hash].
-  def run(root, entry, now)
+  # _on_parsed_, when given, is called with the project and the parse messages
+  # after a parse without errors and before scheduling (the browser's fast
+  # path keeps a copy there, fast_path.rb); it returns extra timings. The
+  # native recorder never passes it.
+  def run(root, entry, now, on_parsed: nil)
     Encoding.default_external = Encoding::UTF_8
     mh = TaskJuggler::MessageHandlerInstance.instance
     mh.reset
@@ -166,6 +174,8 @@ module MainspringBridge
     tj = TaskJuggler.new
     parsed = guarded(mh) { tj.parse([File.join(root, entry)]) }
     t1 = clock_ms
+    extra = parsed && mh.errors.zero? && on_parsed ? on_parsed.call(tj.project, mh.messages) : {}
+    t1b = clock_ms
     scheduled = parsed && guarded(mh) { tj.schedule }
     t2 = clock_ms
     ok = parsed && scheduled && mh.errors.zero?
@@ -178,8 +188,8 @@ module MainspringBridge
     )
     t3 = clock_ms
     [result, { 'parseMs' => (t1 - t0).round(1),
-               'scheduleMs' => (t2 - t1).round(1),
-               'serializeMs' => (t3 - t2).round(1) }]
+               'scheduleMs' => (t2 - t1b).round(1),
+               'serializeMs' => (t3 - t2).round(1) }.merge(extra || {})]
   ensure
     Capture.reset(nil)
     restore_dir(previous)

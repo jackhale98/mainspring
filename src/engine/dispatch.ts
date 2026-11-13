@@ -63,6 +63,13 @@ export function checkScheduleRequest(request: unknown): ScheduleRequest {
 			throw invalid('The request options.now is not a string.');
 		}
 	}
+	if (request['retain'] !== undefined && typeof request['retain'] !== 'boolean') {
+		throw invalid('The request retain is not a boolean.');
+	}
+	// The bridge checks the patch itself and runs in full when it cannot vouch for it.
+	if (request['fast'] !== undefined && !isRecord(request['fast'])) {
+		throw invalid('The request fast patch is not an object.');
+	}
 	return request as unknown as ScheduleRequest;
 }
 

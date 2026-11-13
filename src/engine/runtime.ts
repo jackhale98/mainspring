@@ -20,7 +20,7 @@ import { WASI } from '@bjorn3/browser_wasi_shim';
 import { RbError, RbFatalError, RubyVM, type RbValue } from '@ruby/wasm-wasi';
 import { EngineFailure, isFatalWasmError } from './failure.ts';
 import { decodeText, loadAsset, loadManifest, type AssetLoader } from './manifest.ts';
-import type { EngineVersions, ScheduleRequest, ScheduleResult, SyntaxDocs } from './protocol';
+import type { EngineVersions, ScheduleRequest, ScheduleResult, SyntaxDocs, Timings } from './protocol';
 import type { TokenOracleResult } from './token-oracle';
 import { BUNDLE_ROOT, WORKSPACE_ROOT, clearDirectory, createEngineFs, type LogFn } from './wasi-fs.ts';
 
@@ -108,6 +108,17 @@ export function parseBridgeReply(json: string): Record<string, unknown> {
 	throw new EngineFailure(kind, message, detail);
 }
 
+/** The fast-path fields of the bridge's timings (protocol.ts `Timings`), when present. */
+function fastTimings(t: Record<string, unknown>): Partial<Timings> {
+	const out: Partial<Timings> = {};
+	if (t['path'] === 'full' || t['path'] === 'fast') out.path = t['path'];
+	for (const k of ['retainMs', 'cloneMs', 'applyMs'] as const) {
+		if (typeof t[k] === 'number') out[k] = t[k];
+	}
+	if (typeof t['fastFallback'] === 'string') out.fastFallback = t['fastFallback'];
+	return out;
+}
+
 /** True for Ruby errors that mean the VM itself is broken (see wrapRbOperation in ruby.wasm). */
 function isVmBroken(error: unknown): boolean {
 	if (error instanceof RbFatalError || isFatalWasmError(error)) return true;
@@ -156,6 +167,8 @@ class WasmEngine implements NodeEngine {
 				entry: request.entry,
 				revision: request.revision,
 				options: request.options ?? {},
+				...(request.retain ? { retain: true } : {}),
+				...(request.fast ? { fast: request.fast } : {}),
 			});
 		} catch (error) {
 			throw new EngineFailure('invalid-request', 'The request cannot be encoded.', String(error));
@@ -178,6 +191,7 @@ class WasmEngine implements NodeEngine {
 			scheduleMs: ms('scheduleMs'),
 			serializeMs: ms('serializeMs'),
 			totalMs: round1(this.#now() - t0),
+			...fastTimings(timings),
 		};
 		return result;
 	}
