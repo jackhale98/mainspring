@@ -6,16 +6,17 @@
  * newest good result, joined by task id. This module only reads: it never computes a schedule
  * (ADR-0007 display rule), and it is rebuilt when the index or a result changes, never per frame.
  *
- * Two inputs are adapters that wait for bridge schema v2 (task T2):
- * - `links` is the list of dependencies to draw. `linksFromIndex` (links.ts) fills it from the
- *   `depends` and `precedes` the text declares; the engine's resolved list will join it later as
- *   links with no `site`, drawn dashed.
+ * Two inputs come from outside:
+ * - `links` is the list of dependencies to draw, resolved by links.ts from the engine's result
+ *   (the source of truth for which links exist, their type and gaps) and the text's sites (which
+ *   say where each one is written).
  * - `analysis` is the driving-path result (critical path, float). Nothing produces it yet, so
  *   the critical and float fields stay false and null. `GanttAnalysis` is the part of the T5
  *   `DrivingAnalysis` that the model reads, so T5's output fits without a change here.
  *
  * A collapsed container shows the links of its hidden children on its own bar, so a hidden
- * dependency is never silently lost.
+ * dependency is never silently lost; links that land on one pair of rows are one line that keeps
+ * every site.
  */
 import type {
 	Minutes,
@@ -39,11 +40,30 @@ export interface GanttAnalysis {
 	readonly lateEnd: ReadonlyMap<string, Minutes>;
 }
 
+/** Whether a marker line (today, status date) is on the drawn chart, off it, or unknown. */
+export type LineState = 'on' | 'off' | null;
+
+/** Which end of a bar a link attaches to. */
+export type Anchor = 'start' | 'end';
+
+/**
+ * How sure the Gantt is of a link: 'declared' is in the text and the engine agrees (or there is
+ * no engine data to disagree), 'engine' only the engine knows it (a macro, say), 'pending' the
+ * text declares it but the schedule shown does not include it yet.
+ */
+export type LinkState = 'declared' | 'engine' | 'pending';
+
 export interface RawLink {
 	readonly pred: TaskId;
 	readonly succ: TaskId;
-	/** The text site that declares it; null for one only the engine knows. */
-	readonly site: DependencySite | null;
+	/** The predecessor's end the link leaves from, and the successor's end it enters. */
+	readonly from: Anchor;
+	readonly to: Anchor;
+	readonly state: LinkState;
+	/** Every text site that declares it; empty for an engine-only or a pending-free link. */
+	readonly sites: readonly DependencySite[];
+	readonly gapDurationMin: number;
+	readonly gapLengthMin: number;
 }
 
 export interface GanttRow {
@@ -66,8 +86,10 @@ export interface GanttRow {
 	readonly allocated: readonly string[];
 	/** `complete` in percent as the plan sets it; null when unset or before bridge v2. */
 	readonly complete: number | null;
-	/** The allocated resources' names, for the label beside the bar. */
+	/** The allocated resources' names, for the avatars beside the bar and for screen readers. */
 	readonly people: readonly string[];
+	/** Each person's place in the plan's resource list, which picks the avatar colour. */
+	readonly peopleIndex: readonly number[];
 	readonly critical: boolean;
 	readonly floatMin: number | null;
 	readonly lateEnd: Minutes | null;
@@ -80,7 +102,13 @@ export interface GanttLink {
 	/** The visible rows the link joins (a collapsed container stands for its children). */
 	readonly predRow: number;
 	readonly succRow: number;
-	readonly site: DependencySite | null;
+	readonly from: Anchor;
+	readonly to: Anchor;
+	readonly state: LinkState;
+	/** Every site behind the link, those of merged rows included. */
+	readonly sites: readonly DependencySite[];
+	readonly gapDurationMin: number;
+	readonly gapLengthMin: number;
 	readonly critical: boolean;
 }
 
@@ -123,8 +151,6 @@ export interface ModelInput {
 const MINUTE_MS = 60_000;
 /** The timeline never ends sooner than this after the last task. */
 const MIN_PAD_DAYS = 7;
-/** Space before the first task, so a milestone at the very start is not cut in half. */
-const LEFT_PAD_DAYS = 1;
 const FALLBACK_SPAN_DAYS = 60;
 
 export const EMPTY_MODEL: GanttModel = {
@@ -172,10 +198,7 @@ function extentOf(
 	}
 	const pad = Math.max(MIN_PAD_DAYS * MIN_PER_DAY, Math.round((last - first) * 0.04));
 	const end = last + pad;
-	return [
-		first - LEFT_PAD_DAYS * MIN_PER_DAY,
-		frameEnd !== null && frameEnd > last ? Math.min(end, frameEnd) : end,
-	];
+	return [first, frameEnd !== null && frameEnd > last ? Math.min(end, frameEnd) : end];
 }
 
 export function buildGanttModel(i: ModelInput): GanttModel {
@@ -184,9 +207,13 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 	const scenario = result ? finishScenario(result) : null;
 	const byId = new Map<string, TaskResult>();
 	const resourceName = new Map<string, string>();
+	const resourceIndex = new Map<string, number>();
 	if (result) {
 		for (const t of result.tasks) byId.set(t.id, t);
-		for (const r of result.resources) resourceName.set(r.id, r.name);
+		result.resources.forEach((r, n) => {
+			resourceName.set(r.id, r.name);
+			resourceIndex.set(r.id, n);
+		});
 	}
 
 	const visible = visibleRows(i.nodes, i.collapsed);
@@ -213,6 +240,7 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 			allocated: s?.allocated ?? [],
 			complete: s?.complete ?? null,
 			people: (s?.allocated ?? []).map((id) => resourceName.get(id) ?? id),
+			peopleIndex: (s?.allocated ?? []).map((id) => resourceIndex.get(id) ?? 0),
 			critical: id !== null && !!i.analysis?.critical.has(id),
 			floatMin: id === null ? null : (i.analysis?.floatMin.get(id) ?? null),
 			lateEnd: id === null ? null : (i.analysis?.lateEnd.get(id) ?? null),
@@ -232,24 +260,42 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 		}
 		return null;
 	};
-	const seen = new Set<string>();
-	const links: GanttLink[] = [];
+	// Links between the same two rows, the same way round, are one line: the rows of a collapsed
+	// container stand for their children, so several links can land on one pair. It keeps every
+	// site, the surest state, and is critical if any of them is.
+	const STRENGTH: Record<LinkState, number> = { declared: 2, engine: 1, pending: 0 };
+	const merged = new Map<string, GanttLink>();
 	for (const raw of i.links) {
 		const predRow = rowFor(raw.pred);
 		const succRow = rowFor(raw.succ);
 		if (predRow === null || succRow === null || predRow === succRow) continue;
-		const id = `${predRow}>${succRow}`;
-		if (seen.has(id)) continue;
-		seen.add(id);
-		links.push({
-			pred: raw.pred,
-			succ: raw.succ,
-			predRow,
-			succRow,
-			site: raw.site,
-			critical: !!i.analysis?.criticalLinks.has(`${raw.pred}>${raw.succ}`),
+		const critical = !!i.analysis?.criticalLinks.has(`${raw.pred}>${raw.succ}`);
+		const key = `${predRow}>${succRow}|${raw.from}|${raw.to}`;
+		const known = merged.get(key);
+		if (!known) {
+			merged.set(key, {
+				pred: raw.pred,
+				succ: raw.succ,
+				predRow,
+				succRow,
+				from: raw.from,
+				to: raw.to,
+				state: raw.state,
+				sites: raw.sites,
+				gapDurationMin: raw.gapDurationMin,
+				gapLengthMin: raw.gapLengthMin,
+				critical,
+			});
+			continue;
+		}
+		merged.set(key, {
+			...known,
+			state: STRENGTH[raw.state] > STRENGTH[known.state] ? raw.state : known.state,
+			sites: [...known.sites, ...raw.sites.filter((x) => !known.sites.includes(x))],
+			critical: known.critical || critical,
 		});
 	}
+	const links = [...merged.values()];
 
 	const [originMin, endMin] = extentOf(result?.tasks ?? [], scenario, project);
 	const calendar: GanttCalendar | null = project

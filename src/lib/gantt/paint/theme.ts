@@ -3,242 +3,167 @@
  * The Gantt's look, as one object resolved from CSS custom properties (src/styles/tokens.css):
  * colours, fonts, bar and row sizes, radii, line weights, opacities. Painters and the layout read
  * nothing else, so a token change restyles the canvas with no code change. The component resolves
- * the theme again when the colour scheme, the pointer type (the coarse-pointer sizes are token
- * overrides under `(pointer: coarse)`) or the fonts change.
+ * the theme again when the colour scheme, the pointer type or the fonts change.
  *
  * What stays in code is not styling: the device pixel ratio cap, the minimum hit areas (WCAG 2.5.8
  * asks for 24 px, or 44 px for a coarse pointer), the overscan, and ratios derived from a token
  * (arrow half-width, dash gaps). `readTheme` takes a getter instead of a DOM element so that it
- * can be tested without one; the fallbacks are the light theme.
+ * can be tested without one. The fallbacks below are the light theme; they only matter while a
+ * token is missing.
  */
-export interface Theme {
-	// Colours (`--color-*`, `--color-gantt-*`).
-	readonly surface: string;
-	readonly surfaceSunken: string;
-	readonly text: string;
-	readonly textMuted: string;
-	readonly border: string;
-	readonly gridMinor: string;
-	readonly gridMajor: string;
-	readonly accent: string;
-	readonly accentText: string;
-	readonly bar: string;
-	readonly barOutline: string;
-	readonly barProgress: string;
-	readonly link: string;
-	readonly rowLine: string;
-	readonly criticalFill: string;
-	readonly summary: string;
-	readonly milestone: string;
-	readonly critical: string;
-	readonly float: string;
-	readonly pending: string;
-	readonly statusDate: string;
-	readonly today: string;
-	readonly textOnly: string;
-	readonly done: string;
-	readonly focus: string;
-	readonly rowSelected: string;
-	readonly rowHover: string;
-	// Fonts.
-	readonly fontSans: string;
-	readonly fontMono: string;
-	readonly fontWeightStrong: string;
-	// Sizes in CSS pixels (`--gantt-*`).
-	readonly rowHeight: number;
-	readonly rowLineWidth: number;
-	readonly barHeight: number;
-	readonly summaryHeight: number;
-	readonly summaryStem: number;
-	readonly milestoneHalf: number;
-	readonly minBarWidth: number;
-	readonly barRadius: number;
-	readonly barOutlineWidth: number;
-	readonly headerRow: number;
-	readonly fontSize: number;
-	readonly labelSize: number;
-	readonly headerFontSize: number;
-	readonly headerMinorFontSize: number;
-	readonly labelGap: number;
-	readonly labelPad: number;
-	readonly linkWidth: number;
-	readonly linkWidthCritical: number;
-	readonly linkWidthHover: number;
-	readonly linkElbow: number;
-	readonly arrowSize: number;
-	readonly outlineWidth: number;
-	readonly criticalOutline: number;
-	readonly markerWidth: number;
-	readonly markerSize: number;
-	readonly ringWidth: number;
-	readonly ringGap: number;
-	readonly floatHeight: number;
-	readonly dash: number;
-	// Opacities, 0 to 1.
-	readonly dimOpacity: number;
-	readonly hoverOpacity: number;
-	readonly textOnlyOpacity: number;
+
+/** Token and fallback of every colour. */
+const COLOURS = {
+	surface: ['--color-gantt-surface', '#fffdf8'],
+	surfaceHeader: ['--color-gantt-surface-header', '#fffdf8'],
+	inset: ['--color-gantt-inset', '#f4efe5'],
+	text: ['--color-gantt-text', '#1c1a17'],
+	textMuted: ['--color-gantt-text-muted', '#625b4f'],
+	textFaint: ['--color-gantt-text-faint', '#766e5f'],
+	border: ['--color-gantt-border', '#eee8dc'],
+	borderStrong: ['--color-gantt-border-strong', '#e2dbcb'],
+	gridMinor: ['--color-gantt-grid', '#f1ece1'],
+	gridMajor: ['--color-gantt-grid-major', '#eee8dc'],
+	rowLine: ['--color-gantt-row-line', '#eee8dc'],
+	accent: ['--color-gantt-accent', '#2346a0'],
+	accentText: ['--color-gantt-accent-text', '#ffffff'],
+	rowSelected: ['--color-gantt-row-selected', '#eef2fb'],
+	barTop: ['--color-gantt-bar-top', '#f7efdc'],
+	barBottom: ['--color-gantt-bar-bottom', '#eaddbd'],
+	barInk: ['--color-gantt-bar-ink', '#4a3912'],
+	barProgress: ['--color-gantt-bar-progress', 'rgb(176 141 60 / 0.28)'],
+	barOutline: ['--color-gantt-bar-outline', '#9a7424'],
+	barHighlight: ['--color-gantt-bar-highlight', 'rgb(255 255 255 / 0.7)'],
+	barLowlight: ['--color-gantt-bar-lowlight', 'rgb(120 90 20 / 0.18)'],
+	barShadow: ['--color-gantt-bar-shadow', 'rgb(80 60 10 / 0.12)'],
+	steelTop: ['--color-gantt-steel-top', '#3a60c2'],
+	steelBottom: ['--color-gantt-steel-bottom', '#1e3c8c'],
+	steelInk: ['--color-gantt-steel-ink', '#ffffff'],
+	steelProgress: ['--color-gantt-steel-progress', 'rgb(255 255 255 / 0.18)'],
+	steelHighlight: ['--color-gantt-steel-highlight', 'rgb(255 255 255 / 0.25)'],
+	steelShadow: ['--color-gantt-steel-shadow', 'rgb(30 60 140 / 0.3)'],
+	summary: ['--color-gantt-summary', '#7a7262'],
+	milestone: ['--color-gantt-milestone', '#b08d3c'],
+	jewelHigh: ['--color-gantt-jewel-high', '#f1d99a'],
+	jewelDeep: ['--color-gantt-jewel-deep', '#9a7424'],
+	jewelGlow: ['--color-gantt-jewel-glow', 'rgb(154 116 36 / 0.35)'],
+	link: ['--color-gantt-link', '#9a7424'],
+	crownTop: ['--color-gantt-crown-top', '#e3c47e'],
+	crownEdge: ['--color-gantt-crown-edge', 'rgb(80 60 10 / 0.35)'],
+	critical: ['--color-critical', '#2346a0'],
+	float: ['--color-float', '#9a7424'],
+	pending: ['--color-pending', '#9a7424'],
+	statusDate: ['--color-status-date', '#1c3a86'],
+	today: ['--color-today', '#9a7424'],
+	textOnly: ['--color-text-only', '#625b4f'],
+	focus: ['--color-gantt-accent', '#2346a0'],
+} as const;
+
+/** Token and fallback of every size (px), opacity or factor. */
+const NUMBERS = {
+	rowHeight: ['--gantt-row-height', 40],
+	rowLineWidth: ['--gantt-row-line-width', 0],
+	barHeight: ['--gantt-bar-height', 22],
+	barRadius: ['--gantt-bar-radius', 11],
+	barOutlineWidth: ['--gantt-bar-outline-width', 1],
+	barShadowBlur: ['--gantt-bar-shadow-blur', 2],
+	barShadowY: ['--gantt-bar-shadow-y', 1],
+	steelShadowBlur: ['--gantt-steel-shadow-blur', 6],
+	steelShadowY: ['--gantt-steel-shadow-y', 2],
+	summaryHeight: ['--gantt-summary-height', 9],
+	summaryStem: ['--gantt-summary-stem', 3],
+	summaryCap: ['--gantt-summary-cap', 2],
+	milestoneHalf: ['--gantt-milestone-half', 10],
+	milestoneRadius: ['--gantt-milestone-radius', 3],
+	jewelBlur: ['--gantt-jewel-blur', 6],
+	jewelY: ['--gantt-jewel-y', 2],
+	minBarWidth: ['--gantt-min-bar-width', 6],
+	originGap: ['--gantt-origin-gap', 8],
+	headerRow: ['--gantt-header-row-height', 32],
+	fontSize: ['--gantt-font-size', 11.5],
+	labelSize: ['--gantt-label-size', 11],
+	displaySize: ['--gantt-display-size', 15],
+	headerFontSize: ['--gantt-header-font-size', 19],
+	headerMinorFontSize: ['--gantt-header-minor-font-size', 11],
+	headerLetterSpacing: ['--gantt-header-letter-spacing', 0.22],
+	labelGap: ['--gantt-label-gap', 8],
+	labelPad: ['--gantt-label-pad', 10],
+	avatarSize: ['--gantt-avatar-size', 20],
+	avatarGap: ['--gantt-avatar-gap', 4],
+	avatarFontSize: ['--gantt-avatar-font-size', 9.5],
+	linkWidth: ['--gantt-link-width', 1.2],
+	linkWidthCritical: ['--gantt-link-width-critical', 1.6],
+	linkWidthHover: ['--gantt-link-width-hover', 2.4],
+	linkElbow: ['--gantt-link-elbow', 8],
+	linkRadius: ['--gantt-link-radius', 4],
+	linkGap: ['--gantt-link-gap', 2],
+	arrowSize: ['--gantt-arrow-size', 5],
+	outlineWidth: ['--gantt-outline-width', 1.5],
+	markerWidth: ['--gantt-marker-width', 1.5],
+	markerSize: ['--gantt-marker-size', 5],
+	crownWidth: ['--gantt-crown-width', 12],
+	crownHeight: ['--gantt-crown-height', 9],
+	ringWidth: ['--gantt-ring-width', 2],
+	ringGap: ['--gantt-ring-gap', 3],
+	hoverRingWidth: ['--gantt-hover-ring-width', 1.5],
+	floatHeight: ['--gantt-float-height', 3],
+	dash: ['--gantt-dash', 4],
+	dimOpacity: ['--gantt-dim-opacity', 0.5],
+	textOnlyOpacity: ['--gantt-text-only-opacity', 0.25],
+} as const;
+
+/** The people's colours: a background and an initial each, picked by the person's number. */
+const AVATARS: ReadonlyArray<readonly [string, string, string, string]> = [
+	['--color-gantt-avatar-1-bg', '#e3e9f7', '--color-gantt-avatar-1-ink', '#22408f'],
+	['--color-gantt-avatar-2-bg', '#f3ead6', '--color-gantt-avatar-2-ink', '#6e5316'],
+	['--color-gantt-avatar-3-bg', '#f6e3e8', '--color-gantt-avatar-3-ink', '#8e1b3a'],
+	['--color-gantt-avatar-4-bg', '#e2f1e7', '--color-gantt-avatar-4-ink', '#1f5c3a'],
+	['--color-gantt-avatar-5-bg', '#eee5f6', '--color-gantt-avatar-5-ink', '#5a2e8c'],
+	['--color-gantt-avatar-6-bg', '#dff0ef', '--color-gantt-avatar-6-ink', '#14615a'],
+];
+
+export interface Avatar {
+	readonly bg: string;
+	readonly ink: string;
 }
 
-type ColourKey = {
-	[K in keyof Theme]: Theme[K] extends string ? K : never;
-}[keyof Theme];
-type NumberKey = {
-	[K in keyof Theme]: Theme[K] extends number ? K : never;
-}[keyof Theme];
-
-const COLOURS: Readonly<
-	Record<Exclude<ColourKey, 'fontSans' | 'fontMono' | 'fontWeightStrong'>, string>
-> = {
-	surface: '--color-gantt-surface',
-	surfaceSunken: '--color-gantt-surface-header',
-	text: '--color-gantt-text',
-	textMuted: '--color-gantt-text-muted',
-	border: '--color-gantt-border',
-	gridMinor: '--color-gantt-grid',
-	gridMajor: '--color-gantt-grid-major',
-	accent: '--color-gantt-accent',
-	accentText: '--color-gantt-accent-text',
-	bar: '--color-gantt-bar',
-	barOutline: '--color-gantt-bar-outline',
-	barProgress: '--color-gantt-bar-progress',
-	link: '--color-gantt-link',
-	rowLine: '--color-gantt-row-line',
-	criticalFill: '--color-critical-fill',
-	summary: '--color-gantt-summary',
-	milestone: '--color-gantt-milestone',
-	critical: '--color-critical',
-	float: '--color-float',
-	pending: '--color-pending',
-	statusDate: '--color-status-date',
-	today: '--color-today',
-	textOnly: '--color-text-only',
-	done: '--color-done',
-	focus: '--color-gantt-accent',
-	rowSelected: '--color-gantt-row-selected',
-	rowHover: '--color-gantt-row-hover',
+export type Theme = { readonly [K in keyof typeof COLOURS]: string } & {
+	readonly [K in keyof typeof NUMBERS]: number;
+} & {
+	readonly fontSans: string;
+	readonly fontMono: string;
+	readonly fontDisplay: string;
+	readonly fontWeightStrong: string;
+	readonly fontWeightBar: string;
+	readonly avatars: readonly Avatar[];
 };
 
-/** Token per number; a length is read in px, an opacity as a plain number. */
-const NUMBERS: Readonly<Record<NumberKey, string>> = {
-	rowHeight: '--gantt-row-height',
-	rowLineWidth: '--gantt-row-line-width',
-	barHeight: '--gantt-bar-height',
-	summaryHeight: '--gantt-summary-height',
-	summaryStem: '--gantt-summary-stem',
-	milestoneHalf: '--gantt-milestone-half',
-	minBarWidth: '--gantt-min-bar-width',
-	barRadius: '--gantt-bar-radius',
-	barOutlineWidth: '--gantt-bar-outline-width',
-	headerRow: '--gantt-header-row-height',
-	fontSize: '--gantt-font-size',
-	labelSize: '--gantt-label-size',
-	headerFontSize: '--gantt-header-font-size',
-	headerMinorFontSize: '--gantt-header-minor-font-size',
-	labelGap: '--gantt-label-gap',
-	labelPad: '--gantt-label-pad',
-	linkWidth: '--gantt-link-width',
-	linkWidthCritical: '--gantt-link-width-critical',
-	linkWidthHover: '--gantt-link-width-hover',
-	linkElbow: '--gantt-link-elbow',
-	arrowSize: '--gantt-arrow-size',
-	outlineWidth: '--gantt-outline-width',
-	criticalOutline: '--gantt-critical-outline',
-	markerWidth: '--gantt-marker-width',
-	markerSize: '--gantt-marker-size',
-	ringWidth: '--gantt-ring-width',
-	ringGap: '--gantt-ring-gap',
-	floatHeight: '--gantt-float-height',
-	dash: '--gantt-dash',
-	dimOpacity: '--gantt-dim-opacity',
-	hoverOpacity: '--gantt-hover-opacity',
-	textOnlyOpacity: '--gantt-text-only-opacity',
-};
+function build(get: (name: string) => string): Theme {
+	const colour = (token: string, fallback: string): string => get(token).trim() || fallback;
+	const number = (token: string, fallback: number): number => {
+		const v = Number.parseFloat(get(token));
+		return Number.isFinite(v) ? v : fallback;
+	};
+	const out: Record<string, unknown> = {};
+	for (const [key, [token, fallback]] of Object.entries(COLOURS)) out[key] = colour(token, fallback);
+	for (const [key, [token, fallback]] of Object.entries(NUMBERS)) out[key] = number(token, fallback);
+	out['fontSans'] = colour('--font-sans', 'system-ui, sans-serif');
+	out['fontMono'] = colour('--font-mono', 'ui-monospace, monospace');
+	out['fontDisplay'] = colour('--font-display', 'Georgia, serif');
+	out['fontWeightStrong'] = colour('--gantt-font-weight-strong', '600');
+	out['fontWeightBar'] = colour('--gantt-font-weight-bar', '600');
+	out['avatars'] = AVATARS.map(([bg, bgFallback, ink, inkFallback]) => ({
+		bg: colour(bg, bgFallback),
+		ink: colour(ink, inkFallback),
+	}));
+	return out as unknown as Theme;
+}
 
-/** What a missing token falls back to: the light (Paper) theme, fine pointer. */
-export const FALLBACK_THEME: Theme = {
-	surface: '#fffdf8',
-	surfaceSunken: '#f3efe5',
-	text: '#1c1a17',
-	textMuted: '#625b4f',
-	border: '#e6e0d2',
-	gridMinor: '#eee9dd',
-	gridMajor: '#e6e0d2',
-	accent: '#2346a0',
-	accentText: '#ffffff',
-	bar: '#efe6d1',
-	barOutline: '#b08d3c',
-	barProgress: '#b08d3c',
-	link: '#b08d3c',
-	rowLine: '#e6e0d2',
-	criticalFill: '#dce4f5',
-	summary: '#2e2a24',
-	milestone: '#b08d3c',
-	critical: '#2346a0',
-	float: '#b08d3c',
-	pending: '#9a7424',
-	statusDate: '#1c3a86',
-	today: '#9a7424',
-	textOnly: '#625b4f',
-	done: '#2f7d4f',
-	focus: '#2346a0',
-	rowSelected: '#eef2fb',
-	rowHover: '#f3efe5',
-	fontSans: 'system-ui, sans-serif',
-	fontMono: 'ui-monospace, monospace',
-	fontWeightStrong: '600',
-	rowHeight: 40,
-	rowLineWidth: 0,
-	barHeight: 18,
-	summaryHeight: 10,
-	summaryStem: 6,
-	milestoneHalf: 6,
-	minBarWidth: 4,
-	barRadius: 9,
-	barOutlineWidth: 1,
-	headerRow: 24,
-	fontSize: 12,
-	labelSize: 11,
-	headerFontSize: 12,
-	headerMinorFontSize: 11,
-	labelGap: 14,
-	labelPad: 8,
-	linkWidth: 1.2,
-	linkWidthCritical: 1.6,
-	linkWidthHover: 2.4,
-	linkElbow: 8,
-	arrowSize: 6,
-	outlineWidth: 1.5,
-	criticalOutline: 1.6,
-	markerWidth: 2,
-	markerSize: 5,
-	ringWidth: 2,
-	ringGap: 2,
-	floatHeight: 3,
-	dash: 4,
-	dimOpacity: 0.5,
-	hoverOpacity: 0.7,
-	textOnlyOpacity: 0.25,
-};
+/** What a missing token falls back to: the light theme, fine pointer. */
+export const FALLBACK_THEME: Theme = build(() => '');
 
 export function readTheme(get: (name: string) => string): Theme {
-	const out: Record<string, string | number> = { ...FALLBACK_THEME };
-	for (const [key, token] of Object.entries(COLOURS)) {
-		const v = get(token).trim();
-		if (v !== '') out[key] = v;
-	}
-	for (const [key, token] of Object.entries(NUMBERS)) {
-		const v = Number.parseFloat(get(token));
-		if (Number.isFinite(v)) out[key] = v;
-	}
-	const text = (key: string, token: string): void => {
-		const v = get(token).trim();
-		if (v !== '') out[key] = v;
-	};
-	text('fontSans', '--font-sans');
-	text('fontMono', '--font-mono');
-	text('fontWeightStrong', '--gantt-font-weight-strong');
-	return out as unknown as Theme;
+	return build(get);
 }
 
 /** The theme of an element's computed style. */

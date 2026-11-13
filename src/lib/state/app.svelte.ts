@@ -258,6 +258,7 @@ export class AppState {
 	/** Selects an outline node's declaration. */
 	revealNode(node: OutlineNode): void {
 		const d = this.#declaration(node);
+		if (node.kind === 'task') this.selectedTask = node.key;
 		// A touch keyboard would cover the editor: only a keyboard or mouse user gets the focus.
 		const touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
 		this.revealRange(d.file, d.from, d.to, !touch);

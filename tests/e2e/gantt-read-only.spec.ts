@@ -164,7 +164,7 @@ test.describe('gantt', () => {
 			await rows(page).nth(1).click();
 			await check('a task selected');
 			if (info.project.name === 'desktop') {
-				await page.getByRole('button', { name: 'Gantt', exact: true }).click();
+				await page.getByRole('button', { name: 'Visual', exact: true }).click();
 				await check('gantt only');
 				await page.getByRole('button', { name: 'Text', exact: true }).click();
 				await check('text');

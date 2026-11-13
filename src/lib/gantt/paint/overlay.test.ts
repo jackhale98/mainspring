@@ -31,13 +31,20 @@ describe('paintOverlay', () => {
 		expect(rec.of('arcTo')).toHaveLength(0);
 	});
 
-	it('shows hover on another row, but not on the selected one', () => {
+	it('outlines the hovered bar without veiling it, and not the selected one twice', () => {
 		const { frame, rec } = frameOf(modelOf(rows));
 		paintOverlay(frame, { selectedRow: 0, hoverRow: 0, hoverLink: null });
-		expect(rec.of('fillRect')).toHaveLength(0);
+		expect(rec.of('stroke')).toHaveLength(1);
 		rec.clear();
 		paintOverlay(frame, { selectedRow: 0, hoverRow: 1, hoverLink: null });
-		expect(rec.of('fillRect')).toEqual([['fillRect', 0, 28, 1000, 28]]);
+		// The hover outline, then the selection ring, and no filled band over any bar.
+		expect(rec.of('stroke')).toHaveLength(2);
+		expect(rec.of('fillRect')).toHaveLength(0);
+		expect(rec.of('fill')).toHaveLength(0);
+		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([
+			frame.theme.borderStrong,
+			frame.theme.focus,
+		]);
 	});
 
 	it('ignores rows outside the painted window', () => {

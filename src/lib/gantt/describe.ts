@@ -14,11 +14,14 @@ export function describeRow(model: GanttModel, index: number | null): string {
 		return strings.gantt.unscheduledRow(r.name);
 	}
 	const from = formatMinutes(model.calendar, r.start);
-	if (r.kind === 'milestone') return strings.gantt.milestoneOn(r.name, from);
-	// The end is the instant the work stops: the last day worked is the minute before it.
-	return strings.gantt.span(
-		r.name,
-		from,
-		formatMinutes(model.calendar, Math.max(r.start, r.end - 1)),
-	);
+	const text =
+		r.kind === 'milestone'
+			? strings.gantt.milestoneOn(r.name, from)
+			: // The end is the instant the work stops: the last day worked is the minute before it.
+				strings.gantt.span(
+					r.name,
+					from,
+					formatMinutes(model.calendar, Math.max(r.start, r.end - 1)),
+				);
+	return r.people.length > 0 ? strings.gantt.withPeople(text, r.people.join(', ')) : text;
 }

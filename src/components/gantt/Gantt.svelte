@@ -8,39 +8,44 @@
 
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
-	editor cursor on its declaration. Gestures and the inspector (T16, T17) come later; zoom is on
-	the toolbar, Ctrl+wheel and Ctrl+plus/minus until the pinch gesture exists.
+	editor cursor on its declaration. Gestures and the inspector (T16, T17) come later. Zoom is on
+	the toolbar, with Ctrl+wheel, and with + and - while the task list has the focus (never
+	Ctrl+plus: that is the browser's own page zoom).
+
+	Zoom is one step: the scale and the scroll offset are set together, so a single paint follows.
+	A continuous Ctrl+wheel zoom first stretches the canvases with a CSS transform about the point
+	under the pointer, and paints once when the wheel has been still for a moment.
 -->
 <script lang="ts">
-	import { onMount, tick, untrack } from 'svelte';
+	import { flushSync, onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
 	import { describeRow } from '../../lib/gantt/describe';
-	import { linksFromIndex, mergeEngineLinks } from '../../lib/gantt/links';
+	import { resolveLinks } from '../../lib/gantt/links';
 	import {
 		OVERSCAN_ROWS,
 		OVERSCAN_X,
 		createLayout,
 		metricsFor,
 		paintWindow,
+		scaleFor,
 		type PaintWindow,
 	} from '../../lib/gantt/layout';
-	import { buildGanttModel } from '../../lib/gantt/model';
-	import { clearTextCache, effectiveDpr } from '../../lib/gantt/paint/canvas';
-	import { FALLBACK_THEME, themeOf, type Theme } from '../../lib/gantt/paint/theme';
+	import { buildGanttModel, type LineState } from '../../lib/gantt/model';
 	import {
 		DEFAULT_ZOOM,
 		ZOOM_PRESETS,
 		clampZoom,
-		createScale,
 		nearestLevel,
-		scrollAfterZoom,
 		zoomIn,
 		zoomOut,
 	} from '../../lib/gantt/scale';
 	import { ticksFor } from '../../lib/gantt/ticks';
+	import { memoZones } from '../../lib/gantt/zones';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
+	import { ctrlWheel } from './ctrl-wheel';
+	import { GanttEnv } from './gantt-env.svelte';
 	import GanttToolbar from './GanttToolbar.svelte';
 	import OutlineColumn from './OutlineColumn.svelte';
 	import TimeHeader from './TimeHeader.svelte';
@@ -48,23 +53,28 @@
 
 	let { app }: { app: AppState } = $props();
 
-	const zones = createTimeZoneHost();
+	const zones = memoZones(createTimeZoneHost());
+	const env = new GanttEnv();
 	let root: HTMLDivElement | undefined = $state();
 	let scroller: HTMLDivElement | undefined = $state();
+	let space: HTMLDivElement | undefined = $state();
 	let pxPerDay = $state(ZOOM_PRESETS[DEFAULT_ZOOM]);
 	let scrollLeft = $state(0);
 	let scrollTop = $state(0);
 	let scrollerW = $state(0);
 	let scrollerH = $state(0);
 	let namesW = $state(0);
-	let coarse = $state(false);
-	let dpr = $state(1);
-	let theme = $state.raw<Theme>(FALLBACK_THEME);
-	let nowMs = $state(Date.now());
 	let hoverRow = $state<number | null>(null);
 
 	// The model: rows from the outline joined with the newest good result (never computed here).
+	// The links come from the engine's result while it describes the text, and from the text,
+	// marked pending, while the text is newer (typing, or an edit that broke the schedule).
 	const result = $derived(app.run?.lastGood?.result ?? null);
+	const current = $derived(
+		!!app.run?.lastGood &&
+			app.run.lastGood.workspaceVersion === app.run.indexVersion &&
+			!app.run.outdated,
+	);
 	const model = $derived.by(() => {
 		const scenario = result ? finishScenario(result) : null;
 		return buildGanttModel({
@@ -72,19 +82,20 @@
 			collapsed: app.collapsed,
 			result,
 			dimmed: app.run?.outdated ?? false,
-			links: mergeEngineLinks(
-				linksFromIndex(app.index?.dependencies ?? [], scenario),
+			links: resolveLinks({
+				sites: app.index?.dependencies ?? [],
 				result,
 				scenario,
-			),
+				current,
+			}),
 			analysis: null,
-			nowMs,
+			nowMs: env.nowMs,
 			zones,
 		});
 	});
 
-	const metrics = $derived(metricsFor(theme, coarse));
-	const scale = $derived(createScale(pxPerDay, model.originMin));
+	const metrics = $derived(metricsFor(env.theme, env.coarse));
+	const scale = $derived(scaleFor(model, pxPerDay, metrics));
 	const viewW = $derived(Math.max(0, scrollerW - namesW));
 	const viewH = $derived(Math.max(0, scrollerH - metrics.headerHeight));
 	const layout = $derived(createLayout(model, scale, metrics, viewW));
@@ -113,10 +124,26 @@
 			: null,
 	);
 	const selectedRow = $derived(model.rowOf.get(app.selectedTask ?? '') ?? null);
-
 	const selectedText = $derived(describeRow(model, selectedRow));
 	const hoverText = $derived(
 		hoverRow !== null && hoverRow !== selectedRow ? describeRow(model, hoverRow) : '',
+	);
+
+	/** Whether a line is on the chart, off it, or there is no such date. */
+	function lineState(at: number | null): LineState {
+		if (at === null) return null;
+		return at >= scale.m(0) && at <= model.endMin ? 'on' : 'off';
+	}
+	const today = $derived(lineState(model.todayMin));
+	const status = $derived(lineState(model.statusMin));
+	const merged = $derived(
+		model.todayMin !== null &&
+			model.statusMin !== null &&
+			Math.abs(model.todayMin - model.statusMin) <= 60,
+	);
+	/** The date Today goes to: the first line that is on the chart. */
+	const todayTarget = $derived(
+		today === 'on' ? model.todayMin : status === 'on' ? model.statusMin : null,
 	);
 
 	function onscroll(): void {
@@ -125,28 +152,96 @@
 		scrollTop = scroller.scrollTop;
 	}
 
-	/** Zooms around a point of the viewport (its centre by default), keeping its date in place. */
-	async function zoomTo(next: number, anchorX = viewW / 2): Promise<void> {
-		const target = clampZoom(next);
-		if (target === pxPerDay || !scroller) return;
-		const anchorMin = scale.m(scrollLeft + anchorX);
-		pxPerDay = target;
-		await tick();
-		if (scroller) {
-			scroller.scrollLeft = scrollAfterZoom(
-				createScale(target, model.originMin),
-				anchorMin,
-				anchorX,
-			);
+	/**
+	 * Sets the zoom so that `anchorMin` stays `anchorX` pixels from the left of the view. The scale
+	 * and the scroll offset change in one flush, then the scroller is told: one render and one
+	 * paint, not a paint at the new scale with the old offset and another after the scroll.
+	 */
+	function applyZoom(target: number, anchorMin: number, anchorX: number): void {
+		const next = clampZoom(target);
+		if (!scroller) return;
+		const to = scaleFor(model, next, metrics);
+		const width = Math.max(viewW, Math.ceil(to.x(model.endMin)));
+		const left = Math.max(0, Math.min(width - viewW, Math.round(to.x(anchorMin) - anchorX)));
+		flushSync(() => {
+			pxPerDay = next;
+			scrollLeft = left;
+		});
+		scroller.scrollLeft = left;
+		endPreview();
+	}
+
+	function zoomBy(next: number): void {
+		if (clampZoom(next) === pxPerDay) return;
+		applyZoom(next, scale.m(scrollLeft + viewW / 2), viewW / 2);
+	}
+
+	// Continuous zoom. Wheel events are added up and applied once per frame to a CSS transform of
+	// the header and the plot, about the point under the pointer; the real zoom follows when the
+	// wheel has been still for IDLE_MS.
+	const IDLE_MS = 120;
+	let wheelFactor = 1;
+	let wheelAnchorX = 0;
+	let wheelFrame = 0;
+	let preview: {
+		target: number;
+		anchorMin: number;
+		anchorX: number;
+		originX: number;
+		timer: ReturnType<typeof setTimeout> | null;
+	} | null = null;
+
+	function stepWheel(): void {
+		wheelFrame = 0;
+		const factor = wheelFactor;
+		wheelFactor = 1;
+		if (!space) return;
+		if (!preview) {
+			preview = {
+				target: pxPerDay,
+				anchorMin: scale.m(scrollLeft + wheelAnchorX),
+				anchorX: wheelAnchorX,
+				originX: scrollLeft + wheelAnchorX,
+				timer: null,
+			};
 		}
+		preview.target = clampZoom(preview.target * factor);
+		space.style.setProperty('--zoom-ratio', String(preview.target / pxPerDay));
+		space.style.setProperty('--zoom-origin', `${preview.originX}px`);
+		if (preview.timer !== null) clearTimeout(preview.timer);
+		preview.timer = setTimeout(commitPreview, IDLE_MS);
+	}
+
+	function commitPreview(): void {
+		const p = preview;
+		if (!p) return;
+		applyZoom(p.target, p.anchorMin, p.anchorX);
+	}
+
+	/** Takes the stretch off once the repaint at the new scale has been drawn (same frame). */
+	function endPreview(): void {
+		const p = preview;
+		preview = null;
+		if (p?.timer) clearTimeout(p.timer);
+		requestAnimationFrame(() => {
+			space?.style.removeProperty('--zoom-ratio');
+			space?.style.removeProperty('--zoom-origin');
+		});
+	}
+
+	function onZoomWheel(e: WheelEvent): void {
+		if (!scroller) return;
+		const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
+		wheelFactor *= Math.exp(-e.deltaY * unit * 0.002);
+		wheelAnchorX = Math.max(0, e.clientX - scroller.getBoundingClientRect().left - namesW);
+		if (wheelFrame === 0) wheelFrame = requestAnimationFrame(stepWheel);
 	}
 
 	function goToday(): void {
-		const at = model.todayMin ?? model.statusMin;
-		if (at === null || !scroller) return;
+		if (todayTarget === null || !scroller) return;
 		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		scroller.scrollTo({
-			left: Math.max(0, scale.x(at) - viewW / 2),
+			left: Math.max(0, scale.x(todayTarget) - viewW / 2),
 			behavior: reduce ? 'auto' : 'smooth',
 		});
 	}
@@ -168,63 +263,25 @@
 		if (row) app.selectTask(row.key);
 	}
 
+	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's, left alone. */
 	function onkeydown(event: KeyboardEvent): void {
-		if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+		if (event.ctrlKey || event.metaKey || event.altKey) return;
+		if (!(event.target instanceof Element) || !event.target.closest('[role="tree"]')) return;
 		if (event.key === '=' || event.key === '+') {
 			event.preventDefault();
-			void zoomTo(zoomIn(pxPerDay));
+			zoomBy(zoomIn(pxPerDay));
 		} else if (event.key === '-') {
 			event.preventDefault();
-			void zoomTo(zoomOut(pxPerDay));
+			zoomBy(zoomOut(pxPerDay));
 		}
 	}
 
 	onMount(() => {
-		const read = (): void => {
-			if (root) theme = themeOf(root);
-		};
-		const scheme = matchMedia('(prefers-color-scheme: dark)');
-		const pointer = matchMedia('(pointer: coarse)');
-		const onScheme = (): void => void requestAnimationFrame(read);
-		const onPointer = (): void => {
-			coarse = pointer.matches;
-			// The coarse-pointer sizes are token overrides: resolve the theme again.
-			requestAnimationFrame(read);
-		};
-		let resolution: MediaQueryList | null = null;
-		const onResolution = (): void => {
-			dpr = effectiveDpr(devicePixelRatio);
-			watchResolution();
-		};
-		function watchResolution(): void {
-			resolution?.removeEventListener('change', onResolution);
-			resolution = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
-			resolution.addEventListener('change', onResolution);
-		}
-		read();
-		onPointer();
-		dpr = effectiveDpr(devicePixelRatio);
-		watchResolution();
-		scheme.addEventListener('change', onScheme);
-		pointer.addEventListener('change', onPointer);
-		void document.fonts?.ready.then(() => {
-			clearTextCache();
-			read();
-		});
-		const clock = setInterval(() => (nowMs = Date.now()), 60_000);
-		const onWheel = (e: WheelEvent): void => {
-			if (!(e.ctrlKey || e.metaKey) || !scroller) return;
-			e.preventDefault();
-			const x = e.clientX - scroller.getBoundingClientRect().left - namesW;
-			void zoomTo(pxPerDay * Math.exp(-e.deltaY * 0.002), Math.max(0, x));
-		};
-		scroller?.addEventListener('wheel', onWheel, { passive: false });
+		const stop = root ? env.attach(root) : () => undefined;
 		return () => {
-			scheme.removeEventListener('change', onScheme);
-			pointer.removeEventListener('change', onPointer);
-			resolution?.removeEventListener('change', onResolution);
-			scroller?.removeEventListener('wheel', onWheel);
-			clearInterval(clock);
+			stop();
+			if (wheelFrame !== 0) cancelAnimationFrame(wheelFrame);
+			if (preview?.timer) clearTimeout(preview.timer);
 		};
 	});
 </script>
@@ -243,18 +300,11 @@
 		{pxPerDay}
 		{selectedText}
 		{hoverText}
-		hasMarker={(model.todayMin ?? model.statusMin) !== null}
-		lines={{
-			today: model.todayMin !== null,
-			status: model.statusMin !== null,
-			merged:
-				model.todayMin !== null &&
-				model.statusMin !== null &&
-				Math.abs(model.todayMin - model.statusMin) <= 60,
-		}}
+		hasMarker={todayTarget !== null}
+		lines={{ today, status, merged }}
 		dimmed={model.dimmed}
-		onzoomin={() => zoomTo(zoomIn(pxPerDay))}
-		onzoomout={() => zoomTo(zoomOut(pxPerDay))}
+		onzoomin={() => zoomBy(zoomIn(pxPerDay))}
+		onzoomout={() => zoomBy(zoomOut(pxPerDay))}
 		ontoday={goToday}
 	/>
 
@@ -267,15 +317,25 @@
 			bind:clientWidth={scrollerW}
 			bind:clientHeight={scrollerH}
 			{onscroll}
+			use:ctrlWheel={{ handler: onZoomWheel }}
 		>
 			<div
 				class="space"
+				bind:this={space}
 				style:grid-template-columns="var(--gantt-names) {layout.width}px"
 				style:grid-template-rows="{metrics.headerHeight}px {layout.height}px"
 			>
 				<div class="corner">{strings.gantt.taskColumn}</div>
 				<div class="head">
-					<TimeHeader {model} {layout} win={paintWin} {ticks} {theme} {dpr} {scrollLeft} />
+					<TimeHeader
+						{model}
+						{layout}
+						win={paintWin}
+						{ticks}
+						theme={env.theme}
+						dpr={env.dpr}
+						{scrollLeft}
+					/>
 				</div>
 				<div class="names" bind:clientWidth={namesW}>
 					<OutlineColumn
@@ -300,8 +360,8 @@
 						{layout}
 						win={paintWin}
 						{ticks}
-						{theme}
-						{dpr}
+						theme={env.theme}
+						dpr={env.dpr}
 						{selectedRow}
 						onselect={selectRow}
 						onhover={(r) => (hoverRow = r)}
@@ -393,7 +453,7 @@
 	}
 	@media (max-width: 599px) {
 		.gantt {
-			--gantt-names: 7rem;
+			--gantt-names: 8.5rem;
 		}
 	}
 </style>

@@ -28,12 +28,27 @@
 	let focusKey = $state<string | null>(null);
 	let tree: HTMLDivElement | undefined = $state();
 
-	const shown = $derived(rows.slice(first, last));
+	/**
+	 * The rows to mount: those near the viewport, and the focused one wherever it is, so that
+	 * scrolling it out of view does not drop the keyboard focus.
+	 */
+	const items = $derived.by(() => {
+		const list = rows.slice(first, last).map((row, i) => ({ row, index: first + i }));
+		const at = focusKey === null ? -1 : rows.findIndex((r) => r.key === focusKey);
+		if (at >= 0 && (at < first || at >= last)) list.push({ row: rows[at] as GanttRow, index: at });
+		return list;
+	});
 	const tabKey = $derived(
-		focusKey !== null && shown.some((r) => r.key === focusKey)
+		focusKey !== null && items.some((x) => x.row.key === focusKey)
 			? focusKey
-			: (shown.find((r) => r.key === selectedKey)?.key ?? shown[0]?.key ?? null),
+			: (items.find((x) => x.row.key === selectedKey)?.row.key ?? items[0]?.row.key ?? null),
 	);
+
+	/** Focus that leaves the list lets go of the pinned row. */
+	function onfocusout(event: FocusEvent): void {
+		const to = event.relatedTarget;
+		if (!(to instanceof Node) || !tree?.contains(to)) focusKey = null;
+	}
 
 	async function focusRow(index: number): Promise<void> {
 		const row = rows[index];
@@ -100,8 +115,9 @@
 	aria-label={strings.gantt.tasks}
 	class="tree"
 	style:height="{rows.length * rowHeight}px"
+	{onfocusout}
 >
-	{#each shown as row, i (row.key)}
+	{#each items as { row, index } (row.key)}
 		{@const n = row.node}
 		<div
 			role="treeitem"
@@ -114,13 +130,13 @@
 			aria-expanded={row.expanded === null ? undefined : row.expanded}
 			aria-selected={selectedKey === row.key}
 			tabindex={tabKey === row.key ? 0 : -1}
-			style:top="{(first + i) * rowHeight}px"
+			style:top="{index * rowHeight}px"
 			style:height="{rowHeight}px"
 			style:--depth={row.depth}
 			onclick={(e) => onclick(e, row)}
-			onkeydown={(e) => onkeydown(e, row, first + i)}
+			onkeydown={(e) => onkeydown(e, row, index)}
 		>
-			<span class="twisty" aria-hidden="true">
+			<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">
 				{#if row.expanded !== null}{row.expanded ? '▾' : '▸'}{/if}
 			</span>
 			<span class="name" class:summary={row.kind === 'container'}>{row.name}</span>
@@ -165,9 +181,10 @@
 		outline: 3px solid var(--color-gantt-accent);
 		outline-offset: -3px;
 	}
+	/* A target of 24 px for a fine pointer, 44 px for a coarse one (WCAG 2.5.8). */
 	.twisty {
 		flex: none;
-		inline-size: 1.25rem;
+		inline-size: 1.5rem;
 		block-size: 100%;
 		display: grid;
 		place-items: center;
@@ -193,8 +210,17 @@
 		line-height: 1.3rem;
 	}
 	@media (max-width: 599px) {
+		/* A phone has little room: a slot for the chevron only on rows that have one, about 8 px
+		   of indent per level, and smaller text. */
 		.row {
 			padding-inline-start: calc(var(--space-1) + var(--depth, 0) * var(--space-2));
+			gap: 0;
+		}
+		.twisty.leaf {
+			display: none;
+		}
+		.name {
+			font-size: var(--text-xs);
 		}
 		.badge {
 			display: none;
@@ -202,7 +228,7 @@
 	}
 	@media (pointer: coarse) {
 		.twisty {
-			inline-size: 1.75rem;
+			inline-size: 2.75rem;
 		}
 	}
 </style>

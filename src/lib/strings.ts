@@ -263,7 +263,7 @@ export const strings = {
 		label: 'View',
 		text: 'Text',
 		split: 'Split',
-		gantt: 'Gantt',
+		visual: 'Visual',
 	},
 	gantt: {
 		region: 'Gantt chart',
@@ -280,19 +280,21 @@ export const strings = {
 		tasks: 'Tasks',
 		noTasks: 'No tasks yet.',
 		scheduling: 'Scheduling…',
-		waitingForErrors: 'The plan does not schedule yet. Fix the errors to see bars.',
 		lastGood: 'Showing the last good schedule',
 		notScheduled: 'not scheduled',
 		lines: {
 			today: 'Today',
 			status: 'Status date',
 			both: 'Today (status date)',
+			/** A line whose date is outside the drawn chart, e.g. "Today, off the chart". */
+			off: (line: string) => `${line}, off the chart`,
 		},
 		/** Summary line for the selected or hovered task, e.g. "Code: 3 Mar to 9 Mar 2026". */
 		span: (name: string, from: string, to: string) => `${name}: ${from} to ${to}`,
 		milestoneOn: (name: string, at: string) => `${name}: milestone on ${at}`,
+		/** The task's line with the people on it, e.g. "Code: 3 Mar to 9 Mar 2026. Ana, Ben". */
+		withPeople: (line: string, people: string) => `${line}. ${people}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
-		blocked: 'The Gantt could not be drawn in this browser.',
 	},
 	editor: {
 		label: (path: string) => `Editor for ${path}`,

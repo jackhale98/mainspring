@@ -2,8 +2,10 @@
 <!--
 	The app shell (phase-1.md 8; phase-2.md 9). Text mode as in Phase 1: desktop shows the outline
 	beside the editor, tablets put the outline in a drawer. Split shows the editor and the Gantt
-	side by side (stacked on a tablet), Gantt shows the Gantt alone; phones show one panel at a
-	time under a bottom tab bar (Plan, Gantt, Text). The view switch is the minimal one of
+	side by side (stacked on a tablet), Visual shows the Gantt alone; in those two the outline is
+	the same drawer on every width (phase-2.md 9.2), and the notice about unsaved changes stays
+	above the status strip. Phones show one panel at a time under a bottom tab bar (Plan, Gantt,
+	Text). The view switch is the minimal one of
 	src/lib/state/view-mode.ts, which task T14 replaces. The editor stays mounted in every view so
 	its state survives a switch. The status strip sits at the bottom of every layout. Nothing here
 	changes the schedule: the editor commits text to the workspace and the runner schedules what
@@ -40,21 +42,27 @@
 	const phone = $derived(kind === 'phone');
 	const mode = $derived(effectiveMode(choice, kind));
 	const showGantt = $derived(phone ? app.phoneTab === 'gantt' : mode !== 'text');
-	const showEditor = $derived(phone ? app.phoneTab === 'text' : mode !== 'gantt');
+	const showEditor = $derived(phone ? app.phoneTab === 'text' : mode !== 'visual');
 	/** The Gantt is mounted when first shown and then kept, so zoom and scroll survive a switch. */
 	let ganttSeen = $state(false);
 	$effect(() => {
 		if (showGantt) ganttSeen = true;
 	});
 
-	// The drawer only exists on tablets: close it when the window changes layout.
+	/**
+	 * The outline is a drawer on tablets, and on a desktop in Split and Visual, where the Gantt's
+	 * task column is the outline. Text on a desktop has it beside the editor; phones have a tab.
+	 */
+	const drawer = $derived(kind === 'tablet' || (kind === 'desktop' && mode !== 'text'));
 	$effect(() => {
-		if (kind !== 'tablet') untrack(() => (app.outlineOpen = false));
+		if (!drawer) untrack(() => (app.outlineOpen = false));
 	});
+	/** The notice sits in the outline panel; where that is not on screen, it sits above the strip. */
+	const showNotice = $derived(!phone && !(kind === 'desktop' && mode === 'text'));
 </script>
 
 <div class="app" data-layout={kind}>
-	<TopBar {app} layout={kind} {mode} onmode={(m) => (choice = m)} />
+	<TopBar {app} layout={kind} {mode} {drawer} onmode={(m) => (choice = m)} />
 	<main id="main" class="body" data-mode={mode} tabindex="-1">
 		{#if kind === 'desktop' && mode === 'text'}
 			<aside class="outline" aria-label={strings.outline.title}>
@@ -101,9 +109,12 @@
 			</div>
 		{/if}
 	</main>
-	<StatusStrip {app} compact={phone && app.phoneTab === 'text'} />
+	<div class="footer">
+		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
+		<StatusStrip {app} compact={phone} />
+	</div>
 	{#if phone}<TabBar {app} />{/if}
-	{#if kind === 'tablet'}
+	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
 			side="start"
@@ -151,6 +162,17 @@
 		min-block-size: 0;
 		border-inline-end: 1px solid var(--color-border);
 		background: var(--color-surface);
+	}
+	.footer {
+		min-inline-size: 0;
+	}
+	.notice {
+		margin: 0;
+		padding: var(--space-1) var(--gutter);
+		border-block-start: 1px solid var(--color-border);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
 	}
 	.panel {
 		min-block-size: 0;

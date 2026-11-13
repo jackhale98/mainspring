@@ -298,10 +298,11 @@ describe('font packages (ADR-0005)', () => {
 		expect(report.failures).toEqual([]);
 	});
 
-	it('lists exactly the two self-hosted fonts', () => {
+	it('lists exactly the self-hosted fonts', () => {
 		expect([...FONT_PACKAGES].sort()).toEqual([
 			'@fontsource-variable/inter',
 			'@fontsource-variable/jetbrains-mono',
+			'@fontsource/instrument-serif',
 		]);
 	});
 

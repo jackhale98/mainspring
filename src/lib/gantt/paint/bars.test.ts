@@ -77,7 +77,7 @@ describe('paintBars', () => {
 				row(2, 0, 4 * D),
 				row(3, 0, 4 * D),
 			],
-			[link(2, 3), link(0, 1, { critical: true, site: {} as never })],
+			[link(2, 3, { state: 'engine' }), link(0, 1, { critical: true })],
 		);
 		const { frame, rec } = frameOf(m);
 		paintBars(frame);
@@ -102,7 +102,7 @@ describe('paintBars', () => {
 	it('draws links under the bars, elbowed, with an arrow head each', () => {
 		const m = modelOf(
 			[row(0, 0, 2 * D), row(1, 4 * D, 6 * D), row(2, 8 * D, 9 * D)],
-			[link(0, 1, { site: {} as never }), link(1, 2, { site: {} as never })],
+			[link(0, 1), link(1, 2)],
 		);
 		const { frame, rec } = frameOf(m);
 		paintBars(frame);

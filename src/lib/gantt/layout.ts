@@ -12,7 +12,7 @@
  */
 import type { GanttLink, GanttModel, GanttRow } from './model';
 import type { Theme } from './paint/theme';
-import type { TimeScale } from './scale';
+import { MIN_PER_DAY, createScale, type TimeScale } from './scale';
 
 export interface Point {
 	readonly x: number;
@@ -45,6 +45,8 @@ export interface Metrics {
 	readonly minBarWidth: number;
 	/** Space left of a link's first bend. */
 	readonly elbow: number;
+	/** Space before the first date, so a start milestone is not clipped: half a diamond and a gap. */
+	readonly originPad: number;
 	/** Each of the two header rows. */
 	readonly headerRow: number;
 	/** The whole header: two rows. */
@@ -67,6 +69,7 @@ export function metricsFor(theme: Theme, coarse: boolean): Metrics {
 		milestoneHalf: theme.milestoneHalf,
 		minBarWidth: theme.minBarWidth,
 		elbow: theme.linkElbow,
+		originPad: theme.milestoneHalf + theme.originGap,
 		headerRow: theme.headerRow,
 		headerHeight: theme.headerRow * 2,
 		hitMin: coarse ? HIT_MIN_COARSE : HIT_MIN_FINE,
@@ -129,29 +132,60 @@ export function createLayout(
 	};
 
 	const linkPath = (link: GanttLink): readonly Point[] => {
-		const from = barRect(link.predRow);
-		const to = barRect(link.succRow);
-		if (!from || !to) return [];
-		const x0 = from.x + from.w;
-		const y0 = from.y + from.h / 2;
-		const x1 = to.x;
-		const y1 = to.y + to.h / 2;
-		if (x1 >= x0 + elbow) {
+		const pred = barRect(link.predRow);
+		const succ = barRect(link.succRow);
+		if (!pred || !succ) return [];
+		const x0 = link.from === 'end' ? pred.x + pred.w : pred.x;
+		const y0 = pred.y + pred.h / 2;
+		const x1 = link.to === 'start' ? succ.x : succ.x + succ.w;
+		const y1 = succ.y + succ.h / 2;
+		// The direction of travel leaving the predecessor and arriving at the successor.
+		const d0 = link.from === 'end' ? 1 : -1;
+		const d1 = link.to === 'start' ? 1 : -1;
+		const down = link.succRow > link.predRow;
+
+		// A milestone and a task that start at the same instant: a straight drop along the start
+		// edge, not a loop round it.
+		const centre = pred.x + pred.w / 2;
+		if (
+			rows[link.predRow]?.kind === 'milestone' &&
+			link.to === 'start' &&
+			Math.abs(x1 - centre) <= elbow
+		) {
+			return [
+				{ x: centre, y: down ? pred.y + pred.h : pred.y },
+				{ x: centre, y: y1 },
+			];
+		}
+
+		const a = x0 + d0 * elbow;
+		const b = x1 - d1 * elbow;
+		if (d0 !== d1) {
+			// Both ends on the same side (end to end, start to start): one C-shaped bend.
+			const m = d0 > 0 ? Math.max(a, b) : Math.min(a, b);
 			return [
 				{ x: x0, y: y0 },
-				{ x: x0 + elbow, y: y0 },
-				{ x: x0 + elbow, y: y1 },
+				{ x: m, y: y0 },
+				{ x: m, y: y1 },
 				{ x: x1, y: y1 },
 			];
 		}
-		// The successor starts before the predecessor ends: go round through the row boundary.
-		const yMid = link.succRow > link.predRow ? rowTop(link.predRow + 1) : rowTop(link.predRow);
+		if ((x1 - a) * d1 >= 0) {
+			return [
+				{ x: x0, y: y0 },
+				{ x: a, y: y0 },
+				{ x: a, y: y1 },
+				{ x: x1, y: y1 },
+			];
+		}
+		// The successor's end is behind the predecessor's: go round through the row boundary.
+		const yMid = down ? rowTop(link.predRow + 1) : rowTop(link.predRow);
 		return [
 			{ x: x0, y: y0 },
-			{ x: x0 + elbow, y: y0 },
-			{ x: x0 + elbow, y: yMid },
-			{ x: x1 - elbow, y: yMid },
-			{ x: x1 - elbow, y: y1 },
+			{ x: a, y: y0 },
+			{ x: a, y: yMid },
+			{ x: b, y: yMid },
+			{ x: b, y: y1 },
 			{ x: x1, y: y1 },
 		];
 	};
@@ -230,4 +264,10 @@ export function paintWindow(
 		w,
 		h,
 	};
+}
+
+/** The time scale of a zoom for a model: its first date sits `originPad` pixels from the left. */
+export function scaleFor(model: GanttModel, pxPerDay: number, metrics: Metrics): TimeScale {
+	const pxPerMin = pxPerDay / MIN_PER_DAY;
+	return createScale(pxPerDay, model.originMin - metrics.originPad / pxPerMin);
 }

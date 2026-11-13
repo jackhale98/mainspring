@@ -27,9 +27,10 @@ describe('self-hosted fonts', () => {
 	it('are loaded from font files that exist, Latin subset only', () => {
 		const css = read('src/styles/fonts.css');
 		const urls = [...css.matchAll(/url\('([^']+\.woff2)'\)/g)].map((m) => m[1] ?? '');
-		expect(urls).toHaveLength(2);
+		// Inter and JetBrains Mono (variable), Instrument Serif (regular and italic).
+		expect(urls).toHaveLength(4);
 		for (const u of urls) {
-			expect(u).toContain('-latin-wght-normal.woff2');
+			expect(u).toMatch(/-latin-(wght-normal|400-normal|400-italic)\.woff2$/);
 			expect(fs.existsSync(path.resolve(ROOT, 'src/styles', u))).toBe(true);
 		}
 	});
@@ -38,5 +39,6 @@ describe('self-hosted fonts', () => {
 		const tokens = read('src/styles/tokens.css');
 		expect(tokens).toMatch(/--font-sans:\s*'Inter Variable'/);
 		expect(tokens).toMatch(/--font-mono:\s*'JetBrains Mono Variable'/);
+		expect(tokens).toMatch(/--font-display:\s*'Instrument Serif'/);
 	});
 });

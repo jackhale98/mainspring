@@ -3,19 +3,22 @@
 	The Gantt's toolbar: zoom out, zoom in, the zoom level, Today, a line about the selected (or
 	hovered) task, and a legend for the today and status-date lines. Only DOM and tokens: it holds no
 	state, the Gantt owns the zoom. The selected task's line is a polite live region; the hovered
-	one is shown but not announced.
+	one is shown but not announced. On a phone the buttons are icons (the words stay for screen
+	readers) and everything sits in one row; the task line fills what is left of it, and is empty
+	until a task is selected, so showing it never moves the chart.
 -->
 <script lang="ts">
 	import { canZoomIn, canZoomOut, nearestLevel } from '../../lib/gantt/scale';
+	import type { LineState } from '../../lib/gantt/model';
 	import { strings } from '../../lib/strings';
 
 	interface Props {
 		pxPerDay: number;
 		selectedText: string;
 		hoverText: string;
-		/** Whether Today has a line to go to. */
+		/** Whether Today has a line on the chart to go to. */
 		hasMarker: boolean;
-		lines: { today: boolean; status: boolean; merged: boolean };
+		lines: { today: LineState; status: LineState; merged: boolean };
 		dimmed: boolean;
 		onzoomin: () => void;
 		onzoomout: () => void;
@@ -32,27 +35,47 @@
 		onzoomout,
 		ontoday,
 	}: Props = $props();
+
+	const L = strings.gantt.lines;
+	const label = (text: string, state: LineState): string => (state === 'off' ? L.off(text) : text);
 </script>
 
 <div class="toolbar" role="toolbar" aria-label={strings.gantt.toolbar}>
 	<div class="group">
 		<button type="button" onclick={onzoomout} disabled={!canZoomOut(pxPerDay)}>
-			{strings.gantt.zoomOut}
+			<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg>
+			<span class="label">{strings.gantt.zoomOut}</span>
 		</button>
 		<button type="button" onclick={onzoomin} disabled={!canZoomIn(pxPerDay)}>
-			{strings.gantt.zoomIn}
+			<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M8 3v10" /></svg>
+			<span class="label">{strings.gantt.zoomIn}</span>
 		</button>
 		<span class="level">{strings.gantt.zoomLevel(nearestLevel(pxPerDay))}</span>
-		<button type="button" onclick={ontoday} disabled={!hasMarker}>{strings.gantt.today}</button>
+		<button type="button" onclick={ontoday} disabled={!hasMarker}>
+			<svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+				<circle cx="8" cy="8" r="4" /><path d="M8 1v3M8 12v3M1 8h3M12 8h3" />
+			</svg>
+			<span class="label">{strings.gantt.today}</span>
+		</button>
 	</div>
 	<p class="summary" role="status" class:sr-only={hoverText !== ''}>{selectedText}</p>
 	{#if hoverText !== ''}<p class="summary" aria-hidden="true">{hoverText}</p>{/if}
 	<ul class="legend" aria-label={strings.gantt.legend}>
 		{#if lines.merged}
-			<li><i class="line today"></i>{strings.gantt.lines.both}</li>
+			<li class:off={lines.today === 'off'}>
+				<i class="line today"></i>{label(L.both, lines.today)}
+			</li>
 		{:else}
-			{#if lines.today}<li><i class="line today"></i>{strings.gantt.lines.today}</li>{/if}
-			{#if lines.status}<li><i class="line status"></i>{strings.gantt.lines.status}</li>{/if}
+			{#if lines.today}
+				<li class:off={lines.today === 'off'}>
+					<i class="line today"></i>{label(L.today, lines.today)}
+				</li>
+			{/if}
+			{#if lines.status}
+				<li class:off={lines.status === 'off'}>
+					<i class="line status"></i>{label(L.status, lines.status)}
+				</li>
+			{/if}
 		{/if}
 		{#if dimmed}<li class="stale">{strings.gantt.lastGood}</li>{/if}
 	</ul>
@@ -73,10 +96,14 @@
 		align-items: center;
 		gap: var(--space-2);
 	}
-	.group button {
+	button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-1);
 		min-block-size: 2rem;
 		padding-inline: var(--space-3);
-		border: 1px solid var(--color-gantt-border);
+		border: 1px solid var(--color-gantt-border-strong);
 		border-radius: var(--radius-sm);
 		background: var(--color-gantt-surface);
 		color: var(--color-gantt-text);
@@ -84,12 +111,22 @@
 		font-size: var(--text-sm);
 		cursor: pointer;
 	}
-	.group button:hover:not(:disabled) {
+	button:hover:not(:disabled) {
 		background: var(--color-gantt-row-hover);
 	}
-	.group button:disabled {
+	button:disabled {
 		color: var(--color-gantt-text-muted);
+		opacity: 0.6;
 		cursor: default;
+	}
+	.icon {
+		display: none;
+		inline-size: 1rem;
+		block-size: 1rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
 	}
 	.level {
 		min-inline-size: 5.5rem;
@@ -126,6 +163,12 @@
 		align-items: center;
 		gap: var(--space-1);
 	}
+	.legend li.off {
+		font-style: italic;
+	}
+	.legend li.off .line {
+		opacity: 0.4;
+	}
 	.line {
 		display: inline-block;
 		inline-size: var(--gantt-marker-width);
@@ -146,14 +189,37 @@
 		font-weight: 600;
 	}
 	@media (max-width: 599px) {
+		.toolbar {
+			flex-wrap: nowrap;
+			gap: var(--space-2);
+		}
+		.group {
+			flex: none;
+			gap: var(--space-1);
+		}
+		button {
+			padding-inline: 0;
+			min-inline-size: var(--size-tap);
+			min-block-size: var(--size-tap);
+		}
+		.icon {
+			display: block;
+		}
+		.label {
+			position: absolute;
+			inline-size: 1px;
+			block-size: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		.level,
 		.legend {
 			display: none;
 		}
-	}
-	@media (pointer: coarse) {
-		.group button {
-			min-block-size: var(--size-tap);
-			min-inline-size: var(--size-tap);
+		.summary {
+			flex: 1 1 0;
+			font-size: var(--text-xs);
 		}
 	}
 </style>

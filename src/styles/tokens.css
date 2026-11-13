@@ -22,78 +22,130 @@
 	--color-row-hover: #eef2f6;
 	--color-row-selected: #d9e8f9;
 
-	/* Gantt, "Mainspring" palette: a watch dial in light (enamel, brass, blued steel).
-	   src/lib/gantt/paint/theme.ts reads every colour and size below through one theme object, and
-	   the Gantt components use the same tokens, so a change here restyles the chart with no code
-	   change. Nothing else in the app reads them. Where the palette's own tint would fall under 3:1
-	   against the canvas (WCAG 1.4.11), the bar outline and the links use the brass of the
-	   progress colour instead. */
+	/* Gantt, "Mainspring refined" (ADR-0009): a watch dial. Enamel panel, brushed-brass bars,
+	   blued-steel critical bars, brass links and jewel milestones. src/lib/gantt/paint/theme.ts
+	   reads every colour and size below through one theme object and the Gantt components use the
+	   same tokens, so a change here restyles the chart with no code change. Nothing else reads
+	   them. Where a tint would fall under the WCAG contrast the text or graphic needs, a darker
+	   value is used: the faint text (4.5:1), the bar outline and the links (3:1, 1.4.11). */
 	--color-gantt-surface: #fffdf8;
-	--color-gantt-surface-header: #f3efe5;
+	--color-gantt-surface-header: #fffdf8;
+	--color-gantt-inset: #f4efe5;
 	--color-gantt-text: #1c1a17;
 	--color-gantt-text-muted: #625b4f;
-	--color-gantt-border: #e6e0d2;
-	--color-gantt-border-strong: #cdc4b0;
-	--color-gantt-grid: #eee9dd;
-	--color-gantt-grid-major: #e6e0d2;
-	--color-gantt-row-line: #e6e0d2;
+	--color-gantt-text-faint: #766e5f;
+	--color-gantt-border: #eee8dc;
+	--color-gantt-border-strong: #e2dbcb;
+	--color-gantt-grid: #f1ece1;
+	--color-gantt-grid-major: #eee8dc;
+	--color-gantt-row-line: #eee8dc;
+	--color-gantt-weekend: #fbf8f1;
+	--color-gantt-holiday: #f5efe2;
 	--color-gantt-accent: #2346a0;
 	--color-gantt-accent-wash: #e7ecf8;
 	--color-gantt-accent-ink: #1c3a86;
 	--color-gantt-accent-text: #ffffff;
 	--color-gantt-row-selected: #eef2fb;
-	--color-gantt-row-hover: #f3efe5;
-	--color-gantt-bar: #efe6d1;
-	--color-gantt-bar-progress: #b08d3c;
-	--color-gantt-bar-outline: #b08d3c;
-	--color-gantt-summary: #2e2a24;
+	--color-gantt-row-hover: #f4efe5;
+	--color-gantt-chip: rgb(255 253 248 / 0.92);
+	--color-gantt-bar-top: #f7efdc;
+	--color-gantt-bar-bottom: #eaddbd;
+	--color-gantt-bar-ink: #4a3912;
+	--color-gantt-bar-progress: rgb(176 141 60 / 0.28);
+	--color-gantt-bar-outline: #9a7424;
+	--color-gantt-bar-highlight: rgb(255 255 255 / 0.7);
+	--color-gantt-bar-lowlight: rgb(120 90 20 / 0.18);
+	--color-gantt-bar-shadow: rgb(80 60 10 / 0.12);
+	--color-gantt-steel-top: #3a60c2;
+	--color-gantt-steel-bottom: #1e3c8c;
+	--color-gantt-steel-ink: #ffffff;
+	--color-gantt-steel-progress: rgb(255 255 255 / 0.18);
+	--color-gantt-steel-highlight: rgb(255 255 255 / 0.25);
+	--color-gantt-steel-shadow: rgb(30 60 140 / 0.3);
+	--color-gantt-summary: #7a7262;
 	--color-gantt-milestone: #b08d3c;
-	--color-gantt-link: #b08d3c;
+	--color-gantt-jewel-high: #f1d99a;
+	--color-gantt-jewel-deep: #9a7424;
+	--color-gantt-jewel-glow: rgb(154 116 36 / 0.35);
+	--color-gantt-link: #9a7424;
+	--color-gantt-crown-top: #e3c47e;
+	--color-gantt-crown-edge: rgb(80 60 10 / 0.35);
 	--color-critical: #2346a0;
-	--color-critical-fill: #dce4f5;
-	--color-float: #b08d3c;
+	--color-float: #9a7424;
 	--color-pending: #9a7424;
 	--color-status-date: #1c3a86;
 	--color-today: #9a7424;
 	--color-text-only: #625b4f;
 	--color-done: #2f7d4f;
+	/* People: background and initial, for the avatars beside the bars. */
+	--color-gantt-avatar-1-bg: #e3e9f7;
+	--color-gantt-avatar-1-ink: #22408f;
+	--color-gantt-avatar-2-bg: #f3ead6;
+	--color-gantt-avatar-2-ink: #6e5316;
+	--color-gantt-avatar-3-bg: #f6e3e8;
+	--color-gantt-avatar-3-ink: #8e1b3a;
+	--color-gantt-avatar-4-bg: #e2f1e7;
+	--color-gantt-avatar-4-ink: #1f5c3a;
+	--color-gantt-avatar-5-bg: #eee5f6;
+	--color-gantt-avatar-5-ink: #5a2e8c;
+	--color-gantt-avatar-6-bg: #dff0ef;
+	--color-gantt-avatar-6-ink: #14615a;
 
-	/* Gantt sizes, weights and opacities, in px unless noted. The coarse-pointer sizes are
-	   overrides below. */
+	/* Gantt sizes, weights and opacities, in px unless noted. */
 	--gantt-row-height: 40px;
 	--gantt-row-line-width: 0px;
-	--gantt-bar-height: 18px;
-	--gantt-bar-radius: 9px;
+	--gantt-bar-height: 22px;
+	--gantt-bar-radius: 11px;
 	--gantt-bar-outline-width: 1px;
-	--gantt-summary-height: 10px;
-	--gantt-summary-stem: 6px;
-	--gantt-milestone-half: 6px;
-	--gantt-min-bar-width: 4px;
-	--gantt-header-row-height: 24px;
-	--gantt-font-size: 12px;
+	--gantt-bar-shadow-blur: 2px;
+	--gantt-bar-shadow-y: 1px;
+	--gantt-steel-shadow-blur: 6px;
+	--gantt-steel-shadow-y: 2px;
+	--gantt-summary-height: 9px;
+	--gantt-summary-stem: 3px;
+	--gantt-summary-cap: 2px;
+	--gantt-milestone-half: 10px;
+	--gantt-milestone-radius: 3px;
+	--gantt-jewel-blur: 6px;
+	--gantt-jewel-y: 2px;
+	--gantt-min-bar-width: 6px;
+	--gantt-origin-gap: 8px;
+	--gantt-header-row-height: 32px;
+	--gantt-font-size: 11.5px;
+	--gantt-font-weight-bar: 600;
 	--gantt-label-size: 11px;
-	--gantt-header-font-size: 12px;
+	--gantt-display-size: 15px;
+	--gantt-header-font-size: 19px;
 	--gantt-header-minor-font-size: 11px;
+	--gantt-header-letter-spacing: 0.22px;
 	--gantt-font-weight-strong: 600;
-	--gantt-label-gap: 14px;
-	--gantt-label-pad: 8px;
+	--gantt-label-gap: 8px;
+	--gantt-label-pad: 10px;
+	--gantt-avatar-size: 20px;
+	--gantt-avatar-gap: 4px;
+	--gantt-avatar-font-size: 9.5px;
 	--gantt-link-width: 1.2px;
 	--gantt-link-width-critical: 1.6px;
 	--gantt-link-width-hover: 2.4px;
 	--gantt-link-elbow: 8px;
-	--gantt-arrow-size: 6px;
+	--gantt-link-radius: 4px;
+	--gantt-link-gap: 2px;
+	--gantt-arrow-size: 5px;
 	--gantt-outline-width: 1.5px;
-	--gantt-critical-outline: 1.6px;
-	--gantt-marker-width: 2px;
+	--gantt-marker-width: 1.5px;
 	--gantt-marker-size: 5px;
+	--gantt-crown-width: 12px;
+	--gantt-crown-height: 9px;
 	--gantt-ring-width: 2px;
-	--gantt-ring-gap: 2px;
+	--gantt-ring-gap: 3px;
+	--gantt-hover-ring-width: 1.5px;
 	--gantt-float-height: 3px;
 	--gantt-dash: 4px;
 	--gantt-dim-opacity: 0.5;
-	--gantt-hover-opacity: 0.7;
 	--gantt-text-only-opacity: 0.25;
 	--gantt-motion: var(--motion-base);
+	--gantt-chip-shadow: 0 1px 2px rgb(40 30 10 / 0.06);
+	--gantt-chip-height: 30px;
 
 	/* Code editor (src/lib/tjp/cm/theme.ts). AA contrast on --color-surface. */
 	--color-syntax-keyword: #0b5cad;
@@ -114,6 +166,7 @@
 	--font-sans:
 		'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
 		sans-serif;
+	--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 	--font-mono:
 		'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 	--text-sm: 0.875rem;
@@ -169,34 +222,66 @@
 		--color-row-hover: #262b30;
 		--color-row-selected: #203447;
 		--color-gantt-surface: #11151d;
-		--color-gantt-surface-header: #1c2230;
+		--color-gantt-surface-header: #11151d;
+		--color-gantt-inset: #181d28;
 		--color-gantt-text: #eee7d7;
 		--color-gantt-text-muted: #a9a291;
-		--color-gantt-border: #2a3243;
-		--color-gantt-border-strong: #3d4659;
-		--color-gantt-grid: #1e2431;
-		--color-gantt-grid-major: #2a3243;
-		--color-gantt-row-line: #2a3243;
+		--color-gantt-text-faint: #8f897a;
+		--color-gantt-border: #1e2431;
+		--color-gantt-border-strong: #2a3243;
+		--color-gantt-grid: #161b25;
+		--color-gantt-grid-major: #1e2431;
+		--color-gantt-row-line: #1e2431;
+		--color-gantt-weekend: #0e1219;
+		--color-gantt-holiday: #141821;
 		--color-gantt-accent: #7d9be8;
-		--color-gantt-accent-wash: #1a2443;
+		--color-gantt-accent-wash: #18213d;
 		--color-gantt-accent-ink: #b3c5f4;
 		--color-gantt-accent-text: #0d1117;
-		--color-gantt-row-selected: #172036;
-		--color-gantt-row-hover: #1c2230;
-		--color-gantt-bar: #2a2517;
-		--color-gantt-bar-progress: #c9a24d;
+		--color-gantt-row-selected: #16203a;
+		--color-gantt-row-hover: #181d28;
+		--color-gantt-chip: rgb(17 21 29 / 0.9);
+		--color-gantt-bar-top: #3b3322;
+		--color-gantt-bar-bottom: #2a2417;
+		--color-gantt-bar-ink: #f1e3bf;
+		--color-gantt-bar-progress: rgb(210 174 92 / 0.22);
 		--color-gantt-bar-outline: #c9a24d;
-		--color-gantt-summary: #e8dec6;
+		--color-gantt-bar-highlight: rgb(255 255 255 / 0.07);
+		--color-gantt-bar-lowlight: rgb(0 0 0 / 0);
+		--color-gantt-bar-shadow: rgb(0 0 0 / 0.5);
+		--color-gantt-steel-top: #5f82e0;
+		--color-gantt-steel-bottom: #2d4ca4;
+		--color-gantt-steel-ink: #ffffff;
+		--color-gantt-steel-progress: rgb(255 255 255 / 0.16);
+		--color-gantt-steel-highlight: rgb(255 255 255 / 0.2);
+		--color-gantt-steel-shadow: rgb(70 110 230 / 0.35);
+		--color-gantt-summary: #b9af98;
 		--color-gantt-milestone: #d2ae5c;
-		--color-gantt-link: #7a7565;
+		--color-gantt-jewel-high: #f6e3ae;
+		--color-gantt-jewel-deep: #c9a24d;
+		--color-gantt-jewel-glow: rgb(210 174 92 / 0.35);
+		--color-gantt-link: #c9a24d;
+		--color-gantt-crown-top: #f1d99a;
+		--color-gantt-crown-edge: rgb(0 0 0 / 0.4);
 		--color-critical: #7d9be8;
-		--color-critical-fill: #1b2748;
 		--color-float: #c9a24d;
 		--color-pending: #d2ae5c;
 		--color-status-date: #b3c5f4;
 		--color-today: #d2ae5c;
 		--color-text-only: #a9a291;
 		--color-done: #6fcf97;
+		--color-gantt-avatar-1-bg: #1b2748;
+		--color-gantt-avatar-1-ink: #b3c5f4;
+		--color-gantt-avatar-2-bg: #2e2817;
+		--color-gantt-avatar-2-ink: #e3c47e;
+		--color-gantt-avatar-3-bg: #3a1822;
+		--color-gantt-avatar-3-ink: #f2a1b3;
+		--color-gantt-avatar-4-bg: #16301f;
+		--color-gantt-avatar-4-ink: #9edbb5;
+		--color-gantt-avatar-5-bg: #2a1f3d;
+		--color-gantt-avatar-5-ink: #d2b8f0;
+		--color-gantt-avatar-6-bg: #123532;
+		--color-gantt-avatar-6-ink: #9ad9d3;
 		--color-syntax-keyword: #6cb2f2;
 		--color-syntax-definition: #d39af0;
 		--color-syntax-reference: #eceef0;
@@ -223,11 +308,7 @@
 @media (pointer: coarse) {
 	:root {
 		--size-row: var(--size-tap);
-		--gantt-bar-height: 22px;
-		--gantt-bar-radius: 11px;
-		--gantt-summary-height: 12px;
-		--gantt-summary-stem: 7px;
-		--gantt-milestone-half: 8px;
+		--gantt-min-bar-width: 8px;
 	}
 }
 

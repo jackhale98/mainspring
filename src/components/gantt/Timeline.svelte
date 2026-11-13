@@ -68,6 +68,9 @@
 
 	function paint(): void {
 		raf = 0;
+		// A hidden panel has no size to paint into: keep what is dirty for when it is shown (the
+		// resize that comes with showing it makes the effects ask again).
+		if (!overlayEl || overlayEl.getClientRects().length === 0) return;
 		if ((baseDirty || gridDirty) && gridEl && barsEl) {
 			const g = frameFor(gridEl, true);
 			if (g) paintGrid(g, latest?.ticks ?? null, gridSelected);
@@ -156,33 +159,43 @@
 		if (!start || start.id !== e.pointerId) return;
 		if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > slopOf(e)) return;
 		const hit = hitTest(layout, model, start.at.x, start.at.y);
-		const row = hit.kind === 'link' ? null : hit.row;
+		// A tap that misses a link by a little lands on the row it is in.
+		const row = hit.kind === 'link' ? layout.rowAt(start.at.y) : hit.row;
 		if (row !== null) onselect(row);
 	}
 </script>
 
 <div class="plot" style:width="{layout.width}px" style:height="{layout.height}px">
-	<canvas bind:this={gridEl} aria-hidden="true"></canvas>
-	<canvas bind:this={barsEl} aria-hidden="true"></canvas>
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<canvas
-		bind:this={overlayEl}
-		class="overlay"
-		class:pointer={hoverRow !== null}
-		data-testid="gantt-overlay"
-		aria-hidden="true"
-		{onpointerdown}
-		{onpointermove}
-		{onpointerup}
-		{onpointerleave}
-		onpointercancel={() => (down = null)}
-	></canvas>
+	<div class="layers">
+		<canvas bind:this={gridEl} aria-hidden="true"></canvas>
+		<canvas bind:this={barsEl} aria-hidden="true"></canvas>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<canvas
+			bind:this={overlayEl}
+			class="overlay"
+			class:pointer={hoverRow !== null}
+			data-testid="gantt-overlay"
+			aria-hidden="true"
+			{onpointerdown}
+			{onpointermove}
+			{onpointerup}
+			{onpointerleave}
+			onpointercancel={() => (down = null)}
+		></canvas>
+	</div>
 </div>
 
 <style>
 	.plot {
 		position: relative;
 		overflow: hidden;
+	}
+	/* A continuous zoom stretches the layers about the point under the pointer (Gantt.svelte). */
+	.layers {
+		position: absolute;
+		inset: 0;
+		transform: scaleX(var(--zoom-ratio, 1));
+		transform-origin: var(--zoom-origin, 0px) 0;
 	}
 	canvas {
 		position: absolute;

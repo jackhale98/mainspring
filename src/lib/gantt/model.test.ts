@@ -5,7 +5,7 @@ import { buildOutline } from '../state/outline';
 import { buildIndex } from '../tjp/index';
 import { inline } from '../tjp/index/testing';
 import { result } from '../workspace/testing/fake-engine-client';
-import { linksFromIndex } from './links';
+import { resolveLinks } from './links';
 import { EMPTY_MODEL, buildGanttModel, type GanttAnalysis, type ModelInput } from './model';
 import { MIN_PER_DAY } from './scale';
 
@@ -69,7 +69,12 @@ function input(over: Partial<ModelInput> = {}, res: ScheduleResult | null = null
 		collapsed: new Set(),
 		result: r,
 		dimmed: false,
-		links: linksFromIndex(index.dependencies, 'plan'),
+		links: resolveLinks({
+			sites: index.dependencies,
+			result: null,
+			scenario: 'plan',
+			current: true,
+		}),
 		analysis: null,
 		nowMs: null,
 	};
@@ -138,13 +143,84 @@ describe('buildGanttModel', () => {
 			['app.api', 'app.ship', 2, 3],
 			['docs', 'app.ship', 4, 3],
 		]);
-		expect(m.links.every((l) => l.site !== null && !l.critical)).toBe(true);
+		expect(
+			m.links.every((l) => l.state === 'declared' && l.sites.length === 1 && !l.critical),
+		).toBe(true);
 	});
 
 	it('attaches the links of hidden children to the collapsed container', () => {
 		const m = buildGanttModel(input({ collapsed: new Set(['task:app']) }));
 		// ui>api and api>ship are inside app and vanish; docs>ship ends on app's own row.
 		expect(m.links.map((l) => [l.pred, l.predRow, l.succRow])).toEqual([['docs', 1, 0]]);
+	});
+
+	it('keeps every site, the surest state and the critical mark when collapsed rows merge', () => {
+		const first = { id: 1 } as never;
+		const second = { id: 2 } as never;
+		const nodes = input().nodes;
+		const links = [
+			{
+				pred: 'docs',
+				succ: 'app.ui',
+				from: 'end',
+				to: 'start',
+				state: 'pending',
+				sites: [first],
+				gapDurationMin: 0,
+				gapLengthMin: 0,
+			},
+			{
+				pred: 'docs',
+				succ: 'app.api',
+				from: 'end',
+				to: 'start',
+				state: 'declared',
+				sites: [second, first],
+				gapDurationMin: 0,
+				gapLengthMin: 0,
+			},
+		] as const;
+		const m = buildGanttModel({
+			...input({ nodes, links, collapsed: new Set(['task:app']) }),
+			analysis: {
+				critical: new Set(),
+				criticalLinks: new Set(['docs>app.api']),
+				floatMin: new Map(),
+				lateEnd: new Map(),
+			},
+		});
+		expect(m.links).toHaveLength(1);
+		expect(m.links[0]).toMatchObject({ predRow: 1, succRow: 0, state: 'declared', critical: true });
+		expect(m.links[0]?.sites).toEqual([first, second]);
+	});
+
+	it('keeps links of different types between the same rows apart', () => {
+		const links = [
+			{
+				pred: 'app.ui',
+				succ: 'app.api',
+				from: 'end',
+				to: 'start',
+				state: 'declared',
+				sites: [],
+				gapDurationMin: 0,
+				gapLengthMin: 0,
+			},
+			{
+				pred: 'app.ui',
+				succ: 'app.api',
+				from: 'start',
+				to: 'start',
+				state: 'declared',
+				sites: [],
+				gapDurationMin: 0,
+				gapLengthMin: 0,
+			},
+		] as const;
+		expect(buildGanttModel(input({ links })).links.map((l) => [l.from, l.to])).toEqual([
+			['end', 'start'],
+			['start', 'start'],
+		]);
 	});
 
 	it('marks critical rows and links from an analysis, when there is one', () => {
@@ -175,7 +251,7 @@ describe('buildGanttModel', () => {
 
 	it('frames the schedule with some air, inside the project frame', () => {
 		const m = buildGanttModel(input());
-		expect(m.originMin).toBe(-D);
+		expect(m.originMin).toBe(0);
 		expect(m.endMin).toBe(6 * D + 7 * D);
 		const tight = result(1, { tasks: TASKS });
 		if (tight.project) tight.project.end = '2026-01-12T00:00:00Z';
@@ -184,17 +260,5 @@ describe('buildGanttModel', () => {
 
 	it('has an empty model for no plan', () => {
 		expect(EMPTY_MODEL.rows).toEqual([]);
-	});
-});
-
-describe('linksFromIndex', () => {
-	it('skips sites that name no task and sites of another scenario', () => {
-		const sites = buildIndex(inline({ 'plan.tjp': PLAN }).snapshot()).dependencies;
-		expect(linksFromIndex(sites, 'plan')).toHaveLength(3);
-		const other = sites.map((s) => ({ ...s, scenario: 'delayed' }));
-		expect(linksFromIndex(other, 'plan')).toHaveLength(0);
-		expect(linksFromIndex(other, 'delayed')).toHaveLength(3);
-		const missing = sites.map((s) => ({ ...s, pred: null }));
-		expect(linksFromIndex(missing, 'plan')).toHaveLength(0);
 	});
 });

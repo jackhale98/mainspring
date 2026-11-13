@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	The top bar (phase-1.md 8.1): the app name, the outline button on tablets, the sample picker,
-	the view switch (Text, Split, Gantt; a phone has its tab bar instead) and the engine's state.
+	The top bar (phase-1.md 8.1): the app name, the outline button where the outline is a drawer, the sample picker,
+	the view switch (Text, Split, Visual; a phone has its tab bar instead) and the engine's state.
 	On phones the engine state shrinks to a dot with the words kept for screen readers.
 -->
 <script lang="ts">
@@ -15,9 +15,11 @@
 		app: AppState;
 		layout: LayoutKind;
 		mode: ViewMode;
+		/** Whether the outline is a drawer here, so that the top bar has the button for it. */
+		drawer: boolean;
 		onmode: (mode: ViewMode) => void;
 	}
-	let { app, layout, mode, onmode }: Props = $props();
+	let { app, layout, mode, drawer, onmode }: Props = $props();
 
 	async function pick(event: Event & { currentTarget: HTMLSelectElement }): Promise<void> {
 		const select = event.currentTarget;
@@ -28,7 +30,7 @@
 </script>
 
 <header class="topbar">
-	{#if layout === 'tablet' && mode === 'text'}
+	{#if drawer}
 		<button
 			type="button"
 			class="outline-button"

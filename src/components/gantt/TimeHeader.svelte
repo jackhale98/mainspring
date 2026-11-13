@@ -33,6 +33,8 @@
 	function draw(): void {
 		raf = 0;
 		const c = el;
+		// Hidden: nothing to paint into. The resize on showing it asks again.
+		if (!c || c.getClientRects().length === 0) return;
 		const ctx = c?.getContext('2d', { alpha: false });
 		if (!c || !ctx) return;
 		sizeCanvas(c, win.w, layout.metrics.headerHeight, dpr);
@@ -59,9 +61,16 @@
 	});
 </script>
 
-<canvas bind:this={el} aria-hidden="true" data-testid="gantt-header"></canvas>
+<div class="layer">
+	<canvas bind:this={el} aria-hidden="true" data-testid="gantt-header"></canvas>
+</div>
 
 <style>
+	/* A continuous zoom stretches the header with the plot (Gantt.svelte). */
+	.layer {
+		transform: scaleX(var(--zoom-ratio, 1));
+		transform-origin: var(--zoom-origin, 0px) 0;
+	}
 	canvas {
 		display: block;
 		will-change: transform;

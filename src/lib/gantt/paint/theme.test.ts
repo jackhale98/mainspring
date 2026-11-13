@@ -35,7 +35,7 @@ describe('painters follow the theme', () => {
 		row(1, 5 * D, 5 * D + 30, 'task', { name: 'A task name too long for its bar' }),
 		row(2, 0, 2 * D, 'container', { critical: true }),
 	];
-	const links = [link(0, 1, { site: {} as never })];
+	const links = [link(0, 1)];
 
 	it('draws link width, radius, opacity and label gap from the tokens, not constants', () => {
 		const { frame, rec } = frameOf(modelOf(rows, links, { dimmed: true }));
@@ -65,10 +65,10 @@ describe('painters follow the theme', () => {
 	it('draws the selection from the tokens', () => {
 		const { frame, rec } = frameOf(modelOf(rows));
 		paintOverlay(
-			{ ...frame, theme: { ...frame.theme, ringWidth: 4, hoverOpacity: 0.4 } },
+			{ ...frame, theme: { ...frame.theme, ringWidth: 4, hoverRingWidth: 3 } },
 			{ selectedRow: 0, hoverRow: 1, hoverLink: null },
 		);
-		expect(rec.of('set:lineWidth')[0]?.[1]).toBe(4);
-		expect(rec.of('set:globalAlpha')[0]?.[1]).toBe(0.4);
+		const widths = rec.of('set:lineWidth').map((c) => c[1]);
+		expect(widths).toEqual([3, 4]);
 	});
 });

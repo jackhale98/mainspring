@@ -88,8 +88,51 @@ export function textWidth(ctx: CanvasRenderingContext2D, text: string): number {
 /** Forgets measured widths, for when the fonts finished loading. */
 export function clearTextCache(): void {
 	widths.clear();
+	charWidths.clear();
 }
 
-/** The label font: the bar-label size, or with `small` the size for text beside a bar. */
-export const labelFont = (t: Theme, small = false): string =>
-	`${small ? t.labelSize : t.fontSize}px ${t.fontSans}`;
+/** The font of text inside a bar. */
+export const barFont = (t: Theme): string => `${t.fontWeightBar} ${t.fontSize}px ${t.fontSans}`;
+/** The small font of text beside a bar. */
+export const labelFont = (t: Theme): string => `${t.labelSize}px ${t.fontSans}`;
+
+/**
+ * Text with tabular digits: canvas text has no `font-variant-numeric`, so each digit is placed on
+ * the advance of the widest one ('0') and the other characters keep their own, plus `spacing`
+ * between all of them. The widths come from a per-character cache.
+ */
+const charWidths = new Map<string, number>();
+function charWidth(ctx: CanvasRenderingContext2D, ch: string): number {
+	const key = `${ctx.font}\u0000${ch}`;
+	const known = charWidths.get(key);
+	if (known !== undefined) return known;
+	if (charWidths.size >= MAX_CACHED_WIDTHS) charWidths.clear();
+	const w = ctx.measureText(ch).width;
+	charWidths.set(key, w);
+	return w;
+}
+const isDigit = (ch: string): boolean => ch >= '0' && ch <= '9';
+const advance = (ctx: CanvasRenderingContext2D, ch: string): number =>
+	charWidth(ctx, isDigit(ch) ? '0' : ch);
+
+export function tabularWidth(ctx: CanvasRenderingContext2D, text: string, spacing = 0): number {
+	let w = 0;
+	for (const ch of text) w += advance(ctx, ch) + spacing;
+	return Math.max(0, w - spacing);
+}
+
+export function fillTabular(
+	ctx: CanvasRenderingContext2D,
+	text: string,
+	x: number,
+	y: number,
+	spacing = 0,
+): void {
+	let at = x;
+	for (const ch of text) {
+		const slot = advance(ctx, ch);
+		// A digit narrower than the slot is centred in it.
+		ctx.fillText(ch, at + (slot - charWidth(ctx, ch)) / 2, y);
+		at += slot + spacing;
+	}
+}

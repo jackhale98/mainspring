@@ -10,6 +10,7 @@ const model = modelOf(
 		row(1, 3 * D, 3 * D, 'milestone', { name: 'Ship' }),
 		row(2, null, null, 'task', { name: 'Later' }),
 		row(3, 0, 5, 'task', { name: 'Tiny' }),
+		row(4, 0, 3 * D, 'task', { name: 'Team', people: ['Ana', 'Ben'] }),
 	],
 	[],
 	{ calendar },
@@ -20,6 +21,10 @@ describe('describeRow', () => {
 		// Ends at the start of Thursday: the last day is Wednesday.
 		expect(describeRow(model, 0)).toBe('Code: Mon, Jan 5, 2026 to Wed, Jan 7, 2026');
 		expect(describeRow(model, 3)).toBe('Tiny: Mon, Jan 5, 2026 to Mon, Jan 5, 2026');
+	});
+
+	it('adds the people on a task', () => {
+		expect(describeRow(model, 4)).toBe('Team: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. Ana, Ben');
 	});
 
 	it('writes a milestone as its day', () => {
