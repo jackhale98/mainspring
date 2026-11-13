@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The Node timings of phase-1.md 8.4, recorded for the gate (T21): cold parse of Fedora 20 and
 // the 1,000-task plan, incremental reparse after one keystroke, index rebuild for one changed
-// file (Fedora), and the edit intents on Fedora. Each is timed over many warm runs and reported as
+// file (Fedora), and every edit intent type on Fedora with the Gantt drop path (phase-2.md T6;
+// the cases are in edit-intent-cases.ts). Each is timed over many warm runs and reported as
 // p50, p90 and max. Written to test-results/text-mode-node-timings.json and printed.
 // Enforced here: only sanity caps of ten times the target, so a slow shared runner never fails.
 import fs from 'node:fs';
@@ -11,11 +12,9 @@ import { describe, expect, it } from 'vitest';
 import { ROOT, readTjp } from '../grammar/corpus';
 import { reparse } from '../../src/lib/tjp/grammar/fragments';
 import { tjpGlobalParser } from '../../src/lib/tjp/grammar/parser';
-import { applyIntent } from '../../src/lib/tjp/edit/apply';
-import type { EditIntent } from '../../src/lib/tjp/edit/types';
-import { buildIndex, createFactsCache, hintsFromResult } from '../../src/lib/tjp/index';
-import type { ScheduleResult } from '../../src/engine/protocol';
+import { buildIndex, createFactsCache } from '../../src/lib/tjp/index';
 import { golden } from '../../src/lib/tjp/index/testing';
+import { fedoraCases, INTENT_RUNS } from './edit-intent-cases';
 
 const SANITY = 10;
 const FEDORA = readTjp('engine/tj/examples/Fedora-20/f-20.tjp');
@@ -114,41 +113,19 @@ describe('node timings (spec 8.4)', () => {
 	});
 
 	it('edit intents on Fedora', () => {
-		const ws = golden('upstream-fedora-20');
-		const snap = ws.snapshot();
-		const expected = JSON.parse(
-			fs.readFileSync(path.join(ROOT, 'engine/golden/expected/upstream-fedora-20.json'), 'utf8'),
-		) as { result: ScheduleResult };
-		// With the engine's hints, as in the app: Fedora's tasks come from macros.
-		const hints = hintsFromResult(expected.result, (_f, l) => l);
-		const index = buildIndex(snap, hints, { cache: null });
-		const tasks = [...index.tasks.values()];
-		const leaf = tasks.filter((t) => t.children.length === 0 && t.parent && !t.expandedOnly);
-		const [a, b, c] = leaf;
-		const parent = tasks.find((t) => t.children.length > 2 && !t.expandedOnly);
-		// A parent other than the leaf's own, so that the move is real.
-		const other = tasks.find((t) => t.children.length > 2 && !t.expandedOnly && t.id !== a?.parent);
-		const dep = index.dependencies.find((d) => d.pred && d.succ && d.site === 'decl');
-		if (!dep?.succ || !dep.pred || !parent || !other || !a || !b || !c)
-			throw new Error('plan shape');
-		const intents: Record<string, EditIntent> = {
-			'setAttr priority': { type: 'setAttr', task: a.id, attr: 'priority', value: '700' },
-			renameTask: { type: 'renameTask', task: a.id, name: 'Renamed task' },
-			addDepends: { type: 'addDepends', task: b.id, target: c.id },
-			removeDepends: { type: 'removeDepends', task: dep.succ, target: dep.pred },
-			addTask: { type: 'addTask', parent: parent.id, index: 0, name: 'New task' },
-			deleteTask: { type: 'deleteTask', task: c.id },
-			moveTask: { type: 'moveTask', task: a.id, parent: other.id, index: 0 },
-			format: { type: 'format', file: snap.entry },
-		};
-		for (const [name, intent] of Object.entries(intents)) {
+		for (const c of fedoraCases()) {
 			let status = '';
-			const xs = repeat(8, () => {
-				status = applyIntent(snap, index, intent).status;
-			});
-			record(`intent ${name} (Fedora, ${status})`, xs, 50);
+			const xs: number[] = [];
+			// Three warm-ups, then cold runs: each on its own fresh workspace and index.
+			for (let i = 0; i < INTENT_RUNS + 3; i++) {
+				const run = c.prepare();
+				const t0 = performance.now();
+				status = run();
+				if (i >= 3) xs.push(performance.now() - t0);
+			}
+			record(`intent ${c.name} (${c.plan}, ${status})`, xs, 50);
 		}
-	}, 60_000);
+	}, 300_000);
 
 	it('writes the report', () => {
 		const file = path.join(ROOT, 'test-results', 'text-mode-node-timings.json');

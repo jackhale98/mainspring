@@ -169,7 +169,7 @@ function planDelete(ctx: EditContext, intent: IntentOf<'deleteTask'>): IntentPla
 			return;
 		const from = Math.min(decl.leadingComments?.from ?? block.from, block.from);
 		ranges.push({ file: block.file, from, to: block.to });
-		removals.push({ file: block.file, stmt: block, leading: decl.leadingComments });
+		removals.push({ file: block.file, stmt: block, leading: decl.leadingComments, block: true });
 	};
 	add(sym.decl);
 	for (const id of ids) for (const s of taskOf(ctx, id)?.supplements ?? []) add(s);
@@ -285,7 +285,9 @@ function planMove(ctx: EditContext, intent: IntentOf<'moveTask'>): IntentPlan {
 	const ins = insertBlock(dest, mt.text, { from: mt.blockAt, to: mt.blockAt + header });
 	if (isRefused(ins)) return ins;
 	const block = { from: sym.decl.block.from, to: end };
-	const cut = removeStatements(src, [{ stmt: block, leading: sym.decl.leadingComments }]);
+	const cut = removeStatements(src, [
+		{ stmt: block, leading: sym.decl.leadingComments, block: true },
+	]);
 	const ops: EditOp[] = [...cut, ...ins];
 	for (const w of rw.outer) {
 		const f = ctx.ws.files.get(w.at.file);

@@ -114,8 +114,24 @@ function syntaxDiagnostic(file: TjpFile, text: string, from: number, to: number)
 	return mk(from, to, 'syntax:unexpected', unexpected(token));
 }
 
+/**
+ * The value diagnostics of an index built from the snapshot it is asked with: the same index
+ * gives the same answer, and the runner (run-view.ts) and the edit API's project re-check
+ * (edit/revalidate.ts) both ask for it.
+ */
+const valuesOf = new WeakMap<SymbolIndex, readonly TjpDiagnostic[]>();
+
 /** Value diagnostics of every file the include graph reads. Needs the index for the contexts. */
 export function valueDiagnostics(ws: WorkspaceSnapshot, index: SymbolIndex): TjpDiagnostic[] {
+	const own = index.isFor(ws);
+	const known = own ? valuesOf.get(index) : undefined;
+	if (known) return [...known];
+	const out = computeValueDiagnostics(ws, index);
+	if (own) valuesOf.set(index, out);
+	return [...out];
+}
+
+function computeValueDiagnostics(ws: WorkspaceSnapshot, index: SymbolIndex): TjpDiagnostic[] {
 	const out: TjpDiagnostic[] = [];
 	const read = new Set(index.visits.map((v) => v.file));
 	for (const [path, file] of ws.files) {

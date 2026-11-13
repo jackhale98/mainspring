@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// Over 400 lines on purpose: the port of TaskJuggler's dependency reading (direction, inherited
+// lists, milestones, scenarios) is one state machine whose parts share the event order; split, its
+// readers would each need the whole of it.
 /**
  * Dependency loops as TaskJuggler finds them (phase-1.md 7.1 `addDepends` `cycle`), over the
  * declared graph in the index. A port of the parts of TaskScenario.rb (3.8.4) that decide it:
@@ -106,6 +109,8 @@ class Graph {
 	readonly #orphans: readonly OrphanDep[];
 	readonly #events = new Map<TaskId, Event[]>();
 	readonly #states = new Map<string, TaskState>();
+	/** Every scenario prefix written on a task statement or an orphan item. */
+	readonly #prefixes = new Set<string>();
 
 	constructor(
 		readonly ws: WorkspaceSnapshot,
@@ -124,6 +129,21 @@ class Graph {
 		this.#deps = groupBy(index.dependencies, (d) => key(d.statement));
 		this.#allocs = groupBy(index.allocations, (a) => key(a.statement));
 		this.#orphans = orphanDeps(ws, index);
+		for (const t of index.tasks.values()) {
+			for (const a of t.attrs) if (a.scenario !== null) this.#prefixes.add(a.scenario);
+		}
+		for (const o of this.#orphans) if (o.scenario !== null) this.#prefixes.add(o.scenario);
+	}
+
+	/**
+	 * The scenario prefixes whose statements apply in `scenario`, as a key: scenarios with the
+	 * same key read every statement alike, so their loop-check graphs are the same.
+	 */
+	variant(scenario: string): string {
+		return [...this.#prefixes]
+			.filter((p) => this.applies(p, scenario))
+			.sort()
+			.join(' ');
 	}
 
 	cmp(a: ParsePosition, b: ParsePosition): number {
@@ -320,22 +340,47 @@ function scenarios(index: SymbolIndex): string[] {
 	return index.scenarios.length > 0 ? index.scenarios.map((s) => s.id) : ['plan'];
 }
 
+export interface Loops {
+	/** A loop TaskJuggler's check finds. */
+	readonly loop: boolean;
+	/** A cycle of time points (dep-loops.ts `hasCycle`). */
+	readonly cycle: boolean;
+}
+
+/** Per scenario, the loops of a graph; scenarios that read alike (`variant`) are checked once. */
+function loopsOf(g: Graph, index: SymbolIndex): Map<string, Loops> {
+	const byVariant = new Map<string, Loops>();
+	const out = new Map<string, Loops>();
+	for (const sc of scenarios(index)) {
+		const v = g.variant(sc);
+		let r = byVariant.get(v);
+		if (!r) {
+			const n = g.nodes(sc);
+			r = { loop: hasLoop(n), cycle: hasCycle(n) };
+			byVariant.set(v, r);
+		}
+		out.set(sc, r);
+	}
+	return out;
+}
+
+/** The loops of an index's own graph, computed once per index (a UI makes many edits on one). */
+const declared = new WeakMap<SymbolIndex, Map<string, Loops>>();
+
 /**
  * Per scenario, whether the declared graph has a loop TaskJuggler's check finds (`loop`) and a
  * cycle of time points (`cycle`), as `newLoop` tests them; for comparing two snapshots (a task
- * moved to another parent, task-semantics.ts).
+ * moved to another parent, task-semantics.ts). Cached per index: `index` must be built from `ws`.
  */
-export function graphLoops(
-	ws: WorkspaceSnapshot,
-	index: SymbolIndex,
-): Map<string, { loop: boolean; cycle: boolean }> {
-	const g = new Graph(ws, index, []);
-	const out = new Map<string, { loop: boolean; cycle: boolean }>();
-	for (const sc of scenarios(index)) {
-		const n = g.nodes(sc);
-		out.set(sc, { loop: hasLoop(n), cycle: hasCycle(n) });
+export function graphLoops(ws: WorkspaceSnapshot, index: SymbolIndex): Map<string, Loops> {
+	// The cache holds only answers for the snapshot the index was built from.
+	const own = index.isFor(ws);
+	let l = own ? declared.get(index) : undefined;
+	if (!l) {
+		l = loopsOf(new Graph(ws, index, []), index);
+		if (own) declared.set(index, l);
 	}
-	return out;
+	return l;
 }
 
 /** The first scenario where `extra` makes a loop the declared graph does not have, or null. */
@@ -344,12 +389,10 @@ export function newLoop(
 	index: SymbolIndex,
 	extra: readonly ExtraDep[],
 ): string | null {
-	const before = new Graph(ws, index, []);
-	const after = new Graph(ws, index, extra);
-	for (const sc of scenarios(index)) {
-		const a = after.nodes(sc);
-		const b = before.nodes(sc);
-		if ((hasLoop(a) && !hasLoop(b)) || (hasCycle(a) && !hasCycle(b))) return sc;
+	const before = graphLoops(ws, index);
+	for (const [sc, a] of loopsOf(new Graph(ws, index, extra), index)) {
+		const b = before.get(sc);
+		if ((a.loop && !b?.loop) || (a.cycle && !b?.cycle)) return sc;
 	}
 	return null;
 }

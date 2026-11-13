@@ -319,12 +319,18 @@ The machine is pure: time comes in through events, so tests run on fake timers. 
 
 ### 6.6 Gantt actions to edit intents (`src/lib/gantt/intents.ts`)
 
+As built in T12 (the contract comment at the top of `intents.ts` is the reference; this replaces the planning sketch):
+
 ```ts
+export type MoveKind = 'start' | 'gap';
+export interface MovePreference { kind: MoveKind }                 // once per browser (prefs.ts)
+export interface LinkRef { pred: TaskId; succ: TaskId; state: LinkState; sites: readonly DependencySite[] } // a GanttLink fits
 export type GanttAction =
-  | { type: 'resize'; task: TaskId; end: Minutes }                 // snapped
-  | { type: 'move'; task: TaskId; days: number }                   // whole working days, +/-
+  | { type: 'resize'; task: TaskId; at: Minutes }                  // the size handle's edge, snapped: end (ASAP) or start (ALAP)
+  | { type: 'size-step'; task: TaskId; steps: number }             // keys and steppers: whole written units
+  | { type: 'move'; task: TaskId; days: number; kind?: MoveKind }  // whole working days, +/-; kind overrides the preference
   | { type: 'link'; pred: TaskId; succ: TaskId }
-  | { type: 'unlink'; link: GanttLink }
+  | { type: 'unlink'; link: LinkRef }
   | { type: 'reorder'; task: TaskId; parent: TaskId | null; index: number }
   | { type: 'assign' | 'unassign'; task: TaskId; resource: ResourceId }
   | { type: 'replace-person'; task: TaskId; from: ResourceId; to: ResourceId }
@@ -332,17 +338,28 @@ export type GanttAction =
   | { type: 'progress'; task: TaskId; percent: number }
   | { type: 'add'; parent: TaskId | null; index: number; name: string }
   | { type: 'delete'; task: TaskId };
-export interface MovePreference { kind: 'start' | 'gap' }           // asked once (18.4)
-export interface ActionContext { index: SymbolIndex; model: GanttModel; analysis: DrivingAnalysis;
-  wt: WorkingTime; project: ProjectInfo; zones: ZoneOffsets; move: MovePreference | null }
+export interface ActionContext {
+  index: SymbolIndex;                  // built from the snapshot the intent applies to
+  result: ScheduleResult | null;       // the schedule shown (run.lastGood), instead of the model
+  analysis: DrivingAnalysis | null;    // null while it is computed
+  wt: WorkingTime | null; zones?: ZoneOffsets; move: MovePreference | null;
+}
+export interface ToastLabel { text: string; approx: boolean }
+export type NotPossibleReason = 'milestone' | 'container' | 'text-only' | 'no-driver' | 'start-and-end'
+  | 'engine-only' | 'not-scheduled' | 'at-limit' | 'two-gaps' | 'analysing';
 export type Planned =
-  | { status: 'intent'; intent: EditIntent; label: ToastLabel }
-  | { status: 'ask-move-preference' }
-  | { status: 'not-possible'; reason: 'milestone' | 'container' | 'text-only' | 'no-driver' };
+  | { status: 'intent'; intent: EditIntent; label: ToastLabel; constraint: boolean } // constraint: adds a start or end
+  | { status: 'ask-move-preference'; suggested: MoveKind }
+  | { status: 'not-possible'; reason: NotPossibleReason | 'unknown-target'; at: readonly SourceRange[] };
 export function planAction(a: GanttAction, ctx: ActionContext): Planned;
+export function checkAction(a: GanttAction, ctx: ActionContext, ws: WorkspaceSnapshot, opts?: EditOptions): ActionOutcome; // plan + dry run
+export function resizeEdge(task: TaskId, ctx: ActionContext): 'start' | 'end' | null;
+export function suggestedMoveKind(task: TaskId, ctx: ActionContext): MoveKind;
+export function earliestStart(task: TaskId, ctx: ActionContext): Minutes | null;  // ASAP preview clamp
+export function latestEnd(task: TaskId, ctx: ActionContext): Minutes | null;      // ALAP preview clamp
 ```
 
-`planAction` builds the intent only. The edit API still decides refusals. Section 7 has the mapping for each row.
+`planAction` builds the intent only. The edit API still decides its own refusals; `checkAction` surfaces both kinds with one sentence each. Moves and resizes work in working time: the engine's dates are snapped to working minutes before they are shifted or compared. The size handle of an ALAP task is its start (its end is the anchor). Section 7 has the mapping for each row.
 
 ### 6.7 Unified undo (`src/lib/workspace/history.ts`; ADR-0008)
 
@@ -479,8 +496,8 @@ The fixture is `tests/fixtures/gantt/manipulation/` (T3): a plan with siblings, 
 
 | # | Plan row | Desktop | Touch | Keyboard / inspector (WCAG 2.5.7 alternative) | Intent | Expected patch (fixture example) | Notes and refusals shown |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| R1 | Change effort or length | Drag a bar's right edge | Long-press bar, drag the end handle (on a selected bar the handle drags at once, 19.4) | Shift+Alt+Right/Left: plus or minus one unit; inspector stepper | `setAttr` with the task's own sizing attr. With none and no `end`: `effort` if allocated, else `length` (18.13). A start-and-end task: `setAttr end` | `effort 5d` becomes `effort 7d` (value token only) | `length` = working days between start and the snapped end; `duration` = calendar days; `effort` = old x new span / old span, rounded to whole written units, label marked "about". Milestones and containers: no handle. `conflicting-attribute` and `macro-in-body` come from the edit API |
-| R2 | Move a task later | Drag the bar body | Long-press, then drag | Alt+Right/Left: one working day; inspector start field or stepper | Preference `start` (default for tasks without a driving predecessor): `setAttr start` for ASAP, `setAttr end` for ALAP (19.2). Preference `gap`: `setDependsGap(task, driver, { kind: 'gaplength', value })`, gap = old + days; 0 or less gives `gap: null` | `start 2026-03-09` inserted at its rank in the 7.2 order (after `responsible`, before `effort`), or the existing value rewritten; or `depends !spec` becomes `depends !spec { gaplength 2d }` | The first move asks once and remembers (18.4). The `start` option warns once that this creates a constraint. The preview clamps at the driving predecessor's earliest start, so it cannot drop earlier than its dependencies allow. `task_pred_before` and similar are schedule-dependent (11.2) |
+| R1 | Change effort or length | Drag a bar's right edge | Long-press bar, drag the end handle (on a selected bar the handle drags at once, 19.4) | Shift+Alt+Right/Left: plus or minus one unit; inspector stepper | `setAttr` with the task's own sizing attr. With none and no `end`: `effort` if allocated, else `length` (18.13). A start-and-end task: `setAttr end` | `effort 5d` becomes `effort 7d` (value token only) | `length` = working days between start and the snapped end; `duration` = calendar days; `effort` = old x new span / old span, rounded to whole written units, label marked "about" (the whole unit that predicts the dragged day, else exact hours). ALAP tasks: the handle is on the start (left) edge and the end stays; a start-and-end ALAP task rewrites `start` (T12 review, M2). Milestones and containers: no handle. `conflicting-attribute` and `macro-in-body` come from the edit API |
+| R2 | Move a task later | Drag the bar body | Long-press, then drag | Alt+Right/Left: one working day; inspector start field or stepper | Preference `start` (default for tasks without a driving predecessor): `setAttr start` for ASAP, `setAttr end` for ALAP (19.2). Preference `gap`: `setDependsGap(task, driver, { kind: 'gaplength', value })`, the gap that puts the task's work `days` working days on (`gaplength` by working time; a `gapduration` stays one, by whole calendar days where they land, else exactly; both gaps: `two-gaps`); 0 or less gives `gap: null`. Moves start from the task's snapped working start (T12 review, H1, H2) | `start 2026-03-09` inserted at its rank in the 7.2 order (after `responsible`, before `effort`), or the existing value rewritten; or `depends !spec` becomes `depends !spec { gaplength 2d }` | The first move asks once and remembers (18.4). The `start` option warns once that this creates a constraint. The preview clamps at the driving predecessor's earliest start, so it cannot drop earlier than its dependencies allow. `task_pred_before` and similar are schedule-dependent (11.2) |
 | R3 | Link tasks | Drag from a bar's end dot onto another bar | Tap the link handle, then tap the target (link-mode banner with Cancel) | L, then arrows and Enter to pick the successor; inspector "Add dependency" picker | `addDepends(task = target, target = source)` | `depends !design` inserted in the successor, or `, !design` appended to its last own `depends`; an absolute id for non-siblings | Hovering a target dry-runs `applyIntent` once per target change (in an idle task) and shows allowed or not allowed (`cycle`, `already-linked`, `conflicting-attribute`). A drop on itself or an ancestor shows `cycle` |
 | R4 | Remove a link | Select the line, then Delete | Tap the line, then tap Remove | Inspector dependency list, Remove button | `removeDepends(succ, pred)` | The `!design` item and one adjacent comma removed, or the whole `depends` line | Engine-only (dashed) lines cannot be selected for removal; their tooltip and sheet say "written in a macro; edit as text" |
 | R5 | Reorder or reparent | Drag a row in the outline grid; horizontal offset sets the depth (one indent step = 16 px) | Long-press the row handle, drag; drop indented to nest | Alt+Shift+Up/Down (reorder), Alt+Shift+Right/Left (indent or outdent); row menu buttons | `moveTask(task, parent, index)` | The block cut and inserted, re-indented, references fixed across files (`depends app.b` becomes `depends core.b`) | Drop indicator shows the depth. Collapsed rows auto-expand after 600 ms of hover. `cycle`, `id-collision`, `unfixable-reference`, `shared-declaration` |

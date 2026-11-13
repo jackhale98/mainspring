@@ -266,6 +266,69 @@ export const historyStrings = {
 	} satisfies Record<Exclude<IntentType, AttrIntent>, string>,
 } as const;
 
+/**
+ * Gantt actions (src/lib/gantt/intents.ts, phase-2.md 6.6 and 7.1): the label of each edit, for
+ * its toast and its undo entry, and why an action cannot be done. Values in labels are written as
+ * in the plan ("3d") or as display dates; `about` marks a rounded effort.
+ */
+export const ganttActionStrings = {
+	label: {
+		/** "Effort of Research: 3d to about 5d". */
+		value: (what: string, task: string, from: string | null, to: string, about: boolean) =>
+			`${what} of ${task}: ${from === null ? '' : `${from} to `}${about ? 'about ' : ''}${to}`,
+		gap: (task: string, pred: string, to: string | null) =>
+			to === null
+				? `No gap before ${task} after ${pred}`
+				: `Gap before ${task}: ${to} after ${pred}`,
+		link: (pred: string, succ: string) => `${succ} now depends on ${pred}`,
+		unlink: (pred: string, succ: string) => `${succ} no longer depends on ${pred}`,
+		move: (task: string) => `Moved ${task}`,
+		assign: (person: string, task: string) => `${person} assigned to ${task}`,
+		unassign: (person: string, task: string) => `${person} removed from ${task}`,
+		replace: (from: string, to: string, task: string) => `${to} replaces ${from} on ${task}`,
+		rename: (from: string, to: string) => `Renamed ${from} to ${to}`,
+		progress: (task: string, percent: number) => `${task} is ${percent}% complete`,
+		add: (task: string) => `Added ${task}`,
+		delete: (task: string) => `Deleted ${task}`,
+	},
+	/** Attribute names in labels. */
+	attr: {
+		effort: 'Effort',
+		length: 'Length',
+		duration: 'Duration',
+		start: 'Start',
+		end: 'End',
+	},
+	/** Why a Gantt action is not possible before it reaches the edit API (`NotPossibleReason`). */
+	notPossible: {
+		milestone: 'A milestone has no length to change.',
+		container: 'This task gets its dates from the tasks inside it.',
+		'text-only': 'That part of the plan is written with macros, so it can only be edited as text.',
+		'no-driver': 'This task does not wait on another task, so there is no gap to change.',
+		'start-and-end': 'This task has a fixed start and end. Change them in the task details.',
+		'engine-only': 'This link is written in a macro. Edit it as text.',
+		'not-scheduled': 'This task has no dates yet. Wait for the schedule.',
+		'at-limit': 'The task cannot move further that way.',
+		'two-gaps':
+			'This dependency has two gaps, a working-time one and a calendar one. Change them in the dependency details.',
+		analysing: 'The schedule is still being analysed. Try again in a moment.',
+	},
+	/** Why an edit was a no-op (`NoopReason`). */
+	noop: {
+		'already-set': 'Nothing changed: the plan already says that.',
+		'already-linked': 'These tasks are already linked.',
+		'not-present': 'Nothing to remove.',
+	},
+	/** The move question (ADR-0008 #2), asked once. */
+	movePreference: {
+		title: 'How should moving a task change the plan?',
+		gap: 'Add a gap after the task it waits for',
+		start: 'Give the task a fixed start date',
+		startWarning:
+			'A fixed start is a constraint: the task stays there even if work before it moves.',
+	},
+} as const;
+
 const plural = (n: number, one: string, other: string): string => `${n} ${n === 1 ? one : other}`;
 
 export const strings = {
