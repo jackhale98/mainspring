@@ -30,7 +30,7 @@
 		 * Where the person was, kept by the owner across an unmount (a phone drops the Plan tab's
 		 * tree while another tab shows): written as they scroll and select, read when mounted.
 		 */
-		view?: OutlineView;
+		view?: OutlineView | undefined;
 	}
 	let { label, nodes, collapsed, errors, emptyText, ontoggle, onselect, view }: Props = $props();
 

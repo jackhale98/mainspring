@@ -11,7 +11,7 @@
 // DOM text at its content position (so the compositor moves it with the bars; read on the main
 // thread, this guards against a return to painted labels rather than measuring compositor jitter);
 // and every visible month label sits where `position: sticky` should hold it, clamped between the
-// name column's edge and the end of its month. This file is over 400 lines: the frame sampler and
+// chart's left edge (the table and its divider) and the end of its month. This file is over 400 lines: the frame sampler and
 // the evidence writer belong with the tests that read them.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -283,9 +283,14 @@ test.describe('frozen header and name column', () => {
 					shown++;
 					drift = Math.max(drift, Math.abs(r.left - pr.left - parseFloat(el.style.left)));
 				}
-				// A month label sticks at the name column's edge, inside its month cell.
+				// A month label sticks at the chart's left edge (past the table and its divider), inside
+				// its month cell.
 				let monthDrift = 0;
-				const namesRight = names.getBoundingClientRect().right;
+				const namesRight =
+					sr.left +
+					parseFloat(
+						getComputedStyle(head.closest('.gantt') ?? head).getPropertyValue('--gantt-names'),
+					);
 				for (const el of head.querySelectorAll<HTMLElement>('.months .label')) {
 					const r = el.getBoundingClientRect();
 					const cell = el.parentElement?.getBoundingClientRect();

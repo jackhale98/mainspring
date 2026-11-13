@@ -21,14 +21,25 @@
 		onchange: (value: number) => void;
 		/** A drag or a key press ended: the place to remember it. */
 		oncommit: () => void;
+		/** What the separator is called, and the name of the first panel in its value text. */
+		label?: string;
+		firstName?: string;
 	}
-	let { axis, value, container, onchange, oncommit }: Props = $props();
+	let {
+		axis,
+		value,
+		container,
+		onchange,
+		oncommit,
+		label = strings.panels.divider,
+		firstName,
+	}: Props = $props();
 
 	let dragging = $state(false);
 	const vertical = $derived(axis === 'col');
 	const percent = $derived(Math.round(value * 100));
 	const first = $derived(
-		axis === 'col' ? strings.panels.dividerEditor : strings.panels.dividerChart,
+		firstName ?? (axis === 'col' ? strings.panels.dividerEditor : strings.panels.dividerChart),
 	);
 
 	function fromPointer(e: PointerEvent): void {
@@ -72,7 +83,7 @@
 	data-axis={axis}
 	role="separator"
 	tabindex="0"
-	aria-label={strings.panels.divider}
+	aria-label={label}
 	aria-orientation={vertical ? 'vertical' : 'horizontal'}
 	aria-valuenow={percent}
 	aria-valuemin={20}

@@ -63,6 +63,12 @@ beforeAll(() => {
 	(globalThis as { CSS?: unknown }).CSS ??= {
 		escape: (s: string) => s.replace(/([^\w-])/g, '\\$1'),
 	};
+	// ...nor a ResizeObserver, which the size bindings use.
+	(globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= class {
+		observe(): void {}
+		unobserve(): void {}
+		disconnect(): void {}
+	};
 });
 
 const mounted: Array<ReturnType<typeof mount>> = [];
@@ -83,6 +89,7 @@ function setup(over: Record<string, unknown> = {}, model: GanttModel = modelOf()
 		analysis: null,
 		sizing: () => null,
 		shown: COLUMN_ORDER,
+		naturalWidth: 900,
 		first: 0,
 		last: 99,
 		rowHeight: 40,

@@ -186,7 +186,13 @@
 				aria-labelledby={phone ? 'tab-gantt' : undefined}
 				hidden={!showGantt}
 			>
-				<Gantt {app} />
+				<Gantt
+					{app}
+					{phone}
+					tableRatio={modes.table}
+					ontable={(v) => modes.setTable(v)}
+					ontablecommit={() => modes.saveTable()}
+				/>
 			</div>
 		{/if}
 	</main>

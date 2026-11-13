@@ -57,7 +57,7 @@ function show(view = newOutlineView(), onselect = vi.fn()) {
 			props: {
 				label: 'Tasks',
 				nodes: nodes(),
-				collapsed: new Set(),
+				collapsed: new Set<string>(),
 				errors: new Map(),
 				emptyText: 'none',
 				ontoggle: () => undefined,

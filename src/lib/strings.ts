@@ -386,6 +386,9 @@ export const strings = {
 		/** The draggable divider between the editor and the Gantt in Split mode. */
 		divider: 'Resize the editor and the chart',
 		dividerValue: (percent: number, what: string) => `${what} ${percent}%`,
+		/** The divider between the Gantt's task table and its chart. */
+		tableDivider: 'Resize the task table and the chart',
+		dividerTable: 'Table',
 		dividerEditor: 'Editor',
 		dividerChart: 'Chart',
 	},

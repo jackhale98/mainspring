@@ -5,9 +5,13 @@
 	Its header row is the frozen corner above the time header.
 
 	Columns: the task name, then start, end, effort or length, people, float (estimate), critical
-	(estimate) and status. All of them are always in the grid; the wider the Gantt, the more are
-	drawn (lib/gantt/columns.ts). The others are visually hidden, not removed, so a screen reader
-	reads the same table on a phone, and keyboard focus skips them. The texts come from
+	(estimate) and status. All of them are always in the grid and all are drawn at their natural
+	widths; when the table's pane (the divider decides how wide, Gantt.svelte) is narrower than
+	they are, the rows scroll sideways inside it, behind the frozen name column, and a focused
+	cell is scrolled into view. The header row sits outside that scroller, so that it can stick to
+	the top of the Gantt's one vertical scroll, and follows its scroll position. A phone draws the
+	name column alone: the other cells are visually hidden, not removed, so a screen reader reads
+	the same table, and keyboard focus skips them (lib/gantt/columns.ts). The texts come from
 	lib/gantt/grid.ts and are asserted against the model in the e2e spec.
 
 	Rows carry aria-level, aria-posinset, aria-setsize and aria-expanded, and aria-rowindex with
@@ -24,6 +28,7 @@
 	The logic that can stand alone is already in lib/gantt (columns, grid, grid-nav).
 -->
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import Icon from '../Icon.svelte';
 	import { COLUMN_ORDER, widthOf, type ColumnId } from '../../lib/gantt/columns';
 	import { describeRow } from '../../lib/gantt/describe';
@@ -37,6 +42,8 @@
 		pending?: ReadonlySet<string>;
 		/** The columns drawn, in cell order, the name first. */
 		shown: readonly ColumnId[];
+		/** The width of the shown columns together, in px: the rows' width, the pane scrolls over it. */
+		naturalWidth: number;
 		/** The mounted range of rows; `last` is exclusive. */
 		first: number;
 		last: number;
@@ -68,6 +75,7 @@
 		sizing,
 		pending,
 		shown,
+		naturalWidth,
 		first,
 		last,
 		rowHeight,
@@ -86,6 +94,79 @@
 	const rows = $derived(model.rows);
 	let focusKey = $state<string | null>(null);
 	let grid: HTMLDivElement | undefined = $state();
+	let headClip: HTMLDivElement | undefined = $state();
+	let bodyScroll: HTMLDivElement | undefined = $state();
+	/** The pane's width, and how far the rows are scrolled sideways inside it. */
+	let paneW = $state(0);
+	let scrolled = $state(0);
+	// A pixel or two of border or rounding is not columns to scroll to.
+	const overflow = $derived(naturalWidth - paneW > 2 ? naturalWidth - paneW : 0);
+
+	function onbody(): void {
+		if (!bodyScroll) return;
+		scrolled = bodyScroll.scrollLeft;
+		if (headClip) headClip.scrollLeft = scrolled;
+	}
+	// The header follows the rows when the pane or the columns change under a scroll position.
+	$effect(() => {
+		void [paneW, naturalWidth, shown];
+		untrack(onbody);
+	});
+
+	/**
+	 * Scrolls the rows sideways so that a cell is wholly in view, past the frozen name column:
+	 * a focused cell is never off screen or behind the name. The vertical scroll is the Gantt's.
+	 */
+	function revealCell(cell: HTMLElement): void {
+		const sc = bodyScroll;
+		if (!sc || cell.dataset['col'] === 'name') return;
+		const frozen =
+			cell.parentElement?.querySelector<HTMLElement>('[data-col="name"]')?.offsetWidth ?? 0;
+		const left = cell.offsetLeft;
+		const right = left + cell.offsetWidth;
+		if (left < sc.scrollLeft + frozen) sc.scrollLeft = Math.max(0, left - frozen);
+		else if (right > sc.scrollLeft + sc.clientWidth) sc.scrollLeft = right - sc.clientWidth;
+	}
+
+	// The scrollbar of the pane: the Gantt scrolls vertically in one container, so the rows'
+	// own horizontal bar would sit at the foot of the whole plan; this one stays in view.
+	const MIN_THUMB = 28;
+	const thumbW = $derived(
+		overflow > 0 ? Math.max(MIN_THUMB, (paneW * paneW) / Math.max(naturalWidth, 1)) : 0,
+	);
+	const thumbX = $derived(overflow > 0 ? (scrolled / overflow) * (paneW - thumbW) : 0);
+	let drag: { id: number; from: number; at: number } | null = null;
+	function scrollToThumb(x: number): void {
+		if (!bodyScroll || overflow <= 0) return;
+		const room = Math.max(1, paneW - thumbW);
+		bodyScroll.scrollLeft = Math.max(0, Math.min(overflow, (x / room) * overflow));
+	}
+	function ontrackdown(e: PointerEvent): void {
+		if (e.button !== 0) return;
+		const track = e.currentTarget as HTMLElement;
+		const x = e.clientX - track.getBoundingClientRect().left;
+		const onThumb = x >= thumbX && x <= thumbX + thumbW;
+		drag = { id: e.pointerId, from: e.clientX, at: onThumb ? scrolled : -1 };
+		track.setPointerCapture(e.pointerId);
+		if (!onThumb) scrollToThumb(x - thumbW / 2);
+		e.preventDefault();
+	}
+	function ontrackmove(e: PointerEvent): void {
+		if (!drag || drag.id !== e.pointerId || !bodyScroll) return;
+		if (drag.at < 0) {
+			const x = e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left;
+			scrollToThumb(x - thumbW / 2);
+			return;
+		}
+		const room = Math.max(1, paneW - thumbW);
+		bodyScroll.scrollLeft = Math.max(
+			0,
+			Math.min(overflow, drag.at + ((e.clientX - drag.from) / room) * overflow),
+		);
+	}
+	function ontrackup(): void {
+		drag = null;
+	}
 
 	/**
 	 * The rows to mount: those near the viewport, and the focused one wherever it is, so that
@@ -133,8 +214,10 @@
 		const key = t.closest('[data-key]')?.getAttribute('data-key');
 		if (!key) return;
 		focusKey = key;
-		const col = t.closest('[data-col]')?.getAttribute('data-col') ?? null;
+		const cell = t.closest<HTMLElement>('[data-col]');
+		const col = cell?.getAttribute('data-col') ?? null;
 		focusCol = col as ColumnId | null;
+		if (cell && cell.getAttribute('tabindex') !== null) revealCell(cell);
 		const index = model.rowOf.get(key) ?? -1;
 		const row = rows[index];
 		lastFocus = row ? { el: t, row, index } : null;
@@ -185,6 +268,7 @@
 		const sel = `[data-key="${CSS.escape(row.key)}"]`;
 		const el = grid?.querySelector<HTMLElement>(col === null ? sel : `${sel} [data-col="${col}"]`);
 		el?.focus({ preventScroll: true });
+		if (el && col !== null) revealCell(el);
 	}
 
 	const indexOf = (key: string): number => model.rowOf.get(key) ?? -1;
@@ -257,86 +341,125 @@
 	aria-colcount={COLUMN_ORDER.length}
 	data-testid="gantt-treegrid"
 	class="grid"
+	class:scrolled={scrolled > 0}
+	style:--natural-width="{naturalWidth}px"
 	{onfocusin}
 	{onfocusout}
 	{onkeydown}
 >
-	<div class="corner" role="row" aria-rowindex={1} style:height="{headerHeight}px">
-		{#each COLUMN_ORDER as col, c (col)}
-			<div
-				role="columnheader"
-				class="cell head"
-				class:hidden={!isShown(col)}
-				class:name={col === 'name'}
-				data-col-head={col}
-				aria-colindex={c + 1}
-				style:width={isShown(col) ? nameRem(col) : undefined}
-			>
-				{strings.grid.columns[col]}
-			</div>
-		{/each}
+	<!-- Outside the rows' scroller, so that it can stick to the top of the Gantt's scroll. -->
+	<div class="head-clip" role="presentation" bind:this={headClip}>
+		<div
+			class="corner"
+			role="row"
+			aria-rowindex={1}
+			style:height="{headerHeight}px"
+			style:width="{naturalWidth}px"
+		>
+			{#each COLUMN_ORDER as col, c (col)}
+				<div
+					role="columnheader"
+					class="cell head"
+					class:hidden={!isShown(col)}
+					class:name={col === 'name'}
+					data-col-head={col}
+					aria-colindex={c + 1}
+					style:width={isShown(col) ? nameRem(col) : undefined}
+				>
+					{strings.grid.columns[col]}
+				</div>
+			{/each}
+		</div>
 	</div>
-	<div role="rowgroup" class="body" style:height="{rows.length * rowHeight}px">
-		{#each items as { row, index } (row.key)}
-			{@const n = row.node}
-			{@const cells = gridCells(row, input)}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<div
-				role="row"
-				class="row"
-				class:selected={selectedKey === row.key}
-				data-key={row.key}
-				aria-rowindex={index + 2}
-				aria-level={n.level}
-				aria-posinset={n.posinset}
-				aria-setsize={n.setsize}
-				aria-expanded={row.expanded === null ? undefined : row.expanded}
-				aria-selected={selectedKey === row.key}
-				aria-label={describeRow(model, index)}
-				tabindex={tabIndexOf(row, null)}
-				style:top="{index * rowHeight}px"
-				style:height="{rowHeight}px"
-				style:--depth={row.depth}
-				onclick={(e) => onclick(e, row)}
-			>
-				{#each cells as cell, c (cell.column)}
-					{@const col = cell.column}
-					{@const on = isShown(col)}
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-					<div
-						role={col === 'name' ? 'rowheader' : 'gridcell'}
-						class="cell"
-						class:hidden={!on}
-						class:name={col === 'name'}
-						class:blank={cell.blank}
-						class:yes={col === 'critical' && cell.text === strings.grid.yes}
-						data-col={col}
-						aria-colindex={c + 1}
-						aria-label={cell.blank ? spokenText(cell) : undefined}
-						tabindex={on ? tabIndexOf(row, col) : undefined}
-						style:width={on ? nameRem(col) : undefined}
-					>
-						{#if col === 'name'}
-							<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">
-								{#if row.expanded !== null}<span class="chevron" class:open={row.expanded}
-										><Icon name="chevronRight" size={14} /></span
-									>{/if}
-							</span>
-							<span class="label" class:summary={row.kind === 'container'}>{cell.text}</span>
-							{#if row.textOnly}
-								<span class="badge">
-									{strings.outline.textOnly}<span class="sr-only">
-										. {strings.outline.reason[row.textOnly]}</span
-									>
+	<div
+		class="body-scroll"
+		class:overflowing={overflow > 0}
+		role="presentation"
+		bind:this={bodyScroll}
+		bind:clientWidth={paneW}
+		onscroll={onbody}
+	>
+		<div role="rowgroup" class="body" style:height="{rows.length * rowHeight}px">
+			{#each items as { row, index } (row.key)}
+				{@const n = row.node}
+				{@const cells = gridCells(row, input)}
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<div
+					role="row"
+					class="row"
+					class:selected={selectedKey === row.key}
+					data-key={row.key}
+					aria-rowindex={index + 2}
+					aria-level={n.level}
+					aria-posinset={n.posinset}
+					aria-setsize={n.setsize}
+					aria-expanded={row.expanded === null ? undefined : row.expanded}
+					aria-selected={selectedKey === row.key}
+					aria-label={describeRow(model, index)}
+					tabindex={tabIndexOf(row, null)}
+					style:top="{index * rowHeight}px"
+					style:height="{rowHeight}px"
+					style:--depth={row.depth}
+					onclick={(e) => onclick(e, row)}
+				>
+					{#each cells as cell, c (cell.column)}
+						{@const col = cell.column}
+						{@const on = isShown(col)}
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+						<div
+							role={col === 'name' ? 'rowheader' : 'gridcell'}
+							class="cell"
+							class:hidden={!on}
+							class:name={col === 'name'}
+							class:blank={cell.blank}
+							class:yes={col === 'critical' && cell.text === strings.grid.yes}
+							data-col={col}
+							aria-colindex={c + 1}
+							aria-label={cell.blank ? spokenText(cell) : undefined}
+							tabindex={on ? tabIndexOf(row, col) : undefined}
+							style:width={on ? nameRem(col) : undefined}
+						>
+							{#if col === 'name'}
+								<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">
+									{#if row.expanded !== null}<span class="chevron" class:open={row.expanded}
+											><Icon name="chevronRight" size={14} /></span
+										>{/if}
 								</span>
+								<span class="label" class:summary={row.kind === 'container'}>{cell.text}</span>
+								{#if row.textOnly}
+									<span class="badge">
+										{strings.outline.textOnly}<span class="sr-only">
+											. {strings.outline.reason[row.textOnly]}</span
+										>
+									</span>
+								{/if}
+							{:else}
+								{cell.text}
 							{/if}
-						{:else}
-							{cell.text}
-						{/if}
-					</div>
-				{/each}
+						</div>
+					{/each}
+				</div>
+			{/each}
+		</div>
+	</div>
+	<!--
+		The pane's scrollbar, drawn only when the columns are wider than the pane, and kept at the
+		foot of the view (a zero-height sticky anchor). Pointer only: the cells are reachable by
+		keyboard, which scrolls a focused cell into view, so it is hidden from assistive technology.
+	-->
+	<div class="hbar-anchor" aria-hidden="true">
+		{#if overflow > 0}
+			<div
+				class="hbar"
+				data-testid="gantt-table-scrollbar"
+				onpointerdown={ontrackdown}
+				onpointermove={ontrackmove}
+				onpointerup={ontrackup}
+				onpointercancel={ontrackup}
+			>
+				<div class="thumb" style:width="{thumbW}px" style:transform="translateX({thumbX}px)"></div>
 			</div>
-		{/each}
+		{/if}
 	</div>
 </div>
 <!-- Not inside the grid: a live region among rows is not read reliably. -->
@@ -349,11 +472,33 @@
 	.body {
 		position: relative;
 	}
-	/* The corner: the header row, frozen at the top of the scroller and at the left. */
-	.corner {
+	/* The rows scroll sideways in the pane and never vertically: that is the Gantt's scroll, so a
+	   vertical wheel or swipe passes through. The bar is drawn by hand (below). */
+	.body-scroll {
+		overflow: clip;
+	}
+	/* Only a pane that has columns to scroll is a scroll container, and it keeps the swipe to itself.
+	   One that fits (a phone's, a wide pane's) is not: a sideways swipe on it scrolls the chart,
+	   as it always did, and the browser's own history swipe stays shut out by the Gantt's scroller. */
+	.body-scroll.overflowing {
+		overflow-x: auto;
+		overflow-y: hidden;
+		overscroll-behavior-x: contain;
+		scrollbar-width: none;
+	}
+	.body-scroll.overflowing::-webkit-scrollbar {
+		display: none;
+	}
+	/* The header row: frozen at the top of the scroller (sticky, as a child of the pane) and moved
+	   sideways with the rows by script, so it is a scroll container itself, with no bar. */
+	.head-clip {
 		position: sticky;
 		inset-block-start: 0;
-		z-index: 1;
+		z-index: 2;
+		overflow: hidden;
+		background: var(--color-gantt-surface-header);
+	}
+	.corner {
 		display: flex;
 		align-items: flex-end;
 		box-sizing: border-box;
@@ -367,7 +512,9 @@
 	}
 	.row {
 		position: absolute;
-		inset-inline: 0;
+		inset-inline-start: 0;
+		inline-size: var(--natural-width);
+		background: var(--color-gantt-surface);
 		/* A name of two lines at a large default font must not run into the next row. */
 		overflow: clip;
 		display: flex;
@@ -384,6 +531,8 @@
 	/* Selection: a brass wash and a thin blued-steel edge (ADR-0009). */
 	.row.selected {
 		background: var(--color-gantt-row-selected);
+	}
+	.row.selected .cell.name {
 		box-shadow: inset 3px 0 0 var(--color-gantt-accent);
 	}
 	.row:focus-visible,
@@ -403,7 +552,12 @@
 		font-size: var(--text-xs);
 		font-variant-numeric: tabular-nums;
 	}
+	/* The name stays at the pane's left while the other columns scroll under it. */
 	.cell.name {
+		position: sticky;
+		inset-inline-start: 0;
+		z-index: 1;
+		background: inherit;
 		display: flex;
 		align-items: center;
 		gap: var(--space-1);
@@ -424,6 +578,47 @@
 	}
 	.head.name {
 		padding-inline-start: var(--space-3);
+		background: var(--color-gantt-surface-header);
+	}
+	/* The edge of the frozen column shows once the others have scrolled under it. */
+	.grid.scrolled .cell.name {
+		box-shadow: 1px 0 0 var(--color-gantt-border);
+	}
+	.grid.scrolled .row.selected .cell.name {
+		box-shadow:
+			inset 3px 0 0 var(--color-gantt-accent),
+			1px 0 0 var(--color-gantt-border);
+	}
+	.hbar-anchor {
+		position: sticky;
+		inset-block-end: 0;
+		z-index: 2;
+		block-size: 0;
+	}
+	.hbar {
+		position: absolute;
+		inset-inline: 0;
+		inset-block-end: 0;
+		block-size: 12px;
+		padding-block: 3px;
+		box-sizing: border-box;
+		touch-action: none;
+		cursor: default;
+	}
+	.thumb {
+		block-size: 100%;
+		border-radius: 3px;
+		background: var(--color-gantt-text-faint);
+		opacity: 0.55;
+	}
+	.hbar:hover .thumb {
+		opacity: 0.85;
+	}
+	@media (pointer: coarse) {
+		.hbar {
+			block-size: 16px;
+			padding-block: 5px;
+		}
 	}
 	.cell.blank {
 		color: var(--color-gantt-text-faint);
