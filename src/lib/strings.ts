@@ -309,6 +309,9 @@ export const ganttActionStrings = {
 		'engine-only': 'This link is written in a macro. Edit it as text.',
 		'not-scheduled': 'This task has no dates yet. Wait for the schedule.',
 		'at-limit': 'The task cannot move further that way.',
+		'two-gaps':
+			'This dependency has two gaps, a working-time one and a calendar one. Change them in the dependency details.',
+		analysing: 'The schedule is still being analysed. Try again in a moment.',
 	},
 	/** Why an edit was a no-op (`NoopReason`). */
 	noop: {

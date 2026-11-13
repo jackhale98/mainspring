@@ -270,7 +270,7 @@ export function fedoraCases(): TimingCase[] {
 		ganttCase('gantt resize (R1)', fed, ctx, {
 			type: 'resize',
 			task: sized.id,
-			end: end + 2 * 1440,
+			at: end + 2 * 1440,
 		}),
 		ganttCase('gantt move, start (R2)', fed, ctx, { type: 'move', task: a.id, days: 3 }),
 		ganttCase(

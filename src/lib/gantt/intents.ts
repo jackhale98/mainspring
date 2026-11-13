@@ -25,17 +25,24 @@
  *   pre-select: `gap` when the task has a driving dependency written in its own text, else
  *   `start`). The preference `gap` on a task with no such driver writes `start` instead (as the
  *   spec's "default for tasks without a driving predecessor"); an explicit `kind: 'gap'` there is
- *   `no-driver`. `constraint: true` on the result means the edit adds a `start` or `end` the task
- *   did not have, so the UI can warn once (prefs.ts).
+ *   `no-driver`. A gap move needs the driving analysis: without it (`ctx.analysis` null, still
+ *   being computed) it is `analysing`, never a silent `start`. `constraint: true` on the result
+ *   means the edit adds a `start` or `end` the task did not have, so the UI can warn once
+ *   (prefs.ts).
+ * - The size handle (R1) is on the task's free edge: the end of an ASAP task, the START of an
+ *   ALAP task, whose end is its anchor (`resizeEdge`; T16 draws the handle there). `resize.at` is
+ *   where that edge was dragged; the anchor stays and the size follows. Moves and resizes work
+ *   in working time: the engine's dates are snapped to working minutes before they are shifted
+ *   or compared (intents-move.ts).
  * - Stable: T13 and T16 depend on these types. Add members; do not change existing ones.
  *
  * ## Mapping (7.1)
  *
  * | Action | Intent |
  * | --- | --- |
- * | resize (R1) | `setAttr` of the task's own sizing (`effort` scaled by the span and rounded to whole written units, "about"; `length` the working time to the end; `duration` the calendar time); a task with its own start and end, or an end and no size, `setAttr end`; no size and no end: `effort` when allocated, else `length` |
- * | size-step (R1 keys) | the own sizing value plus or minus whole written units (at least 1); otherwise as resize, with the end moved by whole working days |
- * | move (R2) | `setAttr start` (ASAP), `setAttr end` (ALAP), or `setDependsGap` on the driving dependency, `gaplength` old + days (a `gapduration`-only gap stays `gapduration`, by the calendar shift), 0 or less clears it |
+ * | resize (R1) | `setAttr` of the task's own sizing over the span from its anchor to `at` (`effort` scaled by the span, in the whole written unit that predicts the dragged day, else exact hours, "about"; `length` the working time; `duration` the calendar time); a task with its own start and end rewrites the dragged edge (`end`, or `start` for ALAP); an ASAP task with an end and no size `setAttr end`; no size otherwise: `effort` when allocated, else `length` |
+ * | size-step (R1 keys) | the own sizing value plus or minus whole written units (at least 1); otherwise as resize, with the dragged edge moved by whole working days away from the anchor |
+ * | move (R2) | `setAttr start` (ASAP), `setAttr end` (ALAP), or `setDependsGap` on the driving dependency so that the task's work starts `days` working days on: `gaplength` by the working time to that day, `gapduration` by whole calendar days that land there (else exact); 0 or less clears it; both gaps on one dependency: `two-gaps` |
  * | link (R3) | `addDepends(task = succ, target = pred)` |
  * | unlink (R4) | `removeDepends` of the first written site; an engine-only line is `engine-only` |
  * | reorder (R5) | `moveTask` (index as `moveTask` counts it: among the parent's other children) |
@@ -78,9 +85,12 @@ export interface LinkRef {
 }
 
 export type GanttAction =
-	/** R1: the bar's end dragged to `end` (snapped by the gesture's `DragSnapper`). */
-	| { readonly type: 'resize'; readonly task: TaskId; readonly end: Minutes }
-	/** R1 keys and steppers: the size by whole written units (or the end by working days). */
+	/**
+	 * R1: the size handle dragged to `at` (snapped by the gesture's `DragSnapper`): the end of an
+	 * ASAP task, the start of an ALAP one (`resizeEdge`).
+	 */
+	| { readonly type: 'resize'; readonly task: TaskId; readonly at: Minutes }
+	/** R1 keys and steppers: the size by whole written units (or the handle's edge by days). */
 	| { readonly type: 'size-step'; readonly task: TaskId; readonly steps: number }
 	/** R2: whole working days, either way. `kind` overrides the preference (inspector). */
 	| {
@@ -149,7 +159,11 @@ export type NotPossibleReason =
 	/** A move or resize of a task without dates in the shown schedule. */
 	| 'not-scheduled'
 	/** No change: zero days, a size of zero, or a move past the driving limit. */
-	| 'at-limit';
+	| 'at-limit'
+	/** A gap move on a dependency with both `gaplength` and `gapduration`. */
+	| 'two-gaps'
+	/** A gap move before the driving analysis of the shown schedule is ready. */
+	| 'analysing';
 
 export type Planned =
 	| {
@@ -167,7 +181,13 @@ export type Planned =
 			readonly at: readonly SourceRange[];
 	  };
 
-export { planAction, suggestedMoveKind, earliestStart, latestEnd } from './intents-plan';
+export {
+	planAction,
+	suggestedMoveKind,
+	earliestStart,
+	latestEnd,
+	resizeEdge,
+} from './intents-plan';
 export {
 	checkAction,
 	refusalMessage,

@@ -83,6 +83,11 @@ interface Row {
 	readonly check?: (after: ScheduleResult, before: ScheduleResult) => void;
 }
 
+/** The task's work ends (or starts) on that calendar day (UTC fixture). */
+const endsOn = (id: string, day: string) => (r: ScheduleResult) =>
+	expect(Math.floor(((taskIn(r, id).end as number) - 1) / 1440)).toBe(at(day, 0) / 1440);
+const startsOn = (id: string, day: string) => (r: ScheduleResult) =>
+	expect(Math.floor((taskIn(r, id).start as number) / 1440)).toBe(at(day, 0) / 1440);
 const endsAt = (id: string, end: number) => (r: ScheduleResult) =>
 	expect(taskIn(r, id).end).toBe(end);
 const startsAt = (id: string, start: number) => (r: ScheduleResult) =>
@@ -106,29 +111,38 @@ function linkOf(pred: string, succ: string): (typeof fx.links)[number] {
 const ROWS: readonly Row[] = [
 	{
 		row: 'R1 effort',
-		action: { type: 'resize', task: 'design.research', end: at('2026-03-06', 17) },
+		action: { type: 'resize', task: 'design.research', at: at('2026-03-06', 17) },
 		check: endsAt('design.research', at('2026-03-06', 17)),
 	},
 	{
-		row: 'R1 effort, two people',
-		action: { type: 'resize', task: 'build.code', end: at('2026-04-03', 17) },
+		row: 'R1 effort, two people (L1)',
+		action: { type: 'resize', task: 'build.code', at: at('2026-04-03', 17) },
+		check: endsOn('build.code', '2026-04-03'),
+	},
+	{
+		row: 'R1 ALAP effort, start handle (M2)',
+		action: { type: 'resize', task: 'design.docs', at: at('2026-03-23', 9) },
+		check: (r) => {
+			startsOn('design.docs', '2026-03-23')(r);
+			endsAt('design.docs', at('2026-03-26', 17))(r);
+		},
 	},
 	{
 		row: 'R1 length',
-		action: { type: 'resize', task: 'design.sketch', end: at('2026-03-13', 17) },
+		action: { type: 'resize', task: 'design.sketch', at: at('2026-03-13', 17) },
 		check: endsAt('design.sketch', at('2026-03-13', 17)),
 	},
 	{
 		row: 'R1 duration',
-		action: { type: 'resize', task: 'design.review', end: at('2026-03-09', 17) },
+		action: { type: 'resize', task: 'design.review', at: at('2026-03-09', 17) },
 		check: endsAt('design.review', at('2026-03-09', 17)),
 	},
 	{
-		row: 'R1 start and end',
-		action: { type: 'resize', task: 'launch', end: at('2026-05-11', 17) },
-		check: endsAt('launch', at('2026-05-12', 0)),
+		row: 'R1 start and end, ALAP start handle',
+		action: { type: 'resize', task: 'launch', at: at('2026-04-30', 9) },
+		check: startsAt('launch', at('2026-04-30', 0)),
 	},
-	{ row: 'R1 open-ended', action: { type: 'resize', task: 'spike', end: at('2026-03-27', 17) } },
+	{ row: 'R1 open-ended', action: { type: 'resize', task: 'spike', at: at('2026-03-27', 17) } },
 	{
 		row: 'R1 step',
 		action: { type: 'size-step', task: 'design.research', steps: 1 },

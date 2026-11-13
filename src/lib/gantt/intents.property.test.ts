@@ -92,27 +92,51 @@ describe('Gantt actions on the manipulation fixture', () => {
 		}
 	});
 
-	it('write a moved start where the move put it, unless the dependencies clamp it', () => {
+	it('move a task by the asked working days, unless its dependencies clamp it', () => {
 		const ctx = fx.ctx({ move: { kind: 'start' } });
 		const wt = ctx.wt;
 		const project = fx.result.project;
 		if (!wt || !project) throw new Error('fixture has no schedule');
+		// An oracle that does not use shiftDays: the fixture is in UTC and starts at midnight, so
+		// day d is [d * 1440, (d + 1) * 1440); it is a working day when it holds working time.
+		const working = (d: number): boolean => wt.workingBetween(d * 1440, (d + 1) * 1440) > 0;
+		const count = (from: number, to: number): number => {
+			let n = 0;
+			for (let d = Math.min(from, to) + 1; d <= Math.max(from, to); d++) if (working(d)) n++;
+			return to >= from ? n : -n;
+		};
+		/** The day of a working start, and of the last working minute before an end. */
+		const startDay = (m: number): number => Math.floor(wt.snap(m, 'start') / 1440);
+		const endDay = (m: number): number => Math.floor((wt.snap(m, 'end') - 1) / 1440);
+		let moved = 0;
 		fc.assert(
 			fc.property(fc.constantFrom(...TASKS), fc.integer({ min: -10, max: 10 }), (id, days) => {
 				const p = planAction({ type: 'move', task: id, days }, ctx);
-				if (p.status !== 'intent' || p.intent.type !== 'setAttr' || p.intent.attr !== 'start')
-					return;
+				if (p.status !== 'intent' || p.intent.type !== 'setAttr') return;
 				const s = scenarioOf(fx.result, id);
-				if (!s || s.start === null) throw new Error(`no dates for ${id}`);
+				if (!s || s.start === null || s.end === null) throw new Error(`no dates for ${id}`);
 				const m = readBack(String(p.intent.value), project);
 				expect(m).not.toBeNull();
-				const target = wt.shiftDays(s.start, days, 'start');
+				const at = m as number;
+				moved++;
+				if (p.intent.attr === 'end') {
+					// ALAP: the end moves; nothing in the fixture's precedes clamps it.
+					expect(count(endDay(s.end), endDay(at))).toBe(days);
+					return;
+				}
+				expect(p.intent.attr).toBe('start');
+				const n = count(startDay(s.start), startDay(at));
 				const floor = earliestStart(id, ctx);
-				const expected = floor !== null && target < floor ? floor : target;
-				expect(wt.snap(m as number, 'start')).toBe(wt.snap(expected, 'start'));
+				if (n !== days) {
+					// Only an earlier move stops short, exactly at what the dependencies allow.
+					expect(days).toBeLessThan(n);
+					expect(floor).not.toBeNull();
+					expect(wt.snap(at, 'start')).toBe(wt.snap(floor as number, 'start'));
+				}
 			}),
 			{ numRuns: RUNS, ...SEED },
 		);
+		expect(moved).toBeGreaterThan(0);
 	});
 
 	it('never shrink a size when the end goes further', () => {
@@ -124,10 +148,16 @@ describe('Gantt actions on the manipulation fixture', () => {
 			'build.code',
 			'build.tests',
 		];
+		/** The written size in minutes of its unit (8-hour days, as the fixture's settings). */
+		const minutes = (text: string): number => {
+			const m = /^(\d+)(d|h|min)$/.exec(text);
+			if (!m) throw new Error(`size ${text}`);
+			return Number(m[1]) * (m[2] === 'd' ? 480 : m[2] === 'h' ? 60 : 1);
+		};
 		const value = (id: string, end: number): number | null => {
-			const p = planAction({ type: 'resize', task: id, end }, ctx);
+			const p = planAction({ type: 'resize', task: id, at: end }, ctx);
 			return p.status === 'intent' && p.intent.type === 'setAttr'
-				? parseFloat(String(p.intent.value))
+				? minutes(String(p.intent.value))
 				: null;
 		};
 		fc.assert(

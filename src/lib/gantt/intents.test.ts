@@ -61,14 +61,14 @@ describe('dates written by moves and resizes', () => {
 		});
 	});
 
-	it('the full instant for a mid-day start, a milestone or a duration task', () => {
+	it('a milestone or a duration task keeps its time of day, written exactly', () => {
+		// Calendar-time tasks: m at Wed 12:00 moves to Thu 12:00, d at Mon 13:00 to Tue 13:00.
 		expect(intentOf(f, { type: 'move', task: 'm', days: 1 })).toMatchObject({
 			attr: 'start',
-			value: '2026-01-08-09:00',
+			value: '2026-01-08-12:00',
 		});
-		// d starts at 13:00: the shifted day keeps the working-day start (09:00), written exactly.
 		expect(intentOf(f, { type: 'move', task: 'd', days: 1 })).toMatchObject({
-			value: '2026-01-06-09:00',
+			value: '2026-01-06-13:00',
 		});
 	});
 
@@ -76,11 +76,11 @@ describe('dates written by moves and resizes', () => {
 		const g = fx('task e "E" {\n  start 2026-01-05\n  end 2026-01-07\n}\n', [
 			['e', { start: at(0, 0), end: at(2, 0) }],
 		]);
-		expect(intentOf(g, { type: 'resize', task: 'e', end: at(3, 17) })).toMatchObject({
+		expect(intentOf(g, { type: 'resize', task: 'e', at: at(3, 17) })).toMatchObject({
 			attr: 'end',
 			value: '2026-01-09',
 		});
-		expect(intentOf(g, { type: 'resize', task: 'e', end: at(3, 12) })).toMatchObject({
+		expect(intentOf(g, { type: 'resize', task: 'e', at: at(3, 12) })).toMatchObject({
 			value: '2026-01-08-12:00',
 		});
 	});
@@ -96,13 +96,13 @@ describe('resize sizes (18.13)', () => {
 			],
 			{ v: ['q', 'r'] },
 		);
-		expect(intentOf(g, { type: 'resize', task: 'u', end: at(2, 17) })).toEqual({
+		expect(intentOf(g, { type: 'resize', task: 'u', at: at(2, 17) })).toEqual({
 			type: 'setAttr',
 			task: 'u',
 			attr: 'length',
 			value: '3d',
 		});
-		expect(intentOf(g, { type: 'resize', task: 'v', end: at(2, 17) })).toEqual({
+		expect(intentOf(g, { type: 'resize', task: 'v', at: at(2, 17) })).toEqual({
 			type: 'setAttr',
 			task: 'v',
 			attr: 'effort',
@@ -116,20 +116,20 @@ describe('resize sizes (18.13)', () => {
 			[['a', { start: at(0, 9), end: at(0, 13) }]],
 			{ a: ['r'] },
 		);
-		const p = planAction({ type: 'resize', task: 'a', end: at(0, 10) }, g.ctx());
+		const p = planAction({ type: 'resize', task: 'a', at: at(0, 10) }, g.ctx());
 		expect(p).toMatchObject({
 			status: 'intent',
 			intent: { value: '1h' },
 			label: { approx: true, text: 'Effort of A: 4h to about 1h' },
 		});
-		expect(intentOf(g, { type: 'resize', task: 'a', end: at(1, 13) })).toMatchObject({
+		expect(intentOf(g, { type: 'resize', task: 'a', at: at(1, 13) })).toMatchObject({
 			value: '12h',
 		});
 	});
 
 	it('the end must stay after the start', () => {
 		const g = fx('task a "A" {\n  length 2d\n}\n', [['a', { start: at(0, 9), end: at(1, 17) }]]);
-		expect(intentOf(g, { type: 'resize', task: 'a', end: at(0, 9) })).toMatchObject({
+		expect(intentOf(g, { type: 'resize', task: 'a', at: at(0, 9) })).toMatchObject({
 			reason: 'at-limit',
 		});
 	});
@@ -217,7 +217,7 @@ describe('moves', () => {
 		expect(planAction({ type: 'move', task: 't', days: 1 }, ctx)).toMatchObject({
 			reason: 'not-scheduled',
 		});
-		expect(planAction({ type: 'resize', task: 't', end: 99 }, ctx)).toMatchObject({
+		expect(planAction({ type: 'resize', task: 't', at: 99 }, ctx)).toMatchObject({
 			reason: 'not-scheduled',
 		});
 		expect(planAction({ type: 'move', task: 'nope', days: 1 }, ctx)).toMatchObject({
@@ -294,7 +294,7 @@ describe('checkAction and the refusal sentences', () => {
 		expect(label({ type: 'replace-person', task: 'a', from: 'r', to: 'q' })).toBe(
 			'Q replaces R on Alpha',
 		);
-		expect(label({ type: 'resize', task: 'a', end: at(1, 17) })).toBe('Length of Alpha: 1d to 2d');
+		expect(label({ type: 'resize', task: 'a', at: at(1, 17) })).toBe('Length of Alpha: 1d to 2d');
 		expect(label({ type: 'add', parent: null, index: 1, name: 'Beta' })).toBe('Added Beta');
 	});
 });

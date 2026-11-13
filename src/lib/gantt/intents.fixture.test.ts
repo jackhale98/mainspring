@@ -11,7 +11,7 @@
 // Dates: the project starts Monday 2026-03-02 00:00 UTC; working time is Monday to Friday,
 // 09:00 to 17:00 (the default). `at('2026-03-06', 17)` is Friday 6 March at 17:00 in minutes.
 import { describe, expect, it } from 'vitest';
-import { checkAction, planAction, type GanttAction } from './intents';
+import { checkAction, planAction, resizeEdge, type GanttAction } from './intents';
 import { brief, filesAfter, manipulation, patched } from './intents-testing';
 
 const fx = manipulation();
@@ -44,39 +44,59 @@ function refusal(a: GanttAction, move: 'start' | 'gap' | null = null): unknown {
 describe('R1 change effort or length (resize)', () => {
 	it('scales an effort by the span and rounds to whole written units ("about")', () => {
 		// research: effort 3d over Mon 2 to Wed 4 March; the end dragged to Fri 6 March 17:00.
-		const a: GanttAction = { type: 'resize', task: 'design.research', end: at('2026-03-06', 17) };
+		const a: GanttAction = { type: 'resize', task: 'design.research', at: at('2026-03-06', 17) };
 		expectFiles(a, { [PLAN]: patched(plan, '    effort 3d\n', '    effort 5d\n') });
 		const p = planAction(a, fx.ctx());
 		expect(p.status === 'intent' && p.label.approx).toBe(true);
 	});
 
 	it('scales an effort shared by two people (code, 6d over 27 working hours)', () => {
-		// To Fri 3 April 17:00: 48 working hours, 6d x 48 / 27 = 10.7d, written 11d.
-		const a: GanttAction = { type: 'resize', task: 'build.code', end: at('2026-04-03', 17) };
-		expectFiles(a, { [BUILD]: patched(build, '    effort 6d\n', '    effort 11d\n') });
+		// To Fri 3 April 17:00: 48 working hours, 6d x 48 / 27 = 10.7d. The whole day that keeps
+		// the end on Friday (L1): 10d burns 27 h x 10 / 6 = 45 working hours, to Fri 14:00; 11d
+		// would run 49.5 h, into Monday. (dev2 at 0.8 and dev3: 80 h / 1.8 = 44.4 h, Friday too.)
+		const a: GanttAction = { type: 'resize', task: 'build.code', at: at('2026-04-03', 17) };
+		expectFiles(a, { [BUILD]: patched(build, '    effort 6d\n', '    effort 10d\n') });
 	});
 
 	it('sets a length to the working time from the start to the snapped end', () => {
 		// sketch starts Fri 6 March 17:00; to Fri 13 March 17:00 is five working days.
-		const a: GanttAction = { type: 'resize', task: 'design.sketch', end: at('2026-03-13', 17) };
+		const a: GanttAction = { type: 'resize', task: 'design.sketch', at: at('2026-03-13', 17) };
 		expectFiles(a, { [PLAN]: patched(plan, '    length 4d\n', '    length 5d\n') });
 	});
 
 	it('sets a duration to the calendar time', () => {
 		// review starts Fri 6 March 17:00; to Mon 9 March 17:00 is three calendar days.
-		const a: GanttAction = { type: 'resize', task: 'design.review', end: at('2026-03-09', 17) };
+		const a: GanttAction = { type: 'resize', task: 'design.review', at: at('2026-03-09', 17) };
 		expectFiles(a, { [PLAN]: patched(plan, '    duration 2d\n', '    duration 3d\n') });
 	});
 
-	it('rewrites the end of a task with its own start and end', () => {
-		// launch: the end dragged to Mon 11 May 17:00, written as the next midnight (18.13).
-		const a: GanttAction = { type: 'resize', task: 'launch', end: at('2026-05-11', 17) };
-		expectFiles(a, { [PLAN]: patched(plan, '  end 2026-05-08\n', '  end 2026-05-12\n') });
+	it('rewrites the dragged edge of a task with its own start and end (ALAP: the start)', () => {
+		// launch says `end` after `start`, so it is ALAP: its handle is the start (M2). Dragged to
+		// Thu 30 April 09:00, the day's first working minute, written as that date.
+		const a: GanttAction = { type: 'resize', task: 'launch', at: at('2026-04-30', 9) };
+		expectFiles(a, { [PLAN]: patched(plan, '  start 2026-05-04\n', '  start 2026-04-30\n') });
+		expect(resizeEdge('launch', fx.ctx())).toBe('start');
+		expect(resizeEdge('design.research', fx.ctx())).toBe('end');
+		expect(resizeEdge('design.gate', fx.ctx())).toBeNull();
+	});
+
+	it('ALAP: the start handle grows the size, the end stays (M2)', () => {
+		// docs: ALAP, effort 2d for dev1 and dev2, Wed 25 March 16:00 to Thu 26 March 17:00 (9
+		// working hours). Dragged to Mon 23 March 09:00: 32 working hours, 2d x 32 / 9 = 7.1d; 7d
+		// burns 9 x 7 / 2 = 31.5 h back from Thursday 17:00, which starts on Monday.
+		const a: GanttAction = { type: 'resize', task: 'design.docs', at: at('2026-03-23', 9) };
+		expectFiles(a, {
+			[PLAN]: patched(
+				plan,
+				'    effort 2d\n    allocate dev1, dev2\n',
+				'    effort 7d\n    allocate dev1, dev2\n',
+			),
+		});
 	});
 
 	it('inserts an effort into an open-ended allocated leaf (11.1), after start by 7.2 order', () => {
 		// spike: start Mon 23 March, dev3; to Fri 27 March 17:00 is five working days, one person.
-		const a: GanttAction = { type: 'resize', task: 'spike', end: at('2026-03-27', 17) };
+		const a: GanttAction = { type: 'resize', task: 'spike', at: at('2026-03-27', 17) };
 		expectFiles(a, {
 			[PLAN]: patched(
 				plan,
@@ -98,13 +118,11 @@ describe('R1 change effort or length (resize)', () => {
 	});
 
 	it('has no handle on milestones, containers and macro-built tasks', () => {
-		expect(refusal({ type: 'resize', task: 'design.gate', end: at('2026-04-01', 17) })).toBe(
+		expect(refusal({ type: 'resize', task: 'design.gate', at: at('2026-04-01', 17) })).toBe(
 			'milestone',
 		);
-		expect(refusal({ type: 'resize', task: 'design', end: at('2026-04-01', 17) })).toBe(
-			'container',
-		);
-		expect(refusal({ type: 'resize', task: 'build.check_unit', end: at('2026-04-20', 17) })).toBe(
+		expect(refusal({ type: 'resize', task: 'design', at: at('2026-04-01', 17) })).toBe('container');
+		expect(refusal({ type: 'resize', task: 'build.check_unit', at: at('2026-04-20', 17) })).toBe(
 			'text-only',
 		);
 	});

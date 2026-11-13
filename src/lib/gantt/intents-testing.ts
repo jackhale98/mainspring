@@ -136,7 +136,7 @@ export function actionArb(
 		fc.record({
 			type: fc.constant('resize' as const),
 			task,
-			end: fc.integer({ min: -1440, max: FRAME_END + 1440 }),
+			at: fc.integer({ min: -1440, max: FRAME_END + 1440 }),
 		}),
 		fc.record({
 			type: fc.constant('size-step' as const),

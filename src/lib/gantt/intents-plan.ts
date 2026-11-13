@@ -8,16 +8,8 @@ import type { Minutes, TaskScenarioResult } from '../../engine/protocol';
 import { ganttActionStrings as S } from '../strings';
 import type { TaskId } from '../tjp/index';
 import { factsOf, scenarioOf, type TaskFacts } from './intents-facts';
-import {
-	ceilingOf,
-	floorOf,
-	notPossible,
-	planMove,
-	planProgress,
-	planResize,
-	planSizeStep,
-	writtenDriver,
-} from './intents-time';
+import { ceilingOf, floorOf, planMove, writtenDriver } from './intents-move';
+import { edgeOf, notPossible, planProgress, planResize, planSizeStep } from './intents-time';
 import type { ActionContext, GanttAction, LinkRef, MoveKind, Planned } from './intents';
 
 const intent = (i: Extract<Planned, { status: 'intent' }>['intent'], text: string): Planned => ({
@@ -58,7 +50,7 @@ export function planAction(a: GanttAction, ctx: ActionContext): Planned {
 		case 'progress': {
 			const f = facts(a.task);
 			if (!f) return notPossible('unknown-target');
-			if (a.type === 'resize') return planResize(f, a.end, ctx);
+			if (a.type === 'resize') return planResize(f, a.at, ctx);
 			if (a.type === 'size-step') return planSizeStep(f, a.steps, ctx);
 			if (a.type === 'move') return planMove(f, a.days, a.kind, ctx, at, (id) => nameIn(ctx, id));
 			return planProgress(f, a.percent);
@@ -113,12 +105,22 @@ export function planAction(a: GanttAction, ctx: ActionContext): Planned {
 
 /**
  * The move kind to pre-select when asking (ADR-0008 #2): `gap` when the task is ASAP and its own
- * text writes the dependency that drives it, else `start`.
+ * text writes the dependency that drives it, else `start`. Without the driving analysis the
+ * engine's dates decide which written dependency drives.
  */
 export function suggestedMoveKind(task: TaskId, ctx: ActionContext): MoveKind {
 	const f = factsOf(ctx.index, ctx.result, task);
 	if (!f || f.s?.direction === 'alap') return 'start';
-	return writtenDriver(f, ctx) ? 'gap' : 'start';
+	return writtenDriver(f, ctx, (id) => scenarioOf(ctx.result, id)) ? 'gap' : 'start';
+}
+
+/**
+ * The edge a task's size handle drags (R1): `end` for an ASAP task, `start` for an ALAP one; null
+ * when it has no handle (a milestone, a container, a text-only or unscheduled task).
+ */
+export function resizeEdge(task: TaskId, ctx: ActionContext): 'start' | 'end' | null {
+	const f = factsOf(ctx.index, ctx.result, task);
+	return f ? edgeOf(f) : null;
 }
 
 /**
