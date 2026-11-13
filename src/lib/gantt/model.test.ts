@@ -256,6 +256,21 @@ describe('buildGanttModel', () => {
 		expect(m.links.filter((l) => l.critical).map((l) => l.pred)).toEqual(['app.ui']);
 	});
 
+	it('does not draw an analysis of another result revision (stale until the new one lands)', () => {
+		const analysis: GanttAnalysis = {
+			revision: 1,
+			critical: new Set(['app.ui']),
+			criticalLinks: new Set(['app.ui>app.api']),
+			floatMin: new Map([['docs', 2 * D]]),
+			lateEnd: new Map([['docs', 3 * D]]),
+		};
+		const current = buildGanttModel(input({ analysis }, result(1, { tasks: TASKS })));
+		expect(current.rows.some((r) => r.critical)).toBe(true);
+		const stale = buildGanttModel(input({ analysis }, result(2, { tasks: TASKS })));
+		expect(stale.rows.some((r) => r.critical || r.floatMin !== null)).toBe(false);
+		expect(stale.links.some((l) => l.critical)).toBe(false);
+	});
+
 	it('keeps the dimmed flag and reads the status date and today in minutes', () => {
 		const res = result(2, { tasks: TASKS });
 		if (res.project) {

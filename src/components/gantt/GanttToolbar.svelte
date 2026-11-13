@@ -12,31 +12,37 @@
 	says why in text a screen reader reads, and it is ruby when on (the critical path's colour). The selected task's line is a polite live region
 	with the people on it; the hovered one is shown but not announced. The task line is a pill that
 	floats over the chart and exists only while there is a task, so it never moves the chart.
+	Critical path and float are estimates (phase-2.md 6.2.1): the chip describes itself so, a
+	task's estimate note sits apart at the end of its line and stays visible when the line is cut
+	(a phone), and with nothing selected the pill says when the whole path is before the status
+	date, so an empty highlight is never unexplained.
 -->
 <script lang="ts">
 	import { ZOOM_ORDER, ZOOM_PRESETS, nearestLevel, type ZoomLevel } from '../../lib/gantt/scale';
+	import type { RowLine } from '../../lib/gantt/describe';
 	import type { LineState } from '../../lib/gantt/model';
+	import type { CriticalChip } from '../../lib/gantt/analysis';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 
 	interface Props {
 		pxPerDay: number;
-		selectedText: string;
-		hoverText: string;
+		selected: RowLine;
+		hover: RowLine;
 		/** Whether Today has a line on the chart to go to. */
 		hasMarker: boolean;
 		lines: { today: LineState; status: LineState; merged: boolean };
 		dimmed: boolean;
 		/** The critical-path toggle: available once the analysis exists. */
-		critical: { available: boolean; pressed: boolean };
+		critical: CriticalChip;
 		onlevel: (level: ZoomLevel) => void;
 		ontoday: () => void;
 		oncritical: () => void;
 	}
 	let {
 		pxPerDay,
-		selectedText,
-		hoverText,
+		selected,
+		hover,
 		hasMarker,
 		lines,
 		dimmed,
@@ -51,6 +57,11 @@
 	const level = $derived(nearestLevel(pxPerDay));
 	/** Whether the zoom is exactly a preset; between two (after a pinch) the select says "custom". */
 	const zoomExact = $derived(ZOOM_ORDER.some((z) => ZOOM_PRESETS[z] === pxPerDay));
+	/** The pill's line: the selected task, else the note on an empty highlight (note only). */
+	const line = $derived(
+		selected.text === '' && critical.note !== null ? { text: '', note: critical.note } : selected,
+	);
+	const empty = (l: RowLine): boolean => l.text === '' && l.note === null;
 </script>
 
 <div class="bar">
@@ -90,24 +101,27 @@
 			class="chip critical"
 			aria-pressed={critical.available ? critical.pressed : undefined}
 			aria-disabled={critical.available ? undefined : 'true'}
-			aria-describedby={critical.available ? undefined : 'critical-why'}
-			title={critical.available ? undefined : strings.gantt.criticalUnavailable}
+			aria-describedby="critical-why"
+			title={critical.why}
 			onclick={() => {
 				if (critical.available) oncritical();
 			}}
 		>
 			<Icon name="route" size={14} />{strings.gantt.criticalPath}
 		</button>
-		{#if !critical.available}
-			<span id="critical-why" class="sr-only">{strings.gantt.criticalUnavailable}</span>
-		{/if}
+		<span id="critical-why" class="sr-only">{critical.why}</span>
 	</div>
 
 	<!-- The task line is a live region that always exists; its pill shows only with text. -->
-	<p class="task" role="status" class:sr-only={selectedText === '' || hoverText !== ''}>
-		{selectedText}
+	<p
+		class="task"
+		role="status"
+		class:sr-only={empty(line) || !empty(hover)}
+		class:wrap={line.text === ''}
+	>
+		{@render parts(line)}
 	</p>
-	{#if hoverText !== ''}<p class="task hover" aria-hidden="true">{hoverText}</p>{/if}
+	{#if !empty(hover)}<p class="task hover" aria-hidden="true">{@render parts(hover)}</p>{/if}
 	<ul class="legend" aria-label={strings.gantt.legend}>
 		{#if lines.merged}
 			<li class:off={lines.today === 'off'}>
@@ -128,6 +142,12 @@
 		{#if dimmed}<li class="stale">{strings.gantt.lastGood}</li>{/if}
 	</ul>
 </div>
+
+{#snippet parts(l: RowLine)}
+	{#if l.text !== ''}<span class="text">{l.text}</span>{/if}{#if l.note}<span class="note"
+			>{#if l.text !== ''}<span class="sr-only">{'. '}</span>{/if}{l.note}</span
+		>{/if}
+{/snippet}
 
 <style>
 	/* A slim band above the chart (not over it): chips, then the selected task, then the legend.
@@ -216,6 +236,8 @@
 		flex: 1 1 0;
 		min-inline-size: 0;
 		box-sizing: border-box;
+		display: flex;
+		gap: 0.6em;
 		margin: 0;
 		padding: 6px 14px;
 		overflow: hidden;
@@ -228,6 +250,25 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		pointer-events: none;
+	}
+	/* The line is cut, never the estimate note after it (a phone has room for little else). */
+	.task .text {
+		min-inline-size: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.task .note {
+		flex: none;
+		font-weight: 600;
+	}
+	/* A note alone (nothing selected) wraps rather than being cut. */
+	.task.wrap {
+		border-radius: 14px;
+		white-space: normal;
+	}
+	.task.wrap .note {
+		flex: 1 1 auto;
+		min-inline-size: 0;
 	}
 	.legend {
 		flex: none;

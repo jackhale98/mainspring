@@ -7,6 +7,7 @@ import {
 	intersects,
 	placeBar,
 	metricsFor,
+	revealTop,
 	rowRange,
 	scaleFor,
 	type Rect,
@@ -275,5 +276,13 @@ describe('layout typed arrays (phase-2.md 6.3)', () => {
 		expect(moved.avatars).toBe(layout.avatars);
 		expect(moved.width).toBe(layout.width);
 		expect(moved.rowTop(2)).toBe(layout.rowTop(2));
+	});
+});
+
+describe('revealTop', () => {
+	it('keeps the offset while the row is in view, and scrolls the least to show it', () => {
+		expect(revealTop(5, 28, 0, 280)).toBe(0);
+		expect(revealTop(2, 28, 100, 280)).toBe(56);
+		expect(revealTop(20, 28, 0, 280)).toBe(20 * 28 + 28 - 280);
 	});
 });

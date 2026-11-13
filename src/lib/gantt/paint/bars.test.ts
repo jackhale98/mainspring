@@ -296,9 +296,32 @@ describe('paintBars', () => {
 		const m = modelOf([row(0, 0, 2 * D, 'task', { floatMin: 2 * D, lateEnd: 4 * D })]);
 		const { frame, rec } = frameOf(m);
 		paintBars(frame);
-		const tail = rec.of('fillRect').find((c) => c[1] === 96 && c[3] === 96);
-		expect(tail).toBeDefined();
-		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.float);
+		// A fine dotted line from the bar's end (x 96) to the late finish (x 192), and a stop there.
+		const h = frame.theme.floatHeight;
+		expect(rec.of('lineTo').some((c) => c[1] === 192)).toBe(true);
+		expect(rec.of('fillRect').some((c) => c[1] === 192 - h / 2 && c[3] === h)).toBe(true);
+		expect(rec.of('set:strokeStyle').map((c) => c[1])).toContain(frame.theme.float);
+	});
+
+	it('dims the float tail with the rest of an out-of-date chart', () => {
+		const m = {
+			...modelOf([row(0, 0, 2 * D, 'task', { floatMin: 2 * D, lateEnd: 4 * D })]),
+			dimmed: true,
+		};
+		const { frame, rec } = frameOf(m);
+		paintBars(frame);
+		// The alphas set between the tail's stroke style and its stop (the dotted line and the stop).
+		const calls = rec.calls;
+		const from = calls.findIndex((c) => c[0] === 'set:strokeStyle' && c[1] === frame.theme.float);
+		expect(from).toBeGreaterThanOrEqual(0);
+		const to = calls.findIndex((c, i) => i > from && c[0] === 'restore');
+		const alphas = calls
+			.slice(from, to)
+			.filter((c) => c[0] === 'set:globalAlpha')
+			.map((c) => c[1] as number);
+		expect(alphas).toHaveLength(2);
+		for (const a of alphas) expect(a).toBeLessThanOrEqual(frame.theme.dimOpacity);
+		expect(rec.of('save').length).toBe(rec.of('restore').length);
 	});
 
 	it('draws links under the bars, elbowed, with an arrow head each', () => {

@@ -354,6 +354,26 @@ export const strings = {
 		levelCustom: (nearest: string) => `${nearest} (custom)`,
 		criticalPath: 'Critical path',
 		criticalUnavailable: 'The critical path is not computed yet',
+		/**
+		 * The critical path and float are display estimates derived from the schedule (ADR-0007):
+		 * they ignore resource limits and leveling, so they are always labelled as estimates.
+		 */
+		estimate: {
+			/** The critical-path chip's tooltip. */
+			hint: 'Critical path and float are estimates: they ignore resource limits and leveling',
+			/** Shown while the chip is on and the whole path ends before the status date. */
+			allDone: 'Every task on the critical path ends before the status date',
+			/**
+			 * Ends a critical task's line, so the critical path is never colour alone (WCAG 1.4.1),
+			 * and says it is an estimate.
+			 */
+			critical: 'On the critical path (estimate)',
+			float: (amount: string) => `Float about ${amount} (estimate)`,
+			days: (n: number) => (n === 1 ? '1 working day' : `${n} working days`),
+			hours: (n: number) => (n === 1 ? '1 working hour' : `${n} working hours`),
+			/** The treegrid's float column (T18). */
+			floatColumn: 'Float (estimate)',
+		},
 		/** Today has no line on the chart to go to (it is before or after the plan). */
 		todayOff: 'Today (off the chart)',
 		today: 'Today',
@@ -377,8 +397,8 @@ export const strings = {
 		milestoneOn: (name: string, at: string) => `${name}: milestone on ${at}`,
 		/** The task's line with the people on it, e.g. "Code: 3 Mar to 9 Mar 2026. Ana, Ben". */
 		withPeople: (line: string, people: string) => `${line}. ${people}`,
-		/** Added to a critical row's line so that the critical path is never colour alone. */
-		withCritical: (line: string) => `${line}. Critical path`,
+		/** The task's line with its estimate note, e.g. "Code: 3 Mar to 9 Mar 2026. On the critical path (estimate)". */
+		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
 	},
 	editor: {

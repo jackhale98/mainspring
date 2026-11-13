@@ -8,7 +8,8 @@
 
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
-	editor cursor on its declaration. Gestures and the inspector (T16, T17) come later. Zoom is on
+	editor cursor on its declaration. Critical path and float: gantt-analysis.svelte.ts (ADR-0007).
+	Gestures and the inspector (T16, T17) come later. Zoom is on
 	the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and - while the
 	task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
 
@@ -28,7 +29,7 @@
 	import { flushSync, onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
-	import { describeRow } from '../../lib/gantt/describe';
+	import { NO_LINE, describeRowParts } from '../../lib/gantt/describe';
 	import { resolveLinks } from '../../lib/gantt/links';
 	import {
 		OVERSCAN_ROWS,
@@ -36,6 +37,7 @@
 		createLayout,
 		metricsFor,
 		paintWindow,
+		revealTop,
 		scaleFor,
 		type PaintWindow,
 	} from '../../lib/gantt/layout';
@@ -46,8 +48,7 @@
 		ZOOM_PRESETS,
 		clampZoom,
 		nearestLevel,
-		zoomIn,
-		zoomOut,
+		zoomForKey,
 		type ZoomLevel,
 	} from '../../lib/gantt/scale';
 	import { ticksFor } from '../../lib/gantt/ticks';
@@ -56,6 +57,7 @@
 	import { strings } from '../../lib/strings';
 	import { ctrlWheel } from './ctrl-wheel';
 	import { ZoomPreview } from './zoom-preview';
+	import { GanttAnalysis } from './gantt-analysis.svelte';
 	import { GanttEnv } from './gantt-env.svelte';
 	import GanttToolbar from './GanttToolbar.svelte';
 	import OutlineColumn from './OutlineColumn.svelte';
@@ -76,16 +78,15 @@
 	let scrollerH = $state(0);
 	let namesW = $state(0);
 	let hoverRow = $state<number | null>(null);
-	/** The critical path is shown when there is an analysis (task T5) and the chip is on. */
-	let criticalOn = $state(true);
-	const analysisAvailable = false;
+	const critical = new GanttAnalysis();
 
-	// The model: rows from the outline joined with the newest good result (never computed here).
-	// The links come from the engine's result while it describes the text, and from the text,
-	// marked pending, while the text is newer (typing, or an edit that broke the schedule).
-	const result = $derived(app.run?.lastGood?.result ?? null);
+	// Rows from the outline joined with a good result (gantt-analysis picks which; never computed
+	// here). Links come from the engine's result while it describes the text, else from the text.
+	critical.watch(() => app.run?.lastGood?.result ?? null);
+	const result = $derived(critical.result);
 	const current = $derived(
 		!!app.run?.lastGood &&
+			app.run.lastGood.result === result &&
 			app.run.lastGood.workspaceVersion === app.run.indexVersion &&
 			!app.run.outdated,
 	);
@@ -102,8 +103,7 @@
 				scenario,
 				current,
 			}),
-			// Task T5 supplies the driving-path analysis here (when `criticalOn`).
-			analysis: null,
+			analysis: critical.drawn,
 			zones,
 		});
 	});
@@ -138,9 +138,9 @@
 			: null,
 	);
 	const selectedRow = $derived(model.rowOf.get(app.selectedTask ?? '') ?? null);
-	const selectedText = $derived(describeRow(model, selectedRow));
-	const hoverText = $derived(
-		hoverRow !== null && hoverRow !== selectedRow ? describeRow(model, hoverRow) : '',
+	const selected = $derived(describeRowParts(model, selectedRow));
+	const hover = $derived(
+		hoverRow !== null && hoverRow !== selectedRow ? describeRowParts(model, hoverRow) : NO_LINE,
 	);
 
 	/** The clock stays out of the model: a tick of it must not rebuild the rows (model.ts). */
@@ -207,11 +207,7 @@
 	/** Scrolls a row into view below the sticky header. */
 	async function revealRow(index: number): Promise<void> {
 		if (!scroller) return;
-		const top = index * metrics.rowHeight;
-		if (top < scroller.scrollTop) scroller.scrollTop = top;
-		else if (top + metrics.rowHeight > scroller.scrollTop + viewH) {
-			scroller.scrollTop = top + metrics.rowHeight - viewH;
-		}
+		scroller.scrollTop = revealTop(index, metrics.rowHeight, scroller.scrollTop, viewH);
 		scrollTop = scroller.scrollTop;
 		await tick();
 	}
@@ -221,17 +217,13 @@
 		if (row) app.selectTask(row.key);
 	}
 
-	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's, left alone. */
+	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's (zoomForKey). */
 	function onkeydown(event: KeyboardEvent): void {
-		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if (!(event.target instanceof Element) || !event.target.closest('[role="tree"]')) return;
-		if (event.key === '=' || event.key === '+') {
-			event.preventDefault();
-			zoomBy(zoomIn(zoomPreview.target ?? pxPerDay));
-		} else if (event.key === '-') {
-			event.preventDefault();
-			zoomBy(zoomOut(zoomPreview.target ?? pxPerDay));
-		}
+		const target = zoomForKey(event, zoomPreview.target ?? pxPerDay);
+		if (target === null) return;
+		event.preventDefault();
+		zoomBy(target);
 	}
 
 	onMount(() => {
@@ -255,15 +247,15 @@
 >
 	<GanttToolbar
 		{pxPerDay}
-		{selectedText}
-		{hoverText}
+		{selected}
+		{hover}
 		hasMarker={markers.target !== null}
 		lines={markers}
 		dimmed={model.dimmed}
-		critical={{ available: analysisAvailable, pressed: criticalOn }}
+		critical={critical.chip}
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
-		oncritical={() => (criticalOn = !criticalOn)}
+		oncritical={() => critical.toggle()}
 	/>
 
 	{#if model.rows.length === 0}
