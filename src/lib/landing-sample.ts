@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The plan drawn in the landing page's mocks (ADR-0011). It is a small TaskJuggler plan,
- * relaunch.tjp, that the browser engine scheduled on 2026-11-13; the bars below follow its dates.
- * Task names and plan text are plan data, not interface copy, so they live apart from
- * landing-copy.ts.
+ * plan.tjp, that the browser engine scheduled on 2026-11-13: with `effort 5d` on Design the
+ * milestone falls on Jan 6, 2026, and with `effort 8d` on Jan 9 (the pull-request mock). The bars
+ * below follow those dates. Task names and plan text are plan data, not interface copy, so they
+ * live apart from landing-copy.ts.
  */
 
-/** A task in the illustrated plan: days are calendar days from the project start (a Monday). */
+/** A task in the illustrated plan: days are calendar days from the project start (Mon Dec 22). */
 export interface SampleTask {
 	id: string;
 	name: string;
@@ -22,97 +23,46 @@ export interface SampleTask {
 	after: readonly string[];
 }
 
-/** The illustrated plan, laid out as TaskJuggler would: weekends are skipped. */
+const task = (
+	id: string,
+	name: string,
+	start: number,
+	end: number,
+	extra: Partial<SampleTask> = {},
+): SampleTask => ({
+	id,
+	name,
+	start,
+	end,
+	critical: true,
+	progress: 0,
+	people: [],
+	after: [],
+	...extra,
+});
+
+/** The illustrated plan, laid out as TaskJuggler scheduled it: weekends are skipped. */
 export const samplePlan: readonly SampleTask[] = [
-	{
-		id: 'design',
-		name: 'Design',
-		start: 0,
-		end: 5,
-		critical: true,
-		progress: 1,
-		people: ['A'],
-		after: [],
-	},
-	{
-		id: 'build',
-		name: 'Build',
-		start: 7,
-		end: 12,
-		critical: true,
-		progress: 0.3,
-		people: ['A', 'B'],
-		after: ['design'],
-	},
-	{
-		id: 'docs',
-		name: 'Docs',
-		start: 7,
-		end: 10,
-		critical: false,
-		progress: 0.5,
-		people: ['C'],
-		after: ['design'],
-	},
-	{
-		id: 'test',
-		name: 'Test',
-		start: 14,
-		end: 18,
-		critical: true,
-		progress: 0,
-		people: ['B'],
-		after: ['build', 'docs'],
-	},
-	{
-		id: 'launch',
-		name: 'Launch',
-		start: 18,
-		end: 18,
-		critical: true,
-		progress: 0,
-		people: [],
-		after: ['test'],
-		milestone: true,
-	},
+	task('design', 'Design', 0, 5, { progress: 1, people: ['A'] }),
+	task('build', 'Build', 7, 12, { progress: 0.3, people: ['A', 'B'], after: ['design'] }),
+	task('docs', 'Docs', 7, 10, { critical: false, progress: 0.5, people: ['C'], after: ['design'] }),
+	task('test', 'Test', 14, 16, { people: ['B'], after: ['build', 'docs'] }),
+	task('launch', 'Launch', 16, 16, { after: ['test'], milestone: true }),
 ];
 
-/** The short plan beside the chart in "How it works". */
+/** The short plan in the "drag, and the text changes" mock. */
 export const demoPlan: readonly SampleTask[] = [
-	{
-		id: 'design',
-		name: 'Design',
-		start: 0,
-		end: 5,
-		critical: true,
-		progress: 1,
-		people: ['A'],
-		after: [],
-	},
-	{
-		id: 'build',
-		name: 'Build',
-		start: 7,
-		end: 12,
-		critical: true,
-		progress: 0,
-		people: ['A', 'B'],
-		after: ['design'],
-	},
-	{
-		id: 'launch',
-		name: 'Launch',
-		start: 12,
-		end: 12,
-		critical: true,
-		progress: 0,
-		people: [],
-		after: ['build'],
-		milestone: true,
-	},
+	task('design', 'Design', 0, 5, { progress: 1, people: ['A'] }),
+	task('build', 'Build', 7, 12, { people: ['A', 'B'], after: ['design'] }),
+	task('launch', 'Launch', 12, 12, { after: ['build'], milestone: true }),
 ];
 
-/** The plan text shown in the product mock (from line 8 of relaunch.tjp). */
+/** The hero's plan: the four tasks whose text and bars sit side by side (Docs left out). */
+export const heroPlan: readonly SampleTask[] = samplePlan
+	.filter((t) => t.id !== 'docs')
+	.map((t) => (t.id === 'test' ? { ...t, after: ['build'] } : t));
+
+/** Lines 7 to 24 of plan.tjp, the editor beside the hero's Gantt: one block per task in `heroPlan`. */
 export const mockPlanText: readonly string[] = [
 	'task design "Design" {',
 	'  effort 5d',
@@ -123,32 +73,35 @@ export const mockPlanText: readonly string[] = [
 	'  effort 10d',
 	'  allocate ana, ben',
 	'}',
-	'task docs "Docs" {',
-	'  depends !design',
-	'  effort 3d',
-	'  allocate cy',
-	'}',
 	'task test "Test" {',
-	'  depends !build, !docs',
-];
-/** Index in `mockPlanText` of the line the cursor is on. */
-export const mockActiveLine = 6;
-export const mockFirstLine = 8;
-
-/** The plan text shown in "How it works". */
-export const demoPlanText: readonly string[] = [
-	'task design "Design" {',
-	'  effort 5d',
-	'  allocate ana',
-	'}',
-	'task build "Build" {',
-	'  depends !design',
-	'  effort 10d',
-	'  allocate ana, ben',
+	'  depends !build',
+	'  effort 2d',
+	'  allocate ben',
 	'}',
 	'task launch "Launch" {',
-	'  depends !build',
+	'  depends !test',
 	'  milestone',
 	'}',
 ];
-export const demoActiveLine = 6;
+/** Index in `mockPlanText` of the line the cursor is on, the edited `effort` line. */
+export const mockActiveLine = 1;
+/** The lines of the selected task (Design), which is also selected in the Gantt. */
+export const mockSelectedLines: readonly [number, number] = [0, 3];
+export const mockFirstLine = 7;
+
+export type DiffKind = 'ctx' | 'add' | 'del';
+export interface DiffLine {
+	kind: DiffKind;
+	/** Line number in the old file for a removed line, otherwise in the new file. */
+	n: number;
+	text: string;
+}
+
+/** The one-line plan change in the pull-request mock: Design takes eight days, not five. */
+export const planDiff: readonly DiffLine[] = [
+	{ kind: 'ctx', n: 7, text: 'task design "Design" {' },
+	{ kind: 'del', n: 8, text: '  effort 5d' },
+	{ kind: 'add', n: 8, text: '  effort 8d' },
+	{ kind: 'ctx', n: 9, text: '  allocate ana' },
+	{ kind: 'ctx', n: 10, text: '}' },
+];

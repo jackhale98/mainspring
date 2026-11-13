@@ -1,0 +1,172 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Four small drawings that show what the scheduler does, for a reader who has never used one:
+// effort shared by two people, nobody double-booked, work that skips leave, and the critical path.
+// SVG in the same materials as the Gantt mocks (brass bars, ruby on the critical path), from the
+// tokens. Decorative: the card's text says the same in words.
+import { landing } from '../../lib/landing-copy';
+
+interface Props {
+	kind: 'effort' | 'leveling' | 'leave' | 'critical';
+	/** Prefix for the ids inside this drawing. */
+	uid: string;
+}
+const { kind, uid } = Astro.props;
+const a = landing.scheduler.art;
+---
+
+<svg viewBox="0 0 240 96" width="100%" aria-hidden="true" focusable="false" class="art">
+	<defs>
+		<linearGradient id={`${uid}-brass`} x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" style="stop-color: var(--color-gantt-bar-top)"></stop>
+			<stop offset="1" style="stop-color: var(--color-gantt-bar-bottom)"></stop>
+		</linearGradient>
+		<linearGradient id={`${uid}-ruby`} x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" style="stop-color: var(--lp-ruby-top)"></stop>
+			<stop offset="1" style="stop-color: var(--lp-ruby-bottom)"></stop>
+		</linearGradient>
+	</defs>
+
+	{kind === 'effort' && (
+		<g>
+			<rect class="ghost" x="12" y="14" width="208" height="16" rx="8" />
+			<text class="label" x="22" y="25">
+				{a.work}
+			</text>
+			<path class="link" d="M116 36v14" />
+			<path class="link" d="M112 46l4 5 4-5" />
+			<rect class="bar" x="12" y="58" width="104" height="16" rx="8" fill={`url(#${uid}-brass)`} />
+			<circle class="av a" cx="128" cy="66" r="7" />
+			<text class="init a" x="128" y="68.6" text-anchor="middle">
+				A
+			</text>
+			<circle class="av b" cx="142" cy="66" r="7" />
+			<text class="init b" x="142" y="68.6" text-anchor="middle">
+				B
+			</text>
+			<text class="label" x="158" y="69">
+				{a.calendar}
+			</text>
+		</g>
+	)}
+
+	{kind === 'leveling' && (
+		<g>
+			<text class="lane" x="8" y="26">
+				{a.ana}
+			</text>
+			<text class="lane" x="8" y="68">
+				{a.ben}
+			</text>
+			<line class="rule" x1="40" y1="8" x2="40" y2="88" />
+			<rect class="bar" x="48" y="18" width="70" height="16" rx="8" fill={`url(#${uid}-brass)`} />
+			<rect class="bar" x="124" y="18" width="70" height="16" rx="8" fill={`url(#${uid}-brass)`} />
+			<rect class="bar" x="48" y="60" width="70" height="16" rx="8" fill={`url(#${uid}-brass)`} />
+			<path class="link" d="M118 26h6" />
+		</g>
+	)}
+
+	{kind === 'leave' && (
+		<g>
+			<rect class="shade" x="96" y="8" width="40" height="80" rx="6" />
+			<text class="label mid" x="116" y="86" text-anchor="middle">
+				{a.leave}
+			</text>
+			<rect class="bar" x="12" y="30" width="84" height="16" rx="8" fill={`url(#${uid}-brass)`} />
+			<rect class="bar" x="136" y="30" width="84" height="16" rx="8" fill={`url(#${uid}-brass)`} />
+			<path class="link dashed" d="M96 38h40" />
+		</g>
+	)}
+
+	{kind === 'critical' && (
+		<g>
+			<rect class="bar" x="12" y="12" width="64" height="16" rx="8" fill={`url(#${uid}-ruby)`} />
+			<rect class="bar" x="12" y="64" width="40" height="16" rx="8" fill={`url(#${uid}-brass)`} />
+			<text class="label" x="58" y="75.5">
+				{a.float}
+			</text>
+			<path class="link crit" d="M76 20h8q4 0 4 4v10" />
+			<rect class="bar" x="88" y="38" width="76" height="16" rx="8" fill={`url(#${uid}-ruby)`} />
+			<path class="link crit" d="M164 46h8q4 0 4 4v10" />
+			<rect class="bar" x="176" y="64" width="52" height="16" rx="8" fill={`url(#${uid}-ruby)`} />
+		</g>
+	)}
+</svg>
+
+<style>
+	.art {
+		display: block;
+		max-inline-size: 22rem;
+		margin-inline: auto;
+		font-family: var(--font-sans);
+	}
+	.bar {
+		stroke: var(--color-gantt-bar-outline);
+		stroke-width: 1;
+		filter: drop-shadow(0 1px 1.2px var(--color-gantt-bar-shadow));
+	}
+	g :global(rect[fill*='ruby']) {
+		stroke: var(--lp-ruby-bottom);
+		stroke-width: 1.5;
+	}
+	.ghost {
+		fill: var(--lp-brass-wash);
+		stroke: var(--color-gantt-bar-outline);
+		stroke-width: 1;
+		stroke-dasharray: 3 3;
+	}
+	.shade {
+		fill: var(--lp-surface2);
+		stroke: var(--lp-border-strong);
+		stroke-dasharray: 3 3;
+	}
+	.link {
+		fill: none;
+		stroke: var(--color-gantt-link);
+		stroke-width: 1.4;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.link.crit {
+		stroke: var(--lp-ruby);
+		stroke-width: 1.7;
+	}
+	.link.dashed {
+		stroke-dasharray: 3 3;
+	}
+	.rule {
+		stroke: var(--lp-border-strong);
+	}
+	.label {
+		font-size: 8.5px;
+		font-weight: 600;
+		fill: var(--color-gantt-bar-ink);
+	}
+	g :global(.ghost + .label) {
+		fill: var(--lp-brass-text);
+	}
+	.label.mid,
+	.lane {
+		fill: var(--lp-muted);
+	}
+	.lane {
+		font-size: 9px;
+		font-weight: 600;
+	}
+	.av.a {
+		fill: var(--color-gantt-avatar-3-bg);
+	}
+	.av.b {
+		fill: var(--color-gantt-avatar-4-bg);
+	}
+	.init {
+		font-size: 7px;
+		font-weight: 700;
+	}
+	.init.a {
+		fill: var(--color-gantt-avatar-3-ink);
+	}
+	.init.b {
+		fill: var(--color-gantt-avatar-4-ink);
+	}
+</style>

@@ -21,8 +21,19 @@ interface Props {
 	header?: boolean;
 	/** Draw the today line and its crown. */
 	today?: boolean;
+	/** A drag in progress: a dashed bar growing from the end of one task, with a handle and a label. */
+	ghost?: { id: string; days: number; label: string };
 }
-const { plan, uid, options = {}, selectedId, ringId, header = true, today = true } = Astro.props;
+const {
+	plan,
+	uid,
+	options = {},
+	selectedId,
+	ringId,
+	header = true,
+	today = true,
+	ghost,
+} = Astro.props;
 
 const o: GanttOptions = {
 	nameCol: 84,
@@ -88,12 +99,16 @@ const crit = L.links.filter((l) => l.critical);
 	<!-- Header -->
 	{header && (
 		<g>
-			<text class="month" x={o.nameCol + 6} y="17">
-				{landing.mock.month}
-				<tspan class="year" dx="5">
-					{landing.mock.year}
-				</tspan>
-			</text>
+			{landing.mock.months
+				.filter((m) => o.nameCol + m.day * o.dayW + 90 <= L.width)
+				.map((m) => (
+					<text class="month" x={o.nameCol + m.day * o.dayW + 6} y="17">
+						{m.name}
+						<tspan class="year" dx="5">
+							{m.year}
+						</tspan>
+					</text>
+				))}
 			{L.weeks
 				.filter((w) => w.x + 34 <= L.width)
 				.map((w) => (
@@ -202,6 +217,36 @@ const crit = L.links.filter((l) => l.critical);
 						rx={o.barH / 2}
 						fill="none"
 					/>
+				)}
+				{ghost && ghost.id === t.id && (
+					<g class="ghost">
+						<rect
+							class="ghost-bar"
+							x={r.x + r.w - o.barH / 2}
+							y={y}
+							width={ghost.days * o.dayW + o.barH / 2}
+							height={o.barH}
+							rx={o.barH / 2}
+							fill="none"
+						/>
+						<circle class="handle" cx={r.x + r.w + ghost.days * o.dayW} cy={r.cy} r="4.5" />
+						<rect
+							class="tip"
+							x={r.x + r.w + ghost.days * o.dayW + 9}
+							y={r.cy - 7}
+							width="28"
+							height="14"
+							rx="7"
+						/>
+						<text
+							class="tip-text"
+							x={r.x + r.w + ghost.days * o.dayW + 23}
+							y={r.cy + 3}
+							text-anchor="middle"
+						>
+							{ghost.label}
+						</text>
+					</g>
 				)}
 				{t.id === ringId && (
 					<rect
@@ -329,6 +374,24 @@ const crit = L.links.filter((l) => l.critical);
 	.ring {
 		stroke: var(--lp-steel);
 		stroke-width: 1.5;
+	}
+	.ghost-bar {
+		stroke: var(--lp-steel);
+		stroke-width: 1.4;
+		stroke-dasharray: 3 3;
+	}
+	.handle {
+		fill: var(--lp-panel);
+		stroke: var(--lp-steel);
+		stroke-width: 1.8;
+	}
+	.tip {
+		fill: var(--lp-ink);
+	}
+	.tip-text {
+		fill: var(--lp-on-ink);
+		font-size: 8.5px;
+		font-weight: 600;
 	}
 	.jewel {
 		stroke: var(--color-gantt-jewel-deep);

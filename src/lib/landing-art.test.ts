@@ -9,7 +9,7 @@ import {
 	tokensToHtml,
 	type GanttOptions,
 } from './landing-art';
-import { demoPlan, demoPlanText, mockPlanText, samplePlan } from './landing-sample';
+import { demoPlan, mockPlanText, planDiff, samplePlan } from './landing-sample';
 
 const OPTIONS: GanttOptions = {
 	nameCol: 84,
@@ -23,7 +23,11 @@ const OPTIONS: GanttOptions = {
 
 describe('tokenize', () => {
 	it('gives back the line it was given', () => {
-		for (const line of [...mockPlanText, ...demoPlanText, 'project p "P" 2026-12-07 +4w # note']) {
+		for (const line of [
+			...mockPlanText,
+			...planDiff.map((l) => l.text),
+			'project p "P" 2026-12-07 +4w # note',
+		]) {
 			expect(
 				tokenize(line)
 					.map((t) => t.text)
@@ -84,7 +88,7 @@ describe('ganttLayout', () => {
 		expect(design?.x).toBe(84);
 		expect(design?.w).toBe(60);
 		expect(launch?.w).toBe(0);
-		expect(launch?.x).toBe(84 + 18 * 12);
+		expect(launch?.x).toBe(84 + 16 * 12);
 	});
 
 	it('cuts the fill at the progress fraction', () => {
