@@ -645,6 +645,16 @@ Light and dark use the existing tokens. New semantic tokens, separate from the a
 - **Link.** Predecessor, successor, gap and Remove. Type (`onstart`/`onend`) is read-only (v1).
 - **Project sheet.** Name, frame start and end (`setProjectHeader`), status date (`setProjectAttr now`), time zone. This is the minimum the status-date line needs; the rest of the project frame is Phase 3 (19.9).
 
+**As built in T17** (`src/components/inspector/`, `src/lib/inspector/`):
+
+- **Placement.** Desktop: a 320 px side panel (collapsible) beside the Gantt in Split and Visual. Tablet and phone: a bottom sheet over the Gantt, not modal, half height, dragged (or pressed: the grabber is a button) to full height; the selected row is scrolled above it (WCAG 2.4.11). A tap opens it without taking the focus; Enter on a row opens it and focuses the first field; Escape returns to the row. The project sheet (top bar button, "Project settings") and the show-source sheet (button in the details) are modal bottom sheets.
+- **Reads** come from the index and the shown result (`app.inspector.view`, published by `Gantt.svelte`). Size uses `sizingSite` (the task list's rule); it is editable only when the winning statement is the top scenario's. Dependencies come from `resolveLinks`, so gaps and sites match the chart.
+- **Edits** go through `app.edits` (`InspectorActions`): `rename`, `size-step`, `assign`, `unassign`, `replace-person` and `unlink` are the Gantt's actions, the rest are `dispatch` of `setAttr`, `removeAttr`, `setDependsGap`, `declareFlag`, `setProjectHeader` and `setProjectAttr`. Steppers send cumulative totals with a coalesce key; a burst ends on Enter, blur or after 1.2 s, and is one undo step.
+- **Inherited fields** (priority, scheduling, minstart, maxend, flags, responsible) say where the value comes from and stay editable: a value typed there is written on the task and overrides the parent's. Text-only fields (macros) are disabled with their reason and "Show in text".
+- **Open-ended warning (11.1).** Clearing `milestone` on a leaf with a person booked, no size and no end asks first, inline. "Set effort" clears the milestone and focuses the size field; "Change anyway" only clears it. A leaf already in that state shows the notice with "Set effort".
+- **Move preference** (ADR-0008 amendment): the project sheet shows it as three radios (ask next time, gap, start), reads and writes the browser's storage through the dispatcher, and "Ask me next time" clears it.
+- **Link selection.** `app.inspector.link` holds a selected link; `inspector.showLink(pred, succ)` is how T15 and T16 select one (a task's "Details" button on a dependency uses it today). `app.selectTask` clears it.
+
 ### 9.4 Toasts and status
 
 - Toasts live in a polite live region: one per edit, 6 s, with Undo (enabled while the entry is on top). Refusals and "no longer schedules" toasts stay until dismissed.

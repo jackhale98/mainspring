@@ -43,6 +43,16 @@
 		<h1 class="sr-only">{strings.appName}</h1>
 		<Mark size={26} />
 		<div class="title"><PlanChip {app} title subtitle={finish} /></div>
+		<button
+			type="button"
+			class="project-button"
+			aria-haspopup="dialog"
+			title={strings.inspector.openProject}
+			onclick={() => (app.inspector.projectOpen = true)}
+		>
+			<Icon name="sliders" size={17} />
+			<span class="sr-only">{strings.inspector.projectSettings}</span>
+		</button>
 		<EngineStatus state={app.engine} compact />
 		<ThemeToggle {theme} />
 	{:else}
@@ -67,6 +77,16 @@
 		<div class="plan"><PlanChip {app} /></div>
 		<UndoRedo {app} />
 		<div class="centre"><ModeSwitch {mode} {onmode} /></div>
+		<button
+			type="button"
+			class="project-button"
+			aria-haspopup="dialog"
+			title={strings.inspector.openProject}
+			onclick={() => (app.inspector.projectOpen = true)}
+		>
+			<Icon name="sliders" size={17} />
+			<span class="sr-only">{strings.inspector.projectSettings}</span>
+		</button>
 		<EngineStatus state={app.engine} adaptive />
 		<ThemeToggle {theme} />
 	{/if}
@@ -121,7 +141,8 @@
 	.title :global(.chip) {
 		max-inline-size: 100%;
 	}
-	.outline-button {
+	.outline-button,
+	.project-button {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -134,7 +155,8 @@
 		color: var(--color-text);
 		cursor: pointer;
 	}
-	.outline-button:hover {
+	.outline-button:hover,
+	.project-button:hover {
 		background: var(--color-row-hover);
 	}
 	@container topbar (max-width: 899px) {

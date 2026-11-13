@@ -1,12 +1,36 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	A modal sheet on the native <dialog>: the browser traps focus, makes the page behind inert and
-	closes on Escape, and returns focus to what opened it. It slides in from the start edge (the
-	outline drawer on tablets) or the bottom (the docs sheet). Clicking the backdrop closes it.
+	A sheet on the native <dialog>. It slides in from the start edge (the outline drawer on tablets)
+	or the bottom (the docs, project and source sheets, and the task details on tablets and phones).
+
+	Modal (the default): the browser traps focus, makes the page behind inert, closes on Escape and
+	returns focus to what opened it. Clicking the backdrop closes it.
+
+	Not modal (`modal={false}`, the task details): the chart behind stays alive, so a person can
+	tap another task or scroll while the sheet is open, and the selected row is scrolled above it
+	(phase-2.md 9.2, WCAG 2.4.11). There is no backdrop and no focus trap; Escape closes it and
+	focus goes back to where it was. `focusOnOpen={false}` leaves the focus where it is, so a tap
+	does not open a touch keyboard.
+
+	`detent` ('half' or 'full') gives the bottom sheet a fixed height and a grabber: drag it up for
+	full height, down to go back (down from half closes), or press it, which toggles the two heights
+	(the keyboard and single-pointer alternative, WCAG 2.5.7). The rules are
+	src/lib/inspector/detent.ts. `onheight` reports the open sheet's height in px.
+
+	The bottom placement is `inset: 0` with an auto top margin, the way the browser centres a dialog.
+	With `top: auto` instead, Safari on iPhone placed the sheet off screen and only the backdrop
+	showed. It is `position: fixed` so that it does the same when it is not modal.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { strings } from '../lib/strings';
+	import {
+		TAP_SLOP,
+		dragHeight,
+		detentAfterDrag,
+		toggled,
+		type Detent,
+	} from '../lib/inspector/detent';
+	import { inspectorStrings as I, strings } from '../lib/strings';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -14,38 +38,154 @@
 		side: 'start' | 'bottom';
 		title: string;
 		closeLabel?: string;
+		modal?: boolean;
+		/** Gives the bottom sheet a fixed height and a grabber; bind it to remember the height. */
+		detent?: Detent | undefined;
+		focusOnOpen?: boolean;
 		onclose: () => void;
+		ondetent?: (d: Detent) => void;
+		onheight?: (px: number) => void;
+		/** What sits after the title in the header (a button, say). */
+		actions?: Snippet;
 		children: Snippet;
 	}
-	let { open, side, title, closeLabel = strings.editor.close, onclose, children }: Props = $props();
+	let {
+		open,
+		side,
+		title,
+		closeLabel = strings.editor.close,
+		modal = true,
+		detent,
+		focusOnOpen = true,
+		onclose,
+		ondetent,
+		onheight,
+		actions,
+		children,
+	}: Props = $props();
 
+	const uid = $props.id();
+	const titleId = `sheet-title-${uid}`;
 	let dialog: HTMLDialogElement | undefined = $state();
+	let dragPx = $state<number | null>(null);
+	let opener: Element | null = null;
 
 	$effect(() => {
 		if (!dialog) return;
-		if (open && !dialog.open) dialog.showModal();
-		else if (!open && dialog.open) dialog.close();
+		if (open && !dialog.open) {
+			opener = document.activeElement;
+			if (modal) dialog.showModal();
+			else {
+				dialog.show();
+				// A tap on a task must not move the focus (a touch keyboard would open).
+				if (!focusOnOpen && opener instanceof HTMLElement) opener.focus({ preventScroll: true });
+			}
+		} else if (!open && dialog.open) dialog.close();
+	});
+
+	// The sheet's height, for what has to stay clear of it (the chart's selected row).
+	$effect(() => {
+		const el = dialog;
+		if (!el || !onheight || !open) return;
+		const report = (): void => onheight(el.getBoundingClientRect().height);
+		const ro = new ResizeObserver(report);
+		ro.observe(el);
+		report();
+		return () => {
+			ro.disconnect();
+			onheight(0);
+		};
 	});
 
 	function backdropClick(event: MouseEvent): void {
-		if (event.target === dialog) dialog?.close();
+		if (modal && event.target === dialog) dialog?.close();
+	}
+
+	/** A non-modal dialog does not close on Escape by itself. */
+	function onkeydown(event: KeyboardEvent): void {
+		if (modal || event.key !== 'Escape' || event.defaultPrevented) return;
+		event.preventDefault();
+		dialog?.close();
+	}
+
+	function closed(): void {
+		// Focus goes back to what was focused before the sheet opened, if it is still there.
+		if (!modal && opener instanceof HTMLElement && opener.isConnected) {
+			opener.focus({ preventScroll: true });
+		}
+		opener = null;
+		onclose();
+	}
+
+	let drag: { id: number; y0: number; h0: number } | null = null;
+
+	function down(e: PointerEvent): void {
+		if (!dialog || e.button !== 0) return;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		drag = { id: e.pointerId, y0: e.clientY, h0: dialog.getBoundingClientRect().height };
+	}
+	function move(e: PointerEvent): void {
+		if (!drag || e.pointerId !== drag.id) return;
+		const dy = e.clientY - drag.y0;
+		if (Math.abs(dy) > TAP_SLOP) dragPx = dragHeight(drag.h0, dy, window.innerHeight);
+	}
+	function up(e: PointerEvent): void {
+		if (!drag || e.pointerId !== drag.id || !detent) return;
+		const dy = e.clientY - drag.y0;
+		drag = null;
+		dragPx = null;
+		if (Math.abs(dy) <= TAP_SLOP) ondetent?.(toggled(detent));
+		else {
+			const next = detentAfterDrag(detent, dy);
+			if (next === 'close') dialog?.close();
+			else ondetent?.(next);
+		}
+	}
+	function cancel(): void {
+		drag = null;
+		dragPx = null;
+	}
+	/** The press itself is handled by the pointer events; this is the keyboard's Enter and Space. */
+	function press(e: MouseEvent): void {
+		if (detent && e.detail === 0) ondetent?.(toggled(detent));
 	}
 </script>
 
-<!-- Escape is handled by the dialog itself; a click on the backdrop is a pointer shortcut. -->
+<!-- Escape is handled by the dialog itself (or above); a click on the backdrop is a pointer shortcut. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 <dialog
 	bind:this={dialog}
 	class="sheet"
 	data-side={side}
-	aria-labelledby="sheet-title-{side}"
-	{onclose}
+	data-modal={modal}
+	data-detent={detent}
+	data-dragging={dragPx !== null ? '' : undefined}
+	style:block-size={dragPx === null ? undefined : `${dragPx}px`}
+	aria-labelledby={titleId}
+	onclose={closed}
 	onclick={backdropClick}
+	{onkeydown}
 >
 	{#if open}
 		<div class="inner">
+			{#if detent}
+				<button
+					type="button"
+					class="grabber"
+					aria-label="{I.grabber}: {detent === 'half' ? I.grabberFull : I.grabberHalf}"
+					aria-expanded={detent === 'full'}
+					onpointerdown={down}
+					onpointermove={move}
+					onpointerup={up}
+					onpointercancel={cancel}
+					onclick={press}
+				>
+					<span class="bar"></span>
+				</button>
+			{/if}
 			<header>
-				<h2 id="sheet-title-{side}">{title}</h2>
+				<h2 id={titleId}>{title}</h2>
+				{@render actions?.()}
 				<button type="button" class="close" onclick={() => dialog?.close()}>
 					<Icon name="close" size={15} />{closeLabel}
 				</button>
@@ -59,7 +199,7 @@
 			<div
 				class="content"
 				role={side === 'bottom' ? 'region' : undefined}
-				aria-labelledby={side === 'bottom' ? `sheet-title-${side}` : undefined}
+				aria-labelledby={side === 'bottom' ? titleId : undefined}
 				tabindex={side === 'bottom' ? 0 : undefined}
 			>
 				{@render children()}
@@ -94,6 +234,7 @@
 	   an auto top margin. With top: auto instead, Safari on iPhone placed the sheet off screen and
 	   only the backdrop showed. */
 	.sheet[data-side='bottom'] {
+		position: fixed;
 		inset: 0;
 		margin: auto auto 0;
 		inline-size: min(40rem, 100vw);
@@ -103,11 +244,66 @@
 		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
 		animation: slide-bottom var(--motion-base) ease-out;
 	}
+	/* Not modal: above the chart and the tab bar, below the toasts (which clear it). */
+	.sheet[data-side='bottom'][data-modal='false'] {
+		z-index: 20;
+		/* The sheet's own width, so a tablet gets a sheet and not a full-width slab. */
+		inline-size: min(44rem, 100vw);
+	}
+	/* On a phone the tab bar floats over the sheet's bottom edge: its content ends above it. */
+	@media (max-width: 599px) {
+		.sheet[data-modal='false'] .content {
+			padding-block-end: calc(var(--size-tabbar) + 24px + env(safe-area-inset-bottom));
+		}
+	}
+	.sheet[data-detent='half'] {
+		block-size: 50dvh;
+		max-block-size: none;
+	}
+	.sheet[data-detent='full'] {
+		block-size: calc(100dvh - 12px - env(safe-area-inset-top));
+		max-block-size: none;
+	}
+	.sheet[data-dragging] {
+		max-block-size: none;
+		animation: none;
+		user-select: none;
+	}
 	.inner {
 		display: flex;
 		flex-direction: column;
 		max-block-size: inherit;
 		block-size: 100%;
+	}
+	/* The grabber is 44 px high to touch and draws a small bar; it is a button, so a keyboard or
+	   a tap toggles the height as well. */
+	.grabber {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex: none;
+		block-size: var(--size-tap);
+		margin-block-end: -8px;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--color-text-muted);
+		cursor: grab;
+		touch-action: none;
+	}
+	.grabber .bar {
+		inline-size: 40px;
+		block-size: 5px;
+		border-radius: var(--radius-pill);
+		background: var(--color-border-strong);
+	}
+	.grabber:hover .bar {
+		background: var(--color-text-muted);
+	}
+	.grabber:focus-visible {
+		outline: 2px solid var(--color-focus);
+		outline-offset: -4px;
+		border-radius: var(--radius-md);
 	}
 	header {
 		display: flex;
@@ -119,6 +315,7 @@
 	}
 	h2 {
 		margin: 0;
+		margin-inline-end: auto;
 		font-family: var(--font-display);
 		font-size: var(--text-lg);
 		font-weight: 400;

@@ -72,6 +72,17 @@ export const ICONS = {
 	],
 	retry: ['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5'],
 	gauge: ['m12 14 4-4', 'M3.34 19a10 10 0 1 1 17.32 0'],
+	sliders: [
+		'M21 4h-7',
+		'M10 4H3',
+		'M21 12h-9',
+		'M8 12H3',
+		'M21 20h-5',
+		'M12 20H3',
+		'M14 2v4',
+		'M8 10v4',
+		'M16 18v4',
+	],
 	grip: ['M9 5h.01', 'M9 12h.01', 'M9 19h.01', 'M15 5h.01', 'M15 12h.01', 'M15 19h.01'],
 } as const satisfies Record<string, readonly string[]>;
 

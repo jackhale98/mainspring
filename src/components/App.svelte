@@ -30,6 +30,7 @@
 	import { strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
 	import Gantt from './gantt/Gantt.svelte';
+	import InspectorHost from './inspector/InspectorHost.svelte';
 	import OutlinePanel from './OutlinePanel.svelte';
 	import Sheet from './Sheet.svelte';
 	import StatusStrip from './StatusStrip.svelte';
@@ -39,6 +40,7 @@
 	import TopBar from './app/TopBar.svelte';
 	import { AppUpdates } from '../lib/state/updates.svelte';
 	import { sitePath } from '../lib/site-path';
+	import type { SourceRange } from '../lib/tjp/index';
 
 	const params = new URLSearchParams(location.search);
 	const app = new AppState({ initial: params.get('sample') });
@@ -142,6 +144,16 @@
 		modes.set(next);
 	}
 
+	/**
+	 * The inspector's "Show in text": the editor has to be on screen first (Split, or Text on a
+	 * phone), then the range is revealed in it.
+	 */
+	function showInText(at: SourceRange): void {
+		if (phone) modes.set('text');
+		else if (mode === 'visual') modes.set('split');
+		app.showRange(at);
+	}
+
 	function pickTab(tab: 'plan' | 'gantt' | 'text'): void {
 		if (tab === 'text') modes.set('text');
 		else if (tab === 'gantt') modes.set('visual');
@@ -152,77 +164,86 @@
 
 <div class="app" data-layout={kind}>
 	<TopBar {app} {theme} layout={kind} {mode} {drawer} onmode={(m) => modes.set(m)} />
-	<main
-		id="main"
-		class="body"
-		data-mode={mode}
-		data-axis={split ? axis : undefined}
-		tabindex="-1"
-		bind:this={body}
-		style:grid-template-columns={split && axis === 'col' ? splitTracks : undefined}
-		style:grid-template-rows={split && axis === 'row' ? splitTracks : undefined}
-	>
-		{#if kind === 'desktop' && mode === 'text'}
-			<aside class="panel outline" aria-label={strings.outline.title}>
-				<OutlinePanel {app} />
-			</aside>
-		{/if}
-		{#if phone}
-			<div
-				id="panel-plan"
-				class="panel plan"
-				role="tabpanel"
-				aria-labelledby="tab-plan"
-				hidden={app.phoneTab !== 'plan'}
-			>
-				<div class="grow"><OutlinePanel {app} showTitle={false} showNotice={false} /></div>
-			</div>
-		{/if}
-		<div
-			id="panel-text"
-			class="panel text"
-			role={phone ? 'tabpanel' : undefined}
-			aria-labelledby={phone ? 'tab-text' : undefined}
-			hidden={!showEditor}
+	<div class="work">
+		<main
+			id="main"
+			class="body"
+			data-mode={mode}
+			data-axis={split ? axis : undefined}
+			tabindex="-1"
+			bind:this={body}
+			style:grid-template-columns={split && axis === 'col' ? splitTracks : undefined}
+			style:grid-template-rows={split && axis === 'row' ? splitTracks : undefined}
 		>
-			{#if app.phase === 'failed'}
-				<p class="message error" role="alert">{app.loadError}</p>
-			{:else if app.workspace && EditorPanel}
-				{#key app.workspace}
-					<EditorPanel {app} ws={app.workspace} layout={kind} />
-				{/key}
-			{:else}
-				<p class="message">{strings.topBar.loading}</p>
+			{#if kind === 'desktop' && mode === 'text'}
+				<aside class="panel outline" aria-label={strings.outline.title}>
+					<OutlinePanel {app} />
+				</aside>
 			{/if}
-		</div>
-		{#if split}
-			<SplitDivider
-				{axis}
-				value={ratio}
-				container={body}
-				onchange={(v) => modes.setRatio(axis, v)}
-				oncommit={() => modes.saveRatios()}
-			/>
-		{/if}
-		{#if ganttSeen}
+			{#if phone}
+				<div
+					id="panel-plan"
+					class="panel plan"
+					role="tabpanel"
+					aria-labelledby="tab-plan"
+					hidden={app.phoneTab !== 'plan'}
+				>
+					<div class="grow"><OutlinePanel {app} showTitle={false} showNotice={false} /></div>
+				</div>
+			{/if}
 			<div
-				id="panel-gantt"
-				class="panel gantt"
+				id="panel-text"
+				class="panel text"
 				role={phone ? 'tabpanel' : undefined}
-				aria-labelledby={phone ? 'tab-gantt' : undefined}
-				hidden={!showGantt}
+				aria-labelledby={phone ? 'tab-text' : undefined}
+				hidden={!showEditor}
 			>
-				<Gantt {app} />
+				{#if app.phase === 'failed'}
+					<p class="message error" role="alert">{app.loadError}</p>
+				{:else if app.workspace && EditorPanel}
+					{#key app.workspace}
+						<EditorPanel {app} ws={app.workspace} layout={kind} />
+					{/key}
+				{:else}
+					<p class="message">{strings.topBar.loading}</p>
+				{/if}
 			</div>
-		{/if}
-	</main>
+			{#if split}
+				<SplitDivider
+					{axis}
+					value={ratio}
+					container={body}
+					onchange={(v) => modes.setRatio(axis, v)}
+					oncommit={() => modes.saveRatios()}
+				/>
+			{/if}
+			{#if ganttSeen}
+				<div
+					id="panel-gantt"
+					class="panel gantt"
+					role={phone ? 'tabpanel' : undefined}
+					aria-labelledby={phone ? 'tab-gantt' : undefined}
+					hidden={!showGantt}
+				>
+					<Gantt {app} />
+				</div>
+			{/if}
+		</main>
+		<InspectorHost {app} layout={kind} {mode} active={showGantt} onshowtext={showInText} />
+	</div>
 	<div class="footer" bind:this={footer}>
 		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 		{#if phone}<p class="notice compact">{strings.noticeShort}</p>{/if}
 		<StatusStrip {app} {updates} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
-	<Toasts {app} {phone} bottom={toastBottom} />
+	<Toasts
+		{app}
+		{phone}
+		bottom={app.inspector.sheetHeight > 0
+			? Math.max(toastBottom ?? 0, app.inspector.sheetHeight)
+			: toastBottom}
+	/>
 	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
@@ -250,7 +271,17 @@
 	.app[data-layout='phone'] {
 		padding-inline: max(10px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-right));
 	}
+	/* The Gantt and its inspector side by side on a desktop; the body is what the Split divider
+	   measures, so the inspector sits outside it. */
+	.work {
+		display: flex;
+		gap: var(--gap-panel);
+		min-block-size: 0;
+		min-inline-size: 0;
+	}
 	.body {
+		flex: 1 1 0;
+		min-inline-size: 0;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: minmax(0, 1fr);

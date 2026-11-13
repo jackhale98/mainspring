@@ -66,7 +66,10 @@
 </div>
 
 <style>
+	/* Above the details sheet, so that the tabs stay reachable while it is open. */
 	.tabbar {
+		position: relative;
+		z-index: 25;
 		display: flex;
 		gap: 4px;
 		block-size: var(--size-tabbar);

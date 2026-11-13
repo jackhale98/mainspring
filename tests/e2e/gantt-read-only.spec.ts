@@ -273,6 +273,10 @@ test.describe('gantt', () => {
 		await expect(rows(page).nth(1)).toBeFocused();
 		await page.keyboard.press('Enter');
 		await expect(rows(page).nth(1)).toHaveAttribute('aria-selected', 'true');
+		// Enter also opens the details and moves the focus into them (T17); Escape comes back.
+		await expect(page.getByLabel('Name', { exact: true })).toBeFocused();
+		await page.keyboard.press('Escape');
+		await expect(rows(page).nth(1)).toBeFocused();
 		await page.keyboard.press('End');
 		await expect(rows(page).last()).toBeFocused();
 	});

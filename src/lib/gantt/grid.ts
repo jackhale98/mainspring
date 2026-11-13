@@ -59,19 +59,17 @@ export function scenarioChain(
 }
 
 /**
- * What a task says about its size, "5d effort", from its own attributes (not inherited from a
- * parent task) in the shown scenario. `effort`, `length` and `duration` exclude each other in
- * TaskJuggler: the last one written wins, whichever it is (setDurationAttribute). A statement
- * for a scenario counts if it names the shown scenario or one of its parents; one with no
- * scenario is the top scenario's, which the others inherit. A statement for the shown scenario
- * beats one for its parent whatever their order, and a statement for another scenario
- * (`delayed:effort` while `plan` is shown) does not count. A winner the editor cannot read (a
- * macro, a variable) says so, rather than showing nothing. Null when there is none.
+ * The statement that sets a task's size (`effort`, `length` or `duration`) in the shown scenario:
+ * the last one written wins, whichever it is (setDurationAttribute). A statement for a scenario
+ * counts if it names the shown scenario or one of its parents; one with no scenario is the top
+ * scenario's, which the others inherit. A statement for the shown scenario beats one for its
+ * parent whatever their order, and a statement for another scenario (`delayed:effort` while `plan`
+ * is shown) does not count. Null when there is none. The task inspector reads the same site.
  */
-export function sizingOf(
+export function sizingSite(
 	sym: TaskSymbol | undefined,
 	chain: readonly string[] = [],
-): string | null {
+): TaskSymbol['attrs'][number] | null {
 	if (!sym) return null;
 	const top = Math.max(0, chain.length - 1);
 	let best: { rank: number; attr: TaskSymbol['attrs'][number] } | null = null;
@@ -81,8 +79,20 @@ export function sizingOf(
 		if (rank < 0) continue;
 		if (best === null || rank <= best.rank) best = { rank, attr: a };
 	}
-	if (best === null) return null;
-	const a = best.attr;
+	return best?.attr ?? null;
+}
+
+/**
+ * What a task says about its size, "5d effort", from its own attributes (not inherited from a
+ * parent task) in the shown scenario (`sizingSite`). A winner the editor cannot read (a macro, a
+ * variable) says so, rather than showing nothing. Null when there is none.
+ */
+export function sizingOf(
+	sym: TaskSymbol | undefined,
+	chain: readonly string[] = [],
+): string | null {
+	const a = sizingSite(sym, chain);
+	if (a === null) return null;
 	if (a.textOnly) return G.sizingMacro;
 	const v = a.parsed;
 	const text = v?.kind === 'duration' ? printDuration(v.value) : null;
