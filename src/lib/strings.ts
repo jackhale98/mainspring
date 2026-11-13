@@ -329,6 +329,34 @@ export const ganttActionStrings = {
 	},
 } as const;
 
+/**
+ * Edit toasts (state/edits.svelte.ts, components/app/Toasts.svelte; phase-2.md 6.8, 9.4, 11.2):
+ * one per visual edit, with Undo while it is the newest undo step.
+ */
+export const toastStrings = {
+	region: 'Edits',
+	rescheduling: 'Rescheduling…',
+	/** The edit applied, but the result that includes it does not schedule (11.2). */
+	noLongerSchedules: (message: string) => `Changed. The plan no longer schedules: ${message}`,
+	noMessage: 'the scheduler gave no reason',
+	/** It schedules, but the result has an error the plan did not have before. */
+	newError: (message: string) => `Changed, with a new error: ${message}`,
+	/** The run that included the edit failed; `sentence` is from `engineFailureStrings`. */
+	failed: (sentence: string) => `Changed. ${sentence}`,
+	/** The index could not be built for the edit (an error in the app, not in the text). */
+	unprepared: 'This change could not be prepared. Edit the text instead.',
+	undo: 'Undo',
+	undoWhat: (label: string) => `Undo: ${label}`,
+	show: 'Show',
+	showInText: 'Show in text',
+	dismiss: 'Dismiss',
+	/** Said once per browser, the first time an edit adds a fixed date (ADR-0008 #2). */
+	constraint: {
+		start: 'A fixed start is a constraint: the task stays there even if work before it moves.',
+		end: 'A fixed end is a constraint: the task stays there even if work around it moves.',
+	},
+} as const;
+
 const plural = (n: number, one: string, other: string): string => `${n} ${n === 1 ? one : other}`;
 
 export const strings = {

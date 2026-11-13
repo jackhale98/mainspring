@@ -15,11 +15,13 @@
 	it and then kept mounted, so a Visual-first load never fetches CodeMirror, and a switch keeps
 	the editor's state. The Gantt is mounted when first shown and then kept, so zoom and scroll
 	survive a switch. Nothing here changes the schedule: the editor commits text to the workspace
-	and the runner schedules what it sees; the Gantt only reads.
+	and the runner schedules what it sees; visual edits go through the edit dispatcher
+	(`app.edits`), whose toasts sit above the status strip (above the tab bar on phones).
 -->
 <script lang="ts">
 	import { onDestroy, untrack, type Component } from 'svelte';
 	import { AppState } from '../lib/state/app.svelte';
+	import { installEditHooks } from '../lib/state/edit-hooks';
 	import { LayoutState } from '../lib/state/layout.svelte';
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { modeForKey } from '../lib/state/shortcuts';
@@ -33,6 +35,7 @@
 	import StatusStrip from './StatusStrip.svelte';
 	import SplitDivider from './app/SplitDivider.svelte';
 	import TabBar from './app/TabBar.svelte';
+	import Toasts from './app/Toasts.svelte';
 	import TopBar from './app/TopBar.svelte';
 	import { AppUpdates } from '../lib/state/updates.svelte';
 	import { sitePath } from '../lib/site-path';
@@ -47,8 +50,11 @@
 	// A newer deployed build offers a reload (ADR-0012).
 	const updates = new AppUpdates({ url: sitePath('version.json'), visibility: document });
 	updates.start();
+	// End-to-end tests only, with ?hooks=edits (edit-hooks.ts).
+	const offHooks = installEditHooks(app, params);
 	onDestroy(() => {
 		updates.stop();
+		offHooks();
 		layout.dispose();
 		theme.dispose();
 		app.dispose();
@@ -104,6 +110,30 @@
 	const ratio = $derived(axis === 'col' ? modes.ratios.col : modes.ratios.row);
 	/** The editor (side by side) or the Gantt (stacked, above) takes `ratio`; the divider is the gap. */
 	const splitTracks = $derived(`minmax(0, ${ratio}fr) var(--gap-panel) minmax(0, ${1 - ratio}fr)`);
+
+	/**
+	 * The toasts sit just above the footer (the notice and the status strip), on every layout, so
+	 * they never cover the status or its reload button: its distance from the viewport's bottom,
+	 * measured whenever the footer or the viewport changes size.
+	 */
+	let footer: HTMLElement | undefined = $state();
+	let toastBottom = $state<number | null>(null);
+	$effect(() => {
+		const el = footer;
+		if (!el) return;
+		const measure = (): void => {
+			toastBottom = Math.max(0, Math.round(window.innerHeight - el.getBoundingClientRect().top));
+		};
+		const ro = new ResizeObserver(measure);
+		ro.observe(el);
+		ro.observe(document.documentElement);
+		window.addEventListener('resize', measure);
+		measure();
+		return () => {
+			ro.disconnect();
+			window.removeEventListener('resize', measure);
+		};
+	});
 
 	function onkeydown(event: KeyboardEvent): void {
 		const next = phone ? null : modeForKey(event);
@@ -186,12 +216,13 @@
 			</div>
 		{/if}
 	</main>
-	<div class="footer">
+	<div class="footer" bind:this={footer}>
 		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 		{#if phone}<p class="notice compact">{strings.noticeShort}</p>{/if}
 		<StatusStrip {app} {updates} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
+	<Toasts {app} {phone} bottom={toastBottom} />
 	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
