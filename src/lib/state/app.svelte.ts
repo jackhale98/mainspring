@@ -16,6 +16,11 @@
  * selected; typing and format keep the selection the history restored), and a change that was not
  * typing in the open file is named in the editor's note ("Undone: set effort (plan.tjp)").
  *
+ * Visual edits (phase-2.md 6.8): each workspace gets one `EditDispatcher` (`edits`), created after
+ * the runner and the history. Views dispatch through it (its module comment is the contract);
+ * `Toasts.svelte` draws its toasts. Its Android gate asks the editor (`editorKeys`, set by the
+ * editor panel) whether CodeMirror holds a key in a file the edit changes.
+ *
  * Samples load in memory; nothing is stored (Phase 4).
  *
  * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
@@ -41,10 +46,12 @@ import {
 import { createHistory, type HistoryOutcome, type WorkspaceHistory } from '../workspace/history';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { nextProblem } from './diagnostics-nav';
+import { EditDispatcher } from './edits.svelte';
 import { HistoryControls } from './history-controls.svelte';
 import { bindHistoryKeys } from './history-keys';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
 import { statusView, type StatusView } from './status';
+import { browserStorage } from './storage';
 
 export type PhoneTab = 'plan' | 'gantt' | 'text';
 export type Phase = 'loading' | 'ready' | 'failed';
@@ -101,6 +108,10 @@ export class AppState {
 	docsContent = $state.raw<HoverContent | null>(null);
 	/** The editor view, set by the editor panel. Not reactive. */
 	editor: EditorView | null = null;
+	/** The editor's Android key guard (EditorController.keyHeld), set by the editor panel. */
+	editorKeys: { keyHeld(paths: readonly WorkspacePath[]): boolean } | null = null;
+	/** The open plan's edit dispatcher (edits.svelte.ts); null while a plan loads. */
+	edits = $state.raw<EditDispatcher | null>(null);
 	/** Undo and redo for the top bar and the keys (module comment). */
 	readonly history = new HistoryControls((o) => this.#onHistory(o));
 
@@ -213,6 +224,16 @@ export class AppState {
 		this.#history = createHistory(ws);
 		this.history.attach(this.#history);
 		this.#runner = runner;
+		this.edits = new EditDispatcher({
+			workspace: ws,
+			runner,
+			history: this.#history,
+			undo: () => this.history.undo(),
+			keyHeld: (paths) => this.editorKeys?.keyHeld(paths) ?? false,
+			reveal: (r) => this.revealRange(r.file, r.from, r.to, !coarsePointer()),
+			storage: browserStorage(),
+			zones: this.#zones,
+		});
 		this.#unsubscribe = [
 			ws.subscribe(() => (this.dirty = true)),
 			runner.subscribe((s) => {
@@ -278,6 +299,8 @@ export class AppState {
 
 	#teardown(): void {
 		this.#current = null;
+		this.edits?.dispose();
+		this.edits = null;
 		for (const off of this.#unsubscribe) off();
 		this.#unsubscribe = [];
 		this.#runner?.dispose();
@@ -347,8 +370,7 @@ export class AppState {
 		const d = this.#declaration(node);
 		if (node.kind === 'task') this.selectedTask = node.key;
 		// A touch keyboard would cover the editor: only a keyboard or mouse user gets the focus.
-		const touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
-		this.revealRange(d.file, d.from, d.to, !touch);
+		this.revealRange(d.file, d.from, d.to, !coarsePointer());
 		this.outlineOpen = false;
 	}
 
@@ -422,4 +444,9 @@ export class AppState {
 		if (this.#noteTimer !== null) clearTimeout(this.#noteTimer);
 		this.client.dispose();
 	}
+}
+
+/** A touch screen: the editor does not take the focus (a touch keyboard would cover it). */
+function coarsePointer(): boolean {
+	return globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
 }

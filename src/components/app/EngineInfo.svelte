@@ -8,6 +8,8 @@
 -->
 <script lang="ts">
 	import type { EngineInfo } from '../../lib/state/status';
+	import type { AppUpdates } from '../../lib/state/updates.svelte';
+	import { buildLabel } from '../../lib/app/build';
 	import Icon from '../Icon.svelte';
 	import { strings } from '../../lib/strings';
 
@@ -15,8 +17,22 @@
 		info: EngineInfo;
 		/** Phone strip: only the time is drawn; the words stay for assistive technology. */
 		compact: boolean;
+		/** This app's build and whether a newer one is deployed (ADR-0012). */
+		updates?: AppUpdates | undefined;
+		onreload?: () => void;
 	}
-	let { info, compact }: Props = $props();
+	let { info, compact, updates, onreload }: Props = $props();
+	const updateText = $derived(
+		updates === undefined
+			? ''
+			: updates.checking
+				? strings.update.checking
+				: updates.status === 'available'
+					? strings.update.available
+					: updates.status === 'current'
+						? strings.update.current
+						: '',
+	);
 	const id = $props.id();
 	const label = $derived(
 		[info.version, info.last === null ? null : strings.status.lastRun(info.last)]
@@ -47,6 +63,22 @@
 			{/each}
 		</dl>
 		{#if info.note}<p class="note">{info.note}</p>{/if}
+	{/if}
+	{#if updates}
+		<h3>{strings.update.title}</h3>
+		<dl>
+			<dt>{strings.update.build}</dt>
+			<dd>{buildLabel(updates.build)}</dd>
+		</dl>
+		<div class="app-actions">
+			<button type="button" onclick={() => void updates.checkNow()} disabled={updates.checking}>
+				{strings.update.check}
+			</button>
+			<button type="button" class:primary={updates.status === 'available'} onclick={onreload}>
+				{strings.update.reload}
+			</button>
+			<span class="update-state" role="status">{updateText}</span>
+		</div>
 	{/if}
 	{#if info.versions.length > 0}
 		<h3>{strings.status.versionsTitle}</h3>
@@ -140,5 +172,39 @@
 		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
 		text-align: end;
+	}
+	.app-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin-block-start: var(--space-2);
+	}
+	.app-actions button {
+		min-block-size: 1.75rem;
+		padding: var(--space-1) var(--space-3);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font: inherit;
+		font-size: var(--text-sm);
+		cursor: pointer;
+	}
+	.app-actions button.primary {
+		border-color: var(--color-mark-brass);
+		font-weight: 600;
+	}
+	.app-actions button:hover {
+		background: var(--color-row-hover);
+	}
+	.update-state {
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+	}
+	@media (pointer: coarse) {
+		.app-actions button {
+			min-block-size: var(--size-tap);
+		}
 	}
 </style>
