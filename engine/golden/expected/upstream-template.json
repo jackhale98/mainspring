@@ -29,6 +29,7 @@
       "dailyWorkingHours": 8,
       "end": "2012-03-11T21:00:00Z",
       "id": "your_project_id",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Your Project Title",
       "now": "2011-12-24T05:00:00Z",
       "scenarios": [
@@ -43,6 +44,7 @@
       "timezone": "America/New_York",
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -376,7 +378,8 @@
           171900,
           172380
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

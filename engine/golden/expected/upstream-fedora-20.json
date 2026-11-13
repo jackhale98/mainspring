@@ -40,6 +40,7 @@
       "dailyWorkingHours": 8,
       "end": "2014-12-31T00:00:00Z",
       "id": "f20",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Fedora",
       "now": "2013-09-02T12:00:00Z",
       "scenarios": [
@@ -60,6 +61,7 @@
       "timezone": "America/New_York",
       "timingResolutionMin": 60,
       "version": "20",
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           780,
@@ -1805,7 +1807,8 @@
           877800,
           878280
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [],
     "tasks": [

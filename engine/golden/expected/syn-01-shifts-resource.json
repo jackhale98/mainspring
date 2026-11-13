@@ -418,6 +418,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "shifts01",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Shifts on resources",
       "now": "2026-02-02T09:00:00Z",
       "scenarios": [
@@ -432,6 +433,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -669,7 +671,8 @@
           115740,
           116220
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

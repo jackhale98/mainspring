@@ -136,6 +136,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-05-01T20:00:00Z",
       "id": "sw",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Scenario warning",
       "now": "2026-03-02T09:00:00Z",
       "scenarios": [
@@ -156,6 +157,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -337,7 +339,8 @@
           86940,
           87420
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

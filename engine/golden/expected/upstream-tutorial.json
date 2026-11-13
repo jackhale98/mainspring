@@ -1872,6 +1872,7 @@
       "dailyWorkingHours": 8,
       "end": "2002-05-17T16:00:00Z",
       "id": "acso",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Accounting Software",
       "now": "2002-03-05T12:00:00Z",
       "scenarios": [
@@ -1892,6 +1893,7 @@
       "timezone": "Europe/Paris",
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           480,
@@ -2241,7 +2243,8 @@
           174660,
           175140
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

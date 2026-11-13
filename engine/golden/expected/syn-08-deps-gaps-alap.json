@@ -175,6 +175,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-04-30T00:00:00Z",
       "id": "gaps08",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Gaps and ALAP",
       "now": "2026-02-02T09:00:00Z",
       "scenarios": [
@@ -189,6 +190,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -522,7 +524,8 @@
           164700,
           165180
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

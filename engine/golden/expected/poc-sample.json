@@ -272,6 +272,7 @@
       "dailyWorkingHours": 8,
       "end": "2027-04-17T02:00:00Z",
       "id": "tjweb",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "TaskJuggler web front end",
       "now": "2026-11-16T05:00:00Z",
       "scenarios": [
@@ -286,6 +287,7 @@
       "timezone": "America/New_York",
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           840,
@@ -707,7 +709,8 @@
           218220,
           218700
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

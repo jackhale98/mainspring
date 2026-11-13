@@ -320,6 +320,7 @@
       "dailyWorkingHours": 7.5,
       "end": "2026-03-27T00:00:00Z",
       "id": "hours14",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Working hours",
       "now": "2026-02-02T09:00:00Z",
       "scenarios": [
@@ -334,6 +335,7 @@
       "timezone": null,
       "timingResolutionMin": 15,
       "version": null,
+      "weeklyWorkingDays": 4.533333333333333,
       "workingTime": [
         [
           510,
@@ -763,7 +765,8 @@
           116010,
           116220
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

@@ -24998,6 +24998,7 @@
       "dailyWorkingHours": 8,
       "end": "2028-12-29T00:00:00Z",
       "id": "scale1000",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Scale 1000",
       "now": "2026-03-02T09:00:00Z",
       "scenarios": [
@@ -25012,6 +25013,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -28129,7 +28131,8 @@
           1567260,
           1567740
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

@@ -230,6 +230,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-11-06T00:00:00Z",
       "id": "berlin09",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Berlin DST",
       "now": "2026-03-20T08:00:00Z",
       "scenarios": [
@@ -244,6 +245,7 @@
       "timezone": "Europe/Berlin",
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           480,
@@ -961,7 +963,8 @@
           357600,
           358080
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

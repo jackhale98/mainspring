@@ -110,6 +110,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-06-26T00:00:00Z",
       "id": "utc12",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "No timezone",
       "now": "2026-05-20T09:00:00Z",
       "scenarios": [
@@ -124,6 +125,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -281,7 +283,8 @@
           75420,
           75900
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

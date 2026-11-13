@@ -29,6 +29,7 @@
       "dailyWorkingHours": 8,
       "end": "2015-12-31T00:00:00Z",
       "id": "prj",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "My TODO List",
       "now": "2011-12-20T00:00:00Z",
       "scenarios": [
@@ -43,6 +44,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           3420,
@@ -5256,7 +5258,8 @@
           2627100,
           2627580
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [],
     "tasks": [

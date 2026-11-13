@@ -493,6 +493,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-06-30T00:00:00Z",
       "id": "ganttm",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Gantt manipulation",
       "now": "2026-03-09T09:00:00Z",
       "scenarios": [
@@ -507,6 +508,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -852,7 +854,8 @@
           171900,
           172380
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

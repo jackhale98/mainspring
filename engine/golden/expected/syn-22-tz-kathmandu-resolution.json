@@ -39,6 +39,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "kathmandu22",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Kathmandu resolution",
       "now": "2026-02-16T06:00:00Z",
       "scenarios": [
@@ -53,7 +54,9 @@
       "timezone": "Asia/Kathmandu",
       "timingResolutionMin": 60,
       "version": null,
-      "workingTime": []
+      "weeklyWorkingDays": 5,
+      "workingTime": [],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [],
     "tasks": []

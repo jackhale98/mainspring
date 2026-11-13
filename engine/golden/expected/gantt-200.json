@@ -3759,6 +3759,7 @@
       "dailyWorkingHours": 8,
       "end": "2029-12-31T00:00:00Z",
       "id": "gantt200",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Gantt 200",
       "now": "2026-03-02T09:00:00Z",
       "scenarios": [
@@ -3773,6 +3774,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           540,
@@ -7934,7 +7936,8 @@
           2092860,
           2093340
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {

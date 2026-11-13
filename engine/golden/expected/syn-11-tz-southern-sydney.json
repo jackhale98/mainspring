@@ -252,6 +252,7 @@
       "dailyWorkingHours": 8,
       "end": "2027-05-28T00:00:00Z",
       "id": "sydney11",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Southern DST",
       "now": "2026-12-09T22:00:00Z",
       "scenarios": [
@@ -266,6 +267,7 @@
       "timezone": "Australia/Sydney",
       "timingResolutionMin": 60,
       "version": null,
+      "weeklyWorkingDays": 5,
       "workingTime": [
         [
           0,
@@ -987,7 +989,8 @@
           358500,
           358560
         ]
-      ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {
