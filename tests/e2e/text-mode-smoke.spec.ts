@@ -178,6 +178,9 @@ test.describe('text mode', () => {
 		await page.getByRole('button', { name: 'Docs' }).click();
 		const sheet = page.getByRole('dialog', { name: 'Documentation' });
 		await expect(sheet).toBeVisible();
+		// On screen, not only rendered: Safari once placed it below the viewport.
+		await expect(sheet.getByRole('heading', { name: 'Documentation' })).toBeInViewport();
+		await expect(sheet).toBeInViewport({ ratio: 0.9 });
 		await expect(sheet).toContainText('project');
 		await page.keyboard.press('Escape');
 		await expect(sheet).toBeHidden();
