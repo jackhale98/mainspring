@@ -2,12 +2,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The public landing page (ADR-0011): static, no client script. Copy is in src/lib/landing-copy.ts.
 import '../styles/landing.css';
+import AudienceSection from '../components/landing/AudienceSection.astro';
+import BuiltOn from '../components/landing/BuiltOn.astro';
 import Closing from '../components/landing/Closing.astro';
+import FaqSection from '../components/landing/FaqSection.astro';
 import Features from '../components/landing/Features.astro';
 import Hero from '../components/landing/Hero.astro';
-import RepoSection from '../components/landing/RepoSection.astro';
 import PhoneSection from '../components/landing/PhoneSection.astro';
+import RepoSection from '../components/landing/RepoSection.astro';
+import SchedulerSection from '../components/landing/SchedulerSection.astro';
 import SiteFooter from '../components/landing/SiteFooter.astro';
+import SyntaxSection from '../components/landing/SyntaxSection.astro';
 import Base from '../layouts/Base.astro';
 import { landing } from '../lib/landing-copy';
 ---
@@ -17,8 +22,13 @@ import { landing } from '../lib/landing-copy';
 		<main id="main">
 			<Hero />
 			<RepoSection />
+			<SyntaxSection />
+			<SchedulerSection />
+			<AudienceSection />
 			<Features />
 			<PhoneSection />
+			<FaqSection />
+			<BuiltOn />
 			<Closing />
 		</main>
 		<SiteFooter />

@@ -1,21 +1,31 @@
 ---
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The hero's product mock: Mainspring's Gantt chart, with a small card in front showing the
-// plain-text file behind it. Built in HTML and SVG from the same tokens as the app, so it stays
-// sharp and follows light and dark. Everything is sized in em; the frame is a size container and
-// the mock's font size is a fraction of its width, so the picture scales as one. On a narrow frame
-// the card drops below the chart. It is an illustration, so it is one labelled image for
-// assistive technology.
+// The hero's product mock: Mainspring's Split view, the plain-text plan on the left and its Gantt
+// chart on the right, for the same four tasks. The Design task is selected in both, in blued
+// steel, so the eye links the text to its bar, and the edited `effort` line is picked out in
+// brass. Built in HTML and SVG from the same tokens as the app, so it stays sharp and follows
+// light and dark. Everything is sized in em; the frame is a size container and the mock's font
+// size is a fraction of its width, so the picture scales as one. On a narrow frame the two panels
+// stack, chart above text, and the text shows its first two tasks. It is an illustration, so it
+// is one labelled image for assistive technology.
 import { tokenize, tokensToHtml } from '../../lib/landing-art';
 import { landing } from '../../lib/landing-copy';
-import { mockActiveLine, mockFirstLine, mockPlanText, samplePlan } from '../../lib/landing-sample';
+import {
+	heroPlan,
+	mockActiveLine,
+	mockFirstLine,
+	mockPlanText,
+	mockSelectedLines,
+} from '../../lib/landing-sample';
 import GanttChart from './GanttChart.astro';
 import Mark from './Mark.astro';
 
 const m = landing.mock;
+const [selFrom, selTo] = mockSelectedLines;
 const lines = mockPlanText.map((text, i) => ({
 	n: mockFirstLine + i,
 	active: i === mockActiveLine,
+	selected: i >= selFrom && i <= selTo,
 	html: tokensToHtml(tokenize(text)),
 }));
 ---
@@ -27,6 +37,7 @@ const lines = mockPlanText.map((text, i) => ({
 				<Mark size={28} />
 				<span class="word">{m.brand}</span>
 			</span>
+			<span class="plan">{m.plan}</span>
 			<span class="modes">
 				{m.modes.map((label, i) => (
 					<span class={i === m.activeMode ? 'mode on' : 'mode'}>{label}</span>
@@ -38,50 +49,47 @@ const lines = mockPlanText.map((text, i) => ({
 			</span>
 		</div>
 
-		<section class="chart">
-			<div class="wide">
-				<GanttChart plan={samplePlan} uid="hero-w" selectedId="design" options={{ rowH: 40 }} />
-			</div>
-			<div class="narrow">
-				<GanttChart
-					plan={samplePlan}
-					uid="hero-n"
-					selectedId="design"
-					options={{ nameCol: 58, days: 16, rowH: 38 }}
-				/>
-			</div>
-			<div class="foot">
-				<span class="chip">{m.chips[0]}</span>
-				<span class="chip">
-					<i class="crit-dot"></i>
-					{m.chips[1]}
-				</span>
-			</div>
-		</section>
+		<div class="panels">
+			<section class="panel editor">
+				<div class="tab">{m.plan}</div>
+				<div class="lp-code code">
+					{lines.map((l) => (
+						<div class={`line${l.selected ? ' sel' : ''}${l.active ? ' active' : ''}`}>
+							<span class="n">{l.n}</span>
+							<span class="src" set:html={l.html} />
+						</div>
+					))}
+				</div>
+			</section>
 
-		<aside class="file">
-			<div class="file-head">
-				<svg viewBox="0 0 24 24" aria-hidden="true">
-					<path
-						d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z M14 3v5h5"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.8"
-						stroke-linejoin="round"
-					></path>
-				</svg>
-				<b>{m.plan}</b>
-				<span class="caption">{m.fileCaption}</span>
-			</div>
-			<div class="lp-code code">
-				{lines.map((l) => (
-					<div class={l.active ? 'line active' : 'line'}>
-						<span class="n">{l.n}</span>
-						<span class="src" set:html={l.html} />
-					</div>
-				))}
-			</div>
-		</aside>
+			<section class="panel chart">
+				<div class="wide">
+					<GanttChart
+						plan={heroPlan}
+						uid="hero-w"
+						selectedId="design"
+						ringId="design"
+						options={{ days: 21, rowH: 60, barH: 18 }}
+					/>
+				</div>
+				<div class="narrow">
+					<GanttChart
+						plan={heroPlan}
+						uid="hero-n"
+						selectedId="design"
+						ringId="design"
+						options={{ nameCol: 58, days: 16, rowH: 40 }}
+					/>
+				</div>
+				<div class="foot">
+					<span class="chip">{m.chips[0]}</span>
+					<span class="chip">
+						<i class="crit-dot"></i>
+						{m.chips[1]}
+					</span>
+				</div>
+			</section>
+		</div>
 	</div>
 </div>
 
@@ -90,9 +98,8 @@ const lines = mockPlanText.map((text, i) => ({
 		container-type: inline-size;
 	}
 	.mock {
-		position: relative;
 		font-size: 12px;
-		font-size: calc(100cqw / 46);
+		font-size: calc(100cqw / 54);
 		padding: 0.8em;
 		border-radius: 1.5em;
 		background: var(--lp-recess);
@@ -106,7 +113,7 @@ const lines = mockPlanText.map((text, i) => ({
 	/* Top bar, on the recessed ground */
 	.top {
 		display: grid;
-		grid-template-columns: auto 1fr auto;
+		grid-template-columns: auto auto 1fr auto;
 		align-items: center;
 		gap: 1em;
 		padding: 0.3em 0.5em 0.9em;
@@ -125,6 +132,15 @@ const lines = mockPlanText.map((text, i) => ({
 		font-size: 1.9em;
 		line-height: 1;
 		letter-spacing: -0.01em;
+	}
+	.plan {
+		padding: 0.45em 0.9em;
+		border-radius: 0.8em;
+		background: var(--lp-panel);
+		border: 1px solid var(--lp-border);
+		font-size: 0.95em;
+		font-weight: 500;
+		color: var(--lp-muted);
 	}
 	.modes {
 		justify-self: center;
@@ -166,8 +182,13 @@ const lines = mockPlanText.map((text, i) => ({
 		box-shadow: 0 0 0 0.3em var(--lp-ok-halo);
 	}
 
-	/* The chart panel, with the glass chips under the bars */
-	.chart {
+	/* Two floating panels: the plan as text, and the same plan as bars */
+	.panels {
+		display: grid;
+		grid-template-columns: 20em minmax(0, 1fr);
+		gap: 0.8em;
+	}
+	.panel {
 		border-radius: 1.1em;
 		background: var(--lp-panel);
 		border: 1px solid var(--lp-border);
@@ -176,13 +197,59 @@ const lines = mockPlanText.map((text, i) => ({
 			0 6px 14px -8px rgb(60 45 10 / 0.12);
 		overflow: hidden;
 	}
+	.tab {
+		padding: 0.8em 1.2em;
+		border-block-end: 1px solid var(--lp-border);
+		font-family: var(--font-mono);
+		font-size: 0.85em;
+		font-weight: 500;
+		color: var(--lp-muted);
+	}
+	.code {
+		padding: 0.7em 0;
+		font-size: 1.02em;
+	}
+	.line {
+		display: flex;
+		gap: 1em;
+		padding-inline-end: 1em;
+		line-height: 1.62;
+		white-space: pre;
+		border-inline-start: 0.22em solid transparent;
+	}
+	/* The selected task, in blued steel as in the Gantt */
+	.line.sel {
+		background: var(--lp-surface2);
+		border-inline-start-color: var(--lp-steel);
+	}
+	/* The edited line, in brass */
+	.line.active {
+		background: var(--lp-brass-wash);
+	}
+	.line.active .n {
+		color: var(--lp-brass-text);
+		font-weight: 700;
+	}
+	.n {
+		inline-size: 2.2em;
+		flex: none;
+		text-align: end;
+		color: var(--lp-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* The chart panel, with the glass chips under the bars */
+	.chart {
+		display: flex;
+		flex-direction: column;
+	}
 	.narrow {
 		display: none;
 	}
 	.foot {
 		display: flex;
-		justify-content: flex-end;
 		gap: 0.6em;
+		margin-top: auto;
 		padding: 0.9em 1em;
 	}
 	.chip {
@@ -203,75 +270,22 @@ const lines = mockPlanText.map((text, i) => ({
 		background: var(--lp-ruby);
 	}
 
-	/* The plain-text file behind the chart: a card in front, over the empty corner of the chart */
-	.file {
-		position: absolute;
-		inset-inline-start: 11.5em;
-		inset-block-end: -2.4em;
-		inline-size: 17em;
-		border-radius: 1em;
-		background: var(--lp-panel);
-		border: 1px solid var(--lp-border-strong);
-		box-shadow: var(--lp-shadow-mock);
-		overflow: hidden;
-	}
-	.file-head {
-		display: flex;
-		align-items: center;
-		gap: 0.55em;
-		padding: 0.7em 1em;
-		border-block-end: 1px solid var(--lp-border);
-		font-size: 0.85em;
-		color: var(--lp-muted);
-	}
-	.file-head svg {
-		inline-size: 1.3em;
-		block-size: 1.3em;
-		flex: none;
-	}
-	.file-head b {
-		font-family: var(--font-mono);
-		font-weight: 600;
-		color: var(--lp-text);
-	}
-	.caption {
-		margin-inline-start: auto;
-		padding: 0.15em 0.6em;
-		border-radius: 999px;
-		background: var(--lp-brass-wash);
-		color: var(--lp-brass-text);
-		font-size: 0.8em;
-		font-weight: 600;
-		white-space: nowrap;
-	}
-	.code {
-		padding: 0.5em 0;
-		font-size: 0.82em;
-	}
-	.line {
-		display: flex;
-		gap: 0.9em;
-		padding-inline-end: 0.8em;
-		line-height: 1.6;
-		white-space: pre;
-		border-inline-start: 0.2em solid transparent;
-	}
-	.line.active {
-		background: var(--lp-brass-wash);
-		border-inline-start-color: var(--lp-brass-deep);
-	}
-	.n {
-		inline-size: 1.9em;
-		flex: none;
-		text-align: end;
-		color: var(--lp-muted);
-		font-variant-numeric: tabular-nums;
-	}
-
-	/* A narrow frame: the chart gets the room and the file card sits below it */
+	/* A narrow frame: the chart above, the first two tasks of the text below */
 	@container (max-width: 560px) {
 		.mock {
 			font-size: calc(100cqw / 37);
+		}
+		.top {
+			grid-template-columns: auto 1fr auto;
+		}
+		.plan {
+			display: none;
+		}
+		.panels {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.chart {
+			order: -1;
 		}
 		.wide {
 			display: none;
@@ -279,14 +293,11 @@ const lines = mockPlanText.map((text, i) => ({
 		.narrow {
 			display: block;
 		}
-		.file {
-			position: static;
-			inline-size: auto;
-			margin-block-start: 0.8em;
-			box-shadow: 0 6px 14px -8px rgb(60 45 10 / 0.18);
-		}
-		.caption {
+		.line:nth-child(n + 10) {
 			display: none;
+		}
+		.code {
+			font-size: 1.1em;
 		}
 	}
 </style>

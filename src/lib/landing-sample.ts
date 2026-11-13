@@ -57,16 +57,36 @@ export const demoPlan: readonly SampleTask[] = [
 	task('launch', 'Launch', 12, 12, { after: ['build'], milestone: true }),
 ];
 
-/** Lines 7 to 11 of plan.tjp, the card behind the hero's Gantt. */
+/** The hero's plan: the four tasks whose text and bars sit side by side (Docs left out). */
+export const heroPlan: readonly SampleTask[] = samplePlan
+	.filter((t) => t.id !== 'docs')
+	.map((t) => (t.id === 'test' ? { ...t, after: ['build'] } : t));
+
+/** Lines 7 to 24 of plan.tjp, the editor beside the hero's Gantt: one block per task in `heroPlan`. */
 export const mockPlanText: readonly string[] = [
 	'task design "Design" {',
 	'  effort 5d',
 	'  allocate ana',
 	'}',
 	'task build "Build" {',
+	'  depends !design',
+	'  effort 10d',
+	'  allocate ana, ben',
+	'}',
+	'task test "Test" {',
+	'  depends !build',
+	'  effort 2d',
+	'  allocate ben',
+	'}',
+	'task launch "Launch" {',
+	'  depends !test',
+	'  milestone',
+	'}',
 ];
-/** Index in `mockPlanText` of the line the cursor is on. */
+/** Index in `mockPlanText` of the line the cursor is on, the edited `effort` line. */
 export const mockActiveLine = 1;
+/** The lines of the selected task (Design), which is also selected in the Gantt. */
+export const mockSelectedLines: readonly [number, number] = [0, 3];
 export const mockFirstLine = 7;
 
 export type DiffKind = 'ctx' | 'add' | 'del';

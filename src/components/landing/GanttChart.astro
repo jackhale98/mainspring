@@ -218,6 +218,36 @@ const crit = L.links.filter((l) => l.critical);
 						fill="none"
 					/>
 				)}
+				{ghost && ghost.id === t.id && (
+					<g class="ghost">
+						<rect
+							class="ghost-bar"
+							x={r.x + r.w - o.barH / 2}
+							y={y}
+							width={ghost.days * o.dayW + o.barH / 2}
+							height={o.barH}
+							rx={o.barH / 2}
+							fill="none"
+						/>
+						<circle class="handle" cx={r.x + r.w + ghost.days * o.dayW} cy={r.cy} r="4.5" />
+						<rect
+							class="tip"
+							x={r.x + r.w + ghost.days * o.dayW + 9}
+							y={r.cy - 7}
+							width="28"
+							height="14"
+							rx="7"
+						/>
+						<text
+							class="tip-text"
+							x={r.x + r.w + ghost.days * o.dayW + 23}
+							y={r.cy + 3}
+							text-anchor="middle"
+						>
+							{ghost.label}
+						</text>
+					</g>
+				)}
 				{t.id === ringId && (
 					<rect
 						class="ring"

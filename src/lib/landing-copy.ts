@@ -80,13 +80,13 @@ const top = {
 		facts: ['No syntax to learn', 'Your files, your repo', 'Real resource leveling', 'Open source'],
 		note: 'Early preview: today you edit the text and see the Gantt. Drag-and-drop editing is coming next.',
 		mockLabel:
-			'Mainspring showing a Gantt chart of a five-task plan, with the critical path in red. A small card in front shows plan.tjp, the plain-text file behind the chart.',
+			'Mainspring in Split view. The plain-text plan is on the left and its Gantt chart on the right, for the same four tasks. The Design task is selected in both, and its effort 5d line is highlighted.',
 	},
 	mock: {
 		brand: 'Mainspring',
 		plan: 'plan.tjp',
 		modes: ['Text', 'Split', 'Visual'],
-		activeMode: 2,
+		activeMode: 1,
 		status: 'Scheduled',
 		months: [
 			{ name: 'December', year: '2025', day: 0 },
@@ -94,7 +94,6 @@ const top = {
 		],
 		ticks: ['Dec 22', 'Dec 29', 'Jan 5', 'Jan 12'],
 		chips: ['Today', 'Critical path'],
-		fileCaption: 'The plan, as plain text',
 	},
 	repo: {
 		id: 'repo',
@@ -171,7 +170,7 @@ const top = {
 				body: 'Completion, inline errors and keyword docs. Edit the text and the chart follows.',
 				coming: false,
 			},
-		],
+		] satisfies Array<FeatureCopy & { coming: boolean }>,
 		next: 'Visual editing is the next step.',
 		nextBody: 'Today you edit the text and the Gantt follows. Dragging comes next.',
 		mock: {

@@ -1,95 +1,67 @@
 ---
 // SPDX-License-Identifier: GPL-2.0-or-later
-import Accent from './Accent.astro';
+// Credit and licence for the engine, kept short: what Mainspring runs, who made it, the GPL notice.
 import { landing, landingLinks } from '../../lib/landing-copy';
+import Accent from './Accent.astro';
 import Icon from './Icon.astro';
 import Mark from './Mark.astro';
 
 const b = landing.builtOn;
 ---
 
-<section class="lp-section band" id={b.id} aria-labelledby="built-title">
+<section class="lp-section" id={b.id} aria-labelledby="built-title">
 	<div class="lp-wrap grid">
 		<div class="copy">
 			<p class="lp-eyebrow">{b.eyebrow}</p>
 			<h2 id="built-title" class="lp-display lp-h2">
 				<Accent before={b.before} accent={b.accent} after={b.after} />
 			</h2>
-			<p class="lp-lead">{b.lead}</p>
+			<!-- prettier-ignore -->
+			<p class="lp-lead">{b.lead}<a class="credit" href={landingLinks.taskjuggler} rel="noopener">{b.creditLink}<Icon name="external" /></a>.</p>
+			<p class="gpl">{b.gpl}</p>
+		</div>
 
-			<h3 class="list-title">{b.listTitle}</h3>
-			<dl class="caps">
-				{b.capabilities.map((c) => (
-					<div class="cap">
-						<dt>{c.name}</dt>
-						<dd>{c.body}</dd>
+		<div class="plate">
+			<div class="plate-head">
+				<Mark size={34} />
+				<h3 class="plate-title">{b.plateTitle}</h3>
+			</div>
+			<dl class="spec" aria-label={b.plateLabel}>
+				{b.plate.map(([k, v]) => (
+					<div class="row">
+						<dt>{k}</dt>
+						<dd class="lp-code">{v}</dd>
 					</div>
 				))}
 			</dl>
-			<p class="small">{b.capabilitiesNote}</p>
-		</div>
-
-		<div class="side">
-			<div class="plate">
-				<div class="plate-head">
-					<Mark size={34} />
-					<h3 class="plate-title">{b.plateTitle}</h3>
-				</div>
-				<dl class="spec" aria-label={b.plateLabel}>
-					{b.plate.map(([k, v]) => (
-						<div class="row">
-							<dt>{k}</dt>
-							<dd class="lp-code">{v}</dd>
-						</div>
-					))}
-				</dl>
-			</div>
-			<!-- prettier-ignore -->
-			<p class="credit">{b.credit}<a href={landingLinks.taskjuggler} rel="noopener">{b.creditLink}<Icon name="external" /></a>.</p>
-			<p class="gpl">{b.gpl}</p>
 		</div>
 	</div>
 </section>
 
 <style>
-	.band {
-		border-block: 1px solid var(--lp-border);
-		background: linear-gradient(var(--lp-surface2), var(--lp-bg));
-	}
 	.grid {
 		display: grid;
 		gap: clamp(2.5rem, 2rem + 3vw, 5rem);
-		align-items: start;
+		align-items: center;
 	}
-	.list-title {
-		margin: var(--space-8) 0 var(--space-3);
-		font-size: 0.78rem;
+	.credit {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		color: var(--lp-text);
 		font-weight: 600;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--lp-muted);
+		text-decoration-color: var(--lp-brass);
+		text-underline-offset: 0.25em;
 	}
-	.caps {
-		margin: 0;
-		border-block-start: 1px solid var(--lp-border-strong);
+	.credit :global(svg) {
+		inline-size: 0.85rem;
+		block-size: 0.85rem;
 	}
-	.cap {
-		display: grid;
-		gap: 0.15rem 1.5rem;
-		padding: 0.9rem 0;
-		border-block-end: 1px solid var(--lp-border);
-	}
-	.cap dt {
-		font-weight: 650;
-	}
-	.cap dd {
-		margin: 0;
-		color: var(--lp-muted);
-		line-height: 1.55;
-	}
-	.small {
+	.gpl {
+		max-inline-size: 38rem;
 		margin: var(--space-4) 0 0;
-		font-size: 0.9rem;
+		font-size: 0.95rem;
+		line-height: 1.6;
 		color: var(--lp-muted);
 	}
 
@@ -147,32 +119,7 @@ const b = landing.builtOn;
 		font-weight: 500;
 		color: var(--lp-text);
 	}
-	.credit,
-	.gpl {
-		margin: var(--space-4) 0 0;
-		font-size: 0.95rem;
-		line-height: 1.6;
-		color: var(--lp-muted);
-	}
-	.credit a {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		color: var(--lp-text);
-		font-weight: 600;
-		text-decoration-color: var(--lp-brass);
-		text-underline-offset: 0.25em;
-	}
-	.credit a :global(svg) {
-		inline-size: 0.85rem;
-		block-size: 0.85rem;
-	}
 
-	@media (min-width: 40rem) {
-		.cap {
-			grid-template-columns: 11rem 1fr;
-		}
-	}
 	@media (min-width: 64rem) {
 		.grid {
 			grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);

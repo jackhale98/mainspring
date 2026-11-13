@@ -17,13 +17,17 @@ test.describe('landing page', () => {
 		test(`renders in ${scheme}`, async ({ page }) => {
 			await page.emulateMedia({ colorScheme: scheme });
 			await page.goto('./');
-			await expect(page.getByRole('heading', { level: 1 })).toContainText('keep time');
+			await expect(page.getByRole('heading', { level: 1 })).toContainText('Version it like code');
 			for (const name of [
-				/The text is the plan/,
+				/Why your plan belongs in your repository/,
+				/No syntax to learn/,
+				/A scheduler that does the hard part/,
+				/For people who already live in git/,
 				/What works today/,
-				/Real scheduling/,
 				/in your pocket/,
-				/try it/,
+				/Questions, answered/,
+				/Built on TaskJuggler/,
+				/Try a plan in your browser/,
 			]) {
 				await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
 			}
@@ -54,11 +58,24 @@ test.describe('landing page', () => {
 		await expect(page).toHaveURL(new RegExp(`${base}app/?$`));
 	});
 
-	test('"How it works" is an anchor to its section', async ({ page }) => {
+	test('the secondary hero button is an anchor to the repository section', async ({ page }) => {
 		await page.goto('./');
-		const link = page.getByRole('link', { name: 'How it works' }).last();
-		await expect(link).toHaveAttribute('href', '#how');
-		await expect(page.locator('#how')).toBeAttached();
+		const link = page.getByRole('link', { name: 'Why plain text' }).last();
+		await expect(link).toHaveAttribute('href', '#repo');
+		await expect(page.locator('#repo')).toBeAttached();
+	});
+
+	test('does not claim that visual editing is available', async ({ page }) => {
+		await page.goto('./');
+		// The hero says plainly that dragging is the next step.
+		await expect(page.locator('.hero')).toContainText('Drag-and-drop editing is coming next.');
+		// Every drag-related point in "No syntax to learn" carries the tag, and so does the diff note.
+		const syntax = page.locator('#syntax');
+		await expect(syntax).toContainText('Visual editing is the next step.');
+		await expect(syntax.locator('.lp-tag')).toHaveCount(3);
+		await expect(page.locator('#repo .lp-tag')).toHaveCount(1);
+		// "What works today" does not list it.
+		await expect(page.locator('#features li.card:not(.ahead)')).not.toContainText(/drag/i);
 	});
 
 	test('marks every planned feature as coming, and nothing available as coming', async ({
@@ -92,6 +109,7 @@ test.describe('landing page', () => {
 	}) => {
 		await page.goto('./');
 		await expect(page.getByRole('img', { name: /Split view/ })).toBeVisible();
+		await expect(page.getByRole('img', { name: /pull request/ })).toBeVisible();
 		await expect(page.getByRole('img', { name: /on a phone/ })).toBeVisible();
 		expect(await page.locator('img').count()).toBe(0);
 		expect(await page.locator('script').count()).toBe(0);

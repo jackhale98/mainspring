@@ -1,0 +1,107 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// "A scheduler that does the hard part": four things a project manager gets from the engine, each
+// in plain words with a small drawing, then the credit to TaskJuggler.
+import { landing } from '../../lib/landing-copy';
+import Accent from './Accent.astro';
+import Icon from './Icon.astro';
+import MiniArt from './MiniArt.astro';
+
+const s = landing.scheduler;
+---
+
+<section class="lp-section" id={s.id} aria-labelledby="scheduler-title">
+	<div class="lp-wrap">
+		<div class="head">
+			<p class="lp-eyebrow">{s.eyebrow}</p>
+			<h2 id="scheduler-title" class="lp-display lp-h2">
+				<Accent before={s.before} accent={s.accent} after={s.after} />
+			</h2>
+			<p class="lp-lead">{s.lead}</p>
+		</div>
+
+		<ul class="grid">
+			{s.items.map((item) => (
+				<li class="card">
+					<div class="art">
+						<MiniArt kind={item.art} uid={`sch-${item.art}`} />
+					</div>
+					<h3>
+						<span class="icon">
+							<Icon name={item.icon} />
+						</span>
+						{item.title}
+					</h3>
+					<p>{item.body}</p>
+				</li>
+			))}
+		</ul>
+
+		<p class="powered">{s.poweredBy}</p>
+	</div>
+</section>
+
+<style>
+	.head {
+		max-inline-size: 46rem;
+	}
+	.grid {
+		display: grid;
+		gap: var(--space-4);
+		margin: clamp(2rem, 1.5rem + 2vw, 3rem) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.card {
+		overflow: hidden;
+		border: 1px solid var(--lp-border);
+		border-radius: 1.25rem;
+		background: var(--lp-panel);
+		box-shadow: var(--lp-shadow-card);
+	}
+	.art {
+		padding: 1.25rem 1.5rem 0.75rem;
+		border-block-end: 1px solid var(--lp-border);
+		background: var(--lp-bg);
+	}
+	.card h3 {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		margin: 1.25rem 1.5rem 0;
+		font-size: 1.1rem;
+		font-weight: 650;
+	}
+	.icon {
+		display: grid;
+		place-items: center;
+		inline-size: 2rem;
+		block-size: 2rem;
+		border-radius: 0.6rem;
+		background: var(--lp-surface2);
+		color: var(--lp-brass-deep);
+	}
+	.icon :global(svg) {
+		inline-size: 1.1rem;
+		block-size: 1.1rem;
+	}
+	.card p {
+		margin: 0.5rem 1.5rem 1.5rem;
+		color: var(--lp-muted);
+		line-height: 1.6;
+	}
+	.powered {
+		margin: var(--space-6) 0 0;
+		padding-inline-start: var(--space-4);
+		border-inline-start: 3px solid var(--lp-brass);
+		max-inline-size: 46rem;
+		color: var(--lp-muted);
+		line-height: 1.6;
+	}
+
+	@media (min-width: 48rem) {
+		.grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+</style>
