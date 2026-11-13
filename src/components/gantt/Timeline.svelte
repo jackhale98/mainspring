@@ -33,6 +33,8 @@
 		todayMin: number | null;
 		/** The width of the viewport, for the placeholder before the first schedule. */
 		viewW: number;
+		/** The plot's width: the content, at least as wide as the viewport. */
+		contentW: number;
 		onselect: (row: number) => void;
 		onhover: (row: number | null) => void;
 	}
@@ -46,6 +48,7 @@
 		selectedRow,
 		todayMin,
 		viewW,
+		contentW,
 		onselect,
 		onhover,
 	}: Props = $props();
@@ -183,7 +186,7 @@
 	}
 </script>
 
-<div class="plot" style:width="{layout.width}px" style:height="{layout.height}px">
+<div class="plot" style:width="{contentW}px" style:height="{layout.height}px">
 	{#if !model.scheduled}
 		<p class="placeholder" role="status" style:width="{viewW}px">
 			<Mark size={44} busy />{strings.gantt.scheduling}

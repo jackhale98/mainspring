@@ -6,6 +6,7 @@
  * on bars and lines. Everything is drawn in content coordinates, so a layer sets one transform
  * (`begin`) and the painters never think about scroll or ratio.
  */
+import type { LabelFont, TextMeasure } from '../labels';
 import type { GanttLayout, PaintWindow } from '../layout';
 import type { GanttModel } from '../model';
 import type { BarMotion } from './motion';
@@ -106,6 +107,41 @@ export function clearTextCache(): void {
 export const barFont = (t: Theme): string => `${t.fontWeightBar} ${t.fontSize}px ${t.fontSans}`;
 /** The small font of text beside a bar. */
 export const labelFont = (t: Theme): string => `${t.labelSize}px ${t.fontSans}`;
+
+/** The font of a label: in a bar, beside it, or a milestone's display serif. */
+export function labelFontOf(t: Theme, font: LabelFont): string {
+	if (font === 'bar') return barFont(t);
+	return font === 'display' ? `${t.displaySize}px ${t.fontDisplay}` : labelFont(t);
+}
+
+/** Measures labels with the context that draws them (it sets the font on it). */
+export function ctxMeasure(ctx: CanvasRenderingContext2D, theme: Theme): TextMeasure {
+	return {
+		width(font, text) {
+			ctx.font = labelFontOf(theme, font);
+			return textWidth(ctx, text);
+		},
+	};
+}
+
+let scratch: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * Measures labels on a scratch canvas, for the layout, which reserves where the names are before
+ * anything is painted. Null where there is no canvas (a server, a test without one): the layout
+ * then reserves no runs. The widths are the painter's: the same fonts through the same cache.
+ */
+export function measureFor(theme: Theme): TextMeasure | null {
+	if (scratch === undefined) {
+		try {
+			scratch =
+				typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+		} catch {
+			scratch = null;
+		}
+	}
+	return scratch ? ctxMeasure(scratch, theme) : null;
+}
 
 /**
  * Text with tabular digits: canvas text has no `font-variant-numeric`, so each digit is placed on

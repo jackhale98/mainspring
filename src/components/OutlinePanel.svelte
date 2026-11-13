@@ -3,6 +3,7 @@
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
 	import { strings } from '../lib/strings';
+	import type { OutlineView } from '../lib/state/outline';
 	import OutlineTree from './OutlineTree.svelte';
 
 	interface Props {
@@ -11,8 +12,10 @@
 		showTitle?: boolean;
 		/** The unsaved-changes notice at the foot (a phone shows its compact one on every tab). */
 		showNotice?: boolean;
+		/** What the two trees keep across an unmount (a phone's Plan tab). */
+		views?: { tasks: OutlineView; resources: OutlineView };
 	}
-	let { app, showTitle = true, showNotice = true }: Props = $props();
+	let { app, showTitle = true, showNotice = true, views }: Props = $props();
 </script>
 
 <div class="panel">
@@ -27,6 +30,7 @@
 			emptyText={strings.outline.noTasks}
 			ontoggle={(k) => app.toggleNode(k)}
 			onselect={(n) => app.revealNode(n)}
+			view={views?.tasks}
 		/>
 	</section>
 	<section class="resources" aria-labelledby="outline-resources">
@@ -39,6 +43,7 @@
 			emptyText={strings.outline.noResources}
 			ontoggle={(k) => app.toggleNode(k)}
 			onselect={(n) => app.revealNode(n)}
+			view={views?.resources}
 		/>
 	</section>
 	{#if showNotice}<p class="notice">{strings.notice}</p>{/if}

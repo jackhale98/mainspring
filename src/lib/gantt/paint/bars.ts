@@ -20,7 +20,16 @@
  */
 import type { GanttRow } from '../model';
 import { rowRange, type GanttLayout, type MutableRect, type Rect } from '../layout';
-import { barFont, labelFont, roundedRect, textWidth, toContent, type PaintFrame } from './canvas';
+import { labelRunInto, tailEndX, type LabelRun } from '../labels';
+import {
+	barFont,
+	ctxMeasure,
+	labelFont,
+	roundedRect,
+	textWidth,
+	toContent,
+	type PaintFrame,
+} from './canvas';
 import { layerFor } from './incremental';
 import { paintLinks } from './links';
 import { motionFor } from './motion';
@@ -136,7 +145,7 @@ function drawPost(f: PaintFrame, bar: Rect): void {
 	ctx.fillRect(bar.x + bar.w + theme.criticalEdgeWidth, cy - h / 2, theme.criticalPostWidth, h);
 }
 
-/** A brass pill, or with `steel` a critical one: a heavier edge in the critical colour. */
+/** A brass pill, or with `steel` a critical one: a heavier edge in a lighter ruby. */
 function drawPill(f: PaintFrame, row: GanttRow, bar: Rect, steel: boolean): void {
 	const { ctx, theme } = f;
 	// A short bar keeps its width and a smaller radius, so it does not turn into a circle.
@@ -169,9 +178,10 @@ function drawPill(f: PaintFrame, row: GanttRow, bar: Rect, steel: boolean): void
 	ctx.restore();
 
 	// The edge: a 1 px outline in brass so that a pale bar meets 3:1 (WCAG 1.4.11), and a heavier
-	// one in the critical colour, which is also the shape cue of the critical path.
+	// one in a lighter ruby, which is also the shape cue of the critical path: lighter than the
+	// fill so that it shows on it (it was the fill's own colour), also for protan and deutan eyes.
 	roundedRect(ctx, bar.x, bar.y, bar.w, bar.h, radius);
-	ctx.strokeStyle = steel ? theme.critical : theme.barOutline;
+	ctx.strokeStyle = steel ? theme.criticalEdge : theme.barOutline;
 	ctx.lineWidth = steel ? theme.criticalEdgeWidth : theme.barOutlineWidth;
 	ctx.stroke();
 }
@@ -221,7 +231,7 @@ function drawJewel(f: PaintFrame, bar: Rect, critical: boolean): void {
 	diamondPath(ctx, cx, cy, half, theme.milestoneRadius);
 	fillUnit(f, gradientFor(ctx, theme, critical ? 'steelJewel' : 'jewel'), cx, cy, half);
 	// The upper half of the light jewel is under 3:1 on the light panel: an edge brings it up.
-	ctx.strokeStyle = critical ? theme.critical : theme.link;
+	ctx.strokeStyle = critical ? theme.criticalEdge : theme.link;
 	ctx.lineWidth = critical ? theme.criticalEdgeWidth : theme.barOutlineWidth;
 	ctx.stroke();
 }
@@ -283,6 +293,7 @@ function drawBeside(f: PaintFrame, row: GanttRow, x: number, cy: number, withNam
 }
 
 const bar: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
+const run: LabelRun = { x0: 0, x1: 0, inside: false };
 
 /** Paints the links and bars that touch `area` (clipped and cleared by the layer). */
 function drawBars(f: PaintFrame, area: Rect): void {
@@ -292,6 +303,7 @@ function drawBars(f: PaintFrame, area: Rect): void {
 	paintLinks(f, area);
 
 	ctx.textBaseline = 'middle';
+	const measure = ctxMeasure(ctx, theme);
 	const { first, last } = rowRange(layout, area.y, area.h, 0);
 	const rows = model.rows;
 	for (let i = first; i < last; i++) {
@@ -318,17 +330,14 @@ function drawBars(f: PaintFrame, area: Rect): void {
 		// Labels are not faded with the rest.
 		ctx.globalAlpha = 1;
 		ctx.textAlign = 'left';
-		ctx.font = barFont(theme);
-		const nameWidth = textWidth(ctx, row.name);
-		const inside = row.kind === 'task' && !row.textOnly && nameWidth + 2 * theme.labelPad <= bar.w;
+		// The name: inside the bar or beside it, by the rule the layout reserves its run by.
+		const inside = labelRunInto(run, row, layout.scale, bar.x, bar.w, theme, measure) && run.inside;
 		if (inside) {
+			ctx.font = barFont(theme);
 			ctx.fillStyle = row.critical ? theme.criticalInk : theme.barInk;
-			ctx.fillText(row.name, bar.x + theme.labelPad, cy + 0.5);
+			ctx.fillText(row.name, run.x0, cy + 0.5);
 		}
-		const tail =
-			row.lateEnd !== null && row.floatMin !== null && row.floatMin > 0
-				? Math.max(layout.scale.x(row.lateEnd), bar.x + bar.w)
-				: bar.x + bar.w;
+		const tail = tailEndX(row, layout.scale, bar.x, bar.w);
 		drawBeside(f, row, tail + theme.labelGap, cy, !inside && row.kind !== 'container');
 		// Tell hit testing where the avatars are, so that a link under them does not win.
 		layout.avatars[2 * i] = span.x0;

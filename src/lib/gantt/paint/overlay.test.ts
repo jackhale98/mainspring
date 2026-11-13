@@ -83,9 +83,9 @@ describe('paintOverlay', () => {
 	});
 
 	it('draws today solid and the status date dashed, in their own colours', () => {
-		const model = modelOf(rows, [], { statusMin: 2 * D, todayMin: 4 * D });
+		const model = modelOf(rows, [], { statusMin: 2 * D });
 		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 100 } });
-		paintOverlay(frame, NO_OVERLAY);
+		paintOverlay(frame, { ...NO_OVERLAY, todayMin: 4 * D });
 		const styles = rec.of('set:fillStyle').map((c) => c[1]);
 		expect(styles).toContain(frame.theme.today);
 		expect(styles).toContain(frame.theme.statusDate);
@@ -96,18 +96,41 @@ describe('paintOverlay', () => {
 		expect(dashes.length).toBeGreaterThan(5);
 	});
 
+	it('leaves a gap in a marker line where it would cross a name, and only there', () => {
+		// Row 1's bar is 24 px wide, so its name sits beside it from 24 + 14 = 38 to 74 (36 px wide).
+		const model = modelOf([row(0, 0, 2 * D), row(1, 0, D / 2), row(2, 0, 2 * D)], [], {
+			statusMin: 0,
+		});
+		const win = { x: 0, y: 0, w: 1000, h: 84 };
+		const through = frameOf(model, { win, names: true });
+		paintOverlay(through.frame, { ...NO_OVERLAY, todayMin: (50 / 48) * D });
+		// The line at x 50 crosses row 1's name (38 to 74) and the name inside row 0's bar (6 to 42)
+		// does not reach it: one gap, centred on row 1.
+		const gaps = through.rec.of('clearRect').slice(1);
+		expect(gaps).toHaveLength(1);
+		expect(gaps[0]?.[2]).toBeLessThan(42);
+		const y = Number(gaps[0]?.[2]);
+		const h = Number(gaps[0]?.[4]);
+		expect(y + h / 2).toBe(28 + 14);
+
+		// Clear of every name: the full line, no gap. Without reserved names too.
+		const clear = frameOf(model, { win, names: true });
+		paintOverlay(clear.frame, { ...NO_OVERLAY, todayMin: (500 / 48) * D });
+		expect(clear.rec.of('clearRect').slice(1)).toHaveLength(0);
+		const unknown = frameOf(model, { win });
+		paintOverlay(unknown.frame, { ...NO_OVERLAY, todayMin: (50 / 48) * D });
+		expect(unknown.rec.of('clearRect').slice(1)).toHaveLength(0);
+	});
+
 	it('takes today from the overlay state, so that the clock is not part of the model', () => {
 		const model = modelOf(rows, [], { statusMin: 2 * D });
 		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 100 } });
 		paintOverlay(frame, { ...NO_OVERLAY, todayMin: 6 * D });
 		const x = (6 * D * 48) / MIN_PER_DAY - 1;
 		expect(rec.of('fillRect').filter((c) => c[1] === x && c[4] === 100)).toHaveLength(1);
-		// A state that says "no today" wins over the model's own.
+		// A state that says "no today" draws none.
 		rec.clear();
-		paintOverlay(
-			{ ...frame, model: { ...model, todayMin: 3 * D } },
-			{ ...NO_OVERLAY, todayMin: null },
-		);
+		paintOverlay(frame, { ...NO_OVERLAY, todayMin: null });
 		expect(rec.of('set:fillStyle').map((c) => c[1])).not.toContain(frame.theme.today);
 	});
 

@@ -4,11 +4,20 @@
 // says why, and an unchanged task line leaves its live region alone (no re-announcement on a
 // reschedule).
 import { flushSync, mount, unmount } from 'svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { chipOf } from '../../lib/gantt/analysis';
 import type { RowLine } from '../../lib/gantt/describe';
 import type { DrivingAnalysis } from '../../lib/schedule/critical';
 import GanttToolbar from './GanttToolbar.svelte';
+
+beforeAll(() => {
+	// jsdom has no ResizeObserver, which the pill's size binding uses.
+	(globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= class {
+		observe(): void {}
+		unobserve(): void {}
+		disconnect(): void {}
+	};
+});
 
 const LINE: RowLine = {
 	text: 'Code: Mon, Jan 5, 2026 to Wed, Jan 7, 2026',

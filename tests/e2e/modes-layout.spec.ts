@@ -75,7 +75,7 @@ test.describe('modes', () => {
 		test.skip(info.project.name !== 'desktop');
 		await page.goto(`/app?sample=${A}&mode=split`);
 		await ready(page);
-		const divider = page.getByRole('separator');
+		const divider = page.getByRole('separator', { name: 'Resize the editor and the chart' });
 		await expect(divider).toHaveAttribute('aria-orientation', 'vertical');
 		await expect(divider).toHaveAttribute('aria-valuenow', '40');
 		await divider.focus();
@@ -102,7 +102,9 @@ test.describe('modes', () => {
 		// Remembered per sample.
 		await page.goto(`/app?sample=${A}&mode=split`);
 		await ready(page);
-		await expect(page.getByRole('separator')).toHaveAttribute('aria-valuenow', String(dragged));
+		await expect(
+			page.getByRole('separator', { name: 'Resize the editor and the chart' }),
+		).toHaveAttribute('aria-valuenow', String(dragged));
 	});
 
 	test('a tablet stacks Split with the Gantt above the editor and a horizontal divider', async ({
@@ -112,7 +114,7 @@ test.describe('modes', () => {
 		await page.setViewportSize({ width: 820, height: 1180 });
 		await page.goto(`/app?sample=${A}&mode=split`);
 		await ready(page);
-		const divider = page.getByRole('separator');
+		const divider = page.getByRole('separator', { name: 'Resize the editor and the chart' });
 		await expect(divider).toHaveAttribute('aria-orientation', 'horizontal');
 		const chart = await page.getByTestId('gantt').boundingBox();
 		const editor = await page.getByRole('textbox', { name: /^Editor for / }).boundingBox();
