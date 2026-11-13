@@ -1,0 +1,145 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// What works today, then what is coming. The two lists look different on purpose: available
+// features are solid cards, planned ones are dashed and carry a brass "Coming" tag.
+import Accent from './Accent.astro';
+import { landing } from '../../lib/landing-copy';
+import Icon from './Icon.astro';
+
+const f = landing.features;
+---
+
+<section class="lp-section features" id={f.id} aria-labelledby="features-title">
+	<div class="lp-wrap">
+		<div class="head">
+			<p class="lp-eyebrow">{f.eyebrow}</p>
+			<h2 id="features-title" class="lp-display lp-h2">
+				<Accent before={f.before} accent={f.accent} after={f.after} />
+			</h2>
+			<p class="lp-lead">{f.lead}</p>
+		</div>
+
+		<ul class="grid">
+			{landing.available.map((item) => (
+				<li class="card">
+					<span class="icon">
+						<Icon name={item.icon} />
+					</span>
+					<h3>{item.title}</h3>
+					<p>{item.body}</p>
+				</li>
+			))}
+		</ul>
+
+		<div class="soon">
+			<h3 class="soon-title lp-display">{f.comingTitle}</h3>
+			<p class="soon-lead">{f.comingLead}</p>
+		</div>
+		<ul class="grid">
+			{landing.coming.map((item) => (
+				<li class="card ahead">
+					<span class="icon">
+						<Icon name={item.icon} />
+					</span>
+					<h3>{item.title}</h3>
+					<span class="lp-tag tag">{f.comingTag}</span>
+					<p>{item.body}</p>
+				</li>
+			))}
+		</ul>
+	</div>
+</section>
+
+<style>
+	.head {
+		max-inline-size: 46rem;
+	}
+	.grid {
+		display: grid;
+		gap: var(--space-4);
+		margin: clamp(2rem, 1.5rem + 2vw, 3rem) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.card {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-content: start;
+		column-gap: var(--space-4);
+		padding: 1.5rem;
+		border: 1px solid var(--lp-border);
+		border-radius: 1rem;
+		background: var(--lp-panel);
+		box-shadow: var(--lp-shadow-card);
+	}
+	.icon {
+		grid-row: 1;
+		grid-column: 1;
+		display: grid;
+		place-items: center;
+		inline-size: 2.5rem;
+		block-size: 2.5rem;
+		border-radius: 0.75rem;
+		background: var(--lp-surface2);
+		color: var(--lp-brass-deep);
+	}
+	.icon :global(svg) {
+		inline-size: 1.3rem;
+		block-size: 1.3rem;
+	}
+	.card h3 {
+		grid-row: 1;
+		grid-column: 2;
+		align-self: center;
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 650;
+		line-height: 1.3;
+	}
+	.card p {
+		grid-column: 1 / -1;
+		margin: var(--space-4) 0 0;
+		color: var(--lp-muted);
+		line-height: 1.6;
+	}
+	.tag {
+		grid-row: 1;
+		grid-column: 3;
+		align-self: center;
+	}
+	.ahead {
+		background: transparent;
+		border-style: dashed;
+		border-color: var(--lp-border-strong);
+		box-shadow: none;
+	}
+	.ahead .icon {
+		background: var(--lp-brass-wash);
+	}
+	.soon {
+		margin-top: clamp(3.5rem, 2.5rem + 4vw, 6rem);
+		max-inline-size: 38rem;
+	}
+	.soon-title {
+		font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem);
+	}
+	.soon-lead {
+		margin: var(--space-2) 0 0;
+		color: var(--lp-muted);
+		font-size: 1.05rem;
+	}
+	.soon + .grid {
+		margin-top: var(--space-6);
+	}
+
+	@media (min-width: 40rem) {
+		.grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+	@media (min-width: 64rem) {
+		.grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+</style>

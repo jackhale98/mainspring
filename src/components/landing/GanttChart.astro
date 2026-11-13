@@ -1,0 +1,347 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// A small Gantt chart in the refined Mainspring style (ADR-0009), drawn as SVG so it stays sharp
+// at any size and follows light and dark through the same tokens as the app's own chart:
+// brushed-brass bars, ruby on the critical path, brass links, a jewel milestone, a today line
+// with a brass crown and initials for the people. It is an illustration: the parent labels it.
+import { AVATAR, ganttLayout, type GanttOptions } from '../../lib/landing-art';
+import type { SampleTask } from '../../lib/landing-sample';
+import { landing } from '../../lib/landing-copy';
+
+interface Props {
+	plan: readonly SampleTask[];
+	/** Prefix for the ids inside this drawing; two charts on one page need two prefixes. */
+	uid: string;
+	options?: Partial<GanttOptions>;
+	/** The row with the selection accent (a thin blued-steel edge and an enamel wash). */
+	selectedId?: string;
+	/** A bar ringed in blued steel, to point at it from the text. */
+	ringId?: string;
+	/** Draw the month and week labels. */
+	header?: boolean;
+	/** Draw the today line and its crown. */
+	today?: boolean;
+}
+const { plan, uid, options = {}, selectedId, ringId, header = true, today = true } = Astro.props;
+
+const o: GanttOptions = {
+	nameCol: 84,
+	dayW: 12,
+	days: 24,
+	rowH: 30,
+	headerH: header ? 42 : 8,
+	barH: 16,
+	today: 8.5,
+	...options,
+};
+const L = ganttLayout(plan, o);
+const bottom = L.height - 6;
+const compact = o.nameCol < 70;
+const nameX = compact ? 8 : 14;
+const quiet = L.links.filter((l) => !l.critical);
+const crit = L.links.filter((l) => l.critical);
+---
+
+<svg
+	viewBox={`0 0 ${L.width} ${L.height}`}
+	width="100%"
+	preserveAspectRatio="xMinYMin meet"
+	aria-hidden="true"
+	focusable="false"
+	class="gantt"
+>
+	<defs>
+		<linearGradient id={`${uid}-brass`} x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" style="stop-color: var(--color-gantt-bar-top)"></stop>
+			<stop offset="1" style="stop-color: var(--color-gantt-bar-bottom)"></stop>
+		</linearGradient>
+		<linearGradient id={`${uid}-ruby`} x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" style="stop-color: var(--lp-ruby-top)"></stop>
+			<stop offset="1" style="stop-color: var(--lp-ruby-bottom)"></stop>
+		</linearGradient>
+		<linearGradient id={`${uid}-jewel`} x1="0.2" y1="0" x2="0.8" y2="1">
+			<stop offset="0" style="stop-color: var(--color-gantt-jewel-high)"></stop>
+			<stop offset="0.55" style="stop-color: var(--color-gantt-milestone)"></stop>
+			<stop offset="1" style="stop-color: var(--color-gantt-jewel-deep)"></stop>
+		</linearGradient>
+		<linearGradient id={`${uid}-crown`} x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" style="stop-color: var(--color-gantt-crown-top)"></stop>
+			<stop offset="1" style="stop-color: var(--color-today)"></stop>
+		</linearGradient>
+		{L.rows
+			.filter((r) => !r.task.milestone)
+			.map((r) => (
+				<clipPath id={`${uid}-clip-${r.task.id}`}>
+					<rect x={r.x} y={r.cy - o.barH / 2} width={r.w} height={o.barH} rx={o.barH / 2} />
+				</clipPath>
+			))}
+	</defs>
+
+	<!-- Weekends and week lines -->
+	{L.weekends.map((w) => (
+		<rect class="weekend" x={w.x} y={o.headerH} width={w.w} height={bottom - o.headerH} />
+	))}
+	{L.weeks.map((w) => (
+		<line class="week" x1={w.x} y1={header ? 22 : 0} x2={w.x} y2={bottom} />
+	))}
+
+	<!-- Header -->
+	{header && (
+		<g>
+			<text class="month" x={o.nameCol + 6} y="17">
+				{landing.mock.month}
+				<tspan class="year" dx="5">
+					{landing.mock.year}
+				</tspan>
+			</text>
+			{L.weeks
+				.filter((w) => w.x + 34 <= L.width)
+				.map((w) => (
+					<text class="tick" x={w.x + 4} y="35">
+						{landing.mock.ticks[w.index]}
+					</text>
+				))}
+			<line class="rule" x1="0" y1={o.headerH} x2={L.width} y2={o.headerH} />
+		</g>
+	)}
+	<line class="rule" x1={o.nameCol} y1={header ? o.headerH : 0} x2={o.nameCol} y2={bottom}></line>
+
+	<!-- Selected row: an enamel wash and a thin blued-steel edge -->
+	{L.rows
+		.filter((r) => r.task.id === selectedId)
+		.map((r) => (
+			<g>
+				<rect class="selected" x="0" y={r.y} width={L.width} height={o.rowH} />
+				<rect class="selected-edge" x="0" y={r.y} width="2.5" height={o.rowH} />
+			</g>
+		))}
+
+	<!-- Task names -->
+	{L.rows.map((r) => (
+		<text class={`name${r.task.id === selectedId ? ' on' : ''}`} x={nameX} y={r.cy + 3.4}>
+			{r.task.name}
+		</text>
+	))}
+
+	<!-- Today line with its brass crown -->
+	{today && (
+		<line class="today" x1={L.todayX} y1={header ? o.headerH : 0} x2={L.todayX} y2={bottom} />
+	)}
+	{today && header && (
+		<rect
+			x={L.todayX - 5}
+			y={o.headerH - 4}
+			width="10"
+			height="8"
+			rx="2.5"
+			fill={`url(#${uid}-crown)`}
+			class="crown"
+		/>
+	)}
+
+	<!-- Links: brass, and ruby on the critical path -->
+	{quiet.map((l) => (
+		<path class="link" d={l.d} />
+	))}
+	{quiet.map((l) => (
+		<path class="link" d={l.arrow} />
+	))}
+	{crit.map((l) => (
+		<path class="link crit" d={l.d} />
+	))}
+	{crit.map((l) => (
+		<path class="link crit" d={l.arrow} />
+	))}
+
+	<!-- Bars and milestones -->
+	{L.rows.map((r) => {
+		const t = r.task;
+		if (t.milestone) {
+			return (
+				<g>
+					<path
+						class="jewel"
+						d={`M${r.x} ${r.cy - 7}L${r.x + 7} ${r.cy}L${r.x} ${r.cy + 7}L${r.x - 7} ${r.cy}Z`}
+						fill={`url(#${uid}-jewel)`}
+					/>
+					<text class="ms-label" x={r.x + 13} y={r.cy + 3.6}>
+						{t.name}
+					</text>
+				</g>
+			);
+		}
+		const y = r.cy - o.barH / 2;
+		return (
+			<g class={t.critical ? 'bar critical' : 'bar'}>
+				<rect
+					class="bar-body"
+					x={r.x}
+					y={y}
+					width={r.w}
+					height={o.barH}
+					rx={o.barH / 2}
+					fill={`url(#${uid}-${t.critical ? 'ruby' : 'brass'})`}
+				/>
+				{t.progress > 0 && (
+					<rect
+						class="progress"
+						x={r.x}
+						y={y}
+						width={r.progressX - r.x}
+						height={o.barH}
+						clip-path={`url(#${uid}-clip-${t.id})`}
+					/>
+				)}
+				{t.critical && (
+					<rect
+						class="edge"
+						x={r.x}
+						y={y}
+						width={r.w}
+						height={o.barH}
+						rx={o.barH / 2}
+						fill="none"
+					/>
+				)}
+				{t.id === ringId && (
+					<rect
+						class="ring"
+						x={r.x - 3}
+						y={y - 3}
+						width={r.w + 6}
+						height={o.barH + 6}
+						rx={o.barH / 2 + 3}
+						fill="none"
+					/>
+				)}
+			</g>
+		);
+	})}
+
+	<!-- People -->
+	{L.rows.flatMap((r) =>
+		r.task.people.map((p, i) => (
+			<g>
+				<circle
+					cx={r.avatarX + i * 14}
+					cy={r.cy}
+					r="7"
+					style={`fill: var(--color-gantt-avatar-${AVATAR[p] ?? 1}-bg)`}
+				/>
+				<text
+					class="initial"
+					x={r.avatarX + i * 14}
+					y={r.cy + 2.6}
+					text-anchor="middle"
+					style={`fill: var(--color-gantt-avatar-${AVATAR[p] ?? 1}-ink)`}
+				>
+					{p}
+				</text>
+			</g>
+		)),
+	)}
+</svg>
+
+<style>
+	.gantt {
+		display: block;
+		font-family: var(--font-sans);
+		overflow: hidden;
+	}
+	.weekend {
+		fill: var(--lp-surface2);
+		opacity: 0.7;
+	}
+	.week {
+		stroke: var(--color-gantt-grid-major);
+		stroke-width: 1;
+	}
+	.rule {
+		stroke: var(--color-gantt-border-strong);
+		stroke-width: 1;
+	}
+	.month {
+		font-family: var(--font-display);
+		font-size: 15px;
+		fill: var(--lp-text);
+	}
+	.year {
+		font-style: italic;
+		fill: var(--lp-muted);
+	}
+	.tick {
+		font-size: 8.5px;
+		font-weight: 500;
+		fill: var(--lp-muted);
+	}
+	.name {
+		font-size: 9.5px;
+		font-weight: 500;
+		fill: var(--lp-text);
+	}
+	.name.on {
+		font-weight: 650;
+	}
+	.selected {
+		fill: var(--lp-surface2);
+	}
+	.selected-edge {
+		fill: var(--lp-steel);
+	}
+	.today {
+		stroke: var(--color-today);
+		stroke-width: 1.4;
+	}
+	.crown {
+		filter: drop-shadow(0 0.5px 0.8px var(--color-gantt-crown-edge));
+	}
+	.link {
+		fill: none;
+		stroke: var(--color-gantt-link);
+		stroke-width: 1.3;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.link.crit {
+		stroke: var(--lp-ruby);
+		stroke-width: 1.7;
+	}
+	.bar {
+		filter: drop-shadow(0 1px 1.2px var(--color-gantt-bar-shadow));
+	}
+	.bar-body {
+		stroke: var(--color-gantt-bar-outline);
+		stroke-width: 1;
+	}
+	.critical .bar-body {
+		stroke: none;
+	}
+	.edge {
+		stroke: var(--lp-ruby-bottom);
+		stroke-width: 1.6;
+	}
+	.progress {
+		fill: var(--color-gantt-bar-progress);
+	}
+	.critical .progress {
+		fill: rgb(255 255 255 / 0.26);
+	}
+	.ring {
+		stroke: var(--lp-steel);
+		stroke-width: 1.5;
+	}
+	.jewel {
+		stroke: var(--color-gantt-jewel-deep);
+		stroke-width: 1;
+		filter: drop-shadow(0 1px 2px var(--color-gantt-jewel-glow));
+	}
+	.ms-label {
+		font-family: var(--font-display);
+		font-size: 11px;
+		fill: var(--lp-text);
+	}
+	.initial {
+		font-size: 7px;
+		font-weight: 700;
+	}
+</style>

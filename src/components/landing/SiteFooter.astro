@@ -1,0 +1,80 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import { landing, landingLinks } from '../../lib/landing-copy';
+import Mark from './Mark.astro';
+
+const f = landing.footer;
+---
+
+<footer class="foot" aria-label={f.label}>
+	<div class="lp-wrap inner">
+		<div class="who">
+			<span class="brand">
+				<Mark size={24} />
+				<span class="word">Mainspring</span>
+			</span>
+			<p>{f.legal}</p>
+		</div>
+		<ul class="links">
+			<li>
+				<a href={landingLinks.source}>{f.source}</a>
+			</li>
+			<li>
+				<a href={landingLinks.licence}>{f.licence}</a>
+			</li>
+			<li>
+				<a href={landingLinks.taskjuggler}>{f.taskjuggler}</a>
+			</li>
+		</ul>
+	</div>
+</footer>
+
+<style>
+	.foot {
+		border-block-start: 1px solid var(--lp-border);
+		padding-block: var(--space-8) calc(var(--space-8) + 0.5rem);
+	}
+	.inner {
+		display: grid;
+		gap: var(--space-6);
+	}
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+	}
+	.word {
+		font-family: var(--font-display);
+		font-size: 1.4rem;
+		line-height: 1;
+	}
+	.who p {
+		max-inline-size: 42rem;
+		margin: var(--space-3) 0 0;
+		font-size: 0.9rem;
+		line-height: 1.6;
+		color: var(--lp-muted);
+	}
+	.links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2) var(--space-6);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.links a {
+		display: inline-block;
+		padding-block: 0.6rem;
+		color: var(--lp-text);
+		font-size: 0.95rem;
+		text-decoration-color: var(--lp-brass);
+		text-underline-offset: 0.25em;
+	}
+	@media (min-width: 48rem) {
+		.inner {
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: start;
+		}
+	}
+</style>

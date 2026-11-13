@@ -1,0 +1,181 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import Accent from './Accent.astro';
+import { landing, landingLinks } from '../../lib/landing-copy';
+import Icon from './Icon.astro';
+import Mark from './Mark.astro';
+
+const b = landing.builtOn;
+---
+
+<section class="lp-section band" id={b.id} aria-labelledby="built-title">
+	<div class="lp-wrap grid">
+		<div class="copy">
+			<p class="lp-eyebrow">{b.eyebrow}</p>
+			<h2 id="built-title" class="lp-display lp-h2">
+				<Accent before={b.before} accent={b.accent} after={b.after} />
+			</h2>
+			<p class="lp-lead">{b.lead}</p>
+
+			<h3 class="list-title">{b.listTitle}</h3>
+			<dl class="caps">
+				{b.capabilities.map((c) => (
+					<div class="cap">
+						<dt>{c.name}</dt>
+						<dd>{c.body}</dd>
+					</div>
+				))}
+			</dl>
+			<p class="small">{b.capabilitiesNote}</p>
+		</div>
+
+		<div class="side">
+			<div class="plate">
+				<div class="plate-head">
+					<Mark size={34} />
+					<h3 class="plate-title">{b.plateTitle}</h3>
+				</div>
+				<dl class="spec" aria-label={b.plateLabel}>
+					{b.plate.map(([k, v]) => (
+						<div class="row">
+							<dt>{k}</dt>
+							<dd class="lp-code">{v}</dd>
+						</div>
+					))}
+				</dl>
+			</div>
+			<!-- prettier-ignore -->
+			<p class="credit">{b.credit}<a href={landingLinks.taskjuggler} rel="noopener">{b.creditLink}<Icon name="external" /></a>.</p>
+			<p class="gpl">{b.gpl}</p>
+		</div>
+	</div>
+</section>
+
+<style>
+	.band {
+		border-block: 1px solid var(--lp-border);
+		background: linear-gradient(var(--lp-surface2), var(--lp-bg));
+	}
+	.grid {
+		display: grid;
+		gap: clamp(2.5rem, 2rem + 3vw, 5rem);
+		align-items: start;
+	}
+	.list-title {
+		margin: var(--space-8) 0 var(--space-3);
+		font-size: 0.78rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--lp-muted);
+	}
+	.caps {
+		margin: 0;
+		border-block-start: 1px solid var(--lp-border-strong);
+	}
+	.cap {
+		display: grid;
+		gap: 0.15rem 1.5rem;
+		padding: 0.9rem 0;
+		border-block-end: 1px solid var(--lp-border);
+	}
+	.cap dt {
+		font-weight: 650;
+	}
+	.cap dd {
+		margin: 0;
+		color: var(--lp-muted);
+		line-height: 1.55;
+	}
+	.small {
+		margin: var(--space-4) 0 0;
+		font-size: 0.9rem;
+		color: var(--lp-muted);
+	}
+
+	/* A caliber plate: the spec of the movement, engraved on a brass-edged card */
+	.plate {
+		padding: 1.75rem;
+		border: 1px solid var(--lp-brass-deep);
+		border-radius: 1.5rem;
+		background: var(--lp-panel);
+		box-shadow:
+			inset 0 0 0 5px var(--lp-panel),
+			inset 0 0 0 6px var(--lp-border-strong),
+			var(--lp-shadow-card);
+	}
+	.plate-head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding-block-end: 1.1rem;
+		border-block-end: 1px solid var(--lp-border-strong);
+	}
+	.plate-title {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 1.9rem;
+		font-weight: 400;
+		line-height: 1;
+	}
+	.spec {
+		margin: 0;
+	}
+	.row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.15rem var(--space-4);
+		padding: 0.8rem 0;
+		border-block-end: 1px dotted var(--lp-border-strong);
+	}
+	.row:last-child {
+		border-block-end: 0;
+		padding-block-end: 0;
+	}
+	.row dt {
+		font-size: 0.78rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--lp-muted);
+	}
+	.row dd {
+		margin: 0;
+		font-size: 0.9rem;
+		font-weight: 500;
+		color: var(--lp-text);
+	}
+	.credit,
+	.gpl {
+		margin: var(--space-4) 0 0;
+		font-size: 0.95rem;
+		line-height: 1.6;
+		color: var(--lp-muted);
+	}
+	.credit a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		color: var(--lp-text);
+		font-weight: 600;
+		text-decoration-color: var(--lp-brass);
+		text-underline-offset: 0.25em;
+	}
+	.credit a :global(svg) {
+		inline-size: 0.85rem;
+		block-size: 0.85rem;
+	}
+
+	@media (min-width: 40rem) {
+		.cap {
+			grid-template-columns: 11rem 1fr;
+		}
+	}
+	@media (min-width: 64rem) {
+		.grid {
+			grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+		}
+	}
+</style>

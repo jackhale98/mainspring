@@ -1,0 +1,14 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// A headline with one italic accent phrase. The three parts are joined with no whitespace between
+// them (the formatter would otherwise put a space before the full stop).
+interface Props {
+	before: string;
+	accent: string;
+	after: string;
+}
+const { before, accent, after } = Astro.props;
+---
+
+<!-- prettier-ignore -->
+<Fragment>{before}<em>{accent}</em>{after}</Fragment>

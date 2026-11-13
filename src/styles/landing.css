@@ -1,0 +1,234 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * The landing page (ADR-0011). It speaks the Mainspring design language of ADR-0009: enamel and
+ * brass carry the page, blued steel is a thin accent (focus, selection), ruby marks the critical
+ * path. Where tokens.css already has a value (the Gantt tokens hold the enamel, brass and avatar
+ * colours) the --lp-* tokens alias it, so the chart mocks restyle with the real chart. The few
+ * values tokens.css lacks (page ground, ink, ruby, the brass text colour) are added here for
+ * light and dark. Light and dark follow the system setting, like the app.
+ */
+
+:root {
+	/* Grounds and ink */
+	--lp-bg: #f8f5ee;
+	--lp-recess: #ece7dc;
+	--lp-panel: var(--color-gantt-surface);
+	--lp-surface2: #f3efe5;
+	--lp-border: #e6e0d2;
+	--lp-border-strong: #cdc4b0;
+	--lp-text: var(--color-gantt-text);
+	--lp-muted: var(--color-gantt-text-muted);
+	--lp-ink: #1c1a17;
+	--lp-on-ink: #fffdf8;
+	/* Brass: fills and graphics, dark brass for large display text, darker still for small text. */
+	--lp-brass: var(--color-gantt-milestone);
+	--lp-brass-deep: var(--color-gantt-bar-outline);
+	--lp-brass-text: #7f5f18;
+	--lp-brass-wash: rgb(176 141 60 / 0.16);
+	/* Blued steel, as a thin accent only */
+	--lp-steel: var(--color-gantt-accent);
+	--lp-focus: var(--color-gantt-accent);
+	/* Ruby: the critical path and nothing else */
+	--lp-ruby: #a3123a;
+	--lp-ruby-top: #c2294f;
+	--lp-ruby-bottom: #8f1130;
+	--lp-ruby-soft: #f7e3e8;
+	--lp-ok: #2f7d4f;
+	--lp-ok-halo: rgb(47 125 79 / 0.16);
+	/* Chrome of the product mocks */
+	--lp-guilloche: rgb(154 116 36 / 0.22);
+	--lp-glass: var(--color-gantt-chip);
+	--lp-shadow-mock:
+		0 1px 2px rgb(60 45 10 / 0.08), 0 12px 24px -8px rgb(60 45 10 / 0.16),
+		0 40px 80px -24px rgb(60 45 10 / 0.28);
+	--lp-shadow-card: 0 1px 2px rgb(60 45 10 / 0.05), 0 8px 24px -12px rgb(60 45 10 / 0.12);
+	--lp-bezel: #1c1a17;
+	--lp-wash-a: rgb(176 141 60 / 0.16);
+	--lp-wash-b: rgb(35 70 160 / 0.05);
+	--lp-grid-line: rgb(120 100 50 / 0.07);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--lp-bg: #0d1117;
+		--lp-recess: #080b10;
+		--lp-surface2: #1c2230;
+		--lp-border: #2a3243;
+		--lp-border-strong: #3d4659;
+		--lp-ink: #eee7d7;
+		--lp-on-ink: #0d1117;
+		--lp-brass-text: #d2ae5c;
+		--lp-brass-wash: rgb(210 174 92 / 0.14);
+		--lp-ruby: #f0627e;
+		--lp-ruby-top: #c73a5e;
+		--lp-ruby-bottom: #a32447;
+		--lp-ruby-soft: #3a1620;
+		--lp-ok: #6fcf97;
+		--lp-ok-halo: rgb(111 207 151 / 0.16);
+		--lp-guilloche: rgb(210 174 92 / 0.2);
+		--lp-shadow-mock:
+			0 1px 2px rgb(0 0 0 / 0.4), 0 16px 32px -8px rgb(0 0 0 / 0.5),
+			0 48px 96px -24px rgb(0 0 0 / 0.7);
+		--lp-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+		--lp-bezel: #2a3243;
+		--lp-wash-a: rgb(210 174 92 / 0.1);
+		--lp-wash-b: rgb(125 155 232 / 0.07);
+		--lp-grid-line: rgb(238 231 215 / 0.04);
+	}
+}
+
+/* The page owns its ground, also behind overscroll. */
+body:has(.lp) {
+	background: var(--lp-bg);
+}
+.lp {
+	background: var(--lp-bg);
+	color: var(--lp-text);
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	overflow-x: clip;
+}
+
+.lp :focus-visible {
+	outline: 3px solid var(--lp-focus);
+	outline-offset: 3px;
+	border-radius: 6px;
+}
+.skip {
+	background: var(--lp-ink);
+	color: var(--lp-on-ink);
+}
+
+/* Layout */
+.lp-wrap {
+	inline-size: min(100% - 2 * var(--gutter), 73.75rem);
+	margin-inline: auto;
+}
+.lp-section {
+	padding-block: clamp(4rem, 3rem + 5vw, 7.5rem);
+}
+.lp-section[id] {
+	scroll-margin-top: 1rem;
+}
+
+/* Type */
+.lp-eyebrow {
+	margin: 0 0 var(--space-4);
+	font-size: 0.78rem;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--lp-brass-text);
+}
+.lp-display {
+	margin: 0;
+	font-family: var(--font-display);
+	font-weight: 400;
+	line-height: 1.02;
+	letter-spacing: -0.015em;
+	text-wrap: balance;
+}
+.lp-display em {
+	font-style: italic;
+	color: var(--lp-brass-deep);
+}
+.lp-h2 {
+	font-size: clamp(2.4rem, 1.5rem + 3.4vw, 4rem);
+}
+.lp-lead {
+	margin: var(--space-4) 0 0;
+	max-inline-size: 38rem;
+	font-size: clamp(1.05rem, 1rem + 0.3vw, 1.2rem);
+	line-height: 1.6;
+	color: var(--lp-muted);
+}
+
+/* Buttons: a dark primary pill and an outlined secondary, at least 44 px tall */
+.lp-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.55rem;
+	min-block-size: 3rem;
+	padding: 0 1.5rem;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	font: 600 0.98rem/1 var(--font-sans);
+	text-decoration: none;
+	white-space: nowrap;
+	transition:
+		transform var(--motion-fast),
+		box-shadow var(--motion-fast),
+		background-color var(--motion-fast);
+}
+.lp-btn svg {
+	inline-size: 1.05rem;
+	block-size: 1.05rem;
+}
+.lp-btn-primary {
+	background: var(--lp-ink);
+	color: var(--lp-on-ink);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.16),
+		0 1px 2px rgb(28 26 23 / 0.3),
+		0 8px 18px -8px rgb(28 26 23 / 0.45);
+}
+.lp-btn-secondary {
+	background: var(--lp-panel);
+	color: var(--lp-text);
+	border-color: var(--lp-border-strong);
+	box-shadow: 0 1px 2px rgb(60 45 10 / 0.06);
+}
+.lp-btn-small {
+	min-block-size: 2.75rem;
+	padding: 0 1.15rem;
+	font-size: 0.9rem;
+}
+.lp-btn:hover {
+	transform: translateY(-1px);
+}
+.lp-btn-secondary:hover {
+	border-color: var(--lp-brass-deep);
+}
+
+/* The small brass "Coming" tag */
+.lp-tag {
+	display: inline-block;
+	padding: 0.28rem 0.6rem;
+	border: 1px solid color-mix(in srgb, var(--lp-brass) 45%, transparent);
+	border-radius: 999px;
+	background: var(--lp-brass-wash);
+	color: var(--lp-brass-text);
+	font-size: 0.72rem;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+}
+
+/* The product mocks share one small stylesheet of materials */
+.lp-code {
+	font-family: var(--font-mono);
+	font-variant-ligatures: none;
+}
+.lp-code .kw {
+	color: var(--lp-steel);
+	font-weight: 600;
+}
+.lp-code .str {
+	color: var(--lp-brass-text);
+}
+.lp-code .num {
+	color: var(--lp-text);
+	font-weight: 700;
+}
+.lp-code .id {
+	color: var(--lp-text);
+}
+.lp-code .cmt {
+	color: var(--lp-muted);
+	font-style: italic;
+}
+.lp-code .txt {
+	color: var(--lp-muted);
+}

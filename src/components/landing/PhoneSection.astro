@@ -1,0 +1,84 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import Accent from './Accent.astro';
+import { landing } from '../../lib/landing-copy';
+import Icon from './Icon.astro';
+import PhoneMock from './PhoneMock.astro';
+
+const p = landing.phone;
+---
+
+<section class="lp-section" aria-labelledby="phone-title">
+	<div class="lp-wrap grid">
+		<div class="stage">
+			<div class="glow" aria-hidden="true"></div>
+			<PhoneMock />
+		</div>
+		<div class="copy">
+			<p class="lp-eyebrow">{p.eyebrow}</p>
+			<h2 id="phone-title" class="lp-display lp-h2">
+				<Accent before={p.before} accent={p.accent} after={p.after} />
+			</h2>
+			<p class="lp-lead">{p.lead}</p>
+			<ul class="points">
+				{p.points.map((point) => (
+					<li>
+						<Icon name="check" />
+						{point}
+					</li>
+				))}
+			</ul>
+		</div>
+	</div>
+</section>
+
+<style>
+	.grid {
+		display: grid;
+		gap: clamp(2.5rem, 2rem + 3vw, 5rem);
+		align-items: center;
+	}
+	.stage {
+		position: relative;
+		order: 2;
+		padding-block: var(--space-4);
+	}
+	.glow {
+		position: absolute;
+		inset: -10% 0;
+		background: radial-gradient(closest-side, var(--lp-wash-a), transparent);
+	}
+	.stage :global(.phone) {
+		position: relative;
+	}
+	.points {
+		display: grid;
+		gap: var(--space-3);
+		margin: var(--space-6) 0 0;
+		padding: 0;
+		list-style: none;
+		color: var(--lp-text);
+	}
+	.points li {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.65rem;
+		line-height: 1.5;
+	}
+	.points :global(svg) {
+		flex: none;
+		inline-size: 1.15rem;
+		block-size: 1.15rem;
+		margin-block-start: 0.2rem;
+		color: var(--lp-ok);
+	}
+
+	@media (min-width: 56rem) {
+		.grid {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+		}
+		.stage {
+			order: 0;
+		}
+	}
+</style>

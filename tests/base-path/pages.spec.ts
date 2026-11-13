@@ -41,7 +41,16 @@ test('the app boots, schedules a sample and requests nothing outside the base pa
 
 	// The home page links to the app under the base; Pages redirects app to app/.
 	await page.goto('./');
-	await page.getByRole('link', { name: 'Open the app' }).click();
+	// The landing page (ADR-0011) offers the app twice, in the hero and at the end.
+	const hrefs = await page
+		.locator('a[href^="/"]')
+		.evaluateAll((links) => links.map((a) => a.getAttribute('href') ?? ''));
+	expect(hrefs.length, 'root-relative links on the home page').toBeGreaterThan(0);
+	expect(
+		hrefs.filter((href) => !href.startsWith(base)),
+		'home page links outside the base path',
+	).toEqual([]);
+	await page.getByRole('link', { name: 'Open the app' }).first().click();
 	await expect(page).toHaveURL(new RegExp(`^${site.origin}${base}app/?$`));
 	// Wait until the boot settles either way, so that a boot failure names its cause at once.
 	const engine = page.getByTestId('engine-status');

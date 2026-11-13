@@ -1,0 +1,155 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+import Accent from './Accent.astro';
+import { landing } from '../../lib/landing-copy';
+import { sitePath } from '../../lib/site-path';
+import Guilloche from './Guilloche.astro';
+import Icon from './Icon.astro';
+import SiteHeader from './SiteHeader.astro';
+import SplitMock from './SplitMock.astro';
+
+const h = landing.hero;
+---
+
+<section class="hero" aria-labelledby="hero-title">
+	<div class="wash" aria-hidden="true"></div>
+	<div class="rosette" aria-hidden="true">
+		<Guilloche />
+	</div>
+	<SiteHeader />
+	<div class="lp-wrap grid body">
+		<div class="copy">
+			<p class="lp-eyebrow">{h.eyebrow}</p>
+			<h1 id="hero-title" class="lp-display title">
+				<Accent before={h.before} accent={h.accent} after={h.after} />
+			</h1>
+			<p class="lp-lead">{h.lead}</p>
+			<p class="actions">
+				<a class="lp-btn lp-btn-primary" href={sitePath('app')}>
+					{h.openApp}
+					<Icon name="arrow-right" />
+				</a>
+				<a class="lp-btn lp-btn-secondary" href="#how">
+					{h.how}
+				</a>
+			</p>
+			<ul class="facts">
+				{h.facts.map((fact) => (
+					<li>
+						<Icon name="check" />
+						{fact}
+					</li>
+				))}
+			</ul>
+			<p class="note">{h.note}</p>
+		</div>
+		<div class="visual">
+			<div class="tilt">
+				<SplitMock />
+			</div>
+		</div>
+	</div>
+</section>
+
+<style>
+	.hero {
+		position: relative;
+		padding-bottom: clamp(4rem, 2rem + 6vw, 8rem);
+		overflow-x: clip;
+	}
+	/* Colour washes and a faint grid, faded out toward the edges */
+	.wash {
+		position: absolute;
+		inset: 0;
+		background:
+			radial-gradient(60rem 36rem at 8% 0%, var(--lp-wash-a), transparent 70%),
+			radial-gradient(50rem 36rem at 96% 30%, var(--lp-wash-b), transparent 70%),
+			linear-gradient(var(--lp-grid-line) 1px, transparent 1px) 0 0 / 3rem 3rem,
+			linear-gradient(90deg, var(--lp-grid-line) 1px, transparent 1px) 0 0 / 3rem 3rem;
+		-webkit-mask-image: linear-gradient(#000 55%, transparent);
+		mask-image: linear-gradient(#000 55%, transparent);
+	}
+	.rosette {
+		position: absolute;
+		inset-block-start: -8%;
+		inset-inline-end: -22%;
+		inline-size: min(70rem, 150vw);
+		pointer-events: none;
+	}
+	/* Below the two-column layout the rosette sits behind the mock, not behind the headline. */
+	@media (max-width: 63.99rem) {
+		.rosette {
+			inset-block-start: auto;
+			inset-block-end: -4%;
+			inset-inline-end: -35%;
+			inline-size: min(48rem, 160vw);
+		}
+	}
+	.body {
+		position: relative;
+		margin-top: clamp(2rem, 1rem + 4vw, 5rem);
+		display: grid;
+		gap: clamp(2.5rem, 2rem + 3vw, 4rem);
+		align-items: center;
+	}
+	.title {
+		font-size: clamp(3.1rem, 1.3rem + 5.8vw, 6rem);
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3);
+		margin: var(--space-8) 0 0;
+	}
+	.facts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2) var(--space-6);
+		margin: var(--space-6) 0 0;
+		padding: 0;
+		list-style: none;
+		color: var(--lp-muted);
+		font-size: 0.95rem;
+	}
+	.facts li {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+	.facts :global(svg) {
+		inline-size: 1rem;
+		block-size: 1rem;
+		color: var(--lp-ok);
+		flex: none;
+	}
+	.note {
+		margin: var(--space-4) 0 0;
+		font-size: 0.875rem;
+		color: var(--lp-muted);
+	}
+	.visual {
+		min-inline-size: 0;
+	}
+	.tilt {
+		transform-origin: 50% 50%;
+	}
+
+	@media (min-width: 64rem) {
+		.grid {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+		}
+		/* The mock bleeds past the column, toward the right edge, and tilts a little */
+		.visual {
+			margin-inline-end: calc(-1 * clamp(0rem, (100vw - 73.75rem) / 2 - 1rem, 6rem));
+		}
+		.tilt {
+			transform: perspective(2400px) rotateY(7deg) rotateX(2deg) rotateZ(-0.8deg);
+		}
+	}
+	@media (min-width: 40rem) and (max-width: 63.99rem) {
+		.tilt {
+			transform: perspective(2200px) rotateX(4deg);
+			transform-origin: 50% 0;
+		}
+	}
+</style>
