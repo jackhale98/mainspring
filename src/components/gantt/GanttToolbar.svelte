@@ -21,8 +21,8 @@
 		hasMarker: boolean;
 		lines: { today: LineState; status: LineState; merged: boolean };
 		dimmed: boolean;
-		/** The critical-path toggle: available once the analysis exists. */
-		critical: { available: boolean; pressed: boolean };
+		/** The critical-path toggle: available once the analysis exists; `note` is its tooltip. */
+		critical: { available: boolean; pressed: boolean; note: string };
 		onlevel: (level: ZoomLevel) => void;
 		ontoday: () => void;
 		oncritical: () => void;
@@ -73,7 +73,7 @@
 		class="chip critical"
 		aria-pressed={critical.available && critical.pressed}
 		disabled={!critical.available}
-		title={critical.available ? undefined : strings.gantt.criticalUnavailable}
+		title={critical.note}
 		onclick={oncritical}
 	>
 		<i class="steel" aria-hidden="true"></i>{strings.gantt.criticalPath}

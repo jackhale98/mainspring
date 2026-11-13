@@ -77,6 +77,41 @@ test.describe('gantt screenshots', () => {
 			await shot(page, `gantt-tablet-split-${scheme}.png`);
 		});
 
+		// The critical path, float tails and the estimate on the selected task's line (T5).
+		test(`gantt-critical-desktop-${scheme}.png`, async ({ page }, info) => {
+			test.skip(info.project.name !== 'desktop');
+			await page.setViewportSize({ width: 1440, height: 860 });
+			await page.emulateMedia({ colorScheme: scheme });
+			await open(page, TUTORIAL, 'visual');
+			await page
+				.getByRole('treeitem')
+				.filter({ hasText: 'Graphical User Interface' })
+				.first()
+				.click();
+			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
+			await page.waitForTimeout(300);
+			await shot(page, `gantt-critical-desktop-${scheme}.png`);
+		});
+
+		test(`gantt-critical-pixel7-${scheme}.png`, async ({ page }, info) => {
+			test.skip(info.project.name !== 'pixel-7');
+			await page.emulateMedia({ colorScheme: scheme });
+			await open(page, TUTORIAL);
+			await page
+				.getByRole('treeitem')
+				.filter({ hasText: 'Graphical User Interface' })
+				.first()
+				.click();
+			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
+			// The phone shows a few weeks: scroll to the critical stretch (March 2002).
+			await page.getByTestId('gantt').evaluate((g) => {
+				const scroller = g.querySelector('.scroller');
+				if (scroller) scroller.scrollLeft = (scroller.scrollWidth - scroller.clientWidth) * 0.55;
+			});
+			await page.waitForTimeout(400);
+			await shot(page, `gantt-critical-pixel7-${scheme}.png`);
+		});
+
 		test(`gantt-pixel7-${scheme}.png`, async ({ page }, info) => {
 			test.skip(info.project.name !== 'pixel-7');
 			await page.emulateMedia({ colorScheme: scheme });

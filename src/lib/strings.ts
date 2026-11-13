@@ -272,6 +272,23 @@ export const strings = {
 		level: { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' },
 		criticalPath: 'Critical path',
 		criticalUnavailable: 'The critical path is not computed yet',
+		/**
+		 * The critical path and float are display estimates derived from the schedule (ADR-0007):
+		 * they ignore resource limits and leveling, so they are always labelled as estimates.
+		 */
+		estimate: {
+			/** The critical-path chip's tooltip. */
+			hint: 'Critical path and float are estimates: they ignore resource limits and leveling',
+			/** The chip's tooltip when the whole path ends before the status date. */
+			allDone: 'Every task on the critical path ends before the status date',
+			/** Appended to the selected task's line. */
+			critical: 'On the critical path (estimate)',
+			float: (amount: string) => `Float about ${amount} (estimate)`,
+			days: (n: number) => (n === 1 ? '1 working day' : `${n} working days`),
+			hours: (n: number) => (n === 1 ? '1 working hour' : `${n} working hours`),
+			/** The treegrid's float column (T18). */
+			floatColumn: 'Float (estimate)',
+		},
 		/** Today has no line on the chart to go to (it is before or after the plan). */
 		todayOff: 'Today (off the chart)',
 		today: 'Today',
@@ -295,6 +312,8 @@ export const strings = {
 		milestoneOn: (name: string, at: string) => `${name}: milestone on ${at}`,
 		/** The task's line with the people on it, e.g. "Code: 3 Mar to 9 Mar 2026. Ana, Ben". */
 		withPeople: (line: string, people: string) => `${line}. ${people}`,
+		/** The task's line with a note, e.g. "Code: 3 Mar to 9 Mar 2026. Float about 2 working days (estimate)". */
+		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
 	},
 	editor: {

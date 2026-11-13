@@ -8,7 +8,9 @@
 
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
-	editor cursor on its declaration. Gestures and the inspector (T16, T17) come later. Zoom is on
+	editor cursor on its declaration. The critical path and float are display estimates derived
+	from that result once, in an idle task (lib/gantt/analysis.ts, ADR-0007); the Critical path
+	chip shows or hides them. Gestures and the inspector (T16, T17) come later. Zoom is on
 	the toolbar, with Ctrl+wheel, and with + and - while the task list has the focus (never
 	Ctrl+plus: that is the browser's own page zoom).
 
@@ -20,6 +22,8 @@
 	import { flushSync, onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
+	import type { DrivingAnalysis } from '../../lib/schedule/critical';
+	import { analyseWhenIdle } from '../../lib/gantt/analysis';
 	import { describeRow } from '../../lib/gantt/describe';
 	import { resolveLinks } from '../../lib/gantt/links';
 	import {
@@ -68,9 +72,8 @@
 	let scrollerH = $state(0);
 	let namesW = $state(0);
 	let hoverRow = $state<number | null>(null);
-	/** The critical path is shown when there is an analysis (task T5) and the chip is on. */
+	/** The critical path and float are shown when there is an analysis and the chip is on. */
 	let criticalOn = $state(true);
-	const analysisAvailable = false;
 
 	// The model: rows from the outline joined with the newest good result (never computed here).
 	// The links come from the engine's result while it describes the text, and from the text,
@@ -81,6 +84,26 @@
 			app.run.lastGood.workspaceVersion === app.run.indexVersion &&
 			!app.run.outdated,
 	);
+	// The driving-path analysis of the shown result: once per result, in an idle task. The previous
+	// one stays until it is ready.
+	let analysis = $state.raw<DrivingAnalysis | null>(null);
+	$effect(() => {
+		const r = result;
+		if (!r) {
+			analysis = null;
+			return;
+		}
+		return analyseWhenIdle(r, (a) => (analysis = a));
+	});
+	const E = strings.gantt.estimate;
+	const criticalNote = $derived(
+		analysis === null
+			? strings.gantt.criticalUnavailable
+			: analysis.critical.size === 0 && analysis.path.size > 0
+				? E.allDone
+				: E.hint,
+	);
+
 	const model = $derived.by(() => {
 		const scenario = result ? finishScenario(result) : null;
 		return buildGanttModel({
@@ -94,8 +117,7 @@
 				scenario,
 				current,
 			}),
-			// Task T5 supplies the driving-path analysis here (when `criticalOn`).
-			analysis: null,
+			analysis: criticalOn ? analysis : null,
 			nowMs: env.nowMs,
 			zones,
 		});
@@ -251,7 +273,7 @@
 		hasMarker={markers.target !== null}
 		lines={markers}
 		dimmed={model.dimmed}
-		critical={{ available: analysisAvailable, pressed: criticalOn }}
+		critical={{ available: analysis !== null, pressed: criticalOn, note: criticalNote }}
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
 		oncritical={() => (criticalOn = !criticalOn)}

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { describeRow } from './describe';
+import { describeRow, floatAmount } from './describe';
+import { project } from '../schedule/testing';
 import { D, modelOf, row } from './testing';
 
 const calendar = { startEpoch: Date.UTC(2026, 0, 5) / 1000, env: { zone: null }, locale: 'en-US' };
@@ -36,5 +37,38 @@ describe('describeRow', () => {
 		expect(describeRow(model, null)).toBe('');
 		expect(describeRow(model, 9)).toBe('');
 		expect(describeRow({ ...model, calendar: null }, 0)).toBe('Code: not scheduled yet');
+	});
+
+	it('ends with the estimate: critical, or the float in working days or hours', () => {
+		const p = project();
+		const est = modelOf(
+			[
+				row(0, 0, 3 * D, 'task', { name: 'Code', critical: true }),
+				row(1, 0, 3 * D, 'task', { name: 'Docs', floatMin: 2 * 480, people: ['Ana'] }),
+				row(2, 0, 3 * D, 'task', { name: 'Spike', floatMin: 90 }),
+				row(3, 0, 3 * D, 'task', { name: 'Zero', floatMin: 0 }),
+			],
+			[],
+			{ calendar, project: p },
+		);
+		expect(describeRow(est, 0)).toBe(
+			'Code: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. On the critical path (estimate)',
+		);
+		expect(describeRow(est, 1)).toBe(
+			'Docs: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. Ana. Float about 2 working days (estimate)',
+		);
+		expect(describeRow(est, 2)).toBe(
+			'Spike: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. Float about 2 working hours (estimate)',
+		);
+		expect(describeRow(est, 3)).toBe('Zero: Mon, Jan 5, 2026 to Wed, Jan 7, 2026');
+	});
+
+	it('writes float in whole units, at least 1, and in hours without working days', () => {
+		const p = project();
+		expect(floatAmount(480, { project: p })).toBe('1 working day');
+		expect(floatAmount(700, { project: p })).toBe('1 working day');
+		expect(floatAmount(20, { project: p })).toBe('1 working hour');
+		expect(floatAmount(960, { project: { ...p, dailyWorkingHours: 0 } })).toBe('16 working hours');
+		expect(floatAmount(960, { project: null })).toBe('16 working hours');
 	});
 });
