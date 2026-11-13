@@ -116,6 +116,7 @@ function fastTimings(t: Record<string, unknown>): Partial<Timings> {
 		if (typeof t[k] === 'number') out[k] = t[k];
 	}
 	if (typeof t['fastFallback'] === 'string') out.fastFallback = t['fastFallback'];
+	if (typeof t['retainError'] === 'string') out.retainError = t['retainError'];
 	return out;
 }
 

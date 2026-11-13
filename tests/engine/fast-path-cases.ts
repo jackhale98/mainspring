@@ -8,8 +8,8 @@
  * would: a task's own single-line `effort`, `length`, `duration`, `start`, `end`, `priority` or
  * `complete` statement for the top scenario, in a task that is not text-only, not built by a
  * macro and has no macro call in its body; no other site of the same keyword in the task
- * (another scenario, a supplement); `start`, `end` and `priority` only on a leaf (children
- * inherit them). The edit API (`setAttr`) writes the new value, and the change must stay on that
+ * (another scenario, a supplement); `priority` only on a leaf (children copy it when they are
+ * created; `start` and `end` they do not). The edit API (`setAttr`) writes the new value, and the change must stay on that
  * one line. The bridge checks again what it can (engine/bridge/fast_path.rb) and runs in full
  * when it cannot vouch for a patch, so a case may also fall back; the result must match anyway.
  *
@@ -34,7 +34,8 @@ export const FAST_ATTRS: readonly FastAttr[] = [
 	'complete',
 ];
 const DURATIONS = new Set(['effort', 'length', 'duration', 'milestone']);
-const INHERITED = new Set(['start', 'end', 'priority']);
+/** Keywords children copy from their parent when they are created (Project.rb attribute table). */
+const INHERITED = new Set(['priority']);
 
 export interface Site {
 	readonly task: TaskSymbol;
@@ -73,6 +74,9 @@ export function eligibleSites(ws: Workspace, index: SymbolIndex): Site[] {
 			if (text.lineAt(a.statement.to).number !== line.number) continue;
 			const value = text.sliceString(a.value.from, a.value.to).trim();
 			if (value.includes('$') || value.includes('\n')) continue;
+			// The statement alone on its line (not `task a "A" { effort 1d }`).
+			if (!new RegExp(`^\\s*${attribute}\\s`).test(line.text)) continue;
+			if (line.text.trim().endsWith('}')) continue;
 			out.push({ task, attribute, file: a.statement.file, line: line.number, value });
 		}
 	}

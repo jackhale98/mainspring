@@ -44,7 +44,8 @@
 # `retain: true` keeps its parsed project (`retainMs`); a request with
 # `fast: { base, edits }` that fast_path.rb accepts skips the parse
 # (`cloneMs`, `applyMs`, parseMs 0). `path` says which ran. Anything else
-# runs in full; a full run without `retain` forgets the kept project.
+# runs in full. Only a full run with `retain` replaces the kept project
+# (one at a time); other runs leave it, valid for the text it was parsed from.
 #
 # MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time and
 # parser-cache patches on native Ruby too (the Intl time-zone patch needs a JS
@@ -121,15 +122,19 @@ module TJBridge
     MainspringBridge.write_workspace(WORKSPACE, files)
     t1 = MainspringBridge.clock_ms
     fp = MainspringBridge::FastPath
-    fp.drop
     keep = if req['retain'] == true
+             fp.drop
              lambda do |project, messages|
-               { 'retainMs' => fp.retain(revision: req['revision'], entry: entry, files: files,
-                                         now_option: options['now'], project: project,
-                                         messages: messages, capture: MainspringBridge::Capture) }
+               fp.retain(revision: req['revision'], entry: entry, files: files,
+                         now_option: options['now'], project: project,
+                         messages: messages, capture: MainspringBridge::Capture)
              end
            end
     result, timings = MainspringBridge.run(WORKSPACE, entry, now, on_parsed: keep)
+    if keep && fp.base.nil? && !timings.key?('retainError')
+      # A parse with errors is never kept: request.rb calls on_parsed only after a clean one.
+      timings['retainError'] = fp.unkept('the parse gave errors')
+    end
     [result, timings.merge('path' => 'full', 't1' => t1)]
   end
 

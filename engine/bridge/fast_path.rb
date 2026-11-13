@@ -36,9 +36,11 @@
 #   in-place `<keyword> <value>` statement before and after, same line count;
 # - the keyword is effort, length, duration, start, end, priority or
 #   complete, for the top scenario only;
-# - the task exists; a keyword its children inherit (start, end, priority)
-#   is only rewritten on a leaf, since children copy it at creation
-#   (PropertyTreeNode#inheritAttributes, called by the parser);
+# - the task exists; an attribute the pattern sets that children inherit
+#   (the definition's inheritedFromParent: of these, priority; Project.rb
+#   attribute table) is only rewritten on a leaf, since children copy it
+#   when they are created (PropertyTreeNode#inheritAttributes, called by
+#   the parser), not when they are scheduled;
 # - no other scenario provides the attribute: a top-scenario value is copied
 #   to derived scenarios as it is set (PropertyTreeNode.rb:459-477), which
 #   would overwrite theirs;
@@ -68,8 +70,10 @@ module MainspringBridge
     FORWARD = { 'start' => true, 'end' => false }.freeze
 
     # The kept run: what it was given, its parse messages and the dump.
+    # tz: TjTime's active zone after the parse, which scheduling reads (TjTime.rb:90-106; the
+    # parser sets it from `timezone`, TjpSyntaxRules.rb:7137, and TaskJuggler.new resets it).
     Base = Struct.new(:revision, :entry, :files, :now_option, :clock_now, :blob,
-                      :messages, :version, :timezone, keyword_init: true)
+                      :messages, :version, :timezone, :tz, keyword_init: true)
 
     class << self
       attr_reader :base
@@ -77,13 +81,28 @@ module MainspringBridge
       # Forget the kept run (a full run that does not retain, or a failure).
       def drop
         @base = nil
+        @retain_error = nil
       end
 
-      # Keep _project_, just parsed and not yet scheduled. Returns ms spent.
+      # Notes why a run that asked to be kept was not; returns the reason.
+      def unkept(reason)
+        @retain_error = reason
+      end
+
+      # Keep _project_, just parsed and not yet scheduled. Returns the timings to add:
+      # `retainMs`, or `retainError` when the project cannot be copied (it holds an object
+      # Marshal cannot dump: ShiftAssignments is a Monitor, ShiftAssignments.rb:100), and then
+      # nothing is kept and later fast requests run in full.
       def retain(revision:, entry:, files:, now_option:, project:, messages:, capture:)
         t0 = MainspringBridge.clock_ms
         @base = nil
-        blob = without_default_procs(project) { Marshal.dump(project) }
+        @retain_error = nil
+        blob = begin
+          without_default_procs(project) { Marshal.dump(project) }
+        rescue TypeError => e
+          @retain_error = e.message
+          return { 'retainError' => e.message }
+        end
         @base = Base.new(
           revision: revision, entry: entry,
           files: files.transform_values { |t| MainspringBridge.normalize_text(t) },
@@ -91,9 +110,10 @@ module MainspringBridge
           # nil when the plan or options.now set `now`; else the clock hour it used.
           clock_now: capture.clock.nil? && !capture.now_line ? project['now'] : nil,
           blob: blob, messages: messages.dup,
-          version: capture.version, timezone: capture.timezone
+          version: capture.version, timezone: capture.timezone,
+          tz: TaskJuggler::TjTime.timeZone
         )
-        (MainspringBridge.clock_ms - t0).round(1)
+        { 'retainMs' => (MainspringBridge.clock_ms - t0).round(1) }
       end
 
       # The fast run of _req_ as [result, timings], or a String: why it must run in full.
@@ -102,7 +122,7 @@ module MainspringBridge
         catch(:fallback) do
           fast = req['fast']
           b = @base
-          fallback('no kept run') unless b
+          fallback(@retain_error ? "no kept run (#{@retain_error})" : 'no kept run') unless b
           fallback('another base') unless fast.is_a?(Hash) && fast['base'] == b.revision
           fallback('entry or options changed') unless req['entry'] == b.entry &&
                                                       req['options'].to_h['now'] == b.now_option
@@ -165,6 +185,11 @@ module MainspringBridge
 
         project = Marshal.load(b.blob)
         install_default_procs(project)
+        # The global state a full run has after its parse: TaskJuggler.new resets the zone to
+        # UTC, the plan's `timezone` set it again.
+        tj = TaskJuggler.new
+        tj.instance_variable_set(:@project, project)
+        TaskJuggler::TjTime.setTimeZone(b.tz)
         t1 = MainspringBridge.clock_ms
         edits.each { |e| applicable!(project, e) }
         applied = apply(project, edits, root)
@@ -175,8 +200,6 @@ module MainspringBridge
 
         b.messages.each { |m| mh.messages << m }
         t2 = MainspringBridge.clock_ms
-        tj = TaskJuggler.new
-        tj.instance_variable_set(:@project, project)
         Capture.reset(now)
         previous = Dir.pwd rescue nil
         Dir.chdir(root)

@@ -30,7 +30,8 @@ export interface ScheduleRequest {
 	options?: ScheduleOptions;
 	/**
 	 * Keep this run's parsed project as the base of later fast runs (engine/bridge/fast_path.rb).
-	 * It costs a copy of the project (`Timings.retainMs`). A full run without it forgets the base.
+	 * It costs a copy of the project (`Timings.retainMs`). The worker keeps one base: only the next
+	 * run with `retain` replaces it.
 	 */
 	retain?: boolean;
 	/** Run by rewriting values in the kept base instead of parsing `files` (ADR-0010). */
@@ -267,6 +268,8 @@ export interface Timings {
 	path?: 'full' | 'fast';
 	/** A full run with `retain`: copying the parsed project. */
 	retainMs?: number;
+	/** A full run with `retain` whose project could not be copied: why (nothing is kept). */
+	retainError?: string;
 	/** A fast run: loading the kept copy, and applying the edits. */
 	cloneMs?: number;
 	applyMs?: number;
