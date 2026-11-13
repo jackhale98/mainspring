@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Typing groups as CodeMirror forms them (history-steps.ts), checked through the history, and
 // the labels of intents.
-import { isolateHistory } from '@codemirror/commands';
 import { Transaction } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 import { historyStrings } from '../strings';
 import { createHistory, type WorkspaceHistory } from './history';
-import { isTjpEdit, labelOf } from './history-steps';
+import { isTjpEdit, isolateHistory, labelOf } from './history-steps';
 import { A, moveCursor, plan, seedWorkspace, textOf, type } from './testing/history-fixture';
 import type { Workspace } from './workspace';
 

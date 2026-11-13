@@ -1,11 +1,11 @@
 {
-  "note": "gzip -9 bytes. before = fd55b570, after = T14 branch. Measured with scripts/js-sizes.mjs in headless Chromium, first load, tutorial sample.",
+  "note": "gzip -9 bytes. before = fd55b570, after = T14 branch merged with the base through T7 (6cd6f8fe + ebda80cb). Measured with scripts/js-sizes.mjs in headless Chromium, first load, tutorial sample.",
   "before": {
     "distTotalGzip": 333197,
     "visualFirstGzip": 302105,
     "textFirstGzip": 302105,
-    "textFirstLoadsEditorChunk": false,
     "visualFirstLoadsEditorChunk": false,
+    "textFirstLoadsEditorChunk": false,
     "biggest": [
       {
         "file": "App.BpFgY_G0.js",
@@ -30,26 +30,26 @@
     ]
   },
   "after": {
-    "distTotalGzip": 342413,
-    "visualFirstGzip": 174771,
-    "textFirstGzip": 311321,
-    "textFirstLoadsEditorChunk": true,
+    "distTotalGzip": 348061,
+    "visualFirstGzip": 212605,
+    "textFirstGzip": 316523,
     "visualFirstLoadsEditorChunk": false,
+    "textFirstLoadsEditorChunk": true,
     "biggest": [
       {
-        "file": "editor-controller.CHrhIQYD.js",
-        "raw": 404211,
-        "gzip": 128162
+        "file": "history-steps.B9Lss4-m.js",
+        "raw": 411541,
+        "gzip": 128436
       },
       {
-        "file": "workspace.CBBS8OTb.js",
-        "raw": 302897,
-        "gzip": 95610
+        "file": "editor-controller.DmiU7Yjq.js",
+        "raw": 297522,
+        "gzip": 95484
       },
       {
-        "file": "App.D3HD1g4V.js",
-        "raw": 115661,
-        "gzip": 39620
+        "file": "App.BVRgRCct.js",
+        "raw": 119256,
+        "gzip": 41087
       },
       {
         "file": "client.SHKnBhYf.js",

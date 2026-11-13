@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { history, undo } from '@codemirror/commands';
 import { getIndentUnit } from '@codemirror/language';
 import {
 	EditorSelection,
@@ -10,6 +9,7 @@ import {
 import type { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 import { createHistory } from '../../workspace/history';
+import { isolateHistory } from '../../workspace/history-steps';
 import {
 	createWorkspace,
 	tjpEditId,
@@ -131,17 +131,13 @@ describe('formatCommand', () => {
 		expect(outcomes).toEqual([]);
 	});
 
-	it('is its own undo step: typing right after it is not joined to it', () => {
-		const view = new FakeView(tjpState(MESSY, { extra: history() }));
+	it('is its own undo step: the transaction is isolated, so typing after it is not joined', () => {
+		const sent: Transaction[] = [];
+		const view = new FakeView(tjpState(MESSY), (trs) => sent.push(...trs));
 		formatCommand(view.asView());
-		view.dispatch({
-			changes: { from: 'task a "A" {\n  '.length, insert: 'x' },
-			userEvent: 'input.type',
-		});
-		undo(view);
-		expect(view.state.doc.toString()).toBe(TIDY);
-		undo(view);
-		expect(view.state.doc.toString()).toBe(MESSY);
+		expect(sent).toHaveLength(1);
+		// The workspace history (history-steps.ts) closes the typing group after it.
+		expect(sent[0]?.annotation(isolateHistory)).toBe('full');
 	});
 });
 
