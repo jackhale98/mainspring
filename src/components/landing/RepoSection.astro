@@ -173,7 +173,7 @@ const r = landing.repo;
 		padding: 0.1rem 0.6rem;
 		border-radius: 999px;
 		background: color-mix(in srgb, var(--lp-ok) 16%, var(--lp-panel));
-		color: var(--lp-ok);
+		color: var(--lp-ok-text);
 		font-weight: 600;
 	}
 	.dot {
@@ -216,6 +216,9 @@ const r = landing.repo;
 		font-size: 0.85rem;
 		font-weight: 600;
 		color: var(--lp-muted);
+	}
+	.soon :global(.lp-tag) {
+		background: var(--lp-panel);
 	}
 	.caption {
 		margin: var(--space-4) 0 0;

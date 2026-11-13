@@ -34,6 +34,7 @@
 	--lp-ruby-bottom: #8f1130;
 	--lp-ruby-soft: #f7e3e8;
 	--lp-ok: #2f7d4f;
+	--lp-ok-text: #1f6b3f;
 	--lp-ok-halo: rgb(47 125 79 / 0.16);
 	/* Chrome of the product mocks */
 	--lp-guilloche: rgb(154 116 36 / 0.22);
@@ -64,6 +65,7 @@
 		--lp-ruby-bottom: #a32447;
 		--lp-ruby-soft: #3a1620;
 		--lp-ok: #6fcf97;
+		--lp-ok-text: #6fcf97;
 		--lp-ok-halo: rgb(111 207 151 / 0.16);
 		--lp-guilloche: rgb(210 174 92 / 0.2);
 		--lp-shadow-mock:

@@ -75,7 +75,8 @@ test.describe('landing page', () => {
 		await expect(syntax.locator('.lp-tag')).toHaveCount(3);
 		await expect(page.locator('#repo .lp-tag')).toHaveCount(1);
 		// "What works today" does not list it.
-		await expect(page.locator('#features li.card:not(.ahead)')).not.toContainText(/drag/i);
+		const available = await page.locator('#features li.card:not(.ahead)').allInnerTexts();
+		expect(available.join(' ')).not.toMatch(/drag/i);
 	});
 
 	test('marks every planned feature as coming, and nothing available as coming', async ({
