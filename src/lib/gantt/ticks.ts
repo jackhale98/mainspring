@@ -88,11 +88,20 @@ function formatter(locale: string | undefined, key: string, o: Intl.DateTimeForm
 	return f;
 }
 
-export type DateStyle = 'weekday-day' | 'month-day' | 'month' | 'month-year' | 'year' | 'full';
+export type DateStyle =
+	| 'weekday-day'
+	| 'month-day'
+	| 'medium'
+	| 'month'
+	| 'month-year'
+	| 'year'
+	| 'full';
 const STYLES: Record<DateStyle, Intl.DateTimeFormatOptions> = {
 	// Written as the weekday, then the day, whatever the locale's own order (see `dayLabel`).
 	'weekday-day': { weekday: 'short' },
 	'month-day': { month: 'short', day: 'numeric' },
+	/** A date with its year, for the task list's Start and End columns: "Mar 3, 2026". */
+	medium: { month: 'short', day: 'numeric', year: 'numeric' },
 	month: { month: 'short' },
 	'month-year': { month: 'long', year: 'numeric' },
 	year: { year: 'numeric' },

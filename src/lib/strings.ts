@@ -374,6 +374,15 @@ export const strings = {
 			/** The treegrid's float column (T18). */
 			floatColumn: 'Float (estimate)',
 		},
+		/** The treegrid's live region says this after a reschedule (phase-2.md 10.1). */
+		rescheduled: (finish: string | null, delta: string | null, moved: number) =>
+			[
+				'Rescheduled.',
+				finish === null ? null : `Finish ${finish}${delta ? `, ${delta}` : ''}.`,
+				moved === 0 ? 'No tasks moved.' : `${plural(moved, 'task moved', 'tasks moved')}.`,
+			]
+				.filter((p) => p !== null)
+				.join(' '),
 		/** Today has no line on the chart to go to (it is before or after the plan). */
 		todayOff: 'Today (off the chart)',
 		today: 'Today',
@@ -400,6 +409,39 @@ export const strings = {
 		/** The task's line with its estimate note, e.g. "Code: 3 Mar to 9 Mar 2026. On the critical path (estimate)". */
 		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
+	},
+	/** The Gantt's task list, a treegrid (src/components/gantt/OutlineGrid.svelte, phase-2.md 10.1). */
+	grid: {
+		label: 'Tasks',
+		/** The column headers, in the order of the cells. */
+		columns: {
+			name: 'Task',
+			start: 'Start',
+			end: 'End',
+			effort: 'Effort or length',
+			people: 'People',
+			float: 'Float (estimate)',
+			critical: 'Critical (estimate)',
+			status: 'Status',
+		},
+		/** A cell with nothing to say: an en dash for the eye, a word for a screen reader. */
+		empty: '–',
+		emptyWords: 'none',
+		yes: 'Yes',
+		no: 'No',
+		status: {
+			scheduled: 'Scheduled',
+			notScheduled: 'Not scheduled',
+			pending: 'Pending',
+			textOnly: 'Text only',
+		},
+		/** The effort or length cell: the value and which attribute it is, e.g. "5d effort". */
+		sizing: (value: string, attr: string) => `${value} ${attr}`,
+		/** Said when a row is expanded or collapsed from the keyboard. */
+		expanded: (name: string, n: number) => `${name} expanded, ${plural(n, 'task', 'tasks')}`,
+		collapsed: (name: string) => `${name} collapsed`,
+		expandTask: 'Expand',
+		collapseTask: 'Collapse',
 	},
 	editor: {
 		label: (path: string) => `Editor for ${path}`,
