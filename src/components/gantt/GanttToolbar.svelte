@@ -21,7 +21,7 @@
 	import { ZOOM_ORDER, ZOOM_PRESETS, nearestLevel, type ZoomLevel } from '../../lib/gantt/scale';
 	import type { RowLine } from '../../lib/gantt/describe';
 	import type { LineState } from '../../lib/gantt/model';
-	import type { CriticalChip } from './gantt-analysis.svelte';
+	import type { CriticalChip } from '../../lib/gantt/analysis';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 
@@ -145,7 +145,7 @@
 
 {#snippet parts(l: RowLine)}
 	{#if l.text !== ''}<span class="text">{l.text}</span>{/if}{#if l.note}<span class="note"
-			>{#if l.text !== ''}<span class="sr-only">. </span>{/if}{l.note}</span
+			>{#if l.text !== ''}<span class="sr-only">{'. '}</span>{/if}{l.note}</span
 		>{/if}
 {/snippet}
 

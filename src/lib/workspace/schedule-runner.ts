@@ -48,6 +48,7 @@
  */
 import type { EngineClient, EngineState, ScheduleOutcome } from '../../engine/client';
 import type { Revision, ScheduleResult } from '../../engine/protocol';
+import { report } from '../report';
 import { finishOf } from '../schedule/finish';
 import { engineDiagnostics, type TjpDiagnostic } from '../tjp/diagnostics';
 import type { ZoneOffsets } from '../tjp/values';
@@ -91,13 +92,6 @@ export * from './run-types';
 
 /** The last revision used per client: revisions must increase per client (protocol). */
 const lastRevision = new WeakMap<EngineClient, Revision>();
-
-/** Rethrows outside the current call stack, so the caller carries on. */
-function report(error: unknown): void {
-	queueMicrotask(() => {
-		throw error;
-	});
-}
 
 export function createScheduleRunner(o: ScheduleRunnerOptions): ScheduleRunner {
 	return new Runner(o);

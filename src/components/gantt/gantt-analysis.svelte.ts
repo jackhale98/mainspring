@@ -1,62 +1,52 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The Gantt's driving-path analysis (critical path and float, phase-2.md 6.2): display estimates
- * derived from the shown result once, in an idle task (lib/gantt/analysis.ts, ADR-0007), and the
- * Critical path chip's state. Kept out of Gantt.svelte, which owns the scroll and zoom.
+ * derived from each result in an idle task (ADR-0007), and the Critical path chip. Kept out of
+ * Gantt.svelte, which owns the scroll and zoom.
  *
- * `watch` must run while a component initialises (it sets up an `$effect`). An analysis of an
- * older result stays here until the new one is ready, but the model draws an analysis only over
- * the result revision it came from (model.ts), so nothing stale is shown in between.
+ * The Gantt draws `result`, not the newest result directly: lib/gantt/analysis.ts (`AnalysisGate`)
+ * publishes the result and its analysis as one pair, and with the chip on switches to a new result
+ * only once its analysis is ready, so a reschedule never makes the highlight flicker. `watch` must
+ * run while a component initialises (it sets up `$effect`s).
  */
 import type { ScheduleResult } from '../../engine/protocol';
-import { analyseWhenIdle } from '../../lib/gantt/analysis';
+import {
+	AnalysisGate,
+	NOTHING_SHOWN,
+	chipOf,
+	type CriticalChip,
+	type ShownAnalysis,
+} from '../../lib/gantt/analysis';
 import type { DrivingAnalysis } from '../../lib/schedule/critical';
-import { strings } from '../../lib/strings';
-
-export interface CriticalChip {
-	/** False until the analysis exists: the chip is then `aria-disabled` and says why. */
-	readonly available: boolean;
-	readonly pressed: boolean;
-	/** What the chip describes: why it is unavailable, or that the values are estimates. */
-	readonly why: string;
-	/** Shown while the chip is on and nothing is highlighted: the whole path is already done. */
-	readonly note: string | null;
-}
 
 export class GanttAnalysis {
-	analysis = $state.raw<DrivingAnalysis | null>(null);
+	shown = $state.raw<ShownAnalysis>(NOTHING_SHOWN);
 	/** The Critical path chip: on by default. */
 	on = $state(true);
+	readonly #gate = new AnalysisGate({ publish: (s) => (this.shown = s) });
 
-	/** Follows the shown result: analyses each new one in an idle task. */
-	watch(result: () => ScheduleResult | null): void {
-		$effect(() => {
-			const r = result();
-			if (!r) {
-				this.analysis = null;
-				return;
-			}
-			return analyseWhenIdle(r, (a) => (this.analysis = a));
-		});
+	/** Follows the newest good result. */
+	watch(newest: () => ScheduleResult | null): void {
+		$effect(() => this.#gate.offer(newest()));
+		$effect(() => () => this.#gate.dispose());
 	}
 
-	/** What the model draws: the analysis while the chip is on. */
-	get shown(): DrivingAnalysis | null {
-		return this.on ? this.analysis : null;
+	/** The result to draw: the newest, or the previous one while the chip waits for an analysis. */
+	get result(): ScheduleResult | null {
+		return this.shown.result;
+	}
+
+	/** What the model draws: the shown result's analysis while the chip is on. */
+	get drawn(): DrivingAnalysis | null {
+		return this.on ? this.shown.analysis : null;
 	}
 
 	get chip(): CriticalChip {
-		const a = this.analysis;
-		const done = !!a && a.critical.size === 0 && a.path.size > 0;
-		return {
-			available: a !== null,
-			pressed: this.on,
-			why: a === null ? strings.gantt.criticalUnavailable : strings.gantt.estimate.hint,
-			note: this.on && done ? strings.gantt.estimate.allDone : null,
-		};
+		return chipOf(this.shown.analysis, this.on);
 	}
 
 	toggle(): void {
 		this.on = !this.on;
+		this.#gate.setOn(this.on);
 	}
 }

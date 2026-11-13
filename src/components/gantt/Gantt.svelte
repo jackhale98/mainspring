@@ -80,16 +80,16 @@
 	let hoverRow = $state<number | null>(null);
 	const critical = new GanttAnalysis();
 
-	// The model: rows from the outline joined with the newest good result (never computed here).
-	// The links come from the engine's result while it describes the text, and from the text,
-	// marked pending, while the text is newer (typing, or an edit that broke the schedule).
-	const result = $derived(app.run?.lastGood?.result ?? null);
+	// Rows from the outline joined with a good result (gantt-analysis picks which; never computed
+	// here). Links come from the engine's result while it describes the text, else from the text.
+	critical.watch(() => app.run?.lastGood?.result ?? null);
+	const result = $derived(critical.result);
 	const current = $derived(
 		!!app.run?.lastGood &&
+			app.run.lastGood.result === result &&
 			app.run.lastGood.workspaceVersion === app.run.indexVersion &&
 			!app.run.outdated,
 	);
-	critical.watch(() => result);
 	const model = $derived.by(() => {
 		const scenario = result ? finishScenario(result) : null;
 		return buildGanttModel({
@@ -103,7 +103,7 @@
 				scenario,
 				current,
 			}),
-			analysis: critical.shown,
+			analysis: critical.drawn,
 			zones,
 		});
 	});
