@@ -4,14 +4,16 @@
  * A bar is hit on its drawn shape grown to the minimum target size (24 px, 44 px on a coarse
  * pointer, WCAG 2.5.8), a link within a few pixels of its path, and anything else in a row is an
  * empty hit that still names the row and the minute, so a tap anywhere in a row can select it.
- * A link is not hit over the avatars beside a bar: the painter reports where it drew them, and an
- * avatar wins over a line that runs under it. Handles and the other parts of the later hit kinds
+ * A link is not hit over the avatars or the name beside a bar: the painter reports where it drew
+ * the avatars and the layout knows where the names are (labels.ts), and the text wins over a line
+ * that runs under it. Handles and the other parts of the later hit kinds
  * (resize, link dot, progress) join here with the gestures; read-only Gantt has the body only.
  *
  * `hitTest` runs on every pointer move and allocates nothing (phase-2.md 6.3): it reads the
  * layout's typed arrays through scratch objects.
  */
 import type { Minutes } from '../../engine/protocol';
+import { LABEL_STRIDE } from './labels';
 import type { GanttLayout, MutableRect, Point } from './layout';
 import type { GanttModel } from './model';
 import { distanceToBuf, distanceToSegment, newPath, type PathBuf } from './route';
@@ -43,6 +45,16 @@ function overAvatars(layout: GanttLayout, row: number, x: number, y: number): bo
 	return x >= x0 && x <= x1 && Math.abs(y - (layout.rowTop(row) + half)) <= half;
 }
 
+/** Whether a point is over the name beside a row's bar (a name inside its bar is the bar's). */
+function overName(layout: GanttLayout, row: number, x: number, y: number): boolean {
+	const x0 = layout.labels[LABEL_STRIDE * row];
+	const x1 = layout.labels[LABEL_STRIDE * row + 1];
+	if (x0 === undefined || x1 === undefined || Number.isNaN(x0)) return false;
+	if (layout.labels[LABEL_STRIDE * row + 2] !== 0) return false;
+	const half = layout.metrics.rowHeight / 2;
+	return x >= x0 && x <= x1 && Math.abs(y - (layout.rowTop(row) + half)) <= half;
+}
+
 /** `x` and `y` are content coordinates (layout.ts). */
 export function hitTest(layout: GanttLayout, model: GanttModel, x: number, y: number): Hit {
 	const row = layout.rowAt(y);
@@ -55,7 +67,7 @@ export function hitTest(layout: GanttLayout, model: GanttModel, x: number, y: nu
 	const slop = layout.metrics.linkSlop;
 	let nearest = -1;
 	let nearestDistance = slop;
-	const skipLinks = row !== null && overAvatars(layout, row, x, y);
+	const skipLinks = row !== null && (overAvatars(layout, row, x, y) || overName(layout, row, x, y));
 	for (let i = 0; !skipLinks && i < model.links.length; i++) {
 		const link = model.links[i];
 		if (!link) continue;

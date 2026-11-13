@@ -102,7 +102,7 @@ describe('paintBars', () => {
 		expect(fills[0]).toBe(t.criticalShadow);
 		expect(fills).toContain(t.criticalInk);
 		// The edge: heavier than the brass outline, in the critical colour.
-		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.critical]);
+		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.criticalEdge]);
 		expect(rec.of('set:lineWidth').map((c) => c[1])).toEqual([t.criticalEdgeWidth]);
 		expect(t.criticalEdgeWidth).toBeGreaterThan(t.barOutlineWidth);
 		// The post: past the bar's finish edge, taller than the bar by the reach on each side.
@@ -128,7 +128,7 @@ describe('paintBars', () => {
 		const jewel = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone', { critical: true })]));
 		paintBars(jewel.frame);
 		expect(jewel.rec.of('set:lineWidth').map((c) => c[1])).toEqual([t.criticalEdgeWidth]);
-		expect(jewel.rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.critical]);
+		expect(jewel.rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.criticalEdge]);
 		expect(jewel.rec.of('fillRect').some((c) => c[3] === t.criticalPostWidth)).toBe(false);
 	});
 
@@ -276,6 +276,22 @@ describe('paintBars', () => {
 		expect(layout.avatars[0]).toBe(first - 2);
 		expect(layout.avatars[1]).toBe(first + 2 * t.avatarSize + t.avatarGap + 2);
 		expect(Number.isNaN(layout.avatars[2])).toBe(true);
+	});
+
+	it('draws every name where the layout reserved it, inside the bar or beside it', () => {
+		const m = modelOf([
+			row(0, 0, 10 * D, 'task', { name: 'Code' }),
+			row(1, 0, D / 3, 'task', { name: 'A short one', floatMin: 3 * D, lateEnd: 4 * D }),
+			row(2, 3 * D, 3 * D, 'milestone', { name: 'Ship' }),
+			row(3, 0, 10 * D, 'task', { name: 'Not editable', textOnly: 'unresolved' }),
+		]);
+		const { frame, rec, layout } = frameOf(m, { names: true });
+		paintBars(frame);
+		const drawn = new Map(rec.of('fillText').map((c) => [c[1], c[2]] as const));
+		for (const [i, name] of ['Code', 'A short one', 'Ship', 'Not editable'].entries()) {
+			expect(drawn.get(name)).toBe(layout.labels[3 * i]);
+		}
+		expect([0, 1, 2, 3].map((i) => layout.labels[3 * i + 2])).toEqual([1, 0, 0, 0]);
 	});
 
 	it('does not rely on colour for text-only and engine-only', () => {

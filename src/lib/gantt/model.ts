@@ -127,13 +127,6 @@ export interface GanttModel {
 	readonly endMin: Minutes;
 	/** The plan's status date (`now`) in minutes; null when unknown. It comes from the result. */
 	readonly statusMin: Minutes | null;
-	/**
-	 * The wall-clock today in minutes, only when `nowMs` was given to `buildGanttModel`. Prefer to
-	 * keep the clock out of the model (`todayOf`, passed to the overlay): the clock changes every
-	 * minute, and a model that depends on it is rebuilt, its layout made and every layer
-	 * repainted each time.
-	 */
-	readonly todayMin: Minutes | null;
 	readonly scenario: string | null;
 	/** True when the schedule shown is not the newest outcome (errors): draw it dimmed. */
 	readonly dimmed: boolean;
@@ -152,12 +145,6 @@ export interface ModelInput {
 	dimmed: boolean;
 	links: readonly RawLink[];
 	analysis: GanttAnalysis | null;
-	/**
-	 * Transitional: `Date.now()`, which sets the model's `todayMin`. Leave it out and give the
-	 * clock to the overlay and `markerState` through `todayOf`, so that a tick of the clock does
-	 * not rebuild the model (phase-2.md 6.3).
-	 */
-	nowMs?: number | null;
 	zones?: ZoneOffsets;
 	locale?: string;
 }
@@ -174,7 +161,6 @@ export const EMPTY_MODEL: GanttModel = {
 	originMin: 0,
 	endMin: FALLBACK_SPAN_DAYS * MIN_PER_DAY,
 	statusMin: null,
-	todayMin: null,
 	scenario: null,
 	dimmed: false,
 	revision: null,
@@ -340,7 +326,6 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 		originMin,
 		endMin,
 		statusMin: project ? minutesAt(project, project.now) : null,
-		todayMin: todayOf(project, i.nowMs),
 		scenario,
 		dimmed: i.dimmed,
 		revision: result?.revision ?? null,

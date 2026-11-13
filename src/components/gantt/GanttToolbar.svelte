@@ -38,6 +38,11 @@
 		onlevel: (level: ZoomLevel) => void;
 		ontoday: () => void;
 		oncritical: () => void;
+		/**
+		 * The height of the task pill while it shows, else 0: on a phone it floats over the foot of
+		 * the chart, which reserves that much room at the bottom of the scroller.
+		 */
+		onpill?: (height: number) => void;
 	}
 	let {
 		pxPerDay,
@@ -50,6 +55,7 @@
 		onlevel,
 		ontoday,
 		oncritical,
+		onpill,
 	}: Props = $props();
 
 	const L = strings.gantt.lines;
@@ -62,6 +68,12 @@
 		selected.text === '' && critical.note !== null ? { text: '', note: critical.note } : selected,
 	);
 	const empty = (l: RowLine): boolean => l.text === '' && l.note === null;
+
+	let taskH = $state(0);
+	let hoverH = $state(0);
+	// The pill that shows: the hovered one over the selected one, none for an empty line.
+	const pillH = $derived(!empty(hover) ? hoverH : empty(line) ? 0 : taskH);
+	$effect(() => onpill?.(pillH));
 </script>
 
 <div class="bar">
@@ -116,12 +128,15 @@
 	<p
 		class="task"
 		role="status"
+		bind:clientHeight={taskH}
 		class:sr-only={empty(line) || !empty(hover)}
 		class:wrap={line.text === ''}
 	>
 		{@render parts(line)}
 	</p>
-	{#if !empty(hover)}<p class="task hover" aria-hidden="true">{@render parts(hover)}</p>{/if}
+	{#if !empty(hover)}<p class="task hover" aria-hidden="true" bind:clientHeight={hoverH}>
+			{@render parts(hover)}
+		</p>{/if}
 	<ul class="legend" aria-label={strings.gantt.legend}>
 		{#if lines.merged}
 			<li class:off={lines.today === 'off'}>

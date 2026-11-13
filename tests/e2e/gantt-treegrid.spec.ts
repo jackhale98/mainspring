@@ -106,7 +106,9 @@ test.describe('the treegrid', () => {
 		else await expect(yes.first()).toBeVisible();
 	});
 
-	test('draws the columns that fit, and keeps the rest in the table', async ({ page }, info) => {
+	test('draws every column at its natural width on a desktop, the name alone on a phone', async ({
+		page,
+	}, info) => {
 		await open(page);
 		const spec = row(page, 'Specification');
 		await expect(cell(spec, 'start')).toHaveCount(1);
@@ -122,9 +124,11 @@ test.describe('the treegrid', () => {
 			// And keyboard focus skips what is not drawn.
 			await expect(cell(spec, 'start')).not.toHaveAttribute('tabindex', /.*/);
 		} else {
-			expect(await box('start')).toBeGreaterThan(60);
-			expect(await box('end')).toBeGreaterThan(60);
-			expect(await box('effort')).toBeGreaterThan(60);
+			// Every column is drawn at its natural width: the divider's pane decides how many show,
+			// and the table scrolls sideways inside it (gantt-table-divider.spec.ts).
+			for (const c of ['start', 'end', 'effort', 'people', 'float', 'critical', 'status']) {
+				expect(await box(c), c).toBeGreaterThan(60);
+			}
 		}
 		// The frozen column stays pinned while the chart scrolls sideways.
 		const scroller = page.getByTestId('gantt').locator('.scroller');

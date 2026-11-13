@@ -118,7 +118,7 @@ test.describe('gantt', () => {
 		const zoomWith = async (notches: number): Promise<void> => {
 			const box = await page.getByTestId('gantt-overlay').boundingBox();
 			if (!box) throw new Error('no plot');
-			await page.mouse.move(box.x + 300, box.y + 100);
+			await page.mouse.move(box.x + 120, box.y + 100);
 			await page.keyboard.down('Control');
 			for (let i = 0; i < notches; i++) await page.mouse.wheel(0, -200);
 			await page.keyboard.up('Control');
@@ -139,7 +139,7 @@ test.describe('gantt', () => {
 		const before = await offsets();
 		const box = await page.getByTestId('gantt-overlay').boundingBox();
 		if (!box) throw new Error('no plot');
-		await page.mouse.move(box.x + 300, box.y + 100);
+		await page.mouse.move(box.x + 120, box.y + 100);
 		await page.mouse.wheel(300, 300);
 		await expect
 			.poll(offsets, { message: 'a plain wheel scrolled the chart' })
@@ -166,7 +166,7 @@ test.describe('gantt', () => {
 		const header = page.getByTestId('gantt-header');
 		const box = await page.getByTestId('gantt-overlay').boundingBox();
 		if (!box) throw new Error('no plot');
-		await page.mouse.move(box.x + 300, box.y + 100);
+		await page.mouse.move(box.x + 120, box.y + 100);
 		await page.keyboard.down('Control');
 		await page.mouse.wheel(0, -300);
 		// While the wheel moves the canvases are stretched, not repainted.

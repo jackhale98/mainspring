@@ -51,3 +51,21 @@ describe('split ratios', () => {
 		expect(parseRatios('7')).toEqual(DEFAULT_RATIOS);
 	});
 });
+
+describe('narrower limits', () => {
+	const limits = { min: 0.4, max: 0.7 };
+
+	it('clamp a ratio, a pointer and the keys to them', () => {
+		expect(clampRatio(0.1, limits)).toBe(0.4);
+		expect(clampRatio(0.9, limits)).toBe(0.7);
+		expect(ratioFromPointer(0, 0, 1000, limits)).toBe(0.4);
+		expect(ratioFromPointer(990, 0, 1000, limits)).toBe(0.7);
+		expect(stepRatio(0.41, 'ArrowLeft', 'col', false, limits)).toBe(0.4);
+		expect(stepRatio(0.5, 'Home', 'col', false, limits)).toBe(0.4);
+		expect(stepRatio(0.5, 'End', 'col', false, limits)).toBe(0.7);
+	});
+
+	it('a minimum above the maximum is the maximum', () => {
+		expect(clampRatio(0.3, { min: 0.9, max: 0.8 })).toBe(0.8);
+	});
+});

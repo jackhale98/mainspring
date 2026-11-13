@@ -82,7 +82,6 @@ function input(over: Partial<ModelInput> = {}, res: ScheduleResult | null = null
 			current: true,
 		}),
 		analysis: null,
-		nowMs: null,
 	};
 	return { ...base, ...over };
 }
@@ -271,24 +270,21 @@ describe('buildGanttModel', () => {
 		expect(stale.links.some((l) => l.critical)).toBe(false);
 	});
 
-	it('keeps the dimmed flag and reads the status date and today in minutes', () => {
+	it('keeps the dimmed flag and reads the status date in minutes', () => {
 		const res = result(2, { tasks: TASKS });
 		if (res.project) {
 			res.project.now = '2026-01-07T12:00:00Z';
 		}
-		const nowMs = Date.parse('2026-01-06T00:00:00Z');
-		const m = buildGanttModel(input({ dimmed: true, nowMs }, res));
+		const m = buildGanttModel(input({ dimmed: true }, res));
 		expect(m.dimmed).toBe(true);
 		expect(m.statusMin).toBe(2 * D + 720);
-		expect(m.todayMin).toBe(D);
 		expect(m.calendar?.startEpoch).toBe(Date.parse('2026-01-05T00:00:00Z') / 1000);
 	});
 
-	it('keeps the clock out of the model when nowMs is left out, and reads it with todayOf', () => {
+	it('keeps the clock out of the model, and reads it with todayOf', () => {
 		const res = result(2, { tasks: TASKS });
 		const nowMs = Date.parse('2026-01-06T00:00:00Z');
 		const m = buildGanttModel(input({}, res));
-		expect(m.todayMin).toBeNull();
 		expect(todayOf(res.project ?? null, nowMs)).toBe(D);
 		expect(todayOf(null, nowMs)).toBeNull();
 		expect(todayOf(res.project ?? null, null)).toBeNull();

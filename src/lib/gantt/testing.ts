@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /** Builders for the Gantt unit tests: rows, links and models without an index or an engine. */
 import { EMPTY_MODEL, type GanttLink, type GanttModel, type GanttRow } from './model';
+import type { TextMeasure } from './labels';
 import { metricsFor, type Metrics } from './layout';
 import { FALLBACK_THEME, type Theme } from './paint/theme';
 import { MIN_PER_DAY } from './scale';
@@ -93,6 +94,9 @@ export const COARSE_THEME: Theme = {
 	milestoneHalf: 10,
 	minBarWidth: 4,
 };
+
+/** A text measure of fixed-width glyphs, 6 px each, so that a name's run is easy to work out. */
+export const FIXED_MEASURE: TextMeasure = { width: (_font, text) => text.length * 6 };
 
 export function metricsOf(coarse: boolean): Metrics {
 	return metricsFor(coarse ? COARSE_THEME : TEST_THEME, coarse);

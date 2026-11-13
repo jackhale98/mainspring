@@ -14,7 +14,7 @@ import {
 } from './layout';
 import { FALLBACK_THEME } from './paint/theme';
 import { createScale } from './scale';
-import { D, link, metricsOf, modelOf, row } from './testing';
+import { D, FIXED_MEASURE, link, metricsOf, modelOf, row } from './testing';
 
 describe('metrics', () => {
 	it('takes every size from the theme, so a token change moves the geometry', () => {
@@ -149,8 +149,8 @@ describe('link routing by type', () => {
 		const path = layout.linkPath(link(0, 1, { from: 'end', to: 'end' }));
 		expect(path).toEqual([
 			{ x: 192, y: 14 },
-			{ x: 248, y: 14 },
-			{ x: 248, y: 42 },
+			{ x: 249, y: 14 },
+			{ x: 249, y: 42 },
 			{ x: 240, y: 42 },
 		]);
 	});
@@ -161,8 +161,8 @@ describe('link routing by type', () => {
 			{ x: 96, y: 14 },
 			{ x: 88, y: 14 },
 			{ x: 88, y: 28 },
-			{ x: 248, y: 28 },
-			{ x: 248, y: 42 },
+			{ x: 249, y: 28 },
+			{ x: 249, y: 42 },
 			{ x: 240, y: 42 },
 		]);
 	});
@@ -276,6 +276,78 @@ describe('layout typed arrays (phase-2.md 6.3)', () => {
 		expect(moved.avatars).toBe(layout.avatars);
 		expect(moved.width).toBe(layout.width);
 		expect(moved.rowTop(2)).toBe(layout.rowTop(2));
+	});
+});
+
+describe('names', () => {
+	const m = metricsOf(false);
+	const scale = createScale(48, 0);
+
+	it('reserves where each name is: inside a bar that holds it, else beside the bar after a gap', () => {
+		const layout = createLayout(
+			modelOf([row(0, 0, 2 * D), row(1, 0, D / 2), row(2, null, null), row(3, 0, D, 'container')]),
+			scale,
+			m,
+			0,
+			FIXED_MEASURE,
+		);
+		const at = (i: number): number[] => Array.from(layout.labels.slice(3 * i, 3 * i + 3));
+		// "Task 0" is 36 px: 6 px in from a 96 px bar.
+		expect(at(0)).toEqual([m.labelPad, m.labelPad + 36, 1]);
+		// A 24 px bar is too short for it: the name starts a gap after the bar.
+		expect(at(1)).toEqual([24 + m.labelGap, 24 + m.labelGap + 36, 0]);
+		expect(at(2).every(Number.isNaN)).toBe(true);
+		expect(at(3).every(Number.isNaN)).toBe(true);
+	});
+
+	it('starts a name beside a bar after its float tail', () => {
+		const layout = createLayout(
+			modelOf([row(0, 0, D / 2, 'task', { floatMin: D, lateEnd: 3 * D })]),
+			scale,
+			m,
+			0,
+			FIXED_MEASURE,
+		);
+		expect(layout.labels[0]).toBe(3 * 48 + m.labelGap);
+	});
+
+	it('measures each name once per model and measure, however often the layout is built', () => {
+		const model = modelOf([row(0, 0, 2 * D), row(1, 0, D / 2)]);
+		let calls = 0;
+		const counting = {
+			width: (font: string, text: string) => {
+				calls++;
+				return FIXED_MEASURE.width(font as 'bar', text);
+			},
+		};
+		const first = createLayout(model, scale, m, 0, counting);
+		const measured = calls;
+		expect(measured).toBeGreaterThan(0);
+		// A zoom step and a move of the window build it again: the widths are read back.
+		const again = createLayout(model, createScale(96, 0), m, 0, counting);
+		createLayout(model, scale, m, 800, counting);
+		expect(calls).toBe(measured);
+		expect(again.labels[3]).not.toBe(first.labels[3]);
+		// Another model, or another measure (the fonts changed), measures afresh.
+		createLayout(modelOf([row(0, 0, D)]), scale, m, 0, counting);
+		expect(calls).toBeGreaterThan(measured);
+	});
+
+	it('reserves nothing without a text measure', () => {
+		expect(createLayout(modelOf([row(0, 0, D / 2)]), scale, m).labels).toHaveLength(0);
+	});
+
+	it('steps a link off the name of a row it passes, and not off one inside a bar', () => {
+		// Row 1's short bar ends at 91, so its name runs from 105 to 141 across the leg at 104.
+		const rows = [row(0, 0, 2 * D), row(1, 2640, 2650), row(2, 6 * D, 7 * D)];
+		const across = createLayout(modelOf(rows, [link(0, 2)]), scale, m, 0, FIXED_MEASURE);
+		const plain = createLayout(modelOf(rows, [link(0, 2)]), scale, m);
+		expect(plain.linkPath(link(0, 2))[1]?.x).toBe(104);
+		expect(across.linkPath(link(0, 2))[1]?.x).toBe(141 + 3);
+		// The same link and a bar wide enough to hold its name: the leg runs behind the bar.
+		const wide = [rows[0]!, row(1, 2640, 2640 + 3 * D), rows[2]!];
+		const inside = createLayout(modelOf(wide, [link(0, 2)]), scale, m, 0, FIXED_MEASURE);
+		expect(inside.linkPath(link(0, 2))[1]?.x).toBe(104);
 	});
 });
 

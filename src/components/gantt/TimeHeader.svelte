@@ -16,6 +16,7 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import type { GanttLayout, PaintWindow } from '../../lib/gantt/layout';
+	import { labelFade } from '../../lib/gantt/fade';
 	import type { GanttModel } from '../../lib/gantt/model';
 	import { sizeCanvas, tabularWidth, textWidth } from '../../lib/gantt/paint/canvas';
 	import { markerLines } from '../../lib/gantt/paint/grid';
@@ -32,8 +33,10 @@
 		dpr: number;
 		/** The wall-clock minute for the today crown (`todayOf`); the clock is not in the model. */
 		todayMin: number | null;
+		/** How far the chart is scrolled: a month's label fades as its cell runs out under the task column. */
+		scrollLeft: number;
 	}
-	let { model, layout, win, ticks, theme, dpr, todayMin }: Props = $props();
+	let { model, layout, win, ticks, theme, dpr, todayMin, scrollLeft }: Props = $props();
 
 	let el: HTMLCanvasElement | undefined = $state();
 	let raf = 0;
@@ -83,6 +86,8 @@
 		readonly w: number;
 		readonly name: string;
 		readonly year: string;
+		/** The label's own width, with its padding. */
+		readonly labelW: number;
 	}
 
 	let measure: CanvasRenderingContext2D | null = null;
@@ -137,8 +142,9 @@
 			const parts = MONTH_YEAR.exec(t.label);
 			const name = parts?.[1] ?? t.label;
 			const year = parts?.[2] ?? '';
-			if (x1 - x0 < widthOf(name, year) + 2 * theme.labelPad) continue;
-			out.push({ key: t.at, x: x0, w: x1 - x0, name, year });
+			const labelW = widthOf(name, year) + theme.labelPad;
+			if (x1 - x0 < labelW + theme.labelPad) continue;
+			out.push({ key: t.at, x: x0, w: x1 - x0, name, year, labelW });
 		}
 		return out;
 	});
@@ -149,7 +155,7 @@
 	<div class="months" aria-hidden="true">
 		{#each cells as c (c.key)}
 			<div class="cell" style:left="{c.x}px" style:width="{c.w}px">
-				<span class="label"
+				<span class="label" style:opacity={labelFade(c.x + c.w - scrollLeft, c.labelW)}
 					>{c.name}{#if c.year !== ''}<span class="year"> {c.year}</span>{/if}</span
 				>
 			</div>

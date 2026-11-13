@@ -10,26 +10,24 @@ const utc = { startEpoch: Date.UTC(2026, 0, 5) / 1000, env: { zone: null }, loca
 
 describe('markerLines', () => {
 	it('draws the status date and today as two lines when they are apart', () => {
-		const m = modelOf([], [], { statusMin: 2 * D, todayMin: 5 * D });
-		expect(markerLines(m)).toEqual([
+		const m = modelOf([], [], { statusMin: 2 * D });
+		expect(markerLines(m, 5 * D)).toEqual([
 			{ at: 2 * D, kind: 'status' },
 			{ at: 5 * D, kind: 'today' },
 		]);
 	});
 
 	it('merges the two into one when they fall within an hour (a plan without now)', () => {
-		const m = modelOf([], [], { statusMin: 3 * D, todayMin: 3 * D + 40 });
-		expect(markerLines(m)).toEqual([{ at: 3 * D, kind: 'both' }]);
+		const m = modelOf([], [], { statusMin: 3 * D });
+		expect(markerLines(m, 3 * D + 40)).toEqual([{ at: 3 * D, kind: 'both' }]);
 	});
 
 	it('draws what it has', () => {
-		expect(markerLines(modelOf([]))).toEqual([]);
-		// Today may come from outside the model.
-		expect(markerLines(modelOf([], [], { statusMin: 2 * D }), 5 * D)).toEqual([
+		expect(markerLines(modelOf([]), null)).toEqual([]);
+		expect(markerLines(modelOf([]), 5)).toEqual([{ at: 5, kind: 'today' }]);
+		expect(markerLines(modelOf([], [], { statusMin: 2 * D }), null)).toEqual([
 			{ at: 2 * D, kind: 'status' },
-			{ at: 5 * D, kind: 'today' },
 		]);
-		expect(markerLines(modelOf([], [], { todayMin: 5 }))).toEqual([{ at: 5, kind: 'today' }]);
 	});
 });
 
@@ -79,7 +77,7 @@ describe('paintGrid', () => {
 	});
 
 	it('draws no today or status line: they follow the clock and live on the overlay layer', () => {
-		const model = modelOf(rows, [], { statusMin: 2 * D, todayMin: 4 * D });
+		const model = modelOf(rows, [], { statusMin: 2 * D });
 		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 100 } });
 		paintGrid(frame, null);
 		const styles = rec.of('set:fillStyle').map((c) => c[1]);

@@ -116,7 +116,6 @@ describe('driving-path analysis timings (spec 6.2, 8.3)', () => {
 					dimmed: false,
 					links,
 					analysis: withAnalysis ? analysis : null,
-					nowMs: Date.parse('2026-11-13T12:00:00Z'),
 				});
 			record(`model ${id}, no analysis (before)`, r.tasks.length, repeat(100, build(false)), null);
 			record(`model ${id}, with analysis (after)`, r.tasks.length, repeat(100, build(true)), null);
