@@ -6,7 +6,8 @@
 // moved bar starts the dragged number of working days later). Then random actions keep the first
 // two properties, apart from errors that depend on the schedule and not on the text (11.2), which
 // are counted. Needs the built engine (npm run build:engine); skipped without it, except with
-// TJP_EDIT_ENGINE=1, where a missing engine fails.
+// TJP_EDIT_ENGINE=1, where a missing engine fails. Over 400 lines on purpose: every 7.1 row and every
+// review case is one engine row here, so the engine evidence reads in one place.
 import fs from 'node:fs';
 import path from 'node:path';
 import fc from 'fast-check';
@@ -17,7 +18,13 @@ import { bootNodeEngine } from '../../../engine/golden/run-wasm.mjs';
 import { ROOT } from '../../../tests/grammar/corpus';
 import { finishScenario } from '../schedule/finish';
 import { workingTimeOf } from '../schedule/working-time';
-import { checkAction, type GanttAction, type MoveKind } from './intents';
+import {
+	checkAction,
+	planAction,
+	suggestedMoveKind,
+	type GanttAction,
+	type MoveKind,
+} from './intents';
 import { actionArb, fixtureFrom, manipulation, type Fixture } from './intents-testing';
 
 const ENGINE = path.join(ROOT, 'public/engine/manifest.json');
@@ -318,5 +325,175 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('Gantt actions schedule', (
 		const r2 = schedule(twice as Record<string, string>);
 		expect(r2.ok).toBe(true);
 		expect(taskIn(r2, 'design.research').start).toBe(at('2026-03-05', 9));
+	});
+
+	// The T12 review's cases (H1, H2, M1 to M3, L1, L2, L8), each scheduled on the engine: the
+	// task's work must start (or end) on the working day the gesture asked for.
+	describe('review cases', () => {
+		const HEAD = 'project p "P" 2026-03-02 - 2026-06-30 {\n}\nresource r1 "R1"\nresource r2 "R2"\n';
+		/** A small plan, scheduled, as a fixture; its own scheduled result must be clean. */
+		const plan = (body: string, head = HEAD): Fixture => {
+			const files = { 'plan.tjp': head + body };
+			const r = schedule(files);
+			expect(errorIds(r), body).toEqual([]);
+			return fixtureFrom(files, 'plan.tjp', r);
+		};
+		const day = (date: string): number => at(date, 0) / 1440;
+		/** The calendar day the task's work starts on, and the day of its last working minute. */
+		const workStart = (r: ScheduleResult, id: string): number => {
+			const wt = workingTimeOf(r.project as NonNullable<ScheduleResult['project']>);
+			return Math.floor(wt.snap(taskIn(r, id).start as number, 'start') / 1440);
+		};
+		const workEnd = (r: ScheduleResult, id: string): number => {
+			const wt = workingTimeOf(r.project as NonNullable<ScheduleResult['project']>);
+			return Math.floor((wt.snap(taskIn(r, id).end as number, 'end') - 1) / 1440);
+		};
+		/** Plans and schedules an action that must edit; the new result (clean). */
+		const run = (f: Fixture, a: GanttAction, move: MoveKind | null = null): ScheduleResult => {
+			const files = edited(f, a, move);
+			expect(files, JSON.stringify(a)).not.toBeNull();
+			const r = schedule(files as Record<string, string>);
+			expect(r.ok, JSON.stringify(a)).toBe(true);
+			expect(newErrors(f.result, r), JSON.stringify(a)).toEqual([]);
+			return r;
+		};
+		const refusal = (f: Fixture, a: GanttAction, move: MoveKind | null = null): string => {
+			const out = checkAction(a, f.ctx({ move: move === null ? null : { kind: move } }), f.snap);
+			return out.status === 'refused' ? out.reason : out.status;
+		};
+		const move = (task: string, days: number): GanttAction => ({ type: 'move', task, days });
+
+		it('H1: a task placed in non-working time moves from the day it works', () => {
+			// sketch starts Fri 6 March 17:00 (after research and its gap): it works from Monday.
+			expect(workStart(run(fx, move('design.sketch', 1), 'start'), 'design.sketch')).toBe(
+				day('2026-03-10'),
+			);
+			expect(workStart(run(fx, move('design.sketch', 2), 'start'), 'design.sketch')).toBe(
+				day('2026-03-11'),
+			);
+			// review (duration, onstart sketch) at Fri 17:00 likewise, written exactly.
+			expect(taskIn(run(fx, move('design.review', 1), 'start'), 'design.review').start).toBe(
+				at('2026-03-10', 9),
+			);
+			// A length task after a plain depends starts at Tue 17:00 and works Wednesday.
+			const g = plan(
+				'task a "A" {\n  start 2026-03-02\n  length 2d\n}\ntask b "B" {\n  depends a\n  length 2d\n}\n',
+			);
+			expect(workStart(run(g, move('b', 1), 'start'), 'b')).toBe(day('2026-03-05'));
+			expect(workStart(run(g, move('b', 2), 'start'), 'b')).toBe(day('2026-03-06'));
+			expect(workStart(run(g, move('b', 1), 'gap'), 'b')).toBe(day('2026-03-05'));
+			// An effort task after a depends: one and two days; earlier is at the limit.
+			const e = plan(
+				'task a "A" {\n  start 2026-03-02\n  effort 3d\n  allocate r1\n}\ntask b "B" {\n  depends a\n  effort 2d\n  allocate r2\n}\n',
+			);
+			expect(workStart(run(e, move('b', 1), 'start'), 'b')).toBe(day('2026-03-06'));
+			expect(workStart(run(e, move('b', 2), 'start'), 'b')).toBe(day('2026-03-09'));
+			expect(refusal(e, move('b', -1), 'start')).toBe('at-limit');
+		});
+
+		it('H1: the ALAP mirror moves the end from the day it works', () => {
+			// Ends Mon 16 March 09:00, so its last working day is Friday 13.
+			const g = plan('task a "A" {\n  scheduling alap\n  end 2026-03-16-09:00\n  length 2d\n}\n');
+			expect(workEnd(run(g, move('a', -1)), 'a')).toBe(day('2026-03-12'));
+			expect(workEnd(run(g, move('a', -2)), 'a')).toBe(day('2026-03-11'));
+			expect(workEnd(run(g, move('a', 1)), 'a')).toBe(day('2026-03-16'));
+			const h = plan(
+				'task a "A" {\n  scheduling alap\n  end 2026-03-13-09:00\n  effort 2d\n  allocate r1\n}\n',
+			);
+			expect(workEnd(run(h, move('a', -1)), 'a')).toBe(day('2026-03-11'));
+			expect(workEnd(run(h, move('a', 1)), 'a')).toBe(day('2026-03-13'));
+		});
+
+		it('H1: calendar-time tasks keep their time of day on the day they work', () => {
+			const g = plan(
+				'task a "A" {\n  start 2026-03-02-13:00\n  duration 2d\n}\ntask m "M" {\n  start 2026-03-04-15:00\n  milestone\n}\ntask c "C" {\n  start 2026-03-02\n  duration 3d\n}\n',
+			);
+			expect(taskIn(run(g, move('a', 1), 'start'), 'a').start).toBe(at('2026-03-03', 13));
+			expect(taskIn(run(g, move('m', -1), 'start'), 'm').start).toBe(at('2026-03-03', 15));
+			expect(taskIn(run(g, move('c', 1), 'start'), 'c').start).toBe(at('2026-03-03', 0));
+			const h = plan('task a "A" {\n  scheduling alap\n  end 2026-03-13\n  duration 2d\n}\n');
+			expect(taskIn(run(h, move('a', -1)), 'a').end).toBe(at('2026-03-12', 0));
+			expect(taskIn(run(fx, move('design.gate', 1), 'start'), 'design.gate').start).toBe(
+				at('2026-03-30', 0),
+			);
+		});
+
+		it('H2: a gapduration gap lands the work on the asked day, weekends included', () => {
+			// a ends Fri 17:00; gapduration 1d puts b at Sat 17:00, working Monday.
+			const sat = plan(
+				'task a "A" {\n  start 2026-03-02\n  length 5d\n}\ntask b "B" {\n  depends a { gapduration 1d }\n  length 1d\n}\n',
+			);
+			expect(workStart(run(sat, move('b', 1), 'gap'), 'b')).toBe(day('2026-03-10'));
+			expect(workStart(run(sat, move('b', 2), 'gap'), 'b')).toBe(day('2026-03-11'));
+			expect(refusal(sat, move('b', -1), 'gap')).toBe('at-limit');
+			// a ends Thu 17:00; b at Fri 17:00, working Monday.
+			const fri = plan(
+				'task a "A" {\n  start 2026-03-02\n  length 4d\n}\ntask b "B" {\n  depends a { gapduration 1d }\n  length 1d\n}\n',
+			);
+			expect(workStart(run(fri, move('b', 1), 'gap'), 'b')).toBe(day('2026-03-10'));
+			expect(workStart(run(fri, move('b', -1), 'gap'), 'b')).toBe(day('2026-03-06'));
+			// a ends Wed 13:00; b at Fri 13:00: whole days keep the afternoon.
+			const mid = plan(
+				'task a "A" {\n  start 2026-03-02\n  length 20h\n}\ntask b "B" {\n  depends a { gapduration 2d }\n  length 1d\n}\n',
+			);
+			expect(taskIn(run(mid, move('b', 1), 'gap'), 'b').start).toBe(at('2026-03-09', 13));
+			expect(taskIn(run(mid, move('b', -1), 'gap'), 'b').start).toBe(at('2026-03-05', 13));
+		});
+
+		it('M1: a dependency with both gaps is not moved by a gap', () => {
+			const k = plan(
+				'task a "A" {\n  start 2026-03-02\n  length 1d\n}\ntask b "B" {\n  depends a { gaplength 1d gapduration 7d }\n  length 1d\n}\n',
+			);
+			expect(refusal(k, move('b', 1), 'gap')).toBe('two-gaps');
+			expect(refusal(k, move('b', -1), 'gap')).toBe('two-gaps');
+		});
+
+		it('M2: the ALAP size handle is the start; the end stays', () => {
+			const g = plan('task a "A" {\n  scheduling alap\n  end 2026-03-13\n  length 2d\n}\n');
+			const r = run(g, { type: 'resize', task: 'a', at: at('2026-03-09', 9) });
+			expect(taskIn(r, 'a').start).toBe(at('2026-03-09', 9));
+			expect(taskIn(r, 'a').end).toBe(at('2026-03-13', 0));
+			const before = taskIn(fx.result, 'design.docs');
+			const step = taskIn(
+				run(fx, { type: 'size-step', task: 'design.docs', steps: 1 }),
+				'design.docs',
+			);
+			expect(step.end).toBe(before.end);
+			expect(step.start as number).toBeLessThan(before.start as number);
+		});
+
+		it('M3: no gap move and no silent start without the analysis', () => {
+			const ctx = fx.ctx({ move: { kind: 'gap' }, analysis: null });
+			expect(planAction(move('build.tests', 1), ctx)).toMatchObject({ reason: 'analysing' });
+			expect(suggestedMoveKind('design.sketch', fx.ctx({ analysis: null }))).toBe('gap');
+			expect(suggestedMoveKind('design.research', fx.ctx({ analysis: null }))).toBe('start');
+		});
+
+		it('L1: an effort resize of a shared task ends on the dragged day', () => {
+			for (const d of ['2026-04-01', '2026-04-02', '2026-04-03', '2026-04-07']) {
+				const r = run(fx, { type: 'resize', task: 'build.code', at: at(d, 17) });
+				expect(workEnd(r, 'build.code'), d).toBe(day(d));
+			}
+		});
+
+		it('L2: a clamped start is written as the plain date of its working day', () => {
+			const f = plan(
+				'task a "A" {\n  start 2026-03-02\n  effort 3d\n  allocate r1\n}\ntask b "B" {\n  start 2026-03-11\n  depends a\n  effort 2d\n  allocate r2\n}\n',
+			);
+			const files = edited(f, move('b', -10), 'start');
+			expect(files?.['plan.tjp']).toContain('  start 2026-03-05\n');
+			expect(workStart(run(f, move('b', -10), 'start'), 'b')).toBe(day('2026-03-05'));
+		});
+
+		it('L8: a gaplength step is one working day of the calendar, whatever dailyworkinghours says', () => {
+			const head = 'project p "P" 2026-03-02 - 2026-06-30 {\n  dailyworkinghours 6\n}\n';
+			const g = plan(
+				'task a "A" {\n  start 2026-03-02\n  length 2d\n}\ntask b "B" {\n  depends a { gaplength 1d }\n  length 1d\n}\n',
+				head,
+			);
+			const before = workStart(g.result, 'b');
+			const r = run(g, move('b', 1), 'gap');
+			expect(workStart(r, 'b') - before).toBe(1);
+		});
 	});
 });
