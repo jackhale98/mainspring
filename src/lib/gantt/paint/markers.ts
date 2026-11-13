@@ -12,7 +12,12 @@ import type { Minutes } from '../../../engine/protocol';
 import { snap, type PaintFrame } from './canvas';
 import { markerLines } from './grid';
 
-export function paintMarkers(f: PaintFrame, todayMin: Minutes | null): void {
+/** `note` is told each rectangle drawn on, so that the overlay can erase just those. */
+export function paintMarkers(
+	f: PaintFrame,
+	todayMin: Minutes | null,
+	note?: (x: number, y: number, w: number, h: number) => void,
+): void {
 	const { ctx, win, dpr, layout, model, theme } = f;
 	const { scale } = layout;
 	const left = win.x - 1;
@@ -23,6 +28,7 @@ export function paintMarkers(f: PaintFrame, todayMin: Minutes | null): void {
 		if (x < left - width || x > right + width) continue;
 		ctx.fillStyle = m.kind === 'status' ? theme.statusDate : theme.today;
 		const x0 = snap(x - width / 2, dpr);
+		note?.(x0, win.y, width, win.h);
 		if (m.kind === 'status') {
 			// Dashed: 1.5 dashes on, 1 off.
 			const on = theme.dash * 1.5;

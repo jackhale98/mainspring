@@ -327,4 +327,30 @@ describe('paintBars', () => {
 		paintBars(frameOf(modelOf([row(0, 0, 10 * D)])).frame);
 		expect(rec.of('clip')).toHaveLength(0);
 	});
+
+	it('paints a moved window again in pieces, the rows in the middle first, and never copies', () => {
+		const rows = Array.from({ length: 60 }, (_, i) => row(i, 0, 2 * D, 'task', { name: `T${i}` }));
+		const { frame, rec } = frameOf(modelOf(rows), { win: { x: 0, y: 0, w: 1000, h: 560 } });
+		paintBars(frame);
+		expect(rec.of('fillText')).toHaveLength(20);
+		rec.clear();
+		// Down by 56 px (two rows): the window is y 56 to 616, rows 2 to 21. With no frame to wait
+		// for here every band is painted, but in the order of the middle first: row 7 is the first
+		// row of the band round y 336, and row 2 comes last.
+		paintBars({ ...frame, win: { x: 0, y: 56, w: 1000, h: 560 } });
+		expect(rec.of('drawImage')).toHaveLength(0);
+		const names = rec.of('fillText').map((c) => c[1] as string);
+		expect(names[0]).toBe('T7');
+		expect(names).toContain('T2');
+		// A row on the edge of two bands is drawn in each, clipped, so some names come twice.
+		expect(new Set(names).size).toBe(20);
+		// The same window again: nothing to do.
+		rec.clear();
+		paintBars({ ...frame, win: { x: 0, y: 56, w: 1000, h: 560 } });
+		expect(rec.calls.filter((c) => c[0] === 'fillText')).toHaveLength(0);
+		// A new theme repaints everything at once.
+		rec.clear();
+		paintBars({ ...frame, theme: { ...frame.theme }, win: { x: 0, y: 56, w: 1000, h: 560 } });
+		expect(rec.of('fillText')).toHaveLength(20);
+	});
 });
