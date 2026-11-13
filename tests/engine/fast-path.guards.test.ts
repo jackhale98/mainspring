@@ -13,6 +13,8 @@ import { canonicalResult } from './fast-path-cases';
 
 const ENGINE = path.join(REPO, 'public/engine/manifest.json');
 const ON = process.env['FAST_PATH'] === '1';
+/** Each case runs the engine two to four times; generous, for loaded CI runners. */
+const CASE_MS = 120_000;
 const NOW = { now: '2026-01-05T09:00:00Z' };
 
 const PLAN = [
@@ -102,7 +104,7 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: its own checks', () =
 			expect(fast.timings.path, fast.timings.fastFallback).toBe(c.fast ? 'fast' : 'full');
 			if (c.reason) expect(fast.timings.fastFallback).toMatch(c.reason);
 			expect(canonicalResult(fast)).toBe(canonicalResult(full));
-		});
+		}, CASE_MS);
 	}
 
 	it('keeps the time zone of the plan across an unrelated run in between', () => {
@@ -116,7 +118,7 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: its own checks', () =
 		const full = engine.schedule({ ...req, revision: ++revision });
 		expect(fast.timings.path, fast.timings.fastFallback).toBe('fast');
 		expect(canonicalResult(fast)).toBe(canonicalResult(full));
-	});
+	}, CASE_MS);
 
 	it('a newer run with retain replaces the kept parse; a run without it does not', () => {
 		const first = engine.schedule({ files: { 'plan.tjp': PLAN }, entry: 'plan.tjp', options: NOW, retain: true, revision: ++revision });
@@ -129,7 +131,7 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: its own checks', () =
 		engine.schedule({ files: { 'plan.tjp': PLAN }, entry: 'plan.tjp', options: NOW, retain: true, revision: ++revision });
 		const old = engine.schedule({ ...req, revision: ++revision, fast: { base: first.revision, ...patch } });
 		expect(old.timings.fastFallback).toMatch(/another base/);
-	});
+	}, CASE_MS);
 
 	it('a plan with shifts is not kept, and says why', () => {
 		const shifts = PLAN.replace('resource dev "Dev"', 'shift s "S" {\n  workinghours mon - fri 9:00 - 12:00\n}\nresource dev "Dev" {\n  shifts s 2026-01-05 - 2026-02-01\n}');
@@ -142,5 +144,5 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: its own checks', () =
 		const full = engine.schedule({ files: { 'plan.tjp': lines.join('\n') }, entry: 'plan.tjp', options: NOW, revision: ++revision });
 		expect(fast.timings.fastFallback).toMatch(/no kept run/);
 		expect(canonicalResult(fast)).toBe(canonicalResult(full));
-	});
+	}, CASE_MS);
 });

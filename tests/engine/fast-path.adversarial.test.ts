@@ -193,6 +193,6 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: the review repros', (
 			if (full.project?.now === fast.project?.now) {
 				expect(canonicalResult(fast)).toBe(canonicalResult(full));
 			}
-		});
+		}, 120_000);
 	}
 });

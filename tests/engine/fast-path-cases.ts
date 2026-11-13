@@ -114,4 +114,79 @@ function sortKeys(v: unknown): unknown {
 	return v;
 }
 
+const isoDay = (d: number): string => `2026-${pad(1 + Math.floor((d - 1) / 28))}-${pad(1 + ((d - 1) % 28))}`;
+
+/**
+ * A plan of the direction family (the T19 review, H1): scenarios `plan` and its child `late`,
+ * and tasks whose `start` or `end` comes with a statement that sets the direction in one
+ * scenario or both (`late:depends`, `late:scheduling`, `late:end`, `late:start`, `depends`,
+ * `precedes`, `scheduling`), before or after it. A `start` or `end` rewrite there may run fast
+ * only when no scenario's direction would change.
+ */
+export function directionPlan(rng: Rng): Record<string, string> {
+	const lines = [
+		'project p "P" 2026-01-05 +4m {',
+		'  scenario plan "Plan" { scenario late "Late" }',
+		'}',
+		'resource r1 "R1"',
+		'resource r2 "R2"',
+		'task m "M" { start 2026-04-20 }',
+	];
+	const n = rng.int(3, 6);
+	for (let i = 0; i < n; i++) {
+		const prev = i > 0 ? `t${i - 1}` : null;
+		const anchor = rng.chance(0.5) ? `start ${isoDay(rng.int(8, 30))}` : `end ${isoDay(rng.int(40, 70))}`;
+		const extras = [
+			prev ? `late:depends ${prev}` : null,
+			'late:scheduling alap',
+			'late:scheduling asap',
+			`late:end ${isoDay(rng.int(72, 90))}`,
+			`late:start ${isoDay(rng.int(8, 20))}`,
+			prev ? `depends ${prev}` : null,
+			'precedes m',
+			'late:precedes m',
+			'scheduling alap',
+			'scheduling asap',
+		].filter((x): x is string => x !== null);
+		const body = [anchor, `effort ${rng.int(1, 6)}d`, `allocate r${rng.int(1, 2)}`];
+		for (const extra of rng.sample(extras, rng.int(0, 2))) {
+			if (rng.chance(0.5)) body.push(extra);
+			else body.unshift(extra);
+		}
+		lines.push(`task t${i} "T${i}" {`, ...body.map((b) => `  ${b}`), '}');
+	}
+	return { 'plan.tjp': `${lines.join('\n')}\n` };
+}
+
+/**
+ * Rewrites of every top-scenario `start` and `end` line of a one-file plan whose tasks are
+ * top-level blocks, sent whether or not fast-patch.ts would offer them: what a wrong main thread
+ * could send, so the bridge's own checks alone decide (ADR-0010, "What the bridge checks").
+ */
+export function rawDateRewrites(ws: Workspace, index: SymbolIndex, rng: Rng): Rewrite[] {
+	const out: Rewrite[] = [];
+	const entry = ws.snapshot().entry;
+	const text = ws.snapshot().files.get(entry)?.text.toString() ?? '';
+	const lines = text.split('\n');
+	let task: string | null = null;
+	lines.forEach((l, i) => {
+		const open = /^task (\w+) /.exec(l);
+		if (open) task = open[1] ?? null;
+		const m = /^[ \t]+(start|end)[ \t]+(\S+)$/.exec(l);
+		const symbol = task ? index.tasks.get(task) : undefined;
+		if (!m || !symbol) return;
+		const attribute = m[1] as 'start' | 'end';
+		const site: Site = { task: symbol, attribute, file: entry, line: i + 1, value: m[2] ?? '' };
+		const value = newValue(site, rng);
+		const next = [...lines];
+		next[i] = l.replace(site.value, value);
+		out.push({
+			site,
+			edit: { task: symbol.id, attribute, scenario: null, value, file: entry, line: i + 1 },
+			files: { [entry]: next.join('\n') },
+		});
+	});
+	return out;
+}
+
 export { Rng };

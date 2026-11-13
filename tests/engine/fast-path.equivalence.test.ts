@@ -7,12 +7,18 @@
 // run (the bridge cannot vouch for it); it must match all the same, and the fallbacks are counted
 // by reason.
 //
-// Cases: every golden plan (FAST_PATH_CORPUS_EDITS rewrites each, default 6, plus one patch of
-// several rewrites), FAST_PATH_RUNS generated plans of the fidelity generator (default 500, one
-// or two rewrites each, with `options.now` fixed so that the clock cannot move between runs), and
-// a shuffled replay of a sample of both through the same engine, with unrelated full runs in
-// between, to catch state left behind by a run. FAST_PATH_SEED seeds it all; FAST_PATH_PLANS
-// limits the golden plans for a replay.
+// Cases:
+// - every golden plan: FAST_PATH_CORPUS_EDITS rewrites each (default 6), plus one patch of
+//   several rewrites;
+// - FAST_PATH_RUNS generated plans of the fidelity generator (default 500, one or two rewrites
+//   each, with `options.now` fixed so that the clock cannot move between runs);
+// - FAST_PATH_DIRECTION_RUNS plans of the direction family (default 100; fast-path-cases.ts
+//   `directionPlan`): start and end with statements that set the direction in the `late`
+//   scenario or both, every start and end line rewritten whether or not the main thread would
+//   offer it;
+// - a shuffled replay of a sample through the same engine, with unrelated full runs in between,
+//   to catch state left behind by a run (FAST_PATH_SHUFFLED limits its plans; default all).
+// FAST_PATH_SEED seeds it all; FAST_PATH_PLANS limits the golden plans for a replay.
 //
 // Opt-in (FAST_PATH=1): it boots the engine and runs a few thousand schedules. Writes
 // test-results/fast-path-equivalence.json.
@@ -29,9 +35,11 @@ import { mixSeed } from '../fidelity/gen/rng';
 import { loadCorpus, planRequest, REPO } from '../golden/corpus';
 import {
 	canonicalResult,
+	directionPlan,
 	eligibleSites,
 	indexOf,
 	newValue,
+	rawDateRewrites,
 	rewrite,
 	Rng,
 	type Rewrite,
@@ -44,6 +52,9 @@ const num = (name: string, dflt: number): number => {
 	return v === undefined || v === '' ? dflt : Number(v);
 };
 const RUNS = num('FAST_PATH_RUNS', 500);
+const DIRECTION_RUNS = num('FAST_PATH_DIRECTION_RUNS', 100);
+/** FAST_PATH_SHUFFLED=n: at most n plans in the shuffled replay; default all of its sample. */
+const SHUFFLED = num('FAST_PATH_SHUFFLED', Infinity);
 const CORPUS_EDITS = num('FAST_PATH_CORPUS_EDITS', 6);
 const SEED = num('FAST_PATH_SEED', 20261113);
 /** FAST_PATH_PLANS=a,b: only these golden plans (a replay); default all. */
@@ -78,7 +89,7 @@ const report = {
 	differences: [] as string[],
 	clockMoved: 0,
 	shuffled: { cases: 0, differences: 0 },
-	plans: { corpus: 0, generated: 0, withoutSites: 0 },
+	plans: { corpus: 0, generated: 0, direction: 0, withoutSites: 0 },
 };
 
 let engine: Engine;
@@ -172,6 +183,7 @@ function check(plan: Plan): Checked[] {
 
 const corpusPlans: Plan[] = [];
 const generatedPlans: Plan[] = [];
+const directionPlans: Plan[] = [];
 
 describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run', () => {
 	beforeAll(async () => {
@@ -193,6 +205,20 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 			const { rewrites, multi } = rewritesOf(req, undefined, prng, prng.int(1, 2));
 			generatedPlans.push({ name: `generated ${SEED}:${n}`, request: req, rewrites, multi });
 		}
+		for (let n = 0; n < DIRECTION_RUNS; n++) {
+			const prng = new Rng(mixSeed(SEED ^ 0xd1, n));
+			const req = { files: directionPlan(prng), entry: 'plan.tjp', options: { now: GENERATED_NOW } };
+			const ws = createWorkspace({ entry: req.entry, files: req.files });
+			// Every start and end line, offered or not, then what fast-patch.ts offers.
+			const raw = rawDateRewrites(ws, indexOf(ws), prng);
+			const offered = rewritesOf(req, undefined, prng, 2);
+			directionPlans.push({
+				name: `direction ${SEED}:${n}`,
+				request: req,
+				rewrites: [...raw, ...offered.rewrites],
+				multi: offered.multi,
+			});
+		}
 	}, 600_000);
 
 	it('every golden plan', () => {
@@ -213,6 +239,15 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 		expect(report.differences).toEqual([]);
 	}, 3_600_000);
 
+	it(`${DIRECTION_RUNS} direction plans: start and end with late: statements`, () => {
+		for (const p of directionPlans) {
+			report.plans.direction++;
+			if (p.rewrites.length === 0) report.plans.withoutSites++;
+			check(p);
+		}
+		expect(report.differences).toEqual([]);
+	}, 3_600_000);
+
 	it('a shuffled replay through the same engine, with unrelated full runs between', () => {
 		const rng = new Rng(mixSeed(SEED, 0x5f));
 		const sample = [...corpusPlans.filter((p) => p.rewrites.length > 0), ...generatedPlans.filter((p) => p.rewrites.length > 0).slice(0, 60)];
@@ -220,6 +255,7 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 			const j = rng.int(0, i);
 			[sample[i], sample[j]] = [sample[j] as Plan, sample[i] as Plan];
 		}
+		sample.splice(SHUFFLED);
 		const references = new Map<Rewrite, string>();
 		for (const p of sample) {
 			const r = p.rewrites[0];
