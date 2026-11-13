@@ -187,3 +187,18 @@ THEMES objects in the refined mockups, for light and dark mode.
     task-list rows match.
   - Bar outlines: brass bars keep a 1 px outline in the link colour (#9A7424 / #C9A24D) so the
     bar edge meets WCAG 1.4.11. The blued-steel critical bars already exceed 3:1 and need none.
+
+## Pending refinement, 2026-11-13: blued steel as an accent only
+
+The user asked for less blue, as a later change that must not delay the next deploy. On a real
+watch, heat-blued steel is an accent (the hands, a few screws), not a surface. The intent:
+
+- Enamel and brass carry the interface: grounds, panels, bars, controls and selection.
+- Blued steel appears only as thin, precise accents. Candidates: the critical-path links and a
+  fine blued edge or hand-like marker on critical bars instead of a solid blue fill, the progress
+  needle and arc, the focus ring, and the active-mode indicator.
+- Primary buttons, active tabs, selection washes and filled chips move from blue to brass or
+  enamel tones.
+
+This will be applied in one restyle pass after the Gantt and the app frame merge, and recorded
+here with the final values.
