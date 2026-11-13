@@ -10,6 +10,12 @@
  * runner's state: `run.index` for the tree (compare `run.indexVersion` with `run.version` for
  * lag), `run.diagnostics` for problems.
  *
+ * Undo (phase-2.md 6.7, ADR-0008): each workspace gets one `WorkspaceHistory`, created right
+ * after it. `history` (HistoryControls) follows it for the top bar; the editor's keys and the
+ * window's keys call it too. After an undo or redo the changed range is revealed (an intent's is
+ * selected; typing and format keep the selection the history restored), and a change that was not
+ * typing in the open file is named in the editor's note ("Undone: set effort (plan.tjp)").
+ *
  * Samples load in memory; nothing is stored (Phase 4).
  */
 import type { EditorView } from '@codemirror/view';
@@ -32,9 +38,12 @@ import {
 	type RunnerState,
 	type ScheduleRunner,
 } from '../workspace/schedule-runner';
+import { createHistory, type HistoryOutcome, type WorkspaceHistory } from '../workspace/history';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { nextProblem } from './diagnostics-nav';
 import { editorSetup } from './editor-setup';
+import { HistoryControls } from './history-controls.svelte';
+import { bindHistoryKeys } from './history-keys';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
 import { statusView, type StatusView } from './status';
 
@@ -49,6 +58,8 @@ export interface Reveal {
 	readonly nonce: number;
 	/** Whether the editor takes the keyboard focus (not wanted when a touch keyboard would open). */
 	readonly focus: boolean;
+	/** False to scroll to the range and keep the selection (after an undo of typing). */
+	readonly select?: boolean;
 }
 
 export interface AppStateOptions {
@@ -58,6 +69,8 @@ export interface AppStateOptions {
 	initial?: string | null;
 	/** Asks before replacing edited work; default `window.confirm`. */
 	confirm?: (message: string) => boolean;
+	/** Where the undo and redo keys are bound outside the editor; default the window, null for none. */
+	keyTarget?: EventTarget | null;
 }
 
 /** How long a format message stays in the toolbar. */
@@ -89,6 +102,8 @@ export class AppState {
 	docsContent = $state.raw<HoverContent | null>(null);
 	/** The editor view, set by the editor panel. Not reactive. */
 	editor: EditorView | null = null;
+	/** Undo and redo for the top bar and the keys (module comment). */
+	readonly history = new HistoryControls((o) => this.#onHistory(o));
 
 	/** The plan's files, entry first then in include order; follows the include graph. */
 	files = $state.raw<readonly WorkspacePath[]>([]);
@@ -117,6 +132,8 @@ export class AppState {
 	/** Intl-backed zone data for the index: zone names and zone-dependent value checks. */
 	readonly #zones = createTimeZoneHost();
 	#runner: ScheduleRunner | null = null;
+	#history: WorkspaceHistory | null = null;
+	readonly #offKeys: () => void;
 	#unsubscribe: Array<() => void> = [];
 	#docs: SyntaxDocs | null = null;
 	#nonce = 0;
@@ -138,6 +155,8 @@ export class AppState {
 			last = s;
 		});
 		if (this.engine === 'idle') this.#fetchDocs();
+		const keys = opts.keyTarget === undefined ? (globalThis.window ?? null) : opts.keyTarget;
+		this.#offKeys = keys ? bindHistoryKeys(keys, this.history) : () => undefined;
 		const first = this.samples.find((s) => s.id === opts.initial) ?? this.samples[0];
 		if (first) void this.#load(first);
 	}
@@ -185,8 +204,11 @@ export class AppState {
 			onFormat: (o) => this.#onFormat(o),
 		});
 		ws = createWorkspace(seed, {
-			extensions: (path, top) => [extensions(path, top), editorSetup(path)],
+			extensions: (path, top) => [extensions(path, top), editorSetup(path, this.history)],
 		});
+		// First subscriber, so it sees every change in order (history.ts).
+		this.#history = createHistory(ws);
+		this.history.attach(this.#history);
 		runner = createScheduleRunner({ workspace: ws, client: this.client, zones: this.#zones });
 		this.#runner = runner;
 		this.#unsubscribe = [
@@ -222,6 +244,9 @@ export class AppState {
 		this.#unsubscribe = [];
 		this.#runner?.dispose();
 		this.#runner = null;
+		this.history.attach(null);
+		this.#history?.dispose();
+		this.#history = null;
 	}
 
 	/** Shows another file of the plan in the editor. */
@@ -233,10 +258,34 @@ export class AppState {
 	 * Puts the cursor on a range of a file, opening the file and, unless `showText` is false, the
 	 * Text panel on phones (module comment).
 	 */
-	revealRange(file: WorkspacePath, from: number, to: number, focus = true, showText = true): void {
+	revealRange(
+		file: WorkspacePath,
+		from: number,
+		to: number,
+		focus = true,
+		showText = true,
+		select = true,
+	): void {
 		this.openFile(file);
 		if (showText) this.phoneTab = 'text';
-		this.reveal = { file, from, to, nonce: ++this.#nonce, focus };
+		this.reveal = { file, from, to, nonce: ++this.#nonce, focus, select };
+	}
+
+	/** After an undo or redo: reveal what changed, and name it unless it was typing here. */
+	#onHistory(o: HistoryOutcome): void {
+		if (o.status === 'empty') return;
+		if (o.status === 'diverged') {
+			this.#showNote(strings.history.diverged);
+			return;
+		}
+		const files = Object.keys(o.entry.applied.edit.changes);
+		const here = o.entry.kind === 'typing' && files.length === 1 && files[0] === this.activeFile;
+		const r = o.reveal;
+		// The keyboard focus stays where it is; a phone stays on its tab.
+		if (r) this.revealRange(r.file, r.from, r.to, false, false, o.entry.kind === 'intent');
+		if (here) return;
+		const say = o.direction === 'undo' ? strings.history.undone : strings.history.redone;
+		this.#showNote(say(o.entry.label, files.join(', ')));
 	}
 
 	/** A node's declaration in the text now. The index may be older than the text: map it. */
@@ -309,14 +358,19 @@ export class AppState {
 
 	#onFormat(outcome: FormatOutcome): void {
 		const f = editorStrings.format;
-		this.note =
+		this.#showNote(
 			outcome.status === 'formatted'
 				? f.formatted
 				: outcome.status === 'unchanged'
 					? f.unchanged
 					: outcome.reason === 'stale'
 						? f.stale
-						: f.refused;
+						: f.refused,
+		);
+	}
+
+	#showNote(text: string): void {
+		this.note = text;
 		if (this.#noteTimer !== null) clearTimeout(this.#noteTimer);
 		this.#noteTimer = setTimeout(() => (this.note = null), NOTE_MS);
 	}
@@ -324,6 +378,7 @@ export class AppState {
 	dispose(): void {
 		this.#token++;
 		this.#teardown();
+		this.#offKeys();
 		this.#offClient();
 		if (this.#noteTimer !== null) clearTimeout(this.#noteTimer);
 		this.client.dispose();
