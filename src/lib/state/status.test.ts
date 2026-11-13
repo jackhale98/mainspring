@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { strings } from '../strings';
 import { createScheduleRunner, type ScheduleRunner } from '../workspace/schedule-runner';
 import { FakeEngineClient, flush, message, task } from '../workspace/testing/fake-engine-client';
+import { IdleQueue } from '../workspace/testing/idle-queue';
 import { PLAN, TASKS, typeInto } from '../workspace/testing/runner-fixture';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { formatDelta, formatSpan, statusView } from './status';
@@ -10,12 +11,20 @@ import { formatDelta, formatSpan, statusView } from './status';
 let ws: Workspace;
 let client: FakeEngineClient;
 let runner: ScheduleRunner;
+let idleTasks: IdleQueue;
+
+/** Delivers settled outcomes, then runs the runner's idle tasks that show them. */
+async function shown(): Promise<void> {
+	await flush();
+	idleTasks.run();
+}
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 	ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': PLAN } });
 	client = new FakeEngineClient();
-	runner = createScheduleRunner({ workspace: ws, client });
+	idleTasks = new IdleQueue();
+	runner = createScheduleRunner({ workspace: ws, client, timers: idleTasks.timers });
 });
 
 afterEach(() => {
@@ -52,7 +61,7 @@ describe('statusView', () => {
 
 	it('shows the finish date in the project zone and the change since the last good run', async () => {
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		const first = statusView(runner.state, 'en');
 		expect(first).toMatchObject({ kind: 'ok', label: strings.status.ok, outdated: false });
 		expect(first.zone).toBe('UTC');
@@ -62,18 +71,18 @@ describe('statusView', () => {
 		typeInto(ws, '# edit\n');
 		vi.advanceTimersByTime(300);
 		client.done(2, { tasks: [task('t1', 4, 600), task('b', 7, 1500 + 24 * 60)] });
-		await flush();
+		await shown();
 		expect(statusView(runner.state, 'en').delta).toBe('1 day later');
 	});
 
 	it('keeps the last good finish, marked outdated, when a run has errors', async () => {
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		const good = statusView(runner.state, 'en').finish;
 		typeInto(ws, '# edit\n');
 		vi.advanceTimersByTime(300);
 		client.done(2, { ok: false, tasks: [], messages: [message('error', 3, 'broken')] });
-		await flush();
+		await shown();
 		const v = statusView(runner.state, 'en');
 		expect(v).toMatchObject({
 			kind: 'errors',
@@ -87,7 +96,7 @@ describe('statusView', () => {
 
 	it('explains a failed run by its kind', async () => {
 		client.done(1, { tasks: TASKS });
-		await flush();
+		await shown();
 		typeInto(ws, '# edit\n');
 		vi.advanceTimersByTime(300);
 		client.fail(2, { kind: 'timeout', message: 'slow' });
@@ -104,7 +113,7 @@ describe('statusView', () => {
 			tasks: TASKS,
 			messages: [{ ...message('warning', null, 'No place'), file: null }],
 		});
-		await flush();
+		await shown();
 		const v = statusView(runner.state, 'en');
 		expect(v.unlocated.map((d) => d.message)).toContain('No place');
 		expect(v.warnings).toBe(1);
@@ -113,7 +122,7 @@ describe('statusView', () => {
 
 	it('says "Scheduled with problems" when the run produced a schedule that has errors', async () => {
 		client.done(1, { tasks: TASKS, messages: [message('error', 3, 'odd')] });
-		await flush();
+		await shown();
 		expect(statusView(runner.state, 'en')).toMatchObject({
 			kind: 'errors',
 			label: strings.status.errors,

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * The schedule runner (phase-1.md 6.8): keeps the engine's view of the plan up to date while the
- * text changes, and publishes what the status strip, the outline and the lint layer show.
- * (Slightly over 400 lines: one class owns the runner's private state; the pure parts already
- * live in run-view.ts and run-types.ts.)
+ * The schedule runner (phase-1.md 6.8, phase-2.md 6.9): keeps the engine's view of the plan up to
+ * date while the text changes, and publishes what the status strip, the outline, the Gantt and
+ * the lint layer show. The contract the edit dispatcher builds on is in run-types.ts.
  *
  * Runs
  * - The runner subscribes to the workspace (15.7). A change with origin 'typing' waits for
- *   `debounceMs` (300) of quiet; 'format' and 'intent' changes are scheduled at once, and so is
- *   the workspace as it is when the runner starts (`runAtStart`). `changed()` asks for the same
- *   from outside (a retry button); workspace edits never need it.
+ *   `debounceMs` (300) of quiet. 'intent', 'format' and 'history' (an undo or redo, history.ts)
+ *   post the request at once, in the change's own task, before anything is derived: the request
+ *   needs only the text. So does the workspace as it is when the runner starts (`runAtStart`).
+ *   `changed()` asks for the same from outside (a retry button); workspace edits never need it.
  * - Each run sends the full workspace text (`scheduleRequestOf`, never `options.now`) with a new
  *   revision, and keeps the snapshot it sent until the outcome. The runner must be the only
  *   caller of `schedule` on its client: revisions count up per client (shared by runners on the
@@ -18,46 +18,50 @@
  * - Latest-wins is the engine client's: a run waiting behind another is replaced by a newer one
  *   ('superseded'); a finished run with a newer one open arrives with `latest: false` and still
  *   updates everything shown, while the status stays 'scheduling'. Outcomes older than a result
- *   already handled are ignored.
+ *   already received are ignored.
  *
  * Results
- * - Engine diagnostics are placed in the snapshot that was sent (`engineDiagnostics`), then
- *   mapped through the edits made since (stale until the next result) and merged with the local
- *   diagnostics of the current text (run-view.ts). The index is built with the result's engine
- *   hints, mapped the same way: a line touched since the run has no hint.
+ * - A result is shown in an idle task after it arrives, in one published state with its engine
+ *   diagnostics (run-derive.ts): placed in the snapshot that was sent, then mapped through the
+ *   edits made since (stale until the next result) and merged with the local diagnostics of the
+ *   current text. The index follows with the result's engine hints, mapped the same way: a line
+ *   touched since the run has no hint.
  * - `ok: false` keeps `lastGood` (and its finish date) from the previous good run; `outdated`
  *   tells the status strip to dim them. A failed run (crash, timeout, bridge error) leaves every
  *   result in place and sets `failure`; the client restarts its worker, and the next change
  *   runs again (the runner does not retry by itself: the same text would fail the same way).
  * - The runner never schedules anything itself: finish dates and hints are read from results.
  *
- * Derived state
+ * Derived state (run-derive.ts, run-view.ts)
  * - A typed change updates engine diagnostic positions and syntax diagnostics at once
- *   (`quickView`); the index, hints and value/attribute checks follow in one idle task
- *   (`requestIdle`, at most `IDLE_TIMEOUT_MS` later) that covers every keystroke before it. It
- *   is requested after `TYPING_PAUSE_MS` without a keystroke, or `MAX_TYPING_WAIT_MS` after the
- *   first keystroke of a burst that never pauses; so in ordinary typing it falls in a pause, and
- *   in a continuous burst it can still land between two keystrokes, once a second.
- *   Until then `indexVersion` is behind `version`. Format and intent edits, results and the
- *   start derive everything at once (`fullView`).
+ *   (`quickView`). Everything else is derived in idle tasks (`requestIdle`, at most
+ *   `IDLE_TIMEOUT_MS` later), a step or a few at a time (`sliceMs`), so that no task handles a
+ *   whole result or a whole index (6.9): show a waiting result, scan a changed file, link the
+ *   index, check values. A step that changes what is shown ends its task and is published, so
+ *   the listeners' work lands in its own task too.
+ * - The steps that follow the text wait while typing goes on: until `TYPING_PAUSE_MS` without a
+ *   keystroke, or `MAX_TYPING_WAIT_MS` after the first keystroke of a burst that never pauses,
+ *   so in ordinary typing they fall in a pause. Until then `indexVersion` is behind `version`.
+ *   Intent, format and history changes, and results, let them start at once.
+ * - `ensureIndex()` derives the index now when it lags, without publishing (run-types.ts).
  * - An exception while deriving keeps the previous view and is rethrown asynchronously, so it
  *   never breaks `Workspace.commit` or other subscribers; listener exceptions are handled the
  *   same way, after every listener has run.
  * - `subscribe` follows the Svelte store contract: the listener is called at once and on every
- *   change.
+ *   change; a state equal to the last one published is not published again.
  */
 import type { EngineClient, EngineState, ScheduleOutcome } from '../../engine/client';
-import type { Revision, ScheduleResult } from '../../engine/protocol';
+import type { Revision } from '../../engine/protocol';
 import { report } from '../report';
 import { finishOf } from '../schedule/finish';
-import { engineDiagnostics, type TjpDiagnostic } from '../tjp/diagnostics';
-import type { ZoneOffsets } from '../tjp/values';
-import { buildIndex, NO_HINTS, type EngineHints, type SymbolIndex } from '../tjp/index';
+import type { SymbolIndex } from '../tjp/index';
+import { Deriver, type Sent, type Shown } from './run-derive';
 import {
 	DEFAULT_DEBOUNCE_MS,
 	defaultTimers,
 	IDLE_TIMEOUT_MS,
 	MAX_TYPING_WAIT_MS,
+	SLICE_MS,
 	TYPING_PAUSE_MS,
 	type RunnerFailure,
 	type RunnerListener,
@@ -67,25 +71,8 @@ import {
 	type ScheduleRunnerOptions,
 	type Timers,
 } from './run-types';
-import {
-	fullView,
-	isHintSource,
-	prepareIndex,
-	quickView,
-	runnerStatus,
-	sameHints,
-	sentHints,
-	type DiagnosticBase,
-	type HintBase,
-	type Prepared,
-	type View,
-} from './run-view';
-import {
-	scheduleRequestOf,
-	type ChangeOrigin,
-	type Workspace,
-	type WorkspaceSnapshot,
-} from './workspace';
+import { runnerStatus } from './run-view';
+import { scheduleRequestOf, type ChangeOrigin, type Workspace } from './workspace';
 
 export type { DiagnosticCounts, RunnerStatus } from './run-view';
 export * from './run-types';
@@ -95,12 +82,6 @@ const lastRevision = new WeakMap<EngineClient, Revision>();
 
 export function createScheduleRunner(o: ScheduleRunnerOptions): ScheduleRunner {
 	return new Runner(o);
-}
-
-interface Sent {
-	readonly revision: Revision;
-	readonly snapshot: WorkspaceSnapshot;
-	readonly at: number;
 }
 
 /** A timer or idle handle; `armed` because a handle may be any value, 0 included. */
@@ -113,23 +94,23 @@ class Runner implements ScheduleRunner {
 	readonly #ws: Workspace;
 	readonly #client: EngineClient;
 	readonly #debounceMs: number;
-	readonly #zones: ZoneOffsets | undefined;
+	readonly #sliceMs: number;
 	readonly #timers: Timers;
 	readonly #debounceSlot: Slot = { armed: false, handle: null };
-	readonly #idleSlot: Slot = { armed: false, handle: null };
+	readonly #workSlot: Slot = { armed: false, handle: null };
+	/** Armed while typing goes on: until `TYPING_PAUSE_MS` after the last keystroke. */
 	readonly #pauseSlot: Slot = { armed: false, handle: null };
-	/** Caps the pause: set at the first keystroke of a burst, cleared when the index refreshes. */
+	/** Caps the pause: set at the first keystroke of a burst, cleared when the index catches up. */
 	readonly #capSlot: Slot = { armed: false, handle: null };
+	#capPassed = false;
 	readonly #open = new Map<Revision, Sent>();
-	/** Newest revision whose result was handled. */
-	#handled: Revision = 0;
+	/** Newest revision whose result arrived. */
+	#received: Revision = 0;
 	#latest: RunRecord | null = null;
 	#lastGood: RunRecord | null = null;
 	#failure: RunnerFailure | null = null;
-	#hintBase: HintBase | null = null;
-	#diagnosticBase: DiagnosticBase | null = null;
+	readonly #derive: Deriver;
 	#engine: EngineState;
-	#view: View;
 	#state: RunnerState;
 	readonly #listeners = new Set<RunnerListener>();
 	readonly #unsubscribe: Array<() => void> = [];
@@ -140,20 +121,25 @@ class Runner implements ScheduleRunner {
 		this.#ws = o.workspace;
 		this.#client = o.client;
 		this.#debounceMs = o.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-		this.#zones = o.zones;
+		this.#sliceMs = o.sliceMs ?? SLICE_MS;
 		this.#timers = defaultTimers(o.timers ?? {});
+		// The request first: the first schedule does not wait for the first index.
+		if (o.runAtStart ?? true) this.#runNow();
+		this.#derive = new Deriver(this.#ws, o.zones, () => this.#timers.now());
 		this.#engine = o.client.state;
-		this.#view = fullView(this.#ws, this.#ws.snapshot(), null, null, undefined, this.#zones);
 		this.#state = this.#compose();
 		this.#unsubscribe.push(
 			this.#ws.subscribe((_snap, origin) => this.#onChange(origin)),
 			this.#client.onState((s) => this.#batch(() => (this.#engine = s))),
 		);
-		if (o.runAtStart ?? true) this.#batch(() => this.#runNow());
 	}
 
 	get state(): RunnerState {
 		return this.#state;
+	}
+
+	ensureIndex(): SymbolIndex {
+		return this.#derive.ensureIndex();
 	}
 
 	changed(kind: 'typing' | 'now'): void {
@@ -175,7 +161,7 @@ class Runner implements ScheduleRunner {
 		this.#clear(this.#debounceSlot, this.#timers.clearTimeout);
 		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
 		this.#clear(this.#capSlot, this.#timers.clearTimeout);
-		this.#clear(this.#idleSlot, this.#timers.cancelIdle);
+		this.#clear(this.#workSlot, this.#timers.cancelIdle);
 		for (const u of this.#unsubscribe.splice(0)) u();
 		for (const revision of [...this.#open.keys()]) this.#client.cancel(revision);
 		this.#open.clear();
@@ -186,70 +172,75 @@ class Runner implements ScheduleRunner {
 		if (this.#disposed) return;
 		this.#batch(() => {
 			if (origin === 'typing') {
-				this.#derive(() => {
-					this.#view = quickView(this.#ws, this.#ws.snapshot(), this.#view, this.#diagnosticBase);
-				});
-				this.#refreshWhenIdle();
+				this.#derive.typed();
+				this.#typingGoesOn();
 				this.#debounce();
 			} else {
-				this.#refresh();
+				// 'intent', 'format', 'history': post first, derive in the next idle tasks.
 				this.#runNow();
+				this.#typingStopped();
+				this.#kick();
 			}
 		});
 	}
 
-	/** Runs `fn`, which replaces the view; on an exception the previous view stays. */
-	#derive(fn: () => void): void {
-		try {
-			fn();
-		} catch (error) {
-			report(error);
-		}
-	}
-
-	/** Derives everything for the workspace now; `prepared` is its index part, if known. */
-	#refresh(prepared?: Prepared): void {
-		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
-		this.#clear(this.#capSlot, this.#timers.clearTimeout);
-		this.#clear(this.#idleSlot, this.#timers.cancelIdle);
-		this.#derive(() => {
-			const now = this.#ws.snapshot();
-			this.#view = fullView(
-				this.#ws,
-				now,
-				this.#hintBase,
-				this.#diagnosticBase,
-				prepared,
-				this.#zones,
-			);
-		});
-	}
-
-	/**
-	 * Every keystroke restarts the pause; once it passes, or `MAX_TYPING_WAIT_MS` after the first
-	 * keystroke of a burst, one idle task derives everything.
-	 */
-	#refreshWhenIdle(): void {
+	/** Every keystroke restarts the pause; the cap is set at the first keystroke of a burst. */
+	#typingGoesOn(): void {
 		const pause = this.#pauseSlot;
 		this.#clear(pause, this.#timers.clearTimeout);
 		pause.armed = true;
-		pause.handle = this.#timers.setTimeout(() => this.#requestIdleRefresh(), TYPING_PAUSE_MS);
+		pause.handle = this.#timers.setTimeout(() => {
+			pause.armed = false;
+			this.#kick();
+		}, TYPING_PAUSE_MS);
 		const cap = this.#capSlot;
-		if (cap.armed) return;
+		if (cap.armed || this.#capPassed) return;
 		cap.armed = true;
-		cap.handle = this.#timers.setTimeout(() => this.#requestIdleRefresh(), MAX_TYPING_WAIT_MS);
+		cap.handle = this.#timers.setTimeout(() => {
+			cap.armed = false;
+			this.#capPassed = true;
+			this.#kick();
+		}, MAX_TYPING_WAIT_MS);
 	}
 
-	#requestIdleRefresh(): void {
+	#typingStopped(): void {
 		this.#clear(this.#pauseSlot, this.#timers.clearTimeout);
 		this.#clear(this.#capSlot, this.#timers.clearTimeout);
-		const slot = this.#idleSlot;
-		if (slot.armed || this.#disposed) return;
+		this.#capPassed = false;
+	}
+
+	/** Whether the steps that follow the text may run (module comment). */
+	#follow(): boolean {
+		return !this.#pauseSlot.armed || this.#capPassed;
+	}
+
+	/** Asks for an idle task when a derive step is due and none is asked for. */
+	#kick(): void {
+		const slot = this.#workSlot;
+		if (slot.armed || this.#disposed || !this.#derive.due(this.#follow())) return;
 		slot.armed = true;
 		slot.handle = this.#timers.requestIdle(() => {
 			slot.armed = false;
-			if (!this.#disposed) this.#batch(() => this.#refresh());
+			if (this.#disposed) return;
+			this.#batch(() => this.#work());
+			this.#kick();
 		}, IDLE_TIMEOUT_MS);
+	}
+
+	/** One idle task: steps until one changes what is shown or the slice is used up. */
+	#work(): void {
+		const d = this.#derive;
+		const start = this.#timers.now();
+		d.beginTask();
+		for (;;) {
+			const out = d.step(this.#follow());
+			if (!out) break;
+			if (out.kind === 'shown') this.#show(out.shown);
+			// Caught up with the text: the next keystroke starts a new burst (and a new cap).
+			if (d.indexCurrent) this.#typingStopped();
+			if (out.kind !== 'work' || this.#timers.now() - start >= this.#sliceMs) break;
+		}
+		d.endTask();
 	}
 
 	#debounce(): void {
@@ -291,9 +282,16 @@ class Runner implements ScheduleRunner {
 		if (this.#disposed) return;
 		this.#batch(() => {
 			this.#open.delete(sent.revision);
-			if (sent.revision <= this.#handled) return;
+			if (sent.revision <= this.#received) return;
 			if (outcome.status === 'done') {
-				this.#handle(sent, outcome.result, outcome.latest);
+				this.#received = sent.revision;
+				this.#derive.accept({
+					sent,
+					result: outcome.result,
+					latest: outcome.latest,
+					at: this.#timers.now(),
+				});
+				this.#kick();
 			} else if (outcome.status === 'failed') {
 				if (!this.#failure || sent.revision > this.#failure.revision) {
 					this.#failure = { revision: sent.revision, error: outcome.error };
@@ -302,54 +300,23 @@ class Runner implements ScheduleRunner {
 		});
 	}
 
-	#handle(sent: Sent, result: ScheduleResult, latest: boolean): void {
-		const t0 = this.#timers.now();
-		this.#handled = sent.revision;
-		const out: { hints: EngineHints | null; diagnostics: readonly TjpDiagnostic[] } = {
-			hints: null,
-			diagnostics: [],
-		};
-		this.#derive(() => {
-			const prev = this.#view;
-			const now = this.#ws.snapshot();
-			const hints = isHintSource(result) ? sentHints(result, sent.snapshot) : null;
-			out.hints = hints;
-			if (hints) this.#hintBase = { snapshot: sent.snapshot, result, hints };
-			const current = prepareIndex(this.#ws, now, this.#hintBase, prev, this.#zones);
-			// Engine messages are refined by id in the sent snapshot's index: the current one when
-			// nothing changed during the run, else an earlier view's of that version with the same
-			// hints, else one built for it. Without messages no index is needed.
-			const refine = result.messages.some((m) => m.level !== 'debug');
-			const reusable =
-				prev.indexVersion === sent.snapshot.version && (!hints || sameHints(prev.hints, hints));
-			const sentIndex: SymbolIndex | null = !refine
-				? null
-				: now.version === sent.snapshot.version
-					? current.index
-					: reusable
-						? prev.index
-						: buildIndex(
-								sent.snapshot,
-								hints ?? NO_HINTS,
-								this.#zones === undefined ? {} : { zones: this.#zones },
-							);
-			out.diagnostics = engineDiagnostics(result, sent.snapshot, sentIndex);
-			this.#diagnosticBase = { snapshot: sent.snapshot, diagnostics: out.diagnostics };
-			this.#refresh(current);
-		});
-		const finish = finishOf(result, this.#lastGood?.finish ?? null);
+	/** Records a result the derive step just showed. */
+	#show(s: Shown): void {
+		const { sent, result, latest, at } = s.arrival;
 		const record: RunRecord = {
 			revision: sent.revision,
 			workspaceVersion: sent.snapshot.version,
 			result,
 			latest,
-			diagnostics: out.diagnostics,
-			hints: out.hints ?? NO_HINTS,
-			finish,
+			diagnostics: s.diagnostics,
+			hints: s.hints,
+			finish: finishOf(result, this.#lastGood?.finish ?? null),
 			timings: {
 				engine: result.timings,
-				roundTripMs: t0 - sent.at,
-				processMs: this.#timers.now() - t0,
+				roundTripMs: at - sent.at,
+				processMs: s.processMs,
+				longestTaskMs: s.longestTaskMs,
+				shownMs: this.#timers.now() - at,
 			},
 		};
 		this.#latest = record;
@@ -370,10 +337,12 @@ class Runner implements ScheduleRunner {
 
 	#publish(): void {
 		if (this.#disposed) return;
-		this.#state = this.#compose();
+		const next = this.#compose();
+		if (sameState(next, this.#state)) return;
+		this.#state = next;
 		for (const l of [...this.#listeners]) {
 			try {
-				l(this.#state);
+				l(next);
 			} catch (error) {
 				report(error);
 			}
@@ -381,11 +350,11 @@ class Runner implements ScheduleRunner {
 	}
 
 	#compose(): RunnerState {
-		const pending = this.#debounceSlot.armed || this.#open.size > 0;
+		const pending = this.#debounceSlot.armed || this.#open.size > 0 || this.#derive.waiting > 0;
 		const latest = this.#latest;
 		const lastGood = this.#lastGood;
 		const failure = this.#failure;
-		const view = this.#view;
+		const view = this.#derive.view;
 		const status = runnerStatus({
 			engine: this.#engine,
 			pending,
@@ -414,4 +383,10 @@ class Runner implements ScheduleRunner {
 			failure,
 		};
 	}
+}
+
+/** Two states that show the same: every field identical. */
+function sameState(a: RunnerState, b: RunnerState): boolean {
+	const keys = Object.keys(a) as Array<keyof RunnerState>;
+	return keys.every((k) => a[k] === b[k]);
 }
