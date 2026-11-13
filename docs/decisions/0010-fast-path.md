@@ -115,8 +115,8 @@ alone on its line, with a strict value, when the task is not text-only or macro-
 statement-level macro call in its bodies, its declaration gives no other task in another include
 visit, the file is not included twice, it is the task's only statement of that family in any
 scenario (`period` is in the `start` and `end` families), and, for `priority`, the task is a
-leaf. This is the cheap first filter; the bridge's
-checks above are the safety net. Unit tests in `fast-patch.test.ts`.
+leaf. This is the cheap first filter; the bridge's checks above are the safety net. Unit tests
+in `fast-patch.test.ts`.
 
 ### Protocol, refining 6.12
 
@@ -169,28 +169,40 @@ golden result (wrapped).
 
 ## Equivalence (tests/engine/fast-path.equivalence.test.ts)
 
-Run after the review fixes with `FAST_PATH=1 FAST_PATH_RUNS=500 FAST_PATH_DIRECTION_RUNS=100`,
-at the old seed and a new one: 40 golden plans (6 rewrites each plus a patch of three), 500
+Run with `FAST_PATH=1 FAST_PATH_RUNS=500 FAST_PATH_DIRECTION_RUNS=100` at the old seed and a new
+one, after each review round: 40 golden plans (6 rewrites each plus a patch of three), 500
 generated plans and 100 direction plans, then the shuffled replay.
 
-| Seed | Cases | Fast | Ran in full | Differences | Shuffled replay (2 fast runs per case) | Wall time |
-| --- | ---: | ---: | ---: | ---: | --- | ---: |
-| 20261113 | 1,887 | 1,695 | 192 | **0** | 97 cases, 194 fast runs, **0** differences | 1,895 s |
-| 20261114 (new) | 1,942 | 1,754 | 188 | **0** | 97 cases, 194 fast runs, **0** differences | 1,837 s |
+| After | Seed | Cases | Fast | Ran in full | Differences | Shuffled replay (2 fast runs per case) | Wall time |
+| --- | --- | ---: | ---: | ---: | ---: | --- | ---: |
+| Round 2 | 20261113 | 1,887 | 1,641 | 246 | **0** | 97 cases, 194 fast runs, **0** differences | 1,601 s |
+| Round 2 | 20261115 (new) | 1,881 | 1,622 | 259 | **0** | 97 cases, 194 fast runs, **0** differences | 1,098 s |
+| Round 1 | 20261113 | 1,887 | 1,695 | 192 | **0** | 97 cases, 194 fast runs, **0** differences | 1,895 s |
+| Round 1 | 20261114 | 1,942 | 1,754 | 188 | **0** | 97 cases, 194 fast runs, **0** differences | 1,837 s |
 
-Why they ran in full (20261113 / 20261114):
+Why they ran in full after round 2 (20261113 / 20261115):
 
 | Reason | Count |
 | --- | ---: |
-| `start` or `end` would change the direction in some scenario (at seed 20261113, 115 of the 117 come from the direction family) | 117 / 125 |
-| A later statement of the same family on that task (a second `start`, a `late:start` after the `start`, and the like) | 29 / 23 |
-| The base parse gave a message on the edited line (for example `task_overspecified` warnings) | 23 / 18 |
+| `start` or `end` would change the direction in some scenario (almost all from the direction family) | 116 / 116 |
+| The base parse gave an `attr_overwrite` for that task (round 2's backstop; see below) | 78 / 100 |
+| A later statement of the same family on that task (a second `start`, a `late:start` after the `start`, and the like) | 29 / 25 |
 | The project has shift assignments, which cannot be copied | 10 / 10 |
-| The new date is outside the project (`date_in_range`, from the keyword's own rule) | 9 / 8 |
+| The new date is outside the project (`date_in_range`, from the keyword's own rule) | 9 / 4 |
 | The base parse had errors, so nothing was kept | 4 / 4 |
 
-Plans with no rewritable statement: 14 / 8 (macro-built or text-only tasks, no value
-statements). The wall times are on a 4-core machine shared with other work (load 6 to 22).
+Plans with no rewritable statement: 14 / 12 (macro-built or text-only tasks, no value
+statements). The wall times are on a 4-core machine shared with other work (load 4 to 22).
+
+The `attr_overwrite` backstop costs coverage, not correctness. At seed 20261113 it takes the 23
+cases that "a parse message on an edited line" sent to a full run before, and 54 that ran fast
+and equal: 1,641 fast instead of 1,695 (2.9% of the cases). Of its 78, 37 come from the
+direction family (a `late:start` before the `start`, for example: the top scenario's `start`
+then overwrites the late scenario's) and 41 from the generated plans; none of the golden plans
+gives one. Most of these rewrites have nothing to do with the overwritten attribute. Narrowing
+the backstop to the attributes the rewrite sets (the warning's text names the attribute) would
+win them back; it is left broad, as the review asked, until the integration shows how often
+real plans meet it.
 
 Each result is compared as canonical JSON, `revision` and `timings` aside: tasks, resources,
 bookings, the project header and the messages with their lines.
@@ -222,15 +234,18 @@ text before it, and the fast run.
 The engine time saved by the fast run, from every run so far (4-core machines; the load is the
 1-minute load average during the run):
 
-| Plan | Draft (my machine, load 1.4 to 2, two runs) | Review (load about 3) | After the fixes, run A (my machine, load 6 to 11) | After the fixes, run B (load 3.7 to 12, median 4.5) | Range |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Fedora 20 (414 tasks) | 44.4% / 43.7% | 37.3% | 39.4% | 45.4% | **37 to 45%** |
-| gantt-200 | 37.1% / 41.7% | 34.6% | 41.6% | 33.9% | **34 to 42%** |
-| gantt-500 | 44.2% / 41.7% | 34.8% | 38.3% | 37.8% | 35 to 44% |
-| scale-1000 (1,225 tasks) | 30.9% / 32.3% | not run | 27.1% | 34.2% | 27 to 34% |
-| Tutorial | 78.7% (timed alone) | not run | 91.4% | 93.6% | (see below) |
+| Plan | Draft (my machine, load 1.4 to 2, two runs) | Review (load about 3) | After round 1, run A (my machine, load 6 to 11) | After round 1, run B (load 3.7 to 12, median 4.5) | After round 2, run C (load 3 to 5.3, median 3.8) | Range |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Fedora 20 (414 tasks) | 44.4% / 43.7% | 37.3% | 39.4% | 45.4% | 51.3% | **37 to 51%** |
+| gantt-200 | 37.1% / 41.7% | 34.6% | 41.6% | 33.9% | 37.3% | **34 to 42%** |
+| gantt-500 | 44.2% / 41.7% | 34.8% | 38.3% | 37.8% | not run | 35 to 44% |
+| scale-1000 (1,225 tasks) | 30.9% / 32.3% | not run | 27.1% | 34.2% | not run | 27 to 34% |
+| Tutorial | 78.7% (timed alone) | not run | 91.4% | 93.6% | not run | (see below) |
 
-Run B after the fixes, in detail (ms):
+Round 2 changed only what a retaining parse notes and what the checks compare, not the fast run
+itself, so run C times Fedora and gantt-200 only.
+
+Run B (after round 1), in detail (ms):
 
 | Plan | Full run | of which parse | of which schedule | Fast run | of which copy | of which schedule | Retaining full run | of which `retainMs` | Copy size |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -240,10 +255,12 @@ Run B after the fixes, in detail (ms):
 | scale-1000 | 12,735 | 3,226 | 8,732 | 8,377 | 292 | 7,125 | 10,350 | 410 | 2,031 KB |
 | Tutorial | 3,607 | 3,362 | 191 | 231 | 23 | 142 | 4,236 | 93 | 158 KB |
 
-- **Fedora, before and after:** a full run takes 3,006 ms of engine time and the fast run of the
-  same rewrite 1,642 ms (45.4% saved) in run B; 3,003 against 1,820 ms (39.4%) in run A; in the
-  draft, 3,429 / 3,037 ms against 1,907 / 1,711 ms.
-- **The spread is load.** A third run after the fixes, at load 10 to 26 (median 18) on the
+- **Fedora, before and after:** after round 2 (run C), a full run takes 3,366 ms of engine time
+  and the fast run of the same rewrite 1,640 ms (51.3% saved), with `retainMs` 282 ms. Run B:
+  3,006 against 1,642 ms (45.4%); run A: 3,003 against 1,820 ms (39.4%); the draft: 3,429 /
+  3,037 ms against 1,907 / 1,711 ms. The fast run stays at 1.6 to 1.9 s; the full run moves
+  more with load.
+- **The spread is load.** Another run after round 1, at load 10 to 26 (median 18) on the
   same 4 cores, gave Fedora 10.5 s full against 4.8 s fast and gantt-200 4.9 s against 4.1 s,
   with schedule steps varying by up to half between paths: too noisy to use, and left out of
   the tables. The lowest figures that count are gantt-200's 33.9% (run B) and the review's.
@@ -266,12 +283,13 @@ Run B after the fixes, in detail (ms):
 
 **Adopt the fast path, subject to the user's decision.** Every criterion of 18.12 holds:
 
-1. Zero differences: 3,829 cases at two seeds (1,887 and 1,942; at seed 20261113, 1,136 on
-   golden and generated plans, as in the draft, and 751 on the direction family) and 388
-   shuffled fast runs, plus the 15 review repros and 22 guards.
-2. A median saving of 37 to 45% on Fedora 20 and 34 to 42% on gantt-200 over every usable run
-   so far (two of mine before the review, the review's, two of mine after it), against a bar of
-   30%. The lowest are 37.3% on Fedora (the review) and 33.9% on gantt-200 (run B).
+1. Zero differences after round 2: 3,768 cases at two seeds (1,887 and 1,881) and 388 shuffled
+   fast runs, plus the 69 review repros, the retaining run over every golden plan and 22 guards.
+   After round 1 also zero, in 3,829 cases at two seeds; round 2's wrong result (`period`) was
+   a pattern the suites did not generate, and is now a repro.
+2. A median saving of 37 to 51% on Fedora 20 and 34 to 42% on gantt-200 over every usable run
+   so far (two of mine before the reviews, the review's, three of mine after them), against a
+   bar of 30%. The lowest are 37.3% on Fedora (the review) and 33.9% on gantt-200 (run B).
 3. Golden parity is unchanged: golden runs never send `retain` or `fast`. On the branch after the
    fixes, `npm run test:golden` passes (4 of 4, every golden plan in one long-lived worker,
    shuffled), `npm run golden:wasm` matches 40 of 40 plans and 71 of 71 time-zone edge cases, and
