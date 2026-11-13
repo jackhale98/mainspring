@@ -113,6 +113,12 @@ describe('EditorController with Workspace.apply', () => {
 		expect(ws.snapshot().files.get('b.tji')?.text.toString().startsWith('# two\n')).toBe(true);
 	});
 
+	it('reveals without selecting when asked, keeping the selection', () => {
+		ctl.view.dispatch({ selection: { anchor: 3 } });
+		ctl.reveal('plan.tjp', 9, 16, false, false);
+		expect(ctl.view.state.selection.main.head).toBe(3);
+	});
+
 	it('reveals in a file that is not shown, switching to it first', () => {
 		ctl.reveal('b.tji', 5, 6, false);
 		expect(ctl.shown).toBe('b.tji');

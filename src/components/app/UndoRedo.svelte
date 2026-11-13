@@ -1,8 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	Undo and redo icon buttons. They run the open file's editor history for now and become the
-	workspace's unified undo with phase-2.md 6.7; the buttons stay the same. Disabled while there
-	is nothing to do.
+	Undo and redo icon buttons: the workspace history (phase-2.md 6.7), the same as Mod-Z. Disabled
+	while there is nothing to do; the tooltip names what would be undone.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';

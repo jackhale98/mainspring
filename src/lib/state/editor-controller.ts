@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The editor view's side of Text mode (phase-1.md 8.2, 15.21): one `EditorView` that shows the
- * workspace's `EditorState` for the open file. The workspace owns the states (text, undo history,
- * cursor, lint marks); the view only displays one of them, and every transaction goes through
+ * workspace's `EditorState` for the open file. The workspace owns the states (text, cursor, lint
+ * marks; undo is the workspace history's); the view only displays one of them, and every transaction goes through
  * `workspaceDispatch`, so the view never owns the text.
  *
  * - `sync` brings the view back to the workspace's state when something changed that file without
@@ -11,16 +11,14 @@
  *   from another state than the workspace's would throw in `commit`.
  * - `show` gives the view another file's state and puts its scroll position back, unless a
  *   reveal follows (the reveal scrolls to its target, and a restore after it would undo that).
- * - `reveal` selects a range and scrolls it into view; with `focus` it then focuses the editor,
- *   after an open modal dialog (the tablet drawer) has closed, since a modal makes the editor
- *   inert.
- * - `undo` and `redo` run the history of the open file (until the unified undo of phase-2.md 6.7
- *   replaces it), and `onHistory` reports whether either has anything to do, for the top bar.
+ * - `reveal` selects a range and scrolls it to the middle, or, with `select` false, keeps the
+ *   selection and scrolls only as far as needed (`nearest`, so an undo on screen does not jump);
+ *   with `focus` it then focuses the editor, after an open modal dialog (the tablet drawer) has
+ *   closed, since a modal makes the editor inert.
  * - Diagnostics go on the lint layer's two channels. The engine channel is pushed when a result
  *   arrives (the layer maps it through later edits and marks it stale), the local channel
  *   whenever the document layer's checks change.
  */
-import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import type { WorkspacePath } from '../../engine/protocol';
 import {
@@ -32,12 +30,6 @@ import {
 import type { TjpDiagnostic } from '../tjp/diagnostics';
 import type { Workspace } from '../workspace/workspace';
 
-/** Whether the history of the open file has an undo or a redo to run. */
-export interface HistoryState {
-	readonly canUndo: boolean;
-	readonly canRedo: boolean;
-}
-
 export class EditorController {
 	readonly view: EditorView;
 	readonly #ws: Workspace;
@@ -46,50 +38,16 @@ export class EditorController {
 	#shown: WorkspacePath;
 	#restore = 0;
 
-	readonly #onHistory: ((h: HistoryState) => void) | undefined;
-	#history: HistoryState = { canUndo: false, canRedo: false };
-
-	constructor(
-		ws: Workspace,
-		parent: HTMLElement,
-		path: WorkspacePath,
-		onHistory?: (h: HistoryState) => void,
-	) {
+	constructor(ws: Workspace, parent: HTMLElement, path: WorkspacePath) {
 		this.#ws = ws;
 		this.#shown = path;
-		this.#onHistory = onHistory;
 		this.view = new EditorView({
 			parent,
 			state: ws.state(path),
 			dispatchTransactions: workspaceDispatch(ws, () => this.#shown),
 		});
 		// Edits made without the view leave it behind the workspace: catch up once they are done.
-		this.#off = ws.subscribe(() =>
-			queueMicrotask(() => {
-				this.sync();
-				this.#publish();
-			}),
-		);
-		this.#publish();
-	}
-
-	/** Tells `onHistory` when the open file's undo or redo availability changed. */
-	#publish(): void {
-		const state = this.#ws.state(this.#shown);
-		const next = { canUndo: undoDepth(state) > 0, canRedo: redoDepth(state) > 0 };
-		if (next.canUndo === this.#history.canUndo && next.canRedo === this.#history.canRedo) return;
-		this.#history = next;
-		this.#onHistory?.(next);
-	}
-
-	undo(): boolean {
-		this.sync();
-		return undo(this.view);
-	}
-
-	redo(): boolean {
-		this.sync();
-		return redo(this.view);
+		this.#off = ws.subscribe(() => queueMicrotask(() => this.sync()));
 	}
 
 	/** The file whose state the view shows. */
@@ -114,7 +72,6 @@ export class EditorController {
 		this.#scrolls.set(this.#shown, this.view.scrollDOM.scrollTop);
 		this.#shown = path;
 		this.view.setState(this.#ws.state(path));
-		this.#publish();
 		const top = this.#scrolls.get(path) ?? 0;
 		const token = ++this.#restore;
 		if (opts.restoreScroll === false) return;
@@ -124,7 +81,7 @@ export class EditorController {
 	}
 
 	/** Selects a range of a file and scrolls it to the middle (module comment). */
-	reveal(file: WorkspacePath, from: number, to: number, focus: boolean): void {
+	reveal(file: WorkspacePath, from: number, to: number, focus: boolean, select = true): void {
 		// The file may already have been switched to (the open-file effect runs first) with a scroll
 		// restore waiting: this reveal supersedes it.
 		this.#restore++;
@@ -133,16 +90,23 @@ export class EditorController {
 		const length = this.view.state.doc.length;
 		const start = Math.min(Math.max(0, from), length);
 		const end = Math.min(Math.max(start, to), length);
-		this.view.dispatch({
-			selection: { anchor: start, head: end },
-			effects: EditorView.scrollIntoView(start, { y: 'center' }),
-			userEvent: 'select',
-		});
+		this.view.dispatch(
+			select
+				? {
+						selection: { anchor: start, head: end },
+						effects: EditorView.scrollIntoView(start, { y: 'center' }),
+						userEvent: 'select',
+					}
+				: // On screen already (an undo of typing just done): do not recenter.
+					{ effects: EditorView.scrollIntoView(start, { y: 'nearest' }) },
+		);
 		// After a switch the new state has not been laid out yet, and the scroll above may find no
 		// layout to scroll in: ask again once the view has measured it.
 		requestAnimationFrame(() => {
-			if (this.#shown === file && this.view.state.selection.main.from === start) {
-				this.view.dispatch({ effects: EditorView.scrollIntoView(start, { y: 'center' }) });
+			if (this.#shown === file && (!select || this.view.state.selection.main.from === start)) {
+				this.view.dispatch({
+					effects: EditorView.scrollIntoView(start, { y: select ? 'center' : 'nearest' }),
+				});
 			}
 		});
 		if (!focus) return;

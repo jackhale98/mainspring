@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { history, isolateHistory, undo } from '@codemirror/commands';
+import { history, undo } from '@codemirror/commands';
 import { getIndentUnit } from '@codemirror/language';
 import {
 	EditorSelection,
@@ -9,6 +9,7 @@ import {
 } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
+import { createHistory } from '../../workspace/history';
 import {
 	createWorkspace,
 	tjpEditId,
@@ -151,15 +152,11 @@ describe('through the workspace', () => {
 		ws = createWorkspace(
 			{ entry: 'plan.tjp', files: { 'plan.tjp': MESSY } },
 			{
-				// History comes with the editor chunk in the app (workspace.attachEditor).
-				extensions: (path, top) => [
-					history(),
-					workspaceExtensions({ docs: () => TABLE_ONLY, theme: false, workspace: () => ws })(
-						path,
-						top,
-					),
-				],
-				isolate: isolateHistory,
+				extensions: workspaceExtensions({
+					docs: () => TABLE_ONLY,
+					theme: false,
+					workspace: () => ws,
+				}),
 			},
 		);
 		const workspace = ws;
@@ -175,17 +172,19 @@ describe('through the workspace', () => {
 		return { ws: workspace, view, origins };
 	}
 
-	it('commits the format with origin format, as one undo step', () => {
+	it('commits the format with origin format, as one undo step of the workspace history', () => {
 		const { ws, view, origins } = setup();
+		const history = createHistory(ws);
 		formatCommand(view.asView());
 		expect(origins).toEqual(['format']);
 		expect(ws.texts()['plan.tjp']).toBe(TIDY);
 		expect(lastTr?.annotation(tjpEditId)).toMatch(/./);
 		expect(lastTr?.isUserEvent('input.tjp.format')).toBe(true);
 		expect(view.state).toBe(ws.state('plan.tjp'));
-		undo(view);
+		expect(history.top()).toMatchObject({ kind: 'format', id: lastTr?.annotation(tjpEditId) });
+		expect(history.undo()).toMatchObject({ status: 'done', direction: 'undo' });
 		expect(ws.texts()['plan.tjp']).toBe(MESSY);
-		expect(origins).toEqual(['format', 'typing']);
+		expect(origins).toEqual(['format', 'history']);
 	});
 
 	it('refuses through the edit API on syntax errors, and formats the selection only', () => {
@@ -209,6 +208,7 @@ describe('through the workspace', () => {
 
 	it('keeps Workspace.apply edits apart from later typing in the history', () => {
 		const { ws } = setup();
+		const history = createHistory(ws);
 		const r = editFormatFile(ws.snapshot(), 'plan.tjp');
 		if (r.status !== 'edit') throw new Error('expected an edit');
 		expect(ws.apply(r.edit)).toBe('applied');
@@ -217,9 +217,10 @@ describe('through the workspace', () => {
 		const at = 'task a "A" {\n  '.length;
 		const typed = s.update({ changes: { from: at, insert: 'x' }, userEvent: 'input.type' });
 		ws.commit('plan.tjp', typed, 'typing');
-		let u = ws.state('plan.tjp');
-		undo({ state: u, dispatch: (tr: Transaction) => (u = tr.state) });
-		expect(u.doc.toString()).toBe(TIDY);
+		history.undo();
+		expect(ws.texts()['plan.tjp']).toBe(TIDY);
+		history.undo();
+		expect(ws.texts()['plan.tjp']).toBe(MESSY);
 	});
 
 	it('takes the workspace state when the workspace replaced it', () => {
