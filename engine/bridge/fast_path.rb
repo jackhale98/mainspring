@@ -167,7 +167,11 @@ module MainspringBridge
         install_default_procs(project)
         t1 = MainspringBridge.clock_ms
         edits.each { |e| applicable!(project, e) }
-        fallback('the rewrite gave a message') unless apply(project, edits, root) && mh.messages.empty?
+        applied = apply(project, edits, root)
+        unless applied && mh.messages.empty?
+          m = mh.messages.first
+          fallback(m ? "the rewrite gave a message: #{m.id} #{m.message}" : 'the rewrite failed')
+        end
 
         b.messages.each { |m| mh.messages << m }
         t2 = MainspringBridge.clock_ms
@@ -206,10 +210,9 @@ module MainspringBridge
         fallback("no task #{e['task']}") unless task
 
         attr = e['attribute']
-        set = task.propertySet
         others = (1...project.scenarioCount).to_a
         SETS[attr].each do |a|
-          definition = set.attributeDefinition(a)
+          definition = task.attributeDefinition(a)
           fallback("no attribute #{a}") unless definition
           fallback("#{a} is inherited by children") if definition.inheritedFromParent && !task.leaf?
           fallback("another scenario sets #{a}") if others.any? { |sc| task.provided(a, sc) }
@@ -230,8 +233,9 @@ module MainspringBridge
           parser.open(text, false, true)
           parser.instance_variable_set(:@project, project)
           parser.setGlobalMacros
+          # As TaskJuggler#parse reads it (TaskJuggler.rb:73): only false is a failure.
           ok = MainspringBridge.guarded(TaskJuggler::MessageHandlerInstance.instance) do
-            parser.parse(:propertiesFile)
+            parser.parse(:propertiesFile) != false
           end
           parser.close
           return false unless ok
