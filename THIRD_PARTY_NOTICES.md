@@ -37,10 +37,11 @@ Fonts are data files that the page loads; they are not linked into Mainspring's 
 combination stays GPL-2.0. Their license texts ship at `/fonts/NOTICES.txt`
 (`public/fonts/NOTICES.txt`; `tests/ci/fonts.test.ts` checks it against the packages).
 
-| Component                                             | Version | Use                 | License                               |
-| ----------------------------------------------------- | ------- | ------------------- | ------------------------------------- |
-| Inter, `@fontsource-variable/inter`                   | 5.3.0   | UI text             | SIL Open Font License 1.1 (`OFL-1.1`) |
-| JetBrains Mono, `@fontsource-variable/jetbrains-mono` | 5.3.0   | Source text and ids | SIL Open Font License 1.1 (`OFL-1.1`) |
+| Component                                             | Version | Use                  | License                               |
+| ----------------------------------------------------- | ------- | -------------------- | ------------------------------------- |
+| Inter, `@fontsource-variable/inter`                   | 5.3.0   | UI text              | SIL Open Font License 1.1 (`OFL-1.1`) |
+| JetBrains Mono, `@fontsource-variable/jetbrains-mono` | 5.3.0   | Source text and ids  | SIL Open Font License 1.1 (`OFL-1.1`) |
+| Instrument Serif, `@fontsource/instrument-serif`      | 5.3.0   | Gantt header, titles | SIL Open Font License 1.1 (`OFL-1.1`) |
 
 `scripts/ci/licenses.mjs` accepts `OFL-1.1` only for these two named packages (`FONT_PACKAGES`).
 

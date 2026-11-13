@@ -1,19 +1,25 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	The top bar (phase-1.md 8.1): the app name, the outline button on tablets, the sample picker,
-	the mode (Text only until Phase 2 brings Split and Visual) and the engine's state. On phones
-	the engine state shrinks to a dot with the words kept for screen readers.
+	The top bar (phase-1.md 8.1): the app name, the outline button where the outline is a drawer, the sample picker,
+	the view switch (Text, Split, Visual; a phone has its tab bar instead) and the engine's state.
+	On phones the engine state shrinks to a dot with the words kept for screen readers.
 -->
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
 	import type { LayoutKind } from '../lib/state/layout.svelte';
+	import type { ViewMode } from '../lib/state/view-mode';
 	import { engineLine, strings } from '../lib/strings';
+	import ViewSwitch from './gantt/ViewSwitch.svelte';
 
 	interface Props {
 		app: AppState;
 		layout: LayoutKind;
+		mode: ViewMode;
+		/** Whether the outline is a drawer here, so that the top bar has the button for it. */
+		drawer: boolean;
+		onmode: (mode: ViewMode) => void;
 	}
-	let { app, layout }: Props = $props();
+	let { app, layout, mode, drawer, onmode }: Props = $props();
 
 	async function pick(event: Event & { currentTarget: HTMLSelectElement }): Promise<void> {
 		const select = event.currentTarget;
@@ -24,7 +30,7 @@
 </script>
 
 <header class="topbar">
-	{#if layout === 'tablet'}
+	{#if drawer}
 		<button
 			type="button"
 			class="outline-button"
@@ -45,7 +51,7 @@
 		</select>
 	</label>
 	{#if layout !== 'phone'}
-		<span class="mode">{strings.topBar.mode}</span>
+		<ViewSwitch {mode} {onmode} />
 	{/if}
 	<p class="engine" data-testid="engine-status" data-state={app.engine}>
 		<span class:sr-only={layout === 'phone'}>{engineLine(app.engine)}</span>
@@ -85,10 +91,6 @@
 		background: var(--color-surface);
 		color: var(--color-text);
 		font: inherit;
-		font-size: var(--text-sm);
-	}
-	.mode {
-		color: var(--color-text-muted);
 		font-size: var(--text-sm);
 	}
 	.engine {

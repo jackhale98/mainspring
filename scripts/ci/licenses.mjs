@@ -54,6 +54,7 @@ export const COMPATIBLE = new Set([
 export const FONT_PACKAGES = new Set([
 	'@fontsource-variable/inter',
 	'@fontsource-variable/jetbrains-mono',
+	'@fontsource/instrument-serif',
 ]);
 
 /**

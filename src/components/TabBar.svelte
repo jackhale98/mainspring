@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	The phone's bottom tab bar (phase-1.md 8.1, 14.7): Plan and Text only. Gantt and People join
-	it in Phases 2 and 3. A tablist with arrow keys, selecting a tab shows its panel.
+	The phone's bottom tab bar (phase-1.md 8.1, 14.7; phase-2.md 9.2): Plan, Gantt and Text.
+	People joins in Phase 3. A tablist with arrow keys, selecting a tab shows its panel.
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
@@ -12,6 +12,7 @@
 
 	const TABS: ReadonlyArray<{ id: PhoneTab; label: string }> = [
 		{ id: 'plan', label: strings.panels.plan },
+		{ id: 'gantt', label: strings.panels.gantt },
 		{ id: 'text', label: strings.panels.text },
 	];
 
@@ -52,7 +53,7 @@
 <style>
 	.tabbar {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(3, 1fr);
 		min-block-size: var(--size-tabbar);
 		border-block-start: 1px solid var(--color-border);
 		background: var(--color-surface);

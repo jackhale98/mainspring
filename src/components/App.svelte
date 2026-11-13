@@ -1,24 +1,37 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	Text mode (phase-1.md 8): the app shell. Desktop shows the outline beside the editor, tablets
-	put the outline in a drawer, phones show one panel at a time under a bottom tab bar (Plan and
-	Text). The status strip sits at the bottom of every layout. Nothing here changes the schedule:
-	the editor commits text to the workspace and the runner schedules what it sees.
+	The app shell (phase-1.md 8; phase-2.md 9). Text mode as in Phase 1: desktop shows the outline
+	beside the editor, tablets put the outline in a drawer. Split shows the editor and the Gantt
+	side by side (stacked on a tablet), Visual shows the Gantt alone; in those two the outline is
+	the same drawer on every width (phase-2.md 9.2), and the notice about unsaved changes stays
+	above the status strip. Phones show one panel at a time under a bottom tab bar (Plan, Gantt,
+	Text). The view switch is the minimal one of
+	src/lib/state/view-mode.ts, which task T14 replaces. The editor stays mounted in every view so
+	its state survives a switch. The status strip sits at the bottom of every layout. Nothing here
+	changes the schedule: the editor commits text to the workspace and the runner schedules what
+	it sees; the Gantt only reads.
 -->
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { AppState } from '../lib/state/app.svelte';
 	import { LayoutState } from '../lib/state/layout.svelte';
+	import { effectiveMode, modeFromParam, phoneTabFor, type ViewMode } from '../lib/state/view-mode';
 	import { strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
 	import EditorPanel from './EditorPanel.svelte';
+	import Gantt from './gantt/Gantt.svelte';
 	import OutlinePanel from './OutlinePanel.svelte';
 	import Sheet from './Sheet.svelte';
 	import StatusStrip from './StatusStrip.svelte';
 	import TabBar from './TabBar.svelte';
 	import TopBar from './TopBar.svelte';
 
-	const app = new AppState({ initial: new URLSearchParams(location.search).get('sample') });
+	const params = new URLSearchParams(location.search);
+	const app = new AppState({ initial: params.get('sample') });
+	const linked = modeFromParam(params.get('mode'));
+	/** The view the user (or the link) chose; null follows the layout's default. */
+	let choice = $state<ViewMode | null>(linked);
+	app.phoneTab = phoneTabFor(linked);
 	const layout = new LayoutState();
 	onDestroy(() => {
 		layout.dispose();
@@ -27,17 +40,31 @@
 
 	const kind = $derived(layout.kind);
 	const phone = $derived(kind === 'phone');
-
-	// The drawer only exists on tablets: close it when the window changes layout.
+	const mode = $derived(effectiveMode(choice, kind));
+	const showGantt = $derived(phone ? app.phoneTab === 'gantt' : mode !== 'text');
+	const showEditor = $derived(phone ? app.phoneTab === 'text' : mode !== 'visual');
+	/** The Gantt is mounted when first shown and then kept, so zoom and scroll survive a switch. */
+	let ganttSeen = $state(false);
 	$effect(() => {
-		if (kind !== 'tablet') untrack(() => (app.outlineOpen = false));
+		if (showGantt) ganttSeen = true;
 	});
+
+	/**
+	 * The outline is a drawer on tablets, and on a desktop in Split and Visual, where the Gantt's
+	 * task column is the outline. Text on a desktop has it beside the editor; phones have a tab.
+	 */
+	const drawer = $derived(kind === 'tablet' || (kind === 'desktop' && mode !== 'text'));
+	$effect(() => {
+		if (!drawer) untrack(() => (app.outlineOpen = false));
+	});
+	/** The notice sits in the outline panel; where that is not on screen, it sits above the strip. */
+	const showNotice = $derived(!phone && !(kind === 'desktop' && mode === 'text'));
 </script>
 
 <div class="app" data-layout={kind}>
-	<TopBar {app} layout={kind} />
-	<main id="main" class="body" tabindex="-1">
-		{#if kind === 'desktop'}
+	<TopBar {app} layout={kind} {mode} {drawer} onmode={(m) => (choice = m)} />
+	<main id="main" class="body" data-mode={mode} tabindex="-1">
+		{#if kind === 'desktop' && mode === 'text'}
 			<aside class="outline" aria-label={strings.outline.title}>
 				<OutlinePanel {app} />
 			</aside>
@@ -58,7 +85,7 @@
 			class="panel text"
 			role={phone ? 'tabpanel' : undefined}
 			aria-labelledby={phone ? 'tab-text' : undefined}
-			hidden={phone && app.phoneTab !== 'text'}
+			hidden={!showEditor}
 		>
 			{#if app.phase === 'failed'}
 				<p class="message error" role="alert">{app.loadError}</p>
@@ -70,10 +97,24 @@
 				<p class="message">{strings.topBar.loading}</p>
 			{/if}
 		</div>
+		{#if ganttSeen}
+			<div
+				id="panel-gantt"
+				class="panel gantt"
+				role={phone ? 'tabpanel' : undefined}
+				aria-labelledby={phone ? 'tab-gantt' : undefined}
+				hidden={!showGantt}
+			>
+				<Gantt {app} />
+			</div>
+		{/if}
 	</main>
-	<StatusStrip {app} compact={phone && app.phoneTab === 'text'} />
+	<div class="footer">
+		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
+		<StatusStrip {app} compact={phone} />
+	</div>
 	{#if phone}<TabBar {app} />{/if}
-	{#if kind === 'tablet'}
+	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
 			side="start"
@@ -100,13 +141,38 @@
 		min-block-size: 0;
 		outline: none;
 	}
-	.app[data-layout='desktop'] .body {
+	.app[data-layout='desktop'] .body[data-mode='text'] {
 		grid-template-columns: var(--size-outline) minmax(0, 1fr);
+	}
+	.app[data-layout='desktop'] .body[data-mode='split'] {
+		grid-template-columns: minmax(22rem, 2fr) minmax(0, 3fr);
+	}
+	.app[data-layout='desktop'] .body[data-mode='split'] .gantt {
+		border-inline-start: 1px solid var(--color-border);
+	}
+	/* A tablet stacks the two, the Gantt above the editor. */
+	.app[data-layout='tablet'] .body[data-mode='split'] {
+		grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+	}
+	.app[data-layout='tablet'] .body[data-mode='split'] .gantt {
+		order: -1;
+		border-block-end: 1px solid var(--color-border);
 	}
 	.outline {
 		min-block-size: 0;
 		border-inline-end: 1px solid var(--color-border);
 		background: var(--color-surface);
+	}
+	.footer {
+		min-inline-size: 0;
+	}
+	.notice {
+		margin: 0;
+		padding: var(--space-1) var(--gutter);
+		border-block-start: 1px solid var(--color-border);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
 	}
 	.panel {
 		min-block-size: 0;

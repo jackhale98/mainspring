@@ -13,7 +13,7 @@ test.describe('text mode screenshots', () => {
 	test.setTimeout(READY_TIMEOUT_MS + 60_000);
 
 	async function open(page: Page, sample: string): Promise<void> {
-		await page.goto(`/app?sample=${sample}`);
+		await page.goto(`/app?sample=${sample}&mode=text`);
 		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 			timeout: READY_TIMEOUT_MS,
 		});
@@ -57,7 +57,7 @@ test.describe('text mode screenshots', () => {
 			await open(page, 'syn-18-structure-include-macro');
 			await page.screenshot({ path: path.join(DIR, 'app-tablet.png') });
 			// The tutorial has longer lines, so the editor behind the drawer shows more.
-			await page.goto('/app?sample=upstream-tutorial');
+			await page.goto('/app?sample=upstream-tutorial&mode=text');
 			await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 				timeout: READY_TIMEOUT_MS,
 			});

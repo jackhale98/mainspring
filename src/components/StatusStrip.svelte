@@ -185,6 +185,24 @@
 	.compact .state {
 		font-weight: 500;
 	}
+	/* One line: a phone's strip (every tab) takes little of the height. */
+	.strip.compact {
+		flex-wrap: nowrap;
+		gap: var(--space-1) var(--space-3);
+		padding-block: var(--space-1);
+		overflow: hidden;
+		font-size: var(--text-xs);
+	}
+	.compact .state,
+	.compact .counts {
+		flex: none;
+	}
+	.compact .finish {
+		flex-wrap: nowrap;
+		min-inline-size: 0;
+		overflow: hidden;
+		white-space: nowrap;
+	}
 	@media (pointer: coarse) {
 		.counts,
 		.retry {

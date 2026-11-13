@@ -100,6 +100,27 @@ describe('AppState', () => {
 		expect(app.outlineOpen).toBe(false);
 	});
 
+	it('selects a task from the Gantt: cursor to its declaration, no focus, no tab switch', async () => {
+		const { app, client } = await open();
+		client.done(1, { tasks: [task('a', 2, 600), task('b', 3, 1500)] });
+		await flush();
+		app.phoneTab = 'gantt';
+		const node = app.outline.byKey.get('task:b');
+		if (!node) throw new Error('no node');
+		app.selectTask('task:b');
+		expect(app.selectedTask).toBe('task:b');
+		expect(app.phoneTab).toBe('gantt');
+		expect(app.reveal).toMatchObject({ file: 'plan.tjp', from: node.at.from, focus: false });
+		// A task the outline does not know is selected without moving the editor.
+		const before = app.reveal;
+		app.selectTask('task:gone');
+		expect(app.selectedTask).toBe('task:gone');
+		expect(app.reveal).toBe(before);
+		// Opening another plan clears the selection.
+		await app.openSample('two');
+		expect(app.selectedTask).toBeNull();
+	});
+
 	it('toggles outline nodes', async () => {
 		const { app } = await open();
 		app.toggleNode('task:a');

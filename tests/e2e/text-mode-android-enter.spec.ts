@@ -51,7 +51,7 @@ test.describe('Enter while an engine result arrives', () => {
 				},
 			});
 		});
-		await page.goto('/app?sample=syn-18-structure-include-macro');
+		await page.goto('/app?sample=syn-18-structure-include-macro&mode=text');
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 			timeout: READY_TIMEOUT_MS,
 		});

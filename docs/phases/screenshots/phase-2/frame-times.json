@@ -1,0 +1,290 @@
+{
+  "when": "2026-11-13T00:10:47.224Z",
+  "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+  "results": [
+    {
+      "plan": "fedora",
+      "profile": "desktop",
+      "rowsHeightPx": 16608,
+      "scrollDown": {
+        "frames": 269,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "scrollUp": {
+        "frames": 264,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "panRight": {
+        "frames": 126,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "panLeft": {
+        "frames": 190,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "diagonal": {
+        "frames": 378,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "zoomCycle": {
+        "frames": 513,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 33.4,
+        "maxMs": 83.4,
+        "over20msPct": 3.9,
+        "over50ms": 5,
+        "loafCount": 6,
+        "loafMaxMs": 62.3
+      }
+    },
+    {
+      "plan": "fedora",
+      "profile": "pixel-7",
+      "rowsHeightPx": 16608,
+      "scrollDown": {
+        "frames": 270,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 33.4,
+        "over20msPct": 0.7,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "scrollUp": {
+        "frames": 536,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 33.2,
+        "over20msPct": 0.4,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "panRight": {
+        "frames": 229,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 33.3,
+        "maxMs": 33.3,
+        "over20msPct": 1.3,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "panLeft": {
+        "frames": 306,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 33.3,
+        "maxMs": 33.3,
+        "over20msPct": 1.3,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "diagonal": {
+        "frames": 473,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 33.3,
+        "maxMs": 33.3,
+        "over20msPct": 1.1,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "zoomCycle": {
+        "frames": 736,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 150,
+        "maxMs": 300.1,
+        "over20msPct": 4.1,
+        "over50ms": 30,
+        "loafCount": 12,
+        "loafMaxMs": 165.6
+      }
+    },
+    {
+      "plan": "scale",
+      "profile": "desktop",
+      "rowsHeightPx": 49048,
+      "scrollDown": {
+        "frames": 630,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "scrollUp": {
+        "frames": 1256,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 33.3,
+        "over20msPct": 0.2,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "panRight": {
+        "frames": 147,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "panLeft": {
+        "frames": 296,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "diagonal": {
+        "frames": 283,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 16.8,
+        "over20msPct": 0,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "zoomCycle": {
+        "frames": 354,
+        "medianMs": 16.7,
+        "p95Ms": 33.3,
+        "p99Ms": 116.7,
+        "maxMs": 116.7,
+        "over20msPct": 6.8,
+        "over50ms": 8,
+        "loafCount": 12,
+        "loafMaxMs": 84.1
+      }
+    },
+    {
+      "plan": "scale",
+      "profile": "pixel-7",
+      "rowsHeightPx": 49048,
+      "scrollDown": {
+        "frames": 630,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 33.4,
+        "over20msPct": 0.2,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "scrollUp": {
+        "frames": 1254,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 33.2,
+        "over20msPct": 0.3,
+        "over50ms": 0,
+        "loafCount": 2,
+        "loafMaxMs": 54.2
+      },
+      "panRight": {
+        "frames": 146,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 16.8,
+        "maxMs": 33.4,
+        "over20msPct": 0.7,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "panLeft": {
+        "frames": 296,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 16.8,
+        "maxMs": 33.4,
+        "over20msPct": 0.7,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "diagonal": {
+        "frames": 286,
+        "medianMs": 16.7,
+        "p95Ms": 16.7,
+        "p99Ms": 33.4,
+        "maxMs": 33.4,
+        "over20msPct": 1,
+        "over50ms": 0,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      },
+      "zoomCycle": {
+        "frames": 510,
+        "medianMs": 16.7,
+        "p95Ms": 16.8,
+        "p99Ms": 116.7,
+        "maxMs": 133.3,
+        "over20msPct": 3.9,
+        "over50ms": 20,
+        "loafCount": 0,
+        "loafMaxMs": 0
+      }
+    }
+  ]
+}
