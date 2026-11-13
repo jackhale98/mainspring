@@ -86,7 +86,7 @@ const NUMBERS = {
 	headerFontSize: ['--gantt-header-font-size', 19],
 	headerMinorFontSize: ['--gantt-header-minor-font-size', 11],
 	headerLetterSpacing: ['--gantt-header-letter-spacing', 0.22],
-	labelGap: ['--gantt-label-gap', 8],
+	labelGap: ['--gantt-label-gap', 14],
 	labelPad: ['--gantt-label-pad', 10],
 	avatarSize: ['--gantt-avatar-size', 20],
 	avatarGap: ['--gantt-avatar-gap', 4],
@@ -145,8 +145,10 @@ function build(get: (name: string) => string): Theme {
 		return Number.isFinite(v) ? v : fallback;
 	};
 	const out: Record<string, unknown> = {};
-	for (const [key, [token, fallback]] of Object.entries(COLOURS)) out[key] = colour(token, fallback);
-	for (const [key, [token, fallback]] of Object.entries(NUMBERS)) out[key] = number(token, fallback);
+	for (const [key, [token, fallback]] of Object.entries(COLOURS))
+		out[key] = colour(token, fallback);
+	for (const [key, [token, fallback]] of Object.entries(NUMBERS))
+		out[key] = number(token, fallback);
 	out['fontSans'] = colour('--font-sans', 'system-ui, sans-serif');
 	out['fontMono'] = colour('--font-mono', 'ui-monospace, monospace');
 	out['fontDisplay'] = colour('--font-display', 'Georgia, serif');

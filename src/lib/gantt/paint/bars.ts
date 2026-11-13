@@ -20,14 +20,7 @@
  */
 import type { GanttRow } from '../model';
 import { rowRange, type GanttLayout, type Rect } from '../layout';
-import {
-	barFont,
-	begin,
-	labelFont,
-	roundedRect,
-	textWidth,
-	type PaintFrame,
-} from './canvas';
+import { barFont, begin, labelFont, roundedRect, textWidth, type PaintFrame } from './canvas';
 import { paintLinks } from './links';
 import type { Theme } from './theme';
 
@@ -40,7 +33,7 @@ function drawSummary(ctx: CanvasRenderingContext2D, r: Rect, colour: string, t: 
 	const stem = Math.min(r.h, t.summaryStem);
 	const cap = Math.min(t.summaryCap, r.w / 2);
 	ctx.fillStyle = colour;
-	ctx.fillRect(r.x, r.y + (r.h - stem) / 2 - (r.h - stem) / 2, r.w, stem);
+	ctx.fillRect(r.x, r.y, r.w, stem);
 	ctx.fillRect(r.x, r.y, cap, r.h);
 	ctx.fillRect(r.x + r.w - cap, r.y, cap, r.h);
 }
@@ -149,10 +142,11 @@ function drawJewel(f: PaintFrame, bar: Rect, critical: boolean): void {
 function drawAvatar(f: PaintFrame, x: number, cy: number, name: string, colour: number): number {
 	const { ctx, theme } = f;
 	const size = theme.avatarSize;
-	const { bg, ink } = theme.avatars[colour % theme.avatars.length] ?? theme.avatars[0] ?? {
-		bg: theme.inset,
-		ink: theme.text,
-	};
+	const { bg, ink } = theme.avatars[colour % theme.avatars.length] ??
+		theme.avatars[0] ?? {
+			bg: theme.inset,
+			ink: theme.text,
+		};
 	ctx.beginPath();
 	ctx.arc(x + size / 2, cy, size / 2 + 2, 0, Math.PI * 2);
 	ctx.fillStyle = theme.surface;
@@ -175,9 +169,7 @@ function drawBeside(f: PaintFrame, row: GanttRow, x: number, cy: number, withNam
 	let at = x;
 	if (withName) {
 		const display = row.kind === 'milestone';
-		ctx.font = display
-			? `${theme.displaySize}px ${theme.fontDisplay}`
-			: labelFont(theme);
+		ctx.font = display ? `${theme.displaySize}px ${theme.fontDisplay}` : labelFont(theme);
 		ctx.fillStyle = display ? theme.text : theme.textMuted;
 		ctx.fillText(row.name, at, cy + 0.5);
 		at += textWidth(ctx, row.name) + theme.labelGap;
@@ -229,8 +221,7 @@ export function paintBars(f: PaintFrame): void {
 		ctx.textAlign = 'left';
 		ctx.font = barFont(theme);
 		const nameWidth = textWidth(ctx, row.name);
-		const inside =
-			row.kind === 'task' && !row.textOnly && nameWidth + 2 * theme.labelPad <= bar.w;
+		const inside = row.kind === 'task' && !row.textOnly && nameWidth + 2 * theme.labelPad <= bar.w;
 		if (inside) {
 			ctx.fillStyle = row.critical ? theme.steelInk : theme.barInk;
 			ctx.fillText(row.name, bar.x + theme.labelPad, cy + 0.5);
@@ -239,7 +230,7 @@ export function paintBars(f: PaintFrame): void {
 			row.lateEnd !== null && row.floatMin !== null && row.floatMin > 0
 				? Math.max(layout.scale.x(row.lateEnd), bar.x + bar.w)
 				: bar.x + bar.w;
-		drawBeside(f, row, tail + theme.labelGap, cy, !inside);
+		drawBeside(f, row, tail + theme.labelGap, cy, !inside && row.kind !== 'container');
 		ctx.globalAlpha = alpha;
 	}
 	ctx.globalAlpha = 1;

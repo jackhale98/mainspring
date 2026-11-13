@@ -81,7 +81,6 @@ export const TEST_THEME: Theme = {
 	labelPad: 6,
 	linkWidth: 1.25,
 	linkWidthCritical: 2,
-	criticalOutline: 2.5,
 };
 
 /** The theme a coarse pointer resolves to: the token overrides of tokens.css, in kind. */

@@ -42,7 +42,7 @@
 		const base = { ctx, win: { x: win.x, w: win.w }, dpr, scale: layout.scale, theme };
 		if (!ticks) {
 			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.fillStyle = theme.surfaceSunken;
+			ctx.fillStyle = theme.surfaceHeader;
 			ctx.fillRect(0, 0, c.width, c.height);
 			return;
 		}

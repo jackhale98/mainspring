@@ -131,18 +131,18 @@ async function typeAndObserve(page: Page, gap: number): Promise<Samples & { repo
 
 type Open = (page: Page) => Promise<void>;
 
-async function openFedora(page: Page): Promise<void> {
-	await page.goto('/app?sample=upstream-fedora-20&mode=text');
+async function openFedora(page: Page, mode = 'text'): Promise<void> {
+	await page.goto(`/app?sample=upstream-fedora-20&mode=${mode}`);
 	await scheduled(page);
 	await page.getByRole('textbox', { name: EDITOR }).click();
 }
 
-async function openScale1000(page: Page): Promise<void> {
+async function openScale1000(page: Page, mode = 'text'): Promise<void> {
 	const text = fs.readFileSync(
 		path.join(REPO, 'engine/golden/plans/synthetic/20-scale-1000/plan.tjp'),
 		'utf8',
 	);
-	await page.goto('/app?mode=text');
+	await page.goto(`/app?mode=${mode}`);
 	await scheduled(page);
 	const editor = page.getByRole('textbox', { name: EDITOR });
 	await editor.click();
@@ -321,6 +321,22 @@ test.describe('text mode performance', () => {
 			'syn-20-scale-1000',
 			'scale-1000 pasted in (1,000 tasks, 5,628 lines)',
 			openScale1000,
+			1,
+			GAP_MS,
+		],
+		// Split mode: the Gantt is on screen beside the editor, rebuilding and repainting as the
+		// index follows the typing.
+		[
+			'upstream-fedora-20-split',
+			'Fedora 20 sample, Split mode',
+			(p) => openFedora(p, 'split'),
+			1,
+			GAP_MS,
+		],
+		[
+			'syn-20-scale-1000-split',
+			'scale-1000 pasted in, Split mode',
+			(p) => openScale1000(p, 'split'),
 			1,
 			GAP_MS,
 		],

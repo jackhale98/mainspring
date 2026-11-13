@@ -52,23 +52,17 @@ test.describe('gantt screenshots', () => {
 				test.skip(info.project.name !== 'desktop');
 				await page.setViewportSize({ width: 1440, height: 860 });
 				await page.emulateMedia({ colorScheme: scheme });
-				await open(page, 'upstream-fedora-20', 'gantt');
+				await open(page, 'upstream-fedora-20', 'visual');
 				await shot(page, `gantt-desktop-gantt-${scheme}.png`);
 				if (scheme !== 'light') return;
 				const gantt = page.getByTestId('gantt');
-				await page.getByRole('button', { name: 'Zoom in' }).click();
-				await expect(gantt).toHaveAttribute('data-zoom', 'day');
-				await page.waitForTimeout(300);
-				await shot(page, 'gantt-zoom-day.png');
-				await page.getByRole('button', { name: 'Zoom out' }).click();
-				await page.getByRole('button', { name: 'Zoom out' }).click();
-				await expect(gantt).toHaveAttribute('data-zoom', 'month');
-				await page.waitForTimeout(300);
-				await shot(page, 'gantt-zoom-month.png');
-				await page.getByRole('button', { name: 'Zoom out' }).click();
-				await expect(gantt).toHaveAttribute('data-zoom', 'quarter');
-				await page.waitForTimeout(300);
-				await shot(page, 'gantt-zoom-quarter.png');
+				const zoom = page.getByRole('combobox', { name: 'Zoom' });
+				for (const level of ['day', 'month', 'quarter']) {
+					await zoom.selectOption(level);
+					await expect(gantt).toHaveAttribute('data-zoom', level);
+					await page.waitForTimeout(300);
+					await shot(page, `gantt-zoom-${level}.png`);
+				}
 			});
 		});
 

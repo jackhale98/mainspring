@@ -29,6 +29,16 @@ export function recorder(width = 1000, height = 600): Recorder {
 		{
 			get(_t, name: string) {
 				if (name === 'canvas') return canvas;
+				if (name === 'createLinearGradient') {
+					return (...args: unknown[]) => {
+						calls.push([name, ...args]);
+						return {
+							addColorStop: (...stop: unknown[]) => {
+								calls.push(['addColorStop', ...stop]);
+							},
+						};
+					};
+				}
 				if (name === 'measureText') {
 					return (text: string) => ({ width: text.length * 6 });
 				}

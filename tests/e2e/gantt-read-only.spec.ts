@@ -96,19 +96,143 @@ test.describe('gantt', () => {
 		await expect(rows(page).nth(1)).toHaveAttribute('aria-selected', 'true');
 	});
 
-	test('zooms from week to day and out to the quarter', async ({ page }) => {
+	test('zooms from week to day and out to the quarter with the zoom chip', async ({ page }) => {
 		await open(page);
 		const gantt = page.getByTestId('gantt');
+		const zoom = page.getByRole('combobox', { name: 'Zoom' });
 		await expect(gantt).toHaveAttribute('data-zoom', 'week');
-		await page.getByRole('button', { name: 'Zoom in' }).click();
-		await expect(gantt).toHaveAttribute('data-zoom', 'day');
-		await expect(page.getByRole('button', { name: 'Zoom in' })).toBeDisabled();
-		for (const level of ['week', 'month', 'quarter']) {
-			await page.getByRole('button', { name: 'Zoom out' }).click();
+		for (const level of ['day', 'week', 'month', 'quarter']) {
+			await zoom.selectOption(level);
 			await expect(gantt).toHaveAttribute('data-zoom', level);
+			await expect(zoom).toHaveValue(level);
 		}
-		await expect(page.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
 		await expect.poll(() => barsPainted(page)).toBe(true);
+	});
+
+	test('Ctrl+wheel zooms about the pointer, in the default view and after a sample switch', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop', 'a wheel needs a mouse');
+		await open(page);
+		const gantt = page.getByTestId('gantt');
+		const zoomWith = async (notches: number): Promise<void> => {
+			const box = await page.getByTestId('gantt-overlay').boundingBox();
+			if (!box) throw new Error('no plot');
+			await page.mouse.move(box.x + 300, box.y + 100);
+			await page.keyboard.down('Control');
+			for (let i = 0; i < notches; i++) await page.mouse.wheel(0, -200);
+			await page.keyboard.up('Control');
+		};
+		await expect(gantt).toHaveAttribute('data-zoom', 'week');
+		await zoomWith(6);
+		await expect(gantt).toHaveAttribute('data-zoom', 'day');
+		// The page itself did not zoom, and a plain wheel still scrolls.
+		expect(await page.evaluate(() => visualViewport?.scale)).toBe(1);
+		// A sample switch builds a new scroller: the wheel must still be bound to it.
+		await page
+			.getByRole('combobox', { name: 'Sample plan' })
+			.selectOption('syn-18-structure-include-macro');
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(rows(page).first()).toBeVisible();
+		await page.getByRole('combobox', { name: 'Zoom' }).selectOption('quarter');
+		await expect(gantt).toHaveAttribute('data-zoom', 'quarter');
+		await zoomWith(3);
+		await expect(gantt).toHaveAttribute('data-zoom', 'month');
+	});
+
+	test('a wheel zoom keeps the date under the pointer, and paints once the wheel is still', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop', 'a wheel needs a mouse');
+		await open(page);
+		const header = page.getByTestId('gantt-header');
+		const box = await page.getByTestId('gantt-overlay').boundingBox();
+		if (!box) throw new Error('no plot');
+		await page.mouse.move(box.x + 300, box.y + 100);
+		await page.keyboard.down('Control');
+		await page.mouse.wheel(0, -300);
+		// While the wheel moves the canvases are stretched, not repainted.
+		await expect
+			.poll(() =>
+				page
+					.getByTestId('gantt')
+					.evaluate(
+						(g) => !!g.querySelector('.space')?.getAttribute('style')?.includes('--zoom-ratio'),
+					),
+			)
+			.toBe(true);
+		await page.keyboard.up('Control');
+		await expect
+			.poll(() =>
+				page
+					.getByTestId('gantt')
+					.evaluate(
+						(g) => !!g.querySelector('.space')?.getAttribute('style')?.includes('--zoom-ratio'),
+					),
+			)
+			.toBe(false);
+		await expect(header).toBeVisible();
+	});
+
+	test('+ and - zoom while the task list has the focus; Ctrl+plus is left to the browser', async ({
+		page,
+	}) => {
+		await open(page);
+		const gantt = page.getByTestId('gantt');
+		await rows(page).first().focus();
+		await page.keyboard.press('Equal');
+		await expect(gantt).toHaveAttribute('data-zoom', 'day');
+		await page.keyboard.press('Minus');
+		await expect(gantt).toHaveAttribute('data-zoom', 'week');
+		// With Ctrl held the key is not ours: the zoom does not change.
+		await page.keyboard.press('Control+Equal');
+		await expect(gantt).toHaveAttribute('data-zoom', 'week');
+	});
+
+	test('keeps the keyboard focus on a task row that scrolls out of the mounted range', async ({
+		page,
+	}) => {
+		await page.goto('/app?sample=gantt-500&mode=visual');
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		const first = rows(page).first();
+		await first.focus();
+		const key = await first.getAttribute('data-key');
+		await page
+			.getByTestId('gantt')
+			.locator('.scroller')
+			.evaluate((el) => {
+				el.scrollTop = 12_000;
+			});
+		await expect(rows(page).first()).not.toHaveAttribute('data-key', key ?? '');
+		// The focused row stayed mounted, and still has the focus.
+		const active = await page.evaluate(() => document.activeElement?.getAttribute('data-key'));
+		expect(active).toBe(key);
+	});
+
+	test('hovering a bar outlines it without veiling it', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop', 'hover needs a mouse');
+		await open(page);
+		const overlay = page.getByTestId('gantt-overlay');
+		const box = await overlay.boundingBox();
+		const row = (await rows(page).nth(1).boundingBox())?.height ?? 40;
+		if (!box) throw new Error('no plot');
+		await page.mouse.move(box.x + 60, box.y + row * 1.5);
+		await page.waitForTimeout(200);
+		// The middle of the bar, away from its outline: nothing is painted over it.
+		const alpha = await overlay.evaluate(
+			(c, at) => {
+				const canvas = c as HTMLCanvasElement;
+				const ratio = canvas.width / canvas.getBoundingClientRect().width;
+				const data = canvas.getContext('2d')?.getImageData(at.x * ratio, at.y * ratio, 1, 1).data;
+				return data?.[3] ?? -1;
+			},
+			{ x: 60, y: row * 1.5 },
+		);
+		expect(alpha).toBe(0);
 	});
 
 	test('collapses and expands a summary task', async ({ page }) => {
@@ -137,16 +261,80 @@ test.describe('gantt', () => {
 	test('keeps the dimmed last good schedule when the plan stops scheduling', async ({
 		page,
 	}, info) => {
-		test.skip(info.project.name !== 'desktop', 'needs the editor beside the Gantt');
 		await open(page);
+		const phone = info.project.name !== 'desktop';
+		// On a phone the editor is on the Text tab.
+		if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).click();
 		await page.getByRole('textbox', { name: /^Editor for / }).click();
 		await page.keyboard.press('ControlOrMeta+End');
 		await page.keyboard.insertText('\n}\n');
 		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('last good', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		await expect(page.getByText('Showing the last good schedule')).toBeVisible();
+		if (phone) await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
+		else await expect(page.getByText('Showing the last good schedule')).toBeVisible();
+		await expect(rows(page).first()).toBeVisible();
 		await expect.poll(() => barsPainted(page)).toBe(true);
+	});
+
+	test('selecting a task declared in another file opens that file in the editor', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop', 'the editor is beside the Gantt on a desktop');
+		await page.goto('/app?sample=syn-18-structure-include-macro');
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(page.getByTestId('gantt')).toBeVisible();
+		// The entry file is open; a task of the included lib/tasks.tji is selected from the Gantt.
+		const files = page.getByRole('tablist', { name: 'Files' });
+		await expect(files.getByRole('tab', { selected: true })).toContainText('plan.tjp');
+		const names = await rows(page).allInnerTexts();
+		expect(names.length).toBeGreaterThan(2);
+		let moved = false;
+		for (let i = 0; i < Math.min(names.length, 12) && !moved; i++) {
+			await rows(page).nth(i).click();
+			moved = (await files.getByRole('tab', { selected: true }).innerText()).includes('tasks.tji');
+		}
+		expect(moved).toBe(true);
+		await expect(page.locator('.cm-activeLine')).toBeVisible();
+	});
+
+	test('the tablet opens on the Visual view, with the outline in a drawer', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop', 'a viewport size stands in for the tablet');
+		await page.setViewportSize({ width: 820, height: 1180 });
+		await open(page);
+		await expect(page.getByRole('button', { name: 'Visual' })).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		);
+		await expect(page.getByRole('textbox', { name: /^Editor for / })).toBeHidden();
+		await page.getByRole('button', { name: 'Outline' }).click();
+		await expect(page.getByRole('dialog', { name: 'Outline' })).toBeVisible();
+	});
+
+	test('the outline is reachable in Split and Visual, and the unsaved-changes notice stays', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop', 'phones have the Plan tab');
+		await open(page);
+		const notice = page.getByText('Changes stay in this tab until saving arrives');
+		await expect(notice).toBeVisible();
+		for (const mode of ['Split', 'Visual']) {
+			await page.getByRole('button', { name: mode, exact: true }).click();
+			await expect(notice).toBeVisible();
+			await page.getByRole('button', { name: 'Outline' }).click();
+			const drawer = page.getByRole('dialog', { name: 'Outline' });
+			await expect(drawer).toBeVisible();
+			await expect(drawer.getByRole('tree', { name: 'Tasks' })).toBeVisible();
+			await expect(drawer.getByRole('tree', { name: 'Resources' })).toBeVisible();
+			await page.keyboard.press('Escape');
+			await expect(drawer).toBeHidden();
+		}
+		await page.getByRole('button', { name: 'Text', exact: true }).click();
+		await expect(notice).toBeVisible();
 	});
 
 	for (const scheme of ['light', 'dark'] as const) {

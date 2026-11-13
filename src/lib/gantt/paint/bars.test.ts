@@ -5,7 +5,7 @@ import { paintBars } from './bars';
 import { frameOf } from './testing';
 
 describe('paintBars', () => {
-	it('draws a rounded bar, a summary with notches and a diamond, each with a label', () => {
+	it('draws a brass pill, a summary and a jewel; only tasks and milestones get a label', () => {
 		const m = modelOf([
 			row(0, 0, 10 * D, 'task', { name: 'Code' }),
 			row(1, 0, 10 * D, 'container', { name: 'Phase' }),
@@ -14,13 +14,98 @@ describe('paintBars', () => {
 		const { frame, rec } = frameOf(m);
 		paintBars(frame);
 		const labels = rec.of('fillText').map((c) => c[1]);
-		expect(labels).toEqual(['Code', 'Phase', 'Ship']);
-		// Inside the task bar, right of the other two.
-		const [code, phase, ship] = rec.of('fillText');
-		expect(code?.[2]).toBe(6);
-		expect(phase?.[2]).toBeGreaterThan(480);
+		expect(labels).toEqual(['Code', 'Ship']);
+		const [code, ship] = rec.of('fillText');
+		// The task's name is inside its pill; the milestone's name is right of the jewel.
+		expect(code?.[2]).toBe(frame.theme.labelPad);
 		expect(ship?.[2]).toBeGreaterThan(144);
-		expect(rec.of('arcTo').length).toBe(4);
+		// The pill's path three times (fill, clip, outline), four corners each, and the jewel's one:
+		// a rounded square turned a quarter.
+		expect(rec.of('arcTo').length).toBe(16);
+		expect(rec.of('rotate').length).toBe(2);
+	});
+
+	it('gives a brass pill a gradient, a shadow, a lit edge and an outline', () => {
+		const { frame, rec } = frameOf(modelOf([row(0, 0, 10 * D)]));
+		paintBars(frame);
+		const stops = rec.of('addColorStop').map((c) => c[2]);
+		expect(stops).toEqual([frame.theme.barTop, frame.theme.barBottom]);
+		expect(rec.of('set:shadowColor')[0]?.[1]).toBe(frame.theme.barShadow);
+		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.barHighlight);
+		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([frame.theme.barOutline]);
+		expect(rec.of('set:lineWidth').map((c) => c[1])).toContain(frame.theme.barOutlineWidth);
+		// Text inside, in the bar ink.
+		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.barInk);
+	});
+
+	it('gives a critical bar a steel gradient and white text, and no outline', () => {
+		const { frame, rec } = frameOf(modelOf([row(0, 0, 10 * D, 'task', { critical: true })]));
+		paintBars(frame);
+		expect(rec.of('addColorStop').map((c) => c[2])).toEqual([
+			frame.theme.steelTop,
+			frame.theme.steelBottom,
+		]);
+		expect(rec.of('set:shadowColor')[0]?.[1]).toBe(frame.theme.steelShadow);
+		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.steelInk);
+		expect(rec.of('stroke')).toHaveLength(0);
+	});
+
+	it('draws a summary as a stem with a short cap at each end', () => {
+		const { frame, rec } = frameOf(modelOf([row(0, 0, 10 * D, 'container')]));
+		paintBars(frame);
+		const bar = frame.layout.barRect(0);
+		const rects = rec.of('fillRect');
+		expect(rects).toEqual([
+			['fillRect', bar?.x, bar?.y, bar?.w, frame.theme.summaryStem],
+			['fillRect', bar?.x, bar?.y, frame.theme.summaryCap, bar?.h],
+			[
+				'fillRect',
+				(bar?.x ?? 0) + (bar?.w ?? 0) - frame.theme.summaryCap,
+				bar?.y,
+				frame.theme.summaryCap,
+				bar?.h,
+			],
+		]);
+		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.summary);
+	});
+
+	it('draws a jewel with a glow, and a critical one in steel', () => {
+		const { frame, rec } = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone')]));
+		paintBars(frame);
+		expect(rec.of('set:shadowColor')[0]?.[1]).toBe(frame.theme.jewelGlow);
+		expect(rec.of('addColorStop').map((c) => c[2])).toEqual([
+			frame.theme.jewelHigh,
+			frame.theme.milestone,
+			frame.theme.jewelDeep,
+		]);
+		const steel = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone', { critical: true })]));
+		paintBars(steel.frame);
+		expect(steel.rec.of('addColorStop').map((c) => c[2])).toContain(steel.frame.theme.steelTop);
+	});
+
+	it('shows the people on a task as avatars right of the bar, with the initials', () => {
+		const m = modelOf([
+			row(0, 0, 4 * D, 'task', {
+				name: 'Code',
+				people: ['ana', 'Ben', 'Cy', 'Dee', 'Eli'],
+				peopleIndex: [0, 1, 2, 3, 4],
+			}),
+		]);
+		const { frame, rec } = frameOf(m);
+		paintBars(frame);
+		const texts = rec.of('fillText').map((c) => c[1]);
+		// Three avatars, then "+2"; the name is inside the bar.
+		expect(texts).toEqual(['Code', 'A', 'B', 'C', '+2']);
+		// A ring and a disc per avatar.
+		expect(rec.of('arc')).toHaveLength(6);
+		const fills = rec.of('set:fillStyle').map((c) => c[1]);
+		expect(fills).toContain(frame.theme.avatars[1]?.bg);
+		expect(fills).toContain(frame.theme.avatars[2]?.ink);
+		// The first avatar starts a label gap after the bar's end.
+		const bar = frame.layout.barRect(0);
+		expect(rec.of('arc')[0]?.[1]).toBe(
+			(bar?.x ?? 0) + (bar?.w ?? 0) + frame.theme.labelGap + frame.theme.avatarSize / 2,
+		);
 	});
 
 	it('puts a label that does not fit beside its bar, not inside', () => {
@@ -31,7 +116,9 @@ describe('paintBars', () => {
 		expect(text?.[2]).toBeGreaterThanOrEqual(12 + 6);
 		// Beside the bar the label is muted, at the smaller label size.
 		expect(rec.of('set:fillStyle').map((c) => c[1])).toContain(frame.theme.textMuted);
-		expect(rec.of('set:font').map((c) => c[1])).toContain(`11px ${frame.theme.fontSans}`);
+		expect(rec.of('set:font').map((c) => c[1])).toContain(
+			`${frame.theme.labelSize}px ${frame.theme.fontSans}`,
+		);
 	});
 
 	it('draws no bar for an unscheduled row', () => {
@@ -69,25 +156,18 @@ describe('paintBars', () => {
 		expect(rec.of('set:globalAlpha').at(-1)?.[1]).toBe(1);
 	});
 
-	it('does not rely on colour for critical, text-only and engine-only', () => {
+	it('does not rely on colour for text-only and engine-only', () => {
 		const m = modelOf(
-			[
-				row(0, 0, 4 * D, 'task', { critical: true }),
-				row(1, 0, 4 * D, 'task', { textOnly: 'unresolved' }),
-				row(2, 0, 4 * D),
-				row(3, 0, 4 * D),
-			],
-			[link(2, 3, { state: 'engine' }), link(0, 1, { critical: true })],
+			[row(0, 0, 4 * D, 'task', { textOnly: 'unresolved' }), row(1, 0, 4 * D), row(2, 0, 4 * D)],
+			[link(1, 2, { state: 'engine' }), link(0, 1, { critical: true })],
 		);
 		const { frame, rec } = frameOf(m);
 		paintBars(frame);
-		// Critical: a thick outline as well as the fill. Text-only: a dashed outline.
-		expect(rec.of('set:lineWidth').map((c) => c[1])).toContain(2.5);
+		// Text-only: a dashed outline. Engine-only: dashed. Critical: thicker than a plain link.
 		expect(rec.of('setLineDash').some((c) => (c[1] as number[]).length > 0)).toBe(true);
-		// Links: critical thicker than a plain one.
 		const widths = rec.of('set:lineWidth').map((c) => c[1] as number);
-		expect(widths).toContain(1.25);
-		expect(widths).toContain(2);
+		expect(widths).toContain(frame.theme.linkWidth);
+		expect(widths).toContain(frame.theme.linkWidthCritical);
 	});
 
 	it('draws a float tail after the end when an analysis gives one', () => {

@@ -8,6 +8,7 @@ import {
 	metricsFor,
 	paintWindow,
 	rowRange,
+	scaleFor,
 	type Rect,
 } from './layout';
 import { FALLBACK_THEME } from './paint/theme';
@@ -116,6 +117,88 @@ describe('createLayout', () => {
 		const up = layout.linkPath(link(1, 0));
 		expect(up.some((p) => p.y === 28)).toBe(true);
 		expect(layout.linkPath(link(0, 5))).toEqual([]);
+	});
+});
+
+describe('link routing by type', () => {
+	const scale = createScale(48, 0);
+	const m = metricsOf(false);
+	const layout = createLayout(
+		modelOf([
+			row(0, 2 * D, 4 * D),
+			row(1, 3 * D, 5 * D),
+			row(2, 3 * D, 3 * D, 'milestone'),
+			row(3, 3 * D, 6 * D),
+		]),
+		scale,
+		m,
+	);
+
+	it('runs start to start round the left side with one bend', () => {
+		const path = layout.linkPath(link(0, 1, { from: 'start', to: 'start' }));
+		expect(path).toEqual([
+			{ x: 96, y: 14 },
+			{ x: 88, y: 14 },
+			{ x: 88, y: 42 },
+			{ x: 144, y: 42 },
+		]);
+	});
+
+	it('runs end to end round the right side with one bend', () => {
+		const path = layout.linkPath(link(0, 1, { from: 'end', to: 'end' }));
+		expect(path).toEqual([
+			{ x: 192, y: 14 },
+			{ x: 248, y: 14 },
+			{ x: 248, y: 42 },
+			{ x: 240, y: 42 },
+		]);
+	});
+
+	it('runs start to end, going round when the end is behind the start', () => {
+		const path = layout.linkPath(link(0, 1, { from: 'start', to: 'end' }));
+		expect(path).toEqual([
+			{ x: 96, y: 14 },
+			{ x: 88, y: 14 },
+			{ x: 88, y: 28 },
+			{ x: 248, y: 28 },
+			{ x: 248, y: 42 },
+			{ x: 240, y: 42 },
+		]);
+	});
+
+	it('drops straight from a milestone to a task that starts at the same instant', () => {
+		const path = layout.linkPath(link(2, 3));
+		// From the diamond's bottom tip down to the successor's row: no loop round the start.
+		expect(path).toEqual([
+			{ x: 144, y: 2 * 28 + 14 + 8 },
+			{ x: 144, y: 3 * 28 + 14 },
+		]);
+	});
+
+	it('routes a milestone to a later task the usual way', () => {
+		const later = createLayout(
+			modelOf([row(0, 3 * D, 3 * D, 'milestone'), row(1, 6 * D, 8 * D)]),
+			scale,
+			m,
+		);
+		expect(later.linkPath(link(0, 1))).toHaveLength(4);
+	});
+
+	it('survives a cycle: a link each way is two paths, a link on itself none', () => {
+		expect(layout.linkPath(link(0, 1)).length).toBeGreaterThan(1);
+		expect(layout.linkPath(link(1, 0)).length).toBeGreaterThan(1);
+		expect(layout.linkPath(link(1, 1)).length).toBeGreaterThanOrEqual(0);
+	});
+});
+
+describe('scaleFor', () => {
+	it('leaves room before the first date for half a diamond and a gap, in pixels at any zoom', () => {
+		const m = metricsOf(false);
+		const model = modelOf([row(0, 0, D)]);
+		for (const pxPerDay of [1.2, 16, 56]) {
+			expect(scaleFor(model, pxPerDay, m).x(0)).toBeCloseTo(m.originPad);
+		}
+		expect(m.originPad).toBe(16);
 	});
 });
 

@@ -183,3 +183,15 @@ describe('scenarios', () => {
 		expect(brief(alone)).toEqual(['a>b end-start engine 0']);
 	});
 });
+
+describe('cycles (a failed run may contain them)', () => {
+	it('draws a link each way between two tasks that wait on each other, and none on a task itself', () => {
+		const r = engineResult([withDeps('a', [dep('b'), dep('a')]), withDeps('b', [dep('a')])]);
+		const links = resolveLinks({ sites: [], result: r, scenario: 'plan', current: true });
+		expect(brief(links).sort()).toEqual([
+			'a>a end-start engine 0',
+			'a>b end-start engine 0',
+			'b>a end-start engine 0',
+		]);
+	});
+});

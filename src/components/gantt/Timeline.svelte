@@ -9,6 +9,7 @@
 -->
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
+	import { strings } from '../../lib/strings';
 	import { hitTest } from '../../lib/gantt/hit';
 	import type { GanttLayout, PaintWindow } from '../../lib/gantt/layout';
 	import type { GanttModel } from '../../lib/gantt/model';
@@ -27,10 +28,13 @@
 		theme: Theme;
 		dpr: number;
 		selectedRow: number | null;
+		/** The width of the viewport, for the placeholder before the first schedule. */
+		viewW: number;
 		onselect: (row: number) => void;
 		onhover: (row: number | null) => void;
 	}
-	let { model, layout, win, ticks, theme, dpr, selectedRow, onselect, onhover }: Props = $props();
+	let { model, layout, win, ticks, theme, dpr, selectedRow, viewW, onselect, onhover }: Props =
+		$props();
 
 	let gridEl: HTMLCanvasElement | undefined = $state();
 	let barsEl: HTMLCanvasElement | undefined = $state();
@@ -166,6 +170,9 @@
 </script>
 
 <div class="plot" style:width="{layout.width}px" style:height="{layout.height}px">
+	{#if !model.scheduled}
+		<p class="placeholder" role="status" style:width="{viewW}px">{strings.gantt.scheduling}</p>
+	{/if}
 	<div class="layers">
 		<canvas bind:this={gridEl} aria-hidden="true"></canvas>
 		<canvas bind:this={barsEl} aria-hidden="true"></canvas>
@@ -186,6 +193,19 @@
 </div>
 
 <style>
+	.placeholder {
+		position: sticky;
+		inset-inline-start: var(--gantt-names);
+		z-index: 1;
+		box-sizing: border-box;
+		block-size: 0;
+		margin: 0;
+		padding-block-start: var(--space-6);
+		overflow: visible;
+		text-align: center;
+		color: var(--color-gantt-text-muted);
+		pointer-events: none;
+	}
 	.plot {
 		position: relative;
 		overflow: hidden;

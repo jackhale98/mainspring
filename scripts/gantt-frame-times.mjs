@@ -14,7 +14,8 @@
 //   frames in a Chromium trace over the same window, by state, and how many of them reported
 //   missing tiles (checkerboarding). This is the frame count that matters for smoothness.
 // - `loaf`: Long Animation Frames (over 50 ms) from one PerformanceObserver per page.
-// - `zoomSteps`: for each Zoom button press, the time until the frame after it was painted.
+// - `zoomSteps`: for each zoom level chosen, the time until the frame after it was painted.
+// - `wheelZoom` (desktop): a burst of Ctrl+wheel events, in and out, measured like the scrolls.
 // Headless Chrome has no GPU (software raster), so rasterisation and checkerboarding are not a
 // phone's. Real-device runs are task T26.
 import fs from 'node:fs';
@@ -119,17 +120,31 @@ async function gesture(cdp, source, x, y, dx, dy, speed) {
 	});
 }
 
-/** Time from pressing a Zoom button to the frame after the one that painted the result. */
-async function zoomStep(page, name) {
-	return page.evaluate(async (label) => {
-		const button = [...document.querySelectorAll('[data-testid="gantt"] button')].find(
-			(b) => b.textContent?.trim() === label,
-		);
+/**
+ * Choosing a zoom level: the time to the first frame after it (the chart already shows the new
+ * scale, stretched) and to the frame after the repaint at the new scale has settled.
+ */
+async function zoomStep(page, level) {
+	return page.evaluate(async (value) => {
+		const gantt = document.querySelector('[data-testid="gantt"]');
+		const select = gantt.querySelector('select');
+		const frames = (n) =>
+			new Promise((resolve) => {
+				const tick = () => (--n <= 0 ? resolve() : requestAnimationFrame(tick));
+				requestAnimationFrame(tick);
+			});
 		const start = performance.now();
-		button?.click();
-		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-		return performance.now() - start;
-	}, name);
+		select.value = value;
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		await frames(2);
+		const first = performance.now() - start;
+		const space = gantt.querySelector('.space');
+		while (space.style.getPropertyValue('--zoom-ratio') !== '' || gantt.dataset.zoom !== value) {
+			await frames(1);
+		}
+		await frames(2);
+		return [first, performance.now() - start];
+	}, level);
 }
 
 async function profile(browser, name, sample) {
@@ -194,12 +209,27 @@ async function profile(browser, name, sample) {
 	);
 	const steps = [];
 	result.zoom = await measure(browser, page, async () => {
-		for (const label of ['Zoom in', 'Zoom out', 'Zoom out', 'Zoom out', 'Zoom in']) {
-			steps.push([label, round(await zoomStep(page, label))]);
+		// Week to day, back to week, then month, quarter and month again.
+		for (const level of ['day', 'week', 'month', 'quarter', 'month']) {
+			const [first, settled] = await zoomStep(page, level);
+			steps.push({ level, firstFrameMs: round(first), settledMs: round(settled) });
 			await page.waitForTimeout(400);
 		}
 	});
 	result.zoomSteps = steps;
+	if (!phone) {
+		// A continuous Ctrl+wheel zoom: a burst of wheel events, in and out.
+		result.wheelZoom = await measure(browser, page, async () => {
+			await page.mouse.move(x, y);
+			await page.keyboard.down('Control');
+			for (let i = 0; i < 40; i++) {
+				await page.mouse.wheel(0, i < 20 ? -40 : 40);
+				await page.waitForTimeout(16);
+			}
+			await page.keyboard.up('Control');
+			await page.waitForTimeout(300);
+		});
+	}
 	await context.close();
 	return result;
 }

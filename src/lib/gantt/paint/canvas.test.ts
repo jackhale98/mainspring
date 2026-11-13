@@ -90,12 +90,12 @@ describe('readTheme', () => {
 	it('reads each colour from its token and falls back to the light theme', () => {
 		const tokens: Record<string, string> = {
 			'--color-gantt-accent': ' #123456 ',
-			'--color-gantt-bar': '#abcdef',
+			'--color-gantt-bar-top': '#abcdef',
 			'--font-sans': 'Inter Variable, sans-serif',
 		};
 		const p = readTheme((name) => tokens[name] ?? '');
 		expect(p.accent).toBe('#123456');
-		expect(p.bar).toBe('#abcdef');
+		expect(p.barTop).toBe('#abcdef');
 		expect(p.fontSans).toBe('Inter Variable, sans-serif');
 		expect(p.surface).toBe(FALLBACK_THEME.surface);
 		expect(p.fontMono).toBe(FALLBACK_THEME.fontMono);

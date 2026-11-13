@@ -44,6 +44,15 @@
 			: (items.find((x) => x.row.key === selectedKey)?.row.key ?? items[0]?.row.key ?? null),
 	);
 
+	/** Whichever row gets the focus, by any means, is the one kept mounted. */
+	function onfocusin(event: FocusEvent): void {
+		const key =
+			event.target instanceof Element
+				? event.target.closest('[data-key]')?.getAttribute('data-key')
+				: null;
+		if (key) focusKey = key;
+	}
+
 	/** Focus that leaves the list lets go of the pinned row. */
 	function onfocusout(event: FocusEvent): void {
 		const to = event.relatedTarget;
@@ -115,6 +124,7 @@
 	aria-label={strings.gantt.tasks}
 	class="tree"
 	style:height="{rows.length * rowHeight}px"
+	{onfocusin}
 	{onfocusout}
 >
 	{#each items as { row, index } (row.key)}
@@ -219,8 +229,15 @@
 		.twisty.leaf {
 			display: none;
 		}
+		/* Names may take two lines at 12.5 px, as in the phone design. */
 		.name {
-			font-size: var(--text-xs);
+			font-size: 0.78rem;
+			line-height: 1.2;
+			white-space: normal;
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+			-webkit-box-orient: vertical;
 		}
 		.badge {
 			display: none;
@@ -229,6 +246,13 @@
 	@media (pointer: coarse) {
 		.twisty {
 			inline-size: 2.75rem;
+		}
+	}
+	/* On a phone 44 px would take a third of the column: 32 px is still over WCAG 2.5.8's 24 px,
+	   and the whole row is a larger target for selecting. */
+	@media (pointer: coarse) and (max-width: 599px) {
+		.twisty {
+			inline-size: 2rem;
 		}
 	}
 </style>

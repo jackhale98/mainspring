@@ -48,6 +48,7 @@
 	--color-gantt-row-selected: #eef2fb;
 	--color-gantt-row-hover: #f4efe5;
 	--color-gantt-chip: rgb(255 253 248 / 0.92);
+	--color-gantt-crit-border: #c9d4ef;
 	--color-gantt-bar-top: #f7efdc;
 	--color-gantt-bar-bottom: #eaddbd;
 	--color-gantt-bar-ink: #4a3912;
@@ -119,7 +120,7 @@
 	--gantt-header-minor-font-size: 11px;
 	--gantt-header-letter-spacing: 0.22px;
 	--gantt-font-weight-strong: 600;
-	--gantt-label-gap: 8px;
+	--gantt-label-gap: 14px;
 	--gantt-label-pad: 10px;
 	--gantt-avatar-size: 20px;
 	--gantt-avatar-gap: 4px;
@@ -190,7 +191,7 @@
 	--size-tap: 2.75rem;
 	--size-row: 2.25rem;
 	--size-outline: 20rem;
-	--size-gantt-names: 17rem;
+	--size-gantt-names: 18.75rem;
 
 	/* Motion: 150 to 200 ms for panels and sheets; off when the user asks for less motion */
 	--motion-fast: 150ms;
@@ -241,6 +242,7 @@
 		--color-gantt-row-selected: #16203a;
 		--color-gantt-row-hover: #181d28;
 		--color-gantt-chip: rgb(17 21 29 / 0.9);
+		--color-gantt-crit-border: #2a3a66;
 		--color-gantt-bar-top: #3b3322;
 		--color-gantt-bar-bottom: #2a2417;
 		--color-gantt-bar-ink: #f1e3bf;

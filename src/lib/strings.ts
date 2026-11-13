@@ -268,13 +268,14 @@ export const strings = {
 	gantt: {
 		region: 'Gantt chart',
 		toolbar: 'Gantt controls',
-		zoomIn: 'Zoom in',
-		zoomOut: 'Zoom out',
+		zoom: 'Zoom',
+		level: { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' },
+		criticalPath: 'Critical path',
+		criticalUnavailable: 'The critical path is not computed yet',
+		/** Today has no line on the chart to go to (it is before or after the plan). */
+		todayOff: 'Today (off the chart)',
 		today: 'Today',
 		legend: 'Lines on the chart',
-		/** The current zoom level, e.g. "Zoom: Week". */
-		zoomLevel: (level: 'day' | 'week' | 'month' | 'quarter') =>
-			`Zoom: ${{ day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' }[level]}`,
 		quarter: (q: number) => `Q${q}`,
 		taskColumn: 'Task',
 		tasks: 'Tasks',
