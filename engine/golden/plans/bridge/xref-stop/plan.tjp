@@ -1,0 +1,59 @@
+# Bridge fixture: scheduling stops while TaskJuggler resolves dependencies.
+# Targets: TaskScenario#Xref resolves task by task in declaration order and
+# stops at the first broken entry, here task first's unknown "nosuch"
+# (task_depend_unknown in scenario plan, reported at task first's line). The
+# later tasks' entries are never resolved or checked, and scenario alt is
+# never prepared. The bridge leaves out what TaskJuggler would reject, in
+# both scenarios:
+# - own depends on itself: only base remains;
+# - outer depends on its child outer.inner, written before the children, so
+#   both inherit it: outer keeps nothing, inner drops it (itself), and leaf
+#   keeps it (a sibling) but drops outer (its parent);
+# - twice names base again with another gap: the repeat goes, base and first
+#   remain;
+# - back precedes itself and base twice: only base remains; in alt it also
+#   depends on first twice and keeps one, and is asap there (alap in plan).
+# The header writes dailyworkinghours and yearlyworkingdays as integers, so
+# TaskJuggler's unit factors divide as integers: weeklyWorkingDays is
+# 40 / 7 = 5 and monthlyWorkingDays 250 / 12 = 20.
+# Expected: ok false, the one error, no bookings.
+project xref "Xref stop" 2026-03-02 +2m {
+  now 2026-03-02-09:00
+  dailyworkinghours 7
+  yearlyworkingdays 250
+  scenario plan "Plan" {
+    scenario alt "Alt"
+  }
+}
+
+task first "First" {
+  length 1d
+  depends nosuch
+}
+
+task base "Base" { length 2d }
+
+task own "Own" {
+  length 1d
+  depends own, base
+}
+
+task outer "Outer" {
+  depends outer.inner
+  task inner "Inner" { length 1d }
+  task leaf "Leaf" {
+    length 1d
+    depends outer, base
+  }
+}
+
+task twice "Twice" {
+  length 1d
+  depends base, base { gaplength 1d }, first
+}
+
+task back "Back" {
+  length 1d
+  precedes back, base, base
+  alt:depends first, first
+}

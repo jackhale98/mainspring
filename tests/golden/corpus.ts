@@ -22,6 +22,8 @@ export interface ManifestPlan {
 }
 
 export interface GoldenFile extends GoldenLike {
+	/** GOLDEN_SCHEMA_VERSION of engine/golden/lib.mjs when the golden is current. */
+	schemaVersion: number;
 	id: string;
 	entry: string;
 	files: string[];

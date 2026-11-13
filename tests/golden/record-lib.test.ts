@@ -1,24 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Unit tests for engine/golden/lib.mjs, the pure helpers of the native golden
-// recorder (record-native.mjs). The recorder itself needs native TaskJuggler
-// and never runs in CI; these helpers do not.
+// Unit tests for engine/golden/lib.mjs, the pure helpers of the native golden recorder
+// (record-native.mjs). The recorder itself needs native TaskJuggler and never runs in CI;
+// these helpers do not. The cross-check CSV rows are tested in cross-check-rows.test.ts.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+	GOLDEN_SCHEMA_VERSION,
 	NOW_RE,
 	canonical,
 	canonicalJson,
-	csvRows,
 	diffPaths,
-	expectedRows,
 	firstError,
 	manifestProblems,
 	messageDiffs,
-	minutesToIso,
 	normaliseMessages,
 	nowProblem,
-	parseCsv,
-	rowDiffs,
 	workspacePath,
 } from '../../engine/golden/lib.mjs';
 
@@ -64,98 +60,6 @@ describe('canonical JSON', () => {
 
 	it('writes 2-space indent, compact empty containers and a trailing newline', () => {
 		expect(canonicalJson({ b: [], a: {} })).toBe('{\n  "a": {},\n  "b": []\n}\n');
-	});
-});
-
-describe('parseCsv', () => {
-	it('reads quoted, empty and unquoted fields', () => {
-		const text =
-			'"Scenario";"Id";"Start";"End"\n"Plan";"a.b";"2026-01-05T08:00:00Z";""\n"Delayed";"";Error;5\n';
-		expect(parseCsv(text)).toEqual([
-			['Scenario', 'Id', 'Start', 'End'],
-			['Plan', 'a.b', '2026-01-05T08:00:00Z', ''],
-			['Delayed', '', 'Error', '5'],
-		]);
-	});
-
-	it('handles doubled quotes, separators and line breaks inside quotes', () => {
-		expect(parseCsv('"say ""hi"";now";"two\nlines"')).toEqual([['say "hi";now', 'two\nlines']]);
-	});
-});
-
-const result = {
-	project: {
-		start: '2026-01-05T00:00:00Z',
-		scenarios: [
-			{ id: 'plan', name: 'Plan', active: true },
-			{ id: 'off', name: 'Off', active: false },
-			{ id: 'delayed', name: 'Delayed', active: true },
-		],
-	},
-	tasks: [
-		{
-			id: 'top',
-			scenarios: { plan: { start: 480, end: 3840 }, delayed: { start: 480, end: null } },
-		},
-		{
-			id: 'top.x',
-			scenarios: { plan: { start: 480, end: 960 }, delayed: { start: 480, end: 960 } },
-		},
-	],
-};
-
-const csv = parseCsv(
-	[
-		'"Scenario";"Id";"Start";"End"',
-		'"Plan";"top";"2026-01-05T08:00:00Z";"2026-01-07T16:00:00Z"',
-		'"Delayed";"";"2026-01-05T08:00:00Z";"Error"',
-		'"Plan";"top.x";"2026-01-05T08:00:00Z";"2026-01-05T16:00:00Z"',
-		'"Delayed";"";"2026-01-05T08:00:00Z";"2026-01-05T16:00:00Z"',
-		'',
-	].join('\n'),
-);
-
-describe('cross-check rows', () => {
-	it('builds one row per task and active scenario', () => {
-		expect(expectedRows(result)).toEqual([
-			'Plan | top | 2026-01-05T08:00:00Z | 2026-01-07T16:00:00Z',
-			'Delayed | top | 2026-01-05T08:00:00Z | ',
-			'Plan | top.x | 2026-01-05T08:00:00Z | 2026-01-05T16:00:00Z',
-			'Delayed | top.x | 2026-01-05T08:00:00Z | 2026-01-05T16:00:00Z',
-		]);
-	});
-
-	it('carries task ids forward and maps non-dates to null', () => {
-		expect(csvRows(csv)).toEqual(expectedRows(result));
-		expect(rowDiffs(expectedRows(result), csvRows(csv))).toEqual([]);
-	});
-
-	it('reports a one-minute difference', () => {
-		const shifted = structuredClone(result);
-		const x = shifted.tasks[1];
-		if (x?.scenarios.plan) x.scenarios.plan.end = 961;
-		expect(rowDiffs(expectedRows(shifted), csvRows(csv))).toEqual([
-			'row 3: serializer Plan | top.x | 2026-01-05T08:00:00Z | 2026-01-05T16:01:00Z; ' +
-				'report Plan | top.x | 2026-01-05T08:00:00Z | 2026-01-05T16:00:00Z',
-		]);
-	});
-
-	it('reports missing and extra rows', () => {
-		expect(rowDiffs(['a', 'b'], ['a'])).toEqual(['row 2: serializer b; report (none)']);
-		expect(rowDiffs([], ['a'])).toEqual(['row 1: serializer (none); report a']);
-	});
-
-	it('rejects an unexpected header', () => {
-		expect(() => csvRows([['Id', 'Start']])).toThrow(/unexpected cross-check CSV header/);
-	});
-
-	it('has no rows without a project', () => {
-		expect(expectedRows({ project: null, tasks: [] })).toEqual([]);
-	});
-
-	it('converts minutes to ISO instants', () => {
-		expect(minutesToIso('2026-01-05T00:00:00Z', 1980)).toBe('2026-01-06T09:00:00Z');
-		expect(minutesToIso('2026-01-05T00:00:00Z', null)).toBeNull();
 	});
 });
 
@@ -226,8 +130,8 @@ describe('manifestProblems', () => {
 		const manifest: unknown = JSON.parse(readFileSync('engine/golden/manifest.json', 'utf8'));
 		expect(manifestProblems(manifest)).toEqual([]);
 		const kinds = (manifest as { kind: string }[]).map((p) => p.kind);
-		expect(kinds).toHaveLength(39);
-		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(8);
+		expect(kinds).toHaveLength(40);
+		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(9);
 	});
 
 	it('accepts every plan kind', () => {
@@ -265,5 +169,16 @@ describe('diffPaths', () => {
 			'/c: expected undefined, got true',
 		]);
 		expect(diffPaths({ a: 1 }, { a: 1 })).toEqual([]);
+	});
+});
+
+describe('schema version', () => {
+	it('uses the schema version the recorder writes', () => {
+		const recorder = readFileSync(
+			new URL('../../engine/bridge/native/record.rb', import.meta.url),
+			'utf8',
+		);
+		expect(GOLDEN_SCHEMA_VERSION).toBe(2);
+		expect(recorder).toContain(`'schemaVersion' => ${GOLDEN_SCHEMA_VERSION},`);
 	});
 });

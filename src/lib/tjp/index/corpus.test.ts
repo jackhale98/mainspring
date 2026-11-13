@@ -4,7 +4,7 @@
 // file and line, names and milestones equal the engine's; without hints, every declaration the
 // text names matches and the rest lie in unresolved declarations; dependency targets agree with
 // the schedule where it shows them. Plans the engine stopped reading before any declaration are
-// skipped (3 of 39: syn-19, bridge-parse-failure, syn-22), and the totals say how many were
+// skipped (3 of 40: syn-19, bridge-parse-failure, syn-22), and the totals say how many were
 // compared.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -176,8 +176,20 @@ describe.each(CASES)('$id', ({ golden, seed }) => {
 
 	it.skipIf(skip)('dependency targets agree with what the engine scheduled', () => {
 		const tasks = new Map(golden.result.tasks.map((t) => [t.id, t]));
+		// Ids the engine itself reports as unknown ("Task first has unknown depends nosuch",
+		// TaskScenario#checkDependency), e.g. in bridge-xref-stop: the index cannot resolve them.
+		const unknown = new Set(
+			golden.result.messages
+				.filter((m) => m.id === 'task_depend_unknown')
+				.map((m) => / has unknown (depends|precedes) (\S+)$/.exec(m.text))
+				.filter((m) => m !== null)
+				.map((m) => `${m[1]} ${m[2]}`),
+		);
 		for (const d of withHints.dependencies) {
 			if (d.textOnly?.reason === 'macro-call') continue;
+			// The written id is the predecessor of a `depends` and the successor of a `precedes`.
+			const target = d.form === 'precedes' ? d.succ : d.pred;
+			if (target === null && unknown.has(`${d.form} ${d.written}`)) continue;
 			expect(d.pred, `${d.form} ${d.written}`).not.toBeNull();
 			expect(d.succ, `${d.form} ${d.written}`).not.toBeNull();
 			const pred = tasks.get(d.pred ?? '');

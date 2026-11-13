@@ -476,6 +476,21 @@
     ]
   },
   {
+    "id": "bridge-xref-stop",
+    "kind": "bridge",
+    "root": "engine/golden/plans/bridge/xref-stop",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "bridge",
+      "scheduling-error",
+      "unresolved-dependencies",
+      "dependency-checks",
+      "scenarios",
+      "integer-working-days"
+    ]
+  },
+  {
     "id": "gantt-manipulation",
     "kind": "synthetic",
     "root": "tests/fixtures/gantt/manipulation",

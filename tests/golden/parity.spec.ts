@@ -12,6 +12,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import type { ScheduleOutcome } from '../../src/engine/client';
 import type { EngineVersions, ScheduleRequest } from '../../src/engine/protocol';
+import { GOLDEN_SCHEMA_VERSION } from '../../engine/golden/lib.mjs';
 import { compareWithGolden } from './compare';
 import {
 	REPO,
@@ -25,7 +26,7 @@ import {
 } from './corpus';
 import { renderReport, type PlanRow } from './report';
 
-const EXPECTED_PLAN_COUNT = 39;
+const EXPECTED_PLAN_COUNT = 40;
 const FRESH_PLAN = 'upstream-fedora-20';
 const SEED = Number(process.env['GOLDEN_SEED'] ?? 20261111);
 // A cold boot is several seconds; syn-20 takes 7 to 9 s; CI is slower than a dev machine.
@@ -114,12 +115,15 @@ test.afterAll(() => {
 	);
 });
 
-test('manifest, goldens and pin agree', () => {
+test('manifest, goldens, pin and schema agree', () => {
 	const ids = loadManifest().map((p) => p.id);
 	expect(ids).toHaveLength(EXPECTED_PLAN_COUNT);
 	expect(expectedIds()).toEqual([...ids].sort());
 	const pin = pinnedCommit();
-	for (const { plan, golden } of corpus) expect(golden.native.tjCommit, plan.id).toBe(pin);
+	for (const { plan, golden } of corpus) {
+		expect(golden.native.tjCommit, plan.id).toBe(pin);
+		expect(golden.schemaVersion, plan.id).toBe(GOLDEN_SCHEMA_VERSION);
+	}
 });
 
 test('the long-lived client forgets files that a later request leaves out', async ({ page }) => {

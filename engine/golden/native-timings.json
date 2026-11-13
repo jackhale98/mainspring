@@ -5,315 +5,323 @@
   "plans": {
     "upstream-tutorial": {
       "tasks": 15,
-      "parseMs": 141.5,
-      "scheduleMs": 37.7,
-      "serializeMs": 4.9,
-      "totalMs": 184.1,
-      "processMs": 597.6
+      "parseMs": 115.9,
+      "scheduleMs": 30.7,
+      "serializeMs": 3.9,
+      "totalMs": 154,
+      "processMs": 507.3
     },
     "upstream-fedora-20": {
       "tasks": 414,
-      "parseMs": 351.7,
-      "scheduleMs": 325.7,
-      "serializeMs": 6.4,
-      "totalMs": 684,
-      "processMs": 1141.7
+      "parseMs": 278.2,
+      "scheduleMs": 253.9,
+      "serializeMs": 13.2,
+      "totalMs": 545.3,
+      "processMs": 1014.8
     },
     "upstream-template": {
       "tasks": 10,
-      "parseMs": 81.4,
-      "scheduleMs": 3.1,
-      "serializeMs": 0.2,
-      "totalMs": 84.9,
-      "processMs": 493.8
+      "parseMs": 76.7,
+      "scheduleMs": 2.7,
+      "serializeMs": 0.7,
+      "totalMs": 80.5,
+      "processMs": 468.2
     },
     "upstream-scrum": {
       "tasks": 18,
-      "parseMs": 76.1,
-      "scheduleMs": 15.2,
-      "serializeMs": 1.1,
-      "totalMs": 93.5,
-      "processMs": 494.4
+      "parseMs": 59.3,
+      "scheduleMs": 12.6,
+      "serializeMs": 1.5,
+      "totalMs": 73.7,
+      "processMs": 434.2
     },
     "upstream-todolist": {
       "tasks": 7,
-      "parseMs": 59.6,
-      "scheduleMs": 93.9,
-      "serializeMs": 0.2,
-      "totalMs": 153.8,
-      "processMs": 619.1
+      "parseMs": 62.8,
+      "scheduleMs": 90.6,
+      "serializeMs": 8.7,
+      "totalMs": 166.8,
+      "processMs": 542.2
     },
     "poc-sample": {
       "tasks": 13,
-      "parseMs": 63.8,
-      "scheduleMs": 12.8,
-      "serializeMs": 0.8,
-      "totalMs": 79.1,
-      "processMs": 479.4
+      "parseMs": 55.2,
+      "scheduleMs": 12.9,
+      "serializeMs": 1.8,
+      "totalMs": 70,
+      "processMs": 437.3
     },
     "syn-01-shifts-resource": {
       "tasks": 5,
-      "parseMs": 56.7,
-      "scheduleMs": 27.8,
+      "parseMs": 54.7,
+      "scheduleMs": 26,
       "serializeMs": 1.3,
-      "totalMs": 85.9,
-      "processMs": 563.5
+      "totalMs": 83,
+      "processMs": 483.2
     },
     "syn-02-shifts-allocation-task": {
       "tasks": 5,
-      "parseMs": 54.6,
-      "scheduleMs": 12.8,
-      "serializeMs": 0.7,
-      "totalMs": 68.1,
-      "processMs": 475.3
+      "parseMs": 46.3,
+      "scheduleMs": 11,
+      "serializeMs": 0.8,
+      "totalMs": 58.2,
+      "processMs": 421.4
     },
     "syn-03-limits-resource-max": {
       "tasks": 6,
-      "parseMs": 59.2,
-      "scheduleMs": 10.8,
-      "serializeMs": 1,
-      "totalMs": 71,
-      "processMs": 532.5
+      "parseMs": 48.3,
+      "scheduleMs": 9.1,
+      "serializeMs": 1.3,
+      "totalMs": 58.8,
+      "processMs": 435
     },
     "syn-04-limits-task-min-per-resource": {
       "tasks": 8,
-      "parseMs": 58.8,
-      "scheduleMs": 10.7,
-      "serializeMs": 1.1,
-      "totalMs": 70.7,
-      "processMs": 478.5
+      "parseMs": 52.1,
+      "scheduleMs": 10.9,
+      "serializeMs": 1.5,
+      "totalMs": 64.6,
+      "processMs": 426.8
     },
     "syn-05-scenarios-tree": {
       "tasks": 5,
-      "parseMs": 55.5,
-      "scheduleMs": 18.5,
-      "serializeMs": 0.9,
-      "totalMs": 75.1,
-      "processMs": 516.4
+      "parseMs": 55,
+      "scheduleMs": 16.7,
+      "serializeMs": 2.3,
+      "totalMs": 74,
+      "processMs": 488.1
     },
     "syn-06-scenarios-tracking": {
       "tasks": 5,
-      "parseMs": 56.7,
-      "scheduleMs": 11.2,
-      "serializeMs": 0.9,
-      "totalMs": 68.8,
-      "processMs": 490.9
+      "parseMs": 41,
+      "scheduleMs": 7.9,
+      "serializeMs": 1.1,
+      "totalMs": 50.1,
+      "processMs": 361.3
     },
     "syn-07-deps-onstart-onend": {
       "tasks": 9,
-      "parseMs": 58.8,
-      "scheduleMs": 6.7,
-      "serializeMs": 0.4,
-      "totalMs": 65.9,
-      "processMs": 513
+      "parseMs": 50.3,
+      "scheduleMs": 5.1,
+      "serializeMs": 0.9,
+      "totalMs": 56.4,
+      "processMs": 422
     },
     "syn-08-deps-gaps-alap": {
       "tasks": 9,
-      "parseMs": 58.6,
-      "scheduleMs": 9.3,
-      "serializeMs": 1.3,
-      "totalMs": 69.3,
-      "processMs": 490.9
+      "parseMs": 41.6,
+      "scheduleMs": 6.9,
+      "serializeMs": 1.2,
+      "totalMs": 49.8,
+      "processMs": 363.2
     },
     "syn-09-tz-dst-berlin": {
       "tasks": 5,
-      "parseMs": 62.7,
-      "scheduleMs": 14.7,
-      "serializeMs": 2.1,
-      "totalMs": 79.5,
-      "processMs": 532.6
+      "parseMs": 55.1,
+      "scheduleMs": 13,
+      "serializeMs": 2,
+      "totalMs": 70.2,
+      "processMs": 477.4
     },
     "syn-10-tz-fractional-offset": {
       "tasks": 5,
-      "parseMs": 59.7,
-      "scheduleMs": 12.2,
-      "serializeMs": 1,
-      "totalMs": 72.9,
-      "processMs": 513.3
+      "parseMs": 47,
+      "scheduleMs": 10.4,
+      "serializeMs": 1.5,
+      "totalMs": 58.9,
+      "processMs": 389.3
     },
     "syn-11-tz-southern-sydney": {
       "tasks": 6,
-      "parseMs": 63,
-      "scheduleMs": 15.3,
-      "serializeMs": 1.5,
-      "totalMs": 80.1,
-      "processMs": 531
+      "parseMs": 49.4,
+      "scheduleMs": 11.4,
+      "serializeMs": 1.7,
+      "totalMs": 62.6,
+      "processMs": 437.2
     },
     "syn-12-tz-unset": {
       "tasks": 4,
-      "parseMs": 52.8,
-      "scheduleMs": 3.8,
-      "serializeMs": 0.3,
-      "totalMs": 57,
-      "processMs": 460.6
+      "parseMs": 41.1,
+      "scheduleMs": 2.8,
+      "serializeMs": 0.5,
+      "totalMs": 44.4,
+      "processMs": 378.6
     },
     "syn-13-calendars-leaves": {
       "tasks": 6,
-      "parseMs": 58.4,
-      "scheduleMs": 8.3,
-      "serializeMs": 2.9,
-      "totalMs": 69.8,
-      "processMs": 489.2
+      "parseMs": 48.7,
+      "scheduleMs": 6.5,
+      "serializeMs": 2.8,
+      "totalMs": 58.1,
+      "processMs": 421.2
     },
     "syn-14-workinghours-resolution": {
       "tasks": 6,
-      "parseMs": 69.5,
-      "scheduleMs": 63.5,
-      "serializeMs": 2.3,
-      "totalMs": 135.4,
-      "processMs": 595
+      "parseMs": 61.9,
+      "scheduleMs": 58.2,
+      "serializeMs": 3.9,
+      "totalMs": 124.6,
+      "processMs": 521.3
     },
     "syn-15-allocate-select": {
       "tasks": 15,
-      "parseMs": 58.2,
-      "scheduleMs": 16.4,
-      "serializeMs": 1.6,
-      "totalMs": 76.3,
-      "processMs": 478.7
+      "parseMs": 45.9,
+      "scheduleMs": 13.4,
+      "serializeMs": 1.9,
+      "totalMs": 61.2,
+      "processMs": 441.4
     },
     "syn-16-constraints-violations": {
       "tasks": 4,
-      "parseMs": 52,
-      "scheduleMs": 5.1,
-      "serializeMs": 0.3,
-      "totalMs": 57.5,
-      "processMs": 463.3
+      "parseMs": 41.1,
+      "scheduleMs": 3.9,
+      "serializeMs": 0.7,
+      "totalMs": 45.7,
+      "processMs": 414.2
     },
     "syn-17-priority-efficiency": {
       "tasks": 9,
-      "parseMs": 63.8,
-      "scheduleMs": 10.4,
-      "serializeMs": 0.9,
-      "totalMs": 75.4,
-      "processMs": 521.8
+      "parseMs": 51.4,
+      "scheduleMs": 9.5,
+      "serializeMs": 1.3,
+      "totalMs": 62.3,
+      "processMs": 436
     },
     "syn-18-structure-include-macro": {
       "tasks": 4,
-      "parseMs": 93,
-      "scheduleMs": 14.5,
-      "serializeMs": 0.3,
-      "totalMs": 108.1,
-      "processMs": 521.8
+      "parseMs": 81.8,
+      "scheduleMs": 12.6,
+      "serializeMs": 0.9,
+      "totalMs": 95.4,
+      "processMs": 449.7
     },
     "syn-19-errors-parse": {
       "tasks": 0,
-      "parseMs": 53.2,
+      "parseMs": 51.3,
       "scheduleMs": 0,
-      "serializeMs": 0.1,
-      "totalMs": 53.4,
-      "processMs": 515.3
+      "serializeMs": 0.2,
+      "totalMs": 51.6,
+      "processMs": 450.9
     },
     "syn-20-scale-1000": {
       "tasks": 1225,
-      "parseMs": 611,
-      "scheduleMs": 1165.3,
-      "serializeMs": 323.5,
-      "totalMs": 2099.8,
-      "processMs": 2640
+      "parseMs": 465.1,
+      "scheduleMs": 1009.5,
+      "serializeMs": 153.3,
+      "totalMs": 1682.3,
+      "processMs": 2179
     },
     "syn-21-tz-dst-edges-newyork": {
       "tasks": 14,
-      "parseMs": 69.5,
-      "scheduleMs": 57.7,
-      "serializeMs": 1.9,
-      "totalMs": 137.2,
-      "processMs": 549.5
+      "parseMs": 66.2,
+      "scheduleMs": 53.6,
+      "serializeMs": 2.8,
+      "totalMs": 123.6,
+      "processMs": 466.1
     },
     "syn-22-tz-kathmandu-resolution": {
       "tasks": 0,
-      "parseMs": 46.9,
+      "parseMs": 34.1,
       "scheduleMs": 0,
       "serializeMs": 0.1,
-      "totalMs": 47,
-      "processMs": 458.6
+      "totalMs": 34.2,
+      "processMs": 347.6
     },
     "bridge-header-only": {
       "tasks": 0,
-      "parseMs": 43.9,
-      "scheduleMs": 3.7,
-      "serializeMs": 0.1,
-      "totalMs": 47.8,
-      "processMs": 449.9
+      "parseMs": 40.8,
+      "scheduleMs": 4,
+      "serializeMs": 0.2,
+      "totalMs": 45.1,
+      "processMs": 411.3
     },
     "bridge-parse-failure": {
       "tasks": 0,
-      "parseMs": 51.2,
+      "parseMs": 41.3,
       "scheduleMs": 0,
       "serializeMs": 0.1,
-      "totalMs": 51.4,
-      "processMs": 473.6
+      "totalMs": 41.4,
+      "processMs": 394.3
     },
     "bridge-schedule-error": {
       "tasks": 2,
-      "parseMs": 51.8,
-      "scheduleMs": 1.9,
-      "serializeMs": 0.2,
-      "totalMs": 53.9,
-      "processMs": 505.4
+      "parseMs": 45.8,
+      "scheduleMs": 1.6,
+      "serializeMs": 0.3,
+      "totalMs": 47.9,
+      "processMs": 411.1
     },
     "bridge-scenario-warning": {
       "tasks": 2,
-      "parseMs": 53.3,
-      "scheduleMs": 4.7,
-      "serializeMs": 0.3,
-      "totalMs": 58.6,
-      "processMs": 465.2
+      "parseMs": 45.1,
+      "scheduleMs": 4,
+      "serializeMs": 0.6,
+      "totalMs": 49.8,
+      "processMs": 407.9
     },
     "bridge-include-subfolder": {
       "tasks": 3,
-      "parseMs": 57.8,
-      "scheduleMs": 2.5,
-      "serializeMs": 0.2,
-      "totalMs": 60.6,
-      "processMs": 472.5
+      "parseMs": 47.9,
+      "scheduleMs": 2.1,
+      "serializeMs": 0.4,
+      "totalMs": 50.7,
+      "processMs": 439.8
     },
     "bridge-bom-invalid-utf8": {
       "tasks": 2,
-      "parseMs": 46.6,
-      "scheduleMs": 4,
-      "serializeMs": 0.1,
-      "totalMs": 50.9,
-      "processMs": 489.6
+      "parseMs": 40.2,
+      "scheduleMs": 3.8,
+      "serializeMs": 0.2,
+      "totalMs": 44.3,
+      "processMs": 410.3
     },
     "bridge-now-option": {
       "tasks": 1,
-      "parseMs": 47.9,
-      "scheduleMs": 4.2,
-      "serializeMs": 0.1,
-      "totalMs": 52.5,
-      "processMs": 465.1
+      "parseMs": 36.7,
+      "scheduleMs": 3.7,
+      "serializeMs": 0.2,
+      "totalMs": 40.7,
+      "processMs": 366.3
     },
     "bridge-now-line": {
       "tasks": 1,
-      "parseMs": 50.8,
-      "scheduleMs": 4.3,
-      "serializeMs": 0.1,
-      "totalMs": 55.3,
-      "processMs": 475.7
+      "parseMs": 41.8,
+      "scheduleMs": 3.6,
+      "serializeMs": 0.2,
+      "totalMs": 45.8,
+      "processMs": 445.7
+    },
+    "bridge-xref-stop": {
+      "tasks": 8,
+      "parseMs": 43.3,
+      "scheduleMs": 3.1,
+      "serializeMs": 0.4,
+      "totalMs": 46.9,
+      "processMs": 392
     },
     "gantt-manipulation": {
       "tasks": 16,
-      "parseMs": 57.6,
-      "scheduleMs": 14,
-      "serializeMs": 1.4,
-      "totalMs": 74.2,
-      "processMs": 568
+      "parseMs": 49.6,
+      "scheduleMs": 11.4,
+      "serializeMs": 1.6,
+      "totalMs": 64.1,
+      "processMs": 426.6
     },
     "gantt-200": {
       "tasks": 200,
-      "parseMs": 164.8,
-      "scheduleMs": 268.7,
-      "serializeMs": 30.4,
-      "totalMs": 464.9,
-      "processMs": 910.9
+      "parseMs": 146.9,
+      "scheduleMs": 215.2,
+      "serializeMs": 41.8,
+      "totalMs": 452.4,
+      "processMs": 814.9
     },
     "gantt-500": {
       "tasks": 500,
-      "parseMs": 270.7,
-      "scheduleMs": 583.3,
-      "serializeMs": 67.3,
-      "totalMs": 921.4,
-      "processMs": 1398.4
+      "parseMs": 286.4,
+      "scheduleMs": 398.2,
+      "serializeMs": 76.2,
+      "totalMs": 788.4,
+      "processMs": 1291.1
     }
   }
 }

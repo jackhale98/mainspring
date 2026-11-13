@@ -435,8 +435,10 @@
     "messages": [],
     "ok": true,
     "project": {
+      "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "select15",
+      "monthlyWorkingDays": 21.726166666666668,
       "name": "Allocation selection",
       "now": "2026-02-02T09:00:00Z",
       "scenarios": [
@@ -450,7 +452,247 @@
       "start": "2026-01-05T00:00:00Z",
       "timezone": null,
       "timingResolutionMin": 60,
-      "version": null
+      "version": null,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ],
+        [
+          56700,
+          57180
+        ],
+        [
+          61020,
+          61500
+        ],
+        [
+          62460,
+          62940
+        ],
+        [
+          63900,
+          64380
+        ],
+        [
+          65340,
+          65820
+        ],
+        [
+          66780,
+          67260
+        ],
+        [
+          71100,
+          71580
+        ],
+        [
+          72540,
+          73020
+        ],
+        [
+          73980,
+          74460
+        ],
+        [
+          75420,
+          75900
+        ],
+        [
+          76860,
+          77340
+        ],
+        [
+          81180,
+          81660
+        ],
+        [
+          82620,
+          83100
+        ],
+        [
+          84060,
+          84540
+        ],
+        [
+          85500,
+          85980
+        ],
+        [
+          86940,
+          87420
+        ],
+        [
+          91260,
+          91740
+        ],
+        [
+          92700,
+          93180
+        ],
+        [
+          94140,
+          94620
+        ],
+        [
+          95580,
+          96060
+        ],
+        [
+          97020,
+          97500
+        ],
+        [
+          101340,
+          101820
+        ],
+        [
+          102780,
+          103260
+        ],
+        [
+          104220,
+          104700
+        ],
+        [
+          105660,
+          106140
+        ],
+        [
+          107100,
+          107580
+        ],
+        [
+          111420,
+          111900
+        ],
+        [
+          112860,
+          113340
+        ],
+        [
+          114300,
+          114780
+        ],
+        [
+          115740,
+          116220
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
     },
     "resources": [
       {
@@ -633,9 +875,13 @@
               "m1",
               "m2"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 107580,
             "pathCriticalness": 40.67796610169491,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -659,9 +905,13 @@
               "cy",
               "dev"
             ],
+            "complete": null,
             "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
             "end": 107580,
             "pathCriticalness": 40.67796610169491,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -682,9 +932,13 @@
             "allocated": [
               "ada"
             ],
+            "complete": null,
             "criticalness": 13.016949152542374,
+            "depends": [],
+            "direction": "asap",
             "end": 13980,
             "pathCriticalness": 13.016949152542374,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -705,9 +959,13 @@
             "allocated": [
               "bea"
             ],
+            "complete": null,
             "criticalness": 8.135593220338983,
+            "depends": [],
+            "direction": "asap",
             "end": 11100,
             "pathCriticalness": 8.135593220338983,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -728,9 +986,13 @@
             "allocated": [
               "cy"
             ],
+            "complete": null,
             "criticalness": 2.711864406779661,
+            "depends": [],
+            "direction": "asap",
             "end": 1020,
             "pathCriticalness": 2.711864406779661,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -751,9 +1013,13 @@
             "allocated": [
               "dev"
             ],
+            "complete": null,
             "criticalness": 8.135593220338983,
+            "depends": [],
+            "direction": "asap",
             "end": 11100,
             "pathCriticalness": 8.135593220338983,
+            "precedes": [],
             "scheduled": true,
             "start": 540
           }
@@ -774,9 +1040,13 @@
             "allocated": [
               "cy"
             ],
+            "complete": null,
             "criticalness": 40.67796610169491,
+            "depends": [],
+            "direction": "asap",
             "end": 107580,
             "pathCriticalness": 40.67796610169491,
+            "precedes": [],
             "scheduled": true,
             "start": 81180
           }
@@ -797,9 +1067,13 @@
             "allocated": [
               "ada"
             ],
+            "complete": null,
             "criticalness": 7.0508474576271185,
+            "depends": [],
+            "direction": "asap",
             "end": 45660,
             "pathCriticalness": 7.0508474576271185,
+            "precedes": [],
             "scheduled": true,
             "start": 40860
           }
@@ -820,9 +1094,13 @@
             "allocated": [
               "cy"
             ],
+            "complete": null,
             "criticalness": 7.0508474576271185,
+            "depends": [],
+            "direction": "asap",
             "end": 65820,
             "pathCriticalness": 7.0508474576271185,
+            "precedes": [],
             "scheduled": true,
             "start": 61020
           }
@@ -843,9 +1121,13 @@
             "allocated": [
               "bea"
             ],
+            "complete": null,
             "criticalness": 7.0508474576271185,
+            "depends": [],
+            "direction": "asap",
             "end": 75900,
             "pathCriticalness": 7.0508474576271185,
+            "precedes": [],
             "scheduled": true,
             "start": 71100
           }
@@ -866,9 +1148,13 @@
             "allocated": [
               "dev"
             ],
+            "complete": null,
             "criticalness": 7.0508474576271185,
+            "depends": [],
+            "direction": "asap",
             "end": 45660,
             "pathCriticalness": 7.0508474576271185,
+            "precedes": [],
             "scheduled": true,
             "start": 40860
           }
@@ -890,9 +1176,13 @@
               "p1",
               "q1"
             ],
+            "complete": null,
             "criticalness": 1.0847457627118644,
+            "depends": [],
+            "direction": "asap",
             "end": 44220,
             "pathCriticalness": 1.0847457627118644,
+            "precedes": [],
             "scheduled": true,
             "start": 43740
           }
@@ -913,9 +1203,13 @@
             "allocated": [
               "p1"
             ],
+            "complete": null,
             "criticalness": 2.847457627118644,
+            "depends": [],
+            "direction": "asap",
             "end": 52860,
             "pathCriticalness": 2.847457627118644,
+            "precedes": [],
             "scheduled": true,
             "start": 40860
           }
@@ -937,9 +1231,13 @@
               "q1",
               "q2"
             ],
+            "complete": null,
             "criticalness": 2.847457627118644,
+            "depends": [],
+            "direction": "asap",
             "end": 51420,
             "pathCriticalness": 2.847457627118644,
+            "precedes": [],
             "scheduled": true,
             "start": 40860
           }
@@ -961,9 +1259,13 @@
               "m1",
               "m2"
             ],
+            "complete": null,
             "criticalness": 4.4151055605114475,
+            "depends": [],
+            "direction": "asap",
             "end": 93180,
             "pathCriticalness": 4.4151055605114475,
+            "precedes": [],
             "scheduled": true,
             "start": 82620
           }
@@ -976,5 +1278,5 @@
       }
     ]
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

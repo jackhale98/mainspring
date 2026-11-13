@@ -12,10 +12,28 @@
 #
 # tj3 then writes mainspring-cross-check.csv (into its working directory) with
 # one row per task and active scenario: scenario name, full task id, start
-# and end in UTC. The script checks those dates against the task dates that
-# the shared serializer (engine/bridge/serialize.rb) wrote into the golden
-# file. Parity alone cannot catch serializer bugs, because both sides run the
-# same serializer.
+# and end in UTC, the task's precursors and its completion. The script checks
+# them against what the shared serializer (engine/bridge/serialize.rb) wrote
+# into the golden file. Parity alone cannot catch serializer bugs, because
+# both sides run the same serializer.
+#
+# Precursors (schema v2, docs/phases/phase-2.md 5.3) is TaskJuggler's own
+# list of the dependencies that end at this task: its `depends` entries and
+# other tasks' `precedes` entries that name it, each printed by the listitem
+# below as "<other task id> <dependency>", where the dependency is ]->[, [->[,
+# ]->] or [->] (TaskScenario#query_precursors). The script derives the same
+# list from the golden's depends and precedes (cross-check-rows.mjs
+# expectedLinkRows), so the other task and both ends of every edge are
+# checked. Completion checks a `complete` the plan sets, as tj3 prints it: the
+# integer part and '%'. Precursors are compared only when the golden's result
+# is ok, and for any other run the script removes the precursors line: tj3
+# cannot report them for a scenario scheduling never prepared
+# (cross-check-rows.mjs withoutPrecursors).
+#
+# TaskJuggler's task report has no column for gaps, the scheduling direction
+# (`scheduling` prints ASAP for every leaf, TaskScenario.rb:1538), the
+# project's working time or dailyworkinghours, so those v2 fields are covered
+# by parity and the bridge fixtures only.
 #
 # The report's scenario list must name scenarios that exist, so the script
 # rewrites the body of the macro below to the plan's active scenario ids, in
@@ -29,7 +47,9 @@ taskreport mainspring_crosscheck "mainspring-cross-check" {
   timezone "UTC"
   timeformat "%Y-%m-%dT%H:%M:%SZ"
   scenarios ${mainspring_crosscheck_scenarios}
-  columns scenario, id, start, end
+  columns scenario, id, start, end,
+          precursors { listitem "<-query attribute='id'-> <-query attribute='dependency'->" },
+          complete
   hidetask 0
   sorttasks tree, seqno.up
 }

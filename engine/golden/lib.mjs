@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // lib.mjs - pure helpers for record-native.mjs: canonical JSON, `now` checks,
-// the CSV parser and the cross-check comparisons. No file system, no child
-// processes, so tests/golden/*.test.ts can test them directly.
+// the manifest and schema checks, diffs and the cross-check message
+// comparisons. The cross-check CSV rows are in cross-check-rows.mjs. No file
+// system, no child processes, so tests/golden/*.test.ts can test them
+// directly.
 
 /**
  * ISO 8601 UTC with seconds, e.g. "2026-01-05T09:00:00Z". Must stay identical
@@ -32,6 +34,13 @@ export function nowProblem(now) {
 
 /** GoldenPlan kinds (docs/phases/phase-0.md, section 3.4). */
 export const PLAN_KINDS = ['upstream', 'poc', 'synthetic', 'bridge'];
+
+/**
+ * GoldenFile.schemaVersion: the ScheduleResult schema the goldens hold. 2 since the bridge
+ * schema v2 fields (docs/phases/phase-2.md, sections 5.3 and 6.1). engine/bridge/native/record.rb
+ * writes the same number; record-native.mjs refuses output with any other.
+ */
+export const GOLDEN_SCHEMA_VERSION = 2;
 
 /**
  * Problems with the manifest's GoldenPlan entries that can be found without
@@ -93,45 +102,6 @@ export function canonicalJson(v) {
 }
 
 /**
- * Parse TaskJuggler's CSV (CSVFile.rb): ';' separators, '"' quotes, '""' for a
- * quote inside a quoted field, '\n' line ends.
- * @param {string} text
- * @returns {string[][]}
- */
-export function parseCsv(text) {
-	/** @type {string[][]} */
-	const rows = [];
-	/** @type {string[]} */
-	let row = [];
-	let field = '';
-	let quoted = false;
-	for (let i = 0; i < text.length; i++) {
-		const c = text[i];
-		if (quoted) {
-			if (c === '"' && text[i + 1] === '"') {
-				field += '"';
-				i++;
-			} else if (c === '"') quoted = false;
-			else field += c;
-		} else if (c === '"') quoted = true;
-		else if (c === ';') {
-			row.push(field);
-			field = '';
-		} else if (c === '\n') {
-			row.push(field);
-			rows.push(row);
-			row = [];
-			field = '';
-		} else field += c;
-	}
-	if (field || row.length) {
-		row.push(field);
-		rows.push(row);
-	}
-	return rows;
-}
-
-/**
  * Up to `limit` "path: expected X, got Y" lines where `a` and `b` differ.
  * @param {unknown} a
  * @param {unknown} b
@@ -163,73 +133,6 @@ export function diffPaths(a, b, at = '', out = [], limit = 20) {
 export function minutesToIso(start, minutes) {
 	if (minutes === null) return null;
 	return new Date(Date.parse(start) + minutes * 60_000).toISOString().replace('.000Z', 'Z');
-}
-
-/**
- * @typedef {{ id: string, name: string, active: boolean }} Scenario
- * @typedef {{ start: number | null, end: number | null }} TaskDates
- * @typedef {{ id: string, scenarios: Record<string, TaskDates> }} Task
- * @typedef {{ project: { start: string, scenarios: Scenario[] } | null, tasks: Task[] }} Result
- */
-
-/**
- * The rows the cross-check report should contain for a serializer result:
- * one per task (pre-order) and active scenario (pre-order), as
- * "scenario name | task id | start | end".
- * @param {Result} result
- * @returns {string[]}
- */
-export function expectedRows(result) {
-	if (!result.project) return [];
-	const { start } = result.project;
-	const active = result.project.scenarios.filter((s) => s.active);
-	/** @type {string[]} */
-	const rows = [];
-	for (const t of result.tasks) {
-		for (const s of active) {
-			const d = t.scenarios[s.id];
-			rows.push([s.name, t.id, minutesToIso(start, d?.start ?? null), minutesToIso(start, d?.end ?? null)].join(' | '));
-		}
-	}
-	return rows;
-}
-
-const CSV_DATE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/;
-
-/**
- * Rows of the cross-check CSV in the same form as expectedRows. TaskJuggler
- * leaves the id empty on the rows of the second and later scenarios of a
- * task; non-date cells (empty, "Error") become null.
- * @param {string[][]} csv  parsed CSV including the header row
- * @returns {string[]}
- */
-export function csvRows(csv) {
-	const [header, ...rows] = csv;
-	if (header?.join(';') !== 'Scenario;Id;Start;End') {
-		throw new Error(`unexpected cross-check CSV header: ${JSON.stringify(header)}`);
-	}
-	let lastId = '';
-	return rows.map(([scenario = '', id = '', start = '', end = '']) => {
-		lastId = id || lastId;
-		const date = (/** @type {string} */ v) => (CSV_DATE.test(v) ? v : null);
-		return [scenario, lastId, date(start), date(end)].join(' | ');
-	});
-}
-
-/**
- * Lines describing where two row lists differ (at most `limit`).
- * @param {string[]} expected
- * @param {string[]} actual
- * @param {number} [limit]
- */
-export function rowDiffs(expected, actual, limit = 10) {
-	const out = [];
-	for (let i = 0; i < Math.max(expected.length, actual.length) && out.length < limit; i++) {
-		if (expected[i] !== actual[i]) {
-			out.push(`row ${i + 1}: serializer ${expected[i] ?? '(none)'}; report ${actual[i] ?? '(none)'}`);
-		}
-	}
-	return out;
 }
 
 /**
