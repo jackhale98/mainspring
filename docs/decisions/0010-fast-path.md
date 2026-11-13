@@ -1,7 +1,7 @@
 # ADR-0010: Parse-skipping fast path (draft)
 
-Status: draft by `engine-specialist` (T19), revised after the T19 review ("adopt after fixes",
-2026-11-13), for the main session to format and put to the user.
+Status: draft by `engine-specialist` (T19), revised after two review rounds (2026-11-13; see
+Review history), for the main session to format and put to the user.
 Source: `docs/phases/phase-2.md` section 12, 18.12 and 6.12. Code on branch `t19-fast-path`:
 `engine/bridge/fast_path.rb`, `fast_path_sites.rb` and `fast_path_procs.rb`, the `retain` and
 `fast` request fields in `src/engine/protocol.ts`, the main thread's half in
@@ -40,12 +40,25 @@ Adoption criteria (18.12), all required:
      kept (`retainError`), and later fast requests run in full.
 2. **Noting where each statement ran.** While a retaining run parses, the bridge records, for
    every action of a keyword the fast path rewrites (and `milestone`, which shares the duration
-   family), the file and line of its keyword token, the task it ran on, the keyword, the
-   scenario and its place in parse order (`fast_path_sites.rb`). It does this by wrapping the
-   patterns of TaskJuggler's `:taskScenarioAttributes` rule on each `ProjectFileParser` it opens,
-   from the bridge (a prepended `open`). `engine/tj` is unchanged, and runs without `retain` note
-   nothing. This is how the bridge knows, from its own parse, which task and keyword a line
-   belongs to, instead of taking the main thread's word for it.
+   family, and `period`, which sets `start` and `end`), the file and line of its keyword token
+   (the file name expanded, so `common.tji` and `./common.tji` are one file), the task it ran
+   on, the keyword, the scenario and its place in parse order (`fast_path_sites.rb`).
+   - How: it wraps the patterns of TaskJuggler's `:taskScenarioAttributes` rule and of
+     `:taskPeriod` (which `:taskScenarioAttributes` reaches through `!taskPeriod`) on each
+     `ProjectFileParser` it opens, from the bridge (a prepended `open`).
+   - It also notes every task an `attr_overwrite` warning was given for. TaskJuggler's message
+     names no property (`TextParser.rb:397` passes none), so a prepended `Scanner#warning` notes
+     the parser's current property instead.
+   - `engine/tj` is unchanged, and runs without `retain` note nothing.
+   - This is how the bridge knows, from its own parse, which task and keyword a line belongs to,
+     instead of taking the main thread's word for it.
+   - The rules: of the patterns of `:taskScenarioAttributes`, only `start`, `end`, `effort`,
+     `length`, `duration`, `milestone`, `priority`, `complete`, `depends`, `precedes` and
+     `scheduling` set one of the seven attributes or the direction. Of the rules it references
+     (`!allocate`, `!chargeset`, `!flags`, `!fail`, `!limits`, `!taskPeriod`,
+     `!taskShiftAssignments`, `!taskShiftsAssignments`, `!warn`), only `!taskPeriod` does: it
+     sets `start` and `end`, not the direction. `:taskAttributes` sets none of them. Checked by
+     walking `TjpSyntaxRules.rb` from `:taskScenarioAttributes`.
 3. **Applying a rewrite.** For each edit, the bridge marks the attributes that the keyword's
    pattern sets as not provided. Then it parses `supplement task <id> { <keyword> <value> }` into
    the copy with TaskJuggler's own parser.
@@ -73,12 +86,16 @@ bad one. In order:
   keyword (one token: a duration, a date with optional time and zone, an integer priority, a
   number for completion; no space, brace, `#`, `$` or quote can get in);
 - every file has the same line count, and only the named lines differ, each a lone
-  `<keyword> <value>` statement before and after, with an optional comment;
+  `<keyword> <value>` statement before and after, with an optional comment, and the old value
+  as strict as the new one (so not a macro call, which can hide more statements:
+  `effort ${d}` with `macro d [5d allocate s]`);
 - the edited line ran exactly one noted action in the kept parse: of that keyword, on that task,
   in the top scenario (so not a line in a comment, a report, a macro body used twice, a file
-  included twice, or another task's line);
-- no later action of the same family ran on that task (a later `start`, or a `length` after the
-  `effort`, would win in a full run);
+  included twice under any spelling, or another task's line);
+- no later action of the same family ran on that task (a later `start`, a `period` after the
+  `start` or `end`, or a `length` after the `effort`, would win in a full run);
+- the base parse gave no `attr_overwrite` warning for that task (a backstop: any statement that
+  overwrites an attribute of the task, whether or not the fast path knows the attribute);
 - the base parse gave no message on an edited line;
 - the task exists; no attribute the pattern sets is inherited by children while the task has any
   (of these, only `priority`; `start` and `end` are not copied to children);
@@ -97,7 +114,8 @@ intent's edit, or its undo or redo) into `FastEdit`s, or null. A site is a task'
 alone on its line, with a strict value, when the task is not text-only or macro-built, has no
 statement-level macro call in its bodies, its declaration gives no other task in another include
 visit, the file is not included twice, it is the task's only statement of that family in any
-scenario, and, for `priority`, the task is a leaf. This is the cheap first filter; the bridge's
+scenario (`period` is in the `start` and `end` families), and, for `priority`, the task is a
+leaf. This is the cheap first filter; the bridge's
 checks above are the safety net. Unit tests in `fast-patch.test.ts`.
 
 ### Protocol, refining 6.12
@@ -110,24 +128,44 @@ checks above are the safety net. Unit tests in `fast-patch.test.ts`.
 - New `Timings` fields: `path`, `retainMs`, `retainBytes`, `retainError`, `cloneMs`, `applyMs`
   and `fastFallback`. `files` always carries the full text.
 
-## The review and what changed
+## Review history
+
+Every finding below has a test in `tests/engine/fast-path.adversarial.test.ts` (the reviewers'
+scripts, case by case), the guards or the unit tests. Each wrong result was reproduced against
+the engine before its fix.
+
+### Round 1 (2026-11-13): adopt after fixes
 
 | Finding | Fix | Test |
 | --- | --- | --- |
-| H1: a `start` or `end` rewrite reset the direction in derived scenarios (`test:end`, `late:depends`, `late:scheduling` read later) and ran fast with a different result | The direction check covers every scenario | 4 review repros; 4 guards; the direction family in the equivalence suite (below) |
-| M1: the bridge took the main thread's word for which task and keyword a line belongs to (wrong task id, block comment, macro body used by two tasks, report `start`, file included twice, a value carrying more statements) | Sites noted during the retaining parse; one action per line, that task and keyword, top scenario, no later one of the family; strict values | 7 review repros, guards |
+| H1: a `start` or `end` rewrite reset the direction in derived scenarios (`test:end`, `late:depends`, `late:scheduling` read later) and ran fast with a different result | The direction check covers every scenario | 4 repros; 4 guards; the direction family in the equivalence suite |
+| M1: the bridge took the main thread's word for which task and keyword a line belongs to (wrong task id, block comment, macro body used by two tasks, report `start`, file included twice, a value carrying more statements) | Sites noted during the retaining parse; one action per line, that task and keyword, top scenario, no later one of the family; strict values | 7 repros, guards |
 | M2: the eligibility rule lived in a test helper | `src/lib/workspace/fast-patch.ts`, which the suites now use; lines that give more than one task are excluded | `fast-patch.test.ts` |
-| M3: CI ran too much per push and did not say exactly what | See CI below | |
+| M3: CI ran too much per push and did not say exactly what | See CI | |
 | L1: the default-proc near-copy was in a GPL-2.0-or-later file | `fast_path_procs.rb`, GPL-2.0-only with a header naming the source (ADR-0001 addendum), listed as such in the bundle notice | |
-| L2: timings from one machine only | The review's figures beside mine, below | |
+| L2: timings from one machine only | The review's figures beside mine | |
 | L3: kept `Message` objects held the base run's live project | Kept as plain data | guards, equivalence |
-| L4: after a `retainError` the runner would keep asking | Integration plan below | |
+| L4: after a `retainError` the runner would keep asking | Integration plan | |
 | L5: no unit tests for the runtime's request and timings | `bridgeRequest` and `fastTimings` in `runtime.ts`, tested in `runtime.test.ts` | |
 
-The review's repros are `tests/engine/fast-path.adversarial.test.ts` (15 cases: 11 that must run
-in full for the named reason, 4 that must still run fast; all equal a full run). With the old
-direction check (top scenario only) put back for a test, 4 of them fail and the direction family
-finds 32 differences in 40 plans; with the fix, none.
+With the old direction check (top scenario only) put back for a test, the 4 H1 repros fail and
+the direction family finds 32 differences in 40 plans; with the fix, none.
+
+### Round 2 (2026-11-13): the first-round fixes hold; one wrong result and three gaps
+
+| Finding | Fix | Test |
+| --- | --- | --- |
+| N1 (high): `period` after `start` or `end` gave a wrong fast result (`start 2026-01-06` then `period 2026-01-12 - 2026-01-30`, `start` rewritten: end 4320 fast against 10080 full; the `end` variant the same). `period` sets both (`rule_taskPeriod`), but the recorder only wrapped patterns whose first token is a keyword, and `fastSites` offered both lines | The recorder wraps `:taskPeriod`; `period` joins the `start` and `end` families in the bridge and in `fast-patch.ts`. Backstop: no rewrite on a task the base parse gave `attr_overwrite` for. A rule walk found no other rule under `:taskScenarioAttributes` that sets one of the seven attributes | r3 P1 and P2, plus P3 (a task beside them, still fast); a case with `maxend` given twice for the backstop; `fast-patch.test.ts`. With the period family taken out for a test, the backstop alone sends P1 and P2 to a full run |
+| N2 (medium): the old line's value was not checked, so `effort ${d}` with `macro d [5d allocate s]`, rewritten to `effort 3d`, ran fast and kept the hidden `allocate` (also a macro spanning lines, and one hiding `depends`) | The old value must be strictly a value of the keyword, like the new one | r1 A, A2, A3 |
+| N3 (medium): include paths were not normalized, so `include "common.tji"` and `include "./common.tji"` (or `"../common.tji"` from a subfolder) with different task prefixes counted as one site | Site and message file names are expanded before they are compared | r2 G3, G4 |
+| N4 (medium): the integration plan could not work: the runner posts 'intent' and 'history' requests synchronously inside the workspace subscriber, so a note sent after `applyEdit` arrives too late | The edits travel with the change itself (integration plan) | described, not wired |
+| Low: "by construction" overstated the guarantee; `period` and `:taskPeriod` were missing from the lists; the values the strict checks refuse | Reworded (Decision); `period` added to the families and `:taskPeriod` to the coupling list; the refused values noted under Not covered | |
+
+The rest of the reviewer's round-2 scripts pass as they are and are kept as cases: macro bodies,
+split and joined statements, CRLF and CR-only line ends, scenario-prefixed duplicates, extended
+attributes, nested includes, supplements in other files, a patch of four edits, the value forms
+(r4), and a check that a retaining run (with the recorder's hooks) gives every golden plan its
+golden result (wrapped).
 
 ## Equivalence (tests/engine/fast-path.equivalence.test.ts)
 
@@ -239,7 +277,7 @@ Run B after the fixes, in detail (ms):
    shuffled), `npm run golden:wasm` matches 40 of 40 plans and 71 of 71 time-zone edge cases, and
    native `tj3` reproduces all 40 committed goldens (`record-native.mjs --verify --allow-ruby`,
    Ruby 3.3.6: the goldens are provisional, ADR-0003).
-4. Bundle growth: +7,507 bytes gzip (408,506 against 400,999), +26,106 bytes raw.
+4. Bundle growth: +8,412 bytes gzip (409,411 against 400,999), +29,371 bytes raw.
 
 Scope of adoption:
 
@@ -248,9 +286,11 @@ Scope of adoption:
 - **When it runs:** for single intents and their undo or redo, as section 12 says. Typing never
   uses it.
 - **When it runs in full:** whenever the bridge cannot vouch for the patch.
-- **Never stale.** A fast result is the full run's result by construction (the checks above,
-  and the suites that hold the two equal), so the app never presents it as provisional or
-  stale, and never reschedules in full behind it to confirm it.
+- **Not presented as stale.** A fast result is meant to equal a full run of the same text. That
+  rests on the bridge's checks above and on the suites that hold the two equal (per push and
+  nightly in CI), not on a proof. The app shows it like any result, not as provisional, and does
+  not reschedule in full behind it. **Run full schedule** (below) is the escape hatch when a
+  result is in doubt, and the CI suites guard the path.
 - **Integration:** wiring it into the runner is a separate task with its own review, as
   described below.
 
@@ -264,40 +304,53 @@ Scope of adoption:
   `fast` and no `retain`, forgets its base (so later intents re-base with `retain` first), and
   the popover shows that run's result and timings like any other.
 
-## Runner integration plan (not wired; T8 is merged)
+## Runner integration plan (not wired; T8 and T13 are merged)
 
 - **When the runner keeps a parse.** It sends `retain: true` on runs whose origin is 'intent' or
   'history': visual editing, where the next change is likely another value rewrite. Typing never
   retains and never sends `fast` (6.12, section 12 step 5).
-- **The edit sites, from the dispatcher (T13, now merged: `src/lib/state/edits.svelte.ts`).**
-  The dispatcher knows the intent and the edit API's change; the runner knows the base. The
-  channel between them, to be added with the wiring:
-  - One runner method, `noteFastEdits(workspaceVersion, edits: FastEdit[] | null)`, added to
-    the `runner` the dispatcher's deps pick (`EditDispatcherDeps`).
-  - The dispatcher calls it in step 4, right after `applyEdit` succeeds, with the version the
-    apply produced and `fastEditsOf(snapshot, index, p.edit.changes)`, where `snapshot` and
-    `index` are the ones the intent was planned on (version `p.version`, from `ensureIndex`).
-    A coalesced gesture's unwinding is an undo followed by a new apply, so each step is noted.
-  - Undo and redo (`WorkspaceHistory.undo` and `redo`, from `HistoryControls` or the
-    dispatcher) note the step the same way: the step's changes against the snapshot and index
-    from before the step.
-  - `null` means "not a fast change" (any change `fastEditsOf` cannot express as in-place site
-    rewrites). Typing, file operations and anything else that moves the version without a note
-    count as `null`.
-  - The runner never computes sites itself and never reads the edit API's internals.
-- **When it sends `fast`.** When every change since the base run carried edits: the request
-  carries the base's revision and the edits accumulated since the base, one per file and line,
-  the latest value of each. A single `null` change ends the accumulation until the next base.
-  The request still carries the full text and `retain: true`, so a fallback re-bases.
-- **Keeping its base current.** From each result's timings: a run that asked to retain and has
-  `retainMs` (and no `retainError`) is the new base, at its revision and workspace version, with
-  no edits accumulated; `path: 'fast'` leaves the base as it was (the kept parse is not changed
-  by a fast run), with the edits still accumulated relative to it; `path: 'full'` from a fast
-  request re-based only if its `retainMs` says so.
+- **The edits travel with the change (round 2, N4).** The runner posts 'intent' and 'history'
+  requests synchronously inside its workspace subscriber (`schedule-runner.ts`, `#onChange`
+  calls `#runNow` before it returns), so a note sent after `applyEdit` would come too late, and
+  every intent would run in full. The edits must be part of the change event itself:
+  - `src/lib/workspace/workspace.ts`: `ApplyOptions` gains `fast?: FastNote`, with
+    `FastNote = { edits: readonly FastEdit[]; undo: readonly FastEdit[] }`, and `ChangeInfo`
+    gains `fast?: FastNote`. `Workspace.apply` copies the option into the `ChangeInfo` that
+    `afterChange` hands every listener. `Workspace.commit` (typing, the editor's own commits)
+    never carries one. `applyEdit` (`src/lib/tjp/edit/apply.ts`) already passes its options
+    through to `apply`.
+  - `src/lib/state/edits.svelte.ts`, step 4: before `applyEdit`, the dispatcher computes
+    `edits = fastEditsOf(snapshot, index, p.edit.changes)` on the snapshot and index the intent
+    was planned on (version `p.version`, index from `ensureIndex`). When that is not null, it
+    also computes `undo`: the same sites, each with the value its line has before the change
+    (`statementValue`). It passes `fast: { edits, undo }` with the history label.
+  - `src/lib/workspace/history.ts`: the history's own subscriber (it subscribes first) keeps
+    `info.fast` with the entry it records. `undo()` applies the inverse with
+    `fast: { edits: note.undo, undo: note.edits }`, and `redo()` applies with `fast: note`. An
+    entry without a note (typing, a format) carries none. A coalesced gesture's unwinding is a
+    history undo followed by a new apply, so both steps carry their edits.
+  - `src/lib/workspace/schedule-runner.ts`: the subscriber passes `info` on, and `#onChange`
+    records the change's note (or its absence) under the new workspace version before
+    `#runNow()` builds the request.
+  - Nothing else reads the note, and the runner never computes sites itself.
+- **When it sends `fast`.** The runner names its last confirmed base: the latest result whose
+  timings have `retainMs` (and no `retainError`), at that run's revision and workspace version.
+  If every change after that version carried a note, the request carries
+  `fast: { base, edits }`, with the notes' edits merged (one per file and line, the latest
+  value; an edit back to the base's value is harmless). If any change had none, there is no
+  `fast` until the next confirmed base. Every such request still carries the full text and
+  `retain: true`, so a run that falls back re-bases.
+- **Keeping its base current.** The client's queue is latest-wins, so a request the runner sent
+  may never run. That is why only a result confirms a base: `path: 'fast'` leaves the base as
+  it was (a fast run does not change the kept parse); a result with `retainMs` is the new base,
+  and the notes up to its version are dropped. When the worker holds a different base than the
+  request names (a race with a re-basing run), the bridge answers "another base" and runs in
+  full with `retain`, which re-bases: correctness never depends on the runner's bookkeeping, only
+  speed does.
 - **After a `retainError`.** The plan cannot be kept (shift assignments today). The runner
   stops sending `retain` and `fast` until the plan changes in a way that could remove the cause:
-  any change that carried `null` edits (typing, a structural intent, a file operation). In-place
-  value rewrites cannot add or remove shifts, so they do not re-arm it.
+  any change without a note (typing, a structural intent, a file operation). In-place value
+  rewrites cannot add or remove shifts, so they do not re-arm it.
 - **R1 on an ALAP task with both `start` and `end`.** R1 rewrites `start` there (phase-2.md 9,
   R1). The `start` pattern makes a task ASAP, so the bridge's direction check always sends this
   case to a full run ("the direction would change"). This is by design: TaskJuggler's direction
@@ -312,8 +365,8 @@ Scope of adoption:
   (see Timings).
 - **Memory.** The worker holds one copy (`retainBytes`: about 1.4 MB for Fedora, 2 MB for
   scale-1000).
-- **Bundle.** +7,507 bytes gzip (408,506 against 400,999 for the base branch's bundle, built the
-  same way), +26,106 bytes raw; the draft added 5,126 bytes gzip, and the site recorder and the
+- **Bundle.** +8,412 bytes gzip (409,411 against 400,999 for the base branch's bundle, built the
+  same way), +29,371 bytes raw; the draft added 5,126 bytes gzip, and the site recorder and the
   stricter checks are the difference.
 - **The schedule step of a fast run may be a few percent slower** than a full run's (see
   Timings); the saving is net of it.
@@ -321,7 +374,9 @@ Scope of adoption:
   - the attribute-hash default procs, whose code it copies;
   - the `@provided` flag;
   - the parser's `@project`, `@property`, `@scenarioIdx`, `@sourceFileInfo` and `@rules`, and
-    the `:taskScenarioAttributes` rule's pattern objects;
+    the pattern objects of the `:taskScenarioAttributes` and `:taskPeriod` rules (and that no
+    other rule under `:taskScenarioAttributes` sets the seven attributes);
+  - `Scanner#warning` as the one way `attr_overwrite` is reported (`TextParser.rb:397`);
   - TjTime's class-level zone.
 
   All are pinned at commit `3b36c79`. Any TaskJuggler update must rerun the equivalence suite.
@@ -333,13 +388,15 @@ Scope of adoption:
 ## CI
 
 `npm run test:fast-path` runs three files with `FAST_PATH=1`: the review repros
-(`fast-path.adversarial.test.ts`, 15 cases), the guards (`fast-path.guards.test.ts`, 22 cases)
+(`fast-path.adversarial.test.ts`, 70 cases: 15 from round 1, 54 from round 2 in
+`fast-path-review-cases.ts`, and the retaining run over every golden plan), the guards
+(`fast-path.guards.test.ts`, 22 cases)
 and the equivalence suite (`fast-path.equivalence.test.ts`). The sizes are environment
 variables of the equivalence suite.
 
 | | Per push (`ci.yml`, job Patch fidelity, step Fast path equivalence; blocking) | Nightly (`nightly.yml`, job fast-path-nightly; reporting, like the other nightly jobs) |
 | --- | --- | --- |
-| Repros and guards | all 37 cases | all 37 cases |
+| Repros and guards | all 92 cases | all 92 cases |
 | Golden plans (`FAST_PATH_CORPUS_EDITS`) | all 40, 2 rewrites each plus a patch of both | all 40, 6 rewrites each plus a patch of three |
 | Generated plans (`FAST_PATH_RUNS`) | 50 | 500 |
 | Direction family (`FAST_PATH_DIRECTION_RUNS`) | 20 | 200 |
@@ -352,7 +409,8 @@ nothing else, so it should be quicker):
 
 - 481 s at load 11 to 16 with these settings: golden plans 309 s, generated plans 51 s,
   direction family 66 s, shuffled replay 47 s; the repros and the guards run in parallel with
-  them and finish in the first two minutes;
+  them (since round 2 the repros take about 75 s, 55 s of it the golden pass with a retaining
+  run);
 - 395 s at load 5 to 17 with the whole shuffled replay (85 plans, 176 s alone), whose golden plans
   took 149 s.
 
@@ -370,5 +428,11 @@ the suites above cover the fast path.
 ## Not covered
 
 Rewrites in other scenarios, criterion changes (`effort` to `length`), plans with shifts,
-statements on shared or macro lines, and statements that a later statement of the same family
-overrides all run in full.
+statements on shared or macro lines, statements that a later statement of the same family
+overrides (a `period` after a `start` or `end` among them), and tasks the base parse gave an
+`attr_overwrite` for all run in full.
+
+Some values TaskJuggler accepts are refused by the strict value checks and run in full: `.5d`,
+a bare number (`effort 10`), a date without leading zeros (`2026-1-7`) and an offset without a
+dash before it (`2026-01-07-10:00-0500`). That costs only speed, and is coverage to widen later
+if the edit API ever writes such values (it does not today).
