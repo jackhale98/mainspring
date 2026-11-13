@@ -49,12 +49,14 @@
 			);
 			made = c;
 			app.editor = c.view;
+			app.editorKeys = c;
 			ctl = c;
 		});
 		return () => {
 			gone = true;
 			if (made) {
 				if (app.editor === made.view) app.editor = null;
+				if (app.editorKeys === made) app.editorKeys = null;
 				made.destroy();
 			}
 			ctl = null;

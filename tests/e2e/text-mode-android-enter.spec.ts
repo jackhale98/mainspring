@@ -165,4 +165,73 @@ test.describe('Enter while an engine result arrives', () => {
 		// And the result's diagnostics did arrive afterwards: the marks are current again.
 		await expect(page.locator('.cm-tjp-stale')).toHaveCount(0);
 	});
+
+	// T13 (phase-2.md 6.8): a visual edit dispatched while Enter is held. The dispatcher's gate waits
+	// until CodeMirror has handled the key, then plans again on the text with the newline (the
+	// version moved) and applies; the editor follows with view.update. Without the gate the edit
+	// lands in the shown file while the key is held and the Enter is lost.
+	test('a visual edit dispatched while Enter is held waits for it', async ({ page }) => {
+		await page.goto('/app?sample=gantt-manipulation&mode=text&hooks=edits');
+		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		type Edits = { action(a: unknown): Promise<{ status: string }>; text(): string };
+		const text = () =>
+			page.evaluate(() =>
+				(window as unknown as { __mainspringEdits: Edits }).__mainspringEdits.text(),
+			);
+		await editor(page).tap();
+		await page.keyboard.press('ControlOrMeta+Home');
+		await page.clock.install();
+		await page.clock.pauseAt(Date.now() + 10_000);
+		await page.evaluate(() => {
+			const raf = window.requestAnimationFrame.bind(window);
+			const held: FrameRequestCallback[] = [];
+			let hold = false;
+			window.requestAnimationFrame = (fn: FrameRequestCallback) => {
+				if (!hold) return raf(fn);
+				held.push(fn);
+				return 0;
+			};
+			Object.assign(window, {
+				__frames: (on: boolean) => {
+					hold = on;
+					if (on) return;
+					for (const fn of held.splice(0)) fn(performance.now());
+				},
+			});
+		});
+		const h = hooks(page);
+		const before = await lines(page);
+		const original = await text();
+		await h.frames(true);
+		await page.keyboard.press('Enter');
+		expect(await enterHeld(page), 'CodeMirror holds Enter until the next frame').toBe(true);
+		// The intent is dispatched now; the page does not wait for it (its gate runs on the clock).
+		await page.evaluate(() => {
+			const w = window as unknown as { __mainspringEdits: Edits; __dispatched: unknown };
+			w.__dispatched = null;
+			void w.__mainspringEdits
+				.action({ type: 'size-step', task: 'design.research', steps: 1 })
+				.then((o) => (w.__dispatched = o.status));
+		});
+		await page.clock.runFor(100);
+		expect(await enterHeld(page), 'the edit did not drop the held Enter').toBe(true);
+		expect(await text(), 'the edit waits while Enter is held').toBe(original);
+		// The held frame runs: Enter lands; then the gate lets the edit through.
+		await h.frames(false);
+		await page.clock.runFor(100);
+		await expect
+			.poll(() =>
+				page.evaluate(() => (window as unknown as { __dispatched: unknown }).__dispatched),
+			)
+			.toBe('applied');
+		expect(await lines(page), 'the Enter was applied').toBe(before + 1);
+		const after = await text();
+		expect(after).toContain('effort 4d');
+		expect(after.replace('effort 4d', 'effort 3d')).toBe('\n' + original);
+	});
 });

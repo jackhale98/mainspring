@@ -28,6 +28,7 @@ import { keymap, ViewPlugin, type EditorView, type ViewUpdate } from '@codemirro
 import { editorStrings as S } from '../../strings';
 import { mapRange } from '../diagnostics-map';
 import type { TjpDiagnostic } from '../diagnostics-types';
+import { ANDROID_MAX_RETRIES, ANDROID_RETRY_MS, androidKeyPending } from './android-key';
 import { tjpEnv } from './env';
 
 export type DiagnosticChannel = 'engine' | 'local';
@@ -178,20 +179,12 @@ function unchanged(
 	);
 }
 
-/**
- * True while CodeMirror holds back an Android Enter or Backspace until the next animation frame
- * (`delayAndroidKey`). A transaction dispatched meanwhile drops that key, so the app's own
- * dispatches wait. `observer` is not public API; where it is missing this is false.
- */
-export function androidKeyPending(view: EditorView): boolean {
-	const o = (view as unknown as { observer?: { delayedAndroidKey?: unknown } }).observer;
-	return !!o?.delayedAndroidKey;
-}
+export { androidKeyPending };
 
-const RETRY_MS = 16;
+const RETRY_MS = ANDROID_RETRY_MS;
 const ANNOUNCE_DELAY_MS = 30;
 /** About 500 ms; then the push goes in anyway, so a key stuck as pending cannot stall the marks. */
-const MAX_RETRIES = 30;
+const MAX_RETRIES = ANDROID_MAX_RETRIES;
 type Latest = Partial<Record<DiagnosticChannel, readonly TjpDiagnostic[]>>;
 /** The newest list per channel waiting for a pending Android key to be handled. */
 const waiting = new WeakMap<EditorView, Latest & { before?: () => void }>();
