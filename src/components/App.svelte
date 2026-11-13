@@ -15,11 +15,13 @@
 	it and then kept mounted, so a Visual-first load never fetches CodeMirror, and a switch keeps
 	the editor's state. The Gantt is mounted when first shown and then kept, so zoom and scroll
 	survive a switch. Nothing here changes the schedule: the editor commits text to the workspace
-	and the runner schedules what it sees; the Gantt only reads.
+	and the runner schedules what it sees; visual edits go through the edit dispatcher
+	(`app.edits`), whose toasts sit above the status strip (above the tab bar on phones).
 -->
 <script lang="ts">
 	import { onDestroy, untrack, type Component } from 'svelte';
 	import { AppState } from '../lib/state/app.svelte';
+	import { installEditHooks } from '../lib/state/edit-hooks';
 	import { LayoutState } from '../lib/state/layout.svelte';
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { modeForKey } from '../lib/state/shortcuts';
@@ -33,6 +35,7 @@
 	import StatusStrip from './StatusStrip.svelte';
 	import SplitDivider from './app/SplitDivider.svelte';
 	import TabBar from './app/TabBar.svelte';
+	import Toasts from './app/Toasts.svelte';
 	import TopBar from './app/TopBar.svelte';
 
 	const params = new URLSearchParams(location.search);
@@ -42,7 +45,10 @@
 	const modes = new ModeState({ linked });
 	app.phoneTab = phoneTabFor(linked);
 	const layout = new LayoutState();
+	// End-to-end tests only, with ?hooks=edits (edit-hooks.ts).
+	const offHooks = installEditHooks(app, params);
 	onDestroy(() => {
+		offHooks();
 		layout.dispose();
 		theme.dispose();
 		app.dispose();
@@ -186,6 +192,7 @@
 		<StatusStrip {app} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
+	<Toasts {app} {phone} />
 	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
