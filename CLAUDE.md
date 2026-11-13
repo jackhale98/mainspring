@@ -85,6 +85,8 @@ away because work was split or delegated too early. These rules refine the loop 
   recipe, docs formatting).
 - **Agents verify end to end.** An agent's report must include evidence that its change works in
   the real app or engine (a run, a screenshot, a trace), not only unit tests.
+- **Proportionate tests.** Test behaviour and correctness, not marketing copy or wording. The existing
+  landing-copy test stays, but it is the exception, not the pattern.
 - **Interactive checkpoints.** Show the user visible progress early (screenshots, the Pages
   preview) and ask before large design or scope turns.
 
