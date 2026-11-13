@@ -2,22 +2,32 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import '../styles/fonts.css';
 import '../styles/tokens.css';
+import '../styles/theme-light.css';
+import '../styles/theme-dark.css';
 import { strings } from '../lib/strings';
+import { themeBootScript } from '../lib/state/theme';
 
 interface Props {
 	title?: string;
+	/** The app page: a fixed shell that never scrolls as a page, like a native app. */
+	shell?: boolean;
 }
-const { title = strings.appName } = Astro.props;
+const { title = strings.appName, shell = false } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-shell={shell ? '' : undefined}>
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="data:," />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- viewport-fit=cover lets the shell use the safe-area insets; the page still zooms (WCAG 1.4.4). -->
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="description" content={strings.tagline} />
+		<meta name="theme-color" content="#ece7dc" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#080b10" media="(prefers-color-scheme: dark)" />
 		<title>{title}</title>
+		<!-- The theme before the first paint, so a dark user never sees a light flash. -->
+		<script is:inline set:html={themeBootScript()}></script>
 	</head>
 	<body>
 		<a class="skip" href="#main">
@@ -33,6 +43,10 @@ const { title = strings.appName } = Astro.props;
 	*::after {
 		box-sizing: border-box;
 	}
+	html {
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+	}
 	body {
 		margin: 0;
 		background: var(--color-bg);
@@ -40,6 +54,34 @@ const { title = strings.appName } = Astro.props;
 		font-family: var(--font-sans);
 		font-size: var(--text-md);
 		line-height: var(--leading);
+		-webkit-font-smoothing: antialiased;
+	}
+	/*
+	 * The app shell behaves like a native app (phase-2.md 9.2): the page never scrolls or
+	 * rubber-bands, the shell is exactly the viewport, and only the panels inside scroll. Chrome
+	 * (bars, buttons, tabs) is not text to select and has no tap flash; the editor, inputs and
+	 * the documentation keep normal selection.
+	 */
+	html[data-shell],
+	html[data-shell] body {
+		block-size: 100%;
+		overflow: hidden;
+		overscroll-behavior: none;
+	}
+	html[data-shell] body {
+		position: fixed;
+		inset: 0;
+		inline-size: 100%;
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
+		-webkit-tap-highlight-color: transparent;
+		touch-action: manipulation;
+	}
+	html[data-shell] :is(input, textarea, select, .cm-editor, .selectable, .selectable *) {
+		-webkit-user-select: text;
+		user-select: text;
+		-webkit-touch-callout: default;
 	}
 	:focus-visible {
 		outline: 3px solid var(--color-focus);
@@ -58,6 +100,7 @@ const { title = strings.appName } = Astro.props;
 	}
 	.skip {
 		position: absolute;
+		z-index: 100;
 		left: var(--space-2);
 		top: -4rem;
 		padding: var(--space-2) var(--space-4);

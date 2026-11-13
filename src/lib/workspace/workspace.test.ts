@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { undo } from '@codemirror/commands';
+import { history, isolateHistory, undo } from '@codemirror/commands';
 import { EditorState, Facet, Transaction, type ChangeSet } from '@codemirror/state';
 import { describe, expect, it, vi } from 'vitest';
 import { serialize } from '../../../tests/grammar/corpus';
@@ -123,8 +123,10 @@ describe('commit', () => {
 		expect(() => ws.commit('plan.tjp', stray, 'typing')).toThrow(/does not start/);
 	});
 
-	it('keeps per-file history', () => {
+	it('keeps per-file history once the editor is attached', () => {
 		const ws = seed();
+		// The workspace imports no editor package: history comes with the editor chunk.
+		ws.attachEditor({ extensions: () => history(), isolate: isolateHistory });
 		ws.commit('x.tji', typeAt(ws, 'x.tji', 0, '# note\n'), 'typing');
 		let undone: Transaction | null = null;
 		undo({
@@ -133,6 +135,22 @@ describe('commit', () => {
 				undone = tr;
 			},
 		});
+		if (!undone) throw new Error('nothing to undo');
+		ws.commit('x.tji', undone, 'typing');
+		expect(ws.texts()['x.tji']).toBe(X);
+	});
+});
+
+describe('attachEditor', () => {
+	it('keeps the text and the parse, and makes an applied edit its own undo step', () => {
+		const ws = seed();
+		const before = ws.texts();
+		ws.attachEditor({ extensions: () => history(), isolate: isolateHistory });
+		expect(ws.texts()).toEqual(before);
+		expect(ws.apply(edit(ws, 'x.tji', '1d', '4d'))).toBe('applied');
+		expect(ws.texts()['x.tji']).not.toBe(X);
+		let undone: Transaction | null = null;
+		undo({ state: ws.state('x.tji'), dispatch: (tr) => (undone = tr) });
 		if (!undone) throw new Error('nothing to undo');
 		ws.commit('x.tji', undone, 'typing');
 		expect(ws.texts()['x.tji']).toBe(X);

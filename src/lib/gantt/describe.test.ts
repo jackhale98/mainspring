@@ -11,6 +11,7 @@ const model = modelOf(
 		row(2, null, null, 'task', { name: 'Later' }),
 		row(3, 0, 5, 'task', { name: 'Tiny' }),
 		row(4, 0, 3 * D, 'task', { name: 'Team', people: ['Ana', 'Ben'] }),
+		row(5, 0, 3 * D, 'task', { name: 'Hot', critical: true }),
 	],
 	[],
 	{ calendar },
@@ -25,6 +26,10 @@ describe('describeRow', () => {
 
 	it('adds the people on a task', () => {
 		expect(describeRow(model, 4)).toBe('Team: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. Ana, Ben');
+	});
+
+	it('says that a critical task is on the critical path, not by colour alone', () => {
+		expect(describeRow(model, 5)).toBe('Hot: Mon, Jan 5, 2026 to Wed, Jan 7, 2026. Critical path');
 	});
 
 	it('writes a milestone as its day', () => {

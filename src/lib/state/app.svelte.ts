@@ -11,6 +11,10 @@
  * lag), `run.diagnostics` for problems.
  *
  * Samples load in memory; nothing is stored (Phase 4).
+ *
+ * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
+ * editor first mounts and then gives each workspace its editor support, so a Visual-first load
+ * does not fetch them (phase-2.md 11.3).
  */
 import type { EditorView } from '@codemirror/view';
 import { createTimeZoneHost } from '../../engine/timezone';
@@ -18,14 +22,7 @@ import { createEngineClient, type EngineClient } from '../../engine/client';
 import type { EngineState } from '../../engine/client';
 import type { SyntaxDocs, WorkspacePath } from '../../engine/protocol';
 import { editorStrings, strings } from '../strings';
-import {
-	docsAtCursor,
-	workspaceExtensions,
-	type FormatOutcome,
-	type HoverContent,
-} from '../tjp/cm';
-import { KEYWORDS } from '../tjp/syntax/keywords';
-import type { KeywordDocsSource } from '../tjp/syntax/docs';
+import type { FormatOutcome, HoverContent } from '../tjp/cm';
 import { SAMPLES, type Sample, type SampleWorkspace } from '../workspace/samples';
 import {
 	createScheduleRunner,
@@ -34,7 +31,7 @@ import {
 } from '../workspace/schedule-runner';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { nextProblem } from './diagnostics-nav';
-import { editorSetup } from './editor-setup';
+import type { EditorController, HistoryState } from './editor-controller';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
 import { statusView, type StatusView } from './status';
 
@@ -89,6 +86,27 @@ export class AppState {
 	docsContent = $state.raw<HoverContent | null>(null);
 	/** The editor view, set by the editor panel. Not reactive. */
 	editor: EditorView | null = null;
+	/** The editor's controller (undo and redo), set by the editor panel. Not reactive. */
+	editorController: EditorController | null = null;
+	/** What the open file's editor history can do, set by the editor panel. */
+	editorHistory = $state<HistoryState>({ canUndo: false, canRedo: false });
+
+	/**
+	 * What the top bar's undo and redo buttons read: the same shape as the unified undo of
+	 * phase-2.md 6.7 (`canUndo`, `undoLabel`, `undo()` and the redo equivalents), here backed by
+	 * the open file's editor history. When that lands, this getter is replaced by it and the
+	 * buttons (app/UndoRedo.svelte) need no change.
+	 */
+	get history() {
+		return {
+			canUndo: this.editorHistory.canUndo,
+			canRedo: this.editorHistory.canRedo,
+			undoLabel: strings.topBar.undo,
+			redoLabel: strings.topBar.redo,
+			undo: (): void => void this.editorController?.undo(),
+			redo: (): void => void this.editorController?.redo(),
+		};
+	}
 
 	/** The plan's files, entry first then in include order; follows the include graph. */
 	files = $state.raw<readonly WorkspacePath[]>([]);
@@ -117,7 +135,10 @@ export class AppState {
 	/** Intl-backed zone data for the index: zone names and zone-dependent value checks. */
 	readonly #zones = createTimeZoneHost();
 	#runner: ScheduleRunner | null = null;
+	#editorBundle: typeof import('./editor-bundle') | null = null;
+	#editorLoading: Promise<void> | null = null;
 	#unsubscribe: Array<() => void> = [];
+	#current: { ws: Workspace; runner: ScheduleRunner } | null = null;
 	#docs: SyntaxDocs | null = null;
 	#nonce = 0;
 	#token = 0;
@@ -141,9 +162,6 @@ export class AppState {
 		const first = this.samples.find((s) => s.id === opts.initial) ?? this.samples[0];
 		if (first) void this.#load(first);
 	}
-
-	/** Keyword docs for hover and the docs sheet: the table, plus the engine's once it arrives. */
-	readonly docsSource = (): KeywordDocsSource => ({ table: KEYWORDS, engine: this.#docs });
 
 	#fetchDocs(): void {
 		this.client.syntax().then(
@@ -176,18 +194,12 @@ export class AppState {
 		}
 		if (token !== this.#token) return false;
 		this.#teardown();
-		let ws: Workspace | null = null;
-		let runner: ScheduleRunner | null = null;
-		const extensions = workspaceExtensions({
-			docs: this.docsSource,
-			workspace: () => ws,
-			index: () => runner?.state.index ?? null,
-			onFormat: (o) => this.#onFormat(o),
+		const ws = createWorkspace(seed);
+		const runner = createScheduleRunner({
+			workspace: ws,
+			client: this.client,
+			zones: this.#zones,
 		});
-		ws = createWorkspace(seed, {
-			extensions: (path, top) => [extensions(path, top), editorSetup(path)],
-		});
-		runner = createScheduleRunner({ workspace: ws, client: this.client, zones: this.#zones });
 		this.#runner = runner;
 		this.#unsubscribe = [
 			ws.subscribe(() => (this.dirty = true)),
@@ -199,12 +211,46 @@ export class AppState {
 		this.dirty = false;
 		this.collapsed = new Set();
 		this.selectedTask = null;
+		this.#current = { ws, runner };
+		this.#attachEditor();
 		this.workspace = ws;
 		this.#syncFiles(ws);
 		this.activeFile = seed.entry;
 		this.reveal = null;
 		this.phase = 'ready';
 		return true;
+	}
+
+	/**
+	 * Loads the editor packages (once) and gives the open workspace its editor support. The editor
+	 * panel calls this before it creates a view; a workspace opened later gets the support at once.
+	 */
+	ensureEditor(): Promise<void> {
+		this.#editorLoading ??= import('./editor-bundle').then((bundle) => {
+			this.#editorBundle = bundle;
+			this.#attachEditor();
+		});
+		return this.#editorLoading;
+	}
+
+	/** Whether the editor chunk has loaded and the open workspace has its support. */
+	get editorReady(): boolean {
+		return this.#editorBundle !== null;
+	}
+
+	#attachEditor(): void {
+		const bundle = this.#editorBundle;
+		const current = this.#current;
+		if (!bundle || !current) return;
+		const { ws, runner } = current;
+		ws.attachEditor(
+			bundle.editorSupport({
+				engineDocs: () => this.#docs,
+				workspace: () => ws,
+				index: () => runner.state.index ?? null,
+				onFormat: (o) => this.#onFormat(o),
+			}),
+		);
 	}
 
 	/** Updates `files` when the include graph changed (the list keeps its identity otherwise). */
@@ -218,6 +264,7 @@ export class AppState {
 	}
 
 	#teardown(): void {
+		this.#current = null;
 		for (const off of this.#unsubscribe) off();
 		this.#unsubscribe = [];
 		this.#runner?.dispose();
@@ -297,8 +344,9 @@ export class AppState {
 
 	/** Opens the docs sheet for the keyword or id at the cursor (hover does not exist on touch). */
 	openDocs(): void {
-		if (!this.editor) return;
-		this.docsContent = docsAtCursor(this.editor.state);
+		const bundle = this.#editorBundle;
+		if (!this.editor || !bundle) return;
+		this.docsContent = bundle.docsAtCursor(this.editor.state);
 		this.docsOpen = true;
 	}
 

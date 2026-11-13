@@ -18,8 +18,13 @@
  * change moves a file to another parse context, the workspace reconfigures that file's state with
  * the extensions for the new top and lists it in `ChangeInfo.reconfigured`; an editor showing that
  * file then takes `state(path)` again.
+ *
+ * The workspace does not import the editor packages (view, language, commands, ...): Visual mode
+ * needs the text, the parse and the edit API but not an editor, and those packages are a separate
+ * chunk that loads when an editor first mounts (phase-2.md 11.3). The editor side comes in with
+ * `attachEditor`: its extensions (which include the undo history) and the annotation that makes
+ * an applied edit its own undo step. Until then the file states are plain `EditorState`s.
  */
-import { history, isolateHistory } from '@codemirror/commands';
 import {
 	Annotation,
 	Compartment,
@@ -95,6 +100,11 @@ export interface Workspace {
 	/** Per-file composition of the changes made since a workspace version (changed files only). */
 	changesSince(version: number): ReadonlyMap<WorkspacePath, ChangeSet>;
 	subscribe(listener: WorkspaceListener): () => void;
+	/**
+	 * Gives every file's state the editor's extensions, once the editor chunk has loaded. Open
+	 * editors must take `state(path)` again; nothing is announced, as the text is unchanged.
+	 */
+	attachEditor(editor: EditorSupport): void;
 }
 
 export interface WorkspaceSeed {
@@ -102,9 +112,19 @@ export interface WorkspaceSeed {
 	files: Readonly<Record<WorkspacePath, string>>;
 }
 
+/** What the editor chunk gives the workspace when it loads (module comment). */
+export interface EditorSupport {
+	/** Extra extensions for each file's EditorState (history, the TJP language), per parse context. */
+	readonly extensions: (path: WorkspacePath, top: TopContext) => Extension;
+	/** The history's "make this transaction its own undo step" annotation, if it has one. */
+	readonly isolate?: AnnotationType<'before' | 'after' | 'full'>;
+}
+
 export interface WorkspaceOptions {
 	/** Extra extensions for each file's EditorState (the TJP language, T13), per parse context. */
 	extensions?: (path: WorkspacePath, top: TopContext) => Extension;
+	/** See `EditorSupport.isolate`. */
+	isolate?: AnnotationType<'before' | 'after' | 'full'>;
 	/** How many change-log entries `changesSince` keeps (default 10,000). */
 	logLimit?: number;
 }
@@ -146,7 +166,7 @@ class MemoryWorkspace implements Workspace {
 
 	constructor(
 		seed: WorkspaceSeed,
-		private readonly opts: WorkspaceOptions,
+		private opts: WorkspaceOptions,
 	) {
 		for (const [path, text] of Object.entries(seed.files)) {
 			this.seedTexts.set(assertWorkspacePath(path), text);
@@ -159,6 +179,20 @@ class MemoryWorkspace implements Workspace {
 		this.graph = this.walk();
 		for (const [path, file] of this.files) this.states.set(path, this.newState(path, file));
 		this.seedTexts.clear();
+	}
+
+	attachEditor(editor: EditorSupport): void {
+		this.opts = {
+			...this.opts,
+			extensions: editor.extensions,
+			...(editor.isolate ? { isolate: editor.isolate } : {}),
+		};
+		for (const [path, state] of [...this.states]) {
+			const file = this.files.get(path);
+			if (!file) continue;
+			const effects = this.editorExtensions.reconfigure(editor.extensions(path, file.top));
+			this.states.set(path, state.update({ effects }).state);
+		}
 	}
 
 	snapshot(): WorkspaceSnapshot {
@@ -223,7 +257,10 @@ class MemoryWorkspace implements Workspace {
 			const tr = this.state(path).update({
 				changes: cs,
 				// Its own undo step: typing right after an edit is not joined to it.
-				annotations: [tjpEditId.of(edit.id), isolateHistory.of('full')],
+				annotations: [
+					tjpEditId.of(edit.id),
+					...(this.opts.isolate ? [this.opts.isolate.of('full' as const)] : []),
+				],
 				userEvent: `input.tjp.${edit.intent.type}`,
 			});
 			changed.push({ path, tr });
@@ -336,7 +373,6 @@ class MemoryWorkspace implements Workspace {
 			doc: file.text,
 			extensions: [
 				EditorState.lineSeparator.of(LINE_SEPARATOR),
-				history(),
 				this.editorExtensions.of(this.opts.extensions?.(path, file.top) ?? []),
 			],
 		});

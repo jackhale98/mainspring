@@ -23,5 +23,7 @@ export function describeRow(model: GanttModel, index: number | null): string {
 					from,
 					formatMinutes(model.calendar, Math.max(r.start, r.end - 1)),
 				);
-	return r.people.length > 0 ? strings.gantt.withPeople(text, r.people.join(', ')) : text;
+	const line = r.people.length > 0 ? strings.gantt.withPeople(text, r.people.join(', ')) : text;
+	// Never colour alone (WCAG 1.4.1): a critical row says so.
+	return r.critical ? strings.gantt.withCritical(line) : line;
 }

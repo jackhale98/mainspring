@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { history, undo } from '@codemirror/commands';
+import { history, isolateHistory, undo } from '@codemirror/commands';
 import { getIndentUnit } from '@codemirror/language';
 import {
 	EditorSelection,
@@ -151,11 +151,15 @@ describe('through the workspace', () => {
 		ws = createWorkspace(
 			{ entry: 'plan.tjp', files: { 'plan.tjp': MESSY } },
 			{
-				extensions: workspaceExtensions({
-					docs: () => TABLE_ONLY,
-					theme: false,
-					workspace: () => ws,
-				}),
+				// History comes with the editor chunk in the app (workspace.attachEditor).
+				extensions: (path, top) => [
+					history(),
+					workspaceExtensions({ docs: () => TABLE_ONLY, theme: false, workspace: () => ws })(
+						path,
+						top,
+					),
+				],
+				isolate: isolateHistory,
 			},
 		);
 		const workspace = ws;

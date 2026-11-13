@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The editor's look (phase-1.md 8.2): every colour is a design token from src/styles/tokens.css,
- * which switches light and dark with `prefers-color-scheme`, so one theme serves both. The font
+ * whose theme files switch light and dark with `data-theme`, so one theme serves both. The font
  * is the token monospace stack, at least 16 px so that iOS does not zoom on focus (8.1).
  */
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';

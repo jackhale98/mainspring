@@ -14,10 +14,13 @@
  * - `reveal` selects a range and scrolls it into view; with `focus` it then focuses the editor,
  *   after an open modal dialog (the tablet drawer) has closed, since a modal makes the editor
  *   inert.
+ * - `undo` and `redo` run the history of the open file (until the unified undo of phase-2.md 6.7
+ *   replaces it), and `onHistory` reports whether either has anything to do, for the top bar.
  * - Diagnostics go on the lint layer's two channels. The engine channel is pushed when a result
  *   arrives (the layer maps it through later edits and marks it stale), the local channel
  *   whenever the document layer's checks change.
  */
+import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import type { WorkspacePath } from '../../engine/protocol';
 import {
@@ -29,6 +32,12 @@ import {
 import type { TjpDiagnostic } from '../tjp/diagnostics';
 import type { Workspace } from '../workspace/workspace';
 
+/** Whether the history of the open file has an undo or a redo to run. */
+export interface HistoryState {
+	readonly canUndo: boolean;
+	readonly canRedo: boolean;
+}
+
 export class EditorController {
 	readonly view: EditorView;
 	readonly #ws: Workspace;
@@ -37,16 +46,50 @@ export class EditorController {
 	#shown: WorkspacePath;
 	#restore = 0;
 
-	constructor(ws: Workspace, parent: HTMLElement, path: WorkspacePath) {
+	readonly #onHistory: ((h: HistoryState) => void) | undefined;
+	#history: HistoryState = { canUndo: false, canRedo: false };
+
+	constructor(
+		ws: Workspace,
+		parent: HTMLElement,
+		path: WorkspacePath,
+		onHistory?: (h: HistoryState) => void,
+	) {
 		this.#ws = ws;
 		this.#shown = path;
+		this.#onHistory = onHistory;
 		this.view = new EditorView({
 			parent,
 			state: ws.state(path),
 			dispatchTransactions: workspaceDispatch(ws, () => this.#shown),
 		});
 		// Edits made without the view leave it behind the workspace: catch up once they are done.
-		this.#off = ws.subscribe(() => queueMicrotask(() => this.sync()));
+		this.#off = ws.subscribe(() =>
+			queueMicrotask(() => {
+				this.sync();
+				this.#publish();
+			}),
+		);
+		this.#publish();
+	}
+
+	/** Tells `onHistory` when the open file's undo or redo availability changed. */
+	#publish(): void {
+		const state = this.#ws.state(this.#shown);
+		const next = { canUndo: undoDepth(state) > 0, canRedo: redoDepth(state) > 0 };
+		if (next.canUndo === this.#history.canUndo && next.canRedo === this.#history.canRedo) return;
+		this.#history = next;
+		this.#onHistory?.(next);
+	}
+
+	undo(): boolean {
+		this.sync();
+		return undo(this.view);
+	}
+
+	redo(): boolean {
+		this.sync();
+		return redo(this.view);
 	}
 
 	/** The file whose state the view shows. */
@@ -71,6 +114,7 @@ export class EditorController {
 		this.#scrolls.set(this.#shown, this.view.scrollDOM.scrollTop);
 		this.#shown = path;
 		this.view.setState(this.#ws.state(path));
+		this.#publish();
 		const top = this.#scrolls.get(path) ?? 0;
 		const token = ++this.#restore;
 		if (opts.restoreScroll === false) return;
