@@ -10,6 +10,7 @@ Source: `docs/phases/phase-2.md` section 12, 18.12 and 6.12. Code: `engine/bridg
 `fast_path_sites.rb` and `fast_path_procs.rb`, the `retain` and `fast` request fields in
 `src/engine/protocol.ts`, the main thread's half in `src/lib/workspace/fast-patch.ts`, and the
 tests `tests/engine/fast-path.*`.
+
 ## Context
 
 A full run parses the workspace and then schedules it. In the browser engine the parse is a large
