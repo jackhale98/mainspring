@@ -358,7 +358,8 @@ export function paintBars(f: PaintFrame): void {
 
 /**
  * The float tail (BUILD_PLAN "a faint tail after each bar"): a fine dotted line from the bar's end
- * to its late finish, and a short solid stop at the late finish. Faint, so a plan with much float
+ * to its late finish, and a short solid stop at the late finish, in a muted ink that differs from
+ * the brass links. Faint, so a plan with much float
  * (Fedora's milestones float to the plan's end) does not read as a second set of bars or links.
  */
 function drawFloat(f: PaintFrame, layout: GanttLayout, row: GanttRow, bar: Rect, cy: number): void {
@@ -367,16 +368,18 @@ function drawFloat(f: PaintFrame, layout: GanttLayout, row: GanttRow, bar: Rect,
 	const tail = layout.scale.x(row.lateEnd ?? 0) - x0;
 	const h = theme.floatHeight;
 	ctx.save();
+	// Relative to the caller's alpha, so a dimmed (out-of-date) chart dims its tails too.
+	const alpha = ctx.globalAlpha;
 	ctx.strokeStyle = theme.float;
 	ctx.lineWidth = h;
-	ctx.globalAlpha = 0.75;
+	ctx.globalAlpha = alpha * theme.floatOpacity;
 	ctx.setLineDash([h, h * 2]);
 	ctx.beginPath();
 	ctx.moveTo(x0 + h, cy);
 	ctx.lineTo(x0 + tail, cy);
 	ctx.stroke();
 	ctx.setLineDash([]);
-	ctx.globalAlpha = 1;
+	ctx.globalAlpha = alpha;
 	ctx.fillStyle = theme.float;
 	ctx.fillRect(x0 + tail - h / 2, cy - h * 3, h, h * 6);
 	ctx.restore();

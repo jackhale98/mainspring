@@ -303,6 +303,27 @@ describe('paintBars', () => {
 		expect(rec.of('set:strokeStyle').map((c) => c[1])).toContain(frame.theme.float);
 	});
 
+	it('dims the float tail with the rest of an out-of-date chart', () => {
+		const m = {
+			...modelOf([row(0, 0, 2 * D, 'task', { floatMin: 2 * D, lateEnd: 4 * D })]),
+			dimmed: true,
+		};
+		const { frame, rec } = frameOf(m);
+		paintBars(frame);
+		// The alphas set between the tail's stroke style and its stop (the dotted line and the stop).
+		const calls = rec.calls;
+		const from = calls.findIndex((c) => c[0] === 'set:strokeStyle' && c[1] === frame.theme.float);
+		expect(from).toBeGreaterThanOrEqual(0);
+		const to = calls.findIndex((c, i) => i > from && c[0] === 'restore');
+		const alphas = calls
+			.slice(from, to)
+			.filter((c) => c[0] === 'set:globalAlpha')
+			.map((c) => c[1] as number);
+		expect(alphas).toHaveLength(2);
+		for (const a of alphas) expect(a).toBeLessThanOrEqual(frame.theme.dimOpacity);
+		expect(rec.of('save').length).toBe(rec.of('restore').length);
+	});
+
 	it('draws links under the bars, elbowed, with an arrow head each', () => {
 		const m = modelOf(
 			[row(0, 0, 2 * D), row(1, 4 * D, 6 * D), row(2, 8 * D, 9 * D)],

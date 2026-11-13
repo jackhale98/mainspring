@@ -271,7 +271,6 @@ function layoutOver(
 	};
 }
 
-/** The rows to paint for a vertical view, with the overscan. `last` is exclusive. */
 /**
  * The vertical scroll offset that shows row `index` below the sticky header: the offset as it is
  * when the row is in view, else the nearest one that shows the whole row.
@@ -282,6 +281,7 @@ export function revealTop(index: number, rowHeight: number, top: number, viewH: 
 	return y + rowHeight > top + viewH ? y + rowHeight - viewH : top;
 }
 
+/** The rows to paint for a vertical view, with the overscan. `last` is exclusive. */
 export function rowRange(
 	layout: Pick<GanttLayout, 'rowCount' | 'metrics'>,
 	top: number,

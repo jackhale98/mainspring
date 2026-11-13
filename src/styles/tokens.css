@@ -105,6 +105,7 @@
 	--gantt-ring-gap: 3px;
 	--gantt-hover-ring-width: 1.5px;
 	--gantt-float-height: 1.5px;
+	--gantt-float-opacity: 0.75;
 	--gantt-dash: 4px;
 	--gantt-dim-opacity: 0.5;
 	--gantt-text-only-opacity: 0.25;
