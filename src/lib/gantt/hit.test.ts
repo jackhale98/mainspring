@@ -39,6 +39,31 @@ describe('hitTest', () => {
 		expect(hitTest(layout, model, leg.x + 30, 28)).toMatchObject({ kind: 'empty' });
 	});
 
+	it('leaves links out of the avatars beside a bar: an avatar wins over the line under it', () => {
+		const path = layout.linkPath(model.links[0]!);
+		const leg = path[1]!;
+		const fresh = createLayout(model, scale, fine);
+		// Row 1's avatars sit on the leg's x, where row 0's link runs down into row 1.
+		expect(hitTest(fresh, model, leg.x, 29)).toEqual({ kind: 'link', link: 0 });
+		fresh.avatars[2] = leg.x - 10;
+		fresh.avatars[3] = leg.x + 30;
+		expect(hitTest(fresh, model, leg.x, 29)).toMatchObject({ kind: 'empty', row: 1 });
+		// Other rows and the other side of the avatars are as before.
+		expect(hitTest(fresh, model, leg.x, 28 - 6)).toEqual({ kind: 'link', link: 0 });
+		expect(hitTest(fresh, model, leg.x + 60, 29)).toMatchObject({ kind: 'empty' });
+	});
+
+	it('does not allocate per call: a pointer move makes no garbage', () => {
+		// The same two objects come back from the layout's scratch: only the result is new.
+		const a = { x: 0, y: 0, w: 0, h: 0 };
+		expect(layout.hitInto(0, a)).toBe(true);
+		expect(layout.hitInto(2, a)).toBe(false);
+		const before = process.memoryUsage().heapUsed;
+		for (let i = 0; i < 20000; i++) hitTest(layout, model, 40 + (i % 50), 14 + (i % 30));
+		// Generous bound: a result object per call is tens of bytes, not hundreds of kilobytes.
+		expect(process.memoryUsage().heapUsed - before).toBeLessThan(4_000_000);
+	});
+
 	it('widens a short bar to the minimum target size', () => {
 		const tiny = modelOf([row(0, 0, 10)]);
 		const l = createLayout(tiny, scale, fine);
