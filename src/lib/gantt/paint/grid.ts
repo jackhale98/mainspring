@@ -26,7 +26,7 @@ const MERGE_WITHIN_MIN = 60;
  * The marker lines for a model. `today` is the wall-clock minute from outside the model (the
  * clock is not part of what the model is built from); it defaults to the model's own.
  */
-export function markerLines(model: GanttModel, today: Minutes | null = model.todayMin): Marker[] {
+export function markerLines(model: GanttModel, today: Minutes | null): Marker[] {
 	const status = model.statusMin;
 	if (today !== null && status !== null && Math.abs(today - status) <= MERGE_WITHIN_MIN) {
 		return [{ at: status, kind: 'both' }];

@@ -83,9 +83,9 @@ describe('paintOverlay', () => {
 	});
 
 	it('draws today solid and the status date dashed, in their own colours', () => {
-		const model = modelOf(rows, [], { statusMin: 2 * D, todayMin: 4 * D });
+		const model = modelOf(rows, [], { statusMin: 2 * D });
 		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 100 } });
-		paintOverlay(frame, NO_OVERLAY);
+		paintOverlay(frame, { ...NO_OVERLAY, todayMin: 4 * D });
 		const styles = rec.of('set:fillStyle').map((c) => c[1]);
 		expect(styles).toContain(frame.theme.today);
 		expect(styles).toContain(frame.theme.statusDate);
@@ -102,12 +102,9 @@ describe('paintOverlay', () => {
 		paintOverlay(frame, { ...NO_OVERLAY, todayMin: 6 * D });
 		const x = (6 * D * 48) / MIN_PER_DAY - 1;
 		expect(rec.of('fillRect').filter((c) => c[1] === x && c[4] === 100)).toHaveLength(1);
-		// A state that says "no today" wins over the model's own.
+		// A state that says "no today" draws none.
 		rec.clear();
-		paintOverlay(
-			{ ...frame, model: { ...model, todayMin: 3 * D } },
-			{ ...NO_OVERLAY, todayMin: null },
-		);
+		paintOverlay(frame, { ...NO_OVERLAY, todayMin: null });
 		expect(rec.of('set:fillStyle').map((c) => c[1])).not.toContain(frame.theme.today);
 	});
 
