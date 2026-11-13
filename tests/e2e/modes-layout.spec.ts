@@ -52,7 +52,9 @@ test.describe('modes', () => {
 		await expect(pressed(page, 'Visual')).toBeVisible();
 	});
 
-	test('a Visual-first load does not fetch CodeMirror; the first editor does', async ({ page }, info) => {
+	test('a Visual-first load does not fetch CodeMirror; the first editor does', async ({
+		page,
+	}, info) => {
 		test.skip(info.project.name !== 'desktop');
 		const chunks: string[] = [];
 		page.on('request', (r) => {
@@ -67,7 +69,9 @@ test.describe('modes', () => {
 		expect(chunks.length).toBe(1);
 	});
 
-	test('the divider moves by keyboard and by pointer, and is remembered', async ({ page }, info) => {
+	test('the divider moves by keyboard and by pointer, and is remembered', async ({
+		page,
+	}, info) => {
 		test.skip(info.project.name !== 'desktop');
 		await page.goto(`/app?sample=${A}&mode=split`);
 		await ready(page);
@@ -124,7 +128,9 @@ test.describe('modes', () => {
 		expect(after?.height ?? 0).toBeGreaterThan(chart.height);
 	});
 
-	test('the theme toggle cycles, is remembered, and the page follows it', async ({ page }, info) => {
+	test('the theme toggle cycles, is remembered, and the page follows it', async ({
+		page,
+	}, info) => {
 		test.skip(info.project.name !== 'desktop');
 		await page.emulateMedia({ colorScheme: 'light' });
 		await page.goto(`/app?sample=${A}&mode=visual`);

@@ -169,24 +169,27 @@ test.describe('frozen header and name column', () => {
 			requestAnimationFrame(tick);
 		});
 		const cdp = await page.context().newCDPSession(page);
-		const box = await page.getByTestId('gantt-overlay').boundingBox();
-		if (!box) throw new Error('no chart');
-		const x = Math.round(Math.min(box.x + 200, 360));
-		const y = 400;
-		for (const [dx, dy] of [
-			[-260, 0],
-			[0, -240],
-			[200, 120],
-		] as const) {
-			await cdp.send('Input.synthesizeScrollGesture', {
-				x,
-				y,
-				xDistance: dx,
-				yDistance: dy,
-				gestureSourceType: 'touch',
-				speed: 700,
+		// One finger dragging, as touch events through the DevTools Input domain: the browser's own
+		// scroller handles them, on the compositor, as on a phone.
+		const drag = async (x0: number, y0: number, x1: number, y1: number): Promise<void> => {
+			const steps = 14;
+			await cdp.send('Input.dispatchTouchEvent', {
+				type: 'touchStart',
+				touchPoints: [{ x: x0, y: y0 }],
 			});
-		}
+			for (let i = 1; i <= steps; i++) {
+				await cdp.send('Input.dispatchTouchEvent', {
+					type: 'touchMove',
+					touchPoints: [{ x: x0 + ((x1 - x0) * i) / steps, y: y0 + ((y1 - y0) * i) / steps }],
+				});
+				await page.waitForTimeout(16);
+			}
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+			await page.waitForTimeout(350);
+		};
+		await drag(350, 420, 150, 420); // pan sideways
+		await drag(300, 520, 300, 300); // pan down the plan
+		await drag(160, 300, 330, 400); // diagonal back
 		await page.waitForTimeout(300);
 		const frames = await page.evaluate(() => window.__frames ?? []);
 		expect(frames.length).toBeGreaterThan(20);
@@ -214,7 +217,8 @@ test.describe('frozen header and name column', () => {
 				EVIDENCE,
 				JSON.stringify(
 					{
-						device: 'Pixel 7 emulation, touch scroll gestures through the DevTools Input domain',
+						device:
+							'Pixel 7 emulation, one-finger drags as touch events through the DevTools Input domain',
 						plan: 'upstream-fedora-20 (Visual)',
 						frames: frames.length,
 						headerPaints: paints,

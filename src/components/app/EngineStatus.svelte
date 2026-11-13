@@ -27,7 +27,6 @@
 	data-state={state}
 	title={engineLine(state)}
 >
-	<span class="dot" aria-hidden="true"></span>
 	<span class="words">{engineLine(state)}</span>
 </p>
 
@@ -47,26 +46,28 @@
 		font-size: 12px;
 		white-space: nowrap;
 	}
-	.dot {
+	/* The dot is drawn on the pill, so that its text is the only content (no stray space). */
+	.engine::before {
+		content: '';
 		flex: none;
 		inline-size: 8px;
 		block-size: 8px;
 		border-radius: 50%;
 		background: var(--color-status-neutral);
 	}
-	[data-state='idle'] .dot {
+	.engine[data-state='idle']::before {
 		background: var(--color-status-ok);
 		box-shadow: 0 0 0 3px var(--color-status-ok-halo);
 	}
 	/* Working: a ring, so that it differs from "ready" without colour. */
-	[data-state='busy'] .dot,
-	[data-state='booting'] .dot {
+	.engine[data-state='busy']::before,
+	.engine[data-state='booting']::before {
 		background: transparent;
 		border: 2px solid var(--color-brass);
 		box-shadow: 0 0 0 3px var(--color-brass-wash);
 	}
 	/* Failed: a diamond in ruby. */
-	[data-state='failed'] .dot {
+	.engine[data-state='failed']::before {
 		border-radius: 1px;
 		transform: rotate(45deg);
 		background: var(--color-ruby);
