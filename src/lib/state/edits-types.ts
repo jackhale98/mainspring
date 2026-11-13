@@ -14,6 +14,7 @@ import type { WorkspaceHistory } from '../workspace/history';
 import type { WorkspacePath } from '../workspace/paths';
 import type { ScheduleRunner } from '../workspace/run-types';
 import type { Workspace } from '../workspace/workspace';
+import type { Gesture } from './coalesce';
 import type { Settlement } from './edits-settle';
 import type { PrefStorage } from './storage';
 
@@ -56,7 +57,7 @@ export interface ActionSource {
 export interface DispatchOptions {
 	/** The toast's text and the undo entry's name. */
 	readonly label: ToastLabel;
-	/** Calls with the same key within `COALESCE_MS` keep only the newest (contract). */
+	/** Names a gesture: each call sends the cumulative total since it began (contract). */
 	readonly coalesceKey?: string;
 	/** Edit text read in several include visits (after the user confirmed `confirm-shared`). */
 	readonly confirmShared?: boolean;
@@ -95,7 +96,8 @@ export type DispatchOutcome =
 export interface EditDispatcherDeps {
 	readonly workspace: Workspace;
 	readonly runner: Pick<ScheduleRunner, 'ensureIndex' | 'subscribe'>;
-	readonly history: Pick<WorkspaceHistory, 'top' | 'redoTop' | 'subscribe'>;
+	/** `undo` here is the history's own, for replacing a gesture's edit (no note, no reveal). */
+	readonly history: Pick<WorkspaceHistory, 'top' | 'redoTop' | 'subscribe' | 'undo'>;
 	/** Undoes the top entry exactly as Mod-Z does (`HistoryControls.undo`). */
 	readonly undo: () => unknown;
 	/** True while the editor shows one of `paths` and CodeMirror holds an Android key. */
@@ -110,7 +112,12 @@ export interface EditDispatcherDeps {
 }
 
 /** One call, as queued. */
-export type Job = { readonly seq: number; readonly preview: PendingMark | undefined } & (
+export type Job = {
+	readonly seq: number;
+	readonly preview: PendingMark | undefined;
+	/** The coalesced gesture the call belongs to (coalesce.ts). */
+	readonly gesture?: Gesture;
+} & (
 	| { readonly kind: 'intent'; readonly intent: EditIntent; readonly o: DispatchOptions }
 	| {
 			readonly kind: 'action';

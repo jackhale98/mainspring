@@ -11,7 +11,8 @@ import { FakeEngineClient, flush } from '../workspace/testing/fake-engine-client
 import { IdleQueue } from '../workspace/testing/idle-queue';
 import { createWorkspace, type Workspace, type WorkspaceSeed } from '../workspace/workspace';
 import type { SourceRange } from '../tjp/edit/types';
-import { EditDispatcher, type EditDispatcherDeps } from './edits.svelte';
+import { FIXTURE, goldenResult, manipulation } from '../gantt/intents-testing';
+import { EditDispatcher, type ActionSource, type EditDispatcherDeps } from './edits.svelte';
 import type { PrefStorage } from './storage';
 
 export const PLAN = [
@@ -118,4 +119,19 @@ export function harness(
 		...over,
 	});
 	return h;
+}
+
+/**
+ * A harness on the gantt-manipulation fixture, scheduled with its golden result, and the action
+ * source the Gantt would pass (that result and its driving analysis).
+ */
+export async function manipulationHarness(): Promise<{ h: Harness; source: ActionSource }> {
+	const fx = manipulation();
+	const files: Record<string, string> = {};
+	for (const [p, f] of fx.snap.files) files[p] = f.text.toString();
+	const h = harness({ entry: fx.snap.entry, files });
+	const golden = goldenResult(FIXTURE);
+	const { revision: _r, ...rest } = golden;
+	await h.finish(rest);
+	return { h, source: { result: golden, analysis: fx.ctx().analysis } };
 }

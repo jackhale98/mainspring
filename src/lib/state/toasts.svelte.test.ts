@@ -83,10 +83,35 @@ describe('Toasts', () => {
 		expect(t.list.map((x) => x.id)).toEqual([b]);
 	});
 
-	it(`keeps at most ${MAX_TOASTS}, the oldest going first`, () => {
-		const ids = [1, 2, 3, 4, 5].map((i) => t.edit(label, `e${i}`, null));
-		expect(t.list.map((x) => x.id)).toEqual(ids.slice(-MAX_TOASTS));
+	it(`keeps at most ${MAX_TOASTS} settled toasts, the oldest settled going first`, () => {
+		const [a, b, c] = [1, 2, 3].map((i) => t.edit(label, `e${i}`, null));
+		t.settle(b ?? -1, { status: 'scheduled' });
+		const d = t.edit(label, 'e4', null);
+		// b was the only settled one: it goes, the pending ones stay.
+		expect(t.list.map((x) => x.id)).toEqual([a, c, d]);
+		t.settle(a ?? -1, { status: 'not-scheduled', message: 'No', at: null });
+		const r = t.refused('Refused.', null);
+		expect(t.list.map((x) => x.id)).toEqual([c, d, r]);
 		t.clear();
 		expect(t.list).toEqual([]);
+	});
+
+	it('never drops a pending toast, even past the cap, nor the toast just added', () => {
+		const ids = [1, 2, 3, 4, 5].map((i) => t.edit(label, `e${i}`, null));
+		expect(t.list.map((x) => x.id)).toEqual(ids);
+		const n = t.noop('Nothing changed.');
+		expect(t.list.map((x) => x.id)).toEqual([...ids, n]);
+		t.settle(ids[0] ?? -1, { status: 'scheduled' });
+		const r = t.refused('No.', null);
+		expect(t.list.map((x) => x.id)).not.toContain(ids[0]);
+		expect(t.list.map((x) => x.id)).toContain(r);
+	});
+
+	it('keeps a new-error toast with its place until dismissed', () => {
+		const id = t.edit(label, 'e1', null);
+		const at = { file: 'plan.tjp', from: 1, to: 2, version: 3 };
+		t.settle(id, { status: 'new-error', message: 'Changed, with a new error: x', at });
+		vi.advanceTimersByTime(TOAST_MS * 3);
+		expect(t.get(id)).toMatchObject({ status: 'new-error', show: at, detail: label.text });
 	});
 });

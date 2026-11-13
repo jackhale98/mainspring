@@ -336,10 +336,11 @@ export const ganttActionStrings = {
 export const toastStrings = {
 	region: 'Edits',
 	rescheduling: 'Rescheduling…',
-	rescheduled: 'Rescheduled',
 	/** The edit applied, but the result that includes it does not schedule (11.2). */
 	noLongerSchedules: (message: string) => `Changed. The plan no longer schedules: ${message}`,
 	noMessage: 'the scheduler gave no reason',
+	/** It schedules, but the result has an error the plan did not have before. */
+	newError: (message: string) => `Changed, with a new error: ${message}`,
 	/** The run that included the edit failed; `sentence` is from `engineFailureStrings`. */
 	failed: (sentence: string) => `Changed. ${sentence}`,
 	/** The index could not be built for the edit (an error in the app, not in the text). */

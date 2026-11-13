@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * Step 1 of the edit dispatcher (edits.svelte.ts): a fresh index, the plan (a Gantt action through
- * `planAction`, or the intent as given) and the edit API's dry run, all on the current snapshot.
- * Pure apart from `ensureIndex`, which may derive the index now (it does not publish).
+ * `planAction`, or the intent as given) and the edit API's dry run, all on the current snapshot,
+ * or on a given one (a coalesced gesture's base, for a dry run only). Pure apart from
+ * `ensureIndex`, which may derive the index now (it does not publish).
+ *
+ * `stale` (the index or the text moved under the plan) asks to plan again. Every other refusal,
+ * `needs-schedule` included, is final: planning again at once would give the same answer.
  */
 import type { ScheduleResult } from '../../engine/protocol';
 import { planAction, refusalMessage, type ActionContext, type ToastLabel } from '../gantt/intents';
@@ -13,6 +17,7 @@ import { ganttActionStrings, toastStrings } from '../strings';
 import { applyIntent } from '../tjp/edit/apply';
 import type { EditIntent, SourceRange, TjpEdit } from '../tjp/edit/types';
 import type { SymbolIndex, TaskId, TextOnlyReason } from '../tjp/index';
+import type { WorkspaceSnapshot } from '../workspace/workspace';
 import type { Located } from './edits-settle';
 import type {
 	ActionSource,
@@ -30,25 +35,33 @@ export type Prepared =
 			readonly constraint: boolean;
 			/** The workspace version the edit was planned on. */
 			readonly version: number;
+			/** The snapshot and index it was planned on (a gesture's base). */
+			readonly on: Base;
 	  }
-	/** `stale` or `needs-schedule`: plan again on the newest snapshot and index (once). */
-	| { readonly status: 'replan' }
+	/** `stale`: plan again on the newest snapshot and index; `outcome` is the refusal if not. */
+	| { readonly status: 'replan'; readonly outcome: DispatchOutcome; readonly at?: Located }
 	| { readonly status: 'done'; readonly outcome: DispatchOutcome; readonly at?: Located };
 
 type Deps = Pick<EditDispatcherDeps, 'workspace' | 'runner' | 'storage' | 'zones'>;
 
+/** A snapshot and the index built from it. */
+export interface Base {
+	readonly snap: WorkspaceSnapshot;
+	readonly index: SymbolIndex;
+}
+
 /** Working time per result, so a burst of actions on one result builds it once. */
 const workingTimes = new WeakMap<ScheduleResult, WorkingTime | null>();
 
-export function prepare(d: Deps, job: Job): Prepared {
+export function prepare(d: Deps, job: Job, on?: Base): Prepared {
 	let index: SymbolIndex;
 	try {
-		index = d.runner.ensureIndex();
+		index = on?.index ?? d.runner.ensureIndex();
 	} catch (e) {
 		report(e);
 		return { status: 'done', outcome: refused('unprepared', [], toastStrings.unprepared) };
 	}
-	const snap = d.workspace.snapshot();
+	const snap = on?.snap ?? d.workspace.snapshot();
 	const at = (r: readonly SourceRange[]): { at?: Located } =>
 		r[0] ? { at: { ...r[0], version: snap.version } } : {};
 	let intent: EditIntent;
@@ -67,21 +80,23 @@ export function prepare(d: Deps, job: Job): Prepared {
 		label = job.o.label;
 		constraint = job.o.constraint ?? false;
 	}
-	if (index.version !== snap.version) return { status: 'replan' };
+	const stale = refused('stale', [], refusalMessage('stale'));
+	if (index.version !== snap.version) return { status: 'replan', outcome: stale };
 	const confirmShared = job.o.confirmShared === true;
 	const r = applyIntent(snap, index, intent, { confirmShared });
 	if (r.status === 'edit') {
-		return { status: 'ready', edit: r.edit, label, constraint, version: snap.version };
+		const ready = { edit: r.edit, label, constraint, version: snap.version, on: { snap, index } };
+		return { status: 'ready', ...ready };
 	}
 	if (r.status === 'noop') {
 		const message = ganttActionStrings.noop[r.reason];
 		return { status: 'done', outcome: { status: 'noop', reason: r.reason, message } };
 	}
-	if (r.reason === 'stale' || r.reason === 'needs-schedule') return { status: 'replan' };
+	const outcome = refused(r.reason, r.at, refusalMessage(r.reason), r.textOnly);
+	if (r.reason === 'stale') return { status: 'replan', outcome, ...at(r.at) };
 	if (r.reason === 'shared-declaration' && !confirmShared) {
 		return { status: 'done', outcome: { status: 'confirm-shared', affects: r.affects ?? [] } };
 	}
-	const outcome = refused(r.reason, r.at, refusalMessage(r.reason), r.textOnly);
 	return { status: 'done', outcome, ...at(r.at) };
 }
 
@@ -118,4 +133,14 @@ export function refused(
 export function movedId(task: TaskId, parent: TaskId | null): TaskId {
 	const local = task.slice(task.lastIndexOf('.') + 1);
 	return parent === null ? local : `${parent}.${local}`;
+}
+
+/**
+ * A gesture's total of zero (`size-step` by 0, `move` by 0 days): back to where the gesture began.
+ * The Gantt would refuse it as `at-limit`; a gesture takes its edit out instead.
+ */
+export function isZeroTotal(job: Job): boolean {
+	if (job.kind !== 'action') return false;
+	const a = job.action;
+	return (a.type === 'size-step' && a.steps === 0) || (a.type === 'move' && a.days === 0);
 }

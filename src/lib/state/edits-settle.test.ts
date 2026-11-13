@@ -75,9 +75,16 @@ describe('settleOf', () => {
 		});
 	});
 
-	it('does not schedule on an ok result with an error the good run before did not have', () => {
-		const s = state({ latest: run(3, 5, { messages: [message('error', 2, 'New')] }) });
-		expect(settleOf(s, 5, NONE)).toMatchObject({ status: 'not-scheduled' });
+	it('says "new error" for an ok result with an error the good run before did not have', () => {
+		const s = state({
+			latest: run(3, 5, { messages: [message('error', 2, 'New')] }),
+			diagnostics: [diag({ from: 10, to: 20 })],
+		});
+		expect(settleOf(s, 5, NONE)).toEqual({
+			status: 'new-error',
+			message: toastStrings.newError('New'),
+			at: { file: 'plan.tjp', from: 10, to: 20, version: 9 },
+		});
 		expect(settleOf(s, 5, new Set(['test_msg']))).toEqual({ status: 'scheduled' });
 	});
 

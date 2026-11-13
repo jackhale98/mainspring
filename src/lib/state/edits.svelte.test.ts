@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The edit dispatcher (phase-2.md 6.8, 11.2) against a real workspace, history and schedule runner
 // over the fake engine client: apply, settle (scheduled, not scheduled, failed, engine gone),
-// toasts and Undo, the Android gate, the stale re-plan, coalescing, confirmations and the pending
-// bars. Interleavings are in edits.property.test.ts; Gantt actions in edits-actions.test.ts.
+// toasts and Undo, the Android gate, the stale re-plan, confirmations and the pending
+// bars. Interleavings are in edits.property.test.ts, Gantt actions in edits-actions.test.ts,
+// coalesced gestures in edits-gestures.test.ts and the review's cases in edits-cases.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { engineFailureStrings, ganttActionStrings, refusalStrings, toastStrings } from '../strings';
 import type { EditIntent } from '../tjp/edit/types';
 import { message } from '../workspace/testing/fake-engine-client';
 import { harness, type Harness } from './edits-testing';
-import { COALESCE_MS, type DispatchOutcome } from './edits.svelte';
+import type { DispatchOutcome } from './edits.svelte';
 import { TOAST_MS } from './toasts.svelte';
 
 const effort = (task: string, value: string): EditIntent => ({
@@ -312,30 +313,6 @@ describe('refusals and confirmations', () => {
 		const o = await h.edits.dispatch(effort('g1.t', '2d'), { ...label('E'), confirmShared: true });
 		expect(o.status).toBe('applied');
 		expect(h.text('t.tji')).toContain('effort 2d');
-	});
-});
-
-describe('coalescing', () => {
-	it('keeps the newest of a burst and dispatches it after 300 ms of quiet as one undo step', async () => {
-		const k = { coalesceKey: 'nudge:b' };
-		const a = h.edits.dispatch(effort('b', '3d'), { ...label('3'), ...k });
-		const b = h.edits.dispatch(effort('b', '4d'), { ...label('4'), ...k });
-		const c = h.edits.dispatch(effort('b', '5d'), { ...label('5'), ...k });
-		await expect(a).resolves.toEqual({ status: 'cancelled' });
-		await expect(b).resolves.toEqual({ status: 'cancelled' });
-		await vi.advanceTimersByTimeAsync(COALESCE_MS - 1);
-		expect(h.text()).toContain('effort 2d');
-		await vi.advanceTimersByTimeAsync(1);
-		expect((await c).status).toBe('applied');
-		expect(h.text()).toContain('effort 5d');
-		h.history.undo();
-		expect(h.text()).toContain('effort 2d');
-	});
-
-	it('dispatches at once on flush (blur, Enter)', async () => {
-		const c = h.edits.dispatch(effort('b', '5d'), { ...label('5'), coalesceKey: 'k' });
-		h.edits.flush('k');
-		expect((await c).status).toBe('applied');
 	});
 });
 

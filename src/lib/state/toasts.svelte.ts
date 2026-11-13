@@ -10,14 +10,18 @@
  *   refusal and the one-time constraint warning stay until dismissed.
  * - `canUndo` is true only while the toast's entry is the top of the history (ADR-0008); an entry
  *   that is undone closes its toast (the app's note says "Undone: ...").
- * - At most `MAX_TOASTS` are kept: the oldest goes first.
+ * - "Changed, with a new error: ..." (`new-error`) stays too.
+ * - At most `MAX_TOASTS` settled toasts are kept: the oldest settled or no-op toast goes first.
+ *   A pending toast is never dropped (one per edit until it settles), so the list can grow past
+ *   the cap while edits wait for the engine.
  */
 import { toastStrings } from '../strings';
 import type { ToastLabel } from '../gantt/intents';
 import type { KeyTimers } from '../tjp/cm/android-key';
 import type { Located, Settlement } from './edits-settle';
 
-export type ToastStatus = 'pending' | 'scheduled' | 'not-scheduled' | 'failed' | 'refused' | 'noop';
+export type ToastStatus =
+	'pending' | 'scheduled' | 'new-error' | 'not-scheduled' | 'failed' | 'refused' | 'noop';
 
 export interface Toast {
 	readonly id: number;
@@ -99,6 +103,7 @@ export class Toasts {
 				this.#set({ ...t, status: 'scheduled', detail: null });
 				if (!t.sticky) this.#arm(id);
 				return;
+			case 'new-error':
 			case 'not-scheduled':
 				this.#disarm(id);
 				this.#set({
@@ -150,9 +155,11 @@ export class Toasts {
 	#add(t: Omit<Toast, 'id'>): number {
 		const id = ++this.#id;
 		this.#list = [...this.#list, { ...t, id }];
+		// The oldest settled toast goes; a pending one never does (module comment).
 		while (this.#list.length > MAX_TOASTS) {
-			const old = this.#list[0];
-			if (old) this.remove(old.id);
+			const old = this.#list.find((x) => x.status !== 'pending' && x.id !== id);
+			if (!old) break;
+			this.remove(old.id);
 		}
 		return id;
 	}

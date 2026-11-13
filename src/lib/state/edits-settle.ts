@@ -5,8 +5,10 @@
  *
  * An edit that produced workspace version `v` settles on the first state where
  * - `latest.workspaceVersion >= v`: the result that includes it. It still schedules when the
- *   result is ok and has no error id that the good run before the edit (`baseline`) did not have;
- *   otherwise it is `not-scheduled`, with the first new error and its place in the text;
+ *   result is ok and has no error id that the good run before the edit (`baseline`) did not have.
+ *   An ok result with such an error is `new-error`: the plan schedules (the result becomes the
+ *   good run the Gantt draws, so the bar follows it), but the edit brought an error, shown with
+ *   its place. A result that is not ok is `not-scheduled`, with its first error and place;
  * - `failure.workspaceVersion >= v`: the run that included it failed;
  * - both: the newer revision wins;
  * - `engine === 'failed'` (the engine gave up): every pending edit is `failed`.
@@ -15,6 +17,8 @@ import type { EngineMessage, ScheduleResult } from '../../engine/protocol';
 import { engineFailureStrings, toastStrings } from '../strings';
 import type { WorkspacePath } from '../workspace/paths';
 import type { RunnerState } from '../workspace/run-types';
+import type { Workspace } from '../workspace/workspace';
+import type { SourceRange } from '../tjp/edit/types';
 
 /** A range in the text of one workspace version; mapped forward before it is shown. */
 export interface Located {
@@ -27,12 +31,16 @@ export interface Located {
 export type Settlement =
 	/** The result that includes the edit schedules: drop the pending mark, bars animate. */
 	| { readonly status: 'scheduled' }
+	/** It schedules, but the result has an error the good run before did not have. */
+	| { readonly status: 'new-error'; readonly message: string; readonly at: Located | null }
 	/** It applied, but that result does not schedule (11.2). */
 	| { readonly status: 'not-scheduled'; readonly message: string; readonly at: Located | null }
 	/** The run that included it failed, or the engine gave up. */
 	| { readonly status: 'failed'; readonly message: string }
-	/** Undone before a result included it. */
+	/** Undone before a result included it (also when it was then redone: a new apply). */
 	| { readonly status: 'undone' }
+	/** A newer total of the same coalesced gesture replaced it (one undo step per gesture). */
+	| { readonly status: 'replaced' }
 	/** The plan was closed (another sample opened) before a result included it. */
 	| { readonly status: 'dropped' };
 
@@ -68,11 +76,14 @@ export function settleOf(
 	const fresh = r.result.ok ? errors.filter((m) => !baseline.has(m.id)) : errors;
 	if (r.result.ok && fresh.length === 0) return { status: 'scheduled' };
 	const first = fresh[0] ?? null;
-	return {
-		status: 'not-scheduled',
-		message: toastStrings.noLongerSchedules(first?.text ?? toastStrings.noMessage),
-		at: placeOf(s, first),
-	};
+	const text = first?.text ?? toastStrings.noMessage;
+	return r.result.ok
+		? { status: 'new-error', message: toastStrings.newError(text), at: placeOf(s, first) }
+		: {
+				status: 'not-scheduled',
+				message: toastStrings.noLongerSchedules(text),
+				at: placeOf(s, first),
+			};
 }
 
 /** Where the state's diagnostics put an engine error (the first error when `m` has no place). */
@@ -84,4 +95,17 @@ function placeOf(s: RunnerView, m: EngineMessage | null): Located | null {
 	const d = (m && located.find((x) => x.messageId === m.id)) ?? located[0];
 	if (!d || d.file === null) return null;
 	return { file: d.file, from: d.from, to: d.to, version: s.version };
+}
+
+/** A located range in the text as it is now (null once its version is no longer kept). */
+export function rangeNow(ws: Workspace, l: Located): SourceRange | null {
+	let cs;
+	try {
+		cs = ws.changesSince(l.version).get(l.file);
+	} catch {
+		return null;
+	}
+	const from = cs ? cs.mapPos(l.from, 1) : l.from;
+	const to = cs ? cs.mapPos(l.to, -1) : l.to;
+	return { file: l.file, from, to: Math.max(from, to) };
 }
