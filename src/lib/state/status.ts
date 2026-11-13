@@ -9,7 +9,7 @@
  * errors or a failed run), the view dims it and adds a "last good" label; the colour stays at
  * full contrast, because dimming by opacity would fail WCAG 1.4.3.
  */
-import type { Minutes } from '../../engine/protocol';
+import type { EngineVersions, Minutes } from '../../engine/protocol';
 import { formatFinish } from '../schedule/finish';
 import { strings } from '../strings';
 import type { TjpDiagnostic } from '../tjp/diagnostics';
@@ -36,6 +36,74 @@ export interface StatusView {
 	readonly unlocated: readonly TjpDiagnostic[];
 	/** Why the scheduler failed, or null. */
 	readonly failure: string | null;
+	/** The engine's version and the last run's timings (phase-2.md 9.4), or null before either. */
+	readonly engine: EngineInfo | null;
+}
+
+/** One line of the engine details: a label and its value. */
+export interface InfoLine {
+	readonly label: string;
+	readonly value: string;
+}
+
+/**
+ * What the strip says about the engine. `version` is "TaskJuggler 3.8.4"; `last` is the total of
+ * the newest run ("182 ms") and `timings` its parts, in the order of the pipeline. Both are null
+ * until there is something to say. `versions` lists what the bundle is made of.
+ */
+export interface EngineInfo {
+	readonly version: string | null;
+	readonly last: string | null;
+	readonly timings: readonly InfoLine[];
+	/** Says that the round trip is not all scheduling; null when there are no timings. */
+	readonly note: string | null;
+	readonly versions: readonly InfoLine[];
+}
+
+/** "0.4 ms", "12 ms", "1.2 s": a time for reading, not for computing with. */
+export function formatMs(ms: number, locale?: string): string {
+	const v = Math.max(0, ms);
+	if (v >= 1000) {
+		return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(v / 1000)} s`;
+	}
+	const digits = v < 10 ? 1 : 0;
+	return `${new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(v)} ms`;
+}
+
+const T = strings.status.timing;
+
+function infoOf(
+	timings: RunnerState['timings'],
+	versions: EngineVersions | null,
+	locale?: string,
+): EngineInfo | null {
+	if (!timings && !versions) return null;
+	const e = timings?.engine;
+	return {
+		version: versions ? strings.status.engineVersion(versions.tj) : null,
+		last: e ? formatMs(e.totalMs, locale) : null,
+		timings:
+			timings && e
+				? [
+						{ label: T.engine, value: formatMs(e.totalMs, locale) },
+						{ label: T.writeFs, value: formatMs(e.writeFsMs, locale) },
+						{ label: T.parse, value: formatMs(e.parseMs, locale) },
+						{ label: T.schedule, value: formatMs(e.scheduleMs, locale) },
+						{ label: T.serialize, value: formatMs(e.serializeMs, locale) },
+						{ label: T.roundTrip, value: formatMs(timings.roundTripMs, locale) },
+						{ label: T.process, value: formatMs(timings.processMs, locale) },
+					]
+				: [],
+		note: timings && e ? strings.status.timingNote : null,
+		versions: versions
+			? [
+					{ label: T.tj, value: versions.tj },
+					{ label: T.commit, value: versions.tjCommit.slice(0, 7) },
+					{ label: T.ruby, value: versions.rubyWasm },
+					{ label: T.bundle, value: versions.bundleHash.slice(0, 12) },
+				]
+			: [],
+	};
 }
 
 const MINUTES_PER_HOUR = 60;
@@ -66,6 +134,21 @@ export function formatDelta(delta: Minutes | null, locale?: string): string | nu
 	return delta > 0 ? strings.status.later(span) : strings.status.earlier(span);
 }
 
+/**
+ * Whether a run that has settled is said aloud. When the Gantt is on screen it already says what
+ * a reschedule moved, so only the plain case stays quiet: an ok run with no warnings that follows
+ * an ok run. Everything else is said: a problem or failure (every time), a warning, and an ok run
+ * after a problem (the confirmation that it was fixed). `previous` is the kind of the run before,
+ * or null for the first one.
+ */
+export function announcesRun(
+	v: Pick<StatusView, 'kind' | 'warnings'>,
+	previous: StatusKind | null,
+	ganttShown: boolean,
+): boolean {
+	return !(ganttShown && v.kind === 'ok' && v.warnings === 0 && previous === 'ok');
+}
+
 function kindOf(s: RunnerState): StatusKind {
 	if (s.engine === 'booting' && s.latest === null) return 'booting';
 	return s.status;
@@ -86,7 +169,11 @@ const LABELS: Record<StatusKind, string> = {
 	failed: strings.status.failed,
 };
 
-export function statusView(s: RunnerState, locale?: string): StatusView {
+export function statusView(
+	s: RunnerState,
+	locale?: string,
+	versions: EngineVersions | null = null,
+): StatusView {
 	const finish = s.finish;
 	const failure = s.failure ? strings.engine.failure[s.failure.error.kind] : null;
 	return {
@@ -101,5 +188,6 @@ export function statusView(s: RunnerState, locale?: string): StatusView {
 		counts: strings.status.counts(s.counts.errors, s.counts.warnings),
 		unlocated: s.diagnostics.filter((d) => d.precision === 'none'),
 		failure: s.status === 'failed' || s.engine === 'failed' ? (failure ?? LABELS.failed) : null,
+		engine: infoOf(s.timings, versions, locale),
 	};
 }

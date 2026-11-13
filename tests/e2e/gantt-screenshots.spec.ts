@@ -25,7 +25,7 @@ test.describe('gantt screenshots', () => {
 		});
 		await expect(page.getByTestId('gantt')).toBeVisible();
 		// Bars appear with the first result; let the fonts and the first paint settle.
-		await expect(page.getByRole('treeitem').first()).toBeVisible();
+		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
 		await page.waitForTimeout(700);
 	}
 
@@ -41,7 +41,7 @@ test.describe('gantt screenshots', () => {
 				await page.emulateMedia({ colorScheme: scheme });
 				await open(page, TUTORIAL);
 				await page
-					.getByRole('treeitem', { name: /Project/ })
+					.locator('[role="row"][data-key]', { hasText: /Project/ })
 					.first()
 					.click();
 				await page.waitForTimeout(300);
@@ -84,7 +84,7 @@ test.describe('gantt screenshots', () => {
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page, TUTORIAL, 'visual');
 			await page
-				.getByRole('treeitem')
+				.locator('[role="row"][data-key]')
 				.filter({ hasText: 'Graphical User Interface' })
 				.first()
 				.click();
@@ -98,7 +98,7 @@ test.describe('gantt screenshots', () => {
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page, TUTORIAL);
 			await page
-				.getByRole('treeitem')
+				.locator('[role="row"][data-key]')
 				.filter({ hasText: 'Graphical User Interface' })
 				.first()
 				.click();
@@ -125,7 +125,7 @@ test.describe('gantt screenshots', () => {
 				s.scrollLeft = s.scrollWidth * 0.915 - s.clientWidth / 2;
 			});
 			await page.waitForTimeout(300);
-			await page.getByRole('treeitem').filter({ hasText: 'Item 386' }).first().click();
+			await page.locator('[role="row"][data-key]').filter({ hasText: 'Item 386' }).first().click();
 			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
 		};
 		for (const sample of ['gantt-500', 'upstream-fedora-20']) {
@@ -162,7 +162,7 @@ test.describe('gantt screenshots', () => {
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page, TUTORIAL);
 			await shot(page, `gantt-pixel7-${scheme}.png`);
-			await page.getByRole('treeitem').nth(2).click();
+			await page.locator('[role="row"][data-key]').nth(2).click();
 			await page.waitForTimeout(300);
 			await shot(page, `gantt-pixel7-selected-${scheme}.png`);
 		});

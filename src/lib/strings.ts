@@ -371,15 +371,21 @@ export const strings = {
 			float: (amount: string) => `Float about ${amount} (estimate)`,
 			days: (n: number) => (n === 1 ? '1 working day' : `${n} working days`),
 			hours: (n: number) => (n === 1 ? '1 working hour' : `${n} working hours`),
-			/** The treegrid's float column (T18). */
-			floatColumn: 'Float (estimate)',
 		},
+		/** The treegrid's live region says this after a reschedule (phase-2.md 10.1). */
+		rescheduled: (finish: string | null, delta: string | null, moved: number) =>
+			[
+				'Rescheduled.',
+				finish === null ? null : `Finish ${finish}${delta ? `, ${delta}` : ''}.`,
+				moved === 0 ? 'No tasks moved.' : `${plural(moved, 'task moved', 'tasks moved')}.`,
+			]
+				.filter((p) => p !== null)
+				.join(' '),
 		/** Today has no line on the chart to go to (it is before or after the plan). */
 		todayOff: 'Today (off the chart)',
 		today: 'Today',
 		legend: 'Lines on the chart',
 		quarter: (q: number) => `Q${q}`,
-		taskColumn: 'Task',
 		tasks: 'Tasks',
 		noTasks: 'No tasks yet.',
 		scheduling: 'Scheduling…',
@@ -400,6 +406,39 @@ export const strings = {
 		/** The task's line with its estimate note, e.g. "Code: 3 Mar to 9 Mar 2026. On the critical path (estimate)". */
 		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
+	},
+	/** The Gantt's task list, a treegrid (src/components/gantt/OutlineGrid.svelte, phase-2.md 10.1). */
+	grid: {
+		label: 'Tasks',
+		/** The column headers, in the order of the cells. */
+		columns: {
+			name: 'Task',
+			start: 'Start',
+			end: 'End',
+			effort: 'Effort or length',
+			people: 'People',
+			float: 'Float (estimate)',
+			critical: 'Critical (estimate)',
+			status: 'Status',
+		},
+		/** A cell with nothing to say: an en dash for the eye, a word for a screen reader. */
+		empty: '–',
+		emptyWords: 'none',
+		yes: 'Yes',
+		no: 'No',
+		status: {
+			scheduled: 'Scheduled',
+			notScheduled: 'Not scheduled',
+			pending: 'Pending',
+			textOnly: 'Text only',
+			/** The newest run failed: the dates are the last good schedule's. */
+			outOfDate: 'Out of date',
+		},
+		/** The effort cell when the size is written with a macro or a variable, or does not parse. */
+		sizingMacro: 'From a macro',
+		sizingText: 'See the text',
+		/** The effort or length cell: the value and which attribute it is, e.g. "5d effort". */
+		sizing: (value: string, attr: string) => `${value} ${attr}`,
 	},
 	editor: {
 		label: (path: string) => `Editor for ${path}`,
@@ -433,6 +472,30 @@ export const strings = {
 					]
 						.filter(Boolean)
 						.join(', '),
+		/** "TaskJuggler 3.8.4": the scheduler the plan runs on (it is the real one, in the browser). */
+		engineVersion: (v: string) => `TaskJuggler ${v}`,
+		lastRun: (time: string) => `Last run ${time}`,
+		/** The button that opens the engine details; the accessible name says what it opens. */
+		engineDetails: 'Engine details',
+		engineDetailsTitle: 'The scheduler and its last run',
+		timingTitle: 'Last run',
+		/** Under the timings: the round trip is not all scheduling. */
+		timingNote:
+			'Waiting and round trip is the time from sending the plan to getting the result, queueing included. The first run also includes the scheduler starting up.',
+		versionsTitle: 'Versions',
+		timing: {
+			engine: 'Scheduler total',
+			writeFs: 'Loading the files',
+			parse: 'Reading the plan',
+			schedule: 'Computing the schedule',
+			serialize: 'Preparing the result',
+			roundTrip: 'Waiting and round trip',
+			process: 'Handling the result',
+			tj: 'TaskJuggler',
+			commit: 'TaskJuggler commit',
+			ruby: 'Ruby on WebAssembly',
+			bundle: 'Engine bundle',
+		},
 		nextProblem: 'Go to the next problem',
 		unlocated: (n: number) => plural(n, 'message without a place', 'messages without a place'),
 		unlocatedTitle: 'Messages without a place in the text',

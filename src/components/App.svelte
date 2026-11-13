@@ -183,7 +183,7 @@
 	<div class="footer">
 		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 		{#if phone}<p class="notice compact">{strings.noticeShort}</p>{/if}
-		<StatusStrip {app} compact={phone} />
+		<StatusStrip {app} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
 	{#if drawer}

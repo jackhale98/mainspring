@@ -31,7 +31,7 @@ test.describe('ui screenshots', () => {
 			return;
 		}
 		await expect(page.getByTestId('gantt')).toBeVisible();
-		await expect(page.getByRole('treeitem').first()).toBeVisible();
+		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
 		// Bars appear with the first result; let the fonts and the first paint settle.
 		await page.waitForTimeout(800);
 	}
@@ -48,7 +48,7 @@ test.describe('ui screenshots', () => {
 				await page.emulateMedia({ colorScheme: scheme });
 				await open(page, TUTORIAL, 'split');
 				await page
-					.getByRole('treeitem', { name: /Project/ })
+					.locator('[role="row"][data-key]', { hasText: /Project/ })
 					.first()
 					.click();
 				await page.waitForTimeout(300);
@@ -90,7 +90,7 @@ test.describe('ui screenshots', () => {
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page, TUTORIAL);
 			await shot(page, `ui-pixel7-gantt-${scheme}.png`);
-			await page.getByRole('treeitem').nth(2).click();
+			await page.locator('[role="row"][data-key]').nth(2).click();
 			await page.waitForTimeout(300);
 			await shot(page, `ui-pixel7-gantt-selected-${scheme}.png`);
 			await page.getByRole('tab', { name: 'Text', exact: true }).click();
