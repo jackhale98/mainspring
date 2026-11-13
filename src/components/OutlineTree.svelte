@@ -10,7 +10,13 @@
 	import { tick, untrack } from 'svelte';
 	import { strings } from '../lib/strings';
 	import Icon from './Icon.svelte';
-	import { visibleRows, windowRows, type OutlineNode, type OutlineRow } from '../lib/state/outline';
+	import {
+		visibleRows,
+		windowRows,
+		type OutlineNode,
+		type OutlineRow,
+		type OutlineView,
+	} from '../lib/state/outline';
 
 	interface Props {
 		label: string;
@@ -20,8 +26,13 @@
 		emptyText: string;
 		ontoggle: (key: string) => void;
 		onselect: (node: OutlineNode) => void;
+		/**
+		 * Where the person was, kept by the owner across an unmount (a phone drops the Plan tab's
+		 * tree while another tab shows): written as they scroll and select, read when mounted.
+		 */
+		view?: OutlineView;
 	}
-	let { label, nodes, collapsed, errors, emptyText, ontoggle, onselect }: Props = $props();
+	let { label, nodes, collapsed, errors, emptyText, ontoggle, onselect, view }: Props = $props();
 
 	const rows = $derived(visibleRows(nodes, collapsed));
 
@@ -29,8 +40,21 @@
 	let scrollTop = $state(0);
 	let viewport = $state(0);
 	let rowHeight = $state(36);
-	let focusKey = $state<string | null>(null);
-	let selectedKey = $state<string | null>(null);
+	/** Whether a rendered row has been measured: `rowHeight` is then the real one. */
+	let measured = $state(false);
+	let focusKey = $state<string | null>(untrack(() => view?.focus ?? null));
+	let selectedKey = $state<string | null>(untrack(() => view?.selected ?? null));
+
+	// Put back where the person was when the tree is mounted again, once the row height is known
+	// (the spacers are sized by it, so an earlier offset would land on other rows).
+	let restored = false;
+	$effect(() => {
+		if (!scroller || restored || !measured) return;
+		restored = true;
+		const top = untrack(() => view?.top ?? 0);
+		if (top > 0) scroller.scrollTop = top;
+		scrollTop = scroller.scrollTop;
+	});
 
 	const win = $derived(windowRows(rows.length, scrollTop, viewport, rowHeight));
 	const shown = $derived(rows.slice(win.start, win.end));
@@ -49,7 +73,10 @@
 		void shown.length;
 		const first = scroller?.querySelector<HTMLElement>('[role="treeitem"]');
 		if (first && first.offsetHeight > 0) {
-			untrack(() => (rowHeight = first.offsetHeight));
+			untrack(() => {
+				rowHeight = first.offsetHeight;
+				measured = true;
+			});
 		}
 	});
 
@@ -76,6 +103,10 @@
 	function select(row: OutlineRow): void {
 		selectedKey = row.node.key;
 		focusKey = row.node.key;
+		if (view) {
+			view.selected = selectedKey;
+			view.focus = focusKey;
+		}
 		onselect(row.node);
 	}
 
@@ -128,7 +159,10 @@
 		class="scroller"
 		bind:this={scroller}
 		bind:clientHeight={viewport}
-		onscroll={() => (scrollTop = scroller?.scrollTop ?? 0)}
+		onscroll={() => {
+			scrollTop = scroller?.scrollTop ?? 0;
+			if (view) view.top = scrollTop;
+		}}
 	>
 		<div role="tree" aria-label={label} class="tree">
 			{#if win.before > 0}<div aria-hidden="true" style:height="{win.before}px"></div>{/if}
@@ -183,6 +217,9 @@
 
 <style>
 	.scroller {
+		/* The rows above are spacers that change height as the window moves: anchoring to a row
+		   would move the scroll with them. */
+		overflow-anchor: none;
 		overflow: auto;
 		min-block-size: 0;
 		flex: 1 1 auto;

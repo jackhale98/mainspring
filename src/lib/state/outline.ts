@@ -268,3 +268,15 @@ export function windowRows(
 	const end = Math.max(start, Math.min(total, last + overscan));
 	return { start, end, before: start * rowHeight, after: (total - end) * rowHeight };
 }
+
+/**
+ * What a tree keeps while it is not mounted: how far it was scrolled and which row was selected
+ * and focused. Plain fields, written by the tree and read when it is mounted again.
+ */
+export interface OutlineView {
+	top: number;
+	selected: string | null;
+	focus: string | null;
+}
+
+export const newOutlineView = (): OutlineView => ({ top: 0, selected: null, focus: null });

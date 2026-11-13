@@ -24,6 +24,7 @@
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { modeForKey } from '../lib/state/shortcuts';
 	import { ThemeState } from '../lib/state/theme.svelte';
+	import { newOutlineView } from '../lib/state/outline';
 	import { effectiveMode, modeFromParam, phoneTabFor } from '../lib/state/view-mode';
 	import { strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
@@ -58,6 +59,9 @@
 			if (modes.choice !== null) app.phoneTab = phoneTabFor(modes.choice);
 		});
 	});
+
+	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
+	const planViews = { tasks: newOutlineView(), resources: newOutlineView() };
 
 	const kind = $derived(layout.kind);
 	const phone = $derived(kind === 'phone');
@@ -139,7 +143,13 @@
 				aria-labelledby="tab-plan"
 				hidden={app.phoneTab !== 'plan'}
 			>
-				<div class="grow"><OutlinePanel {app} showTitle={false} showNotice={false} /></div>
+				<!-- Unmounted while another tab shows: a plan of hundreds of tasks is thousands of nodes. The
+				     collapse state is the app's; the scroll and the selection are kept in `planViews`. -->
+				{#if app.phoneTab === 'plan'}
+					<div class="grow">
+						<OutlinePanel {app} showTitle={false} showNotice={false} views={planViews} />
+					</div>
+				{/if}
 			</div>
 		{/if}
 		<div
