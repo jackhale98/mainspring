@@ -29,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
 	csvLinkRows, csvRows, expectedLinkRows, expectedRows, linkRowDiffs, parseCsv, rowDiffs,
+	withoutPrecursors,
 } from './cross-check-rows.mjs';
 import {
 	GOLDEN_SCHEMA_VERSION, canonical, canonicalJson, diffPaths, firstError, manifestProblems,
@@ -211,8 +212,10 @@ function crossCheck(plan, result, workspace, tmp) {
 	if (fs.existsSync(path.join(root, CROSS_TJI))) throw new Error(`${CROSS_TJI} clashes with a plan file`);
 	const active = (result.project?.scenarios ?? []).filter((s) => s.active);
 	const ids = active.length ? active.map((s) => s.id) : ['plan'];
-	fs.writeFileSync(path.join(root, CROSS_TJI),
-		template.replace(MACRO_RE, `macro mainspring_crosscheck_scenarios [${ids.join(', ')}]`));
+	const report = template.replace(MACRO_RE, `macro mainspring_crosscheck_scenarios [${ids.join(', ')}]`);
+	// A result that is not ok compares no precursors, and tj3 cannot report them for a scenario
+	// scheduling never prepared (see withoutPrecursors), so that report leaves the column out.
+	fs.writeFileSync(path.join(root, CROSS_TJI), result.ok ? report : withoutPrecursors(report));
 	const outFile = path.join(tmp, 'tj3-state.json');
 	const env = { ...ENV, MAINSPRING_TJ3_OUT: outFile, MAINSPRING_CLOCK: plan.now ?? '' };
 	const r = run('bundle', ['exec', 'ruby', '-W0', '-EUTF-8', '-I', TJ_LIB,

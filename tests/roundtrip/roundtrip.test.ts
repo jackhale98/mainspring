@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Gate criterion 1 (phase-1.md 9.1, 12): parsing then printing every golden file reproduces it
-// byte for byte. The golden corpus is the union of `files` over the manifest's plans (39 plans,
-// 48 files, phase-1.md 15 #11); the T16 fixtures and Syntax/Correct are checked the same way.
+// byte for byte. The golden corpus is the union of `files` over the manifest's plans (40 plans,
+// 49 files, phase-1.md 15 #11); the T16 fixtures and Syntax/Correct are checked the same way.
 // Each plan is a workspace, so a file is parsed in the context its include site gives it. The
 // grammar, workspace and index corpus tests beside src/lib cover parts of this; this suite is
 // the gate's own and writes test-results/roundtrip-report.{json,md}.
@@ -81,7 +81,7 @@ afterAll(() => {
 });
 
 describe('golden corpus is the manifest', () => {
-	it('has 39 plans and 48 files', () => {
+	it('has 40 plans and 49 files', () => {
 		expect(manifest()).toHaveLength(GOLDEN_PLANS);
 		expect(golden).toHaveLength(GOLDEN_PLANS);
 		const union = new Set(golden.flatMap((p) => p.files.map((f) => `${p.root}/${f}`)));

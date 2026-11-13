@@ -25,7 +25,10 @@
 # list from the golden's depends and precedes (cross-check-rows.mjs
 # expectedLinkRows), so the other task and both ends of every edge are
 # checked. Completion checks a `complete` the plan sets, as tj3 prints it: the
-# integer part and '%'.
+# integer part and '%'. Precursors are compared only when the golden's result
+# is ok, and for any other run the script removes the precursors line: tj3
+# cannot report them for a scenario scheduling never prepared
+# (cross-check-rows.mjs withoutPrecursors).
 #
 # TaskJuggler's task report has no column for gaps, the scheduling direction
 # (`scheduling` prints ASAP for every leaf, TaskScenario.rb:1538), the

@@ -26,7 +26,7 @@ import {
 } from './corpus';
 import { renderReport, type PlanRow } from './report';
 
-const EXPECTED_PLAN_COUNT = 39;
+const EXPECTED_PLAN_COUNT = 40;
 const FRESH_PLAN = 'upstream-fedora-20';
 const SEED = Number(process.env['GOLDEN_SEED'] ?? 20261111);
 // A cold boot is several seconds; syn-20 takes 7 to 9 s; CI is slower than a dev machine.

@@ -13,6 +13,7 @@ import {
 	linkRowDiffs,
 	parseCsv,
 	rowDiffs,
+	withoutPrecursors,
 } from '../../engine/golden/cross-check-rows.mjs';
 import {
 	GOLDEN_SCHEMA_VERSION,
@@ -271,6 +272,31 @@ describe('cross-check dependency and completion rows', () => {
 		expect(linkRowDiffs(['a | b |  | *'], [], 10, false)).toHaveLength(1);
 	});
 
+	it('reads a report made without the precursors column', () => {
+		const short = parseCsv(
+			[
+				'"Scenario";"Id";"Start";"End";"Completion"',
+				'"Plan";"top";"2026-01-05T08:00:00Z";"";"0%"',
+				'"Delayed";"";"";"";"40%"',
+				'',
+			].join('\n'),
+		);
+		expect(csvLinkRows(short)).toEqual(['Plan | top |  | 0%', 'Delayed | top |  | 40%']);
+		expect(csvRows(short)).toEqual(['Plan | top | 2026-01-05T08:00:00Z | ', 'Delayed | top |  | ']);
+	});
+
+	it('removes exactly the precursors column line from cross-check.tji', () => {
+		const template = readFileSync(
+			new URL('../../engine/golden/cross-check.tji', import.meta.url),
+			'utf8',
+		);
+		const cut = withoutPrecursors(template);
+		expect(template.split('\n').length - cut.split('\n').length).toBe(1);
+		expect(cut).not.toMatch(/^\s*precursors \{/m);
+		expect(cut).toContain('  columns scenario, id, start, end,\n          complete\n');
+		expect(() => withoutPrecursors(cut)).toThrow(/precursors column line/);
+	});
+
 	it('reports missing rows and never matches a wildcard to a missing row', () => {
 		expect(linkRowDiffs(['a | b |  | *'], [])).toEqual([
 			'row 1: serializer a | b |  | *; report (none)',
@@ -357,8 +383,8 @@ describe('manifestProblems', () => {
 		const manifest: unknown = JSON.parse(readFileSync('engine/golden/manifest.json', 'utf8'));
 		expect(manifestProblems(manifest)).toEqual([]);
 		const kinds = (manifest as { kind: string }[]).map((p) => p.kind);
-		expect(kinds).toHaveLength(39);
-		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(8);
+		expect(kinds).toHaveLength(40);
+		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(9);
 	});
 
 	it('accepts every plan kind', () => {

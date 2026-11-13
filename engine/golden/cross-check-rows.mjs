@@ -83,20 +83,45 @@ const CSV_DATE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/;
 /** The header cross-check.tji's columns produce, in order. */
 export const CROSS_CHECK_HEADER = ['Scenario', 'Id', 'Start', 'End', 'Precursors', 'Completion'];
 
+/** The precursors column line of cross-check.tji, with its line break. */
+const PRECURSORS_LINE = /^[ \t]*precursors \{[^\n]*\},\n/m;
+
+/**
+ * cross-check.tji without its precursors column, for a run whose result is not ok. tj3's
+ * precursors query reads lists that only TaskScenario#prepareScheduling creates
+ * (engine/tj/lib/taskjuggler/TaskScenario.rb:75-79), so a scenario that scheduling never
+ * prepared (an error stopped an earlier one) ends report generation with a NoMethodError at
+ * TaskScenario.rb:1470, and tj3 writes no CSV. Such runs do not compare precursors anyway
+ * (linkRowDiffs). Throws if the template has no precursors line.
+ * @param {string} template
+ */
+export function withoutPrecursors(template) {
+	if (!PRECURSORS_LINE.test(template)) throw new Error('cross-check.tji lost its precursors column line');
+	return template.replace(PRECURSORS_LINE, '');
+}
+
 /**
  * The data rows of the cross-check CSV as [scenario, id, start, end, precursors, completion],
  * with the id carried forward: TaskJuggler leaves it empty on the rows of the second and later
- * scenarios of a task.
+ * scenarios of a task. A report made without the precursors column (withoutPrecursors) gives
+ * empty precursors.
  * @param {string[][]} csv  parsed CSV including the header row
  * @returns {string[][]}
  */
 function crossCheckCells(csv) {
 	const [header, ...rows] = csv;
-	if (header?.join(';') !== CROSS_CHECK_HEADER.join(';')) {
+	const text = header?.join(';');
+	const full = CROSS_CHECK_HEADER.join(';');
+	const short = CROSS_CHECK_HEADER.filter((h) => h !== 'Precursors').join(';');
+	if (text !== full && text !== short) {
 		throw new Error(`unexpected cross-check CSV header: ${JSON.stringify(header)}`);
 	}
+	const hasPrecursors = text === full;
 	let lastId = '';
-	return rows.map(([scenario = '', id = '', start = '', end = '', precursors = '', completion = '']) => {
+	return rows.map((cells) => {
+		const [scenario = '', id = '', start = '', end = ''] = cells;
+		const precursors = hasPrecursors ? (cells[4] ?? '') : '';
+		const completion = (hasPrecursors ? cells[5] : cells[4]) ?? '';
 		lastId = id || lastId;
 		return [scenario, lastId, start, end, precursors, completion];
 	});

@@ -4,7 +4,7 @@
 // file and line, names and milestones equal the engine's; without hints, every declaration the
 // text names matches and the rest lie in unresolved declarations; dependency targets agree with
 // the schedule where it shows them. Plans the engine stopped reading before any declaration are
-// skipped (3 of 39: syn-19, bridge-parse-failure, syn-22), and the totals say how many were
+// skipped (3 of 40: syn-19, bridge-parse-failure, syn-22), and the totals say how many were
 // compared.
 import fs from 'node:fs';
 import path from 'node:path';
