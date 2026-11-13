@@ -131,12 +131,18 @@ jobs:
           retention-days: 30
 
   e2e:
-    name: End-to-end and accessibility (shard ${{ matrix.shard }} of 3)
+    name: End-to-end and accessibility (${{ matrix.project }} ${{ matrix.shard }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # One runner per device, two for the iPhone (WebKit runs about three times slower), so no
+      # runner holds all the WebKit tests.
       matrix:
-        shard: [1, 2, 3]
+        include:
+          - { project: desktop, shard: 1/1, browsers: chromium }
+          - { project: pixel-7, shard: 1/1, browsers: chromium }
+          - { project: iphone-14, shard: 1/2, browsers: webkit }
+          - { project: iphone-14, shard: 2/2, browsers: webkit }
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -148,13 +154,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ matrix.browsers }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Playwright browsers and system dependencies
         # The runner's apt index can be stale, and mirrors occasionally fail, so refresh it
         # first and retry the whole install a few times.
         run: |
           for attempt in 1 2 3; do
-            sudo apt-get update -q && npx playwright install --with-deps chromium webkit && exit 0
+            sudo apt-get update -q && npx playwright install --with-deps ${{ matrix.browsers }} && exit 0
             echo "install attempt $attempt failed; retrying in 20s"
             sleep 20
           done
@@ -162,20 +168,20 @@ jobs:
       - run: npm run build
         env:
           MAINSPRING_DEV_PAGES: '1'
-      # Tests are spread over three runners. The Text mode timings (text-mode-perf.spec.ts) run
+      # Spread over four runners by device. The Text mode timings (text-mode-perf.spec.ts) run
       # nightly instead (nightly.yml, perf job).
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
+      - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.project }}-${{ strategy.job-index }}
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-results-${{ matrix.shard }}
+          name: test-results-${{ matrix.project }}-${{ strategy.job-index }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
