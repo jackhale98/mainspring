@@ -6,8 +6,9 @@
 	With `busy` it doubles as the loader, moving as a movement does. The dial is the escapement: it
 	ticks forward twelve eased steps a turn, one every half second. The small form's mainspring
 	unwinds steadily in one direction; the full form's hairspring beats once a second, and each
-	half-beat lets the dial tick. The moving parts are masks over fixed gradients, so the light
-	stays from above while they turn. Under reduced motion the mark holds still and pulses gently.
+	half-beat lets the dial tick. While it moves it stays cheap to paint (no masks or filters, which
+	WebKit repaints every frame): the turning coil is lit radially so its light does not spin, and
+	the jewel drops its shadow. Under reduced motion the mark holds still and pulses gently.
 	Decorative unless `label` is given (then it is an image with that name).
 -->
 <script lang="ts">
@@ -61,30 +62,28 @@
 		<filter id="{uid}-d" x="-50%" y="-50%" width="200%" height="200%">
 			<feDropShadow dx="0" dy="0.8" stdDeviation="0.9" class="shadow" />
 		</filter>
-		<mask id="{uid}-dm" maskUnits="userSpaceOnUse" x="0" y="0" width={VIEWBOX} height={VIEWBOX}>
-			<g class="dial">
-				{#each g.arcs as d (d)}
-					<path {d} fill="none" stroke="#fff" stroke-width={g.arcWidth} />
-				{/each}
-			</g>
-		</mask>
-		{#if g.coil !== null}
-			<mask id="{uid}-cm" maskUnits="userSpaceOnUse" x="0" y="0" width={VIEWBOX} height={VIEWBOX}>
-				<path class="coil" d={g.coil} fill="#fff" />
-			</mask>
-		{/if}
+		<!-- While it turns, the coil is lit radially, which looks the same at every angle. -->
+		<radialGradient id="{uid}-sr" cx="60" cy="60" r="36" gradientUnits="userSpaceOnUse">
+			<stop offset=".15" class="sh" />
+			<stop offset=".6" class="sm" />
+			<stop offset="1" class="sl" />
+		</radialGradient>
 	</defs>
-	<rect width={VIEWBOX} height={VIEWBOX} fill="url(#{uid}-b)" mask="url(#{uid}-dm)" />
+	<g class="dial">
+		{#each g.arcs as d (d)}
+			<path {d} fill="none" stroke="url(#{uid}-b)" stroke-width={g.arcWidth} />
+		{/each}
+	</g>
 	{#if g.innerRing !== null}
 		<circle class="inner" cx={c} cy={c} r={g.innerRing} />
 	{/if}
 	{#if g.coil !== null}
-		<rect width={VIEWBOX} height={VIEWBOX} fill="url(#{uid}-s)" mask="url(#{uid}-cm)" />
+		<path class="coil" d={g.coil} fill={busy ? `url(#${uid}-sr)` : `url(#${uid}-s)`} />
 	{/if}
 	{#if g.hairspring !== null}
 		<path class="hairspring" d={g.hairspring} stroke-width={g.hairspringWidth} />
 	{/if}
-	<g filter="url(#{uid}-d)">
+	<g filter={busy ? undefined : `url(#${uid}-d)`}>
 		<circle cx={c} cy={c} r={g.setting} fill="url(#{uid}-b)" />
 		<circle cx={c} cy={c} r={g.jewel} fill="url(#{uid}-r)" />
 	</g>

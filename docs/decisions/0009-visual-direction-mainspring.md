@@ -312,7 +312,7 @@ palette.
   - The dial is the escapement. It ticks forward twelve eased steps a turn, one every half second.
   - In the small form, the mainspring unwinds steadily in one direction, a turn every 8 s.
   - In the full form, the hairspring beats once a second, and each half-beat lets the dial tick.
-  - The moving parts are masks over fixed gradients, so the light stays from above while they turn.
+  - While it moves, the mark is cheap to paint: no masks or filters, which WebKit repaints every frame and which starved the engine's messages on the iPhone run. The turning coil is lit radially so its light does not spin, and the jewel drops its shadow.
   - Under reduced motion the mark holds still and pulses.
   - The loader replaces the brass ring in the engine pill and the status strip while the engine starts or schedules, and shows at 44 px in the Gantt's "Scheduling…" placeholder.
 - **App icons:** `public/manifest.webmanifest` lists the SVG favicon and 192, 512 and maskable 512 px PNGs, plus an apple-touch-icon, all rendered from the small form by `npm run gen:icons`. 
