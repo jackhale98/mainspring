@@ -86,3 +86,14 @@ that the Mainspring palette replaces Paper's colours.
 - The mockup canvas is a private claude.ai artifact. It is the visual reference for this ADR.
 - Screenshots in `docs/phases/screenshots/` show the result.
 - Graphite, Midnight and plain Paper colours are not pursued.
+
+## Note, 2026-11-13: role mapping after the first Gantt review
+
+The light bar fill (#EFE6D1) and the light link colour (#CBBF9E) are under 3:1 against the
+canvas, so bars need an outline (WCAG 1.4.11). Measured in the Gantt review:
+
+- Bar outlines and dependency links use dark brass #9A7424 in light mode (4.2:1 on the canvas,
+  3.8:1 on the selected row) and brass #C9A24D in dark mode, so links read as brass in both.
+- Row selection uses accentWash (#E7ECF8 / #1A2443), not a separate tint.
+- Grid lines use the palette's border greys.
+- The dimmed last-good state fades fills and lines only; labels keep at least 4.5:1.
