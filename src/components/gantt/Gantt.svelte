@@ -319,6 +319,7 @@
 						theme={env.theme}
 						dpr={env.dpr}
 						todayMin={today}
+						{scrollLeft}
 					/>
 				</div>
 				<div class="names" bind:clientWidth={namesW}>

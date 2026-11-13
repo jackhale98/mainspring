@@ -95,11 +95,12 @@ test.describe('polish screenshots', () => {
 				for (const [i, left] of [0, 14, 40, 70].entries()) {
 					await scroll(page, left, 0);
 					await page.waitForTimeout(250);
-					const box = await page.getByTestId('gantt').boundingBox();
-					if (!box || !(await head.boundingBox())) continue;
+					const names = await page.getByTestId('gantt').locator('.names').boundingBox();
+					const band = await head.boundingBox();
+					if (!names || !band) continue;
 					await page.screenshot({
 						path: path.join(DIR, `polish-4-month-sliver-${device}-${scheme}-${i}${TAG}.png`),
-						clip: { x: box.x, y: box.y + 56, width: Math.min(box.width, 520), height: 110 },
+						clip: { x: names.x + names.width - 60, y: band.y, width: 300, height: band.height },
 					});
 				}
 			});
