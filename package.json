@@ -14,6 +14,7 @@
 		"typecheck": "astro check && svelte-check --tsconfig ./tsconfig.json --threshold error && tsc --noEmit",
 		"test:unit": "vitest run",
 		"test:e2e": "playwright test",
+		"test:e2e:perf": "node scripts/test-e2e-perf.mjs",
 		"build:engine": "node engine/build-bundle.mjs",
 		"test:responsiveness": "node scripts/test-responsiveness.mjs",
 		"test:golden": "node scripts/test-golden.mjs",

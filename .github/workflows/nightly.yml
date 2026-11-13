@@ -214,3 +214,38 @@ jobs:
             test-results/responsiveness-report.json
           if-no-files-found: warn
           retention-days: 30
+
+  text-mode-perf:
+    name: Text mode timings (reporting; size and order-of-magnitude caps)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      # tests/e2e/text-mode-perf.spec.ts (phase-1.md 8.4): keystroke to paint, cold load and
+      # JavaScript size on desktop Chrome. Moved off every push because it takes about 8 minutes.
+      - run: npm run test:e2e:perf
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: text-mode-perf
+          path: test-results/text-mode-perf.json
+          if-no-files-found: warn
+          retention-days: 30

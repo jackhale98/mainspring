@@ -131,8 +131,12 @@ jobs:
           retention-days: 30
 
   e2e:
-    name: End-to-end and accessibility
+    name: End-to-end and accessibility (shard ${{ matrix.shard }} of 3)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -158,13 +162,51 @@ jobs:
       - run: npm run build
         env:
           MAINSPRING_DEV_PAGES: '1'
-      - run: npm run test:e2e
-      # Gate criterion 2 (UI thread stays responsive while a 1,000-task plan schedules). Reuses the
-      # dev-pages build above; one worker, no retries (playwright.responsiveness.config.ts).
-      - name: Responsiveness gate
-        run: npm run test:responsiveness
-        env:
-          RESPONSIVENESS_SKIP_BUILD: '1'
+      # Tests are spread over three runners. The Text mode timings (text-mode-perf.spec.ts) run
+      # nightly instead (nightly.yml, perf job).
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.shard }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  responsiveness:
+    name: Responsiveness gate (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        # Same retrying install as the e2e job.
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      # Gate criterion 2 (UI thread stays responsive while a 1,000-task plan schedules). Builds the
+      # site with dev pages; one worker, no retries (playwright.responsiveness.config.ts).
+      - run: npm run test:responsiveness
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -175,14 +217,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
-          path: playwright-report/
-          if-no-files-found: ignore
-          retention-days: 7
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: test-results
+          name: responsiveness-test-results
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
