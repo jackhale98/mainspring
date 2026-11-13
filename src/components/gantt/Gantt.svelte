@@ -33,11 +33,10 @@
 <script lang="ts">
 	import { flushSync, onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
-	import type { ScheduleResult } from '../../engine/protocol';
 	import { finishScenario } from '../../lib/schedule/finish';
-	import { rescheduleAnnouncement } from '../../lib/gantt/announce';
+	import { RescheduleAnnouncer } from '../../lib/gantt/announce';
 	import { layoutColumns } from '../../lib/gantt/columns';
-	import { sizingOf } from '../../lib/gantt/grid';
+	import { scenarioChain, sizingOf } from '../../lib/gantt/grid';
 	import { NO_LINE, describeRowParts } from '../../lib/gantt/describe';
 	import { resolveLinks } from '../../lib/gantt/links';
 	import {
@@ -120,23 +119,20 @@
 		});
 	});
 
+	/** The shown scenario and its parents: which of a task's `effort` statements applies. */
+	const chain = $derived(scenarioChain(model.project, model.scenario));
 	// The columns of the task list that fit beside a chart of a useful width.
 	const columns = $derived(layoutColumns(scrollerW, nameColW, remPx));
 
-	// What a reschedule moved, for the treegrid's live region; a repeat of the same sentence is
-	// made different, or it would not be spoken again.
+	// What a reschedule moved, for the treegrid's live region (announce.ts forgets the last result
+	// when there is none, so a new plan is not compared with the old one).
 	let announcement = $state('');
-	let spoken: ScheduleResult | null = null;
-	let flip = false;
+	const announcer = new RescheduleAnnouncer();
 	$effect(() => {
 		const next = result;
 		untrack(() => {
-			if (next === null) return;
-			const text = rescheduleAnnouncement(spoken, next);
-			spoken = next;
-			if (text === null) return;
-			flip = !flip;
-			announcement = flip ? text : `${text}\u00a0`;
+			const text = announcer.next(next);
+			if (text !== null) announcement = text;
 		});
 	});
 
@@ -325,8 +321,9 @@
 				<div class="names" bind:clientWidth={namesW}>
 					<OutlineGrid
 						{model}
+						outline={app.outline.byKey}
 						analysis={critical.shown.analysis}
-						sizing={(id) => sizingOf(app.index?.tasks.get(id))}
+						sizing={(id) => sizingOf(app.index?.tasks.get(id), chain)}
 						shown={columns.shown}
 						first={firstRow}
 						last={lastRow}

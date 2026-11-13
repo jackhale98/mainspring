@@ -9,6 +9,7 @@
  * engine's allocations, and float and critical are the display estimates of ADR-0007 (so the
  * header says "(estimate)"). A task the engine has not scheduled shows no dates.
  */
+import type { ProjectInfo } from '../../engine/protocol';
 import { printDuration } from '../tjp/values';
 import type { TaskSymbol } from '../tjp/index';
 import { strings } from '../strings';
@@ -40,22 +41,52 @@ export interface GridRowInput {
 const SIZING_ATTRS: ReadonlySet<string> = new Set(['effort', 'length', 'duration']);
 
 /**
- * What a task says about its size, "5d effort", from its own attributes (not inherited ones). The
- * scenario-free statement wins over a scenario's. Null when the task has none.
+ * The shown scenario and its parents, nearest first: ['delayed', 'plan']. What a task says in a
+ * scenario is what is written for it, else what its parent scenario says.
  */
-export function sizingOf(sym: TaskSymbol | undefined): string | null {
-	if (!sym) return null;
-	let found: { keyword: string; value: string } | null = null;
-	for (const a of sym.attrs) {
-		if (!SIZING_ATTRS.has(a.keyword) || a.textOnly) continue;
-		const v = a.parsed;
-		if (v?.kind !== 'duration') continue;
-		const text = printDuration(v.value);
-		if (!text.ok) continue;
-		if (a.scenario === null) return G.sizing(text.value, a.keyword);
-		found ??= { keyword: a.keyword, value: text.value };
+export function scenarioChain(
+	project: Pick<ProjectInfo, 'scenarios'> | null,
+	shown: string | null,
+): readonly string[] {
+	const chain: string[] = [];
+	let id: string | null = shown;
+	while (id !== null && !chain.includes(id)) {
+		chain.push(id);
+		const at: string = id;
+		id = project?.scenarios.find((s) => s.id === at)?.parent ?? null;
 	}
-	return found ? G.sizing(found.value, found.keyword) : null;
+	return chain;
+}
+
+/**
+ * What a task says about its size, "5d effort", from its own attributes (not inherited from a
+ * parent task) in the shown scenario. `effort`, `length` and `duration` exclude each other in
+ * TaskJuggler: the last one written wins, whichever it is (setDurationAttribute). A statement
+ * for a scenario counts if it names the shown scenario or one of its parents; one with no
+ * scenario is the top scenario's, which the others inherit. A statement for the shown scenario
+ * beats one for its parent whatever their order, and a statement for another scenario
+ * (`delayed:effort` while `plan` is shown) does not count. A winner the editor cannot read (a
+ * macro, a variable) says so, rather than showing nothing. Null when there is none.
+ */
+export function sizingOf(
+	sym: TaskSymbol | undefined,
+	chain: readonly string[] = [],
+): string | null {
+	if (!sym) return null;
+	const top = Math.max(0, chain.length - 1);
+	let best: { rank: number; attr: TaskSymbol['attrs'][number] } | null = null;
+	for (const a of sym.attrs) {
+		if (!SIZING_ATTRS.has(a.keyword)) continue;
+		const rank = a.scenario === null ? top : chain.indexOf(a.scenario);
+		if (rank < 0) continue;
+		if (best === null || rank <= best.rank) best = { rank, attr: a };
+	}
+	if (best === null) return null;
+	const a = best.attr;
+	if (a.textOnly) return G.sizingMacro;
+	const v = a.parsed;
+	const text = v?.kind === 'duration' ? printDuration(v.value) : null;
+	return text?.ok ? G.sizing(text.value, a.keyword) : G.sizingText;
 }
 
 function cell(column: ColumnId, text: string | null): GridCell {
@@ -64,11 +95,15 @@ function cell(column: ColumnId, text: string | null): GridCell {
 		: { column, text, blank: false };
 }
 
-/** The status words: text only wins, since that is what the person can act on. */
-function statusOf(row: GanttRow, pending: boolean): string {
+/**
+ * The status words: text only wins, since that is what the person can act on; then pending; a row
+ * with dates from the last good schedule, while the newest run failed, is out of date.
+ */
+function statusOf(row: GanttRow, pending: boolean, outOfDate: boolean): string {
 	if (row.textOnly) return G.status.textOnly;
 	if (pending) return G.status.pending;
-	return row.scheduled ? G.status.scheduled : G.status.notScheduled;
+	if (!row.scheduled) return G.status.notScheduled;
+	return outOfDate ? G.status.outOfDate : G.status.scheduled;
 }
 
 /** The cells of one row, in column order. */
@@ -97,7 +132,7 @@ export function gridCells(row: GanttRow, i: GridRowInput): readonly GridCell[] {
 		cell('people', row.people.length > 0 ? row.people.join(', ') : null),
 		cell('float', float),
 		cell('critical', critical),
-		cell('status', statusOf(row, i.pending?.has(row.key) ?? false)),
+		cell('status', statusOf(row, i.pending?.has(row.key) ?? false, i.model.dimmed)),
 	];
 }
 

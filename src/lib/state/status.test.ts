@@ -154,6 +154,7 @@ describe('statusView engine info', () => {
 		expect(info?.version).toBe('TaskJuggler 3.8.4');
 		expect(info?.last).toBeNull();
 		expect(info?.timings).toEqual([]);
+		expect(info?.note).toBeNull();
 		expect(info?.versions.map((l) => l.value)).toEqual([
 			'3.8.4',
 			'3b36c79',
@@ -178,5 +179,15 @@ describe('statusView engine info', () => {
 			strings.status.timing.process,
 		]);
 		expect(info?.timings[2]?.value).toBe(`${TIMINGS.parseMs} ms`);
+	});
+
+	it('says honestly that the round trip is waiting as well as scheduling, and the first run includes start-up', async () => {
+		client.done(1, { tasks: TASKS });
+		await flush();
+		const info = statusView(runner.state, 'en', versions).engine;
+		const round = info?.timings.find((l) => l.label === strings.status.timing.roundTrip);
+		expect(round?.label).toBe('Waiting and round trip');
+		expect(info?.note).toMatch(/queueing included/);
+		expect(info?.note).toMatch(/first run also includes the scheduler starting up/);
 	});
 });

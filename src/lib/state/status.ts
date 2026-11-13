@@ -55,6 +55,8 @@ export interface EngineInfo {
 	readonly version: string | null;
 	readonly last: string | null;
 	readonly timings: readonly InfoLine[];
+	/** Says that the round trip is not all scheduling; null when there are no timings. */
+	readonly note: string | null;
 	readonly versions: readonly InfoLine[];
 }
 
@@ -92,6 +94,7 @@ function infoOf(
 						{ label: T.process, value: formatMs(timings.processMs, locale) },
 					]
 				: [],
+		note: timings && e ? strings.status.timingNote : null,
 		versions: versions
 			? [
 					{ label: T.tj, value: versions.tj },
@@ -129,6 +132,21 @@ export function formatDelta(delta: Minutes | null, locale?: string): string | nu
 	if (delta === null || Math.abs(delta) < 1) return null;
 	const span = formatSpan(delta, locale);
 	return delta > 0 ? strings.status.later(span) : strings.status.earlier(span);
+}
+
+/**
+ * Whether a run that has settled is said aloud. When the Gantt is on screen it already says what
+ * a reschedule moved, so only the plain case stays quiet: an ok run with no warnings that follows
+ * an ok run. Everything else is said: a problem or failure (every time), a warning, and an ok run
+ * after a problem (the confirmation that it was fixed). `previous` is the kind of the run before,
+ * or null for the first one.
+ */
+export function announcesRun(
+	v: Pick<StatusView, 'kind' | 'warnings'>,
+	previous: StatusKind | null,
+	ganttShown: boolean,
+): boolean {
+	return !(ganttShown && v.kind === 'ok' && v.warnings === 0 && previous === 'ok');
 }
 
 function kindOf(s: RunnerState): StatusKind {

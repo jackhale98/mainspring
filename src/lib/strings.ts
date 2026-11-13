@@ -371,8 +371,6 @@ export const strings = {
 			float: (amount: string) => `Float about ${amount} (estimate)`,
 			days: (n: number) => (n === 1 ? '1 working day' : `${n} working days`),
 			hours: (n: number) => (n === 1 ? '1 working hour' : `${n} working hours`),
-			/** The treegrid's float column (T18). */
-			floatColumn: 'Float (estimate)',
 		},
 		/** The treegrid's live region says this after a reschedule (phase-2.md 10.1). */
 		rescheduled: (finish: string | null, delta: string | null, moved: number) =>
@@ -388,7 +386,6 @@ export const strings = {
 		today: 'Today',
 		legend: 'Lines on the chart',
 		quarter: (q: number) => `Q${q}`,
-		taskColumn: 'Task',
 		tasks: 'Tasks',
 		noTasks: 'No tasks yet.',
 		scheduling: 'Scheduling…',
@@ -434,11 +431,14 @@ export const strings = {
 			notScheduled: 'Not scheduled',
 			pending: 'Pending',
 			textOnly: 'Text only',
+			/** The newest run failed: the dates are the last good schedule's. */
+			outOfDate: 'Out of date',
 		},
+		/** The effort cell when the size is written with a macro or a variable, or does not parse. */
+		sizingMacro: 'From a macro',
+		sizingText: 'See the text',
 		/** The effort or length cell: the value and which attribute it is, e.g. "5d effort". */
 		sizing: (value: string, attr: string) => `${value} ${attr}`,
-		expandTask: 'Expand',
-		collapseTask: 'Collapse',
 	},
 	editor: {
 		label: (path: string) => `Editor for ${path}`,
@@ -479,6 +479,9 @@ export const strings = {
 		engineDetails: 'Engine details',
 		engineDetailsTitle: 'The scheduler and its last run',
 		timingTitle: 'Last run',
+		/** Under the timings: the round trip is not all scheduling. */
+		timingNote:
+			'Waiting and round trip is the time from sending the plan to getting the result, queueing included. The first run also includes the scheduler starting up.',
 		versionsTitle: 'Versions',
 		timing: {
 			engine: 'Scheduler total',
@@ -486,7 +489,7 @@ export const strings = {
 			parse: 'Reading the plan',
 			schedule: 'Computing the schedule',
 			serialize: 'Preparing the result',
-			roundTrip: 'Request to result',
+			roundTrip: 'Waiting and round trip',
 			process: 'Handling the result',
 			tj: 'TaskJuggler',
 			commit: 'TaskJuggler commit',

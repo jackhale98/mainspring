@@ -46,6 +46,7 @@
 				<dd>{line.value}</dd>
 			{/each}
 		</dl>
+		{#if info.note}<p class="note">{info.note}</p>{/if}
 	{/if}
 	{#if info.versions.length > 0}
 		<h3>{strings.status.versionsTitle}</h3>
@@ -128,6 +129,11 @@
 	}
 	dt {
 		color: var(--color-text-muted);
+	}
+	.note {
+		margin: var(--space-2) 0 0;
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
 	}
 	dd {
 		margin: 0;

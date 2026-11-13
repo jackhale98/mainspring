@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildIndex } from '../tjp/index';
 import { inline } from '../tjp/index/testing';
 import { project } from '../schedule/testing';
-import { gridCells, sizingOf, spokenText, type GridRowInput } from './grid';
+import { gridCells, scenarioChain, sizingOf, spokenText, type GridRowInput } from './grid';
 import { D, modelOf, row } from './testing';
 
 const calendar = { startEpoch: Date.UTC(2026, 0, 5) / 1000, env: { zone: null }, locale: 'en-US' };
@@ -33,6 +33,63 @@ describe('sizingOf', () => {
 	it('is null for a task with none, and for no task', () => {
 		expect(of('f')).toBeNull();
 		expect(sizingOf(undefined)).toBeNull();
+	});
+});
+
+describe('sizingOf in scenarios, and when the last statement wins', () => {
+	const SCENARIOS = `project p "P" 2026-01-05 +30d {
+  scenario plan "Plan" {
+    scenario delayed "Delayed"
+  }
+}
+macro size [ 3d ]
+task last "Last wins" { effort 2d
+  length 3d }
+task only "Delayed only" { delayed:effort 4d }
+task over "Plan override" { effort 2d
+  plan:effort 7d }
+task spec "Specific wins" { delayed:effort 4d
+  effort 2d }
+task mac "Macro" { effort \${size} }
+task none "None"
+`;
+	const index = buildIndex(inline({ 'plan.tjp': SCENARIOS }).snapshot());
+	const scenarios = [
+		{ id: 'plan', name: 'Plan', parent: null, active: true },
+		{ id: 'delayed', name: 'Delayed', parent: 'plan', active: true },
+	];
+	const plan = scenarioChain({ scenarios }, 'plan');
+	const delayed = scenarioChain({ scenarios }, 'delayed');
+	const of = (id: string, chain: readonly string[]) => sizingOf(index.tasks.get(id), chain);
+
+	it('builds the chain from the shown scenario up through its parents', () => {
+		expect(plan).toEqual(['plan']);
+		expect(delayed).toEqual(['delayed', 'plan']);
+		expect(scenarioChain(null, null)).toEqual([]);
+		expect(scenarioChain({ scenarios }, 'nope')).toEqual(['nope']);
+	});
+
+	it('takes the last of effort, length and duration, as TaskJuggler does', () => {
+		expect(of('last', plan)).toBe('3d length');
+	});
+
+	it("does not show another scenario's size while the plan is shown", () => {
+		expect(of('only', plan)).toBeNull();
+		expect(of('only', delayed)).toBe('4d effort');
+	});
+
+	it('lets a statement for the plan override an earlier unscoped one', () => {
+		expect(of('over', plan)).toBe('7d effort');
+	});
+
+	it('lets the shown scenario beat its parent, whatever the order', () => {
+		expect(of('spec', plan)).toBe('2d effort');
+		expect(of('spec', delayed)).toBe('4d effort');
+	});
+
+	it('says a macro wrote the size, rather than showing nothing', () => {
+		expect(of('mac', plan)).toBe('From a macro');
+		expect(of('none', plan)).toBeNull();
 	});
 });
 
@@ -114,6 +171,15 @@ describe('gridCells', () => {
 	it('does not claim a task is off the critical path before the estimate exists', () => {
 		const c = texts(0, { analysis: null });
 		expect(c.slice(5, 7)).toEqual(['–', '–']);
+	});
+
+	it('marks scheduled rows out of date while the newest run has failed', () => {
+		const stale = { ...model, dimmed: true };
+		const status = (i: number) =>
+			gridCells(stale.rows[i]!, { ...input, model: stale }).at(-1)?.text;
+		expect(status(0)).toBe('Out of date');
+		expect(status(2)).toBe('Not scheduled');
+		expect(status(3)).toBe('Text only');
 	});
 
 	it('puts text only above pending above scheduled in the status column', () => {

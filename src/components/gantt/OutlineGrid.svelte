@@ -30,6 +30,7 @@
 	import { gridCells, spokenText, type GridRowInput } from '../../lib/gantt/grid';
 	import { gridMove, type GridFocus, type GridShape } from '../../lib/gantt/grid-nav';
 	import type { GanttRow } from '../../lib/gantt/model';
+	import type { OutlineNode } from '../../lib/state/outline';
 	import { strings } from '../../lib/strings';
 
 	interface Props extends Omit<GridRowInput, 'pending'> {
@@ -54,6 +55,12 @@
 		onrename?: (key: string) => void;
 		/** Scrolls a row into view (the rows near the viewport are the only ones mounted). */
 		onreveal: (index: number) => Promise<void>;
+		/**
+		 * Every task of the outline by key, so that when the focused row goes away the focus can
+		 * move to its nearest ancestor that is still a row, even if a collapsed ancestor hides
+		 * its direct parent. Without it the focus moves to the nearest row.
+		 */
+		outline?: ReadonlyMap<string, Pick<OutlineNode, 'parent'>>;
 	}
 	let {
 		model,
@@ -73,6 +80,7 @@
 		onopen,
 		onrename,
 		onreveal,
+		outline,
 	}: Props = $props();
 
 	const rows = $derived(model.rows);
@@ -81,12 +89,19 @@
 
 	/**
 	 * The rows to mount: those near the viewport, and the focused one wherever it is, so that
-	 * scrolling it out of view does not drop the keyboard focus.
+	 * scrolling it out of view does not drop the keyboard focus. They stay in row order: a keyed
+	 * each moves a node whose place in the list changes, and a focused node that is moved
+	 * loses the focus, so the pinned row goes before the window when it is above it.
 	 */
 	const items = $derived.by(() => {
 		const list = rows.slice(first, last).map((row, i) => ({ row, index: first + i }));
-		const at = focusKey === null ? -1 : rows.findIndex((r) => r.key === focusKey);
-		if (at >= 0 && (at < first || at >= last)) list.push({ row: rows[at] as GanttRow, index: at });
+		const at = focusKey === null ? -1 : (model.rowOf.get(focusKey) ?? -1);
+		const pinned =
+			at >= 0 && (at < first || at >= last) ? { row: rows[at] as GanttRow, index: at } : null;
+		if (pinned !== null) {
+			if (at < first) list.unshift(pinned);
+			else list.push(pinned);
+		}
 		return list;
 	});
 	const tabKey = $derived(
@@ -108,6 +123,9 @@
 		return w === null ? undefined : `${w}rem`;
 	};
 
+	/** Where the focus last was inside the grid, to find it a place if its row goes away. */
+	let lastFocus: { el: Element; row: GanttRow; index: number } | null = null;
+
 	/** Whichever row or cell gets the focus, by any means, is the one kept mounted. */
 	function onfocusin(event: FocusEvent): void {
 		const t = event.target;
@@ -117,6 +135,9 @@
 		focusKey = key;
 		const col = t.closest('[data-col]')?.getAttribute('data-col') ?? null;
 		focusCol = col as ColumnId | null;
+		const index = model.rowOf.get(key) ?? -1;
+		const row = rows[index];
+		lastFocus = row ? { el: t, row, index } : null;
 	}
 
 	/** Focus that leaves the grid lets go of the pinned row. */
@@ -125,8 +146,34 @@
 		if (!(to instanceof Node) || !grid?.contains(to)) {
 			focusKey = null;
 			focusCol = null;
+			// Focus that went nowhere is either a click on empty space, which is not ours to undo,
+			// or the focused row being removed, which the effect below answers. A removed node is
+			// no longer connected once this microtask runs.
+			const gone = lastFocus;
+			if (to instanceof Node) lastFocus = null;
+			else
+				queueMicrotask(() => (lastFocus === gone && gone?.el.isConnected ? (lastFocus = null) : 0));
 		}
 	}
+
+	// The focused row went away (collapsed under another row, deleted, renamed): the focus would
+	// fall to the page. Move it to the nearest ancestor that is still a row, else the nearest row.
+	$effect(() => {
+		const rowOf = model.rowOf;
+		const gone = lastFocus;
+		if (gone === null || rowOf.has(gone.row.key) || gone.el.isConnected) return;
+		const active = document.activeElement;
+		if (active !== null && active !== document.body) return;
+		lastFocus = null;
+		let target = -1;
+		for (let p = gone.row.node.parent; p !== null && target < 0;) {
+			const at = rowOf.get(p);
+			if (at !== undefined) target = at;
+			else p = outline?.get(p)?.parent ?? null;
+		}
+		if (target < 0) target = Math.min(gone.index, rows.length - 1);
+		if (target >= 0) void focusAt({ row: target, col: null });
+	});
 
 	async function focusAt(to: GridFocus): Promise<void> {
 		const row = rows[to.row];
@@ -321,6 +368,8 @@
 	.row {
 		position: absolute;
 		inset-inline: 0;
+		/* A name of two lines at a large default font must not run into the next row. */
+		overflow: clip;
 		display: flex;
 		align-items: center;
 		border-block-end: var(--gantt-row-line-width) solid var(--color-gantt-row-line);

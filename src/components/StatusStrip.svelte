@@ -8,6 +8,7 @@
 -->
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
+	import { announcesRun, type StatusKind } from '../lib/state/status';
 	import { strings } from '../lib/strings';
 	import EngineInfo from './app/EngineInfo.svelte';
 	import Mark from './app/Mark.svelte';
@@ -17,7 +18,8 @@
 		compact: boolean;
 		/**
 		 * The Gantt is on screen and says what a reschedule moved (its treegrid's live region), so
-		 * a run that went well is not announced twice. Problems and failures always are.
+		 * a plain ok run after an ok run is not announced twice. Everything else is
+		 * (`announcesRun`): problems, warnings, and an ok run after a problem.
 		 */
 		quiet?: boolean;
 	}
@@ -30,10 +32,20 @@
 
 	/** The sentence a screen reader hears when a run settles; empty until the first one does. */
 	let announcement = $state('');
+	/** The kind of the run before this one (null at the start, and while another plan loads). */
+	let previous: StatusKind | null = null;
 	$effect(() => {
 		const v = s;
-		if (!v || v.kind === 'scheduling' || v.kind === 'booting' || v.kind === 'idle') return;
-		if (quiet && v.kind === 'ok') return;
+		if (!v) return;
+		if (v.kind === 'booting' || v.kind === 'idle') previous = null;
+		if (v.kind === 'scheduling' || v.kind === 'booting' || v.kind === 'idle') return;
+		const say = announcesRun(v, previous, quiet);
+		previous = v.kind;
+		// Skipping clears the region, so the next problem is a change in it and is always spoken.
+		if (!say) {
+			announcement = '';
+			return;
+		}
 		const parts = [v.failure ?? v.label];
 		if (v.finish)
 			parts.push(`${strings.status.finish} ${v.finish}${v.delta ? `, ${v.delta}` : ''}`);
@@ -253,8 +265,8 @@
 			min-block-size: 0;
 		}
 	}
+	/* The browser centres a popover (fixed, inset 0, auto margins); keep that, set the size. */
 	.popover {
-		inset: auto;
 		margin: auto;
 		inline-size: min(30rem, calc(100vw - 2rem));
 		max-block-size: 70dvh;

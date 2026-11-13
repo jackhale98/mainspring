@@ -50,7 +50,7 @@ test.describe('the treegrid', () => {
 
 	test('is a labelled treegrid whose rows and cells say what the schedule says', async ({
 		page,
-	}) => {
+	}, info) => {
 		await open(page);
 		const g = grid(page);
 		await expect(g).toHaveAttribute('role', 'treegrid');
@@ -98,7 +98,12 @@ test.describe('the treegrid', () => {
 		expect(await text(cell(milestone, 'effort'))).toBe('–');
 		await expect(cell(milestone, 'effort')).toHaveAttribute('aria-label', 'none');
 		// A critical task says so in words, not only by colour.
-		await expect(g.locator('[data-col="critical"]', { hasText: 'Yes' }).first()).toBeVisible();
+		// On a desktop the Critical column is drawn and shows it; on a phone it is in the table
+		// (for a screen reader) but not drawn, so there it is asserted by its words only.
+		const yes = g.locator('[data-col="critical"]', { hasText: 'Yes' });
+		expect(await yes.count()).toBeGreaterThan(0);
+		if (phone(info)) expect((await yes.first().boundingBox())?.width ?? 0).toBeLessThanOrEqual(1);
+		else await expect(yes.first()).toBeVisible();
 	});
 
 	test('draws the columns that fit, and keeps the rest in the table', async ({ page }, info) => {
@@ -272,7 +277,7 @@ test.describe('the engine in the status strip', () => {
 			'Reading the plan',
 			'Computing the schedule',
 			'Preparing the result',
-			'Request to result',
+			'Waiting and round trip',
 			'Handling the result',
 			'TaskJuggler commit',
 			'Ruby on WebAssembly',

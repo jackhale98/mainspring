@@ -6,7 +6,7 @@
  * leaves the plan where it was does not chatter. Display only (ADR-0007).
  */
 import type { ScheduleResult } from '../../engine/protocol';
-import { finishOf, finishScenario, formatFinish } from '../schedule/finish';
+import { finishOf, finishScenario, formatFinish, isoAt } from '../schedule/finish';
 import { formatDelta } from '../state/status';
 import { strings } from '../strings';
 
@@ -53,10 +53,35 @@ export function rescheduleAnnouncement(
 	const delta = after?.delta ?? null;
 	if (moved === 0 && (delta === null || delta === 0)) return null;
 	return strings.gantt.rescheduled(
+		// The last day worked is the minute before the end, as in the End column (a task that ends
+		// at midnight finishes the day before).
 		after
-			? formatFinish(after, locale, { weekday: 'short', day: 'numeric', month: 'short' })
+			? formatFinish(
+					{ ...after, date: isoAt(after.projectStart, Math.max(0, after.minutes - 1)) },
+					locale,
+					{ weekday: 'short', day: 'numeric', month: 'short' },
+				)
 			: null,
 		formatDelta(delta, locale),
 		moved,
 	);
+}
+
+/**
+ * Remembers the last result that was announced about. A result of null (another plan is loading)
+ * forgets it, so the first result of the next plan is not compared with the last plan's.
+ */
+export class RescheduleAnnouncer {
+	#prev: ScheduleResult | null = null;
+
+	/** The sentence to say for this result, or null for none. */
+	next(result: ScheduleResult | null, locale?: string): string | null {
+		if (result === null) {
+			this.#prev = null;
+			return null;
+		}
+		const text = rescheduleAnnouncement(this.#prev, result, locale);
+		this.#prev = result;
+		return text;
+	}
 }

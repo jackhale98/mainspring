@@ -32,23 +32,28 @@ const result = plan([
 	['docs', { start: at(4, 9), end: at(4, 9), milestone: true }],
 ]);
 
-function modelOf(collapsed: ReadonlySet<string> = new Set()): GanttModel {
-	const ws = inline({ 'plan.tjp': PLAN });
+function built(text: string, collapsed: ReadonlySet<string> = new Set(), res = result) {
+	const ws = inline({ 'plan.tjp': text });
 	const snap = ws.snapshot();
-	const index = buildIndex(snap);
+	const idx = buildIndex(snap);
 	const outline = buildOutline(
-		index,
+		idx,
 		(r) => snap.files.get(r.file)?.text.sliceString(r.from, r.to) ?? null,
 	);
-	return buildGanttModel({
+	const model = buildGanttModel({
 		nodes: outline.tasks,
 		collapsed,
-		result,
+		result: res,
 		dimmed: false,
 		links: [],
 		analysis: null,
 		locale: 'en-US',
 	});
+	return { model, byKey: outline.byKey };
+}
+
+function modelOf(collapsed: ReadonlySet<string> = new Set()): GanttModel {
+	return built(PLAN, collapsed).model;
 }
 
 const index = buildIndex(inline({ 'plan.tjp': PLAN }).snapshot());
@@ -308,5 +313,133 @@ describe('roving tabindex and the keys', () => {
 		expect(onselect).not.toHaveBeenCalled();
 		rows()[2]?.querySelector<HTMLElement>('[data-col="end"]')?.click();
 		expect(onselect).toHaveBeenCalledWith('task:app.api');
+	});
+});
+
+describe('focus survives the rows around it changing', () => {
+	const MANY =
+		'project p "P" 2026-01-05 +30d\n' +
+		Array.from({ length: 60 }, (_, i) => `task t${i} "T${i}"`).join('\n') +
+		'\n';
+
+	it('keeps the focused row when the window moves past it, whichever side it falls on', async () => {
+		const many = built(MANY, new Set(), plan([])).model;
+		const { rows, props } = setup({ first: 0, last: 30 }, many);
+		const el = rows().find((r) => r.dataset['key'] === 'task:t5')!;
+		el.focus();
+		await tick();
+		expect(document.activeElement).toBe(el);
+
+		// Scrolled down: the row is now above the window.
+		props.first = 10;
+		props.last = 40;
+		flushSync();
+		await tick();
+		expect(el.isConnected).toBe(true);
+		expect(document.activeElement).toBe(el);
+		// The mounted rows stay in row order, the pinned one first.
+		const keys = rows().map((r) => r.dataset['key']);
+		expect(keys[0]).toBe('task:t5');
+		expect(keys.slice(1)).toEqual(Array.from({ length: 30 }, (_, i) => `task:t${i + 10}`));
+
+		// And back, then past it on the other side: the row is below the window.
+		props.first = 0;
+		props.last = 4;
+		flushSync();
+		await tick();
+		expect(document.activeElement).toBe(el);
+		props.first = 0;
+		props.last = 3;
+		flushSync();
+		await tick();
+		expect(document.activeElement).toBe(el);
+		expect(rows().map((r) => r.dataset['key'])).toEqual([
+			'task:t0',
+			'task:t1',
+			'task:t2',
+			'task:t5',
+		]);
+	});
+
+	it('moves the focus to the collapsed ancestor when the focused row is hidden', async () => {
+		const open = built(PLAN);
+		const { rows, props } = setup({ outline: open.byKey }, open.model);
+		const ui = rows().find((r) => r.dataset['key'] === 'task:app.ui')!;
+		ui.focus();
+		await tick();
+		const closed = built(PLAN, new Set(['task:app']));
+		props.model = closed.model;
+		flushSync();
+		await tick();
+		await tick();
+		expect(ui.isConnected).toBe(false);
+		expect(document.activeElement).toBe(rows().find((r) => r.dataset['key'] === 'task:app'));
+	});
+
+	it('finds a visible ancestor when the direct parent is hidden too', async () => {
+		const deep = `project p "P" 2026-01-05 +30d
+task a "A" {
+  task b "B" {
+    task c "C"
+  }
+}
+task z "Z"
+`;
+		const open = built(deep, new Set(), plan([]));
+		const { rows, props } = setup({ outline: open.byKey }, open.model);
+		const c = rows().find((r) => r.dataset['key'] === 'task:a.b.c')!;
+		c.focus();
+		await tick();
+		// A collapses: B is hidden as well as C, so the nearest ancestor that is a row is A.
+		props.model = built(deep, new Set(['task:a']), plan([])).model;
+		flushSync();
+		await tick();
+		await tick();
+		expect(document.activeElement).toBe(rows().find((r) => r.dataset['key'] === 'task:a'));
+	});
+
+	it('moves the focus to the parent when the focused row is deleted', async () => {
+		const first = built(PLAN);
+		const { rows, props } = setup({ outline: first.byKey }, first.model);
+		const api = rows().find((r) => r.dataset['key'] === 'task:app.api')!;
+		api.focus();
+		await tick();
+		props.model = built(PLAN.replace('  task api "API" { length 3d }\n', '')).model;
+		flushSync();
+		await tick();
+		await tick();
+		expect(api.isConnected).toBe(false);
+		expect(document.activeElement).toBe(rows().find((r) => r.dataset['key'] === 'task:app'));
+	});
+
+	it('moves the focus to the nearest row when a top-level row is deleted', async () => {
+		const first = built(PLAN);
+		const { rows, props } = setup({ outline: first.byKey }, first.model);
+		const docs = rows().find((r) => r.dataset['key'] === 'task:docs')!;
+		docs.focus();
+		await tick();
+		props.model = built(PLAN.replace('task docs "Docs" { milestone }\n', '')).model;
+		flushSync();
+		await tick();
+		await tick();
+		expect(docs.isConnected).toBe(false);
+		// Later took its place in the list.
+		expect(document.activeElement).toBe(rows().find((r) => r.dataset['key'] === 'task:later'));
+	});
+
+	it('does not take the focus when it was not in the grid', async () => {
+		const open = built(PLAN);
+		const { rows, props } = setup({ outline: open.byKey }, open.model);
+		const outside = document.createElement('button');
+		document.body.append(outside);
+		rows()[1]?.focus();
+		await tick();
+		outside.focus();
+		await tick();
+		props.model = built(PLAN, new Set(['task:app'])).model;
+		flushSync();
+		await tick();
+		await tick();
+		expect(document.activeElement).toBe(outside);
 	});
 });

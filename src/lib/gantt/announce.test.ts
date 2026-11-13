@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleResult } from '../../engine/protocol';
 import { at, plan } from '../schedule/testing';
-import { rescheduleAnnouncement, tasksMoved } from './announce';
+import { RescheduleAnnouncer, rescheduleAnnouncement, tasksMoved } from './announce';
 
 const first = (r: number): ScheduleResult => ({
 	...plan([
@@ -70,5 +70,37 @@ describe('rescheduleAnnouncement', () => {
 		const same = first(1);
 		expect(rescheduleAnnouncement(same, same)).toBeNull();
 		expect(rescheduleAnnouncement(first(1), first(2))).toBeNull();
+	});
+});
+
+describe('the announced finish', () => {
+	it('is the last day worked, as the End column says, when the end is at midnight', () => {
+		const a = plan([['a', { start: at(0, 9), end: 2 * 1440 }]]);
+		// Ends at the start of Thursday Jan 8: the last day worked is Wednesday Jan 7.
+		const b = plan([['a', { start: at(0, 9), end: 3 * 1440 }]]);
+		expect(rescheduleAnnouncement({ ...a, revision: 1 }, { ...b, revision: 2 }, 'en-US')).toMatch(
+			/^Rescheduled\. Finish Wed, Jan 7, 1 day later\. 1 task moved\.$/,
+		);
+	});
+});
+
+describe('RescheduleAnnouncer', () => {
+	it('says nothing for the first result, then compares each result with the one before', () => {
+		const voice = new RescheduleAnnouncer();
+		expect(voice.next(first(1), 'en-US')).toBeNull();
+		expect(voice.next(later(2), 'en-US')).toMatch(/^Rescheduled\./);
+	});
+
+	it('forgets the last result when there is none, so a new plan is not compared with the old', () => {
+		const voice = new RescheduleAnnouncer();
+		voice.next(first(1), 'en-US');
+		expect(voice.next(null)).toBeNull();
+		// Another plan, three years later: without the reset this would say "Rescheduled…".
+		const other = plan([['x', { start: at(0, 9), end: at(1, 17) }]], {
+			start: '2029-01-05T00:00:00Z',
+		});
+		expect(voice.next({ ...other, revision: 2 }, 'en-US')).toBeNull();
+		// And it compares with that plan from then on.
+		expect(voice.next(later(3), 'en-US')).not.toBeNull();
 	});
 });
