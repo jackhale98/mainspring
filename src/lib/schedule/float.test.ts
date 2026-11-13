@@ -124,4 +124,31 @@ describe('latePass', () => {
 		expect(a.floatMin.get('x')).toBe(3 * 480);
 		expect(a.driver.get('x')).toEqual({ kind: 'unexplained' });
 	});
+
+	it('keeps the calendar slack a successor in non-working time gives (found by the generated plans)', () => {
+		// p ends Tuesday 17:00; m sits 3 calendar days later, Friday 17:00 (non-working); s starts
+		// there and works Monday 09:00-10:00, the finish. s could start as late as Monday 09:00, so
+		// m could too, so p could end as late as Friday 09:00: Wednesday and Thursday are float.
+		const a = analyse(
+			plan([
+				['p', { start: at(1, 12), end: at(1, 17) }],
+				[
+					'm',
+					{
+						milestone: true,
+						start: at(4, 17),
+						end: at(4, 17),
+						depends: [dep('p', { gapDurationMin: 4320 })],
+					},
+				],
+				['s', { start: at(4, 17), end: at(7, 10), depends: [dep('m')] }],
+			]),
+			'plan',
+			workingTimeOf(plan([]).project as NonNullable<ScheduleResult['project']>),
+		);
+		expect(a.driver.get('m')).toEqual({ kind: 'dependency', pred: 'p', via: 'depends' });
+		expect(a.floatMin.get('p')).toBe(2 * 480);
+		expect([...a.critical].sort()).toEqual(['m', 's']);
+		expect(a.criticalLinks.has('p>m')).toBe(false);
+	});
 });

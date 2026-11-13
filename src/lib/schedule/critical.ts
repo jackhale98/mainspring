@@ -21,11 +21,14 @@
  *   not a textbook CPM critical path: TaskJuggler levels resources, so a task whose start is
  *   set by its people ends the walk there (driver `unexplained`).
  *   The walk follows only driving edges that also *bind*: they leave the predecessor no working
- *   slack (`binds`). The two differ for a `gapduration` that ends in non-working time: Wednesday
- *   17:00 plus 2d is Friday 17:00, so the successor starts Monday 09:00 and the edge drives it,
- *   but the predecessor could end as late as Saturday 09:00, two working days later, without
- *   moving it. That predecessor has float and is not critical, so critical tasks always have
- *   zero float (the golden property tests check it).
+ *   slack against the successor's late start or end from float.ts (`bindsLate`). The two differ
+ *   when a `gapduration` meets non-working time. Wednesday 17:00 plus 2d is Friday 17:00, so the
+ *   successor starts Monday 09:00 and the edge drives it, but the predecessor could end as late
+ *   as Saturday 09:00, two working days later, without moving it. Likewise a successor placed in
+ *   non-working time (Friday 17:00) can sit as late as the next working minute (Monday 09:00),
+ *   and a calendar gap turns that into working slack for its predecessor. Such a predecessor has
+ *   float and is not critical, so critical tasks always have zero float (the golden and generated
+ *   property tests check it against an independent late pass).
  * - **Critical** tasks are those on the path that end after the status date ("from status date to
  *   the end", best practices), and the containers that hold them. Tasks on the path that end
  *   before it stay in `path` and are drawn, but not highlighted.
@@ -33,10 +36,10 @@
  *
  * Cost: O(edges log pairs). It runs once per result, off the hot path (gantt/analysis.ts).
  */
-import type { Minutes, ScheduleResult } from '../../engine/protocol';
+import type { Minutes, Revision, ScheduleResult } from '../../engine/protocol';
 import type { ZoneOffsets } from '../tjp/values/civil';
 import { finishScenario } from './finish';
-import { latePass, latestUnder } from './float';
+import { latePass, latestUnder, type LatePass } from './float';
 import { buildGraph, type Edge, type Graph } from './graph';
 import { workingTimeOf, type WorkingTime } from './working-time';
 
@@ -48,6 +51,8 @@ export type Driver =
 	| { readonly kind: 'unexplained' };
 
 export interface DrivingAnalysis {
+	/** The revision of the result it was computed from (the Gantt draws it only over that one). */
+	readonly revision: Revision;
 	readonly scenario: string;
 	/** The latest end in the scenario (`finishMinutes` for the first active one). */
 	readonly finish: Minutes | null;
@@ -92,12 +97,26 @@ export function isDriving(g: Graph, e: Edge, wt: WorkingTime): boolean {
 	return y - b > -res && wt.workingBetween(b, y) < res;
 }
 
-/** Whether an edge leaves its predecessor no working slack: it ends at the latest it allows. */
-export function binds(g: Graph, e: Edge, wt: WorkingTime): boolean {
-	const res = wt.resolution;
-	const [x, y] = anchors(g, e);
+/** Whether `x` is the latest the edge allows given the successor's anchor `y`, within a slot. */
+function atLatest(e: Edge, x: Minutes, y: Minutes, wt: WorkingTime): boolean {
 	const b = latestUnder(e, y, wt);
-	return b - x > -res && wt.workingBetween(x, b) < res;
+	return b - x > -wt.resolution && wt.workingBetween(x, b) < wt.resolution;
+}
+
+/** Whether a precedes predecessor ends at the latest the edge allows from the engine's dates. */
+export function binds(g: Graph, e: Edge, wt: WorkingTime): boolean {
+	const [x, y] = anchors(g, e);
+	return atLatest(e, x, y, wt);
+}
+
+/**
+ * Whether an edge leaves its predecessor no working slack against the successor's late anchor
+ * (float.ts), so that slipping the predecessor at all would push a task towards the finish.
+ */
+export function bindsLate(g: Graph, e: Edge, wt: WorkingTime, late: LatePass): boolean {
+	const x = anchors(g, e)[0];
+	const y = (e.succEnd ? late.lateEnd[e.succ] : late.lateStart[e.succ]) as number;
+	return atLatest(e, x, y, wt);
 }
 
 const END = 1;
@@ -188,11 +207,12 @@ function drivers(g: Graph, wt: WorkingTime, driving: Uint8Array): Map<string, Dr
 /** The analysis of one scenario of a result, with the project's working time. */
 export function analyse(r: ScheduleResult, scenario: string, wt: WorkingTime): DrivingAnalysis {
 	const g = buildGraph(r, scenario);
+	const late = latePass(g, wt);
 	const driving = new Uint8Array(g.edges.length);
 	const follow = new Uint8Array(g.edges.length);
 	g.edges.forEach((e, k) => {
 		driving[k] = isDriving(g, e, wt) ? 1 : 0;
-		follow[k] = driving[k] && (e.via === 'precedes' || binds(g, e, wt)) ? 1 : 0;
+		follow[k] = driving[k] && bindsLate(g, e, wt, late) ? 1 : 0;
 	});
 	const { on, walked } = walk(g, wt, follow);
 
@@ -213,7 +233,6 @@ export function analyse(r: ScheduleResult, scenario: string, wt: WorkingTime): D
 		if (walked[k] && hot[e.pred] && hot[e.succ]) criticalLinks.add(e.link);
 	});
 
-	const late = latePass(g, wt);
 	const floatMin = new Map<string, number>();
 	const lateEnd = new Map<string, Minutes>();
 	for (let i = 0; i < g.n; i++) {
@@ -230,6 +249,7 @@ export function analyse(r: ScheduleResult, scenario: string, wt: WorkingTime): D
 	}
 
 	return {
+		revision: r.revision,
 		scenario,
 		finish: g.finish,
 		status: r.project ? g.status : null,

@@ -19,6 +19,11 @@
  * Values are minutes (slots times the resolution), as the protocol's `gapLengthMin` and
  * `gapDurationMin` are. `durationText` goes the other way for display and for edits: whole units,
  * at least 1. Text only: nothing here schedules (ADR-0007).
+ *
+ * Why not values/duration.ts: it converts from the plan's settings as written, Integer or Float
+ * (`yearlyworkingdays 260` makes a month 21 days by Integer division, `260.0` makes it 21.67),
+ * and ProjectInfo carries plain numbers with the engine's divisions already done. The tests check
+ * that both give the same slots for every unit and setting.
  */
 import type { ProjectInfo } from '../../engine/protocol';
 import type { DurationUnit, DurationUse } from '../tjp/values/duration';
