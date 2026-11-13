@@ -11,7 +11,8 @@
  */
 import type { SymbolIndex } from '../tjp/index';
 import { printDate, printDuration, parseInterval } from '../tjp/values';
-import type { WorkspaceSnapshot } from '../workspace/workspace';
+import type { Workspace } from '../workspace/workspace';
+import { currentRange } from './range';
 import { siteState, type FieldState } from './field';
 
 export interface ProjectDetails {
@@ -29,10 +30,14 @@ const NOT_THERE: FieldState = { kind: 'unset' };
 
 function frameOf(
 	index: SymbolIndex,
-	ws: WorkspaceSnapshot | null,
+	ws: Workspace | null,
+	indexVersion: number | undefined,
 ): { start: string | null; end: string | null } {
 	const iv = index.project?.interval;
-	const text = iv && ws ? ws.files.get(iv.file)?.text.sliceString(iv.from, iv.to) : undefined;
+	// The index may be older than the text: the interval is mapped to where it is now.
+	const at = iv && ws ? currentRange(ws, indexVersion, iv) : null;
+	const text =
+		at && ws ? ws.snapshot().files.get(at.file)?.text.sliceString(at.from, at.to) : undefined;
 	if (text === undefined) return { start: null, end: null };
 	const p = parseInterval(text);
 	if (!p.ok) return { start: null, end: null };
@@ -51,7 +56,8 @@ function frameOf(
 /** The project's details, or null when the plan has no `project` header. */
 export function projectDetails(
 	index: SymbolIndex,
-	ws: WorkspaceSnapshot | null,
+	ws: Workspace | null,
+	indexVersion?: number,
 ): ProjectDetails | null {
 	const p = index.project;
 	if (!p) return null;
@@ -60,7 +66,7 @@ export function projectDetails(
 		const s = p.attrs.findLast((a) => a.keyword === keyword && a.scenario === null);
 		return s ? siteState(s) : NOT_THERE;
 	};
-	const frame = frameOf(index, ws);
+	const frame = frameOf(index, ws, indexVersion);
 	return {
 		name: p.name,
 		...frame,

@@ -36,6 +36,10 @@ import type {
 	TextOnlyReason,
 } from '../tjp/index';
 import type { DurationUnit } from '../tjp/values';
+import { inheritedIds } from '../tjp/edit/task-attrs-checks';
+import { taskState } from '../tjp/edit/dep-graph';
+import type { EditContext } from '../tjp/edit/types';
+import type { WorkspaceSnapshot } from '../workspace/workspace';
 import { ownSite, readField, siteState, topScenario, type FieldState } from './field';
 
 export type SizeAttr = 'effort' | 'length' | 'duration';
@@ -108,6 +112,12 @@ export interface TaskDetails {
 	readonly flags: ListFact;
 	readonly responsible: ListFact;
 	readonly people: readonly PersonFact[];
+	/**
+	 * Who is booked on it, by name: the people above, and whoever the text allocates to it or to a
+	 * parent (a milestone's allocation is not in the schedule, so the question about clearing it
+	 * reads the text).
+	 */
+	readonly booked: readonly string[];
 	readonly engine: EngineFact;
 	/** A leaf with someone booked, no size and no end: TaskJuggler runs it to the project end. */
 	readonly openEnded: boolean;
@@ -121,12 +131,22 @@ export interface InspectInput {
 	/** The result the Gantt shows (`GanttAnalysis.shown`). */
 	readonly result: ScheduleResult | null;
 	readonly analysis: DrivingAnalysis | null;
+	/**
+	 * The snapshot the index was built from. With it, inheritance follows the edit API's rule
+	 * (field.ts); without it, or while the index lags it, the nearest ancestor stands in.
+	 */
+	readonly ws?: WorkspaceSnapshot | null;
 }
 
 const resourceName = (index: SymbolIndex, id: ResourceId): string =>
 	index.resources.get(id)?.name ?? id;
 
-function listOf(index: SymbolIndex, sym: TaskSymbol, keyword: 'flags' | 'responsible'): ListFact {
+function listOf(
+	index: SymbolIndex,
+	sym: TaskSymbol,
+	keyword: 'flags' | 'responsible',
+	ctx: EditContext | null,
+): ListFact {
 	const top = topScenario(index);
 	const sites = sym.attrs.filter(
 		(a) => a.keyword === keyword && (a.scenario === null || a.scenario === top),
@@ -136,14 +156,21 @@ function listOf(index: SymbolIndex, sym: TaskSymbol, keyword: 'flags' | 'respons
 		s.parsed?.kind === 'idList' ? s.parsed.value : [];
 	const own = [...new Set(sites.flatMap(ids))];
 	const inherited: string[] = [];
-	for (let p = sym.parent; p !== null;) {
-		const up = index.tasks.get(p);
-		if (!up) break;
-		for (const a of up.attrs) {
-			if (a.keyword !== keyword || (a.scenario !== null && a.scenario !== top)) continue;
-			for (const id of ids(a)) if (!own.includes(id) && !inherited.includes(id)) inherited.push(id);
+	if (ctx) {
+		// The edit API's rule: only a parent's statements read before the child was declared.
+		for (const id of inheritedIds(ctx, sym, keyword).keys())
+			if (!own.includes(id)) inherited.push(id);
+	} else {
+		for (let p = sym.parent; p !== null;) {
+			const up = index.tasks.get(p);
+			if (!up) break;
+			for (const a of up.attrs) {
+				if (a.keyword !== keyword || (a.scenario !== null && a.scenario !== top)) continue;
+				for (const id of ids(a))
+					if (!own.includes(id) && !inherited.includes(id)) inherited.push(id);
+			}
+			p = up.parent;
 		}
-		p = up.parent;
 	}
 	return { own, inherited, textOnly: blocked ? blocked.statement : null };
 }
@@ -238,9 +265,18 @@ export function taskDetails(i: InspectInput, id: TaskId): TaskDetails | null {
 	const milestone = milestoneSite !== null;
 	const size = sizeOf(index, sym, chain, container ? 'container' : milestone ? 'milestone' : null);
 	const people = peopleOf(index, id, engine);
+	const ctx: EditContext | null = i.ws && index.isFor(i.ws) ? { ws: i.ws, index, opts: {} } : null;
 	const end = readField(index, sym, 'end');
-	const runsOpen =
-		!container && people.length > 0 && end.kind === 'unset' && sizingSite(sym, chain) === null;
+	const unsized = !container && end.kind === 'unset' && sizingSite(sym, chain) === null;
+	// The text's allocations, own and a parent's (taskState), beside the schedule's.
+	const fromText =
+		unsized && ctx
+			? taskState(ctx.ws, index, id).state.allocs.flatMap((r) => (r === null ? [] : [r]))
+			: [];
+	const booked = [...new Set([...people.map((p) => p.id), ...fromText])].map((r) =>
+		resourceName(index, r),
+	);
+	const runsOpen = unsized && booked.length > 0;
 	return {
 		id,
 		sym,
@@ -253,15 +289,16 @@ export function taskDetails(i: InspectInput, id: TaskId): TaskDetails | null {
 		size,
 		start: readField(index, sym, 'start'),
 		end,
-		minstart: readField(index, sym, 'minstart', true),
-		maxend: readField(index, sym, 'maxend', true),
-		scheduling: readField(index, sym, 'scheduling', true),
-		priority: readField(index, sym, 'priority', true),
+		minstart: readField(index, sym, 'minstart', true, ctx),
+		maxend: readField(index, sym, 'maxend', true, ctx),
+		scheduling: readField(index, sym, 'scheduling', true, ctx),
+		priority: readField(index, sym, 'priority', true, ctx),
 		complete: readField(index, sym, 'complete'),
 		note: readField(index, sym, 'note'),
-		flags: listOf(index, sym, 'flags'),
-		responsible: listOf(index, sym, 'responsible'),
+		flags: listOf(index, sym, 'flags', ctx),
+		responsible: listOf(index, sym, 'responsible', ctx),
 		people,
+		booked,
 		engine: engineOf(i, id, engine),
 		openEnded: runsOpen && !milestone,
 		openEndedIfSolid: runsOpen && milestone,

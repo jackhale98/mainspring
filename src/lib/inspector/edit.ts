@@ -102,7 +102,7 @@ export function noteEdit(d: TaskDetails, text: string): Edit | null {
 	if (!printed.ok) return null;
 	return {
 		intent: { type: 'setAttr', task: d.id, attr: 'note', value: printed.value },
-		label: label(`${what} of ${d.name} changed`),
+		label: label(S.label.noteChanged(d.name)),
 	};
 }
 

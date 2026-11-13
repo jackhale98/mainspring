@@ -38,6 +38,10 @@
 	--size-row: 2.25rem;
 	--size-outline: 20rem;
 	--size-inspector: 20rem;
+	/* The collapsed details: a column with the toggle. */
+	--size-rail: 3rem;
+	/* The phone's floating tab bar and its margins: where a sheet over the chart must end. */
+	--tabbar-clearance: calc(var(--size-tabbar) + 18px + env(safe-area-inset-bottom));
 	--size-gantt-names: 18.75rem;
 	--size-control: 2.25rem;
 	--size-divider: 0.75rem;

@@ -9,7 +9,8 @@
 	"Coalescing"). The burst ends on Enter, when the focus leaves the stepper, or after a pause
 	(`PAUSE_MS`), which also covers Safari, where a pressed button takes no focus to lose. While the
 	burst runs and until the text catches up, the stepper shows base plus total, not the plan's text.
-	Presses while an ended burst is settling are ignored (a few frames).
+	A press while an ended burst settles starts the next burst from the value shown, so no press is
+	ever ignored.
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
@@ -56,8 +57,8 @@
 
 	/** Quiet time after the last press that ends the burst. */
 	const PAUSE_MS = 1200;
-	/** The longest an ended burst waits for the text to change. */
-	const SETTLE_MS = 2500;
+	/** The longest an ended burst waits for the plan to show its value. */
+	const SETTLE_MS = 1500;
 
 	const burst = new Burst(
 		untrack(() => min),
@@ -66,7 +67,6 @@
 	let held = $state(false);
 	let total = $state(0);
 	let phase = $state<'idle' | 'active' | 'settling'>('idle');
-	let at: string | null = null;
 	let pause: ReturnType<typeof setTimeout> | null = null;
 	let settle: ReturnType<typeof setTimeout> | null = null;
 	let root: HTMLDivElement | undefined = $state();
@@ -83,7 +83,6 @@
 		held = false;
 		total = 0;
 		phase = 'idle';
-		at = null;
 	}
 
 	async function end(): Promise<void> {
@@ -91,15 +90,18 @@
 		if (pause) clearTimeout(pause);
 		pause = null;
 		phase = 'settling';
-		at = text;
 		const applied = await onend();
 		if (!applied) return release();
-		// The text changes a moment later (the index follows it): the effect below releases.
-		settle = setTimeout(release, SETTLE_MS);
+		// The plan shows the value a moment later (the index follows the text); the effect below
+		// releases then. It may have shown it already, as the dispatcher applies after 300 ms of quiet.
+		if (phase === 'settling') settle = setTimeout(release, SETTLE_MS);
 	}
 
+	// An ended burst is released once the plan shows the value it reached: compared by value, not
+	// by text, because the text has usually changed before the burst ends.
 	$effect(() => {
-		if (phase === 'settling' && text !== at) release();
+		if (phase !== 'settling' || burst.base === null) return;
+		if (value === burst.base + total) release();
 	});
 	$effect(() => () => {
 		if (pause) clearTimeout(pause);
@@ -108,9 +110,12 @@
 	});
 
 	function press(by: number): void {
-		if (value === null || disabled || phase === 'settling') return;
+		if (value === null || disabled) return;
+		// A press while the last burst settles starts the next one from the value shown.
+		const from = phase === 'settling' && current !== null ? current : value;
+		if (phase === 'settling') release();
 		phase = 'active';
-		total = burst.press(value, by * step);
+		total = burst.press(from, by * step);
 		held = true;
 		onpress(total, burst.base ?? value);
 		if (pause) clearTimeout(pause);

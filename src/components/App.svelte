@@ -118,6 +118,17 @@
 	const axis = $derived(kind === 'desktop' ? 'col' : 'row');
 	const ratio = $derived(axis === 'col' ? modes.ratios.col : modes.ratios.row);
 	/** The editor (side by side) or the Gantt (stacked, above) takes `ratio`; the divider is the gap. */
+	/**
+	 * The details dock beside the chart when the chart keeps at least `CHART_MIN` px of width
+	 * with the panel in (Split shares the width with the editor, by the divider's ratio);
+	 * otherwise they are a rail and a drawer over the chart. Measured on `.work`, which docking
+	 * does not change, so there is no flip-flop. Before the first measure: docked.
+	 */
+	const CHART_MIN = 640;
+	const PANEL_SLOT = 328;
+	let workW = $state(0);
+	const chartShare = $derived(split && axis === 'col' ? 1 - ratio : 1);
+	const dock = $derived(workW === 0 || (workW - PANEL_SLOT) * chartShare >= CHART_MIN);
 	const splitTracks = $derived(`minmax(0, ${ratio}fr) var(--gap-panel) minmax(0, ${1 - ratio}fr)`);
 
 	/**
@@ -143,6 +154,17 @@
 			window.removeEventListener('resize', measure);
 		};
 	});
+
+	/**
+	 * Where the toasts stand: above the footer, and above an open details sheet, which covers the
+	 * footer. At full height there is no room above the sheet, so they sit over its bottom instead
+	 * (the toasts are above the sheet in z-order), where Undo stays reachable.
+	 */
+	const toastRoom = $derived(
+		app.inspector.sheetHeight > 0 && app.inspector.detent !== 'full'
+			? Math.max(toastBottom ?? 0, app.inspector.sheetHeight)
+			: toastBottom,
+	);
 
 	function onkeydown(event: KeyboardEvent): void {
 		const next = phone ? null : modeForKey(event);
@@ -171,7 +193,7 @@
 
 <div class="app" data-layout={kind}>
 	<TopBar {app} {theme} layout={kind} {mode} {drawer} onmode={(m) => modes.set(m)} />
-	<div class="work">
+	<div class="work" bind:clientWidth={workW}>
 		<main
 			id="main"
 			class="body"
@@ -248,7 +270,7 @@
 				</div>
 			{/if}
 		</main>
-		<InspectorHost {app} layout={kind} {mode} active={showGantt} onshowtext={showInText} />
+		<InspectorHost {app} layout={kind} {dock} active={showGantt} onshowtext={showInText} />
 	</div>
 	<div class="footer" bind:this={footer}>
 		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
@@ -256,13 +278,7 @@
 		<StatusStrip {app} {updates} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
-	<Toasts
-		{app}
-		{phone}
-		bottom={app.inspector.sheetHeight > 0
-			? Math.max(toastBottom ?? 0, app.inspector.sheetHeight)
-			: toastBottom}
-	/>
+	<Toasts {app} {phone} bottom={toastRoom} />
 	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
@@ -293,6 +309,7 @@
 	/* The Gantt and its inspector side by side on a desktop; the body is what the Split divider
 	   measures, so the inspector sits outside it. */
 	.work {
+		position: relative;
 		display: flex;
 		gap: var(--gap-panel);
 		min-block-size: 0;

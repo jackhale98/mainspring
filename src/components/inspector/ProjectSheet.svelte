@@ -24,7 +24,7 @@
 
 	const open = $derived(app.inspector.projectOpen);
 	const details = $derived(
-		app.index ? projectDetails(app.index, app.workspace?.snapshot() ?? null) : null,
+		app.index ? projectDetails(app.index, app.workspace, app.run?.indexVersion) : null,
 	);
 
 	/** The zone names the browser knows, for the field's suggestions. */

@@ -82,6 +82,7 @@
 	// The milestone question (module comment).
 	let asking = $state(false);
 	let setEffort: HTMLButtonElement | undefined = $state();
+	let milestoneBox: HTMLInputElement | undefined = $state();
 	async function milestone(e: Event & { currentTarget: HTMLInputElement }): Promise<void> {
 		const box = e.currentTarget;
 		const on = box.checked;
@@ -101,7 +102,7 @@
 		const o = await actions.edit(milestoneEdit(d, false));
 		if (thenEffort && o.status === 'applied') app.inspector.sizeFocus++;
 	}
-	const bookedNames = $derived(d.people.map((p) => p.name).join(', '));
+	const bookedNames = $derived(d.booked.join(', '));
 </script>
 
 <div class="options">
@@ -194,6 +195,7 @@
 	<div class="check">
 		<input
 			id="{uid}-milestone"
+			bind:this={milestoneBox}
 			type="checkbox"
 			checked={d.milestone}
 			disabled={d.container}
@@ -214,6 +216,8 @@
 				if (e.key === 'Escape') {
 					e.preventDefault();
 					asking = false;
+					// Back to the box the question came from.
+					milestoneBox?.focus();
 				}
 			}}
 		>
@@ -274,6 +278,22 @@
 		inline-size: 24px;
 		block-size: 24px;
 		accent-color: var(--color-accent);
+	}
+	/* A touch target of 44 px: the label is the box's, so it is a press anywhere on the row. */
+	@media (pointer: coarse) {
+		.check {
+			min-block-size: var(--size-tap);
+		}
+		.check input {
+			inline-size: 28px;
+			block-size: 28px;
+		}
+		.check label {
+			display: flex;
+			align-items: center;
+			min-block-size: var(--size-tap);
+			padding-inline-end: var(--space-4);
+		}
 	}
 	.check .note {
 		grid-column: 2;

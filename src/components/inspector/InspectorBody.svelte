@@ -38,7 +38,15 @@
 	);
 	const details = $derived(
 		index && id !== null
-			? taskDetails({ index, result, analysis: view?.analysis ?? null }, id)
+			? taskDetails(
+					{
+						index,
+						result,
+						analysis: view?.analysis ?? null,
+						ws: app.workspace?.snapshot() ?? null,
+					},
+					id,
+				)
 			: null,
 	);
 	const lists = $derived(index && details ? linksOfTask(links, details.id, index, project) : null);

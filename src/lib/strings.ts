@@ -534,6 +534,7 @@ export const inspectorStrings = {
 		change: (what: string, task: string, from: string, to: string) =>
 			`${what} of ${task}: ${from} to ${to}`,
 		clear: (what: string, task: string) => `${what} of ${task} cleared`,
+		noteChanged: (task: string) => `Note of ${task} changed`,
 		kind: (task: string, from: string, to: string) => `${task} is now ${to} instead of ${from}`,
 		milestoneOn: (task: string) => `${task} is now a milestone`,
 		milestoneOff: (task: string) => `${task} is no longer a milestone`,

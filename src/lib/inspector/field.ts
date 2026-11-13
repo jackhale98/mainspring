@@ -7,13 +7,17 @@
  *   statement is the one TaskJuggler keeps and the one an edit rewrites (`lastSite`).
  * - `inherited`: not written here, but a parent task sets an attribute TaskJuggler inherits
  *   (priority, scheduling, minstart, maxend, flags, responsible). The field says where it comes
- *   from. This is an approximation of the edit API's `inheritedSites`: it takes the nearest
- *   ancestor that writes the attribute, whatever the order of the parent's statement and the
- *   child's header. It is display only: an edit writes a value on the task itself.
+ *   from. With an edit context (the snapshot the index was built from) it is the edit API's own
+ *   rule, `inheritedSites`: only a parent's statements read before the child was declared count.
+ *   While the index lags the text there is no such context, and the nearest ancestor that writes
+ *   the attribute stands in, whatever the order. It is display only: an edit writes a value on
+ *   the task itself.
  * - `text-only`: written with a macro or a variable, or in a form the index cannot read. The
  *   inspector does not edit it and offers "Show in text".
  * - `unset`: nothing says anything.
  */
+import { inheritedSites } from '../tjp/edit/task-attrs-checks';
+import type { EditContext } from '../tjp/edit/types';
 import {
 	lastSite,
 	type AttrSite,
@@ -83,7 +87,23 @@ export function inheritedField(
 	index: SymbolIndex,
 	sym: TaskSymbol,
 	keyword: string,
+	ctx: EditContext | null = null,
 ): FieldState | null {
+	if (ctx) {
+		const site = inheritedSites(ctx, sym, keyword).at(-1);
+		if (!site) return null;
+		const up = [...index.tasks.values()].find((t) => t.attrs.includes(site));
+		const s = siteState(site);
+		return s.kind === 'own' && up
+			? {
+					kind: 'inherited',
+					text: s.text,
+					from: up.id,
+					fromName: up.name ?? up.localId,
+					at: s.at,
+				}
+			: s;
+	}
 	const seen = new Set<TaskId>();
 	for (let p = sym.parent; p !== null && !seen.has(p);) {
 		seen.add(p);
@@ -113,8 +133,9 @@ export function readField(
 	sym: TaskSymbol,
 	keyword: string,
 	inherits = false,
+	ctx: EditContext | null = null,
 ): FieldState {
 	const site = ownSite(index, sym, keyword);
 	if (site) return siteState(site);
-	return (inherits ? inheritedField(index, sym, keyword) : null) ?? UNSET;
+	return (inherits ? inheritedField(index, sym, keyword, ctx) : null) ?? UNSET;
 }

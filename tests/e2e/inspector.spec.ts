@@ -89,12 +89,14 @@ test.describe('the inspector', () => {
 			await expect(panel).toBeInViewport({ ratio: 1 });
 			const box = await panel.boundingBox();
 			const view = page.viewportSize();
-			expect(box && view).toBeTruthy();
-			if (box && view) {
-				// Pinned to the bottom, about half the screen, and the row is above it (WCAG 2.4.11).
-				expect(Math.abs(box.y + box.height - view.height)).toBeLessThan(2);
-				expect(box.height).toBeGreaterThan(view.height * 0.4);
-				expect(box.height).toBeLessThan(view.height * 0.6);
+			const bar = await page.locator('.tabbar').boundingBox();
+			expect(box && view && bar).toBeTruthy();
+			if (box && view && bar) {
+				// Pinned just above the tab bar, about half the room above it, and the row is above
+				// it (WCAG 2.4.11).
+				expect(Math.abs(box.y + box.height - bar.y)).toBeLessThan(2 + 12);
+				expect(box.height).toBeGreaterThan(view.height * 0.35);
+				expect(box.height).toBeLessThan(view.height * 0.55);
 				const r = await row(page, 'Research').boundingBox();
 				expect(r && r.y + r.height).toBeLessThanOrEqual(box.y + 1);
 			}
@@ -268,6 +270,13 @@ test.describe('the inspector', () => {
 		await expect(ask.getByRole('button', { name: 'Set effort' })).toBeFocused();
 		// Nothing changed yet.
 		expect((await text(page)) ?? '').toContain('milestone');
+		// Escape drops the question and returns to the box it came from (L4).
+		await page.keyboard.press('Escape');
+		await expect(ask).toBeHidden();
+		await expect(panel.getByRole('checkbox', { name: 'Milestone' })).toBeFocused();
+		await expect(panel.getByRole('checkbox', { name: 'Milestone' })).toBeChecked();
+		await panel.getByRole('checkbox', { name: 'Milestone' }).click();
+		await expect(ask.getByRole('button', { name: 'Set effort' })).toBeFocused();
 		// "Set effort" clears the milestone and puts the focus on the size field.
 		await ask.getByRole('button', { name: 'Set effort' }).click();
 		await expect.poll(() => text(page)).toBe(original);
@@ -296,6 +305,152 @@ test.describe('the inspector', () => {
 		await sheet.getByRole('button', { name: 'Open in text' }).click();
 		await expect(page.locator('.cm-content')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 		await expect(page.locator('.cm-activeLine, .cm-selectionBackground').first()).toBeVisible();
+	});
+});
+
+test.describe('the details on a phone and in a narrow Split', () => {
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T17)');
+	});
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+
+	test('a press after a pause is not ignored: one press, a pause, one press is +2 (M1)', async ({
+		page,
+	}, info) => {
+		await open(page);
+		const original = (await text(page)) ?? '';
+		const panel = await select(page, info, 'Research');
+		const effort = panel.getByRole('group', { name: 'Effort' });
+		const more = effort.getByRole('button', { name: 'Increase Effort' });
+		await more.click();
+		// The burst ends by its pause (1.2 s) and its edit is in the text.
+		await expect.poll(() => text(page)).toBe(original.replace('effort 3d', 'effort 4d'));
+		await page.waitForTimeout(1700);
+		await more.click();
+		await expect(effort.getByRole('textbox')).toHaveValue('5d');
+		await expect.poll(() => text(page)).toBe(original.replace('effort 3d', 'effort 5d'));
+		await settled(page);
+		await expect(effort.getByRole('textbox')).toHaveValue('5d');
+	});
+
+	test('on a phone the sheet ends above the tab bar, at both heights, with a status chip (M3, M4)', async ({
+		page,
+	}, info) => {
+		test.skip(!phone(info), 'the phone sheet');
+		await open(page);
+		const panel = await select(page, info, 'Research');
+		const tabbar = page.locator('.tabbar');
+		await expect(tabbar).toBeVisible();
+		const gap = async (): Promise<number> => {
+			const a = await panel.boundingBox();
+			const t = await tabbar.boundingBox();
+			return a && t ? t.y - (a.y + a.height) : Number.NaN;
+		};
+		// The sheet ends at or above the tab bar (a gap of 0 or more), at either height.
+		const above = () => expect.poll(gap).toBeGreaterThanOrEqual(-1);
+		await above();
+		const grab = panel.getByRole('button', { name: /Details height/ });
+		await grab.click();
+		await expect(grab).toHaveAttribute('aria-expanded', 'true');
+		await above();
+		await expect.poll(async () => (await panel.boundingBox())?.y ?? 999).toBeLessThan(40);
+		await grab.click();
+		await page.waitForTimeout(300);
+		await above();
+		// The sheet covers the status strip, so it carries the state itself.
+		await expect(panel.getByText('Scheduled', { exact: true })).toBeVisible();
+	});
+
+	test('on a phone the toasts stay on screen with Undo reachable, also at full height (M2)', async ({
+		page,
+	}, info) => {
+		test.skip(!phone(info), 'the phone sheet');
+		await open(page);
+		const original = (await text(page)) ?? '';
+		const panel = await select(page, info, 'Research');
+		await panel.getByRole('button', { name: /Details height/ }).click();
+		await expect(panel.getByRole('button', { name: /Details height/ })).toHaveAttribute(
+			'aria-expanded',
+			'true',
+		);
+		await page.waitForTimeout(300);
+		const effort = panel.getByRole('group', { name: 'Effort' });
+		await effort.getByRole('textbox').fill('5d');
+		await effort.getByRole('textbox').press('Enter');
+		const toast = page.getByTestId('toast').last();
+		await expect(toast).toContainText('Effort of Research: 3d to 5d');
+		await expect(toast).toBeInViewport({ ratio: 1 });
+		const undo = toast.getByRole('button', { name: 'Undo' });
+		await expect(undo).toBeInViewport({ ratio: 1 });
+		await undo.click();
+		await expect.poll(() => text(page)).toBe(original);
+		// Half height: the toast is above the sheet, and also on screen.
+		await panel.getByRole('button', { name: /Details height/ }).click();
+		await page.waitForTimeout(300);
+		await effort.getByRole('textbox').fill('4d');
+		await effort.getByRole('textbox').press('Enter');
+		const t2 = page.getByTestId('toast').last();
+		await expect(t2).toContainText('Effort of Research: 3d to 4d');
+		await expect(t2).toBeInViewport({ ratio: 1 });
+		const sheet = await panel.boundingBox();
+		const tb = await t2.boundingBox();
+		expect(sheet && tb && tb.y + tb.height <= sheet.y + 1).toBe(true);
+	});
+
+	test('a narrow Split has a rail, and a click opens a drawer over the chart (M5)', async ({
+		page,
+	}, info) => {
+		test.skip(phone(info), 'a desktop');
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await open(page, 'split');
+		const editor = page.locator('#panel-text');
+		const gantt = page.locator('#panel-gantt');
+		const rail = page.getByRole('button', { name: 'Show details' });
+		await expect(rail).toBeVisible();
+		await expect(page.getByRole('complementary', { name: 'Details' })).toHaveCount(0);
+		const editorBefore = await editor.boundingBox();
+		const ganttBefore = await gantt.boundingBox();
+		// A click selects and opens the drawer: over the chart's right edge, no width taken.
+		await row(page, 'Research').click();
+		const drawer = page.getByRole('complementary', { name: 'Details' });
+		await expect(drawer).toBeVisible();
+		await expect(drawer.getByLabel('Name', { exact: true })).toHaveValue('Research');
+		const d = await drawer.boundingBox();
+		const g = await gantt.boundingBox();
+		expect(d && g).toBeTruthy();
+		if (d && g) {
+			expect(d.x).toBeGreaterThan(g.x);
+			expect(d.x + d.width).toBeLessThanOrEqual(g.x + g.width + 1);
+			expect(d.width).toBeGreaterThan(300);
+		}
+		const editorAfter = await editor.boundingBox();
+		const ganttAfter = await gantt.boundingBox();
+		expect(editorAfter?.width).toBe(editorBefore?.width);
+		expect(ganttAfter?.width).toBe(ganttBefore?.width);
+		// The drawer edits like the panel does.
+		const effort = drawer.getByRole('group', { name: 'Effort' });
+		await effort.getByRole('textbox').fill('4d');
+		await effort.getByRole('textbox').press('Enter');
+		await expect.poll(() => text(page)).toContain('effort 4d');
+		await settled(page);
+		await undoToast(page);
+		// Escape closes it and returns to the row; the rail's toggle opens and closes it too.
+		await drawer.getByLabel('Name', { exact: true }).focus();
+		await page.keyboard.press('Escape');
+		await expect(drawer).toBeHidden();
+		await expect(row(page, 'Research')).toBeFocused();
+		await page.getByRole('button', { name: 'Show details' }).click();
+		await expect(drawer).toBeVisible();
+		await page.getByRole('button', { name: 'Hide details' }).last().click();
+		await expect(drawer).toBeHidden();
+		if (process.env['SCREENSHOTS']) {
+			await row(page, 'Research').click();
+			await expect(drawer).toBeVisible();
+			await page.waitForTimeout(400);
+			await page.screenshot({
+				path: path.join(DIR, `inspector-split-1280-${info.project.name}-light.png`),
+			});
+		}
 	});
 });
 

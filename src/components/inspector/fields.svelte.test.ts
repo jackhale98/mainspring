@@ -161,6 +161,37 @@ describe('Stepper', () => {
 		expect(s.onpress).toHaveBeenLastCalledWith(1, 4);
 	});
 
+	it('takes the next press at once when the plan already showed the value before the pause ended it', async () => {
+		const s = setup();
+		s.btn('Increase Effort').click();
+		// The dispatcher applied after 300 ms: the text is already the burst's value.
+		await vi.advanceTimersByTimeAsync(400);
+		s.props.text = '4d';
+		s.props.value = 4;
+		flushSync();
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(s.onend).toHaveBeenCalledTimes(1);
+		// The burst ended and the plan shows its value: the stepper follows the plan again...
+		expect(s.input.value).toBe('4d');
+		// ...and a press right away counts from it (+1 to +2 in all, not ignored).
+		s.btn('Increase Effort').click();
+		flushSync();
+		expect(s.onpress).toHaveBeenLastCalledWith(1, 4);
+		expect(s.input.value).toBe('5d');
+	});
+
+	it('starts the next burst from the value shown when the plan has not caught up', async () => {
+		const s = setup();
+		s.btn('Increase Effort').click();
+		await vi.advanceTimersByTimeAsync(1300);
+		expect(s.input.value).toBe('4d');
+		// The text still says 3d (the index lags): the press counts from what is shown.
+		s.btn('Increase Effort').click();
+		flushSync();
+		expect(s.onpress).toHaveBeenLastCalledWith(1, 4);
+		expect(s.input.value).toBe('5d');
+	});
+
 	it('ends on Enter and when the focus leaves, and not twice', async () => {
 		const s = setup();
 		s.btn('Increase Effort').click();

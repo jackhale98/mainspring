@@ -44,7 +44,10 @@
 		focusOnOpen?: boolean;
 		onclose: () => void;
 		ondetent?: (d: Detent) => void;
+		/** The distance from the viewport's bottom to the sheet's top, in px (0 when closed). */
 		onheight?: (px: number) => void;
+		/** Where the focus goes when the person closes a sheet that is not modal; true: handled. */
+		onreturn?: () => boolean;
 		/** What sits after the title in the header (a button, say). */
 		actions?: Snippet;
 		children: Snippet;
@@ -60,6 +63,7 @@
 		onclose,
 		ondetent,
 		onheight,
+		onreturn,
 		actions,
 		children,
 	}: Props = $props();
@@ -69,6 +73,8 @@
 	let dialog: HTMLDialogElement | undefined = $state();
 	let dragPx = $state<number | null>(null);
 	let opener: Element | null = null;
+	/** The sheet is closed by its `open` prop (a tab changed), not by the person. */
+	let byProp = false;
 
 	$effect(() => {
 		if (!dialog) return;
@@ -80,14 +86,19 @@
 				// A tap on a task must not move the focus (a touch keyboard would open).
 				if (!focusOnOpen && opener instanceof HTMLElement) opener.focus({ preventScroll: true });
 			}
-		} else if (!open && dialog.open) dialog.close();
+		} else if (!open && dialog.open) {
+			byProp = true;
+			dialog.close();
+		}
 	});
 
 	// The sheet's height, for what has to stay clear of it (the chart's selected row).
 	$effect(() => {
 		const el = dialog;
 		if (!el || !onheight || !open) return;
-		const report = (): void => onheight(el.getBoundingClientRect().height);
+		// From the viewport's bottom: a sheet that ends above the tab bar still covers that much.
+		const report = (): void =>
+			onheight(Math.round(window.innerHeight - el.getBoundingClientRect().top));
 		const ro = new ResizeObserver(report);
 		ro.observe(el);
 		report();
@@ -109,10 +120,12 @@
 	}
 
 	function closed(): void {
-		// Focus goes back to what was focused before the sheet opened, if it is still there.
-		if (!modal && opener instanceof HTMLElement && opener.isConnected) {
+		// Focus goes back where the owner says (the selected row), else to what was focused before
+		// the sheet opened, if it is still there; not when a tab change closed it.
+		if (!modal && !byProp && !onreturn?.() && opener instanceof HTMLElement && opener.isConnected) {
 			opener.focus({ preventScroll: true });
 		}
+		byProp = false;
 		opener = null;
 		onclose();
 	}
@@ -250,18 +263,21 @@
 		/* The sheet's own width, so a tablet gets a sheet and not a full-width slab. */
 		inline-size: min(44rem, 100vw);
 	}
-	/* On a phone the tab bar floats over the sheet's bottom edge: its content ends above it. */
+	/* On a phone the sheet ends above the floating tab bar (the margin, not a padding, so that the
+	   top stays auto and the sheet keeps the iPhone placement above). The heights below are shares
+	   of what is left. */
 	@media (max-width: 599px) {
-		.sheet[data-modal='false'] .content {
-			padding-block-end: calc(var(--size-tabbar) + 24px + env(safe-area-inset-bottom));
+		.sheet[data-side='bottom'][data-modal='false'] {
+			margin-block-end: var(--tabbar-clearance);
+			--room: calc(100dvh - var(--tabbar-clearance));
 		}
 	}
 	.sheet[data-detent='half'] {
-		block-size: 50dvh;
+		block-size: calc(var(--room, 100dvh) / 2);
 		max-block-size: none;
 	}
 	.sheet[data-detent='full'] {
-		block-size: calc(100dvh - 12px - env(safe-area-inset-top));
+		block-size: calc(var(--room, 100dvh) - 12px - env(safe-area-inset-top));
 		max-block-size: none;
 	}
 	.sheet[data-dragging] {

@@ -38,7 +38,7 @@
 	const key = $derived(`inspector:size:${d.id}`);
 	let last: Promise<{ status: string }> = Promise.resolve({ status: 'cancelled' });
 
-	const people = $derived(d.people.map((p) => p.name).join(', '));
+	const people = $derived(d.booked.join(', '));
 	const unit = $derived(size.unit ?? 'd');
 	const format = (n: number): string => `${Number(n.toFixed(3))}${unit}`;
 
@@ -66,24 +66,21 @@
 
 	// "Set effort" (the open-ended notice, the milestone question) moves the focus to the value. The
 	// field may not exist yet (a milestone has none until the plan says it is not one), so the
-	// request waits for it, for a few seconds at most.
+	// request waits for it, for a few seconds at most. One effect reads the request and the kind,
+	// so it runs again when either changes.
 	let seen = untrack(() => app.inspector.sizeFocus);
-	let wanted = 0;
+	let wanted = $state(0);
 	$effect(() => {
 		const n = app.inspector.sizeFocus;
 		if (n !== seen) {
 			seen = n;
 			wanted = Date.now() + 4000;
 		}
-	});
-	$effect(() => {
 		void size.kind;
 		if (wanted === 0) return;
 		const el = document.getElementById(valueId);
-		if (el) {
-			wanted = 0;
-			el.focus();
-		} else if (Date.now() > wanted) wanted = 0;
+		if (el) el.focus();
+		if (el || Date.now() > wanted) wanted = 0;
 	});
 </script>
 
