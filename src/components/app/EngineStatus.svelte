@@ -29,8 +29,7 @@
 	data-state={state}
 	title={engineLine(state)}
 >
-	{#if working}<Mark size={16} busy />{/if}
-	<span class="words">{engineLine(state)}</span>
+	{#if working}<Mark size={16} busy />{/if}<span class="words">{engineLine(state)}</span>
 </p>
 
 <style>
