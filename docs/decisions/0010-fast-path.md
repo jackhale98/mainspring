@@ -1,12 +1,15 @@
-# ADR-0010: Parse-skipping fast path (draft)
+# ADR-0010: Parse-skipping fast path
 
-Status: draft by `engine-specialist` (T19), revised after two review rounds (2026-11-13; see
-Review history), for the main session to format and put to the user.
-Source: `docs/phases/phase-2.md` section 12, 18.12 and 6.12. Code on branch `t19-fast-path`:
-`engine/bridge/fast_path.rb`, `fast_path_sites.rb` and `fast_path_procs.rb`, the `retain` and
-`fast` request fields in `src/engine/protocol.ts`, the main thread's half in
-`src/lib/workspace/fast-patch.ts`, and the tests `tests/engine/fast-path.*`.
-
+Status: **accepted with a condition by the user, 2026-11-13.** The code is merged but switched
+off: nothing sends `retain` or `fast` yet. A third independent adversarial review runs next. If
+it finds no case where the fast path gives a different schedule from a full run, the runner is
+wired as in "Runner integration" and the fast path is on by default, with the engine popover's
+path line and its "Run full schedule" button. If it finds one, the fix and a further review come
+first. Drafted by `engine-specialist` (T19), revised after two review rounds (see Review history).
+Source: `docs/phases/phase-2.md` section 12, 18.12 and 6.12. Code: `engine/bridge/fast_path.rb`,
+`fast_path_sites.rb` and `fast_path_procs.rb`, the `retain` and `fast` request fields in
+`src/engine/protocol.ts`, the main thread's half in `src/lib/workspace/fast-patch.ts`, and the
+tests `tests/engine/fast-path.*`.
 ## Context
 
 A full run parses the workspace and then schedules it. In the browser engine the parse is a large
