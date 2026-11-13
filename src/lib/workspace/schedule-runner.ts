@@ -61,6 +61,7 @@ import {
 	defaultTimers,
 	IDLE_TIMEOUT_MS,
 	MAX_TYPING_WAIT_MS,
+	RUNNER_MEASURE,
 	SLICE_MS,
 	TYPING_PAUSE_MS,
 	type RunnerFailure,
@@ -177,7 +178,9 @@ class Runner implements ScheduleRunner {
 				this.#debounce();
 			} else {
 				// 'intent', 'format', 'history': post first, derive in the next idle tasks.
+				const start = this.#timers.now();
 				this.#runNow();
+				measure(start, this.#timers.now(), ['post']);
 				this.#typingStopped();
 				this.#kick();
 			}
@@ -231,16 +234,19 @@ class Runner implements ScheduleRunner {
 	#work(): void {
 		const d = this.#derive;
 		const start = this.#timers.now();
+		const steps: string[] = [];
 		d.beginTask();
 		for (;;) {
 			const out = d.step(this.#follow());
 			if (!out) break;
+			steps.push(out.kind);
 			if (out.kind === 'shown') this.#show(out.shown);
 			// Caught up with the text: the next keystroke starts a new burst (and a new cap).
 			if (d.indexCurrent) this.#typingStopped();
 			if (out.kind !== 'work' || this.#timers.now() - start >= this.#sliceMs) break;
 		}
 		d.endTask();
+		if (steps.length > 0) measure(start, this.#timers.now(), steps);
 	}
 
 	#debounce(): void {
@@ -382,6 +388,15 @@ class Runner implements ScheduleRunner {
 			timings: latest?.timings ?? null,
 			failure,
 		};
+	}
+}
+
+/** Records one runner task (`RUNNER_MEASURE`); a runtime without User Timing Level 3 skips it. */
+function measure(start: number, end: number, steps: readonly string[]): void {
+	try {
+		globalThis.performance.measure(RUNNER_MEASURE, { start, end, detail: { steps } });
+	} catch {
+		// Timings only: nothing depends on the measure.
 	}
 }
 

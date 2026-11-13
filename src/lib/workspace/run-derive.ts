@@ -86,6 +86,8 @@ interface Waiting {
 	readonly arrival: Arrival;
 	/** undefined until the result's hints were read; null when it names no ids. */
 	hints: EngineHints | null | undefined;
+	/** Whether its engine messages need an index of the sent text to be refined by id. */
+	refines: boolean;
 	sentIndex: Prepared | null;
 	sentIndexFailed: boolean;
 	spentMs: number;
@@ -149,6 +151,7 @@ export class Deriver {
 		this.#waiting.push({
 			arrival,
 			hints: undefined,
+			refines: false,
 			sentIndex: null,
 			sentIndexFailed: false,
 			spentMs: 0,
@@ -192,10 +195,29 @@ export class Deriver {
 	/** Takes the next step (module comment); null when nothing is due. */
 	step(follow: boolean): StepOutcome | null {
 		this.#stepStart = this.#now();
-		const out = this.#next(follow);
+		let out: StepOutcome | null;
+		try {
+			out = this.#next(follow);
+		} catch (error) {
+			report(error);
+			out = this.#recover();
+		}
 		const ms = this.#now() - this.#stepStart;
 		for (const w of this.#waiting) w.spentMs += ms;
 		return out;
+	}
+
+	/** After an unexpected exception: show the waiting result as it is, or stop following. */
+	#recover(): StepOutcome | null {
+		const now = this.#ws.snapshot();
+		const w = this.#waiting[0];
+		if (w) {
+			w.refines = false;
+			return this.#show(w, now);
+		}
+		this.#indexFailed = { version: now.version, base: this.#hintBase };
+		this.#checksFailed = this.#view.index;
+		return null;
 	}
 
 	#next(follow: boolean): StepOutcome | null {
@@ -283,11 +305,9 @@ export class Deriver {
 			w.hints = hints;
 			this.#hintBase = { snapshot: sent.snapshot, result, hints };
 		});
-	}
-
-	/** Whether engine messages need an index of the sent text to be refined by id. */
-	#refines(w: Waiting): boolean {
-		return w.arrival.result.messages.some((m) => m.level !== 'debug');
+		this.#guard(() => {
+			w.refines = result.messages.some((m) => m.level !== 'debug');
+		});
 	}
 
 	/** An index of the sent snapshot with the result's hints (any, for a result without). */
@@ -302,7 +322,7 @@ export class Deriver {
 	}
 
 	#placeable(w: Waiting): boolean {
-		return !this.#refines(w) || w.sentIndexFailed || this.#sentIndex(w) !== null;
+		return !w.refines || w.sentIndexFailed || this.#sentIndex(w) !== null;
 	}
 
 	#buildSentIndex(w: Waiting): void {
@@ -321,7 +341,7 @@ export class Deriver {
 		const { result, sent } = w.arrival;
 		let diagnostics: readonly TjpDiagnostic[] = [];
 		this.#guard(() => {
-			const index = this.#refines(w) ? this.#sentIndex(w) : null;
+			const index = w.refines ? this.#sentIndex(w) : null;
 			diagnostics = engineDiagnostics(result, sent.snapshot, index);
 			this.#diagnosticBase = { snapshot: sent.snapshot, diagnostics };
 			const v = this.#view;

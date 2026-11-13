@@ -174,6 +174,13 @@ export const IDLE_FALLBACK_MS = 50;
  */
 export const SLICE_MS = 8;
 
+/**
+ * Each task of the runner's own (an idle task of derive steps, or the post of an intent, format or
+ * history change) is recorded as a `performance` measure with this name; its detail lists the
+ * steps (`post`, `shown`, `view`, `work`). For the gate's timings (phase-2.md 6.9, 8.4).
+ */
+export const RUNNER_MEASURE = 'mainspring:runner-task';
+
 /** `o` completed with the defaults (see ScheduleRunnerOptions.timers). */
 export function defaultTimers(o: Partial<Timers>): Timers {
 	const setTimeout = o.setTimeout ?? ((fn, ms) => globalThis.setTimeout(fn, ms));
