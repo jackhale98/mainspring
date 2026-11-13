@@ -288,6 +288,7 @@ class History implements WorkspaceHistory {
 					extend(top, tr, after);
 					this.#entries.delete(top);
 					this.#undone = [];
+					this.#dropIfEmpty(top);
 				} else {
 					this.#push(typingRec(path, tr, before, after));
 				}
@@ -295,6 +296,7 @@ class History implements WorkspaceHistory {
 				// A format or intent: the batch is one entry.
 				extend(whole, tr, after);
 				this.#entries.delete(whole);
+				this.#dropIfEmpty(whole);
 			} else {
 				whole = editRec(path, tr, before, after, origin);
 				this.#push(whole);
@@ -303,11 +305,28 @@ class History implements WorkspaceHistory {
 	}
 
 	#push(rec: Rec): void {
+		// A step that changes nothing is not an undo step (its versions could not be told apart).
+		for (let i = rec.steps.length - 1; i >= 0; i--) {
+			if (rec.steps[i]?.changes.empty) rec.steps.splice(i, 1);
+		}
 		if (rec.steps.length === 0) return;
 		this.#seal();
 		this.#done.push(rec);
 		this.#undone = [];
 		if (this.#done.length > this.#limit) this.#done.splice(0, this.#done.length - this.#limit);
+	}
+
+	/**
+	 * Drops the top entry when its changes have come to nothing ("x", then Backspace): undoing it
+	 * would apply nothing and leave no version to re-stamp. Its text is the text before it, so
+	 * the entry below now expects the file's current version.
+	 */
+	#dropIfEmpty(rec: Rec): void {
+		if (this.#done[this.#done.length - 1] !== rec || rec.steps.some((s) => !s.changes.empty)) {
+			return;
+		}
+		this.#done.pop();
+		for (const s of rec.steps) this.#restamp(s.path, s.before, s.after);
 	}
 
 	/** Closes the typing group on top, so nothing more joins it. */

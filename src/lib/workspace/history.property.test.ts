@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Property tests for the workspace history (phase-2.md 13.1): random sequences of typing,
-// cursor moves, intents, format (through `apply` and as the editor commits it), undo and redo
-// across three files keep the text equal to a model of the stacks; undo all gives the seed byte
-// for byte and redo all the final text; re-stamped versions keep `undoEdit` valid for the top
-// entry; and a change that bypasses the history gives `diverged` for the first entry that touches
-// its file, without applying anything.
+// Property tests for the workspace history (phase-2.md 13.1): random sequences of typing, typos
+// fixed at once (a group that nets to nothing), cursor moves, intents (some across two files:
+// deleteTask with a reference in another file, moveTask between files), format (through `apply`
+// and as the editor commits it), undo and redo across three files keep the text equal to a model
+// of the stacks; undo all gives the seed byte for byte and redo all the final text; re-stamped
+// versions keep `undoEdit` valid for the top entry; and a change that bypasses the history (an
+// insertion, or a same-length replacement that only the version check catches) gives `diverged`
+// for the first entry that touches its file, without applying anything.
 import { Transaction } from '@codemirror/state';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
@@ -27,6 +29,7 @@ type Op =
 	| { k: 'type'; file: number; line: number; text: string; dt: number; event: string }
 	| { k: 'del'; file: number; line: number; dt: number; back: boolean }
 	| { k: 'move'; file: number; line: number }
+	| { k: 'typo'; file: number; line: number; dt: number }
 	| { k: 'intent'; kind: number; task: number; value: number }
 	| { k: 'format'; file: number; editor: boolean }
 	| { k: 'undo' }
@@ -52,11 +55,12 @@ const op: fc.Arbitrary<Op> = fc.oneof(
 		arbitrary: fc.record({ k: fc.constant('del' as const), file, line, dt, back: fc.boolean() }),
 	},
 	{ weight: 1, arbitrary: fc.record({ k: fc.constant('move' as const), file, line }) },
+	{ weight: 1, arbitrary: fc.record({ k: fc.constant('typo' as const), file, line, dt }) },
 	{
 		weight: 3,
 		arbitrary: fc.record({
 			k: fc.constant('intent' as const),
-			kind: fc.nat({ max: 2 }),
+			kind: fc.nat({ max: 4 }),
 			task: fc.nat({ max: 9 }),
 			value: fc.nat({ max: 4 }),
 		}),
@@ -84,7 +88,12 @@ function intentOf(ws: Workspace, o: Extract<Op, { k: 'intent' }>): EditIntent | 
 	const v = ['1d', '2d', '3w', '4h', '10d'][o.value] ?? '1d';
 	if (o.kind === 0) return { type: 'setAttr', task, attr: 'effort', value: v };
 	if (o.kind === 1) return { type: 'renameTask', task, name: `Task ${v}` };
-	return { type: 'setAttr', task, attr: 'note', value: `note ${v}` };
+	if (o.kind === 2) return { type: 'setAttr', task, attr: 'note', value: `note ${v}` };
+	// Across files in the seed: deleting `a` edits `depends a` in b.tji; moving `top` under `a`
+	// moves text from plan.tjp to a.tji.
+	if (o.kind === 3) return { type: 'deleteTask', task };
+	const parent = o.value === 0 ? null : (ids[(o.task + o.value) % ids.length] ?? null);
+	return { type: 'moveTask', task, parent, index: 0 };
 }
 
 interface Model {
@@ -118,6 +127,15 @@ function run(ws: Workspace, o: Op, clock: { t: number }): void {
 		case 'move':
 			moveCursor(ws, pathOf(o.file), lineStart(ws, pathOf(o.file), o.line));
 			return;
+		case 'typo': {
+			clock.t += o.dt;
+			const path = pathOf(o.file);
+			const p = lineStart(ws, path, o.line);
+			type(ws, path, p, 'x', { time: clock.t });
+			type(ws, path, p, '', { time: clock.t + 50, to: p + 1 });
+			clock.t += 50;
+			return;
+		}
 		case 'intent': {
 			const i = intentOf(ws, o);
 			if (i) intent(ws, i);
@@ -150,6 +168,8 @@ function step(ws: Workspace, h: WorkspaceHistory, m: Model, o: Op, clock: { t: n
 	run(ws, o, clock);
 	const after = ws.texts();
 	const top = h.top();
+	// The "x" of a typo is recorded, and clears redo, before Backspace takes it away.
+	if (o.k === 'typo') m.undone = [];
 	if (JSON.stringify(after) === JSON.stringify(before) || !top) return;
 	const last = m.done[m.done.length - 1];
 	if (last && last.id === top.id) last.texts = after;
@@ -194,7 +214,8 @@ describe('workspace history (property)', () => {
 				fc.array(op, { minLength: 1, maxLength: 20 }),
 				file,
 				fc.nat({ max: 3 }),
-				(ops, bypassed, undos) => {
+				fc.boolean(),
+				(ops, bypassed, undos, sameLength) => {
 					const ws = seedWorkspace();
 					const h = createHistory(ws);
 					const m: Model = { done: [], undone: [] };
@@ -203,7 +224,13 @@ describe('workspace history (property)', () => {
 					for (let i = 0; i < undos; i++) step(ws, h, m, { k: 'undo' }, clock);
 					const path = pathOf(bypassed);
 					const bypass = { annotations: [Transaction.addToHistory.of(false)] };
-					type(ws, path, 0, '#', { spec: bypass });
+					// A same-length replacement keeps every length check happy: only versions tell.
+					const first = ws.state(path).doc.sliceString(0, 1);
+					if (sameLength && first !== '') {
+						type(ws, path, 0, first === '#' ? '%' : '#', { to: 1, spec: bypass });
+					} else {
+						type(ws, path, 0, '#', { spec: bypass });
+					}
 					for (;;) {
 						const top = h.top();
 						const before = ws.texts();

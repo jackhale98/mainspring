@@ -142,15 +142,38 @@ describe('createHistory', () => {
 			base: { 'a.tji': fa.version, 'b.tji': fb.version },
 			changes: {
 				'a.tji': changeSetOf({ from: 0, insert: '# 1\n' }, A.length),
-				'b.tji': changeSetOf({ from: 0, to: 4, insert: 'task' }, B.length),
+				'b.tji': changeSetOf({ from: 0, to: 4, insert: '# 2\ntask' }, B.length),
 			},
 		};
 		ws.apply(edit, { annotations: [historyLabel.of('Move B under A')] });
 		expect(h.top()).toMatchObject({ id: 'two', kind: 'intent', label: 'Move B under A' });
+		const entry = h.top();
+		expect(Object.keys(entry?.applied.edit.changes ?? {}).sort()).toEqual(['a.tji', 'b.tji']);
 		h.undo();
 		expect(ws.texts()).toEqual(FILES);
 		h.redo();
 		expect(textOf(ws, 'a.tji')).toBe(`# 1\n${A}`);
+		expect(textOf(ws, 'b.tji')).toBe(`# 2\n${B}`);
+		h.undo();
+		expect(ws.texts()).toEqual(FILES);
+	});
+
+	it('undoes a real intent across two files as one step', () => {
+		const ws = seedWorkspace();
+		const h = createHistory(ws);
+		// b.tji says `depends a`: deleting `a` edits both files.
+		const e = intent(ws, { type: 'deleteTask', task: 'a' });
+		expect(Object.keys(e?.changes ?? {}).sort()).toEqual(['a.tji', 'b.tji']);
+		const after = ws.texts();
+		expect(after['a.tji']).not.toBe(A);
+		expect(after['b.tji']).not.toBe(B);
+		expect(h.top()).toMatchObject({ kind: 'intent', label: 'delete task' });
+		h.undo();
+		expect(ws.texts()).toEqual(FILES);
+		h.redo();
+		expect(ws.texts()).toEqual(after);
+		expect(h.undo().status).toBe('done');
+		expect(ws.texts()).toEqual(FILES);
 	});
 
 	it('clears redo once something new is recorded', () => {
@@ -172,6 +195,59 @@ describe('createHistory', () => {
 		expect(h.undo().status).toBe('done');
 		expect(h.undo().status).toBe('empty');
 		expect(textOf(ws, 'a.tji')).toBe(`10${A}`);
+	});
+});
+
+describe('typing that comes to nothing', () => {
+	it('is dropped, so the step below stays undoable through undo and redo', () => {
+		const ws = seedWorkspace();
+		const h = createHistory(ws);
+		const p = at(A, '1d');
+		// A real edit, then a pause, then "x" and Backspace in one group.
+		type(ws, 'a.tji', p, '', { time: 0, to: p + 2 });
+		type(ws, 'a.tji', p, '5d', { time: 50 });
+		const edited = textOf(ws, 'a.tji');
+		const q = at(edited, 'length');
+		moveCursor(ws, 'a.tji', q);
+		type(ws, 'a.tji', q, 'x', { time: 2000 });
+		type(ws, 'a.tji', q, '', { time: 2050, to: q + 1 });
+		expect(textOf(ws, 'a.tji')).toBe(edited);
+		expect(h.top()?.applied.edit.changes['a.tji']?.empty).toBe(false);
+		for (let i = 0; i < 3; i++) {
+			expect(h.undo().status).toBe('done');
+			expect(textOf(ws, 'a.tji')).toBe(A);
+			expect(h.redo().status).toBe('done');
+			expect(textOf(ws, 'a.tji')).toBe(edited);
+		}
+		expect(h.undo().status).toBe('done');
+		expect(h.undo().status).toBe('empty');
+		expect(ws.texts()).toEqual(FILES);
+	});
+
+	it('leaves nothing to undo when it is the only typing', () => {
+		const ws = seedWorkspace();
+		const h = createHistory(ws);
+		type(ws, 'b.tji', 0, 'x', { time: 0 });
+		type(ws, 'b.tji', 0, '', { time: 10, to: 1 });
+		expect([h.canUndo, h.canRedo]).toEqual([false, false]);
+		type(ws, 'b.tji', 0, 'y', { time: 20 });
+		expect(h.undo().status).toBe('done');
+		expect(ws.texts()).toEqual(FILES);
+	});
+
+	it('also drops a batch from one commit that comes to nothing', () => {
+		const ws = seedWorkspace();
+		const h = createHistory(ws);
+		type(ws, 'a.tji', 0, '# k\n', { time: 0 });
+		const s0 = ws.state('a.tji');
+		const t1 = s0.update({ changes: { from: 10, insert: 'z' }, userEvent: 'input.paste' });
+		const t2 = t1.state.update({ changes: { from: 10, to: 11 }, userEvent: 'delete.backward' });
+		ws.commit('a.tji', [t1, t2], 'typing');
+		expect(h.undo().status).toBe('done');
+		expect(ws.texts()).toEqual(FILES);
+		expect(h.redo().status).toBe('done');
+		expect(h.undo().status).toBe('done');
+		expect(h.undo().status).toBe('empty');
 	});
 });
 

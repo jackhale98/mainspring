@@ -11,9 +11,10 @@
  *   from another state than the workspace's would throw in `commit`.
  * - `show` gives the view another file's state and puts its scroll position back, unless a
  *   reveal follows (the reveal scrolls to its target, and a restore after it would undo that).
- * - `reveal` selects a range (or, with `select` false, keeps the selection) and scrolls it into
- *   view; with `focus` it then focuses the editor, after an open modal dialog (the tablet drawer)
- *   has closed, since a modal makes the editor inert.
+ * - `reveal` selects a range and scrolls it to the middle, or, with `select` false, keeps the
+ *   selection and scrolls only as far as needed (`nearest`, so an undo on screen does not jump);
+ *   with `focus` it then focuses the editor, after an open modal dialog (the tablet drawer) has
+ *   closed, since a modal makes the editor inert.
  * - Diagnostics go on the lint layer's two channels. The engine channel is pushed when a result
  *   arrives (the layer maps it through later edits and marks it stale), the local channel
  *   whenever the document layer's checks change.
@@ -96,13 +97,16 @@ export class EditorController {
 						effects: EditorView.scrollIntoView(start, { y: 'center' }),
 						userEvent: 'select',
 					}
-				: { effects: EditorView.scrollIntoView(start, { y: 'center' }) },
+				: // On screen already (an undo of typing just done): do not recenter.
+					{ effects: EditorView.scrollIntoView(start, { y: 'nearest' }) },
 		);
 		// After a switch the new state has not been laid out yet, and the scroll above may find no
 		// layout to scroll in: ask again once the view has measured it.
 		requestAnimationFrame(() => {
 			if (this.#shown === file && (!select || this.view.state.selection.main.from === start)) {
-				this.view.dispatch({ effects: EditorView.scrollIntoView(start, { y: 'center' }) });
+				this.view.dispatch({
+					effects: EditorView.scrollIntoView(start, { y: select ? 'center' : 'nearest' }),
+				});
 			}
 		});
 		if (!focus) return;

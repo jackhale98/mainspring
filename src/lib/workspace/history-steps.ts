@@ -4,17 +4,35 @@
  * file, grouped into a `Rec` per undo step, the typing-group rule, and the labels.
  *
  * - **Versions.** A step holds the file version at which the file has the text before the step
- *   (`before`) and after it (`after`). A batch of transactions in one `commit` bumps the version
- *   once, so the texts between them get placeholder versions below 0, which no file ever has;
- *   the history re-stamps them once an undo gives that text a real version.
- * - **Typing groups** follow CodeMirror's history (`@codemirror/commands` 6.11, `addChanges`): a
- *   typed transaction joins the open typing entry on top when it is in the same file, starts from
- *   the text and selection that entry left, has no user event or an `input.type…` or `delete…`
- *   one, comes less than `groupMs` after the previous one, and touches the range the group
- *   changed. A composition update (`input.type.compose`) always joins. `isolateHistory` is
- *   honoured. Unlike the spec's wording (6.7, "same user-event family"), a delete then a typed
- *   character join, as CodeMirror joins them: Backspace twice and "40d" is one undo step, which
- *   the Text-mode end-to-end tests rely on.
+ *   (`before`) and after it (`after`). The file version bumps once per transaction, but a
+ *   listener sees a `commit` of several transactions only once, with the version after the last
+ *   (and after any parse-context bump). The texts between them get placeholder versions below 0,
+ *   which no file ever has; the history re-stamps them once an undo gives that text a real
+ *   version. A typing group whose changes compose to nothing is dropped (history.ts).
+ * - **Typing groups** follow CodeMirror's history (`@codemirror/commands` 6.11, `addChanges` and
+ *   `addSelection`), not only the rule in spec 6.7 ("same file, same user-event family, less than
+ *   `groupMs` since the last, no other entry between"). A typed transaction joins the open typing
+ *   entry on top when all of these hold:
+ *   - same file, and it starts from the version the entry left (nothing recorded or bypassing in
+ *     between): the spec's rule;
+ *   - less than `groupMs` after the entry's previous transaction (`Transaction.time`): the spec's;
+ *   - it has no user event, or one matching `input.type…` or `delete…`. Departure: the spec asks
+ *     for the same family; CodeMirror, and this code, test only the new transaction, so a delete
+ *     then typed text join (Backspace twice and "40d" is one step, which the Text-mode
+ *     end-to-end test "changing an effort" relies on), while a paste (`input.paste`), Enter
+ *     (`input`) or completion never joins the step before it but typing right after one joins it;
+ *   - it starts from the selection the entry left. Departure: a cursor move or other selection
+ *     change in between starts a new group (CodeMirror's `selectionsAfter`); the spec does not
+ *     mention it;
+ *   - it touches a range the group changed, in the text after the group (CodeMirror's
+ *     `isAdjacent`). Departure: typing elsewhere in the file within `groupMs` is a new step;
+ *   - not isolated: `isolateHistory` 'before' or 'full' on it starts a new group, and 'after' or
+ *     'full' closes the group after it. Departure: the spec drops `isolateHistory` from the
+ *     workspace; the history still honours it where an editor command sets it.
+ *
+ *   A composition update (`input.type.compose`) joins regardless of time, selection and
+ *   adjacency (departure, as CodeMirror: an IME composition is one step). After an undo or
+ *   redo, typing never joins the uncovered entry (as CodeMirror).
  */
 import { isolateHistory } from '@codemirror/commands';
 import {
