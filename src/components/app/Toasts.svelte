@@ -7,8 +7,10 @@
 	(ADR-0008); it then does exactly what Mod-Z does. "No longer schedules", failures and refusals
 	stay until dismissed; they offer Show, which puts the cursor on the place in the text.
 
-	Desktop and tablet: the bottom-right corner, above the status strip. Phone: centred above the
-	floating tab bar. The list reads `app.edits`; it draws nothing while no plan is open.
+	Desktop and tablet: the bottom-right corner; phone: full width. Always just above the footer
+	(the status strip and its reload button stay visible): `bottom` is the footer's distance from
+	the viewport's bottom, measured by App.svelte; the CSS offsets are the fallback before that.
+	The list reads `app.edits`; it draws nothing while no plan is open.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -16,7 +18,13 @@
 	import { toastStrings as S } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 
-	let { app, phone = false }: { app: AppState; phone?: boolean } = $props();
+	interface Props {
+		app: AppState;
+		phone?: boolean;
+		/** Pixels from the viewport's bottom to the footer's top; null before it is measured. */
+		bottom?: number | null;
+	}
+	let { app, phone = false, bottom = null }: Props = $props();
 
 	const edits = $derived(app.edits);
 	const list = $derived(edits?.toasts ?? []);
@@ -24,7 +32,12 @@
 		t.status === 'not-scheduled' || t.status === 'failed' || t.status === 'refused';
 </script>
 
-<section class="toasts" class:phone aria-label={S.region}>
+<section
+	class="toasts"
+	class:phone
+	aria-label={S.region}
+	style:inset-block-end={bottom === null ? undefined : `${bottom + 8}px`}
+>
 	<div role="status" aria-live="polite" aria-relevant="additions text" class="stack">
 		{#each list as t (t.id)}
 			<div class="toast" data-testid="toast" data-status={t.status} class:problem={problem(t)}>
@@ -72,11 +85,11 @@
 		inline-size: min(26rem, calc(100vw - 2 * var(--gutter)));
 		pointer-events: none;
 	}
-	/* Phones: centred, above the floating tab bar (its height, margins and the safe area). */
+	/* Phones: full width; the fallback clears the tab bar and the compact status strip. */
 	.toasts.phone {
 		inset-inline: 10px;
 		inline-size: auto;
-		inset-block-end: calc(var(--size-tabbar) + 26px + env(safe-area-inset-bottom));
+		inset-block-end: calc(var(--size-tabbar) + 72px + env(safe-area-inset-bottom));
 	}
 	.stack {
 		display: flex;

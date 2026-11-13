@@ -3,7 +3,9 @@
 // the test dispatches a real Gantt action through the `?hooks=edits` hook (edit-hooks.ts), which
 // calls the same `dispatchAction` a drop will. It shows the toast, the patch in the text (the
 // editor too in Split on desktop), the engine's reschedule, and Undo in the toast restoring the
-// text byte for byte. Desktop Chrome and Pixel 7. With SCREENSHOTS=1 it writes
+// text byte for byte. A newer build is offered (ADR-0012), so the status strip shows its reload
+// button: the toast must cover neither (review M2). Desktop Chrome and Pixel 7. With SCREENSHOTS=1
+// it writes
 // docs/phases/screenshots/phase-2/toast-<project>-<light|dark>.png.
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -64,6 +66,10 @@ test.describe('a visual edit through the dispatcher', () => {
 
 	test('shows its toast, reschedules, and Undo restores the text', async ({ page }, info) => {
 		const mode = desktop(info) ? 'split' : 'visual';
+		// A newer deployed build: the status strip offers a reload.
+		await page.route('**/version.json*', (route) =>
+			route.fulfill({ json: { id: 'ffffffff-209912312359', builtAt: '2099-12-31T23:59:00Z' } }),
+		);
 		await page.goto(`/app?sample=gantt-manipulation&mode=${mode}&hooks=edits`);
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 			timeout: READY_TIMEOUT_MS,
@@ -100,6 +106,21 @@ test.describe('a visual edit through the dispatcher', () => {
 		const end1 = await h.end('design.research');
 		expect(end1).toBeGreaterThan(end0 ?? 0);
 		await expect(status).toContainText('Scheduled');
+
+		// The toast sits above the footer: the status and the reload button stay visible.
+		const reload = page.getByRole('button', { name: /new version of Mainspring is available/ });
+		await expect(reload).toBeVisible({ timeout: 10_000 });
+		const box = await toast.boundingBox();
+		for (const covered of [status, reload]) {
+			const b = await covered.boundingBox();
+			expect(box && b, 'boxes').toBeTruthy();
+			if (box && b) expect(box.y + box.height).toBeLessThanOrEqual(b.y);
+		}
+		const hit = await reload.evaluate((el) => {
+			const r = el.getBoundingClientRect();
+			return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+		});
+		expect(hit, 'nothing is drawn over the reload button').toBe(true);
 
 		const undo = toast.getByRole('button', { name: 'Undo' });
 		await expect(undo).toBeEnabled();

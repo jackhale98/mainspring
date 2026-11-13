@@ -111,6 +111,30 @@
 	/** The editor (side by side) or the Gantt (stacked, above) takes `ratio`; the divider is the gap. */
 	const splitTracks = $derived(`minmax(0, ${ratio}fr) var(--gap-panel) minmax(0, ${1 - ratio}fr)`);
 
+	/**
+	 * The toasts sit just above the footer (the notice and the status strip), on every layout, so
+	 * they never cover the status or its reload button: its distance from the viewport's bottom,
+	 * measured whenever the footer or the viewport changes size.
+	 */
+	let footer: HTMLElement | undefined = $state();
+	let toastBottom = $state<number | null>(null);
+	$effect(() => {
+		const el = footer;
+		if (!el) return;
+		const measure = (): void => {
+			toastBottom = Math.max(0, Math.round(window.innerHeight - el.getBoundingClientRect().top));
+		};
+		const ro = new ResizeObserver(measure);
+		ro.observe(el);
+		ro.observe(document.documentElement);
+		window.addEventListener('resize', measure);
+		measure();
+		return () => {
+			ro.disconnect();
+			window.removeEventListener('resize', measure);
+		};
+	});
+
 	function onkeydown(event: KeyboardEvent): void {
 		const next = phone ? null : modeForKey(event);
 		if (next === null) return;
@@ -192,13 +216,13 @@
 			</div>
 		{/if}
 	</main>
-	<div class="footer">
+	<div class="footer" bind:this={footer}>
 		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 		{#if phone}<p class="notice compact">{strings.noticeShort}</p>{/if}
 		<StatusStrip {app} {updates} compact={phone} quiet={showGantt} />
 	</div>
 	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
-	<Toasts {app} {phone} />
+	<Toasts {app} {phone} bottom={toastBottom} />
 	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
