@@ -110,12 +110,11 @@ test.describe('polish screenshots', () => {
 				test.skip(!mine(info));
 				await page.emulateMedia({ colorScheme: scheme });
 				await open(page, TUTORIAL, device);
-				if (device === 'pixel7') {
-					await page.getByTestId('gantt').evaluate((g) => {
-						const s = g.querySelector('.scroller');
-						if (s) s.scrollLeft = (s.scrollWidth - s.clientWidth) * 0.55;
-					});
-				}
+				// The critical stretch of the tutorial (Graphical User Interface, the tests): scroll to it.
+				await page.getByTestId('gantt').evaluate((g) => {
+					const s = g.querySelector('.scroller');
+					if (s) s.scrollLeft = (s.scrollWidth - s.clientWidth) * 0.55;
+				});
 				await page.waitForTimeout(500);
 				await shot(page.getByTestId('gantt'), `polish-5-critical-edge-${device}-${scheme}`);
 				for (const [kind, matrix] of Object.entries(CVD)) {

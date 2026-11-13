@@ -42,6 +42,7 @@ const COLOURS = {
 	criticalProgress: ['--color-gantt-critical-progress', 'rgb(255 255 255 / 0.18)'],
 	criticalHighlight: ['--color-gantt-critical-highlight', 'rgb(255 255 255 / 0.25)'],
 	criticalShadow: ['--color-gantt-critical-shadow', 'rgb(163 18 58 / 0.3)'],
+	criticalEdge: ['--color-gantt-critical-edge', '#f6a9bc'],
 	summary: ['--color-gantt-summary', '#7a7262'],
 	milestone: ['--color-gantt-milestone', '#b08d3c'],
 	jewelHigh: ['--color-gantt-jewel-high', '#f1d99a'],

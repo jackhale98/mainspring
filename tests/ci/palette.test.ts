@@ -163,6 +163,15 @@ const DISTINCT: ReadonlyArray<readonly [string, string, string]> = [
 	['color-gantt-critical-bottom', 'color-gantt-bar-outline', 'critical bar edge and bar outline'],
 ];
 
+/**
+ * The critical bar's edge must show on its own fill, at both ends of the gradient, for normal
+ * vision and for protan and deutan viewers: [edge token, fill token].
+ */
+const EDGES: ReadonlyArray<readonly [string, string]> = [
+	['color-gantt-critical-edge', 'color-gantt-critical-top'],
+	['color-gantt-critical-edge', 'color-gantt-critical-bottom'],
+];
+
 describe.each([
 	['light', 'theme-light.css'],
 	['dark', 'theme-dark.css'],
@@ -184,6 +193,17 @@ describe.each([
 
 	it.each(GRAPHICS)('graphic %s on %s is at least %d:1', (fg, bg, min) => {
 		expect(ratio(colour(t, fg), colour(t, bg))).toBeGreaterThanOrEqual(min);
+	});
+
+	it.each(EDGES)('%s shows on %s, also for protan and deutan viewers', (edge, fill) => {
+		for (const m of [null, PROTAN, DEUTAN] as const) {
+			const [a, b] = [colour(t, edge), colour(t, fill)];
+			const [x, y] = m ? [simulate(a, m), simulate(b, m)] : [a, b];
+			expect(
+				ratio(x, y),
+				m === PROTAN ? 'protan' : m === DEUTAN ? 'deutan' : 'normal',
+			).toBeGreaterThanOrEqual(2.5);
+		}
 	});
 
 	it('keeps the stale label readable on the glass chip too', () => {

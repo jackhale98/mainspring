@@ -145,7 +145,7 @@ function drawPost(f: PaintFrame, bar: Rect): void {
 	ctx.fillRect(bar.x + bar.w + theme.criticalEdgeWidth, cy - h / 2, theme.criticalPostWidth, h);
 }
 
-/** A brass pill, or with `steel` a critical one: a heavier edge in the critical colour. */
+/** A brass pill, or with `steel` a critical one: a heavier edge in a lighter ruby. */
 function drawPill(f: PaintFrame, row: GanttRow, bar: Rect, steel: boolean): void {
 	const { ctx, theme } = f;
 	// A short bar keeps its width and a smaller radius, so it does not turn into a circle.
@@ -178,9 +178,10 @@ function drawPill(f: PaintFrame, row: GanttRow, bar: Rect, steel: boolean): void
 	ctx.restore();
 
 	// The edge: a 1 px outline in brass so that a pale bar meets 3:1 (WCAG 1.4.11), and a heavier
-	// one in the critical colour, which is also the shape cue of the critical path.
+	// one in a lighter ruby, which is also the shape cue of the critical path: lighter than the
+	// fill so that it shows on it (it was the fill's own colour), also for protan and deutan eyes.
 	roundedRect(ctx, bar.x, bar.y, bar.w, bar.h, radius);
-	ctx.strokeStyle = steel ? theme.critical : theme.barOutline;
+	ctx.strokeStyle = steel ? theme.criticalEdge : theme.barOutline;
 	ctx.lineWidth = steel ? theme.criticalEdgeWidth : theme.barOutlineWidth;
 	ctx.stroke();
 }
@@ -230,7 +231,7 @@ function drawJewel(f: PaintFrame, bar: Rect, critical: boolean): void {
 	diamondPath(ctx, cx, cy, half, theme.milestoneRadius);
 	fillUnit(f, gradientFor(ctx, theme, critical ? 'steelJewel' : 'jewel'), cx, cy, half);
 	// The upper half of the light jewel is under 3:1 on the light panel: an edge brings it up.
-	ctx.strokeStyle = critical ? theme.critical : theme.link;
+	ctx.strokeStyle = critical ? theme.criticalEdge : theme.link;
 	ctx.lineWidth = critical ? theme.criticalEdgeWidth : theme.barOutlineWidth;
 	ctx.stroke();
 }

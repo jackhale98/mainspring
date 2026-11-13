@@ -102,7 +102,7 @@ describe('paintBars', () => {
 		expect(fills[0]).toBe(t.criticalShadow);
 		expect(fills).toContain(t.criticalInk);
 		// The edge: heavier than the brass outline, in the critical colour.
-		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.critical]);
+		expect(rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.criticalEdge]);
 		expect(rec.of('set:lineWidth').map((c) => c[1])).toEqual([t.criticalEdgeWidth]);
 		expect(t.criticalEdgeWidth).toBeGreaterThan(t.barOutlineWidth);
 		// The post: past the bar's finish edge, taller than the bar by the reach on each side.
@@ -128,7 +128,7 @@ describe('paintBars', () => {
 		const jewel = frameOf(modelOf([row(0, 2 * D, 2 * D, 'milestone', { critical: true })]));
 		paintBars(jewel.frame);
 		expect(jewel.rec.of('set:lineWidth').map((c) => c[1])).toEqual([t.criticalEdgeWidth]);
-		expect(jewel.rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.critical]);
+		expect(jewel.rec.of('set:strokeStyle').map((c) => c[1])).toEqual([t.criticalEdge]);
 		expect(jewel.rec.of('fillRect').some((c) => c[3] === t.criticalPostWidth)).toBe(false);
 	});
 
