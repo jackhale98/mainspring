@@ -35,8 +35,11 @@ async function typePlan(page: Page, text: string): Promise<void> {
 	await page.getByRole('tab', { name: 'Text', exact: true }).click();
 	await editor(page).click();
 	// The editor's select-all is Cmd on Apple platforms, including the emulated iPhone (WebKit),
-	// even when the test host is Linux, where Playwright's ControlOrMeta means Control.
-	const apple = await page.evaluate(() => /Mac|iPhone|iPad/.test(navigator.platform));
+	// even when the test host is Linux, where Playwright's ControlOrMeta means Control. Emulation
+	// changes the user agent but not navigator.platform, so both are read, as CodeMirror does.
+	const apple = await page.evaluate(() =>
+		/Mac|iPhone|iPad/.test(`${navigator.platform} ${navigator.userAgent}`),
+	);
 	await page.keyboard.press(apple ? 'Meta+a' : 'Control+a');
 	await page.keyboard.insertText(text);
 }
