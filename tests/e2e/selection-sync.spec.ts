@@ -227,7 +227,9 @@ test.describe('selection sync', () => {
 			timeout: READY_TIMEOUT_MS,
 		});
 		await expect(row(page, 'Write docs')).toHaveAttribute('aria-selected', 'true');
-		await expect(page.getByTestId('toast').last()).toHaveAttribute('data-status', 'scheduled', {
+		// A phone shows no toast for an edit: its line in the live region settles the same way.
+		const announced = page.locator('[data-testid="toast"], [data-testid="toast-quiet"]');
+		await expect(announced.last()).toHaveAttribute('data-status', 'scheduled', {
 			timeout: READY_TIMEOUT_MS,
 		});
 		if (!phone(info)) {

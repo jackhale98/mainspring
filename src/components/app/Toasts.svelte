@@ -7,10 +7,17 @@
 	(ADR-0008); it then does exactly what Mod-Z does. "No longer schedules", failures and refusals
 	stay until dismissed; they offer Show, which puts the cursor on the place in the text.
 
-	Desktop and tablet: the bottom-right corner; phone: full width. Always just above the footer
-	(the status strip and its reload button stay visible), and on a phone, which has no footer,
-	just above the tab bar: `bottom` is that element's distance from the viewport's bottom,
+	Desktop and tablet: the bottom-right corner, just above the footer (the status strip and its
+	reload button stay visible): `bottom` is the footer's distance from the viewport's bottom,
 	measured by App.svelte; the CSS offsets are the fallback before that.
+
+	Phone (`phone`): no toast covers the chart. A successful edit says nothing on screen, because the
+	status button already shows the reschedule; its text still goes into the live region, in a
+	visually hidden line (`toast-quiet`), so a screen reader hears each outcome. Anything that needs
+	reading (a refusal, "no longer schedules", a failure, a new error, the one-time constraint
+	warning, a no-op or the app's own message) is one compact line in a strip under the top bar,
+	in the page's flow, that takes no focus; it closes after the usual time unless it is sticky,
+	and then keeps Show and Dismiss. Undo is the top bar's button there, not this strip's.
 	The list reads `app.edits`; it draws nothing while no plan is open.
 -->
 <script lang="ts">
@@ -22,7 +29,7 @@
 	interface Props {
 		app: AppState;
 		phone?: boolean;
-		/** Pixels from the viewport's bottom to the footer's (a phone's tab bar's) top; null before it is measured. */
+		/** Pixels from the viewport's bottom to the footer's top; null before it is measured (not used on a phone). */
 		bottom?: number | null;
 	}
 	let { app, phone = false, bottom = null }: Props = $props();
@@ -31,53 +38,98 @@
 	const list = $derived(edits?.toasts ?? []);
 	const problem = (t: Toast): boolean =>
 		t.status === 'not-scheduled' || t.status === 'failed' || t.status === 'refused';
+	/** On a phone only what needs reading shows; a plain success is left to the status button. */
+	const shown = (t: Toast): boolean =>
+		(t.status !== 'pending' && t.status !== 'scheduled') || t.warning !== null;
+	const line = (t: Toast): string =>
+		problem(t) || t.status === 'new-error' || t.status === 'noop' ? t.text : (t.warning ?? t.text);
 </script>
 
-<section
-	class="toasts"
-	class:phone
-	aria-label={S.region}
-	style:inset-block-end={bottom === null
-		? undefined
-		: `min(${bottom + 8}px, calc(100dvh - var(--toast-room)))`}
->
-	<div role="status" aria-live="polite" aria-relevant="additions text" class="stack">
-		{#each list as t (t.id)}
-			<div class="toast" data-testid="toast" data-status={t.status} class:problem={problem(t)}>
-				<div class="body">
-					<p class="text">{t.text}</p>
-					{#if t.detail}<p class="detail">{t.detail}</p>{/if}
-					{#if t.warning}<p class="warning">{t.warning}</p>{/if}
-				</div>
-				<div class="actions">
-					{#if t.entry !== null}
+{#if phone}
+	<section class="strip" aria-label={S.region}>
+		<div role="status" aria-live="polite" aria-relevant="additions text" class="stack">
+			{#each list as t (t.id)}
+				{#if shown(t)}
+					<div
+						class="toast compact"
+						data-testid="toast"
+						data-status={t.status}
+						class:problem={problem(t)}
+					>
+						<p class="text">{line(t)}</p>
+						<div class="actions">
+							{#if t.show}
+								<button type="button" class="action" onclick={() => edits?.showToast(t.id)}>
+									{t.status === 'refused' ? S.showInText : S.show}
+								</button>
+							{/if}
+							<button
+								type="button"
+								class="dismiss"
+								aria-label={S.dismiss}
+								title={S.dismiss}
+								onclick={() => edits?.dismissToast(t.id)}
+							>
+								<Icon name="close" size={15} />
+							</button>
+						</div>
+					</div>
+				{:else}
+					<p class="sr-only" data-testid="toast-quiet" data-status={t.status}>
+						{t.text}{t.detail ? ` ${t.detail}` : ''}
+					</p>
+				{/if}
+			{/each}
+		</div>
+	</section>
+{:else}
+	<section
+		class="toasts"
+		aria-label={S.region}
+		style:inset-block-end={bottom === null
+			? undefined
+			: `min(${bottom + 8}px, calc(100dvh - var(--toast-room)))`}
+	>
+		<div role="status" aria-live="polite" aria-relevant="additions text" class="stack">
+			{#each list as t (t.id)}
+				<div class="toast" data-testid="toast" data-status={t.status} class:problem={problem(t)}>
+					<div class="body">
+						<p class="text">{t.text}</p>
+						{#if t.detail}<p class="detail">{t.detail}</p>{/if}
+						{#if t.warning}<p class="warning">{t.warning}</p>{/if}
+					</div>
+					<div class="actions">
+						{#if t.entry !== null}
+							<button
+								type="button"
+								class="action"
+								disabled={!t.canUndo}
+								title={t.canUndo
+									? S.undoWhat(t.detail && problem(t) ? t.detail : t.text)
+									: undefined}
+								onclick={() => edits?.undoToast(t.id)}>{S.undo}</button
+							>
+						{/if}
+						{#if t.show}
+							<button type="button" class="action" onclick={() => edits?.showToast(t.id)}>
+								{t.status === 'refused' ? S.showInText : S.show}
+							</button>
+						{/if}
 						<button
 							type="button"
-							class="action"
-							disabled={!t.canUndo}
-							title={t.canUndo ? S.undoWhat(t.detail && problem(t) ? t.detail : t.text) : undefined}
-							onclick={() => edits?.undoToast(t.id)}>{S.undo}</button
+							class="dismiss"
+							aria-label={S.dismiss}
+							title={S.dismiss}
+							onclick={() => edits?.dismissToast(t.id)}
 						>
-					{/if}
-					{#if t.show}
-						<button type="button" class="action" onclick={() => edits?.showToast(t.id)}>
-							{t.status === 'refused' ? S.showInText : S.show}
+							<Icon name="close" size={15} />
 						</button>
-					{/if}
-					<button
-						type="button"
-						class="dismiss"
-						aria-label={S.dismiss}
-						title={S.dismiss}
-						onclick={() => edits?.dismissToast(t.id)}
-					>
-						<Icon name="close" size={15} />
-					</button>
+					</div>
 				</div>
-			</div>
-		{/each}
-	</div>
-</section>
+			{/each}
+		</div>
+	</section>
+{/if}
 
 <style>
 	.toasts {
@@ -90,11 +142,24 @@
 		inline-size: min(26rem, calc(100vw - 2 * var(--gutter)));
 		pointer-events: none;
 	}
-	/* Phones: full width; the fallback clears the tab bar. */
-	.toasts.phone {
-		inset-inline: 10px;
-		inline-size: auto;
-		inset-block-end: calc(var(--size-tabbar) + 40px + env(safe-area-inset-bottom));
+	/* Phones: a strip in the page's flow under the top bar; it is as tall as what it shows. */
+	.strip {
+		min-inline-size: 0;
+	}
+	.toast.compact {
+		gap: var(--space-2);
+		min-block-size: var(--size-tap);
+		margin-block-end: 6px;
+		padding: 0 4px 0 12px;
+		border-radius: 12px;
+		animation: none;
+		box-shadow: var(--shadow-chip);
+	}
+	.toast.compact .text {
+		flex: 1;
+		min-inline-size: 0;
+		padding-block: 6px;
+		font-size: var(--text-sm);
 	}
 	.stack {
 		display: flex;

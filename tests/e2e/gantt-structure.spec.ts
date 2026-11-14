@@ -30,10 +30,10 @@ test.describe('adding, deleting and the included file', () => {
 	const expectFiles = async (rig: Rig, want: Files): Promise<void> => {
 		await expect.poll(() => files(rig)).toEqual(want);
 	};
-	/** One Undo in the newest toast, then one Redo with the keyboard: both files each time. */
+	/** One Undo (the newest toast's, or a phone's top bar's), then one Redo with the keyboard: both files each time. */
 	async function undoRedo(page: Page, rig: Rig, before: Files, after: Files): Promise<void> {
-		await expect(rig.toast.last()).toBeVisible();
-		await rig.toast.last().getByRole('button', { name: 'Undo' }).click();
+		await expect(rig.edited.last()).toBeAttached();
+		await rig.undoNewest();
 		await expectFiles(rig, before);
 		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 		await page.keyboard.press('ControlOrMeta+Shift+z');

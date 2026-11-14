@@ -12,7 +12,12 @@
  * Code outside Svelte can `subscribe` instead of reading the runes.
  */
 import { historyStrings } from '../strings';
-import type { HistoryOutcome, WorkspaceHistory } from '../workspace/history';
+import type {
+	HistoryItem,
+	HistoryOutcome,
+	RewindOutcome,
+	WorkspaceHistory,
+} from '../workspace/history';
 import type { HistoryCommands } from './history-keys';
 
 export class HistoryControls implements HistoryCommands {
@@ -25,10 +30,13 @@ export class HistoryControls implements HistoryCommands {
 	#history: WorkspaceHistory | null = null;
 	#off: (() => void) | null = null;
 	readonly #listeners = new Set<(c: HistoryControls) => void>();
-	readonly #onOutcome: (o: HistoryOutcome) => void;
+	readonly #onOutcome: (o: HistoryOutcome, quiet?: boolean) => void;
 
-	/** `onOutcome` hears every undo and redo (the app reveals the range and says what changed). */
-	constructor(onOutcome: (o: HistoryOutcome) => void = () => undefined) {
+	/**
+	 * `onOutcome` hears every undo and redo (the app reveals the range and says what changed); it
+	 * is `quiet` for the steps of a `rewind`, which the caller names as a whole.
+	 */
+	constructor(onOutcome: (o: HistoryOutcome, quiet?: boolean) => void = () => undefined) {
 		this.#onOutcome = onOutcome;
 	}
 
@@ -47,6 +55,24 @@ export class HistoryControls implements HistoryCommands {
 
 	redo(): boolean {
 		return this.#run((h) => h.redo());
+	}
+
+	/** The undo stack for the History sheet, newest first (read when the sheet opens). */
+	items(): readonly HistoryItem[] {
+		return this.#history?.undoItems() ?? [];
+	}
+
+	/**
+	 * Undoes `steps` entries (the History sheet's "back to here"), each through the history's own
+	 * undo, so redo steps forward again. Every step that is done reveals and follows as an undo
+	 * does, but quietly; the caller says what happened as a whole. A refusal stops it.
+	 */
+	rewind(steps: number): RewindOutcome {
+		const h = this.#history;
+		if (!h) return { requested: steps, undone: 0, done: [], stopped: 'empty' };
+		const r = h.rewind(steps);
+		for (const o of r.done) this.#onOutcome(o, true);
+		return r;
 	}
 
 	/** Calls `l` whenever the state above changes; returns the unsubscribe. */

@@ -236,6 +236,37 @@ export const historyStrings = {
 		redo: { mac: '⇧⌘Z', other: 'Ctrl+Y' },
 	},
 	typing: 'typing',
+	/** The History sheet's line for a typing group. */
+	typingIn: (file: string) => `Typing in ${file}`,
+	/** A phone's top bar: what Undo and Redo would do, or why they cannot. */
+	undoNone: 'Undo, nothing to undo',
+	redoNone: 'Redo, nothing to redo',
+	/** The phone's History sheet (long-press on Undo, or the status card's History row). */
+	sheet: {
+		title: 'History',
+		open: 'Undo history',
+		/** The status card's row, and Undo's hint for a keyboard (the context menu key). */
+		openHint: 'Press and hold Undo, or use this row',
+		intro: 'Choose a change to go back to it. Redo can step forward again.',
+		empty: 'Nothing to undo yet.',
+		latest: 'Latest',
+		/** "2 min ago": `ago` comes from Intl.RelativeTimeFormat. */
+		entry: (label: string, ago: string) => `${label}, ${ago}`,
+		now: 'just now',
+		close: 'Close',
+		/** Asked when a line is tapped: `n` entries, from the newest down to the one chosen. */
+		confirmTitle: (n: number) =>
+			n === 1 ? 'Undo the last change?' : `Undo the last ${n} changes, back to here?`,
+		/** `label` is the oldest of them: the text goes back to just before it. */
+		confirmBody: (label: string) => `The plan goes back to just before: ${label}`,
+		cancel: 'Cancel',
+		confirm: (n: number) => (n === 1 ? 'Undo' : `Undo ${n}`),
+	},
+	/** The compact message after "back to here". */
+	rewound: (n: number) => `Undid ${n} ${n === 1 ? 'change' : 'changes'}.`,
+	rewindStopped: (done: number, asked: number) =>
+		`Stopped after undoing ${done} of ${asked}. A file changed outside the undo history, so undo and redo were cleared.`,
+	rewindChanged: 'The history changed first, so nothing was undone.',
 	/** A change whose intent the history does not know. */
 	edit: 'edit',
 	setAttr: (attr: string) => `set ${attr}`,
@@ -781,6 +812,8 @@ export const strings = {
 		label: 'Theme',
 		pref: { system: 'System', light: 'Light', dark: 'Dark' },
 		button: (current: string, next: string) => `Theme: ${current}. Switch to ${next}`,
+		/** The phone's status card: the same three choices as the toggle, as a group. */
+		appearance: 'Appearance',
 	},
 	notice: 'Changes stay in this tab until saving arrives. Reloading the page discards them.',
 	panels: {

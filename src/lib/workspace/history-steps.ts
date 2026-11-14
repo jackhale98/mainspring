@@ -70,6 +70,19 @@ export interface HistoryEntry {
 	readonly applied: AppliedEdit<HistoryEdit>;
 	readonly selectionBefore: Readonly<Record<WorkspacePath, EditorSelection>>;
 	readonly selectionAfter: Readonly<Record<WorkspacePath, EditorSelection>>;
+	/** When it was made (ms since the epoch); a typing group: its last keystroke. For "2 min ago". */
+	readonly time: number;
+}
+
+/** What the History sheet lists about an undo step (no changes, no inverse: cheap to build). */
+export interface HistoryItem {
+	readonly id: string;
+	readonly kind: HistoryKind;
+	/** The dispatcher's toast label ("Effort of Research: 3d to 4d"), or the intent's. */
+	readonly label: string;
+	/** The files it changed, in step order. */
+	readonly files: readonly WorkspacePath[];
+	readonly time: number;
 }
 
 /** One file's part of an undo step. */
@@ -99,7 +112,7 @@ export interface Rec {
 	readonly select: SourceRange | null;
 	/** An open typing group can take more typing. */
 	open: boolean;
-	/** `Transaction.time` of its last transaction. */
+	/** `Transaction.time` of its last transaction (when it was made, in ms since the epoch). */
 	lastTime: number;
 }
 
@@ -272,6 +285,18 @@ export function entryOf(r: Rec): HistoryEntry {
 		applied: { edit, versions },
 		selectionBefore,
 		selectionAfter,
+		time: r.lastTime,
+	};
+}
+
+/** The list line of a record. */
+export function itemOf(r: Rec): HistoryItem {
+	return {
+		id: r.id,
+		kind: r.kind,
+		label: r.label,
+		files: r.steps.map((s) => s.path),
+		time: r.lastTime,
 	};
 }
 

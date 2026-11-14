@@ -58,7 +58,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		});
 		const after = before.replace('    effort 3d\n', '    effort 5d\n');
 		await rig.patched(after);
-		await expect(rig.toast.last()).toContainText('Effort of Research: 3d to about 5d');
+		await expect(rig.edited.last()).toContainText('Effort of Research: 3d to about 5d');
 		await rig.rescheduled(rev);
 		await expect.poll(() => rig.end('design.research')).toBe(minute('2026-03-06', 17));
 		await rig.barOnEngine('design.research');
@@ -489,9 +489,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await expect(gantt).toHaveAttribute('data-zoom', 'quarter');
 		expect(await rig.text()).toBe(before);
 		// Nothing was done, so there is nothing to undo.
-		// (A phone's top bar has no undo button; its text is unchanged and no toast came up.)
-		if (!rig.touch)
-			await expect(page.getByRole('button', { name: /^Undo/ }).first()).toBeDisabled();
+		await expect(page.getByRole('button', { name: /^Undo/ }).first()).toBeDisabled();
 		await expect(rig.toast).toHaveCount(0);
 	});
 	test('R10 by key: T scrolls back to today, and PageDown moves the rows; the text stays', async ({

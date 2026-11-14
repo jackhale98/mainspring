@@ -4,6 +4,9 @@
  * and becomes one minimal text patch through the edit API, one undo step, one toast, and a pending
  * mark until the engine has scheduled it. Views never change the text or the schedule themselves.
  *
+ * Over 400 lines: the contract and the order of work below are one sequence that reads best in one
+ * file; the pieces that could stand alone already live in edits-plan, -settle, -yield and -types.
+ *
  * ## Contract (for T15 selection, T16 Gantt interactions, T17 inspector)
  *
  * `app.edits` is the open plan's `EditDispatcher` (null while a plan loads; one per plan). Types
@@ -236,6 +239,13 @@ export class EditDispatcher {
 
 	dismissToast(id: number): void {
 		this.#toasts.remove(id);
+	}
+
+	/** A message of the app's own (not an edit's): the compact strip on a phone, a toast elsewhere. */
+	say(message: string, sticky = false): void {
+		if (this.#disposed) return;
+		if (sticky) this.#toasts.refused(message, null);
+		else this.#toasts.noop(message);
 	}
 
 	/** The plan closes: waiting calls are cancelled, applied edits settle as `dropped`. */

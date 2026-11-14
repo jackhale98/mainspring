@@ -86,9 +86,14 @@ test.describe('a visual edit through the dispatcher', () => {
 		// R1's keyboard alternative, as a real key press on the focused row (T16): one more unit.
 		await page.locator('[role="row"][data-key="task:design.research"]').focus();
 		await page.keyboard.press('Control+Alt+ArrowRight');
-		const toast = page.getByTestId('toast');
+		// A phone shows no toast for an edit (the status button shows the reschedule); the live region
+		// still holds its text for a screen reader. Desktop keeps the toast.
+		const toast = desktop(info)
+			? page.getByTestId('toast')
+			: page.locator('[data-testid="toast"], [data-testid="toast-quiet"]');
 		await expect(toast).toHaveCount(1);
 		await expect(toast).toContainText('Effort of Research: 3d to 4d');
+		if (!desktop(info)) await expect(page.getByTestId('toast')).toHaveCount(0);
 		// The patch is the value token alone.
 		expect(await h.text()).toBe(before?.replace('effort 3d', 'effort 4d'));
 		// The editor in Split followed the workspace (view.update, not a new state).
@@ -102,9 +107,9 @@ test.describe('a visual edit through the dispatcher', () => {
 		await expect(status).toContainText('Scheduled');
 
 		// The toast sits above the footer: the status and the reload button stay visible. A phone
-		// has no footer: it sits above the tab bar, and the reload is the status button's pip.
-		const box = await toast.boundingBox();
+		// has no footer and no toast: the reload is the status button's pip.
 		if (desktop(info)) {
+			const box = await toast.boundingBox();
 			const reload = page.getByRole('button', { name: /new version of Mainspring is available/ });
 			await expect(reload).toBeVisible({ timeout: 10_000 });
 			for (const covered of [status, reload]) {
@@ -119,12 +124,12 @@ test.describe('a visual edit through the dispatcher', () => {
 			expect(hit, 'nothing is drawn over the reload button').toBe(true);
 		} else {
 			await expect(page.getByTestId('update-pip')).toBeVisible({ timeout: 10_000 });
-			const tabs = await page.locator('.tabbar').boundingBox();
-			expect(box && tabs, 'boxes').toBeTruthy();
-			if (box && tabs) expect(box.y + box.height).toBeLessThanOrEqual(tabs.y);
 		}
 
-		const undo = toast.getByRole('button', { name: 'Undo' });
+		// Desktop: the toast's Undo. Phone: the top bar's, which names what it would undo.
+		const undo = desktop(info)
+			? toast.getByRole('button', { name: 'Undo' })
+			: page.getByRole('button', { name: 'Undo: Effort of Research: 3d to 4d' });
 		await expect(undo).toBeEnabled();
 		if (process.env['SCREENSHOTS'] === '1') {
 			await page.screenshot({ path: path.join(DIR, `toast-${info.project.name}-light.png`) });
@@ -139,6 +144,7 @@ test.describe('a visual edit through the dispatcher', () => {
 		await undo.click();
 		expect(await h.text()).toBe(before);
 		await expect(toast).toHaveCount(0);
+		if (!desktop(info)) await expect(page.getByTestId('undo')).toBeDisabled();
 		await expect.poll(() => h.end('design.research'), { timeout: READY_TIMEOUT_MS }).toBe(end0);
 		if (desktop(info)) await expect.poll(() => viewText(page)).toBe(before);
 	});

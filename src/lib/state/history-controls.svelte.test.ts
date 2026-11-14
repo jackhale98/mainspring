@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { historyStrings } from '../strings';
 import { createHistory, type HistoryOutcome } from '../workspace/history';
-import { intent, seedWorkspace, type } from '../workspace/testing/history-fixture';
+import { PLAN, intent, seedWorkspace, type } from '../workspace/testing/history-fixture';
 import { HistoryControls } from './history-controls.svelte';
 
 describe('HistoryControls', () => {
@@ -44,5 +44,24 @@ describe('HistoryControls', () => {
 		expect(c.canRedo).toBe(false);
 		type(ws, 'a.tji', 0, 'y', { time: 2 });
 		expect(c.canUndo).toBe(false);
+	});
+
+	it('lists the steps and rewinds N of them, each reported quietly', () => {
+		const calls: Array<[string, boolean | undefined]> = [];
+		const c = new HistoryControls((o, quiet) => calls.push([o.status, quiet]));
+		expect(c.items()).toEqual([]);
+		expect(c.rewind(2)).toMatchObject({ undone: 0, stopped: 'empty' });
+		const ws = seedWorkspace();
+		c.attach(createHistory(ws));
+		type(ws, 'plan.tjp', PLAN.length, '# x\n', { time: 1 });
+		intent(ws, { type: 'setAttr', task: 'a.a1', attr: 'effort', value: '5d' });
+		expect(c.items().map((i) => i.label)).toEqual(['set effort', 'typing']);
+		expect(c.rewind(2)).toMatchObject({ requested: 2, undone: 2, stopped: null });
+		expect(calls).toEqual([
+			['done', true],
+			['done', true],
+		]);
+		expect(c.canUndo).toBe(false);
+		expect(c.canRedo).toBe(true);
 	});
 });
