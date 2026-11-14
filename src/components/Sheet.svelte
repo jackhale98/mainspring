@@ -266,6 +266,43 @@
 		/* The sheet's own width, so a tablet gets a sheet and not a full-width slab. */
 		inline-size: min(44rem, 100vw);
 	}
+	/*
+	   A modal bottom sheet (the docs, the project settings, the source) is a transparent dialog that
+	   fills the viewport, with the panel pinned to its foot by flexbox. Nothing then depends on how
+	   the browser sizes or places a top-layer dialog: on a real iPhone (a home-screen app) the
+	   fit-content box with an auto top margin was laid out off screen, so only the backdrop showed.
+	   A tap on the empty part is a tap on the dialog itself, which closes it (backdropClick).
+	*/
+	.sheet[data-side='bottom'][data-modal='true'] {
+		inset: 0;
+		margin: 0;
+		inline-size: 100%;
+		block-size: 100%;
+		max-block-size: none;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		animation: none;
+	}
+	.sheet[data-side='bottom'][data-modal='true'][open] {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: center;
+	}
+	.sheet[data-side='bottom'][data-modal='true'] .inner {
+		inline-size: min(40rem, 100%);
+		block-size: auto;
+		max-block-size: 80%;
+		border: 1px solid var(--color-border);
+		border-block-end: 0;
+		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+		background: var(--color-surface);
+		box-shadow: var(--shadow-raised);
+		padding-block-end: env(safe-area-inset-bottom);
+		animation: slide-bottom var(--motion-base) ease-out;
+	}
 	/* On a phone the sheet ends above the floating tab bar (the margin, not a padding, so that the
 	   top stays auto and the sheet keeps the iPhone placement above). The heights below are shares
 	   of what is left. */
