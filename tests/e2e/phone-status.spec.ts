@@ -87,12 +87,15 @@ test.describe('the phone status button', () => {
 		page,
 	}) => {
 		await open(page);
-		await page
+		const row = page
 			.getByTestId('gantt')
 			.locator('[role="row"][data-key]')
 			.filter({ hasText: 'Graphical User Interface' })
-			.first()
-			.click();
+			.first();
+		// The first tap selects; a tap on the selected row opens the sheet.
+		await row.click();
+		await expect(row).toHaveAttribute('aria-selected', 'true');
+		await row.click();
 		const sheet = page.locator('dialog.sheet[open]');
 		await expect(sheet).toBeVisible();
 		// The sheet reports its settled height (not where it is drawn while it slides in), so the

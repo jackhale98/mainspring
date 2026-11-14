@@ -79,7 +79,10 @@ const details = (page: Page, info: Info): Locator =>
 const editorFocused = (page: Page): Promise<boolean> =>
 	page.evaluate(() => !!document.activeElement?.closest('.cm-editor'));
 
-/** A click on a row, as a click or a tap does (the first column's name, clear of its twisty). */
+/**
+ * A click on a row, as a click or a tap does (the first column's name, clear of its twisty). On a
+ * phone it selects only: the details sheet opens on a tap on the selected row.
+ */
 async function pick(page: Page, name: string): Promise<void> {
 	await row(page, name).click();
 	await expect(row(page, name)).toHaveAttribute('aria-selected', 'true');
@@ -187,6 +190,8 @@ test.describe('selection sync', () => {
 	test('a selected link puts its depends line on show', async ({ page }, info) => {
 		await open(page, info);
 		await pick(page, 'Sketch');
+		// A phone selected on the first tap; a tap on the selected row opens its sheet.
+		if (phone(info)) await row(page, 'Sketch').click();
 		const panel = details(page, info);
 		await panel
 			.getByRole('button', { name: /^Details\s*:\s*Open the link/ })

@@ -49,11 +49,10 @@ test.describe('adding, deleting and the included file', () => {
 		await page.emulateMedia({ colorScheme: 'light' });
 		await page.waitForTimeout(150);
 	}
-	/** A finger has no keys: select the row, close the sheet and press the row menu's item. */
+	/** A finger has no keys: select the row (a first tap opens no sheet) and press the row menu's item. */
 	async function menu(page: Page, rig: Rig, key: string, item: string): Promise<void> {
 		await rig.row(key).locator('.label').tap();
 		await expect(rig.row(key)).toHaveAttribute('aria-selected', 'true');
-		await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
 		await page.getByTestId('row-menu').tap();
 		await page.getByRole('menuitem', { name: item }).tap();
 	}
@@ -116,7 +115,7 @@ test.describe('adding, deleting and the included file', () => {
 		const after = { ...before, tji: before.tji.replace('effort 6d', 'effort 7d') };
 		expect(after.tji).not.toBe(before.tji);
 		if (isTouch(info)) {
-			await rig.select('build.code');
+			await rig.openDetails('build.code');
 			const more = page.getByRole('button', { name: 'Increase Effort' });
 			await more.tap();
 		} else {

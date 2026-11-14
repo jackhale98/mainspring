@@ -51,9 +51,16 @@ const details = (page: Page, info: { project: { name: string } }): Locator =>
 const row = (page: Page, name: string) =>
 	page.locator('[role="treegrid"] [role="row"][data-key]').filter({ hasText: name }).first();
 
-/** Selects a task row, as a click or a tap does, and waits for its details. */
+/**
+ * Selects a task row, as a click or a tap does, and waits for its details. A sheet layout selects
+ * on the first tap and opens the sheet on a tap on the selected row (a second one here).
+ */
 async function select(page: Page, info: { project: { name: string } }, name: string) {
 	await row(page, name).click();
+	if (phone(info) && (await details(page, info).count()) === 0) {
+		await expect(row(page, name)).toHaveAttribute('aria-selected', 'true');
+		await row(page, name).click();
+	}
 	const panel = details(page, info);
 	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue(name);
 	return panel;

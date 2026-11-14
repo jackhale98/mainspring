@@ -426,11 +426,27 @@
 		scrollLeft = scroller.scrollLeft;
 	}
 
-	function selectRow(index: number): void {
+	/**
+	 * A tap or click on a task (`drop`: the selection after a drag ended). Sheet layouts select on
+	 * a first tap and open the details on a tap on the selected task (`InspectorState.tap`); a drop
+	 * counts as a first tap, so it never opens the sheet.
+	 */
+	function selectRow(index: number, drop = false): void {
 		const row = model.rows[index];
 		if (!row) return;
-		app.selectTask(row.key);
-		app.inspector.show();
+		selectKey(row.key, drop);
+	}
+
+	function selectKey(key: string, drop = false): void {
+		const already = !drop && app.selectedRow === key;
+		app.selectTask(key);
+		if (app.inspector.tap(already)) return;
+		// Said once the tap's handler is done: Enter on a row opens the details right after this.
+		queueMicrotask(() => {
+			if (app.inspector.sheet) return;
+			const name = model.rows.find((r) => r.key === key)?.name;
+			if (name !== undefined) announce(strings.grid.tapAgain(name));
+		});
 	}
 
 	/** + and - zoom while the task list has the focus; Ctrl+plus is the browser's (zoomForKey). */
@@ -570,10 +586,7 @@
 						}}
 						rowDrag={m.rowDrag}
 						ontoggle={(k) => app.toggleNode(k)}
-						onselect={(k) => {
-							app.selectTask(k);
-							app.inspector.show();
-						}}
+						onselect={(k) => selectKey(k)}
 						onopen={() => app.inspector.focus()}
 						onreveal={revealRow}
 					/>

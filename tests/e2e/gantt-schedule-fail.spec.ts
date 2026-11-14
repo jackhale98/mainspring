@@ -28,7 +28,7 @@ test.describe('an edit that stops the plan scheduling', () => {
 		const rev0 = await rig.revision();
 		expect(end0).not.toBeNull();
 
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		const size = page.getByRole('group', { name: 'Effort' }).getByRole('textbox');
 		await size.fill('900d');
 		await size.press('Enter');
