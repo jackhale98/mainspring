@@ -33,8 +33,10 @@
 	import { ThemeState } from '../lib/state/theme.svelte';
 	import { newOutlineView } from '../lib/state/outline';
 	import { effectiveMode, modeFromParam, phoneTabFor } from '../lib/state/view-mode';
-	import { strings } from '../lib/strings';
+	import { canAddSubtask, type AddMode } from '../lib/gantt/add-task';
+	import { ganttActionStrings, strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
+	import { addTaskFlow, headerAfter } from './gantt/add-task-flow';
 	import Gantt from './gantt/Gantt.svelte';
 	import InspectorHost from './inspector/InspectorHost.svelte';
 	import OutlinePanel from './OutlinePanel.svelte';
@@ -205,6 +207,53 @@
 		app.showRange(at);
 	}
 
+	/**
+	 * Add task (+) on the phone's Plan tab, where no Gantt is mounted: the same flow as the Gantt's
+	 * (gantt/add-task-flow.ts), through the dispatcher's `addTask`. The details are the Gantt tab's
+	 * sheet, so the new task is shown there once it is in the model.
+	 */
+	function addFromPlan(mode: AddMode): Promise<string | null> {
+		return addTaskFlow(
+			{
+				app,
+				plan: () => app.edits,
+				headerOf: (edit) => headerAfter(app, edit),
+				add: (at) =>
+					app.edits
+						? app.edits.dispatch(
+								{ type: 'addTask', ...at },
+								{ label: { text: ganttActionStrings.label.add(at.name), approx: false } },
+							)
+						: Promise.resolve({ status: 'cancelled' }),
+				reveal: () => undefined,
+				show: async (key) => {
+					// Only while the person is still on the Plan tab: not pulled away from another one.
+					if (app.phoneTab !== 'plan') return false;
+					planViews.tasks.selected = key;
+					planViews.tasks.focus = key;
+					app.phoneTab = 'gantt';
+					modes.set('visual');
+					for (let i = 0; i < 40 && !app.inspector.view?.model.rowOf.has(key); i++) {
+						await new Promise((r) => setTimeout(r, 50));
+					}
+					return true;
+				},
+			},
+			mode,
+		);
+	}
+
+	// The Plan tab's tree highlights what the app has selected (the Gantt, the text or the
+	// inspector may have moved it since the tree was last on screen): seeded before it mounts.
+	$effect.pre(() => {
+		if (!phone || app.phoneTab !== 'plan') return;
+		const key = app.selectedTask;
+		untrack(() => {
+			planViews.tasks.selected = key;
+			planViews.tasks.focus = key;
+		});
+	});
+
 	function pickTab(tab: 'plan' | 'gantt' | 'text'): void {
 		if (tab === 'text') modes.set('text');
 		else if (tab === 'gantt') modes.set('visual');
@@ -247,7 +296,17 @@
 				     collapse state is the app's; the scroll and the selection are kept in `planViews`. -->
 					{#if app.phoneTab === 'plan'}
 						<div class="grow">
-							<OutlinePanel {app} showTitle={false} showNotice={false} views={planViews} />
+							<OutlinePanel
+								{app}
+								showTitle={false}
+								showNotice={false}
+								views={planViews}
+								add={{
+									hasSelection: app.selectedTask !== null,
+									canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
+									onadd: (mode) => addFromPlan(mode),
+								}}
+							/>
 						</div>
 					{/if}
 				</div>

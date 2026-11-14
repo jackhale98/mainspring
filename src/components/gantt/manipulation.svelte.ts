@@ -37,7 +37,9 @@ import type { AppState } from '../../lib/state/app.svelte';
 import type { ActionSource } from '../../lib/state/edits.svelte';
 import type { OutlineNode } from '../../lib/state/outline';
 import { gestureStrings } from '../../lib/strings';
+import type { AddMode } from '../../lib/gantt/add-task';
 import type { ZoneOffsets } from '../../lib/tjp/values/civil';
+import { addTaskFlow, headerAfter } from './add-task-flow';
 import { ChipDrag } from './chip-drag.svelte';
 import { GanttGestures } from './gestures.svelte';
 import { GanttInteractions, resourceOrder } from './interactions.svelte';
@@ -334,6 +336,24 @@ export class Manipulation {
 	}
 	get rowActions(): RowActions {
 		return this.#actions;
+	}
+
+	/** Add task (+): a new task, selected, its details open with the name focused (add-task-flow.ts). */
+	addTask(mode: AddMode): Promise<string | null> {
+		const h = this.#h;
+		return addTaskFlow(
+			{
+				app: h.app,
+				plan: () => h.app.edits,
+				headerOf: (edit) => headerAfter(h.app, edit),
+				add: (a) => this.interactions.actor.run({ type: 'add', ...a }),
+				reveal: (key) => {
+					const row = h.model().rowOf.get(key);
+					if (row !== undefined) void h.revealRow(row);
+				},
+			},
+			mode,
+		);
 	}
 
 	/** Books a person on the selected task, or releases them (the palette's key path). */

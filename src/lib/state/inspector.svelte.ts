@@ -49,6 +49,8 @@ export class InspectorState {
 	sheetHeight = $state(0);
 	/** The details were asked for (Enter), not just a click: a desktop in Split opens its sheet. */
 	explicit = $state(false);
+	/** The next focus move into the details also selects the text of the field it lands on. */
+	selectOnFocus = $state(false);
 
 	/** The app's selection, whose link half `link` is (a plan of its own when used alone). */
 	readonly selection: SelectionState;
@@ -89,6 +91,15 @@ export class InspectorState {
 		this.collapsed = false;
 		this.explicit = true;
 		this.focusNonce++;
+	}
+
+	/**
+	 * Add task (+): open the details and focus the name with its text selected, ready to type
+	 * (phase-3.md 9.8). The name is the first field of a task's details.
+	 */
+	focusName(): void {
+		this.selectOnFocus = true;
+		this.focus();
 	}
 
 	/**

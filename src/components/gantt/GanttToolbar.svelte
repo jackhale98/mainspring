@@ -26,6 +26,8 @@
 	import type { CriticalChip } from '../../lib/gantt/analysis';
 	import { gestureStrings, strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
+	import type { AddMode } from '../../lib/gantt/add-task';
+	import AddTaskMenu from './AddTaskMenu.svelte';
 	import RowMenu from './RowMenu.svelte';
 	import type { RowAction } from './types';
 
@@ -44,6 +46,14 @@
 		oncritical: () => void;
 		/** The people palette's toggle (R6): shown for a mouse when the plan has people. */
 		people?: { open: boolean; count: number; ontoggle: () => void } | undefined;
+		/** The Add task (+) control (ADR-0013): first, on every layout. */
+		add?:
+			| {
+					hasSelection: boolean;
+					canSubtask: boolean;
+					onadd: (mode: AddMode) => Promise<unknown> | void;
+			  }
+			| undefined;
 		/** The selected task's row actions (R5), as buttons. */
 		rowActions?:
 			| { actions: readonly RowAction[]; disabled: boolean; onaction: (id: string) => void }
@@ -66,6 +76,7 @@
 		ontoday,
 		oncritical,
 		people,
+		add,
 		rowActions,
 		onpill,
 	}: Props = $props();
@@ -90,6 +101,7 @@
 
 <div class="bar">
 	<div class="chips" role="group" aria-label={strings.gantt.toolbar}>
+		{#if add}<AddTaskMenu {...add} />{/if}
 		<label class="chip select">
 			<span class="sr-only">{strings.gantt.zoom}</span>
 			<!-- Between two presets the select shows "Week (custom)", so that choosing Week still changes it. -->
@@ -113,16 +125,17 @@
 		</label>
 		<button
 			type="button"
-			class="chip"
+			class="chip today"
 			onclick={ontoday}
 			disabled={!hasMarker}
 			aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
 		>
-			<Icon name="today" size={14} />{strings.gantt.today}
+			<Icon name="today" size={14} /><span class="lbl">{strings.gantt.today}</span>
 		</button>
 		<button
 			type="button"
 			class="chip critical"
+			aria-label={strings.gantt.criticalPath}
 			aria-pressed={critical.available ? critical.pressed : undefined}
 			aria-disabled={critical.available ? undefined : 'true'}
 			aria-describedby="critical-why"
@@ -131,7 +144,7 @@
 				if (critical.available) oncritical();
 			}}
 		>
-			<Icon name="route" size={14} />{strings.gantt.criticalPath}
+			<Icon name="route" size={14} /><span class="lbl">{strings.gantt.criticalPath}</span>
 		</button>
 		<span id="critical-why" class="sr-only">{critical.why}</span>
 		{#if people && people.count > 0}
@@ -224,6 +237,7 @@
 		font: inherit;
 		font-size: var(--text-xs);
 		font-weight: 500;
+		white-space: nowrap;
 		backdrop-filter: blur(6px);
 		cursor: pointer;
 	}
@@ -391,6 +405,18 @@
 	}
 	/* A phone: the chips are one compact row above the chart; nothing floats over it but the
 	   task line, which has no room to spare and shows only with a task. */
+	@media (max-width: 399px) {
+		/* 360 px: the critical path is its icon (its aria-label is the name) so that Zoom, Today,
+		   Add task, the critical path and the row menu fit 44 px apiece without a clip. */
+		.critical .lbl {
+			display: none;
+		}
+		.critical {
+			padding-inline: 0;
+			justify-content: center;
+			min-inline-size: var(--size-tap);
+		}
+	}
 	@media (max-width: 599px) {
 		.bar {
 			display: contents;
@@ -403,6 +429,21 @@
 		}
 		.legend {
 			display: none;
+		}
+		/* The Add task button took 44 px of the row: Today is its icon alone (its aria-label is
+		   the name), so that nothing wraps or is cut off at 360 px. */
+		.today .lbl {
+			display: none;
+		}
+		/* The select shrinks (a custom zoom reads "Week (custom)") rather than push a chip off. */
+		select {
+			max-inline-size: 5.5rem;
+			text-overflow: ellipsis;
+		}
+		.today {
+			padding-inline: 0;
+			justify-content: center;
+			min-inline-size: var(--size-tap);
 		}
 		.task {
 			position: absolute;
