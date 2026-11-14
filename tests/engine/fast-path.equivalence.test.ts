@@ -101,6 +101,18 @@ const report = {
 
 let engine: Engine;
 let revision = 0;
+
+/**
+ * A fresh engine for each family. One long-lived VM grows by about 1.1 MB per full run of a
+ * golden plan, with or without the fast path (measured over 800 rounds of the corpus: 979 MB
+ * after 800 full runs, 1,885 MB after 800 retaining and 800 plain runs), and ruby.wasm's
+ * JavaScript side reads addresses past 2 GiB as negative offsets, so a few thousand runs in one
+ * VM end in a crash ("Start offset -2135244720 is outside the bounds of the buffer"). Each family
+ * still runs hundreds of schedules in one engine, which is what the shuffled replay needs.
+ */
+async function freshEngine(): Promise<void> {
+	engine = (await bootNodeEngine({ log: () => {} })) as unknown as Engine;
+}
 const run = (request: Omit<ScheduleRequest, 'revision'>): ScheduleResult =>
 	engine.schedule({ ...request, revision: ++revision });
 
@@ -195,7 +207,7 @@ const purgePlans: Plan[] = [];
 
 describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run', () => {
 	beforeAll(async () => {
-		engine = (await bootNodeEngine({ log: () => {} })) as unknown as Engine;
+		await freshEngine();
 		const rng = new Rng(SEED);
 		for (const c of loadCorpus()) {
 			if (ONLY.length > 0 && !ONLY.includes(c.plan.id)) continue;
@@ -250,7 +262,8 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 		expect(report.differences).toEqual([]);
 	}, 3_600_000);
 
-	it(`${RUNS} generated plans`, () => {
+	it(`${RUNS} generated plans`, async () => {
+		await freshEngine();
 		for (const p of generatedPlans) {
 			report.plans.generated++;
 			if (p.rewrites.length === 0) report.plans.withoutSites++;
@@ -259,7 +272,8 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 		expect(report.differences).toEqual([]);
 	}, 3_600_000);
 
-	it(`${DIRECTION_RUNS} direction plans: start and end with late: statements`, () => {
+	it(`${DIRECTION_RUNS} direction plans: start and end with late: statements`, async () => {
+		await freshEngine();
 		for (const p of directionPlans) {
 			report.plans.direction++;
 			if (p.rewrites.length === 0) report.plans.withoutSites++;
@@ -268,7 +282,8 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 		expect(report.differences).toEqual([]);
 	}, 3_600_000);
 
-	it(`${PURGE_RUNS} purge plans: value statements with purge before or after`, () => {
+	it(`${PURGE_RUNS} purge plans: value statements with purge before or after`, async () => {
+		await freshEngine();
 		for (const p of purgePlans) {
 			report.plans.purge++;
 			if (p.rewrites.length === 0) report.plans.withoutSites++;
@@ -277,7 +292,8 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 		expect(report.differences).toEqual([]);
 	}, 3_600_000);
 
-	it('a shuffled replay through the same engine, with unrelated full runs between', () => {
+	it('a shuffled replay through the same engine, with unrelated full runs between', async () => {
+		await freshEngine();
 		const rng = new Rng(mixSeed(SEED, 0x5f));
 		const sample = [...corpusPlans.filter((p) => p.rewrites.length > 0), ...generatedPlans.filter((p) => p.rewrites.length > 0).slice(0, 60)];
 		for (let i = sample.length - 1; i > 0; i--) {
