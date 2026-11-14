@@ -236,14 +236,35 @@ plans, 2 in generator plans); with it, none. The reviewer's own purge generator 
 
 Run with `FAST_PATH=1 FAST_PATH_RUNS=500 FAST_PATH_DIRECTION_RUNS=100` at the old seed and a new
 one, after each review round: 40 golden plans (6 rewrites each plus a patch of three), 500
-generated plans and 100 direction plans, then the shuffled replay.
+generated plans and 100 direction plans, then the shuffled replay. From round 3 also
+`FAST_PATH_PURGE_RUNS=100` (the purge family, raw rewrites), and each family runs in a freshly
+booted engine (below).
 
 | After | Seed | Cases | Fast | Ran in full | Differences | Shuffled replay (2 fast runs per case) | Wall time |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: |
+| Round 3 | 20261113 | 2,578 | 1,938 | 640 | **0** | 97 cases, 194 fast runs, **0** differences | 1,189 s |
+| Round 3 | 20261116 (new) | 2,544 | 1,910 | 634 | **0** | 97 cases, 194 fast runs, **0** differences | 830 s |
 | Round 2 | 20261113 | 1,887 | 1,641 | 246 | **0** | 97 cases, 194 fast runs, **0** differences | 1,601 s |
 | Round 2 | 20261115 (new) | 1,881 | 1,622 | 259 | **0** | 97 cases, 194 fast runs, **0** differences | 1,098 s |
 | Round 1 | 20261113 | 1,887 | 1,695 | 192 | **0** | 97 cases, 194 fast runs, **0** differences | 1,895 s |
 | Round 1 | 20261114 | 1,942 | 1,754 | 188 | **0** | 97 cases, 194 fast runs, **0** differences | 1,837 s |
+
+After round 3, the largest reasons for a full run (20261113 / 20261116) are a later purge on
+the task (258 / 230, almost all from the purge family's raw rewrites), the direction (119 /
+105), the `attr_overwrite` backstop (88 / 114), a parse with errors (44 / 68; at seed 20261113,
+40 of the 44 come from the purge family, since the other families gave 4 before round 3), a later statement of
+the family (37 / 34) and children inheriting `priority` (27 / 27).
+
+**One long-lived engine is not enough for the whole suite.** With the purge family added, the
+shuffled replay crashed the VM at both seeds ("Start offset -2135244720 is outside the bounds of
+the buffer"), after every family had passed with zero differences (60 and 68 replay cases done,
+none differing). A measurement: one VM grows by about 1.1 MB per full run of a golden plan,
+with or without the fast path (75 MB at boot; 979 MB after 800 full corpus runs; 1,885 MB after
+800 retaining plus 800 plain runs, the same growth per run), and ruby.wasm's JavaScript side
+reads addresses past 2 GiB as negative offsets. So each family now boots its own engine; each
+still runs hundreds of schedules in one VM, which is what the replay needs. The growth is not
+the fast path's (it is the same on the full path alone), but it bounds a worker's life in the
+app too: about 1,800 corpus-sized runs. It is reported separately, as it is outside T19.
 
 Why they ran in full after round 2 (20261113 / 20261115):
 
@@ -348,10 +369,12 @@ Run B (after round 1), in detail (ms):
 
 **Adopt the fast path, subject to the user's decision.** Every criterion of 18.12 holds:
 
-1. Zero differences after round 2: 3,768 cases at two seeds (1,887 and 1,881) and 388 shuffled
-   fast runs, plus the 69 review repros, the retaining run over every golden plan and 22 guards.
-   After round 1 also zero, in 3,829 cases at two seeds; round 2's wrong result (`period`) was
-   a pattern the suites did not generate, and is now a repro.
+1. Zero differences after round 3: 5,122 cases at two seeds (2,578 and 2,544) and 388 shuffled
+   fast runs, plus the 88 review repros, the retaining run over every golden plan and 22 guards.
+   After rounds 1 and 2 also zero (3,829 and 3,768 cases); the wrong results the reviews found
+   (`period` in round 2, `purge` in round 3) were patterns the suites did not generate. Both
+   are now repros, and the purge family generates the second; with the purge check removed it
+   finds 31 differences in 692 cases.
 2. A median saving of 37 to 51% on Fedora 20 and 34 to 42% on gantt-200 over every usable run
    so far (two of mine before the reviews, the review's, three of mine after them), against a
    bar of 30%. The lowest are 37.3% on Fedora (the review) and 33.9% on gantt-200 (run B).
@@ -447,7 +470,8 @@ Scope of adoption:
 - **A retaining full run** pays `retainMs` for the copy, plus noting the sites while it parses
   (see Timings).
 - **Memory.** The worker holds one copy (`retainBytes`: about 1.4 MB for Fedora, 2 MB for
-  scale-1000).
+  scale-1000). A retaining run grows the VM no more than a plain run does (see Equivalence for
+  the growth every full run causes).
 - **Bundle.** +8,867 bytes gzip (409,866 against 400,999 for the bundle without the fast path,
   built the same way), +30,707 bytes raw; the draft added 5,126 bytes gzip, and the site
   recorder and the stricter checks are the difference.
