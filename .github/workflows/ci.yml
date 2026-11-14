@@ -198,6 +198,24 @@ jobs:
       # Spread over four runners by device. The Text mode timings (text-mode-perf.spec.ts) run
       # nightly instead (nightly.yml, perf job).
       - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
+      # JS budget (phase-2 11.3, 13.4, 18.11), on the build this job already has: the total gzip of
+      # dist/_astro stays under 450,000 bytes (fails), a Visual-first load must not fetch the
+      # CodeMirror chunk (fails), and its size is reported against the 300 KB target (a warning).
+      # It serves dist itself, as Pages does, and loads two pages to Engine Ready: about a minute, on the
+      # desktop runner only (the iPhone runners are the slow ones).
+      - name: JS sizes
+        if: matrix.project == 'desktop' && !cancelled()
+        run: node scripts/js-sizes.mjs --serve --out test-results/js-sizes.json
+      # The timings the Gantt specs record (gesture frame cost, analysis time), per device.
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.project != 'iphone-14'
+        with:
+          name: gantt-timings-${{ matrix.project }}
+          path: |
+            test-results/gantt-*.json
+            test-results/js-sizes.json
+          if-no-files-found: ignore
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

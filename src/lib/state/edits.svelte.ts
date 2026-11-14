@@ -13,6 +13,7 @@
  *   preview?)`. `source` is what the Gantt draws, the result and its driving analysis as one pair
  *   (`GanttAnalysis.shown`). The dispatcher adds the index (`runner.ensureIndex()`), the working
  *   time, the zones and the move preference, and plans with `planAction` (gantt/intents.ts).
+ * - **Check an action** with `check(action, source)`: a dry run for gestures; null: no answer yet.
  * - **Dispatch an edit intent** (the inspector's fields): `dispatch(intent, { label }, preview?)`;
  *   pass `constraint: true` when it adds a `start` or `end` the task did not have.
  * - `preview` is the dragged item's geometry (`PendingMark`). It shows at once in `pending.byTask`
@@ -77,7 +78,7 @@
  *
  * Calls run one at a time, in the order they were made.
  */
-import type { GanttAction, MoveKind } from '../gantt/intents';
+import type { ActionOutcome, GanttAction, MoveKind } from '../gantt/intents';
 import { refusalMessage } from '../gantt/intents';
 import {
 	clearMovePreference,
@@ -88,12 +89,13 @@ import {
 import { ganttActionStrings, toastStrings } from '../strings';
 import { afterAndroidKey, type KeyTimers } from '../tjp/cm/android-key';
 import { applyEdit } from '../tjp/edit/apply';
-import type { EditIntent } from '../tjp/edit/types';
+import type { EditIntent, EditOptions } from '../tjp/edit/types';
 import { historyLabel } from '../workspace/history';
 import type { WorkspacePath } from '../workspace/paths';
 import type { RunnerState } from '../workspace/run-types';
 import { Coalescer, type Gesture } from './coalesce';
-import { isZeroTotal, movedId, prepare, refused, type Prepared } from './edits-plan';
+import { afterPaint } from './edits-yield';
+import { checkOn, isZeroTotal, movedId, prepare, refused, type Prepared } from './edits-plan';
 import { errorIdsOf, rangeNow, type Located } from './edits-settle';
 import type {
 	ActionDispatchOptions,
@@ -196,6 +198,11 @@ export class EditDispatcher {
 		return this.#enqueue({ seq: ++this.#seq, preview, kind: 'action', action, source, o });
 	}
 
+	/** A dry run on the current text (no edit, toast or history), for gestures; null: not ready. */
+	check(action: GanttAction, source: ActionSource, opts?: EditOptions): ActionOutcome | null {
+		return checkOn(this.#d, action, source, opts);
+	}
+
 	/**
 	 * Dispatches the held call of `key` now and ends its gesture (every key when omitted): on blur
 	 * and Enter. The caller's next call with the key begins a new total.
@@ -247,6 +254,7 @@ export class EditDispatcher {
 		const key = job.o.coalesceKey;
 		if (key === undefined) return this.#serial(job);
 		const gesture = this.#co.gesture(key);
+		if (job.kind === 'action') gesture.source ??= job.source;
 		return new Promise((resolve) => {
 			const prev = this.#co.hold(key, { ...job, gesture }, resolve);
 			if (!prev) return;
@@ -260,7 +268,9 @@ export class EditDispatcher {
 	}
 
 	#serial(job: Job): Promise<DispatchOutcome> {
-		const run = this.#chain.then(() => this.#run(job));
+		// A drop (`defer`) keeps only its preview mark in the pointer-up task (edits-yield.ts).
+		const wait = job.o.defer ? afterPaint(this.#timers) : undefined;
+		const run = this.#chain.then(() => wait).then(() => this.#run(job));
 		this.#chain = run.catch(() => undefined);
 		return run;
 	}

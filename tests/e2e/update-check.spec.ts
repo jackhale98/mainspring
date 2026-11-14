@@ -31,16 +31,30 @@ test.describe('update check', () => {
 		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		const reload = page.getByRole('button', { name: /new version of Mainspring is available/ });
-		await expect(reload).toBeVisible({ timeout: 10_000 });
+		// Desktop and tablet: a button in the strip. A phone has no strip: the top bar's status
+		// button wears a pip and says so, and its popover has the New version · Reload button.
+		const phone = info.project.name !== 'desktop';
+		const reload = phone
+			? page.getByRole('button', { name: 'New version · Reload' })
+			: page.getByRole('button', { name: /new version of Mainspring is available/ });
+		if (phone) {
+			const status = page.getByRole('button', { name: /A new version is available\./ });
+			await expect(status).toBeVisible({ timeout: 10_000 });
+			await expect(status.getByTestId('update-pip')).toBeVisible();
+		} else {
+			await expect(reload).toBeVisible({ timeout: 10_000 });
+		}
 		if (info.project.name === 'desktop' || info.project.name === 'pixel-7') {
 			const shot = info.project.name === 'desktop' ? 'desktop' : 'pixel7';
 			await page.screenshot({ path: path.join(DIR, `update-${shot}-light.png`) });
-			await page.getByTestId('engine-info').click();
+			await page.getByTestId(phone ? 'status-button' : 'engine-info').click();
 			await expect(page.getByTestId('engine-info-details')).toContainText('New version');
 			await page.screenshot({ path: path.join(DIR, `update-${shot}-popover-light.png`) });
-			await page.keyboard.press('Escape');
+			if (!phone) await page.keyboard.press('Escape');
+		} else if (phone) {
+			await page.getByTestId('status-button').click();
 		}
+		if (phone) await expect(reload).toBeVisible();
 		const loaded = page.waitForEvent('load');
 		await reload.click();
 		await loaded;

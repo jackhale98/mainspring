@@ -44,6 +44,9 @@ const cell = (r: Locator, col: string) => r.locator(`[data-col="${col}"]`);
 const text = async (l: Locator) => ((await l.textContent()) ?? '').replace(/\s+/g, ' ').trim();
 const tabStops = (page: Page) => grid(page).locator('[tabindex="0"]');
 const phone = (info: { project: { name: string } }) => info.project.name !== 'desktop';
+/** What opens the engine details: the strip's button, or on a phone the top bar's status button. */
+const engineButton = (page: Page, info: { project: { name: string } }) =>
+	phone(info) ? page.getByTestId('status-button') : page.getByTestId('engine-info');
 
 test.describe('the treegrid', () => {
 	test.setTimeout(READY_TIMEOUT_MS + 90_000);
@@ -259,19 +262,21 @@ test.describe('the engine in the status strip', () => {
 		page,
 	}, info) => {
 		await open(page);
-		const strip = page.getByRole('group', { name: 'Plan status' });
-		const button = strip.getByTestId('engine-info');
+		const button = engineButton(page, info);
 		await expect(button).toBeVisible();
-		await expect(button).toHaveAccessibleName(
-			/^Engine details: TaskJuggler 3\.8\.4 · Last run [\d.]+ m?s$/,
-		);
 		if (phone(info)) {
-			// A phone has the gauge only, and a 44 px target.
+			// A phone has the status button in the top bar: a 44 px target that says the state.
+			await expect(button).toHaveAccessibleName(
+				/^Plan status: Scheduled.*\. Engine and scheduler details$/,
+			);
 			await expect(button).not.toContainText('TaskJuggler');
 			const box = await button.boundingBox();
 			expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
 			expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
 		} else {
+			await expect(button).toHaveAccessibleName(
+				/^Engine details: TaskJuggler 3\.8\.4 · Last run [\d.]+ m?s$/,
+			);
 			await expect(button).toContainText('TaskJuggler 3.8.4');
 			await expect(button).toContainText('Last run');
 		}
@@ -335,7 +340,7 @@ for (const scheme of ['light', 'dark'] as const) {
 				treeitems: g.querySelectorAll('[role="treeitem"]').length,
 			}));
 			expect(names).toEqual({ rowgroups: 1, treeitems: 0 });
-			await page.getByTestId('engine-info').click();
+			await engineButton(page, info).click();
 			await expect(page.getByTestId('engine-info-details')).toBeVisible();
 			await check(page, `engine popover on ${info.project.name}`);
 		});
@@ -358,7 +363,7 @@ for (const scheme of ['light', 'dark'] as const) {
 					path: path.join(DIR, `treegrid-desktop-cell-focus-${scheme}.png`),
 				});
 			}
-			await page.getByTestId('engine-info').click();
+			await engineButton(page, info).click();
 			await expect(page.getByTestId('engine-info-details')).toBeVisible();
 			await page.waitForTimeout(300);
 			await page.screenshot({ path: path.join(DIR, `engine-info-${device}-${scheme}.png`) });

@@ -6,20 +6,22 @@
  * empty hit that still names the row and the minute, so a tap anywhere in a row can select it.
  * A link is not hit over the avatars or the name beside a bar: the painter reports where it drew
  * the avatars and the layout knows where the names are (labels.ts), and the text wins over a line
- * that runs under it. Handles and the other parts of the later hit kinds
- * (resize, link dot, progress) join here with the gestures; read-only Gantt has the body only.
+ * that runs under it. The selected bar's handles (handles.ts: the size handle, the link dot, the
+ * progress knob) are found first and only for the selected row, so a handle is never a target on
+ * a bar that does not show it (ADR-0008 #4); any other hit on a bar is its body.
  *
  * `hitTest` runs on every pointer move and allocates nothing (phase-2.md 6.3): it reads the
  * layout's typed arrays through scratch objects.
  */
 import type { Minutes } from '../../engine/protocol';
+import { handleAt, type HandlePart, type HandleSet } from './handles';
 import { LABEL_STRIDE } from './labels';
 import type { GanttLayout, MutableRect, Point } from './layout';
 import type { GanttModel } from './model';
 import { distanceToBuf, distanceToSegment, newPath, type PathBuf } from './route';
 
 export type Hit =
-	| { readonly kind: 'bar'; readonly row: number }
+	| { readonly kind: 'bar'; readonly row: number; readonly part?: HandlePart }
 	| { readonly kind: 'link'; readonly link: number }
 	| { readonly kind: 'empty'; readonly row: number | null; readonly at: Minutes };
 
@@ -55,8 +57,24 @@ function overName(layout: GanttLayout, row: number, x: number, y: number): boole
 	return x >= x0 && x <= x1 && Math.abs(y - (layout.rowTop(row) + half)) <= half;
 }
 
+/** The selected bar and the handles it shows (handles.ts); none without a selection. */
+export interface HitState {
+	readonly selected: number | null;
+	readonly handles: HandleSet | null;
+}
+
 /** `x` and `y` are content coordinates (layout.ts). */
-export function hitTest(layout: GanttLayout, model: GanttModel, x: number, y: number): Hit {
+export function hitTest(
+	layout: GanttLayout,
+	model: GanttModel,
+	x: number,
+	y: number,
+	state?: HitState,
+): Hit {
+	if (state?.selected != null && state.handles) {
+		const part = handleAt(layout, state.selected, state.handles, x, y);
+		if (part) return { kind: 'bar', row: state.selected, part };
+	}
 	const row = layout.rowAt(y);
 	if (row !== null) {
 		const r = scratchRect;

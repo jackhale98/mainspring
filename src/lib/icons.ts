@@ -84,6 +84,13 @@ export const ICONS = {
 		'M16 18v4',
 	],
 	grip: ['M9 5h.01', 'M9 12h.01', 'M9 19h.01', 'M15 5h.01', 'M15 12h.01', 'M15 19h.01'],
+	users: [
+		'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+		circle(9, 7, 4),
+		'M22 21v-2a4 4 0 0 0-3-3.87',
+		'M16 3.13a4 4 0 0 1 0 7.75',
+	],
+	more: [circle(12, 12, 1), circle(19, 12, 1), circle(5, 12, 1)],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

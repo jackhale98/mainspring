@@ -163,7 +163,9 @@ export type NotPossibleReason =
 	/** A gap move on a dependency with both `gaplength` and `gapduration`. */
 	| 'two-gaps'
 	/** A gap move before the driving analysis of the shown schedule is ready. */
-	| 'analysing';
+	| 'analysing'
+	/** Booking a person on a container: people go on its subtasks (or in the text). */
+	| 'container-people';
 
 export type Planned =
 	| {

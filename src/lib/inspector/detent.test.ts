@@ -22,3 +22,12 @@ describe('detents', () => {
 		expect(dragHeight(400, 900, 800)).toBe(0);
 	});
 });
+
+describe('a peek', () => {
+	it('opens to half on a drag up, stays a peek otherwise, and toggles to half', () => {
+		expect(detentAfterDrag('peek', -60)).toBe('half');
+		expect(detentAfterDrag('peek', 60)).toBe('peek');
+		expect(detentAfterDrag('peek', 0)).toBe('peek');
+		expect(toggled('peek')).toBe('half');
+	});
+});

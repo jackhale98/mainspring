@@ -4,6 +4,10 @@
 	with floating rounded panels on it, and a top bar on the canvas itself. It is as tall as the
 	viewport and never scrolls as a page: only the panels inside scroll (see layouts/Base.astro).
 
+	Over 400 lines: it is the one place that wires every layout (phone, tablet, desktop), the
+	details dock and drawer, the toasts' room and the phone tabs together; splitting it would
+	scatter that wiring across files that only make sense together.
+
 	Modes (Text, Split, Visual) are per sample and remembered (src/lib/state/mode.svelte.ts);
 	Cmd or Ctrl and 1, 2, 3 switch from anywhere. Text on a desktop shows the outline beside the
 	editor; tablets put the outline in a drawer. Split shows the editor and the Gantt side by side
@@ -16,7 +20,8 @@
 	the editor's state. The Gantt is mounted when first shown and then kept, so zoom and scroll
 	survive a switch. Nothing here changes the schedule: the editor commits text to the workspace
 	and the runner schedules what it sees; visual edits go through the edit dispatcher
-	(`app.edits`), whose toasts sit above the status strip (above the tab bar on phones).
+	(`app.edits`), whose toasts sit above the status strip (above the tab bar on phones, which have
+	no strip: their status is the top bar's button, polish 8).
 -->
 <script lang="ts">
 	import { onDestroy, untrack, type Component } from 'svelte';
@@ -118,7 +123,7 @@
 	$effect(() => {
 		if (!drawer) untrack(() => (app.outlineOpen = false));
 	});
-	/** The notice sits in the outline panel; where that is not on screen, it sits in the footer. */
+	/** The notice sits in the outline panel; where that is not on screen, it sits in the footer. Phones have neither. */
 	const showNotice = $derived(!phone && !(kind === 'desktop' && mode === 'text'));
 
 	let body: HTMLElement | undefined = $state();
@@ -139,14 +144,16 @@
 	const splitTracks = $derived(`minmax(0, ${ratio}fr) var(--gap-panel) minmax(0, ${1 - ratio}fr)`);
 
 	/**
-	 * The toasts sit just above the footer (the notice and the status strip), on every layout, so
-	 * they never cover the status or its reload button: its distance from the viewport's bottom,
-	 * measured whenever the footer or the viewport changes size.
+	 * The toasts sit just above the footer (the notice and the status strip), so they never cover
+	 * the status or its reload button; on a phone, which has no footer, just above the tab bar.
+	 * That element's distance from the viewport's bottom, measured whenever it or the viewport
+	 * changes size.
 	 */
 	let footer: HTMLElement | undefined = $state();
+	let tabDock: HTMLElement | undefined = $state();
 	let toastBottom = $state<number | null>(null);
 	$effect(() => {
-		const el = footer;
+		const el = phone ? tabDock : footer;
 		if (!el) return;
 		const measure = (): void => {
 			toastBottom = Math.max(0, Math.round(window.innerHeight - el.getBoundingClientRect().top));
@@ -199,7 +206,7 @@
 <svelte:window {onkeydown} />
 
 <div class="app" data-layout={kind}>
-	<TopBar {app} {theme} layout={kind} {mode} {drawer} onmode={(m) => modes.set(m)} />
+	<TopBar {app} {theme} layout={kind} {mode} {drawer} {updates} onmode={(m) => modes.set(m)} />
 	<div class="work" bind:clientWidth={workW}>
 		<main
 			id="main"
@@ -279,12 +286,17 @@
 		</main>
 		<InspectorHost {app} layout={kind} {dock} active={showGantt} onshowtext={showInText} />
 	</div>
-	<div class="footer" bind:this={footer}>
-		{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
-		{#if phone}<p class="notice compact">{strings.noticeShort}</p>{/if}
-		<StatusStrip {app} {updates} compact={phone} quiet={showGantt} />
-	</div>
-	{#if phone}<TabBar {app} onchange={pickTab} />{/if}
+	{#if phone}
+		<!-- No footer on a phone: the panels run down to the tab bar. The status is the top bar's
+		     button; this hidden group keeps the runs spoken (StatusStrip). -->
+		<StatusStrip {app} {updates} phone quiet={showGantt} />
+		<div class="tab-dock" bind:this={tabDock}><TabBar {app} onchange={pickTab} /></div>
+	{:else}
+		<div class="footer" bind:this={footer}>
+			{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
+			<StatusStrip {app} {updates} phone={false} quiet={showGantt} />
+		</div>
+	{/if}
 	<Toasts {app} {phone} bottom={toastRoom} />
 	{#if drawer}
 		<Sheet
@@ -311,6 +323,7 @@
 		background: var(--color-bg);
 	}
 	.app[data-layout='phone'] {
+		grid-template-rows: auto minmax(0, 1fr) auto;
 		padding-inline: max(10px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-right));
 	}
 	/* The Gantt and its inspector side by side on a desktop; the body is what the Split divider
@@ -380,21 +393,11 @@
 		background: var(--color-surface);
 		box-shadow: var(--shadow-chip);
 	}
-	.app[data-layout='phone'] .footer {
-		margin-block-end: 0;
-		background: transparent;
-		box-shadow: none;
-		border-radius: 0;
-	}
 	.notice {
 		margin: 0;
 		padding: 5px var(--gutter) 0;
 		color: var(--color-text-muted);
 		font-size: 11.5px;
-	}
-	.notice.compact {
-		padding: 2px 6px 0;
-		text-align: center;
 	}
 	.message {
 		margin: 0;

@@ -4,6 +4,7 @@ import { EMPTY_MODEL, type GanttLink, type GanttModel, type GanttRow } from './m
 import type { TextMeasure } from './labels';
 import { metricsFor, type Metrics } from './layout';
 import { FALLBACK_THEME, type Theme } from './paint/theme';
+import { workingTimeFromPairs, type WorkingTime } from '../schedule/working-time';
 import { MIN_PER_DAY } from './scale';
 
 export const D = MIN_PER_DAY;
@@ -101,3 +102,16 @@ export const FIXED_MEASURE: TextMeasure = { width: (_font, text) => text.length 
 export function metricsOf(coarse: boolean): Metrics {
 	return metricsFor(coarse ? COARSE_THEME : TEST_THEME, coarse);
 }
+
+/**
+ * A project's working time for the tests: Monday to Friday, 09:00 to 17:00, for 8 weeks, with
+ * minute 0 a Monday midnight in UTC (`D` is a day in minutes).
+ */
+export function testWorkingTime(): WorkingTime {
+	const pairs: Array<readonly [number, number]> = [];
+	for (let d = 0; d < 56; d++) if (d % 7 < 5) pairs.push([d * D + 540, d * D + 1020]);
+	return workingTimeFromPairs(pairs, { resolution: 60, frameEnd: 56 * D });
+}
+
+/** The minute of `hour` o'clock on day `day` of the test week (day 0 is a Monday). */
+export const at = (day: number, hour = 9): number => day * D + hour * 60;

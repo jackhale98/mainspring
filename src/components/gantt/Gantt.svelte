@@ -10,9 +10,14 @@
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
 	editor cursor on its declaration. Critical path and float: gantt-analysis.svelte.ts (ADR-0007).
-	Gestures and the inspector (T16, T17) come later. Zoom is on
-	the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and - while the
-	task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
+	Zoom is on the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and -
+	while the task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
+
+	The direct manipulation of phase-2.md 7.1 (T16) is wired here and lives beside it: the pointer
+	events on the chart are `gestures.svelte.ts`, the keys, the link and progress modes and the
+	row commands are `interactions.svelte.ts`, a row dragged by its grip is `row-drag.svelte.ts`,
+	a person dragged from the palette is `chip-drag.svelte.ts`. Each ends in one action sent to the
+	edit dispatcher (`app.edits`); the chart only draws previews and the pending bars it holds.
 
 	The task list is the treegrid (OutlineGrid.svelte, phase-2.md 10.1). It sits in a pane of its
 	own beside the chart, and a divider (the text Split view's, SplitDivider.svelte) between them
@@ -34,6 +39,8 @@
 
 	Over 400 lines on purpose: this one component owns the scroll container, the zoom and the sticky
 	grid, and they only work together; splitting them would spread one invariant over two files.
+	The manipulation wiring (the block after `markers`) is derived state of the same model, layout
+	and selection, so it stays beside them; the logic is in the classes named above and lib/gantt.
 
 	Zoom is one step: the scale and the scroll offset are set together, so a single paint follows.
 	A continuous Ctrl+wheel zoom first stretches the canvases with a CSS transform about the point
@@ -80,8 +87,12 @@
 	import { memoZones } from '../../lib/gantt/zones';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { clampRatio } from '../../lib/state/split';
-	import { strings } from '../../lib/strings';
+	import { gestureStrings, strings } from '../../lib/strings';
 	import { ctrlWheel } from './ctrl-wheel';
+	import { createManipulation } from './manipulation.svelte';
+	import { installGanttHook } from './test-hook';
+	import MovePreferenceDialog from './MovePreferenceDialog.svelte';
+	import PeoplePalette from './PeoplePalette.svelte';
 	import { ZoomPreview } from './zoom-preview';
 	import { GanttAnalysis } from './gantt-analysis.svelte';
 	import { GanttEnv } from './gantt-env.svelte';
@@ -118,6 +129,10 @@
 	let dividerW = $state(0);
 	let remPx = $state(16);
 	let hoverRow = $state<number | null>(null);
+	/** The plot's grid cell: content x = client x minus its left (the gestures' origin). */
+	let plotCell: HTMLDivElement | undefined = $state();
+	let grid: OutlineGrid | undefined = $state();
+	let paletteOpen = $state(true);
 	/** The task pill's height while it shows (a phone floats it over the chart's foot). */
 	let pillH = $state(0);
 	const critical = new GanttAnalysis();
@@ -247,6 +262,8 @@
 			: null,
 	);
 	const selectedRow = $derived(model.rowOf.get(app.selectedTask ?? '') ?? null);
+	/** The row to highlight: the task's, or the selected link's successor's (selection.svelte.ts). */
+	const highlightRow = $derived(model.rowOf.get(app.selectedRow ?? '') ?? null);
 	const selected = $derived(describeRowParts(model, selectedRow));
 	const hover = $derived(
 		hoverRow !== null && hoverRow !== selectedRow ? describeRowParts(model, hoverRow) : NO_LINE,
@@ -256,10 +273,61 @@
 	const today = $derived(todayOf(model.project, env.nowMs));
 	const markers = $derived(markerState(model, scale.m(0), today));
 
+	// --- Direct manipulation (phase-2.md 7.1 to 7.3, 10.2; T16), assembled in manipulation.svelte.ts
+	/** What the Gantt says aloud (the treegrid's live region): a new sentence is spoken once. */
+	let flip = false;
+	function announce(text: string): void {
+		flip = !flip;
+		announcement = flip ? text : `${text}\u200b`;
+	}
+
+	/** Zooms about a viewport x (a pinch): shown at once, painted when the fingers pause. */
+	function pinchTo(target: number, clientX: number): void {
+		if (!scroller) return;
+		const x = clientX - scroller.getBoundingClientRect().left - chartLeft;
+		zoomPreview.step(clampZoom(target), Math.max(0, x));
+	}
+
+	// svelte-ignore state_referenced_locally
+	const m = createManipulation({
+		app,
+		model: () => model,
+		layout: () => layout,
+		metrics: () => metrics,
+		result: () => result,
+		shown: () => critical.shown,
+		zones,
+		selectedRow: () => selectedRow,
+		scroller: () => scroller,
+		plotCell: () => plotCell,
+		grid: () => grid,
+		chartLeft: () => chartLeft,
+		announce,
+		revealRow,
+		goToday,
+		select: selectRow,
+		zoom: () => zoomPreview.target ?? pxPerDay,
+		zoomTo: pinchTo,
+		hover: (r) => (hoverRow = r),
+	});
+	const interactions = m.interactions;
+	const links = interactions.links;
+
+	onMount(() =>
+		installGanttHook(new URLSearchParams(location.search), () => ({
+			model,
+			layout,
+			origin: plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
+			pxPerDay,
+			scroller,
+		})),
+	);
+
 	function onscroll(): void {
 		if (!scroller) return;
 		scrollLeft = scroller.scrollLeft;
 		scrollTop = scroller.scrollTop;
+		m.gestures.scrolled();
 	}
 
 	/**
@@ -304,13 +372,14 @@
 		zoomPreview.wheel(e.deltaY * unit, x);
 	}
 
-	function goToday(): void {
-		if (markers.target === null || !scroller) return;
+	function goToday(): boolean {
+		if (markers.target === null || !scroller) return false;
 		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		scroller.scrollTo({
 			left: Math.max(0, scale.x(markers.target) - viewW / 2),
 			behavior: reduce ? 'auto' : 'smooth',
 		});
+		return true;
 	}
 
 	/** Scrolls a row into view below the sticky header. */
@@ -383,6 +452,8 @@
 	});
 </script>
 
+<svelte:window onkeydown={(e) => m.onWindowKey(e)} />
+
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class="gantt"
@@ -410,8 +481,37 @@
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
 		oncritical={() => critical.toggle()}
+		people={env.coarse
+			? undefined
+			: { open: paletteOpen, count: m.people.length, ontoggle: () => (paletteOpen = !paletteOpen) }}
+		rowActions={m.rowActions}
 		onpill={(h) => (pillH = h)}
 	/>
+	<!-- Link mode (R3): what to do, and the way out for a pointer that has no Escape. It floats
+	     over the top of the chart (a zero-height anchor), so entering the mode moves nothing. -->
+	<div class="banner-anchor">
+		{#if links.state && links.state.via !== 'drag'}
+			<div class="banner" role="status" data-testid="link-banner">
+				<span>{gestureStrings.link.banner(links.state.name)}</span>
+				<button
+					type="button"
+					onclick={() => links.cancel()}
+					aria-label={gestureStrings.link.cancelLabel}
+				>
+					{gestureStrings.link.cancel}
+				</button>
+			</div>
+		{/if}
+	</div>
+	{#if paletteOpen && !env.coarse && !phone && m.people.length > 0}
+		<PeoplePalette
+			people={m.people}
+			booked={m.booked}
+			hasTask={m.hasTask}
+			drag={m.chips}
+			onbook={(p) => m.book(p)}
+		/>
+	{/if}
 
 	{#if model.rows.length === 0}
 		<p class="empty">{app.phase === 'ready' ? strings.gantt.noTasks : strings.topBar.loading}</p>
@@ -455,8 +555,20 @@
 						rowHeight={metrics.rowHeight}
 						headerHeight={metrics.headerHeight}
 						page={Math.max(1, Math.floor(viewH / metrics.rowHeight) - 1)}
-						selectedKey={app.selectedTask}
+						selectedKey={app.selectedRow}
 						{announcement}
+						pending={m.pendingKeys}
+						bind:this={grid}
+						renaming={interactions.renaming}
+						onrename={(k) => interactions.startRename(k)}
+						onrenamed={(k, n) => void interactions.finishRename(k, n)}
+						oncancelrename={() => interactions.cancelRename()}
+						onkeycmd={(e, k) => interactions.key(e, k)}
+						onfocusrow={(k) => {
+							m.focusKey = k;
+							interactions.focusMoved(k);
+						}}
+						rowDrag={m.rowDrag}
 						ontoggle={(k) => app.toggleNode(k)}
 						onselect={(k) => {
 							app.selectTask(k);
@@ -483,7 +595,7 @@
 						</div>
 					</div>
 				{/if}
-				<div class="plot" style:--gantt-names="{chartLeft}px">
+				<div class="plot" style:--gantt-names="{chartLeft}px" bind:this={plotCell}>
 					<Timeline
 						{model}
 						{layout}
@@ -491,12 +603,18 @@
 						{ticks}
 						theme={env.theme}
 						dpr={env.dpr}
-						{selectedRow}
+						selectedRow={highlightRow}
 						todayMin={today}
 						{viewW}
 						{contentW}
-						onselect={selectRow}
-						onhover={(r) => (hoverRow = r)}
+						gestures={m.gestures}
+						handles={m.selectedHandles}
+						pending={m.pendingGhosts}
+						link={links.state}
+						selectedLink={m.selectedLinkIndex}
+						focusRow={m.focusRow}
+						within={{ left: scrollLeft, right: scrollLeft + viewW }}
+						palette={m.paletteView}
 					/>
 				</div>
 			</div>
@@ -504,6 +622,10 @@
 			<div class="inset" aria-hidden="true" style:block-size="{app.inspector.sheetHeight}px"></div>
 		</div>
 	{/if}
+	<MovePreferenceDialog
+		ask={interactions.actor.ask}
+		onanswer={(k) => interactions.actor.answer(k)}
+	/>
 </div>
 
 <style>
@@ -521,6 +643,46 @@
 		min-block-size: 0;
 		block-size: 100%;
 		background: var(--color-gantt-surface);
+	}
+	/* Link mode's banner floats over the top of the chart, with the way out for a finger. */
+	.banner-anchor {
+		flex: none;
+		position: relative;
+		z-index: 8;
+		block-size: 0;
+	}
+	.banner {
+		position: absolute;
+		inset-inline: 0;
+		inset-block-start: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: var(--space-2) 14px;
+		border-block-end: 1px solid var(--color-gantt-border);
+		background: var(--color-gantt-accent);
+		color: var(--color-gantt-accent-text);
+		font-size: var(--text-sm);
+	}
+	.banner button {
+		min-block-size: 32px;
+		padding-inline: var(--space-3);
+		border: 1px solid currentColor;
+		border-radius: 999px;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+	.banner button:focus-visible {
+		outline: 3px solid var(--color-gantt-accent-text);
+		outline-offset: 2px;
+	}
+	@media (pointer: coarse) {
+		.banner button {
+			min-block-size: var(--size-tap);
+		}
 	}
 	.empty {
 		margin: 0;

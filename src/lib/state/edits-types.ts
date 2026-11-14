@@ -63,9 +63,14 @@ export interface DispatchOptions {
 	readonly confirmShared?: boolean;
 	/** The edit adds a `start` or `end` the task did not have (the one-time warning). */
 	readonly constraint?: boolean;
+	/** A drop: the preview mark is set now, and the edit is planned after the next frame (7.3). */
+	readonly defer?: boolean;
 }
 
-export type ActionDispatchOptions = Pick<DispatchOptions, 'coalesceKey' | 'confirmShared'>;
+export type ActionDispatchOptions = Pick<
+	DispatchOptions,
+	'coalesceKey' | 'confirmShared' | 'defer'
+>;
 
 /** `unprepared`: the index could not be built (an error in the app, never the text's fault). */
 export type DispatchRefusal = ActionRefusal | 'unprepared';
