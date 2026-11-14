@@ -59,9 +59,9 @@ describe('hitTest', () => {
 			[link(0, 2)],
 		);
 		const l = createLayout(names, scale, fine, 0, FIXED_MEASURE);
-		// The link's leg runs down at x 104, past row 1, whose name is far to the right.
+		// The link's leg runs down at x 296, past row 1, whose name is to the left of it.
 		const leg = l.linkPath(names.links[0]!)[1]!;
-		expect(leg.x).toBe(104);
+		expect(leg.x).toBe(296);
 		expect(hitTest(l, names, leg.x, 42)).toEqual({ kind: 'link', link: 0 });
 		// Put the name under the leg: it wins over the line.
 		expect(l.labels[5]).toBe(0);
@@ -71,6 +71,29 @@ describe('hitTest', () => {
 		// A name inside its bar is the bar's own: the link is hit as before.
 		l.labels[5] = 1;
 		expect(hitTest(l, names, leg.x, 42)).toEqual({ kind: 'link', link: 0 });
+	});
+
+	it('hits a link where it shows and the bar where the link runs behind it', () => {
+		// Row 0's link runs down to row 3 at x 296 (8 px into its start), behind row 1's wide bar.
+		const behind = modelOf(
+			[row(0, 0, 2 * D), row(1, 4 * D, 9 * D), row(2, null, null), row(3, 6 * D, 8 * D)],
+			[link(0, 3)],
+		);
+		const l = createLayout(behind, scale, fine);
+		const [, corner, leg] = l.linkPath(behind.links[0]!);
+		expect(corner?.x).toBe(296);
+		expect(leg?.x).toBe(296);
+		const x = 296;
+		const bar = l.barRect(1)!;
+		// In the gap above the bar (rows 0 and 1 are 28 apart, the bar's hit area starts 2 px in):
+		expect(hitTest(l, behind, x, 28 + 1)).toEqual({ kind: 'link', link: 0 });
+		// Inside the bar the line is behind it: the bar is what is under the pointer.
+		expect(hitTest(l, behind, x, bar.y + bar.h / 2)).toEqual({ kind: 'bar', row: 1 });
+		// Below the bar, on the row with no bar, the line shows again.
+		expect(hitTest(l, behind, x, 2 * 28 + 14)).toEqual({ kind: 'link', link: 0 });
+		// And beside the visible part, within the slop, still the link.
+		expect(hitTest(l, behind, x + 6, 2 * 28 + 14)).toEqual({ kind: 'link', link: 0 });
+		expect(hitTest(l, behind, x + 30, 2 * 28 + 14)).toMatchObject({ kind: 'empty' });
 	});
 
 	it('does not allocate per call: a pointer move makes no garbage', () => {

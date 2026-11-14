@@ -349,8 +349,31 @@ describe('paintBars', () => {
 		paintBars(frame);
 		const order = rec.calls.map((c) => c[0]);
 		expect(order.indexOf('stroke')).toBeLessThan(order.indexOf('fillText'));
-		expect(rec.of('lineTo').length).toBeGreaterThanOrEqual(2 * 3 + 2 * 2);
+		expect(rec.of('lineTo').length).toBeGreaterThanOrEqual(2 * (2 + 2));
 		expect(rec.of('closePath').length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('paints every link before any bar, so that a line crossing a bar is under it', () => {
+		// Row 1's bar lies across the leg of the link from row 0 to row 2. A distinctive link width
+		// marks the link strokes among the bar's own strokes.
+		const m = modelOf(
+			[row(0, 0, 2 * D), row(1, 3 * D, 9 * D), row(2, 4 * D, 6 * D)],
+			[link(0, 2), link(1, 2, { critical: true })],
+		);
+		const { frame, rec } = frameOf(m);
+		paintBars({ ...frame, theme: { ...frame.theme, linkWidth: 7.5, linkWidthCritical: 8.5 } });
+		const calls = rec.calls;
+		const lastLink = calls.findLastIndex(
+			(c) => c[0] === 'set:lineWidth' && (c[1] === 7.5 || c[1] === 8.5),
+		);
+		const firstBar = calls.findIndex((c) => c[0] === 'fill' || c[0] === 'fillRect');
+		const firstName = calls.findIndex((c) => c[0] === 'fillText');
+		expect(lastLink).toBeGreaterThan(0);
+		expect(firstBar).toBeGreaterThan(lastLink);
+		expect(firstName).toBeGreaterThan(lastLink);
+		// The arrow heads are links too: the last stroke of the links is before the first bar fill.
+		const strokes = calls.flatMap((c, i) => (c[0] === 'stroke' ? [i] : []));
+		expect(strokes.filter((i) => i < firstBar).length).toBeGreaterThanOrEqual(4);
 	});
 
 	it('fills the done part of a bar, clipped to the pill', () => {

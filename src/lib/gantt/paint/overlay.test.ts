@@ -82,6 +82,26 @@ describe('paintOverlay', () => {
 		expect(rec.of('quadraticCurveTo').length).toBeGreaterThan(0);
 	});
 
+	it('cuts the bars of the rows a hovered link spans out of its stroke: it runs under them too', () => {
+		// Row 1's bar lies across the leg that row 0's link runs down to row 2.
+		const m = modelOf([row(0, 0, 2 * D), row(1, 3 * D, 9 * D), row(2, 4 * D, 6 * D)], [link(0, 2)]);
+		const { frame, rec, layout } = frameOf(m);
+		paintOverlay(frame, { ...NO_OVERLAY, hoverLink: 0 });
+		const at = rec.calls.map((c) => c[0]);
+		// The clip comes after the stroke style is not yet set and before the stroke, inside a save.
+		expect(at.indexOf('save')).toBeLessThan(at.indexOf('clip'));
+		expect(at.indexOf('clip')).toBeLessThan(at.indexOf('stroke'));
+		expect(rec.of('clip')[0]?.[1]).toBe('evenodd');
+		// One rect for the area, then one for each bar of the three rows.
+		const rects = rec.of('rect');
+		expect(rects).toHaveLength(1 + 3);
+		for (let r = 0; r < 3; r++) {
+			const bar = layout.barRect(r)!;
+			expect(rects).toContainEqual(['rect', bar.x, bar.y, bar.w, bar.h]);
+		}
+		expect(rec.of('save').length).toBe(rec.of('restore').length);
+	});
+
 	it('draws today solid and the status date dashed, in their own colours', () => {
 		const model = modelOf(rows, [], { statusMin: 2 * D });
 		const { frame, rec } = frameOf(model, { win: { x: 0, y: 0, w: 1000, h: 100 } });

@@ -102,7 +102,7 @@ const NUMBERS = {
 	linkWidthHover: ['--gantt-link-width-hover', 2.4],
 	linkElbow: ['--gantt-link-elbow', 8],
 	linkRadius: ['--gantt-link-radius', 4],
-	linkGap: ['--gantt-link-gap', 2],
+	linkGap: ['--gantt-link-gap', 0],
 	arrowSize: ['--gantt-arrow-size', 5],
 	outlineWidth: ['--gantt-outline-width', 1.5],
 	markerWidth: ['--gantt-marker-width', 1.5],

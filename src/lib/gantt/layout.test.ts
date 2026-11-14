@@ -100,11 +100,13 @@ describe('createLayout', () => {
 		expect(createLayout(narrow, scale, m).width).toBe(96);
 	});
 
-	it('routes a link out, down and in when the successor starts after the predecessor', () => {
+	it('routes a link out and down onto the successor top edge when it starts after the predecessor', () => {
 		const layout = createLayout(modelOf([row(0, 0, 2 * D), row(1, 4 * D, 6 * D)]), scale, m);
 		const path = layout.linkPath(link(0, 1));
 		expect(path[0]).toEqual({ x: 96, y: 14 });
-		expect(path[path.length - 1]).toEqual({ x: 192, y: 42 });
+		// Inset 8 px into the successor (which starts at 192), on its top edge (row 1, bar 16 of 28).
+		expect(path[path.length - 1]).toEqual({ x: 200, y: 28 + 6 });
+		expect(path).toHaveLength(3);
 		expect(path.every((p, i) => i === 0 || p.x === path[i - 1]?.x || p.y === path[i - 1]?.y)).toBe(
 			true,
 		);
@@ -115,9 +117,16 @@ describe('createLayout', () => {
 		const down = layout.linkPath(link(0, 1));
 		expect(down).toHaveLength(6);
 		expect(down[2]?.y).toBe(28);
-		const up = layout.linkPath(link(1, 0));
-		expect(up.some((p) => p.y === 28)).toBe(true);
 		expect(layout.linkPath(link(0, 5))).toEqual([]);
+		// Going up, from row 1 (which starts at 1 day) to row 0 (which starts at 0): the boundary
+		// above the predecessor.
+		const overlap = createLayout(modelOf([row(0, 0, 2 * D), row(1, D, 3 * D)]), scale, m);
+		const up = overlap.linkPath(link(1, 0));
+		expect(up).toHaveLength(6);
+		expect(up[2]?.y).toBe(28);
+		// Going up and on, the successor's bottom edge.
+		const after = createLayout(modelOf([row(0, 4 * D, 6 * D), row(1, 0, 2 * D)]), scale, m);
+		expect(after.linkPath(link(1, 0)).at(-1)).toEqual({ x: 192 + 8, y: 6 + 16 });
 	});
 });
 
@@ -167,22 +176,54 @@ describe('link routing by type', () => {
 		]);
 	});
 
-	it('drops straight from a milestone to a task that starts at the same instant', () => {
+	it('hooks out of a milestone to a task that starts at the same instant, onto the task top edge', () => {
 		const path = layout.linkPath(link(2, 3));
-		// From the diamond's bottom tip down to the successor's row: no loop round the start.
+		// From the diamond's right tip (144 + 8), 4 px on, then down onto the task's top edge.
 		expect(path).toEqual([
-			{ x: 144, y: 2 * 28 + 14 + 8 },
-			{ x: 144, y: 3 * 28 + 14 },
+			{ x: 152, y: 2 * 28 + 14 },
+			{ x: 156, y: 2 * 28 + 14 },
+			{ x: 156, y: 3 * 28 + 6 },
 		]);
 	});
 
-	it('routes a milestone to a later task the usual way', () => {
+	it('lands on the top vertex of a milestone, and the bottom vertex from below', () => {
+		const withMilestone = createLayout(
+			modelOf([row(0, 0, 2 * D), row(1, 4 * D, 4 * D, 'milestone'), row(2, 0, 2 * D)]),
+			scale,
+			m,
+		);
+		// The diamond is centred on 192; its top vertex is at the top of the 16 px box.
+		expect(withMilestone.linkPath(link(0, 1)).at(-1)).toEqual({ x: 192, y: 28 + 6 });
+		expect(withMilestone.linkPath(link(2, 1)).at(-1)).toEqual({ x: 192, y: 28 + 6 + 16 });
+	});
+
+	it('routes a milestone to a later task out of its tip and down', () => {
 		const later = createLayout(
 			modelOf([row(0, 3 * D, 3 * D, 'milestone'), row(1, 6 * D, 8 * D)]),
 			scale,
 			m,
 		);
-		expect(later.linkPath(link(0, 1))).toHaveLength(4);
+		expect(later.linkPath(link(0, 1))).toHaveLength(3);
+	});
+
+	it('leaves a task with avatars by its lower edge when the successor is further than the avatars', () => {
+		const people = row(0, 0, 2 * D, 'task', { people: ['Ann'], peopleIndex: [0] });
+		const m2 = modelOf([people, row(1, 8 * D, 9 * D)], [link(0, 1)]);
+		const l = createLayout(m2, scale, m);
+		// The avatars start 14 px after the bar's end (96): a run to 8 days (384 + 8) would cross them.
+		expect(l.beside[0]).toBe(96 + 14);
+		const path = l.linkPath(link(0, 1));
+		expect(path[0]).toEqual({ x: 88, y: 6 + 16 });
+		expect(path).toHaveLength(4);
+		// The row below has nothing beside it.
+		expect(l.beside[1]).toBe(Infinity);
+		// A successor right under the end does not need to.
+		const near = createLayout(
+			modelOf([people, row(1, 2 * D, 3 * D)], [link(0, 1)]),
+			scale,
+			m,
+		).linkPath(link(0, 1));
+		expect(near).toHaveLength(3);
 	});
 
 	it('survives a cycle: a link each way is two paths, a link on itself none', () => {
@@ -338,16 +379,18 @@ describe('names', () => {
 	});
 
 	it('steps a link off the name of a row it passes, and not off one inside a bar', () => {
-		// Row 1's short bar ends at 91, so its name runs from 105 to 141 across the leg at 104.
-		const rows = [row(0, 0, 2 * D), row(1, 2640, 2650), row(2, 6 * D, 7 * D)];
+		// Row 1's short bar ends at 273.6, so its name runs from 287.6 to 323.6 across the leg at 296
+		// (8 px inside row 2, which starts at 288).
+		const rows = [row(0, 0, 2 * D), row(1, 8118, 8130), row(2, 6 * D, 7 * D)];
 		const across = createLayout(modelOf(rows, [link(0, 2)]), scale, m, 0, FIXED_MEASURE);
 		const plain = createLayout(modelOf(rows, [link(0, 2)]), scale, m);
-		expect(plain.linkPath(link(0, 2))[1]?.x).toBe(104);
-		expect(across.linkPath(link(0, 2))[1]?.x).toBe(141 + 3);
+		expect(plain.linkPath(link(0, 2))[1]?.x).toBe(296);
+		expect(across.labels[3]).toBeCloseTo(287.6);
+		expect(across.linkPath(link(0, 2))[1]?.x).toBeCloseTo((across.labels[4] ?? 0) + 3);
 		// The same link and a bar wide enough to hold its name: the leg runs behind the bar.
-		const wide = [rows[0]!, row(1, 2640, 2640 + 3 * D), rows[2]!];
+		const wide = [rows[0]!, row(1, 8118, 8118 + 3 * D), rows[2]!];
 		const inside = createLayout(modelOf(wide, [link(0, 2)]), scale, m, 0, FIXED_MEASURE);
-		expect(inside.linkPath(link(0, 2))[1]?.x).toBe(104);
+		expect(inside.linkPath(link(0, 2))[1]?.x).toBe(296);
 	});
 });
 
