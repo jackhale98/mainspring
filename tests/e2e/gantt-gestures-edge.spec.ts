@@ -231,7 +231,7 @@ test.describe('the edges of the gestures', () => {
 	}, info) => {
 		test.skip(!isTouch(info), 'a phone sheet');
 		const rig = await Rig.open(page, info, 'week');
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		const sheet = page.locator('dialog.sheet[data-detent]');
 		await expect(sheet).toHaveAttribute('data-detent', 'half');
 		const from = await rig.peek('design.research');

@@ -260,7 +260,21 @@ export class Rig {
 		const b = await this.bar(task);
 		await this.tap(b.body);
 		await expect(this.row(key)).toHaveAttribute('aria-selected', 'true');
-		// The sheet on a phone moves the chart (the selected row is scrolled above it).
+		// Re-read the bar: selecting shows its handles.
+		await this.page.waitForTimeout(400);
+		return this.bar(task);
+	}
+
+	/**
+	 * Selects a task and has its details on screen. A desktop's docked panel shows them at once; a
+	 * phone or a tablet selects on the first tap and opens its sheet on a tap on the selected bar.
+	 */
+	async openDetails(task: string, key = `task:${task}`): Promise<BarPoints> {
+		const b = await this.select(task, key);
+		if (!this.touch) return b;
+		await this.tap(b.body);
+		await expect(this.page.getByRole('dialog', { name: /Task details/ })).toBeVisible();
+		// The sheet moves the chart (the selected row is scrolled above it).
 		await this.page.waitForTimeout(400);
 		return this.bar(task);
 	}

@@ -73,8 +73,8 @@ export interface ManipulationHost {
 	announce(text: string): void;
 	revealRow(index: number): Promise<void>;
 	goToday(): boolean;
-	/** A tap or a drop selects a row (and opens the details). */
-	select(row: number): void;
+	/** A tap selects a row (a second tap, or the first on a desktop, opens the details); a drop never does. */
+	select(row: number, drop?: boolean): void;
 	zoom(): number;
 	zoomTo(pxPerDay: number, anchorClientX: number): void;
 	hover(row: number | null): void;
@@ -175,7 +175,7 @@ export class Manipulation {
 			wt: () => this.#wt,
 			visible: () => this.visibleBox(),
 			scroller: () => h.scroller(),
-			select: (r) => h.select(r),
+			select: (r, drop) => h.select(r, drop),
 			selectLink: (i) => {
 				const l = h.model().links[i];
 				if (l) app.inspector.showLink(l.pred, l.succ);

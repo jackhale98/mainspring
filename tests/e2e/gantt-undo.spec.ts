@@ -38,7 +38,7 @@ test.describe('one history for typing and visual edits', () => {
 		// The edit on the chart: one more unit of effort, by the key on the task's row.
 		if (isTouch(info)) {
 			await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
-			await rig.select('design.research');
+			await rig.openDetails('design.research');
 			await page.getByRole('button', { name: 'Increase Effort' }).tap();
 		} else {
 			await rig.row('task:design.research').focus();

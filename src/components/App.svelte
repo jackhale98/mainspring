@@ -93,6 +93,10 @@
 	});
 
 	const kind = $derived(layout.kind);
+	// A sheet layout selects on a first tap and opens the details on a second (inspector.svelte.ts).
+	$effect(() => {
+		app.inspector.secondTapOpens = kind !== 'desktop';
+	});
 	const phone = $derived(kind === 'phone');
 	const mode = $derived(effectiveMode(modes.choice, kind));
 	const showGantt = $derived(phone ? app.phoneTab === 'gantt' : mode !== 'text');

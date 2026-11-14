@@ -883,6 +883,8 @@ export const strings = {
 	/** The Gantt's task list, a treegrid (src/components/gantt/OutlineGrid.svelte, phase-2.md 10.1). */
 	grid: {
 		label: 'Tasks',
+		/** Said after a first tap on a phone or tablet: the task is selected, a second tap opens it. */
+		tapAgain: (name: string) => `Selected ${name}. Tap again for details.`,
 		/** The column headers, in the order of the cells. */
 		columns: {
 			name: 'Task',
