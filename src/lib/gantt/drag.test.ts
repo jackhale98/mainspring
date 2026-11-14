@@ -91,6 +91,38 @@ describe('a resize', () => {
 	});
 });
 
+describe('a resize past the anchor', () => {
+	it('is clamped to one working day, for an ASAP task and for an ALAP one', () => {
+		const research = rowOf('design.research');
+		const r = model.rows[research]!;
+		const s0 = beginSession(env, 'resize-end', research)!;
+		const edge = wt.snap(r.end!, 'end');
+		const before = r.start! - 5 * 1440;
+		const asap = advance(env, s0, {
+			time: { deltaMin: before - edge, snappedMin: wt.snap(before, 'end'), days: null },
+			atOrigin: false,
+			x: 0,
+		});
+		expect(dropOf(asap, env)?.action).toEqual({
+			type: 'resize',
+			task: 'design.research',
+			at: wt.dayEnd(wt.snap(r.start!, 'start')),
+		});
+		const docs = rowOf('design.docs');
+		const d = model.rows[docs]!;
+		const a0 = beginSession(env, 'resize-end', docs)!;
+		const after = d.end! + 5 * 1440;
+		const alap = advance(env, a0, {
+			time: { deltaMin: 0, snappedMin: wt.shiftDays(after, 0, 'start'), days: null },
+			atOrigin: false,
+			x: 0,
+		});
+		const drop = dropOf(alap, env)?.action;
+		expect(drop).toMatchObject({ type: 'resize', task: 'design.docs' });
+		expect((drop as { at: number }).at).toBeLessThan(d.end!);
+	});
+});
+
 describe('a move', () => {
 	it('shifts the bar by working days, keeping its working length', () => {
 		const row = rowOf('design.research');

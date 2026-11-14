@@ -13,8 +13,7 @@
  *   preview?)`. `source` is what the Gantt draws, the result and its driving analysis as one pair
  *   (`GanttAnalysis.shown`). The dispatcher adds the index (`runner.ensureIndex()`), the working
  *   time, the zones and the move preference, and plans with `planAction` (gantt/intents.ts).
- * - **Check an action** without applying it: `check(action, source)` is the dry run (gestures use
- *   it at drag start and on a link target; null when there is no answer yet).
+ * - **Check an action** with `check(action, source)`: a dry run for gestures; null: no answer yet.
  * - **Dispatch an edit intent** (the inspector's fields): `dispatch(intent, { label }, preview?)`;
  *   pass `constraint: true` when it adds a `start` or `end` the task did not have.
  * - `preview` is the dragged item's geometry (`PendingMark`). It shows at once in `pending.byTask`
@@ -95,6 +94,7 @@ import { historyLabel } from '../workspace/history';
 import type { WorkspacePath } from '../workspace/paths';
 import type { RunnerState } from '../workspace/run-types';
 import { Coalescer, type Gesture } from './coalesce';
+import { afterPaint } from './edits-yield';
 import { checkOn, isZeroTotal, movedId, prepare, refused, type Prepared } from './edits-plan';
 import { errorIdsOf, rangeNow, type Located } from './edits-settle';
 import type {
@@ -254,6 +254,7 @@ export class EditDispatcher {
 		const key = job.o.coalesceKey;
 		if (key === undefined) return this.#serial(job);
 		const gesture = this.#co.gesture(key);
+		if (job.kind === 'action') gesture.source ??= job.source;
 		return new Promise((resolve) => {
 			const prev = this.#co.hold(key, { ...job, gesture }, resolve);
 			if (!prev) return;
@@ -267,7 +268,9 @@ export class EditDispatcher {
 	}
 
 	#serial(job: Job): Promise<DispatchOutcome> {
-		const run = this.#chain.then(() => this.#run(job));
+		// A drop (`defer`) keeps only its preview mark in the pointer-up task (edits-yield.ts).
+		const wait = job.o.defer ? afterPaint(this.#timers) : undefined;
+		const run = this.#chain.then(() => wait).then(() => this.#run(job));
 		this.#chain = run.catch(() => undefined);
 		return run;
 	}

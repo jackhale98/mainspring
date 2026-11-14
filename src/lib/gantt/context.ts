@@ -12,7 +12,9 @@ import type { ZoneOffsets } from '../tjp/values/civil';
 import type { ActionContext } from './intents';
 import type { DrivingAnalysis } from '../schedule/critical';
 
-const workingTimes = new WeakMap<ScheduleResult, WorkingTime | null>();
+/** Per result, then per zone data (a different zone is a different working day): none is `NO_ZONES`. */
+const NO_ZONES = {};
+const workingTimes = new WeakMap<ScheduleResult, WeakMap<object, WorkingTime | null>>();
 
 /** A result's working time, built once per result (null without a project). */
 export function workingTimeFor(
@@ -20,8 +22,11 @@ export function workingTimeFor(
 	zones?: ZoneOffsets,
 ): WorkingTime | null {
 	if (!result?.project) return null;
-	if (!workingTimes.has(result)) workingTimes.set(result, workingTimeOf(result.project, zones));
-	return workingTimes.get(result) ?? null;
+	let byZones = workingTimes.get(result);
+	if (!byZones) workingTimes.set(result, (byZones = new WeakMap()));
+	const key = zones ?? NO_ZONES;
+	if (!byZones.has(key)) byZones.set(key, workingTimeOf(result.project, zones));
+	return byZones.get(key) ?? null;
 }
 
 export function previewContext(

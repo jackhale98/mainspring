@@ -7,15 +7,9 @@
 	list of items: Up and Down move through them, Home and End go to the ends, Enter or Space
 	chooses, Escape closes and gives the focus back to the button, and a click elsewhere closes it.
 -->
-<script module lang="ts">
-	export interface RowAction {
-		readonly id: string;
-		readonly label: string;
-		readonly disabled?: boolean;
-	}
-</script>
-
 <script lang="ts">
+	import type { RowAction } from './types';
+	import { SHORTCUTS } from '../../lib/gantt/keys';
 	import { gestureStrings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 
@@ -31,6 +25,7 @@
 	let open = $state(false);
 	let button: HTMLButtonElement | undefined = $state();
 	let list: HTMLUListElement | undefined = $state();
+	let help: HTMLDialogElement | undefined = $state();
 
 	const items = (): HTMLButtonElement[] =>
 		list ? [...list.querySelectorAll<HTMLButtonElement>('button:not([disabled])')] : [];
@@ -101,16 +96,50 @@
 						role="menuitem"
 						disabled={a.disabled}
 						data-action={a.id}
+						aria-keyshortcuts={a.aria}
 						onclick={() => {
 							close(true);
 							onaction(a.id);
-						}}>{a.label}</button
+						}}
+						><span>{a.label}</span>{#if a.show}<kbd aria-hidden="true">{a.show}</kbd>{/if}</button
 					>
 				</li>
 			{/each}
+			<li role="none" class="sep">
+				<button
+					type="button"
+					role="menuitem"
+					data-action="shortcuts"
+					onclick={() => {
+						close(false);
+						help?.showModal();
+					}}><span>{gestureStrings.row.shortcuts}</span></button
+				>
+			</li>
 		</ul>
 	{/if}
 </div>
+
+<!-- The shortcuts list: the same keys as the menu, for anyone who wants them in one place. -->
+<dialog
+	bind:this={help}
+	class="help"
+	data-testid="shortcuts"
+	aria-labelledby="{uid}-help"
+	onclose={() => button?.focus()}
+>
+	<h2 id="{uid}-help">{gestureStrings.keys.title}</h2>
+	<p>{gestureStrings.keys.intro}</p>
+	<dl>
+		{#each SHORTCUTS as k (k.id)}
+			<dt>{gestureStrings.keys.label[k.id]}</dt>
+			<dd><kbd>{k.show}</kbd></dd>
+		{/each}
+	</dl>
+	<form method="dialog">
+		<button type="submit">{gestureStrings.keys.close}</button>
+	</form>
+</dialog>
 
 <style>
 	.menu {
@@ -158,6 +187,10 @@
 		box-shadow: var(--shadow-panel);
 	}
 	li button {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-4);
 		inline-size: 100%;
 		min-block-size: 32px;
 		padding: 0 var(--space-3);
@@ -169,6 +202,64 @@
 		font-size: var(--text-sm);
 		text-align: start;
 		cursor: pointer;
+	}
+	kbd {
+		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		white-space: nowrap;
+	}
+	.sep {
+		margin-block-start: var(--space-1);
+		padding-block-start: var(--space-1);
+		border-block-start: 1px solid var(--color-border);
+	}
+	.help {
+		inline-size: min(28rem, calc(100vw - 2 * var(--gutter)));
+		padding: var(--space-5);
+		border: 0;
+		border-radius: var(--radius-panel);
+		background: var(--color-surface);
+		color: var(--color-text);
+		box-shadow: var(--shadow-panel);
+	}
+	.help::backdrop {
+		background: rgb(0 0 0 / 0.35);
+	}
+	.help h2 {
+		margin: 0 0 var(--space-2);
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		font-weight: 400;
+	}
+	.help p {
+		margin: 0 0 var(--space-3);
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+	.help dl {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-2) var(--space-4);
+		margin: 0 0 var(--space-4);
+		font-size: var(--text-sm);
+	}
+	.help dd {
+		margin: 0;
+	}
+	.help form button {
+		min-block-size: var(--size-control);
+		padding-inline: var(--space-4);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font: inherit;
+		cursor: pointer;
+	}
+	.help form button:focus-visible {
+		outline: 3px solid var(--color-focus);
+		outline-offset: 2px;
 	}
 	li button:hover:not(:disabled) {
 		background: var(--color-row-hover);

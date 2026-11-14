@@ -76,11 +76,14 @@ const mods = (e: PointerEvent): Modifiers => ({
 
 export class RowDrag {
 	view = $state.raw<RowDragView | null>(null);
+	/** A row is lifted (a long-press, or a drag begun): the details sheet makes room. */
+	lifted = $state(false);
 	readonly #h: RowDragHost;
 	readonly #ctl: GestureController;
 	#key: string | null = null;
 	#grip: HTMLElement | null = null;
 	#drop: Drop | null = null;
+	#dx = 0;
 	#last: { id: number; kind: PointerKind; x: number; y: number; m: Modifiers } | null = null;
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#open: { key: string; timer: ReturnType<typeof setTimeout> } | null = null;
@@ -195,10 +198,12 @@ export class RowDrag {
 				}
 				return;
 			case 'long-press':
+				this.lifted = true;
 				globalThis.navigator?.vibrate?.(10);
 				this.#h.announce(gestureStrings.live.lifted(this.#h.nameOf(this.#key ?? '')));
 				return;
 			case 'drag-start':
+				this.lifted = true;
 				this.#pump();
 				return;
 			case 'drag-move':
@@ -222,6 +227,7 @@ export class RowDrag {
 
 	/** The line and the label for the pointer's place (a boundary, a depth). */
 	#show(dx: number): void {
+		this.#dx = dx;
 		const key = this.#key;
 		const p = this.#last;
 		if (!key || !p) return;
@@ -265,6 +271,10 @@ export class RowDrag {
 			timer: setTimeout(() => {
 				this.#open = null;
 				this.#h.open(key);
+				// The rows changed under the pointer: the line and the label are made again.
+				requestAnimationFrame(() => {
+					if (this.#key !== null) this.#show(this.#dx);
+				});
 			}, OPEN_AFTER_MS),
 		};
 	}
@@ -308,12 +318,14 @@ export class RowDrag {
 
 	#clear(): void {
 		this.view = null;
+		this.lifted = false;
 		this.#drop = null;
 		if (this.#open) clearTimeout(this.#open.timer);
 		this.#open = null;
 	}
 
 	#finish(): void {
+		this.lifted = false;
 		this.#off?.();
 		this.#off = null;
 		this.#key = null;

@@ -177,6 +177,26 @@ describe('links and labels', () => {
 	});
 });
 
+describe('a label longer than what can be seen', () => {
+	it('is cut with an ellipsis to fit the visible range', () => {
+		const { frame, rec } = frameOf(modelOf(rows), { win: { x: 0, y: 0, w: 1000, h: 200 } });
+		const long =
+			'People are booked on subtasks. Drop them on a subtask, or assign them in the text.';
+		paintGestures(
+			frame,
+			g({
+				label: { text: long, x: 150, y: 60, blocked: true, within: { left: 100, right: 300 } },
+			}),
+			null,
+			() => true,
+			() => undefined,
+		);
+		const drawn = rec.of('fillText')[0]?.[1] as string;
+		expect(drawn.endsWith('…')).toBe(true);
+		expect(drawn.length * 6 + 16).toBeLessThanOrEqual(300 - 100 - 8);
+	});
+});
+
 describe('inside the overlay', () => {
 	it('draws the gesture layer last, and not the shortcut for a moved window', () => {
 		const { frame, rec } = frameOf(modelOf(rows));

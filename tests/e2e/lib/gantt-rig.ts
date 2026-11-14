@@ -121,10 +121,23 @@ export class Rig {
 	}
 
 	async #touch(type: 'touchStart' | 'touchMove' | 'touchEnd', p?: Point): Promise<void> {
+		await this.touches(type, p ? [p] : []);
+	}
+
+	/** Raw touch points (one to two fingers), for the specs that need a gesture of their own. */
+	async touches(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Point[]): Promise<void> {
 		const cdp = await this.#session();
 		await cdp.send('Input.dispatchTouchEvent', {
 			type,
-			touchPoints: p ? [{ x: p.x, y: p.y, id: 1 }] : [],
+			touchPoints: points.map((p, i) => ({ x: p.x, y: p.y, id: i + 1 })),
+		});
+	}
+
+	/** The chart's scroll position, [left, top]. */
+	scrollPos(): Promise<[number, number]> {
+		return this.page.evaluate(() => {
+			const s = document.querySelector('[data-testid="gantt"] .scroller') as HTMLElement;
+			return [Math.round(s.scrollLeft), Math.round(s.scrollTop)] as [number, number];
 		});
 	}
 
@@ -200,15 +213,28 @@ export class Rig {
 		return this.page.getByTestId('toast');
 	}
 
-	/** One undo, from the toast's own button: the text is back byte for byte. */
+	#after: string | null = null;
+
+	/** Waits for the text to be exactly the patch (the plan's "Text change"), and remembers it for redo. */
+	async patched(expected: string): Promise<void> {
+		await expect.poll(() => this.text()).toBe(expected);
+		this.#after = expected;
+	}
+
+	/**
+	 * One undo, from the toast's own button: the text is back byte for byte. Then one redo (the
+	 * keyboard, the history's own) gives the patch again, when `patched` said what it was.
+	 */
 	async undoTo(original: string): Promise<void> {
 		await expect(this.toast.last()).toBeVisible();
 		await this.toast.last().getByRole('button', { name: 'Undo' }).click();
 		await expect.poll(() => this.text()).toBe(original);
+		if (this.#after !== null) await this.redoTo(this.#after);
 	}
 
 	/** Redo with the keyboard (the global key, with the focus off any text field). */
 	async redoTo(patched: string): Promise<void> {
+		await this.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 		await this.page.keyboard.press('ControlOrMeta+Shift+z');
 		await expect.poll(() => this.text()).toBe(patched);
 	}

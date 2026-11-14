@@ -43,6 +43,7 @@ export class InspectorState {
 	/** The task whose source the show-source sheet shows. */
 	source = $state<TaskId | null>(null);
 	focusNonce = $state(0);
+	#before: Detent | null = null;
 	/** Asks the size field to take the focus ("Set effort"). */
 	sizeFocus = $state(0);
 	sheetHeight = $state(0);
@@ -73,9 +74,26 @@ export class InspectorState {
 		this.focusNonce++;
 	}
 
+	/**
+	 * Minimises the open sheet to a peek (the grabber and the header) while a link is made or a row
+	 * is lifted, and `unpeek` puts back the height it had, unless the person changed it meanwhile.
+	 */
+	peek(): void {
+		if (!this.sheet || this.detent === 'peek') return;
+		this.#before = this.detent;
+		this.detent = 'peek';
+	}
+
+	unpeek(): void {
+		const before = this.#before;
+		this.#before = null;
+		if (before !== null && this.detent === 'peek') this.detent = before;
+	}
+
 	hide(): void {
 		this.sheet = false;
 		this.explicit = false;
+		this.#before = null;
 		this.detent = 'half';
 		this.sheetHeight = 0;
 	}

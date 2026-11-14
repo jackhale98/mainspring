@@ -312,6 +312,8 @@ export const ganttActionStrings = {
 		'two-gaps':
 			'This dependency has two gaps, a working-time one and a calendar one. Change them in the dependency details.',
 		analysing: 'The schedule is still being analysed. Try again in a moment.',
+		'container-people':
+			'People are booked on subtasks. Drop them on a subtask, or assign them in the text.',
 	},
 	/** Why an edit was a no-op (`NoopReason`). */
 	noop: {
@@ -427,6 +429,8 @@ export const gestureStrings = {
 		hint: 'Drag a person onto a bar to book them on that task. With a task selected, press a person to book or release them.',
 		chip: (name: string) => `${name}: book on the selected task`,
 		none: 'No people in this plan yet.',
+		/** The label by a dragged chip over a container. */
+		container: 'Not on a summary: pick a subtask',
 		/** The label by a dragged chip, over a bar. */
 		over: (person: string, task: string) => `Book ${person} on ${task}`,
 	},
@@ -443,6 +447,33 @@ export const gestureStrings = {
 		newTask: 'New task',
 		renameLabel: (name: string) => `Rename ${name}`,
 		removeLink: 'Remove the selected link',
+		longer: 'Longer by one unit',
+		shorter: 'Shorter by one unit',
+		later: 'Later by a working day',
+		earlier: 'Earlier by a working day',
+		link: 'Link from this task',
+		shortcuts: 'Keyboard shortcuts',
+	},
+	/** The shortcuts list (the row menu) and the treegrid's description of its keys. */
+	keys: {
+		title: 'Keyboard shortcuts',
+		close: 'Close',
+		intro:
+			'These work with the focus on a task in the task list. Every one is also in the row menu.',
+		/** Said when the focus enters the task list. */
+		gridHint: (list: string) => `Shortcuts: ${list}. The row menu has them all as buttons.`,
+		label: {
+			size: 'Longer or shorter by one unit',
+			move: 'Later or earlier by a working day',
+			reorder: 'Move up or down',
+			indent: 'Indent or outdent',
+			link: 'Link: then Up, Down and Enter',
+			progress: 'Progress: then Left and Right, Enter to finish',
+			today: 'Scroll to today',
+			rename: 'Rename',
+			add: 'Add a task after',
+			delete: 'Delete the task, or the selected link',
+		},
 	},
 } as const;
 

@@ -9,16 +9,8 @@
 	for a mouse and a pen, so a coarse pointer does not show it). The drag is `chip-drag.svelte.ts`
 	on the shared gesture controller; nothing here changes the plan itself.
 -->
-<script module lang="ts">
-	export interface Person {
-		readonly id: string;
-		readonly name: string;
-		/** The person's place in the plan's resource list: picks the avatar colour. */
-		readonly index: number;
-	}
-</script>
-
 <script lang="ts">
+	import type { Person } from './types';
 	import type { ChipDrag } from './chip-drag.svelte';
 	import { gestureStrings } from '../../lib/strings';
 

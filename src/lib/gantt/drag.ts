@@ -203,8 +203,11 @@ export function dropOf(
 	}
 	if (s.kind === 'resize-end') {
 		if (s.at === null) return null;
+		// The edge as the ghost shows it: clamped to one working day from the anchor, either way.
+		const at = s.alap ? s.ghost.start : s.ghost.end;
+		if (at === resizeRef(env.wt, r, s.alap)) return null;
 		return {
-			action: { type: 'resize', task: s.task, at: s.at },
+			action: { type: 'resize', task: s.task, at },
 			mark: { task: s.task, start: s.ghost.start, end: s.ghost.end },
 		};
 	}

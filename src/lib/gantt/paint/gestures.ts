@@ -272,11 +272,16 @@ function paintLabel(f: PaintFrame, l: GestureLabel, note: Note): void {
 	ctx.save();
 	ctx.font = `${theme.fontWeightStrong} ${theme.labelSize + 1}px ${theme.fontSans}`;
 	ctx.textBaseline = 'middle';
-	const w = textWidth(ctx, l.text) + 16;
 	const h = theme.labelSize + 12;
 	// Hung to the right of the pointer and above it; flipped to stay inside the painted window.
 	const left = Math.max(win.x, l.within?.left ?? win.x) + 4;
 	const right = Math.min(win.x + win.w, l.within?.right ?? win.x + win.w) - 4;
+	// A sentence longer than what can be seen is cut with an ellipsis (the toast says it whole).
+	let text = l.text;
+	while (text.length > 4 && textWidth(ctx, text) + 16 > right - left) {
+		text = `${text.slice(0, -2).trimEnd()}…`;
+	}
+	const w = textWidth(ctx, text) + 16;
 	let x = l.x + 14;
 	if (x + w > right) x = Math.max(left, l.x - 14 - w);
 	const y = Math.max(win.y + 4, l.y - h - 10);
@@ -284,7 +289,7 @@ function paintLabel(f: PaintFrame, l: GestureLabel, note: Note): void {
 	roundedRect(ctx, x, y, w, h, h / 2);
 	ctx.fill();
 	ctx.fillStyle = l.blocked ? theme.criticalInk : theme.surface;
-	ctx.fillText(l.text, x + 8, y + h / 2 + 0.5);
+	ctx.fillText(text, x + 8, y + h / 2 + 0.5);
 	ctx.restore();
 	note(x - 2, y - 2, w + 4, h + 4);
 }

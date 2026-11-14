@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The edit dispatcher in the built app (phase-2.md 6.8, 9.4; T13). The edit is a real key press
-// (Shift+Alt+Right on the focused row, T16); `?hooks=edits` (edit-hooks.ts) only reads. It shows the toast, the patch in the text (the
+// (Ctrl+Alt+Right on the focused row, T16); `?hooks=edits` (edit-hooks.ts) only reads. It shows the toast, the patch in the text (the
 // editor too in Split on desktop), the engine's reschedule, and Undo in the toast restoring the
 // text byte for byte. A newer build is offered (ADR-0012), so the status strip shows its reload
 // button: the toast must cover neither (review M2). Desktop Chrome and Pixel 7. With SCREENSHOTS=1
@@ -85,7 +85,7 @@ test.describe('a visual edit through the dispatcher', () => {
 
 		// R1's keyboard alternative, as a real key press on the focused row (T16): one more unit.
 		await page.locator('[role="row"][data-key="task:design.research"]').focus();
-		await page.keyboard.press('Shift+Alt+ArrowRight');
+		await page.keyboard.press('Control+Alt+ArrowRight');
 		const toast = page.getByTestId('toast');
 		await expect(toast).toHaveCount(1);
 		await expect(toast).toContainText('Effort of Research: 3d to 4d');

@@ -106,7 +106,7 @@ describe('R1 change effort or length (resize)', () => {
 		});
 	});
 
-	it('steps the size by one written unit (Shift+Alt+Right/Left)', () => {
+	it('steps the size by one written unit (Ctrl+Alt+Right/Left)', () => {
 		expectFiles(
 			{ type: 'size-step', task: 'design.research', steps: 1 },
 			{ [PLAN]: patched(plan, '    effort 3d\n', '    effort 4d\n') },
@@ -412,6 +412,11 @@ describe('R6 assign a person, R7 replace one', () => {
 				),
 			},
 		);
+	});
+
+	it('refuses a person on a container: they go on its subtasks', () => {
+		expect(refusal({ type: 'assign', task: 'design', resource: 'dev2' })).toBe('container-people');
+		expect(refusal({ type: 'assign', task: 'support', resource: 'dev2' })).toBe('container-people');
 	});
 
 	it('removes one person from a list', () => {

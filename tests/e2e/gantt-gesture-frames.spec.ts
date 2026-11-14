@@ -68,10 +68,14 @@ test.describe('gesture frame cost (recorded)', () => {
 		test.skip(info.project.name === 'iphone-14', 'Chromium measures (T16)');
 	});
 
-	test('a 3 s drag of the size handle, and a scroll with and without the touchmove listener', async ({
-		page,
-	}, info) => {
-		const results: Record<string, Stats> = {};
+	const record = (name: string, stats: Stats): void => {
+		fs.mkdirSync(path.dirname(OUT), { recursive: true });
+		const old = fs.existsSync(OUT) ? (JSON.parse(fs.readFileSync(OUT, 'utf8')) as object) : {};
+		fs.writeFileSync(OUT, JSON.stringify({ ...old, [name]: stats }, null, 2));
+		expect(stats.frames).toBeGreaterThan(10);
+	};
+
+	test('a 3 s drag of the size handle', async ({ page }, info) => {
 		const rig = await Rig.open(page, info);
 		const cdp = await page.context().newCDPSession(page);
 		if (rig.touch) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
@@ -79,59 +83,43 @@ test.describe('gesture frame cost (recorded)', () => {
 		const to = { x: await rig.x(minute('2026-03-06', 17)), y: b.endEdge.y };
 		await startMeter(page);
 		await rig.drag(b.endEdge, to, { steps: 60 });
-		results[rig.touch ? 'drag-touch-4x' : 'drag-mouse'] = await stopMeter(page);
-		await page.keyboard.press('ControlOrMeta+z');
+		record(rig.touch ? 'drag-touch-4x' : 'drag-mouse', await stopMeter(page));
+	});
 
-		if (rig.touch) {
-			const scroller = page.getByTestId('gantt').locator('.scroller');
-			const box = await scroller.boundingBox();
+	// The comparison of 8.2: the same native one-finger scroll at 4x CPU, each on a page of its own
+	// (a fresh page, so that neither run has the other's drag, undo or heap behind it), once with
+	// the Gantt's non-passive touchmove listener and once with it dropped by an init script.
+	for (const without of [false, true]) {
+		test(`a native scroll at 4x ${without ? 'without' : 'with'} the touchmove listener`, async ({
+			page,
+		}, info) => {
+			test.skip(info.project.name !== 'pixel-7', 'the touch listener comparison is a phone one');
+			if (without) {
+				await page.addInitScript(() => {
+					const add = EventTarget.prototype.addEventListener;
+					EventTarget.prototype.addEventListener = function (type, fn, opts) {
+						const passive = typeof opts === 'object' && opts !== null ? opts.passive : undefined;
+						if (type === 'touchmove' && passive === false) return;
+						return add.call(this, type, fn, opts);
+					};
+				});
+			}
+			await Rig.open(page, info);
+			const cdp = await page.context().newCDPSession(page);
+			await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+			const box = await page.getByTestId('gantt').locator('.scroller').boundingBox();
 			if (!box) throw new Error('no chart');
-			const x = box.x + box.width / 2;
-			const y = box.y + box.height / 2;
 			await startMeter(page);
-			await cdp.send('Input.synthesizeScrollGesture', {
-				x,
-				y,
-				yDistance: -300,
-				speed: 600,
-				gestureSourceType: 'touch',
-			});
-			results['scroll-4x-with-listener'] = await stopMeter(page);
-		}
-		fs.mkdirSync(path.dirname(OUT), { recursive: true });
-		const old = fs.existsSync(OUT) ? (JSON.parse(fs.readFileSync(OUT, 'utf8')) as object) : {};
-		fs.writeFileSync(OUT, JSON.stringify({ ...old, ...results }, null, 2));
-		for (const s of Object.values(results)) expect(s.frames).toBeGreaterThan(10);
-	});
-
-	test('the same scroll with the listener left out', async ({ page }, info) => {
-		test.skip(info.project.name !== 'pixel-7', 'the touch listener comparison is a phone one');
-		// Drop non-passive touchmove listeners (the Gantt's) before the app runs.
-		await page.addInitScript(() => {
-			const add = EventTarget.prototype.addEventListener;
-			EventTarget.prototype.addEventListener = function (type, fn, opts) {
-				const passive = typeof opts === 'object' && opts !== null ? opts.passive : undefined;
-				if (type === 'touchmove' && passive === false) return;
-				return add.call(this, type, fn, opts);
-			};
+			for (let i = 0; i < 3; i++) {
+				await cdp.send('Input.synthesizeScrollGesture', {
+					x: box.x + box.width / 2,
+					y: box.y + box.height / 2,
+					yDistance: i % 2 === 0 ? -400 : 400,
+					speed: 500,
+					gestureSourceType: 'touch',
+				});
+			}
+			record(`scroll-4x-${without ? 'without' : 'with'}-listener`, await stopMeter(page));
 		});
-		const rig = await Rig.open(page, info);
-		const cdp = await page.context().newCDPSession(page);
-		await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-		const box = await page.getByTestId('gantt').locator('.scroller').boundingBox();
-		if (!box) throw new Error('no chart');
-		await startMeter(page);
-		await cdp.send('Input.synthesizeScrollGesture', {
-			x: box.x + box.width / 2,
-			y: box.y + box.height / 2,
-			yDistance: -300,
-			speed: 600,
-			gestureSourceType: 'touch',
-		});
-		const s = await stopMeter(page);
-		void rig;
-		const old = fs.existsSync(OUT) ? (JSON.parse(fs.readFileSync(OUT, 'utf8')) as object) : {};
-		fs.writeFileSync(OUT, JSON.stringify({ ...old, 'scroll-4x-without-listener': s }, null, 2));
-		expect(s.frames).toBeGreaterThan(5);
-	});
+	}
 });

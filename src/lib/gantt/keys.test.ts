@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { commandFor, linkKey, progressKey, type KeyEventLike } from './keys';
+import { ALL_KEYS, SHORTCUTS, commandFor, linkKey, progressKey, type KeyEventLike } from './keys';
 
 const key = (k: string, mods: Partial<KeyEventLike> = {}): KeyEventLike => ({
 	key: k,
@@ -13,12 +13,12 @@ const key = (k: string, mods: Partial<KeyEventLike> = {}): KeyEventLike => ({
 });
 
 describe('commandFor', () => {
-	it('sizes with Shift+Alt+Right and Left (R1)', () => {
-		expect(commandFor(key('ArrowRight', { altKey: true, shiftKey: true }))).toEqual({
+	it('sizes with Ctrl+Alt+Right and Left, Cmd too (R1)', () => {
+		expect(commandFor(key('ArrowRight', { altKey: true, ctrlKey: true }))).toEqual({
 			type: 'size',
 			steps: 1,
 		});
-		expect(commandFor(key('ArrowLeft', { altKey: true, shiftKey: true }))).toEqual({
+		expect(commandFor(key('ArrowLeft', { altKey: true, metaKey: true }))).toEqual({
 			type: 'size',
 			steps: -1,
 		});
@@ -29,24 +29,12 @@ describe('commandFor', () => {
 		expect(commandFor(key('ArrowLeft', { altKey: true }))).toEqual({ type: 'move', days: -1 });
 	});
 
-	it('reorders with Alt+Shift+Up and Down, and indents with the brackets (R5)', () => {
-		expect(commandFor(key('ArrowUp', { altKey: true, shiftKey: true }))).toEqual({
-			type: 'reorder',
-			step: 'up',
-		});
-		expect(commandFor(key('ArrowDown', { altKey: true, shiftKey: true }))).toEqual({
-			type: 'reorder',
-			step: 'down',
-		});
-		// Shift+] types "}" on a US layout: the code is what counts.
-		expect(commandFor(key('}', { altKey: true, shiftKey: true, code: 'BracketRight' }))).toEqual({
-			type: 'reorder',
-			step: 'indent',
-		});
-		expect(commandFor(key('{', { altKey: true, shiftKey: true, code: 'BracketLeft' }))).toEqual({
-			type: 'reorder',
-			step: 'outdent',
-		});
+	it('reorders with Alt+Shift+Up and Down, indents with Alt+Shift+Right and Left (R5)', () => {
+		const alt = { altKey: true, shiftKey: true };
+		expect(commandFor(key('ArrowUp', alt))).toEqual({ type: 'reorder', step: 'up' });
+		expect(commandFor(key('ArrowDown', alt))).toEqual({ type: 'reorder', step: 'down' });
+		expect(commandFor(key('ArrowRight', alt))).toEqual({ type: 'reorder', step: 'indent' });
+		expect(commandFor(key('ArrowLeft', alt))).toEqual({ type: 'reorder', step: 'outdent' });
 	});
 
 	it('maps the single letters and the extra keys', () => {
@@ -68,6 +56,8 @@ describe('commandFor', () => {
 			key('l', { shiftKey: true }),
 			key('ArrowUp', { altKey: true }),
 			key('x', { altKey: true, shiftKey: true }),
+			key('ArrowRight', { altKey: true, ctrlKey: true, shiftKey: true }),
+			key('ArrowUp', { altKey: true, ctrlKey: true }),
 			key('Enter', { ctrlKey: true, shiftKey: true }),
 		]) {
 			expect(commandFor(e), JSON.stringify(e)).toBeNull();
@@ -98,5 +88,30 @@ describe('progress mode keys', () => {
 		expect(progressKey(key('Enter'))).toEqual({ done: true });
 		expect(progressKey(key('Escape'))).toEqual({ done: true });
 		expect(progressKey(key('x'))).toBeNull();
+	});
+});
+
+describe('SHORTCUTS', () => {
+	it('lists every key once, in the aria-keyshortcuts form', () => {
+		expect(ALL_KEYS.split(' ')).toContain('Alt+Shift+ArrowRight');
+		expect(ALL_KEYS.split(' ')).toContain('Control+Alt+ArrowLeft');
+		expect(new Set(ALL_KEYS.split(' ')).size).toBe(ALL_KEYS.split(' ').length);
+		expect(SHORTCUTS.map((s) => s.id)).toContain('indent');
+	});
+
+	it('every listed chord is a command (the list does not drift from the keys)', () => {
+		const press = (aria: string): KeyEventLike => {
+			const parts = aria.split('+');
+			const k = parts.pop() as string;
+			return key(k, {
+				ctrlKey: parts.includes('Control'),
+				altKey: parts.includes('Alt'),
+				shiftKey: parts.includes('Shift'),
+			});
+		};
+		for (const s of SHORTCUTS) {
+			if (s.id === 'rename') continue; // F2 is the treegrid's own
+			for (const a of s.aria) expect(commandFor(press(a)), a).not.toBeNull();
+		}
 	});
 });

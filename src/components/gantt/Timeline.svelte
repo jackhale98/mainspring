@@ -61,7 +61,11 @@
 		/** The content x range in view, so that a label never hangs where it is cut off. */
 		within: { readonly left: number; readonly right: number };
 		/** A person dragged from the palette: the bar it is over and the label. */
-		palette: { readonly row: number | null; readonly label: GestureLabel | null } | null;
+		palette: {
+			readonly row: number | null;
+			readonly ok: boolean;
+			readonly label: GestureLabel | null;
+		} | null;
 	}
 	let {
 		model,
@@ -170,7 +174,7 @@
 			link?.target != null
 				? { row: link.target, ok: link.ok !== false }
 				: palette?.row != null
-					? { row: palette.row, ok: true }
+					? { row: palette.row, ok: palette.ok }
 					: null;
 		const paletteLabel = palette?.label ? { ...palette.label, within } : null;
 		const label = d?.label ?? (link ? linkLabel(link) : null) ?? paletteLabel;

@@ -49,26 +49,25 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			},
 		});
 		const after = before.replace('    effort 3d\n', '    effort 5d\n');
-		await expect.poll(() => rig.text()).toBe(after);
+		await rig.patched(after);
 		await expect(rig.toast.last()).toContainText('Effort of Research: 3d to about 5d');
 		await rig.rescheduled(rev);
 		await expect.poll(() => rig.end('design.research')).toBe(minute('2026-03-06', 17));
 		await rig.undoTo(before);
-		await rig.redoTo(after);
 		await rig.rescheduled(rev + 1);
 		// Redo is the history's own apply, with no toast: undo with the key.
 		await page.keyboard.press('ControlOrMeta+z');
 		await expect.poll(() => rig.text()).toBe(before);
 	});
 
-	test('R1 by key: Shift+Alt+Right twice is one undo step', async ({ page }, info) => {
+	test('R1 by key: Ctrl+Alt+Right twice is one undo step', async ({ page }, info) => {
 		test.skip(isTouch(info), 'the keyboard path is checked on desktop');
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
 		await rig.row('task:design.research').focus();
-		await page.keyboard.press('Shift+Alt+ArrowRight');
-		await page.keyboard.press('Shift+Alt+ArrowRight');
-		await expect.poll(() => rig.text()).toBe(before.replace('    effort 3d\n', '    effort 5d\n'));
+		await page.keyboard.press('Control+Alt+ArrowRight');
+		await page.keyboard.press('Control+Alt+ArrowRight');
+		await rig.patched(before.replace('    effort 3d\n', '    effort 5d\n'));
 		await expect(rig.toast).toHaveCount(1);
 		await rig.undoTo(before);
 	});
@@ -92,9 +91,33 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			'    effort 3d\n    allocate dev1\n',
 			'    start 2026-03-05\n    effort 3d\n    allocate dev1\n',
 		);
-		await expect.poll(() => rig.text()).toBe(after);
+		await rig.patched(after);
 		await rig.rescheduled(rev);
 		await expect.poll(() => rig.end('design.research')).toBe(minute('2026-03-09', 17));
+		await rig.undoTo(before);
+	});
+
+	test('R2 move, gap kind: the dependency gets one working day more, undo', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info, 'week');
+		const before = await rig.text();
+		const b = await rig.bar('design.sketch');
+		const rev = await rig.revision();
+		// Sketch's gap runs out on Friday 6 March at 17:00, so its work starts Monday 9 March at
+		// 09:00 (a move counts from there): one working day on is Tuesday. (Week zoom keeps the
+		// target clear of the chart's edge, where the drag would auto-scroll.)
+		const dx = (await rig.x(minute('2026-03-10', 9))) - (await rig.x(minute('2026-03-09', 9)));
+		await rig.drag(b.body, { x: b.body.x + dx, y: b.body.y }, { hold: rig.hold });
+		const ask = page.getByTestId('move-question');
+		await expect(ask).toBeVisible();
+		// A written dependency drives it: a gap is what the question suggests.
+		await expect(ask.getByRole('radio', { name: /gap after/ })).toBeChecked();
+		await ask.getByRole('button', { name: 'Move' }).click();
+		await rig.patched(
+			before.replace('depends !research { gaplength 2d }', 'depends !research { gaplength 3d }'),
+		);
+		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
 
@@ -110,14 +133,12 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await expect(ask).toBeVisible();
 		await ask.getByRole('radio', { name: /fixed start date/ }).check();
 		await ask.getByRole('button', { name: 'Move' }).click();
-		await expect
-			.poll(() => rig.text())
-			.toBe(
-				before.replace(
-					'    effort 3d\n    allocate dev1\n',
-					'    start 2026-03-05\n    effort 3d\n    allocate dev1\n',
-				),
-			);
+		await rig.patched(
+			before.replace(
+				'    effort 3d\n    allocate dev1\n',
+				'    start 2026-03-05\n    effort 3d\n    allocate dev1\n',
+			),
+		);
 		await rig.undoTo(before);
 	});
 
@@ -151,7 +172,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			'depends !sketch { onstart }',
 			'depends !sketch { onstart }, !research',
 		);
-		await expect.poll(() => rig.text()).toBe(after);
+		await rig.patched(after);
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -167,11 +188,9 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		for (let i = 0; i < 2; i++) await page.keyboard.press('ArrowDown');
 		await page.waitForTimeout(300);
 		await page.keyboard.press('Enter');
-		await expect
-			.poll(() => rig.text())
-			.toBe(
-				before.replace('depends !sketch { onstart }', 'depends !sketch { onstart }, !research'),
-			);
+		await rig.patched(
+			before.replace('depends !sketch { onstart }', 'depends !sketch { onstart }, !research'),
+		);
 		await rig.undoTo(before);
 	});
 
@@ -193,7 +212,9 @@ test.describe('direct manipulation (R1 to R10)', () => {
 				await shoot(page, info, 'link-refused');
 			},
 		});
-		await expect(rig.toast.last()).toContainText(/loop|cycle|circular|depend/i);
+		await expect(rig.toast.last()).toContainText(
+			'That would make the tasks depend on each other in a loop.',
+		);
 		expect(await rig.text()).toBe(before);
 	});
 
@@ -219,7 +240,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			await expect(page.getByTestId('inspector')).toContainText('Review');
 			await page.keyboard.press('Delete');
 		}
-		await expect.poll(() => rig.text()).toBe(before.replace('    depends !review { onend }\n', ''));
+		await rig.patched(before.replace('    depends !review { onend }\n', ''));
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -231,11 +252,12 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const before = await rig.text();
 		const rev = await rig.revision();
 		const sketch = rig.row('task:design.sketch');
+		const sheet = page.locator('dialog.sheet[data-detent]');
 		if (rig.touch) {
-			// The grip shows on the selected row; close the sheet so that every row is in reach.
+			// The grip shows on the selected row; the sheet shrinks to a peek once the row is lifted.
 			await sketch.locator('.label').tap();
 			await expect(sketch).toHaveAttribute('aria-selected', 'true');
-			await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+			await expect(sheet).toHaveAttribute('data-detent', 'half');
 			await page.waitForTimeout(400);
 		} else {
 			await sketch.hover();
@@ -250,9 +272,12 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			hold: rig.hold,
 			pause: async () => {
 				await expect(page.getByTestId('row-drop-line')).toBeVisible();
+				// The details sheet shrinks to a peek while the row is lifted (a phone's rows stay in reach).
+				if (rig.touch) await expect(sheet).toHaveAttribute('data-detent', 'peek');
 				await shoot(page, info, 'row-drag');
 			},
 		});
+		if (rig.touch) await expect(sheet).toHaveAttribute('data-detent', 'half');
 		const block =
 			'  task sketch "Sketch" {\n    length 4d\n    allocate dev2\n    depends !research { gaplength 2d }\n  }\n';
 		const first =
@@ -261,7 +286,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			.replace(block, '')
 			.replace('depends !sketch { onstart }', 'depends sketch { onstart }')
 			.replace('# Container with ASAP leaves', `${first}# Container with ASAP leaves`);
-		await expect.poll(() => rig.text()).toBe(after);
+		await rig.patched(after);
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -287,7 +312,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			await rig.row('task:launch').focus();
 			await page.keyboard.press('Alt+Shift+ArrowUp');
 		}
-		await expect.poll(() => rig.text()).toBe(after);
+		await rig.patched(after);
 		await rig.undoTo(before);
 	});
 
@@ -313,14 +338,12 @@ test.describe('direct manipulation (R1 to R10)', () => {
 				},
 			});
 		}
-		await expect
-			.poll(() => rig.text())
-			.toBe(
-				before.replace(
-					'    allocate dev1\n    complete 40\n',
-					'    allocate dev1, dev2\n    complete 40\n',
-				),
-			);
+		await rig.patched(
+			before.replace(
+				'    allocate dev1\n    complete 40\n',
+				'    allocate dev1, dev2\n    complete 40\n',
+			),
+		);
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -338,7 +361,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			'    allocate dev1\n    complete 40\n',
 			'    allocate dev1, dev2\n    complete 40\n',
 		);
-		await expect.poll(() => rig.text()).toBe(booked);
+		await rig.patched(booked);
 		await expect(page.locator('[data-person="dev2"]')).toHaveAttribute('aria-pressed', 'true');
 		await rig.undoTo(before);
 	});
@@ -351,14 +374,12 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await rig.select('design.research');
 		const rev = await rig.revision();
 		await page.getByRole('combobox', { name: /Replace Dev 1/ }).selectOption({ label: 'Dev 3' });
-		await expect
-			.poll(() => rig.text())
-			.toBe(
-				before.replace(
-					'    allocate dev1\n    complete 40\n',
-					'    allocate dev3\n    complete 40\n',
-				),
-			);
+		await rig.patched(
+			before.replace(
+				'    allocate dev1\n    complete 40\n',
+				'    allocate dev3\n    complete 40\n',
+			),
+		);
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -381,9 +402,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			await field.fill('Investigate');
 			await field.press('Enter');
 		}
-		await expect
-			.poll(() => rig.text())
-			.toBe(before.replace('task research "Research"', 'task research "Investigate"'));
+		await rig.patched(before.replace('task research "Research"', 'task research "Investigate"'));
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -409,9 +428,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const rev = await rig.revision();
 		const to = { x: b.box.x + b.box.w * 0.75, y: b.knob.y };
 		await rig.drag(b.knob, to, { steps: 6 });
-		await expect
-			.poll(() => rig.text())
-			.toBe(before.replace('    complete 40\n', '    complete 75\n'));
+		await rig.patched(before.replace('    complete 40\n', '    complete 75\n'));
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -424,9 +441,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await page.keyboard.press('p');
 		for (let i = 0; i < 7; i++) await page.keyboard.press('ArrowRight');
 		await page.keyboard.press('Enter');
-		await expect
-			.poll(() => rig.text())
-			.toBe(before.replace('    complete 40\n', '    complete 75\n'));
+		await rig.patched(before.replace('    complete 40\n', '    complete 75\n'));
 		await expect(rig.toast).toHaveCount(1);
 		await rig.undoTo(before);
 	});

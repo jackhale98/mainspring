@@ -528,7 +528,7 @@ export class GanttGestures {
 			return;
 		}
 		// The action is queued (and its pending bar set) before the preview goes, in one task.
-		void this.#h.actor.run(drop.action, {}, drop.mark);
+		void this.#h.actor.run(drop.action, { defer: true }, drop.mark);
 		this.drag = null;
 		// The dragged task becomes the selection once it is dropped: opening the details sheet
 		// while a finger is down would scroll the chart under it.

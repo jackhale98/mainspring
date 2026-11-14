@@ -8,19 +8,22 @@
  *
  * | Keys | Command | Row |
  * | --- | --- | --- |
- * | Shift+Alt+Right, Left | size by one written unit | R1 |
+ * | Ctrl+Alt+Right, Left (Cmd or Ctrl) | size by one written unit | R1 |
  * | Alt+Right, Left | move by one working day | R2 |
  * | L, then Up and Down, Enter | link mode: pick the successor | R3 |
  * | Alt+Shift+Up, Down | one place up or down among the siblings | R5 |
- * | Alt+Shift+], [ | one level in or out | R5 |
+ * | Alt+Shift+Right, Left | indent (one level in) or outdent (one level out) | R5 |
  * | P, then Left and Right | progress by 5 %, Enter or Escape to leave | R9 |
  * | T | scroll to today | R10 |
  * | Insert, Ctrl or Cmd+Enter | add a task after | extra |
  * | Delete | delete the task (or the selected link) | extra |
  *
- * Indent and outdent are NOT Alt+Shift+Right and Left: those are R1's size keys in the plan
- * (7.1), and one chord cannot be both. The brackets say "in" and "out" in editors (an indent
- * key), and `event.code` is read so that a layout that types them with Shift or AltGr works.
+ * The user chose these like MS Project's (2026-11-14); `event.key` arrows are read, so a layout
+ * does not change them. Some systems keep chords for themselves: Ctrl+Alt+Left and Right switch
+ * workspaces on GNOME, Ctrl+Option is VoiceOver's key on macOS, and Cmd+Option+Left and Right
+ * switch tabs in Chrome there. A page cannot take those from the system, so every command is
+ * also a button in the row menu (WCAG 2.5.7), and `SHORTCUTS` lists the keys for
+ * `aria-keyshortcuts`, the menu and the shortcuts list.
  */
 import type { Step } from './reorder';
 
@@ -42,22 +45,25 @@ export type GanttCommand =
 /** The command a key press asks for, or null when it is none of ours. */
 export function commandFor(e: KeyEventLike): GanttCommand | null {
 	if (e.ctrlKey || e.metaKey) {
+		if (e.altKey && !e.shiftKey) {
+			if (e.key === 'ArrowRight') return { type: 'size', steps: 1 };
+			if (e.key === 'ArrowLeft') return { type: 'size', steps: -1 };
+			return null;
+		}
 		return !e.altKey && !e.shiftKey && e.key === 'Enter' ? { type: 'add' } : null;
 	}
 	if (e.altKey) {
 		if (e.shiftKey) {
 			switch (e.key) {
 				case 'ArrowRight':
-					return { type: 'size', steps: 1 };
+					return { type: 'reorder', step: 'indent' };
 				case 'ArrowLeft':
-					return { type: 'size', steps: -1 };
+					return { type: 'reorder', step: 'outdent' };
 				case 'ArrowUp':
 					return { type: 'reorder', step: 'up' };
 				case 'ArrowDown':
 					return { type: 'reorder', step: 'down' };
 			}
-			if (e.code === 'BracketRight') return { type: 'reorder', step: 'indent' };
-			if (e.code === 'BracketLeft') return { type: 'reorder', step: 'outdent' };
 			return null;
 		}
 		if (e.key === 'ArrowRight') return { type: 'move', days: 1 };
@@ -83,6 +89,41 @@ export function commandFor(e: KeyEventLike): GanttCommand | null {
 			return null;
 	}
 }
+
+/** A shortcut for the menu, the list and `aria-keyshortcuts`. */
+export interface Shortcut {
+	readonly id:
+		| 'size'
+		| 'move'
+		| 'reorder'
+		| 'indent'
+		| 'link'
+		| 'progress'
+		| 'today'
+		| 'rename'
+		| 'add'
+		| 'delete';
+	/** `aria-keyshortcuts` forms, one per key of the pair. */
+	readonly aria: readonly string[];
+	/** The keys as a person reads them. */
+	readonly show: string;
+}
+
+export const SHORTCUTS: readonly Shortcut[] = [
+	{ id: 'size', aria: ['Control+Alt+ArrowRight', 'Control+Alt+ArrowLeft'], show: 'Ctrl+Alt+→ / ←' },
+	{ id: 'move', aria: ['Alt+ArrowRight', 'Alt+ArrowLeft'], show: 'Alt+→ / ←' },
+	{ id: 'reorder', aria: ['Alt+Shift+ArrowUp', 'Alt+Shift+ArrowDown'], show: 'Alt+Shift+↑ / ↓' },
+	{ id: 'indent', aria: ['Alt+Shift+ArrowRight', 'Alt+Shift+ArrowLeft'], show: 'Alt+Shift+→ / ←' },
+	{ id: 'link', aria: ['L'], show: 'L' },
+	{ id: 'progress', aria: ['P'], show: 'P' },
+	{ id: 'today', aria: ['T'], show: 'T' },
+	{ id: 'rename', aria: ['F2'], show: 'F2' },
+	{ id: 'add', aria: ['Insert', 'Control+Enter'], show: 'Insert, Ctrl+Enter' },
+	{ id: 'delete', aria: ['Delete'], show: 'Delete' },
+];
+
+/** Every key of every shortcut, for the treegrid's `aria-keyshortcuts`. */
+export const ALL_KEYS: string = SHORTCUTS.flatMap((s) => s.aria).join(' ');
 
 /** What a key does in link mode: the arrows pick the successor, Enter links, Escape leaves. */
 export type LinkKey = 'previous' | 'next' | 'first' | 'last' | 'confirm' | 'cancel';

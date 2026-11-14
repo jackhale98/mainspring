@@ -26,7 +26,8 @@
 	import type { CriticalChip } from '../../lib/gantt/analysis';
 	import { gestureStrings, strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
-	import RowMenu, { type RowAction } from './RowMenu.svelte';
+	import RowMenu from './RowMenu.svelte';
+	import type { RowAction } from './types';
 
 	interface Props {
 		pxPerDay: number;

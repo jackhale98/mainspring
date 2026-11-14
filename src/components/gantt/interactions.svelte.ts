@@ -81,6 +81,8 @@ export class GanttInteractions {
 	renaming = $state<string | null>(null);
 	readonly #h: InteractionHost;
 	readonly #nudges: Nudges;
+	/** Where each running burst began (its task as drawn then): the ghost is drawn from it. */
+	readonly #began = new Map<string, MoveEnv>();
 
 	constructor(host: InteractionHost) {
 		this.#h = host;
@@ -88,10 +90,13 @@ export class GanttInteractions {
 		this.links = new LinkMode({
 			model: () => host.model(),
 			check: (a) => this.actor.check(a),
-			run: (a) => this.actor.run(a),
+			run: (a) => this.actor.run(a, { defer: true }),
 			announce: (t) => host.announce(t),
 		});
-		this.#nudges = new Nudges((key) => this.actor.flush(key));
+		this.#nudges = new Nudges((key) => {
+			this.#began.delete(key);
+			this.actor.flush(key);
+		});
 	}
 
 	get #tree(): Tree {
@@ -172,10 +177,20 @@ export class GanttInteractions {
 		};
 	}
 
+	/** The burst's own start: a result that arrives mid-burst must not move what it counts from. */
+	#burstEnv(id: string, row: number): MoveEnv | null {
+		const kept = this.#began.get(id);
+		if (kept) return kept;
+		const env = this.#moveEnv(row);
+		if (env) this.#began.set(id, env);
+		return env;
+	}
+
 	async #size(key: string, steps: 1 | -1): Promise<void> {
 		const row = this.#row(key);
-		const env = this.#moveEnv(row);
-		const r = this.#h.model().rows[row];
+		const id0 = this.#h.model().rows[row]?.id;
+		const env = id0 ? this.#burstEnv(`size:${id0}`, row) : null;
+		const r = env?.row;
 		if (!env || !r?.id) return void this.#h.announce(gestureStrings.live.nothingToDo);
 		const id = `size:${r.id}`;
 		const total = this.#nudges.press(id, steps);
@@ -191,13 +206,14 @@ export class GanttInteractions {
 			{ coalesceKey: id },
 			{ task: r.id, start: ghost.start, end: ghost.end },
 		);
-		this.#after(id, o);
+		this.#after(id, o, steps);
 	}
 
 	async #move(key: string, days: 1 | -1): Promise<void> {
 		const row = this.#row(key);
-		const env = this.#moveEnv(row);
-		const r = this.#h.model().rows[row];
+		const id0 = this.#h.model().rows[row]?.id;
+		const env = id0 ? this.#burstEnv(`move:${id0}`, row) : null;
+		const r = env?.row;
 		if (!env || !r?.id) return void this.#h.announce(gestureStrings.live.nothingToDo);
 		const id = `move:${r.id}`;
 		const total = this.#nudges.press(id, days);
@@ -213,12 +229,16 @@ export class GanttInteractions {
 			{ coalesceKey: id },
 			{ task: r.id, start: ghost.start, end: ghost.end },
 		);
-		this.#after(id, o);
+		this.#after(id, o, days);
 	}
 
-	/** A refused nudge ends its burst: there is nothing held to flush. */
-	#after(id: string, o: DispatchOutcome): void {
-		if (o.status === 'refused' || o.status === 'ask-move-preference') this.#nudges.forget(id);
+	/**
+	 * A refused press is taken back out of the burst's total (the dispatcher keeps the burst's
+	 * edit, so the next press must count from the last good total). The move question is not a
+	 * refusal: the actor asks it and sends the same total again.
+	 */
+	#after(id: string, o: DispatchOutcome, step: number): void {
+		if (o.status === 'refused') this.#nudges.press(id, -step);
 	}
 
 	// --- R3: link mode ------------------------------------------------------------------------
@@ -227,6 +247,13 @@ export class GanttInteractions {
 		const row = this.#row(key);
 		// No target yet: the first Down picks the row below.
 		if (!this.links.begin(row, 'key')) this.#h.announce(gestureStrings.live.nothingToDo);
+	}
+
+	/** Link mode from a button: tap the target afterwards (the menu has no arrow keys to hand). */
+	beginLinkTap(key: string): void {
+		if (!this.links.begin(this.#row(key), 'tap')) {
+			this.#h.announce(gestureStrings.live.nothingToDo);
+		}
 	}
 
 	#pick(row: number | null): void {
@@ -298,13 +325,11 @@ export class GanttInteractions {
 		this.progress = { ...p, percent };
 		this.#h.announce(gestureStrings.live.progressNow(percent));
 		const id = `progress:${p.task}`;
-		void this.actor
-			.run(
-				{ type: 'progress', task: p.task, percent },
-				{ coalesceKey: id },
-				{ task: p.task, start: null, end: null, complete: percent },
-			)
-			.then((o) => this.#after(id, o));
+		void this.actor.run(
+			{ type: 'progress', task: p.task, percent },
+			{ coalesceKey: id },
+			{ task: p.task, start: null, end: null, complete: percent },
+		);
 		return true;
 	}
 
@@ -331,7 +356,10 @@ export class GanttInteractions {
 	async moveTo(key: string, parent: string | null, index: number): Promise<DispatchOutcome | null> {
 		const node = this.#tree.get(key);
 		if (!node?.id) return null;
-		const o = await this.actor.run({ type: 'reorder', task: node.id, parent, index });
+		const o = await this.actor.run(
+			{ type: 'reorder', task: node.id, parent, index },
+			{ defer: true },
+		);
 		if (o.status === 'applied') this.#h.focusRowSoon(`task:${movedId(node.id, parent)}`);
 		return o;
 	}
@@ -411,7 +439,7 @@ export class GanttInteractions {
 	async assign(row: number, person: string): Promise<DispatchOutcome> {
 		const r = this.#h.model().rows[row];
 		if (!r?.id) return { status: 'cancelled' };
-		return this.actor.run({ type: 'assign', task: r.id, resource: person });
+		return this.actor.run({ type: 'assign', task: r.id, resource: person }, { defer: true });
 	}
 
 	dispose(): void {

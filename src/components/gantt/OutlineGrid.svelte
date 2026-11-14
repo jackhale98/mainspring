@@ -35,14 +35,16 @@
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import Icon from '../Icon.svelte';
 	import { COLUMN_ORDER, widthOf, type ColumnId } from '../../lib/gantt/columns';
 	import { describeRow } from '../../lib/gantt/describe';
 	import { gridCells, spokenText, type GridRowInput } from '../../lib/gantt/grid';
 	import { gridMove, type GridFocus, type GridShape } from '../../lib/gantt/grid-nav';
 	import type { GanttRow } from '../../lib/gantt/model';
 	import type { OutlineNode } from '../../lib/state/outline';
+	import { ALL_KEYS, SHORTCUTS } from '../../lib/gantt/keys';
 	import { gestureStrings, strings } from '../../lib/strings';
+	import NameCell from './NameCell.svelte';
+	import RowDropMarks from './RowDropMarks.svelte';
 	import type { RowDrag } from './row-drag.svelte';
 
 	interface Props extends Omit<GridRowInput, 'pending'> {
@@ -115,6 +117,11 @@
 	}: Props = $props();
 
 	const rows = $derived(model.rows);
+	const uid = $props.id();
+	/** What the treegrid says about its keys when the focus enters it (WCAG 2.1.1, 4.1.2). */
+	const keysHint = gestureStrings.keys.gridHint(
+		SHORTCUTS.map((k) => `${gestureStrings.keys.label[k.id]}: ${k.show}`).join('; '),
+	);
 	let focusKey = $state<string | null>(null);
 	let grid: HTMLDivElement | undefined = $state();
 	let headClip: HTMLDivElement | undefined = $state();
@@ -293,12 +300,6 @@
 		return true;
 	}
 
-	/** The rename field takes the focus with its text selected. */
-	function startRename(node: HTMLInputElement): void {
-		node.focus();
-		node.select();
-	}
-
 	// A lifted row is dragged with the finger: the list cancels the native scroll for it (8.2).
 	$effect(() => {
 		if (!grid || !rowDrag) return undefined;
@@ -375,6 +376,8 @@
 	bind:this={grid}
 	role="treegrid"
 	aria-label={strings.grid.label}
+	aria-describedby="{uid}-keys"
+	aria-keyshortcuts={ALL_KEYS}
 	aria-rowcount={rows.length + 1}
 	aria-colcount={COLUMN_ORDER.length}
 	data-testid="gantt-treegrid"
@@ -460,56 +463,14 @@
 							ondblclick={col === 'name' ? () => onrename?.(row.key) : undefined}
 						>
 							{#if col === 'name'}
-								<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">
-									{#if row.expanded !== null}<span class="chevron" class:open={row.expanded}
-											><Icon name="chevronRight" size={14} /></span
-										>{/if}
-								</span>
-								{#if renaming === row.key}
-									<input
-										class="rename"
-										type="text"
-										value={row.name}
-										aria-label={gestureStrings.row.renameLabel(row.name)}
-										use:startRename
-										onclick={(e) => e.stopPropagation()}
-										ondblclick={(e) => e.stopPropagation()}
-										onkeydown={(e) => {
-											if (e.key === 'Enter') {
-												e.preventDefault();
-												onrenamed?.(row.key, e.currentTarget.value);
-											} else if (e.key === 'Escape') {
-												e.preventDefault();
-												e.stopPropagation();
-												oncancelrename?.();
-											}
-										}}
-										onblur={(e) => onrenamed?.(row.key, e.currentTarget.value)}
-									/>
-								{:else}
-									<span class="label" class:summary={row.kind === 'container'}>{cell.text}</span>
-								{/if}
-								{#if rowDrag && renaming !== row.key}
-									<!-- A pointer's handle only: the keys and the row menu do the same (R5). -->
-									<span
-										class="grip"
-										aria-hidden="true"
-										data-testid="row-grip"
-										onpointerdown={(e) => {
-											if (e.button === 0) rowDrag.down(e, row.key);
-										}}
-										onclick={(e) => e.stopPropagation()}
-									>
-										<Icon name="grip" size={14} />
-									</span>
-								{/if}
-								{#if row.textOnly}
-									<span class="badge">
-										{strings.outline.textOnly}<span class="sr-only">
-											. {strings.outline.reason[row.textOnly]}</span
-										>
-									</span>
-								{/if}
+								<NameCell
+									{row}
+									text={cell.text}
+									renaming={renaming === row.key}
+									{rowDrag}
+									onrenamed={(name) => onrenamed?.(row.key, name)}
+									oncancel={() => oncancelrename?.()}
+								/>
 							{:else}
 								{cell.text}
 							{/if}
@@ -517,17 +478,7 @@
 					{/each}
 				</div>
 			{/each}
-			{#if rowDrag?.view}
-				{@const v = rowDrag.view}
-				<div
-					class="drop-line"
-					class:invalid={!v.valid}
-					style:top="{v.lineRow * rowHeight}px"
-					style:--depth={v.depth}
-					data-testid="row-drop-line"
-					aria-hidden="true"
-				></div>
-			{/if}
+			<RowDropMarks view={rowDrag?.view ?? null} {rowHeight} />
 		</div>
 	</div>
 	{#if overflow > 0}<div class="hbar-room" aria-hidden="true"></div>{/if}
@@ -554,17 +505,7 @@
 		{/if}
 	</div>
 </div>
-{#if rowDrag?.view}
-	<div
-		class="drop-label"
-		class:invalid={!rowDrag.view.valid}
-		style:left="{rowDrag.view.x}px"
-		style:top="{rowDrag.view.y}px"
-		aria-hidden="true"
-	>
-		{rowDrag.view.label}
-	</div>
-{/if}
+<p class="sr-only" id="{uid}-keys">{keysHint}</p>
 <!-- Not inside the grid: a live region among rows is not read reliably. -->
 <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
@@ -756,159 +697,12 @@
 		clip-path: inset(50%);
 		white-space: nowrap;
 	}
-	.chevron {
-		display: inline-grid;
-		transition: transform var(--motion-fast);
-	}
-	.chevron.open {
-		transform: rotate(90deg);
-	}
-	/* A target of 24 px for a fine pointer, 44 px for a coarse one (WCAG 2.5.8). */
-	.twisty {
-		flex: none;
-		inline-size: 1.5rem;
-		block-size: 100%;
-		display: grid;
-		place-items: center;
-		color: var(--color-gantt-text-muted);
-	}
-	.label {
-		flex: 1 1 auto;
-		min-inline-size: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.rename {
-		flex: 1 1 auto;
-		min-inline-size: 0;
-		block-size: calc(100% - 8px);
-		box-sizing: border-box;
-		padding: 0 var(--space-2);
-		border: 2px solid var(--color-gantt-accent);
-		border-radius: var(--radius-sm);
-		background: var(--color-gantt-surface);
-		color: var(--color-gantt-text);
-		font: inherit;
-	}
-	/* The row grip: a pointer's handle at the end of the name, a 24 px target (44 px coarse). It
-	   shows on the row under a mouse, the focused row and the selected one; a finger gets it on
-	   the selected row only (the name column of a phone is narrow). */
-	.grip {
-		flex: none;
-		display: none;
-		place-items: center;
-		inline-size: 24px;
-		block-size: 100%;
-		margin-inline-start: auto;
-		color: var(--color-gantt-text-faint);
-		cursor: grab;
-		touch-action: pan-y;
-		user-select: none;
-		-webkit-user-select: none;
-		-webkit-touch-callout: none;
-	}
-	.row:hover .grip,
-	.row:focus-within .grip,
-	.row.selected .grip {
-		display: grid;
-	}
-	.grip:hover {
-		color: var(--color-gantt-text);
-	}
-	@media (pointer: coarse) {
-		.row:hover:not(.selected) .grip,
-		.row:focus-within:not(.selected) .grip {
-			display: none;
-		}
-		.grip {
-			inline-size: 32px;
-		}
-	}
-	/* Where a dragged row would land: a line at the boundary, indented to the depth it would have. */
-	.drop-line {
-		position: absolute;
-		z-index: 3;
-		inset-inline-start: calc(var(--space-1) + var(--depth, 0) * var(--space-4));
-		inset-inline-end: 0;
-		block-size: 3px;
-		margin-block-start: -1.5px;
-		border-radius: 2px;
-		background: var(--color-gantt-accent);
-		pointer-events: none;
-	}
-	.drop-line.invalid {
-		background: var(--color-gantt-text-faint);
-		opacity: 0.6;
-	}
-	.drop-label {
-		position: fixed;
-		z-index: 40;
-		padding: 3px var(--space-3);
-		border-radius: 999px;
-		background: var(--color-gantt-text);
-		color: var(--color-gantt-surface);
-		font-size: var(--text-xs);
-		font-weight: 600;
-		white-space: nowrap;
-		pointer-events: none;
-		transform: translate(14px, -130%);
-	}
-	.drop-label.invalid {
-		opacity: 0.75;
-	}
-	.label.summary {
-		font-weight: 600;
-	}
-	.badge {
-		flex: none;
-		padding: 0 var(--space-1);
-		background: var(--color-badge-bg);
-		color: var(--color-badge-text);
-		border-radius: var(--radius-pill);
-		font-size: var(--text-xs);
-		line-height: 1.3rem;
-	}
+	/* The name cell's parts (twisty, label, rename field, grip, badge) are NameCell.svelte's; on a
+	   phone the cell itself has a narrower indent and no gap. */
 	@media (max-width: 599px) {
-		/* A phone has little room: a slot for the chevron only on rows that have one, about 8 px
-		   of indent per level, and smaller text. */
 		.cell.name {
 			padding-inline-start: calc(var(--space-1) + var(--depth, 0) * var(--space-2));
 			gap: 0;
-		}
-		.twisty.leaf {
-			display: none;
-		}
-		/* Names may take two lines at 12.5 px, as in the phone design. */
-		.label {
-			font-size: 0.78rem;
-			line-height: 1.2;
-			white-space: normal;
-			display: -webkit-box;
-			-webkit-line-clamp: 2;
-			line-clamp: 2;
-			-webkit-box-orient: vertical;
-		}
-		/* The badge is not drawn on a phone, but its words ("text only" and the reason) stay for
-		   screen readers: hidden visually, not display: none (WCAG 1.3.1). */
-		.badge {
-			position: absolute;
-			inline-size: 1px;
-			block-size: 1px;
-			padding: 0;
-			overflow: hidden;
-			clip-path: inset(50%);
-		}
-	}
-	@media (pointer: coarse) {
-		.twisty {
-			inline-size: 2.75rem;
-		}
-	}
-	/* On a phone 44 px would take a third of the column: 32 px is still over WCAG 2.5.8's 24 px,
-	   and the whole row is a larger target for selecting. */
-	@media (pointer: coarse) and (max-width: 599px) {
-		.twisty {
-			inline-size: 2rem;
 		}
 	}
 </style>

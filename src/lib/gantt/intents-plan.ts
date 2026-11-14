@@ -73,11 +73,15 @@ export function planAction(a: GanttAction, ctx: ActionContext): Planned {
 				{ type: 'moveTask', task: a.task, parent: a.parent, index: a.index },
 				S.label.move(nameIn(ctx, a.task)),
 			);
-		case 'assign':
+		case 'assign': {
+			// People are booked on the tasks that do the work: a container takes its dates from them.
+			const f = facts(a.task);
+			if (f?.container) return notPossible('container-people', f);
 			return intent(
 				{ type: 'addAllocation', task: a.task, resource: a.resource },
 				S.label.assign(personIn(ctx, a.resource), nameIn(ctx, a.task)),
 			);
+		}
 		case 'unassign':
 			return intent(
 				{ type: 'removeAllocation', task: a.task, resource: a.resource },

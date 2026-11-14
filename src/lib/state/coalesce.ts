@@ -12,6 +12,7 @@
  */
 import type { KeyTimers } from '../tjp/cm/android-key';
 import type { Base } from './edits-plan';
+import type { ActionSource } from './edits-types';
 
 export interface Gesture {
 	/** The text and index before the gesture's first edit, for dry runs of a newer total. */
@@ -19,6 +20,13 @@ export interface Gesture {
 	/** The history entry of the gesture's edit in the text now, or null. */
 	applied: string | null;
 	broken: boolean;
+	/**
+	 * The result an action gesture is planned against, pinned by its first call: a burst of
+	 * nudges that began on one schedule keeps planning on it, whatever result arrives meanwhile
+	 * (+3 days, a result, one more press is +4 on the schedule the gesture began on, not +4 on the
+	 * moved task).
+	 */
+	source?: ActionSource;
 }
 
 export interface Held<J, R> {
