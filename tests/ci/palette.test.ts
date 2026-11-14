@@ -132,10 +132,27 @@ const TEXT: ReadonlyArray<readonly [string, string, number]> = [
 	['color-diagnostic-error', 'color-surface', 4.5],
 	['color-diagnostic-warning', 'color-surface', 4.5],
 	['color-diagnostic-info', 'color-surface', 4.5],
+	// The selected source (tjp/cm/source-highlight.ts): the editor's text on its background.
+	['color-text', 'color-source-highlight', 4.5],
+	['color-text-muted', 'color-source-highlight', 4.5],
+	['color-syntax-keyword', 'color-source-highlight', 4.5],
+	['color-syntax-definition', 'color-source-highlight', 4.5],
+	['color-syntax-reference', 'color-source-highlight', 4.5],
+	['color-syntax-string', 'color-source-highlight', 4.5],
+	['color-syntax-literal', 'color-source-highlight', 4.5],
+	['color-syntax-comment', 'color-source-highlight', 4.5],
+	['color-syntax-macro', 'color-source-highlight', 4.5],
+	['color-syntax-invalid', 'color-source-highlight', 4.5],
+	['color-diagnostic-error', 'color-source-highlight', 4.5],
+	['color-diagnostic-warning', 'color-source-highlight', 4.5],
+	['color-diagnostic-info', 'color-source-highlight', 4.5],
 ];
 
 /** Graphics and edges that must be seen (WCAG 1.4.11): [token, ground token, minimum]. */
 const GRAPHICS: ReadonlyArray<readonly [string, string, number]> = [
+	// The selected source's left rule against the editor and against its own background.
+	['color-source-rule', 'color-surface', 3],
+	['color-source-rule', 'color-source-highlight', 3],
 	['color-focus', 'color-surface', 3],
 	['color-focus', 'color-bg', 3],
 	['color-focus', 'color-row-selected', 3],

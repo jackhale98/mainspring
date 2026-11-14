@@ -21,6 +21,14 @@
  * `Toasts.svelte` draws its toasts. Its Android gate asks the editor (`editorKeys`, set by the
  * editor panel) whether CodeMirror holds a key in a file the edit changes.
  *
+ * Selection (phase-2.md 6.10, selection.svelte.ts): `selection` holds what is selected and where
+ * the selection came from. A view selects through `selectTask(key)` and `inspector.showLink`; the
+ * editor reports its cursor through `cursorMoved`. A selection that came from a visual sets
+ * `sourceMark`, which the editor panel shows (highlight, scroll, cursor if it has no focus); the
+ * mark is made again when the index catches up with the text. A selection that came from the text
+ * clears the mark and asks the Gantt to scroll the task's row into view. Following a rename and the
+ * toast's "Show" in Visual mode (the source sheet) are here too.
+ *
  * Samples load in memory; nothing is stored (Phase 4).
  *
  * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
@@ -30,6 +38,7 @@
  * Over 400 lines: one class holds the app state and its derived views so the runes stay in one
  * reactive graph; splitting it would spread the effects that keep them in step.
  */
+import { untrack } from 'svelte';
 import type { EditorView } from '@codemirror/view';
 import { createTimeZoneHost } from '../../engine/timezone';
 import { createEngineClient, type EngineClient } from '../../engine/client';
@@ -46,13 +55,24 @@ import {
 import { createHistory, type HistoryOutcome, type WorkspaceHistory } from '../workspace/history';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { currentRange } from '../inspector/range';
-import type { SourceRange } from '../tjp/index';
+import type { SourceRange, TaskId } from '../tjp/index';
 import { nextProblem } from './diagnostics-nav';
-import { EditDispatcher } from './edits.svelte';
+import { EditDispatcher, movedId } from './edits.svelte';
 import { HistoryControls } from './history-controls.svelte';
 import { InspectorState } from './inspector.svelte';
 import { bindHistoryKeys } from './history-keys';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
+import {
+	linkPlace,
+	placeOf,
+	SelectionState,
+	taskAtCursor,
+	type Place,
+	type Selection,
+	type SourceMark,
+} from './selection.svelte';
+
+export type { SourceMark };
 import { statusView, type StatusView } from './status';
 import { browserStorage } from './storage';
 
@@ -69,6 +89,14 @@ export interface Reveal {
 	readonly focus: boolean;
 	/** False to scroll to the range and keep the selection (after an undo of typing). */
 	readonly select?: boolean;
+}
+
+/** What the shell (App.svelte) tells the app about the screen. */
+export interface Shell {
+	/** Whether an editor is on screen (Text or Split, or a phone's Text tab). */
+	editorShown(): boolean;
+	/** Brings the editor on screen, then reveals the range in it. */
+	showInText(at: SourceRange): void;
 }
 
 export interface AppStateOptions {
@@ -100,8 +128,12 @@ export class AppState {
 	outlineOpen = $state(false);
 	docsOpen = $state(false);
 	collapsed = $state.raw<ReadonlySet<string>>(new Set());
-	/** The outline key (`task:app.code`) of the task selected in the Gantt, or null. */
-	selectedTask = $state<string | null>(null);
+	/** What is selected, and where it came from (selection.svelte.ts). */
+	readonly selection = new SelectionState((s) => this.#onSelection(s));
+	/** The selection a visual made, as it is in the text; the editor panel shows it. */
+	sourceMark = $state.raw<SourceMark | null>(null);
+	/** Set by the shell; without one an editor is taken to be on screen. */
+	shell: Shell | null = null;
 	/** The newest format message, shown briefly. */
 	note = $state<string | null>(null);
 	reveal = $state.raw<Reveal | null>(null);
@@ -116,7 +148,7 @@ export class AppState {
 	/** The open plan's edit dispatcher (edits.svelte.ts); null while a plan loads. */
 	edits = $state.raw<EditDispatcher | null>(null);
 	/** What the inspector shows and where (inspector.svelte.ts); the Gantt publishes its view here. */
-	readonly inspector = new InspectorState();
+	readonly inspector = new InspectorState(this.selection);
 	/** Undo and redo for the top bar and the keys (module comment). */
 	readonly history = new HistoryControls((o) => this.#onHistory(o));
 
@@ -160,6 +192,10 @@ export class AppState {
 	#docs: SyntaxDocs | null = null;
 	#nonce = 0;
 	#token = 0;
+	/** The selection's mark has not been shown yet (its task is not in the index yet). */
+	#scrollPending = false;
+	#lastIndex: unknown = null;
+	readonly #offEffects: () => void;
 	#noteTimer: ReturnType<typeof setTimeout> | null = null;
 	readonly #confirm: (message: string) => boolean;
 	readonly #offClient: () => void;
@@ -182,6 +218,13 @@ export class AppState {
 			(v) => (this.engineVersions = v),
 			() => undefined,
 		);
+		// The one reactive link: a moveTask in flight renames the task that is selected (6.10).
+		this.#offEffects = $effect.root(() => {
+			$effect(() => {
+				const renames = this.edits?.pending.renames;
+				if (renames && renames.size > 0) untrack(() => this.selection.followRenames(renames));
+			});
+		});
 		const keys = opts.keyTarget === undefined ? (globalThis.window ?? null) : opts.keyTarget;
 		this.#offKeys = keys ? bindHistoryKeys(keys, this.history) : () => undefined;
 		const first = this.samples.find((s) => s.id === opts.initial) ?? this.samples[0];
@@ -235,7 +278,7 @@ export class AppState {
 			history: this.#history,
 			undo: () => this.history.undo(),
 			keyHeld: (paths) => this.editorKeys?.keyHeld(paths) ?? false,
-			reveal: (r) => this.revealRange(r.file, r.from, r.to, !coarsePointer()),
+			reveal: (r) => this.#showPlace(r),
 			storage: browserStorage(),
 			zones: this.#zones,
 		});
@@ -244,11 +287,16 @@ export class AppState {
 			runner.subscribe((s) => {
 				this.run = s;
 				this.#syncFiles(ws);
+				if (s.index !== this.#lastIndex) {
+					this.#lastIndex = s.index;
+					this.#onIndex();
+				}
 			}),
 		];
 		this.dirty = false;
 		this.collapsed = new Set();
-		this.selectedTask = null;
+		this.selection.clear();
+		this.sourceMark = null;
 		this.inspector.reset();
 		this.#current = { ws, runner };
 		this.#attachEditor();
@@ -346,6 +394,16 @@ export class AppState {
 			return;
 		}
 		const files = Object.keys(o.entry.applied.edit.changes);
+		// A move renames the task (and its descendants): the selection follows it back on undo and
+		// forward again on redo (the dispatcher's `pending.renames` only covers the move itself).
+		const intent = o.entry.applied.edit.intent;
+		if (intent.type === 'moveTask') {
+			const to = movedId(intent.task, intent.parent);
+			if (to !== intent.task) {
+				const [from, next] = o.direction === 'undo' ? [to, intent.task] : [intent.task, to];
+				this.selection.followRenames(new Map([[from, next]]));
+			}
+		}
 		const here = o.entry.kind === 'typing' && files.length === 1 && files[0] === this.activeFile;
 		const r = o.reveal;
 		// The keyboard focus stays where it is; a phone stays on its tab.
@@ -371,24 +429,129 @@ export class AppState {
 	/** Selects an outline node's declaration. */
 	revealNode(node: OutlineNode): void {
 		const d = this.#declaration(node.at);
-		if (node.kind === 'task') this.selectedTask = node.key;
+		if (node.kind === 'task') this.selection.selectTask(node.key.slice('task:'.length), 'visual');
 		// A touch keyboard would cover the editor: only a keyboard or mouse user gets the focus.
 		this.revealRange(d.file, d.from, d.to, !coarsePointer());
 		this.outlineOpen = false;
 	}
 
 	/**
-	 * Selects a task from the Gantt and puts the editor cursor on its declaration (the visual to
-	 * text half of selection sync, phase-2.md 6.10). The editor does not take the keyboard focus,
-	 * and a phone stays on its Gantt tab.
+	 * Selects a task from a visual, by its outline key (`task:app.code`): the Gantt, the outline or
+	 * the inspector (the visual to text half of selection sync, phase-2.md 6.10). The editor then
+	 * shows its source (`sourceMark`) without taking the keyboard focus, and a phone stays on its
+	 * Gantt tab. A selected link goes away.
 	 */
 	selectTask(key: string): void {
-		this.selectedTask = key;
-		this.inspector.clearLink();
-		const node = this.outline.byKey.get(key);
-		if (!node) return;
-		const d = this.#declaration(node.at);
-		this.revealRange(d.file, d.from, d.to, false, false);
+		if (key.startsWith('task:')) this.selection.selectTask(key.slice('task:'.length), 'visual');
+	}
+
+	/** The outline key of the selected task, or null (a link or nothing is selected). */
+	get selectedTask(): string | null {
+		return this.selection.taskKey;
+	}
+
+	/** The key of the row the keyboard focus returns to after the details: a link's successor's. */
+	get selectedRow(): string | null {
+		return this.selection.rowKey;
+	}
+
+	/**
+	 * The editor's cursor is at `pos` of `file` (the user moved it or typed): selects the task
+	 * there, from the text (text to visual). A cursor outside every task keeps the selection.
+	 */
+	cursorMoved(file: WorkspacePath, pos: number): void {
+		const run = this.run;
+		const ws = this.workspace;
+		if (!run || !ws) return;
+		const id: TaskId | null = taskAtCursor(run, ws, file, pos);
+		if (id === null || !this.selection.selectTask(id, 'text')) return;
+		this.#expandAround(id);
+	}
+
+	/** Opens the collapsed containers above a task, so that its row exists to be shown (6.10). */
+	#expandAround(id: TaskId): void {
+		const next = new Set(this.collapsed);
+		let key = this.outline.byKey.get(`task:${id}`)?.parent ?? null;
+		for (let n = 0; key !== null && n < 1000; n++) {
+			next.delete(key);
+			key = this.outline.byKey.get(key)?.parent ?? null;
+		}
+		if (next.size !== this.collapsed.size) this.collapsed = next;
+	}
+
+	/** The selection changed: show it in the editor (a visual's) or let the text's be (module comment). */
+	#onSelection(s: Selection): void {
+		this.#scrollPending = s !== null && s.origin === 'visual';
+		this.#remark();
+	}
+
+	/** The index changed: show a visual's selection again at its place now, and follow the cursor. */
+	#onIndex(): void {
+		this.#remark();
+		const ed = this.editor;
+		// The cursor is the truth only while the user is in the editor and no visual selection is
+		// being shown there (it would take the selection back from the visual that made it).
+		if (ed?.hasFocus && this.selection.current?.origin !== 'visual') {
+			this.cursorMoved(this.activeFile, ed.state.selection.main.head);
+		}
+	}
+
+	/** Where a selection's source is in the text now. */
+	#placeOf(s: NonNullable<Selection>): Place | null {
+		const run = this.run;
+		const ws = this.workspace;
+		if (!run || !ws) return null;
+		if (s.kind === 'link') return linkPlace(run, ws, s);
+		const place = placeOf(run, ws, s.id);
+		if (place) return place;
+		// A declaration the index could not name (text only): the outline has its place.
+		const node = this.outline.byKey.get(`task:${s.id}`);
+		if (!node) return null;
+		const at = this.#declaration(node.at);
+		return { block: this.#declaration(node.block), at };
+	}
+
+	/** Makes `sourceMark` from a visual's selection (null for the text's, or when nothing places it). */
+	#remark(): void {
+		const s = this.selection.current;
+		const place = s !== null && s.origin === 'visual' ? this.#placeOf(s) : null;
+		const prev = this.sourceMark;
+		if (!place) {
+			if (prev !== null) this.sourceMark = null;
+			return;
+		}
+		const scroll = this.#scrollPending;
+		this.#scrollPending = false;
+		const { block, at } = place;
+		const same =
+			prev !== null && prev.file === block.file && prev.from === block.from && prev.to === block.to;
+		if (!scroll && same) return;
+		// Another file is shown only when the user is not typing in the editor.
+		if (scroll && !this.editor?.hasFocus) this.openFile(block.file);
+		this.sourceMark = {
+			file: block.file,
+			from: block.from,
+			to: block.to,
+			scroll,
+			cursor: { from: at.from, to: at.to },
+		};
+	}
+
+	/**
+	 * A toast's "Show" (phase-2.md 11.2): the place in the text where the editor is on screen, else
+	 * the source sheet of the task there (Visual mode), else the editor after all.
+	 */
+	#showPlace(r: SourceRange): void {
+		if (this.shell?.editorShown() ?? true) {
+			this.revealRange(r.file, r.from, r.to, !coarsePointer());
+			return;
+		}
+		const run = this.run;
+		const ws = this.workspace;
+		const id = run && ws ? taskAtCursor(run, ws, r.file, r.from) : null;
+		if (id !== null) this.inspector.source = id;
+		else if (this.shell) this.shell.showInText(r);
+		else this.revealRange(r.file, r.from, r.to, !coarsePointer());
 	}
 
 	toggleNode(key: string): void {
@@ -444,6 +607,7 @@ export class AppState {
 		this.#token++;
 		this.#teardown();
 		this.#offKeys();
+		this.#offEffects();
 		this.#offClient();
 		if (this.#noteTimer !== null) clearTimeout(this.#noteTimer);
 		this.client.dispose();

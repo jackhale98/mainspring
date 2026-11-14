@@ -63,6 +63,13 @@
 		app.dispose();
 	});
 
+	// What the app asks the screen: is an editor shown (the toast's Show opens the source sheet when
+	// not, phase-2.md 11.2), and bring one on screen. The closures read the live mode.
+	app.shell = {
+		editorShown: () => showEditor,
+		showInText: (at) => showInText(at),
+	};
+
 	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
 	const planViews = { tasks: newOutlineView(), resources: newOutlineView() };
 
