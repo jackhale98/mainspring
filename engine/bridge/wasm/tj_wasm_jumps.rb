@@ -35,11 +35,11 @@
 #    on a PropertyList leaked a buffer each time (gantt-200: about 130 per
 #    run). Ruby's `__send__` dispatches in the VM. A method the target does
 #    not have still goes through `method(func)`, so the error is unchanged.
-#  - Integer#upto and #downto are C; TaskJuggler returns from inside their
-#    blocks in scheduling code (Project#isWorkingTime?, hasWorkingTime,
-#    ResourceScenario#allocated?, WorkingHours#timeOff?, TaskScenario's
-#    length check). With an Integer limit they now loop in Ruby; any other
-#    limit, and the blockless form, use the original C methods.
+#  - Integer#upto and #downto are C; TaskJuggler returns or breaks from inside
+#    their blocks in scheduling code (Project#isWorkingTime and
+#    #hasWorkingTime, ResourceScenario#allocatedSub, WorkingHours#timeOff?,
+#    TaskScenario#bookBookings). With an Integer limit they now loop in Ruby;
+#    any other limit, and the blockless form, use the original C methods.
 #
 # Jumps on other paths (an exception out of a block yielded by C, an early
 # exit from a C iterator TaskJuggler rarely runs) still leak, 24 KB each;
