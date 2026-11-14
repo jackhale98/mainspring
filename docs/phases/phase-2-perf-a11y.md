@@ -138,6 +138,16 @@ Spec: `tests/e2e/gantt-a11y.spec.ts`, desktop and Pixel 7 (iPhone 14 skipped: Ch
 - Contrast of the canvas pixels as painted, per scheme (A13); the tokens are tested.
 - iPhone 14 (WebKit) accessibility runs: the audit is Chromium on desktop and Pixel 7.
 
+### Re-run against 5c399d68 (phone Undo/Redo, History, quiet message strip, theme in the status card)
+
+The whole a11y spec was run again after merging `claude/new-session-6tly46` at 5c399d68: 30 passed,
+8 skipped (desktop and Pixel 7). New states covered: the phone top bar with Undo and Redo and the
+message strip (`toast-quiet`), the History sheet, both schemes (axe: no violations), and the
+History sheet and strip in the 44 px probe. The spec now opens details with `rig.openDetails`
+(tap to select, tap again to open on a phone). The frame numbers above were taken at 5a652477,
+before that merge; the first-open and 3 s drag specs were re-run on the merged build as a smoke
+check only.
+
 ## Files
 
 - `tests/e2e/gantt-perf.spec.ts`, `tests/e2e/lib/perf.ts` (+ `perf.test.ts`), `src/lib/perf/frame-meter.ts` (+ test),
