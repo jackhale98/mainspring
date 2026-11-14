@@ -2,7 +2,8 @@
 /**
  * Engine client (phase-0 spec 3.3): owns the engine worker, drives the latest-wins queue in
  * queue.ts, restarts the worker after a crash or reply timeout, gives up when a boot stalls, and
- * turns worker replies into settled promises. The worker itself (worker.ts, task T6) only ever
+ * turns worker replies into settled promises. Between runs it replaces a worker whose memory
+ * passed `recycleBytes` (wasm memory never shrinks; engine/bridge/wasm/tj_wasm_jumps.rb). The worker itself (worker.ts, task T6) only ever
  * sees one schedule at a time. Timers live in deadline.ts, listeners in notifier.ts, and the
  * worker plumbing in transport.ts.
  *
@@ -17,6 +18,7 @@ import type {
 	FromWorker,
 	Revision,
 	ScheduleRequest,
+	ScheduleResult,
 	SyntaxDocs,
 	ToWorker,
 } from './protocol';
@@ -74,6 +76,12 @@ export interface EngineClientOptions {
 	 */
 	bootTimeoutMs?: number;
 	/**
+	 * Default 1.2 GiB. A result reporting `timings.memoryBytes` at or above this is delivered, then
+	 * the worker is replaced (state `booting`) and the next request runs on the new one; nothing
+	 * fails. Not while a syntax reply is owed (a later result retries). Needs a factory transport.
+	 */
+	recycleBytes?: number;
+	/**
 	 * Injectable for unit tests. A factory lets the client restart the worker after a crash or
 	 * timeout; a single instance cannot be restarted, so a crash or timeout leaves it `failed`.
 	 */
@@ -97,6 +105,8 @@ export function createEngineClient(opts: EngineClientOptions = {}): EngineClient
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_BOOT_TIMEOUT_MS = 180_000;
+/** Well under the 2 GiB at which ruby.wasm's JavaScript side fails. */
+export const DEFAULT_RECYCLE_BYTES = Math.round(1.2 * 2 ** 30);
 const RESTART_KINDS: ReadonlySet<EngineError['kind']> = new Set(['boot', 'crash', 'timeout']);
 const UNSENT_ERROR: EngineError = Object.freeze({
 	kind: 'invalid-request',
@@ -127,10 +137,12 @@ class Client implements EngineClient {
 	/** Runs from creating a worker until its `ready`. */
 	readonly #bootDeadline: Deadline;
 	readonly #notifier = new StateNotifier(() => this.#queue.state);
+	readonly #recycleBytes: number;
 
 	constructor(opts: EngineClientOptions) {
 		const timeoutMs = checkDuration('timeoutMs', opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 		const bootMs = checkDuration('bootTimeoutMs', opts.bootTimeoutMs ?? DEFAULT_BOOT_TIMEOUT_MS);
+		this.#recycleBytes = checkDuration('recycleBytes', opts.recycleBytes ?? DEFAULT_RECYCLE_BYTES);
 		this.#watchdog = new Deadline(timeoutMs, () => this.#onTimeout());
 		this.#bootDeadline = new Deadline(bootMs, () => this.#onBootTimeout());
 		const { transport, workerUrl } = opts;
@@ -235,7 +247,7 @@ class Client implements EngineClient {
 				this.#settleReadyWaiters(message.versions);
 				break;
 			case 'scheduled':
-				this.#apply(this.#queue.result(message.result));
+				this.#onScheduled(message.result);
 				break;
 			case 'syntax':
 				this.#apply(this.#queue.syntaxResult(message.id, message.result));
@@ -244,6 +256,22 @@ class Client implements EngineClient {
 				this.#onFailed(message);
 				break;
 		}
+	}
+
+	/** Delivers a result; replaces the worker afterwards when it reports too much memory. */
+	#onScheduled(result: ScheduleResult): void {
+		const memory = result.timings?.memoryBytes;
+		const factory = this.#factory;
+		if (factory === null || typeof memory !== 'number' || !(memory >= this.#recycleBytes)) {
+			this.#apply(this.#queue.result(result));
+			return;
+		}
+		this.#apply(this.#queue.resultThenReboot(result));
+		// Still `ready`: a stale result, or a syntax reply still owed; a later result retries.
+		if (this.#queue.phase !== 'booting') return;
+		this.#dropWorker();
+		this.#start(factory);
+		this.#afterEvent(false);
 	}
 
 	#onFailed(message: Extract<FromWorker, { type: 'failed' }>): void {
