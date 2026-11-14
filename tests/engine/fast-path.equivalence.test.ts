@@ -16,6 +16,10 @@
 //   `directionPlan`): start and end with statements that set the direction in the `late`
 //   scenario or both, every start and end line rewritten whether or not the main thread would
 //   offer it;
+// - FAST_PATH_PURGE_RUNS plans of the purge family (default 100; the T19 review, round 3): every
+//   other one a small `purgePlan` (fast-path-cases.ts), the others fidelity-generator plans with
+//   `purge` statements (`genPlan(rng, { purge: true })`); up to 8 lone value lines of each
+//   rewritten, those of tasks with a purge first, whether or not the main thread would offer them;
 // - a shuffled replay of a sample through the same engine, with unrelated full runs in between,
 //   to catch state left behind by a run (FAST_PATH_SHUFFLED limits its plans; default all).
 // FAST_PATH_SEED seeds it all; FAST_PATH_PLANS limits the golden plans for a replay.
@@ -36,10 +40,12 @@ import { loadCorpus, planRequest, REPO } from '../golden/corpus';
 import {
 	canonicalResult,
 	directionPlan,
+	purgePlan,
 	eligibleSites,
 	indexOf,
 	newValue,
 	rawDateRewrites,
+	rawRewrites,
 	rewrite,
 	Rng,
 	type Rewrite,
@@ -53,6 +59,7 @@ const num = (name: string, dflt: number): number => {
 };
 const RUNS = num('FAST_PATH_RUNS', 500);
 const DIRECTION_RUNS = num('FAST_PATH_DIRECTION_RUNS', 100);
+const PURGE_RUNS = num('FAST_PATH_PURGE_RUNS', 100);
 /** FAST_PATH_SHUFFLED=n: at most n plans in the shuffled replay; default all of its sample. */
 const SHUFFLED = num('FAST_PATH_SHUFFLED', Infinity);
 const CORPUS_EDITS = num('FAST_PATH_CORPUS_EDITS', 6);
@@ -89,7 +96,7 @@ const report = {
 	differences: [] as string[],
 	clockMoved: 0,
 	shuffled: { cases: 0, differences: 0 },
-	plans: { corpus: 0, generated: 0, direction: 0, withoutSites: 0 },
+	plans: { corpus: 0, generated: 0, direction: 0, purge: 0, withoutSites: 0 },
 };
 
 let engine: Engine;
@@ -184,6 +191,7 @@ function check(plan: Plan): Checked[] {
 const corpusPlans: Plan[] = [];
 const generatedPlans: Plan[] = [];
 const directionPlans: Plan[] = [];
+const purgePlans: Plan[] = [];
 
 describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run', () => {
 	beforeAll(async () => {
@@ -219,6 +227,18 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 				multi: offered.multi,
 			});
 		}
+		for (let n = 0; n < PURGE_RUNS; n++) {
+			const prng = new Rng(mixSeed(SEED ^ 0x9e, n));
+			const generated = n % 2 === 1 ? printPlan(genPlan(prng, { purge: true }), prng) : null;
+			const req = {
+				files: generated ? generated.files : purgePlan(prng),
+				entry: generated ? generated.facts.entry : 'plan.tjp',
+				options: { now: GENERATED_NOW },
+			};
+			const ws = createWorkspace({ entry: req.entry, files: req.files });
+			const rewrites = rawRewrites(ws, indexOf(ws), prng, 8, req.files);
+			purgePlans.push({ name: `purge ${SEED}:${n}`, request: req, rewrites, multi: null });
+		}
 	}, 600_000);
 
 	it('every golden plan', () => {
@@ -242,6 +262,15 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: equal to a full run',
 	it(`${DIRECTION_RUNS} direction plans: start and end with late: statements`, () => {
 		for (const p of directionPlans) {
 			report.plans.direction++;
+			if (p.rewrites.length === 0) report.plans.withoutSites++;
+			check(p);
+		}
+		expect(report.differences).toEqual([]);
+	}, 3_600_000);
+
+	it(`${PURGE_RUNS} purge plans: value statements with purge before or after`, () => {
+		for (const p of purgePlans) {
+			report.plans.purge++;
 			if (p.rewrites.length === 0) report.plans.withoutSites++;
 			check(p);
 		}

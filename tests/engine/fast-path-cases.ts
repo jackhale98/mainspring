@@ -14,11 +14,11 @@
  * and now and then one out of range (complete 150, priority 2000) that TaskJuggler refuses while
  * parsing, which must fall back.
  */
-import type { FastEdit, ScheduleResult } from '../../src/engine/protocol';
+import type { FastAttr, FastEdit, ScheduleResult } from '../../src/engine/protocol';
 import { applyIntent } from '../../src/lib/tjp/edit/apply';
 import type { TaskAttr } from '../../src/lib/tjp/edit/types';
 import { buildIndex, type EngineHints, type SymbolIndex } from '../../src/lib/tjp/index';
-import { fastEditsOf, fastSites, type FastSite } from '../../src/lib/workspace/fast-patch';
+import { FAST_ATTRS, fastEditsOf, fastSites, type FastSite } from '../../src/lib/workspace/fast-patch';
 import type { Workspace } from '../../src/lib/workspace/workspace';
 import { Rng } from '../fidelity/gen/rng';
 
@@ -187,6 +187,104 @@ export function rawDateRewrites(ws: Workspace, index: SymbolIndex, rng: Rng): Re
 		});
 	});
 	return out;
+}
+
+/**
+ * A plan of the purge family (the T19 review, round 3, D1): leaf tasks with value statements,
+ * each now and then with a `purge <attribute>` (`late:` scoped when the plan has scenarios)
+ * before or after them, and supplements that purge or set values again. A purge after a
+ * rewritten statement resets it in a full parse; the fast path must run such a rewrite in full.
+ */
+export function purgePlan(rng: Rng): Record<string, string> {
+	const scenarios = rng.chance(0.5);
+	const lines = [
+		'project p "P" 2026-01-05 +4m {',
+		...(scenarios ? ['  scenario plan "Plan" { scenario late "Late" }'] : []),
+		'}',
+		'resource r1 "R1"',
+		'resource r2 "R2"',
+	];
+	const attrs = ['start', 'end', 'effort', 'length', 'priority', 'complete', 'milestone', 'allocate', 'forward'];
+	const purge = (): string => `purge ${scenarios && rng.chance(0.3) ? 'late:' : ''}${rng.pick(attrs)}`;
+	const n = rng.int(3, 6);
+	const ids: string[] = [];
+	for (let i = 0; i < n; i++) {
+		const id = `t${i}`;
+		const body: string[] = [];
+		if (rng.chance(0.7)) body.push(`effort ${rng.int(1, 6)}d`, `allocate r${rng.int(1, 2)}`);
+		else body.push(`length ${rng.int(1, 6)}d`);
+		if (rng.chance(0.5)) body.push(rng.chance(0.6) ? `start ${isoDay(rng.int(3, 30))}` : `end ${isoDay(rng.int(40, 80))}`);
+		if (rng.chance(0.4)) body.push(`priority ${rng.int(1, 999)}`);
+		if (rng.chance(0.4)) body.push(`complete ${rng.int(0, 20) * 5}`);
+		if (ids.length > 0 && rng.chance(0.3)) body.push(`depends ${rng.pick(ids)}`);
+		for (let k = rng.int(0, 2); k > 0; k--) body.splice(rng.int(0, body.length), 0, purge());
+		lines.push(`task ${id} "T${i}" {`, ...body.map((b) => `  ${b}`), '}');
+		ids.push(id);
+	}
+	if (rng.chance(0.6)) {
+		const supp = [rng.chance(0.5) ? purge() : `priority ${rng.int(1, 999)}`];
+		if (rng.chance(0.4)) supp.push(purge());
+		lines.push(`supplement task ${rng.pick(ids)} {`, ...supp.map((b) => `  ${b}`), '}');
+	}
+	return { 'plan.tjp': `${lines.join('\n')}\n` };
+}
+
+const LONE = /^([ \t]*)(effort|length|duration|start|end|priority|complete)[ \t]+(\S+)[ \t]*$/;
+
+/**
+ * Rewrites of the lone value statements of a workspace's tasks, as the index places them, sent
+ * whether or not fast-patch.ts would offer them: what a wrong main thread could send, so the
+ * bridge's checks alone decide. At most `limit`, those of tasks with a `purge` first. `texts`
+ * are the files as sent (their line ends kept: a CRLF file stays CRLF).
+ */
+export function rawRewrites(
+	ws: Workspace,
+	index: SymbolIndex,
+	rng: Rng,
+	limit: number,
+	texts: Readonly<Record<string, string>>,
+): Rewrite[] {
+	const snap = ws.snapshot();
+	const all: { rewrite: Rewrite; purged: boolean }[] = [];
+	for (const task of index.tasks.values()) {
+		const purged = task.attrs.some((a) => a.keyword === 'purge');
+		for (const a of task.attrs) {
+			if (a.scenario !== null || !(FAST_ATTRS as readonly string[]).includes(a.keyword)) continue;
+			const file = snap.files.get(a.statement.file);
+			if (!file) continue;
+			const line = file.text.lineAt(a.statement.from);
+			const m = LONE.exec(line.text);
+			if (!m || m[2] !== a.keyword) continue;
+			const site: Site = {
+				task,
+				attribute: a.keyword as FastAttr,
+				file: a.statement.file,
+				line: line.number,
+				value: m[3] ?? '',
+			};
+			const value = newValue(site, rng);
+			if (value === site.value) continue;
+			const lines = (texts[a.statement.file] ?? '').split('\n');
+			const cr = lines[line.number - 1]?.endsWith('\r') ? '\r' : '';
+			lines[line.number - 1] = `${m[1] ?? ''}${a.keyword} ${value}${cr}`;
+			const files: Record<string, string> = { ...texts, [a.statement.file]: lines.join('\n') };
+			const edit: FastEdit = {
+				task: task.id,
+				attribute: site.attribute,
+				scenario: null,
+				value,
+				file: site.file,
+				line: site.line,
+			};
+			all.push({ rewrite: { site, edit, files }, purged });
+		}
+	}
+	const first = all.filter((x) => x.purged);
+	const rest = rng.sample(
+		all.filter((x) => !x.purged),
+		Math.max(0, limit - first.length),
+	);
+	return [...first.slice(0, limit), ...rest].map((x) => x.rewrite);
 }
 
 export { Rng };

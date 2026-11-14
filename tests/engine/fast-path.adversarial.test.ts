@@ -5,7 +5,8 @@
 // run of the same text: the result must be equal, by the expected path and, when it runs in full,
 // for the expected reason. The edits are what a wrong or hostile main thread could send, so the
 // bridge alone must catch them. The first review's cases are below; the re-review's (scripts
-// r1.mjs to r4.mjs) are in fast-path-review-cases.ts; its wrapped.mjs is the last test: a run that
+// r1.mjs to r4.mjs) are in fast-path-review-cases.ts and the third review's (purge, b4.mjs to
+// b6.mjs) in fast-path-review3-cases.ts; the re-review's wrapped.mjs is the last test: a run that
 // keeps its parse (and so runs with the recorder's hooks) gives every golden plan's result. Opt-in
 // with FAST_PATH=1, like the other engine suites.
 import fs from 'node:fs';
@@ -17,6 +18,7 @@ import { compareWithGolden } from '../golden/compare';
 import { loadCorpus, planRequest, REPO } from '../golden/corpus';
 import { canonicalResult } from './fast-path-cases';
 import { E, P, rereviewCases, type Case, type Edit } from './fast-path-review-cases';
+import { round3Cases } from './fast-path-review3-cases';
 
 const ENGINE = path.join(REPO, 'public/engine/manifest.json');
 const ON = process.env['FAST_PATH'] === '1';
@@ -161,7 +163,7 @@ describe.skipIf(!ON || !fs.existsSync(ENGINE))('fast path: the review repros', (
 		engine = (await bootNodeEngine({ log: () => {} })) as unknown as Engine;
 	}, 300_000);
 
-	for (const c of [...cases, ...rereviewCases]) {
+	for (const c of [...cases, ...rereviewCases, ...round3Cases]) {
 		it(`${c.name}: ${c.reason ? 'runs in full' : 'fast'}, same result`, () => {
 			const { fast, full } = compare(c.files, c.edits, c.options);
 			expect(fast.timings.path, fast.timings.fastFallback).toBe(c.reason ? 'full' : 'fast');

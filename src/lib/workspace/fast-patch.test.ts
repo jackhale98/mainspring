@@ -99,6 +99,34 @@ describe('fastSites', () => {
 		const ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': plan } });
 		expect(sitesOf(ws)).toEqual(['v start 2026-01-06 @plan.tjp:11', 'v effort 3d @plan.tjp:12']);
 	});
+
+	it('leaves out every statement of a task with a purge (the T19 review, round 3, D1)', () => {
+		const plan = [
+			'project p "P" 2026-01-05 +1m', // 1
+			'task a "A" {', // 2
+			'  start 2026-01-07', // 3
+			'  purge start', // 4
+			'}', // 5
+			'task b "B" {', // 6
+			'  priority 900', // 7
+			'  purge priority', // 8
+			'  effort 2d', // 9
+			'  purge effort', // 10
+			'}', // 11
+			'task c "C" {', // 12
+			'  complete 20', // 13
+			'}', // 14
+			'supplement task c {', // 15
+			'  purge allocate', // 16
+			'}', // 17
+			'task d "D" {', // 18
+			'  start 2026-01-08', // 19
+			'}', // 20
+			'',
+		].join('\n');
+		const ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': plan } });
+		expect(sitesOf(ws)).toEqual(['d start 2026-01-08 @plan.tjp:19']);
+	});
 });
 
 describe('statementValue', () => {

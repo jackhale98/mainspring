@@ -137,6 +137,7 @@ jobs:
       FAST_PATH: '1'
       FAST_PATH_RUNS: '500'
       FAST_PATH_DIRECTION_RUNS: '200'
+      FAST_PATH_PURGE_RUNS: '200'
       FAST_PATH_CORPUS_EDITS: '6'
       FAST_PATH_SEED: ${{ github.run_number }}
     steps:

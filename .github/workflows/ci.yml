@@ -134,15 +134,16 @@ jobs:
           fi
       # The fast path (ADR-0010, section CI): the review repros and the guards, then the
       # equivalence suite over every golden plan (2 rewrites each, plus a patch of both), 50
-      # generated plans, 20 plans of the direction family and a shuffled replay of 25 plans. Each
-      # fast result must equal a full run of the same text. Fixed seed; about 5 minutes. The
-      # nightly run explores 500 generated plans with a new seed every night.
+      # generated plans, 20 plans of the direction family, 20 of the purge family and a shuffled
+      # replay of 25 plans. Each fast result must equal a full run of the same text. Fixed seed;
+      # about 5 minutes. The nightly run explores 500 generated plans with a new seed every night.
       - name: Fast path equivalence
         run: npm run test:fast-path
         env:
           FAST_PATH: '1'
           FAST_PATH_RUNS: '50'
           FAST_PATH_DIRECTION_RUNS: '20'
+          FAST_PATH_PURGE_RUNS: '20'
           FAST_PATH_CORPUS_EDITS: '2'
           FAST_PATH_SHUFFLED: '25'
       - uses: actions/upload-artifact@v4
