@@ -35,4 +35,22 @@ describe('AppUpdates', () => {
 		expect(await u.reload(false, () => false)).toBe(true);
 		expect(reload).toHaveBeenCalledTimes(2);
 	});
+
+	it("reloadAsking puts the app's question to the user when work would be lost", async () => {
+		const reload = vi.fn();
+		const confirm = vi.fn(() => false);
+		vi.stubGlobal('confirm', confirm);
+		const u = new AppUpdates({
+			build,
+			url: '/version.json',
+			fetch: deployed('b-2'),
+			location: { href: 'https://x.test/app', reload },
+		});
+		expect(await u.reloadAsking(true)).toBe(false);
+		expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/discards your changes/));
+		expect(reload).not.toHaveBeenCalled();
+		expect(await u.reloadAsking(false)).toBe(true);
+		expect(confirm).toHaveBeenCalledTimes(1);
+		vi.unstubAllGlobals();
+	});
 });
