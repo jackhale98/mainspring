@@ -46,6 +46,7 @@
 	import TabBar from './app/TabBar.svelte';
 	import Toasts from './app/Toasts.svelte';
 	import TopBar from './app/TopBar.svelte';
+	import { NEW_PLAN_ID } from '../lib/workspace/samples';
 	import { AppUpdates } from '../lib/state/updates.svelte';
 	import { sitePath } from '../lib/site-path';
 	import type { SourceRange } from '../lib/tjp/index';
@@ -83,6 +84,8 @@
 	// The preferences of the open sample: its mode and its divider.
 	$effect(() => {
 		const id = app.sampleId;
+		// A second new plan starts over, though its key is the same.
+		void app.newPlanSerial;
 		if (id === '') return;
 		untrack(() => {
 			// Another plan's outline starts at the top with nothing selected.
@@ -91,6 +94,8 @@
 			modes.use(id);
 			// A phone starts on the tab of the remembered mode.
 			if (modes.choice !== null) app.phoneTab = phoneTabFor(modes.choice);
+			// A new plan opens on the Gantt tab: its Add task is how the plan begins (ADR-0013).
+			else if (id === NEW_PLAN_ID) app.phoneTab = 'gantt';
 		});
 	});
 

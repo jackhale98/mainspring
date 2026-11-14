@@ -807,6 +807,32 @@ export const strings = {
 		/** The phone's subtitle under the plan name, e.g. "Finish Wed, Jan 6, 2027". */
 		finish: (date: string) => `Finish ${date}`,
 	},
+	/** "New plan…" (ADR-0013): the chooser's entries and the sheet that makes the plan. */
+	newPlan: {
+		/** The chooser's first entry; the dots mean it opens a sheet. */
+		chooser: 'New plan…',
+		/** The chooser's group of built-in plans. */
+		samplesGroup: 'Samples',
+		/** How the chooser and the phone's header list a plan made here. */
+		listed: (name: string) => `${name} (new)`,
+		title: 'New plan',
+		lead: 'A new plan starts empty. You add its first task after you create it.',
+		name: 'Name',
+		namePlaceholder: 'Website relaunch',
+		start: 'Start',
+		zone: 'Time zone',
+		zoneNone: 'None (UTC)',
+		frameNote: 'The plan runs for one year from the start. Project settings change that later.',
+		create: 'Create',
+		cancel: 'Cancel',
+		errors: {
+			'name-empty': 'Give the plan a name.',
+			'name-unsafe': 'A name cannot contain ${…} or $(…): TaskJuggler would expand it.',
+			'name-backslash': 'A name cannot end with a backslash.',
+			start: 'Enter a start date.',
+			zone: 'Choose a time zone from the list.',
+		},
+	},
 	/** The theme toggle: the preference now, and what pressing it switches to. */
 	theme: {
 		label: 'Theme',

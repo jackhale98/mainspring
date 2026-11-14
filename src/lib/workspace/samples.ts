@@ -20,12 +20,19 @@ export interface SampleWorkspace {
 	files: Record<WorkspacePath, string>;
 }
 
+/** The key a plan made with "New plan…" has, for the open plan and its preferences (ADR-0008 #3). */
+export const NEW_PLAN_ID = 'new';
+export type SampleId = keyof typeof strings.samples;
+
 export interface Sample {
-	/** Also the golden plan id in engine/golden/manifest.json. */
-	id: keyof typeof strings.samples;
+	/** Also the golden plan id in engine/golden/manifest.json; `new` for a plan made in the app. */
+	id: SampleId | typeof NEW_PLAN_ID;
 	label: string;
 	load(): Promise<SampleWorkspace>;
 }
+
+/** A bundled sample: its id is one of the strings file's. */
+export type BuiltInSample = Sample & { id: SampleId };
 
 type RawModule = Promise<{ default: string }>;
 
@@ -44,14 +51,14 @@ async function loadFiles(
 }
 
 function sample(
-	id: Sample['id'],
+	id: SampleId,
 	entry: WorkspacePath,
 	files: Readonly<Record<WorkspacePath, () => RawModule>>,
-): Sample {
+): BuiltInSample {
 	return { id, label: strings.samples[id], load: () => loadFiles(entry, files) };
 }
 
-export const SAMPLES: readonly Sample[] = [
+export const SAMPLES: readonly BuiltInSample[] = [
 	sample('poc-sample', 'plan.tjp', {
 		'plan.tjp': () => import('../../../engine/golden/plans/poc-sample/plan.tjp?raw'),
 	}),

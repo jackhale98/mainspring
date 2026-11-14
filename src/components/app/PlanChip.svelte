@@ -2,13 +2,17 @@
 <!--
 	The plan chip (ADR-0009): the open plan's name on a pill with a file icon and a chevron. It is a
 	real <select> underneath, so it opens the native picker (the best on a phone) and keeps its
-	accessible name "Sample plan". Replacing a plan that was edited asks first (AppState).
+	accessible name "Sample plan". Replacing a plan that was edited asks first (AppState). The
+	list is "New plan…" first (it opens the New plan sheet, which this component holds), then the
+	plan made here as "Name (new)" while it is open, then the "Samples" group (ADR-0013 #2).
 	`title` style puts the name in the serif display face for the phone header.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
+	import { NEW_PLAN_ID } from '../../lib/workspace/samples';
 	import Icon from '../Icon.svelte';
+	import NewPlanSheet from './NewPlanSheet.svelte';
 
 	interface Props {
 		app: AppState;
@@ -18,8 +22,17 @@
 	}
 	let { app, title = false, subtitle = '' }: Props = $props();
 
+	/** The "New plan…" entry's value: not a plan's key. */
+	const CREATE = '__new-plan__';
+
 	async function pick(event: Event & { currentTarget: HTMLSelectElement }): Promise<void> {
 		const select = event.currentTarget;
+		if (select.value === CREATE) {
+			select.value = app.sampleId;
+			app.newPlanOpen = true;
+			return;
+		}
+		if (select.value === NEW_PLAN_ID) return;
 		const opened = await app.openSample(select.value);
 		// A cancelled switch leaves the old plan open: show it in the picker again.
 		if (!opened) select.value = app.sampleId;
@@ -29,16 +42,23 @@
 <label class="chip" class:title>
 	{#if !title}<Icon name="file" size={15} />{/if}
 	<span class="text" aria-hidden="true">
-		<span class="name">{app.samples.find((s) => s.id === app.sampleId)?.label ?? ''}</span>
+		<span class="name">{app.planLabel}</span>
 		{#if title && subtitle !== ''}<span class="sub">{subtitle}</span>{/if}
 	</span>
 	<Icon name="chevronDown" size={title ? 16 : 13} />
 	<select value={app.sampleId} onchange={pick} aria-label={strings.topBar.sample}>
-		{#each app.samples as sample (sample.id)}
-			<option value={sample.id}>{sample.label}</option>
-		{/each}
+		<option value={CREATE}>{strings.newPlan.chooser}</option>
+		{#if app.newPlanName !== null}
+			<option value={NEW_PLAN_ID}>{app.planLabel}</option>
+		{/if}
+		<optgroup label={strings.newPlan.samplesGroup}>
+			{#each app.samples as sample (sample.id)}
+				<option value={sample.id}>{sample.label}</option>
+			{/each}
+		</optgroup>
 	</select>
 </label>
+<NewPlanSheet {app} />
 
 <style>
 	.chip {
