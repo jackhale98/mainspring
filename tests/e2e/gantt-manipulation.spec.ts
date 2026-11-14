@@ -5,26 +5,34 @@
 // on the canvas or in the task list, asserts the exact text patch (written by hand here from the
 // plan's "Text change" column, as a replacement of exact original lines), waits for the engine's
 // reschedule, and asserts that one undo restores the text byte for byte. The keyboard path of each
-// row (10.2) is exercised on desktop. `?hooks=edits,gantt` only reads: the text, the revision, and
-// where the bars are on the screen. With SCREENSHOTS=1 it writes
+// row (10.2) is exercised on desktop. The iPhone 14 (WebKit) runs the drag rows R1, R2, R3, R5 and
+// R9 with dispatched pointer events, because Playwright cannot drive a touch drag there (18.14,
+// rig.dispatched); GANTT_DISPATCHED=1 runs that path on the Pixel 7 emulation where WebKit is not
+// installed. `?hooks=edits,gantt` only reads: the text, the revision, and where the bars are on
+// the screen. With SCREENSHOTS=1 it writes
 // docs/phases/screenshots/phase-2/gesture-<what>-<device>-<light|dark>.png.
 import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
-import { READY_TIMEOUT_MS, Rig, isTouch, minute } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, Rig, deviceName, isTouch, minute } from './lib/gantt-rig';
 
 const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 
 test.describe('direct manipulation (R1 to R10)', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T16); iPhone is reported');
+		// The iPhone 14 runs the rows whose gesture is a drag or a hold, with dispatched pointer
+		// events (18.14); the rows that are taps in a sheet are the same code as on the Pixel 7.
+		test.skip(
+			info.project.name === 'iphone-14' && !/^R[12359] /.test(info.title),
+			'desktop and Pixel 7 run every row; the iPhone 14 the drag rows (T21)',
+		);
 	});
 
 	/** Both themes of the current screen, when asked for. */
 	async function shoot(page: Page, info: TestInfo, what: string): Promise<void> {
 		if (process.env['SCREENSHOTS'] !== '1') return;
-		const device = isTouch(info) ? 'pixel-7' : 'desktop';
+		const device = deviceName(info);
 		await page.screenshot({ path: path.join(SHOTS, `gesture-${what}-${device}-light.png`) });
 		await page.emulateMedia({ colorScheme: 'dark' });
 		await page.waitForTimeout(250);
@@ -53,6 +61,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await expect(rig.toast.last()).toContainText('Effort of Research: 3d to about 5d');
 		await rig.rescheduled(rev);
 		await expect.poll(() => rig.end('design.research')).toBe(minute('2026-03-06', 17));
+		await rig.barOnEngine('design.research');
 		await rig.undoTo(before);
 		await rig.rescheduled(rev + 1);
 		// Redo is the history's own apply, with no toast: undo with the key.
@@ -94,6 +103,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await rig.patched(after);
 		await rig.rescheduled(rev);
 		await expect.poll(() => rig.end('design.research')).toBe(minute('2026-03-09', 17));
+		await rig.barOnEngine('design.research');
 		await rig.undoTo(before);
 	});
 
@@ -118,6 +128,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			before.replace('depends !research { gaplength 2d }', 'depends !research { gaplength 3d }'),
 		);
 		await rig.rescheduled(rev);
+		await rig.barOnEngine('design.sketch');
 		await rig.undoTo(before);
 	});
 
@@ -345,6 +356,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			),
 		);
 		await rig.rescheduled(rev);
+		await rig.barOnEngine('design.research');
 		await rig.undoTo(before);
 	});
 
@@ -478,6 +490,32 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		// (A phone's top bar has no undo button; its text is unchanged and no toast came up.)
 		if (!rig.touch)
 			await expect(page.getByRole('button', { name: /^Undo/ }).first()).toBeDisabled();
+		await expect(rig.toast).toHaveCount(0);
+	});
+	test('R10 by key: T scrolls back to today, and PageDown moves the rows; the text stays', async ({
+		page,
+	}, info) => {
+		test.skip(isTouch(info), 'the keyboard path is checked on desktop');
+		const rig = await Rig.open(page, info, 'week');
+		const before = await rig.text();
+		const scroller = page.getByTestId('gantt').locator('.scroller');
+		const box = await scroller.boundingBox();
+		if (!box) throw new Error('no chart');
+		// The plan's `now` is Monday 9 March, 09:00: far from the end of the project.
+		const today = minute('2026-03-09', 9);
+		await scroller.evaluate((el) => void (el.scrollLeft = el.scrollWidth));
+		await expect.poll(async () => (await rig.x(today)) < box.x).toBe(true);
+		await rig.row('task:design.research').focus();
+		await page.keyboard.press('t');
+		await expect
+			.poll(async () => {
+				const x = await rig.x(today);
+				return x >= box.x && x <= box.x + box.width;
+			})
+			.toBe(true);
+		await page.keyboard.press('PageDown');
+		await expect(rig.row('task:design.research')).not.toBeFocused();
+		expect(await rig.text()).toBe(before);
 		await expect(rig.toast).toHaveCount(0);
 	});
 });
