@@ -29,6 +29,10 @@ async function axe(page: Page, state: string): Promise<void> {
 	expect.soft(detail, state).toEqual([]);
 }
 
+/** The edit message: a toast on a desktop, the quiet strip on a phone (which has Undo in the top bar). */
+const message = (page: Page, rig: Rig) =>
+	rig.touch ? page.getByTestId('toast-quiet') : rig.toast.last();
+
 async function ready(page: Page): Promise<void> {
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,
@@ -62,7 +66,7 @@ test.describe('axe', () => {
 			await axe(page, `treegrid focused row (${scheme})`);
 
 			// Details: the side panel on a desktop, the bottom sheet on the phone.
-			await rig.select('design.research');
+			await rig.openDetails('design.research');
 			await axe(page, `details ${touch ? 'sheet' : 'panel'} (${scheme})`);
 
 			// The source sheet.
@@ -142,14 +146,33 @@ test.describe('axe', () => {
 			await page.getByTestId('move-question').getByRole('button', { name: 'Cancel' }).click();
 
 			// A toast: an edit, while its toast is on screen.
-			await rig.select('design.research');
+			await rig.openDetails('design.research');
 			const name = page.getByLabel('Name', { exact: true });
 			await name.fill('Research again');
 			await name.press('Enter');
-			await expect(rig.toast.last()).toBeVisible();
+			await expect(message(page, rig)).toBeVisible();
 			await axe(page, `toast (${scheme})`);
 		});
 	}
+
+	test('the phone History sheet and the Undo and Redo in the top bar', async ({ page }, info) => {
+		test.skip(!isTouch(info), "the History is the phone's Undo");
+		for (const scheme of ['light', 'dark'] as const) {
+			await page.emulateMedia({ colorScheme: scheme });
+			const rig = await Rig.open(page, info);
+			await rig.openDetails('design.research');
+			const name = page.getByLabel('Name', { exact: true });
+			await name.fill(`Research ${scheme}`);
+			await name.press('Enter');
+			await expect(page.getByTestId('toast-quiet')).toBeVisible();
+			await axe(page, `top bar with Undo and Redo, and the message strip (${scheme})`);
+			// The keyboard way to the History, as the app's own spec uses.
+			await page.getByTestId('undo').focus();
+			await page.keyboard.press('Shift+F10');
+			await expect(page.getByRole('dialog', { name: 'History' })).toBeVisible();
+			await axe(page, `History sheet (${scheme})`);
+		}
+	});
 
 	test('the phone status popover and the engine details', async ({ page }, info) => {
 		for (const scheme of ['light', 'dark'] as const) {
@@ -171,7 +194,7 @@ test.describe('axe', () => {
 			await page.emulateMedia({ colorScheme: scheme });
 			await page.setViewportSize({ width: 820, height: 1100 });
 			const rig = await Rig.open(page, info);
-			await rig.select('design.research');
+			await rig.openDetails('design.research');
 			await axe(page, `tablet details sheet (${scheme})`);
 			await page.setViewportSize({ width: 1280, height: 800 });
 			await page.goto('/app?sample=gantt-manipulation&mode=split&hooks=edits,gantt');
@@ -353,7 +376,7 @@ test.describe('target sizes on a coarse pointer', () => {
 				.toEqual([]);
 		};
 		await probe('the Gantt tab');
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		await probe('the details sheet');
 		await page.getByRole('button', { name: 'Show source' }).click();
 		await probe('the source sheet');
@@ -391,12 +414,18 @@ test.describe('target sizes on a coarse pointer', () => {
 		await probe('the move question');
 		await page.getByTestId('move-question').getByRole('button', { name: 'Cancel' }).click();
 		// A toast: an edit, with its Undo.
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		const name = page.getByLabel('Name', { exact: true });
 		await name.fill('Research again');
 		await name.press('Enter');
-		await expect(rig.toast.last()).toBeVisible();
+		await expect(message(page, rig)).toBeVisible();
 		await probe('a toast');
+		// The top bar's Undo and Redo and the History sheet.
+		await page.getByTestId('undo').focus();
+		await page.keyboard.press('Shift+F10');
+		await expect(page.getByRole('dialog', { name: 'History' })).toBeVisible();
+		await probe('the History sheet');
+		await page.keyboard.press('Escape');
 		for (const tab of ['Text', 'Plan']) {
 			const t = page.getByRole('tab', { name: tab, exact: true });
 			if (await t.count()) {
@@ -413,7 +442,7 @@ test.describe('reduced motion', () => {
 	test('nothing animates or transitions, and the chart jumps', async ({ page }, info) => {
 		await page.emulateMedia({ reducedMotion: 'reduce' });
 		const rig = await Rig.open(page, info);
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		const moving = async (): Promise<string[]> =>
 			page.evaluate(() => {
 				const out: string[] = [];
@@ -462,7 +491,7 @@ test.describe('forced colours', () => {
 	}, info) => {
 		await page.emulateMedia({ forcedColors: 'active' });
 		const rig = await Rig.open(page, info);
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		await page.screenshot({ path: 'test-results/gantt-forced-colors.png' });
 		// Pressed and unpressed chips (Critical path, People, the mode switch) must differ in
 		// something other than a background, which forced colours replaces.
@@ -528,14 +557,16 @@ test.describe('accessible names', () => {
 		// A row's name says what the bar says: the task, its dates, its people, its float.
 		await expect(rig.row('task:design.research')).toHaveAccessibleName(/^Research: .+ to .+\./);
 		// The toast is in a polite live region.
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		const name = page.getByLabel('Name', { exact: true });
 		await name.fill('Research again');
 		await name.press('Enter');
-		await expect(rig.toast.last()).toBeVisible();
-		await expect(
-			page.locator('[role="status"][aria-live="polite"]').filter({ has: rig.toast }),
-		).toHaveCount(1);
+		await expect(message(page, rig)).toBeVisible();
+		// The message is spoken: it sits in a polite live region (the toast stack, or the quiet strip).
+		const live = await message(page, rig).evaluate(
+			(el) => el.closest('[aria-live]')?.getAttribute('aria-live') ?? el.getAttribute('aria-live'),
+		);
+		expect(live).toBe('polite');
 		// The whole tree, for the findings file.
 		const tree = await page.locator('body').ariaSnapshot();
 		const fs = await import('node:fs');
