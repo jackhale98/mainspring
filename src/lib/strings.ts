@@ -864,6 +864,8 @@ export const strings = {
 			menu: 'Add task options',
 			after: 'Add task after',
 			subtask: 'Add subtask',
+			/** Why "Add subtask" is off: the selected task has no id the edit API can name. */
+			noSubtask: 'Not available for a task declared by a macro',
 		},
 		zoom: 'Zoom',
 		level: { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' },

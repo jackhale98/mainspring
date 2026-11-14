@@ -142,6 +142,21 @@ test.describe('Add task (+)', () => {
 		expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('INPUT');
 	});
 
+	test('a double press adds one task, not two', async ({ page }, info) => {
+		const rig = await Rig.open(page, info);
+		await expect(add(page)).not.toHaveAttribute('aria-haspopup', 'menu');
+		// Two clicks in the same task: the second finds the first add still under way.
+		await add(page).evaluate((b: HTMLElement) => {
+			b.click();
+			b.click();
+		});
+		await expectNameReady(page, 'task:new_task');
+		await page.waitForTimeout(1000);
+		const text = (await rig.text()) + (await rig.text('lib/build.tji'));
+		expect(text.match(/task new_task/g)).toHaveLength(1);
+		await expect(rig.row('task:new_task2')).toHaveCount(0);
+	});
+
 	test('the control is named, reachable by keyboard, and 44 px on a coarse pointer', async ({
 		page,
 	}, info) => {
@@ -253,5 +268,104 @@ test.describe('Add task (+) on the Plan tab', () => {
 		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 		await page.getByTestId('undo').click();
 		await expect.poll(() => rig.text()).toBe(before);
+	});
+
+	test('the toast and History say "Added New task", then the rename', async ({ page }, info) => {
+		const rig = await Rig.open(page, info);
+		await openPlan(page, rig);
+		await planAdd(page).tap();
+		await expectNameReady(page, 'task:new_task');
+		await expect(rig.edited.last()).toContainText('Added New task');
+		await page.keyboard.type('Write the specs');
+		await page.keyboard.press('Enter');
+		await expect
+			.poll(async () =>
+				((await rig.text()) + (await rig.text('lib/build.tji'))).includes('"Write the specs"'),
+			)
+			.toBe(true);
+		await page.getByTestId('undo').focus();
+		await page.keyboard.press('Shift+F10');
+		const sheet = page.getByRole('dialog', { name: 'History' });
+		await expect(sheet).toBeVisible();
+		const entries = sheet.getByTestId('history-entry');
+		await expect(entries.nth(0)).toContainText('Renamed New task to Write the specs');
+		await expect(entries.nth(1)).toContainText('Added New task');
+	});
+
+	test('the tree shows what the app has selected, and + adds after that', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		const before = await rig.text();
+		const tab = (name: string) => page.getByRole('tab', { name, exact: true });
+		const item = (key: string) =>
+			page.locator('#panel-plan').locator(`[role="treeitem"][data-key="${key}"]`);
+		await openPlan(page, rig);
+		await item('task:spike').tap();
+		// Select Launch in the Gantt, then come back to the Plan tab.
+		await tab('Gantt').tap();
+		await rig.row('task:launch').locator('.label').tap();
+		await expect(rig.row('task:launch')).toHaveAttribute('aria-selected', 'true');
+		await tab('Plan').tap();
+		await expect(item('task:launch')).toHaveAttribute('aria-selected', 'true');
+		await expect(item('task:spike')).toHaveAttribute('aria-selected', 'false');
+		await planAdd(page).tap();
+		await page.getByRole('menuitem', { name: 'Add task after' }).tap();
+		await expectNameReady(page, 'task:new_task');
+		expect(await rig.text()).toBe(
+			before.replace(
+				'  responsible dev1\n}\n\n',
+				'  responsible dev1\n}\n\ntask new_task "New task"\n\n',
+			),
+		);
+	});
+
+	test('a person who has gone to another tab is not pulled back to the Gantt', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		const rev = await rig.revision();
+		await openPlan(page, rig);
+		await planAdd(page).tap();
+		await page.getByRole('tab', { name: 'Text', exact: true }).tap();
+		await rig.rescheduled(rev);
+		await page.waitForTimeout(1000);
+		await expect(page.getByRole('tab', { name: 'Text', exact: true })).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		await expect(page.getByRole('dialog', { name: /Task details/ })).toHaveCount(0);
+		expect((await rig.text('lib/build.tji')) + (await rig.text())).toContain('task new_task');
+	});
+});
+
+// A 360 px phone (the narrowest we design for): nothing in the toolbar is clipped or pushed off.
+test.describe('Add task (+) at 360 px', () => {
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(info.project.name !== 'pixel-7', 'a phone width (Pixel 7)');
+	});
+
+	test('every chip, the more button included, is inside the toolbar', async ({ page }, info) => {
+		await page.setViewportSize({ width: 360, height: 780 });
+		const rig = await Rig.open(page, info);
+		await rig.row('task:launch').locator('.label').tap();
+		const group = page.getByRole('group', { name: 'Gantt controls' });
+		const g = await group.boundingBox();
+		if (!g) throw new Error('no toolbar');
+		const buttons = group.locator('button, select');
+		const n = await buttons.count();
+		expect(n).toBeGreaterThanOrEqual(5);
+		for (let i = 0; i < n; i++) {
+			const b = await buttons.nth(i).boundingBox();
+			if (!b) continue;
+			expect(b.x, `chip ${i} left`).toBeGreaterThanOrEqual(g.x - 0.5);
+			expect(b.x + b.width, `chip ${i} right`).toBeLessThanOrEqual(g.x + g.width + 0.5);
+		}
+		const more = await page.getByTestId('row-menu').boundingBox();
+		expect(more && more.x + more.width).toBeLessThanOrEqual(360);
+		const add = await page.getByTestId('add-task').boundingBox();
+		expect(add?.width).toBeGreaterThanOrEqual(44);
+		expect(await group.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 	});
 });

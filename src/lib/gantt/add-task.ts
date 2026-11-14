@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * Where the Add task (+) control puts a new task (phase-3.md 6.8, 9.8; ADR-0013), and which
- * outline node is the new one once the edit is in. Pure: it reads the outline's tree, never the
+ * outline node is the new one. Pure: it reads the outline's tree, never the
  * schedule or the text. The edit itself is the existing `addTask` intent, sent as the Gantt's
  * `add` action (the same one the row menu's "Add a task after" sends).
  *
@@ -41,7 +41,7 @@ export function addSpot(
 			: null;
 	}
 	if (mode === 'subtask') {
-		return node.id === null
+		return !canAddSubtask(tree, node.key)
 			? null
 			: { parent: node.id, parentKey: node.key, index: resolvedCount(tree, node.children) };
 	}
@@ -49,14 +49,19 @@ export function addSpot(
 	return place && { parent: place.parent, parentKey: place.parentKey, index: place.index + 1 };
 }
 
+/** Whether the selected task can be given a subtask: it is in the outline and has an id. */
+export function canAddSubtask(tree: Tree, selected: string | null): boolean {
+	return selected !== null && (tree.get(selected)?.id ?? null) !== null;
+}
+
 /**
- * The key of the node the edit added: the one under `parentKey` that was not in the outline
- * before. Null while the index has not caught up with the text.
+ * The outline key of the task an `addTask` edit wrote, from the text of its header
+ * (`task <id> "<name>"`, the edit's `select` range after the edit) and the parent it went into:
+ * the same full id the edit API made (`parent.id`). The outline lags the text, so the new node is
+ * never found by comparing it with an earlier snapshot of the outline. Null when the text is not
+ * a task header.
  */
-export function newTaskKey(
-	before: ReadonlySet<string>,
-	nodes: ReadonlyArray<{ readonly key: string; readonly parent: string | null }>,
-	parentKey: string | null,
-): string | null {
-	return nodes.find((n) => n.parent === parentKey && !before.has(n.key))?.key ?? null;
+export function newTaskKeyFromHeader(header: string, parent: TaskId | null): string | null {
+	const id = /^task\s+([A-Za-z_][A-Za-z0-9_]*)\b/.exec(header)?.[1];
+	return id === undefined ? null : `task:${parent === null ? id : `${parent}.${id}`}`;
 }

@@ -97,6 +97,7 @@
 	import { GanttAnalysis } from './gantt-analysis.svelte';
 	import { GanttEnv } from './gantt-env.svelte';
 	import SplitDivider from '../app/SplitDivider.svelte';
+	import { canAddSubtask } from '../../lib/gantt/add-task';
 	import GanttToolbar from './GanttToolbar.svelte';
 	import OutlineGrid from './OutlineGrid.svelte';
 	import TimeHeader from './TimeHeader.svelte';
@@ -500,7 +501,11 @@
 		people={env.coarse
 			? undefined
 			: { open: paletteOpen, count: m.people.length, ontoggle: () => (paletteOpen = !paletteOpen) }}
-		add={{ hasSelection: app.selectedTask !== null, onadd: (mode) => void m.addTask(mode) }}
+		add={{
+			hasSelection: app.selectedTask !== null,
+			canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
+			onadd: (mode) => m.addTask(mode),
+		}}
 		rowActions={m.rowActions}
 		onpill={(h) => (pillH = h)}
 	/>

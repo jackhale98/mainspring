@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { addSpot, newTaskKey } from './add-task';
+import { addSpot, canAddSubtask, newTaskKeyFromHeader } from './add-task';
 import type { Tree, TreeNode } from './reorder';
 
 /** A tree from `[key, parent, id]` rows, children in the order given. */
@@ -94,23 +94,26 @@ describe('addSpot', () => {
 	});
 });
 
-describe('newTaskKey', () => {
-	const before = new Set(['task:a', 'task:b', 'task:b.b1']);
-	const nodes = [
-		{ key: 'task:a', parent: null },
-		{ key: 'task:new_task', parent: null },
-		{ key: 'task:b', parent: null },
-		{ key: 'task:b.b1', parent: 'task:b' },
-		{ key: 'task:b.new_task', parent: 'task:b' },
-	];
+describe('canAddSubtask', () => {
+	it('needs a selected task that has an id', () => {
+		expect(canAddSubtask(plan.tree, 'task:a')).toBe(true);
+		expect(canAddSubtask(plan.tree, null)).toBe(false);
+		expect(canAddSubtask(plan.tree, 'task:gone')).toBe(false);
+		const macro = build([['task:m', null, null]]);
+		expect(canAddSubtask(macro.tree, 'task:m')).toBe(false);
+	});
+});
 
-	it('finds the new node under the parent it was added to', () => {
-		expect(newTaskKey(before, nodes, null)).toBe('task:new_task');
-		expect(newTaskKey(before, nodes, 'task:b')).toBe('task:b.new_task');
+describe('newTaskKeyFromHeader', () => {
+	it('names the new task from its header and its parent', () => {
+		expect(newTaskKeyFromHeader('task new_task "New task"', null)).toBe('task:new_task');
+		expect(newTaskKeyFromHeader('task new_task2 "New task"', 'design')).toBe(
+			'task:design.new_task2',
+		);
 	});
 
-	it('is null while the index has not caught up', () => {
-		expect(newTaskKey(before, nodes.slice(0, 1), null)).toBeNull();
-		expect(newTaskKey(before, nodes, 'task:a')).toBeNull();
+	it('is null for text that is not a task header', () => {
+		expect(newTaskKeyFromHeader('milestone x', null)).toBeNull();
+		expect(newTaskKeyFromHeader('', null)).toBeNull();
 	});
 });

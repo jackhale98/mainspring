@@ -17,7 +17,13 @@
 		/** What the two trees keep across an unmount (a phone's Plan tab). */
 		views?: { tasks: OutlineView; resources: OutlineView };
 		/** The Add task (+) control in the tasks' header: the phone's Plan tab (ADR-0013). */
-		add?: { hasSelection: boolean; onadd: (mode: AddMode) => void } | undefined;
+		add?:
+			| {
+					hasSelection: boolean;
+					canSubtask: boolean;
+					onadd: (mode: AddMode) => Promise<unknown> | void;
+			  }
+			| undefined;
 	}
 	let { app, showTitle = true, showNotice = true, views, add }: Props = $props();
 </script>

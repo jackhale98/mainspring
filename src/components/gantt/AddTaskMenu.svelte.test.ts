@@ -4,6 +4,7 @@
 // a menu of two items, and each reports its mode.
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AddMode } from '../../lib/gantt/add-task';
 import AddTaskMenu from './AddTaskMenu.svelte';
 
 let mounted: ReturnType<typeof mount> | null = null;
@@ -13,9 +14,16 @@ afterEach(() => {
 	document.body.innerHTML = '';
 });
 
-function setup(hasSelection: boolean) {
-	const onadd = vi.fn();
-	mounted = mount(AddTaskMenu, { target: document.body, props: { hasSelection, onadd } });
+function setup(hasSelection: boolean, extra: { canSubtask?: boolean; onadd?: () => unknown } = {}) {
+	const onadd = vi.fn((_mode: AddMode) => extra.onadd?.() as Promise<unknown> | void);
+	mounted = mount(AddTaskMenu, {
+		target: document.body,
+		props: {
+			hasSelection,
+			onadd,
+			...(extra.canSubtask === undefined ? {} : { canSubtask: extra.canSubtask }),
+		},
+	});
 	flushSync();
 	const button = document.querySelector<HTMLButtonElement>('[data-testid="add-task"]');
 	if (!button) throw new Error('no button');
@@ -61,5 +69,42 @@ describe('AddTaskMenu', () => {
 		flushSync();
 		expect(document.querySelector('[role="menu"]')).toBeNull();
 		expect(button.getAttribute('aria-expanded')).toBe('false');
+	});
+
+	it('ignores presses while an add is under way, and works again after', async () => {
+		let release: () => void = () => undefined;
+		const { onadd, button } = setup(false, {
+			onadd: () => new Promise<void>((r) => (release = r)),
+		});
+		button.click();
+		flushSync();
+		button.click();
+		button.click();
+		flushSync();
+		expect(onadd).toHaveBeenCalledTimes(1);
+		expect(button.getAttribute('aria-busy')).toBe('true');
+		release();
+		await Promise.resolve();
+		await Promise.resolve();
+		flushSync();
+		expect(button.hasAttribute('aria-busy')).toBe(false);
+		button.click();
+		expect(onadd).toHaveBeenCalledTimes(2);
+	});
+
+	it('says why Add subtask is off, and does not send it', () => {
+		const { onadd, button } = setup(true, { canSubtask: false });
+		button.click();
+		flushSync();
+		const sub = document.querySelector<HTMLElement>('[data-action="subtask"]');
+		expect(sub?.getAttribute('aria-disabled')).toBe('true');
+		expect(sub?.textContent).toContain('Not available for a task declared by a macro');
+		const why = sub?.getAttribute('aria-describedby');
+		expect(why && document.getElementById(why)).not.toBeNull();
+		sub?.click();
+		flushSync();
+		expect(onadd).not.toHaveBeenCalled();
+		// The menu stays open: nothing was chosen.
+		expect(document.querySelector('[role="menu"]')).not.toBeNull();
 	});
 });

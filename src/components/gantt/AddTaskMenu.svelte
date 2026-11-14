@@ -16,11 +16,14 @@
 	interface Props {
 		/** A task is selected: the button opens the choices instead of adding at once. */
 		hasSelection: boolean;
-		onadd: (mode: AddMode) => void;
+		/** Sends the edit; the control ignores presses until the promise settles. */
+		onadd: (mode: AddMode) => Promise<unknown> | void;
+		/** The selected task can take a subtask; otherwise that item says why it is off. */
+		canSubtask?: boolean;
 		/** Which edge of the button the menu lines up with: `end` where the button is at the right. */
 		align?: 'start' | 'end';
 	}
-	let { hasSelection, onadd, align = 'start' }: Props = $props();
+	let { hasSelection, onadd, canSubtask = true, align = 'start' }: Props = $props();
 
 	const S = strings.gantt.add;
 	const uid = $props.id();
@@ -35,15 +38,28 @@
 		open = false;
 		if (refocus) button?.focus();
 	}
+	/** An add is on its way (the edit, then the result): another press would add a second task. */
+	let busy = $state(false);
+	async function go(mode: AddMode): Promise<void> {
+		if (busy) return;
+		busy = true;
+		try {
+			await onadd(mode);
+		} finally {
+			busy = false;
+		}
+	}
 	function press(): void {
-		if (!hasSelection) return onadd('after');
+		if (busy) return;
+		if (!hasSelection) return void go('after');
 		if (open) return close(false);
 		open = true;
 		queueMicrotask(() => items()[0]?.focus());
 	}
 	function choose(mode: AddMode): void {
+		if (busy || (mode === 'subtask' && !canSubtask)) return;
 		close(true);
-		onadd(mode);
+		void go(mode);
 	}
 	// The selection went away while the menu was open: nothing to choose between.
 	$effect(() => {
@@ -82,6 +98,8 @@
 		aria-label={S.label}
 		aria-haspopup={hasSelection ? 'menu' : undefined}
 		aria-expanded={hasSelection ? open : undefined}
+		aria-disabled={busy ? 'true' : undefined}
+		aria-busy={busy ? 'true' : undefined}
 		aria-controls={hasSelection ? `${uid}-list` : undefined}
 		title={hasSelection ? S.hintMenu : S.hintEnd}
 		data-testid="add-task"
@@ -110,7 +128,10 @@
 					type="button"
 					role="menuitem"
 					data-action="subtask"
-					onclick={() => choose('subtask')}>{S.subtask}</button
+					aria-disabled={canSubtask ? undefined : 'true'}
+					aria-describedby={canSubtask ? undefined : `${uid}-why`}
+					onclick={() => choose('subtask')}
+					>{S.subtask}{#if !canSubtask}<small id="{uid}-why">{S.noSubtask}</small>{/if}</button
 				>
 			</li>
 		</ul>
@@ -185,7 +206,31 @@
 	li button:hover {
 		background: var(--color-row-hover);
 	}
-	/* A phone has no room for the word: the plus is the button, 44 px wide. */
+	li button[aria-disabled='true'] {
+		flex-direction: column;
+		align-items: flex-start;
+		justify-content: center;
+		color: var(--color-text-muted);
+		cursor: default;
+	}
+	li button small {
+		font-size: var(--text-xs);
+	}
+	.chip[aria-disabled='true'] {
+		opacity: 0.6;
+		cursor: default;
+	}
+	/* No room for the word (a narrow chart, as for the People chip; a phone): the plus is the
+	   button. */
+	@container gantt (max-width: 899px) {
+		.lbl {
+			display: none;
+		}
+		.chip {
+			padding-inline: 0;
+		}
+	}
+	/* The Plan tab has no chart around it. */
 	@media (max-width: 599px) {
 		.lbl {
 			display: none;

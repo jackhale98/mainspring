@@ -47,7 +47,13 @@
 		/** The people palette's toggle (R6): shown for a mouse when the plan has people. */
 		people?: { open: boolean; count: number; ontoggle: () => void } | undefined;
 		/** The Add task (+) control (ADR-0013): first, on every layout. */
-		add?: { hasSelection: boolean; onadd: (mode: AddMode) => void } | undefined;
+		add?:
+			| {
+					hasSelection: boolean;
+					canSubtask: boolean;
+					onadd: (mode: AddMode) => Promise<unknown> | void;
+			  }
+			| undefined;
 		/** The selected task's row actions (R5), as buttons. */
 		rowActions?:
 			| { actions: readonly RowAction[]; disabled: boolean; onaction: (id: string) => void }
@@ -129,6 +135,7 @@
 		<button
 			type="button"
 			class="chip critical"
+			aria-label={strings.gantt.criticalPath}
 			aria-pressed={critical.available ? critical.pressed : undefined}
 			aria-disabled={critical.available ? undefined : 'true'}
 			aria-describedby="critical-why"
@@ -137,7 +144,7 @@
 				if (critical.available) oncritical();
 			}}
 		>
-			<Icon name="route" size={14} />{strings.gantt.criticalPath}
+			<Icon name="route" size={14} /><span class="lbl">{strings.gantt.criticalPath}</span>
 		</button>
 		<span id="critical-why" class="sr-only">{critical.why}</span>
 		{#if people && people.count > 0}
@@ -398,6 +405,18 @@
 	}
 	/* A phone: the chips are one compact row above the chart; nothing floats over it but the
 	   task line, which has no room to spare and shows only with a task. */
+	@media (max-width: 399px) {
+		/* 360 px: the critical path is its icon (its aria-label is the name) so that Zoom, Today,
+		   Add task, the critical path and the row menu fit 44 px apiece without a clip. */
+		.critical .lbl {
+			display: none;
+		}
+		.critical {
+			padding-inline: 0;
+			justify-content: center;
+			min-inline-size: var(--size-tap);
+		}
+	}
 	@media (max-width: 599px) {
 		.bar {
 			display: contents;
@@ -415,6 +434,11 @@
 		   the name), so that nothing wraps or is cut off at 360 px. */
 		.today .lbl {
 			display: none;
+		}
+		/* The select shrinks (a custom zoom reads "Week (custom)") rather than push a chip off. */
+		select {
+			max-inline-size: 5.5rem;
+			text-overflow: ellipsis;
 		}
 		.today {
 			padding-inline: 0;
