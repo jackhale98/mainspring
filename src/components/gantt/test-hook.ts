@@ -87,14 +87,37 @@ export function installGanttHook(
 			const link = v.model.links.find((l) => l.pred === pred && l.succ === succ);
 			if (!link) return null;
 			const path = v.layout.linkPath(link);
-			// The middle of the longest leg: the farthest point from the bars at its ends.
-			let best: { len: number; x: number; y: number } | null = null;
-			for (let i = 1; i < path.length; i++) {
-				const a = path[i - 1];
-				const b = path[i];
-				if (!a || !b) continue;
-				const len = Math.hypot(b.x - a.x, b.y - a.y);
-				if (!best || len > best.len) best = { len, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+			// The middle of the longest leg that shows: a line runs under the bars it crosses, and a
+			// point inside a bar's hit area would select the bar. Legs longest first, from the middle out.
+			const hidden = (x: number, y: number): boolean => {
+				for (
+					let r = Math.min(link.predRow, link.succRow);
+					r <= Math.max(link.predRow, link.succRow);
+					r++
+				) {
+					const h = v.layout.hitRect(r);
+					if (h && x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return true;
+				}
+				return false;
+			};
+			const legs = path
+				.slice(1)
+				.map((b, i) => ({ a: path[i] as Point, b }))
+				.sort(
+					(p, q) =>
+						Math.hypot(q.b.x - q.a.x, q.b.y - q.a.y) - Math.hypot(p.b.x - p.a.x, p.b.y - p.a.y),
+				);
+			let best: { x: number; y: number } | null = null;
+			for (const { a, b } of legs) {
+				for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8]) {
+					const x = a.x + (b.x - a.x) * t;
+					const y = a.y + (b.y - a.y) * t;
+					if (!hidden(x, y)) {
+						best = { x, y };
+						break;
+					}
+				}
+				if (best) break;
 			}
 			return best ? { x: v.origin.left + best.x, y: v.origin.top + best.y } : null;
 		},

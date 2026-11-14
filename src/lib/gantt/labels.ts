@@ -76,3 +76,26 @@ export function labelRunInto(
 	out.inside = false;
 	return true;
 }
+
+/**
+ * Where what stands beside each row's bar begins: its name when it is not inside the bar, then
+ * the avatars, which start at the same place when the name is inside. Infinity for a row with
+ * neither (or no bar). The links keep their runs along a bar's mid-height short of it (route.ts).
+ * Avatars are known from the row alone, names only with the text measured (`labels`).
+ */
+export function besideStarts(
+	rows: readonly Pick<GanttRow, 'people' | 'lateEnd' | 'floatMin'>[],
+	bars: { readonly x: Float64Array; readonly w: Float64Array },
+	labels: Float64Array,
+	scale: Pick<TimeScale, 'x'>,
+	gap: number,
+): Float64Array {
+	const out = new Float64Array(rows.length).fill(Infinity);
+	rows.forEach((r, i) => {
+		const x = bars.x[i];
+		if (x === undefined || Number.isNaN(x)) return;
+		const named = (labels[LABEL_STRIDE * i] ?? NaN) >= 0 && labels[LABEL_STRIDE * i + 2] === 0;
+		if (named || r.people.length > 0) out[i] = tailEndX(r, scale, x, bars.w[i] ?? 0) + gap;
+	});
+	return out;
+}

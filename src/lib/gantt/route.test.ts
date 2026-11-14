@@ -8,215 +8,371 @@ import {
 	newPath,
 	pointsOf,
 	routeLink,
+	type BarKind,
 	type Rect,
+	type RouteEnds,
 } from './route';
-
-const pred: Rect = { x: 0, y: 10, w: 50, h: 16 };
-const succ: Rect = { x: 100, y: 38, w: 50, h: 16 };
-const ends = { predRow: 0, succRow: 1, from: 'end', to: 'start' } as const;
-/** An elbow of 8, rows of 28, and an arrow head of 5 that wants 4 more: an approach of 9. */
-const style = { elbow: 8, rowHeight: 28, approach: 9, runs: null };
+import {
+	FS,
+	ROW,
+	barAt,
+	kindsOf,
+	last,
+	lastRun,
+	mid,
+	orthogonal,
+	route,
+	style,
+	tasks,
+} from './route-testing';
 
 describe('routeLink', () => {
-	it('runs an elbow from the end of one bar to the start of the next, in one buffer', () => {
+	it('fills one reusable buffer: a second route overwrites whatever it held', () => {
 		const out = newPath();
-		routeLink(out, pred, succ, ends, false, style);
-		expect(pointsOf(out)).toEqual([
-			{ x: 50, y: 18 },
-			{ x: 58, y: 18 },
-			{ x: 58, y: 46 },
-			{ x: 100, y: 46 },
-		]);
-		// The buffer is reused: a second route overwrites it, whatever it held.
-		routeLink(out, succ, pred, { ...ends, predRow: 1, succRow: 0 }, false, style);
-		expect(out.n).toBeGreaterThan(1);
-	});
-
-	it('goes round through the row boundary when the successor starts behind', () => {
-		const out = newPath();
-		routeLink(out, { ...pred, x: 200 }, { ...succ, x: 10 }, ends, false, style);
+		const a = barAt(0, 0, 50);
+		const b = barAt(1, 100, 50);
+		routeLink(out, a, b, { predRow: 0, succRow: 1, ...FS }, tasks, style);
+		const first = pointsOf(out);
+		routeLink(out, b, a, { predRow: 1, succRow: 0, ...FS }, tasks, style);
 		expect(out.n).toBe(MAX_PATH_POINTS);
-		expect(out.xy[5]).toBe(28);
-	});
-
-	it('drops straight down from a milestone to a task that starts with it', () => {
-		const out = newPath();
-		const milestone: Rect = { x: 90, y: 8, w: 20, h: 20 };
-		routeLink(out, milestone, { ...succ, x: 100 }, ends, true, style);
-		expect(pointsOf(out)).toEqual([
-			{ x: 100, y: 28 },
-			{ x: 100, y: 46 },
-		]);
+		routeLink(out, a, b, { predRow: 0, succRow: 1, ...FS }, tasks, style);
+		expect(pointsOf(out)).toEqual(first);
 	});
 });
 
-describe('the straight run into the target', () => {
-	/** The length of the last segment of a path, and whether it runs along x. */
-	const lastRun = (p: ReturnType<typeof newPath>): { len: number; horizontal: boolean } => {
-		const pts = pointsOf(p);
-		const a = pts[pts.length - 2];
-		const b = pts[pts.length - 1];
-		if (!a || !b) return { len: 0, horizontal: false };
-		return { len: Math.hypot(b.x - a.x, b.y - a.y), horizontal: a.y === b.y };
-	};
+describe('finish to start, the successor at or after the predecessor end', () => {
+	const pred = barAt(0, 0, 50);
 
-	it('never ends a finish-to-start link in a run shorter than the approach', () => {
-		// The successor starts from far behind the predecessor's end to far past it: the target
-		// sits in the elbow, at the line, just right of it, and clear of it.
-		for (let dx = -60; dx <= 60; dx++) {
-			for (const down of [true, false]) {
-				const out = newPath();
-				const p: Rect = { x: 100, y: down ? 10 : 66, w: 50, h: 16 };
-				const q: Rect = { x: 150 + dx, y: down ? 66 : 10, w: 50, h: 16 };
-				const rows = down ? { predRow: 0, succRow: 2 } : { predRow: 2, succRow: 0 };
-				routeLink(out, p, q, { ...rows, from: 'end', to: 'start' }, false, style);
-				const run = lastRun(out);
-				expect(run.horizontal).toBe(true);
-				expect(run.len).toBeGreaterThanOrEqual(style.approach);
+	it('runs along the end at mid-height and drops onto the successor top edge, inset from its start', () => {
+		const succ = barAt(1, 100, 50);
+		expect(route(pred, succ, 0, 1)).toEqual([
+			{ x: 50, y: 14 },
+			{ x: 108, y: 14 },
+			{ x: 108, y: succ.y },
+		]);
+	});
+
+	it('does the same for a successor directly under the end: no jog back, no second bend', () => {
+		const succ = barAt(1, 50, 50);
+		expect(route(pred, succ, 0, 1)).toEqual([
+			{ x: 50, y: 14 },
+			{ x: 58, y: 14 },
+			{ x: 58, y: succ.y },
+		]);
+	});
+
+	it('drops past the rows between to a successor far below', () => {
+		const succ = barAt(5, 80, 40);
+		expect(route(pred, succ, 0, 5)).toEqual([
+			{ x: 50, y: 14 },
+			{ x: 88, y: 14 },
+			{ x: 88, y: succ.y },
+		]);
+	});
+
+	it('runs up to the successor bottom edge when it is above', () => {
+		const p = barAt(3, 0, 50);
+		const succ = barAt(2, 70, 50);
+		expect(route(p, succ, 3, 2)).toEqual([
+			{ x: 50, y: mid(p) },
+			{ x: 78, y: mid(p) },
+			{ x: 78, y: succ.y + succ.h },
+		]);
+	});
+
+	it('lands inside the bar by the inset, and in the middle of a bar shorter than two insets', () => {
+		for (const [w, inset] of [
+			[3, 1.5],
+			[6, 3],
+			[12, 6],
+			[16, 8],
+			[40, 8],
+		] as const) {
+			const succ = barAt(1, 90, w);
+			expect(route(pred, succ, 0, 1)[1]?.x, `a bar of ${w}`).toBe(90 + inset);
+		}
+	});
+
+	it('has an arrow head on the edge for every successor position, rows near and far, both ways', () => {
+		for (let dx = 0; dx <= 60; dx++) {
+			for (const [pRow, sRow] of [
+				[0, 1],
+				[0, 2],
+				[0, 6],
+				[6, 5],
+				[6, 4],
+				[6, 0],
+			] as const) {
+				const p = barAt(pRow, 200, 50);
+				const q = barAt(sRow, 250 + dx, 50);
+				const pts = route(p, q, pRow, sRow);
+				const down = sRow > pRow;
+				const edge = down ? q.y : q.y + q.h;
+				const at = last(pts);
+				const label = `dx ${dx}, row ${pRow} to ${sRow}`;
+				// Out, then straight onto the edge: never a jog back, never past one bend.
+				expect(orthogonal(pts), label).toBe(true);
+				expect(pts.length, label).toBeLessThanOrEqual(3);
+				expect(lastRun(pts).vertical, label).toBe(true);
+				expect(Math.abs(at.y - edge), label).toBeLessThanOrEqual(0.5);
+				expect(at.x, label).toBeGreaterThanOrEqual(q.x);
+				expect(at.x, label).toBeLessThanOrEqual(q.x + q.w);
+				pts.forEach((pt, i) => {
+					const before = pts[i - 1];
+					if (!before) return;
+					expect(pt.x, label).toBeGreaterThanOrEqual(before.x);
+					expect(down ? pt.y - before.y : before.y - pt.y, label).toBeGreaterThanOrEqual(0);
+				});
 			}
 		}
 	});
 
-	it('steps in from left of a target that is just right of the line, instead of dropping beside it', () => {
-		const out = newPath();
-		// The line would drop at x 58; the target starts at 62, 4 px past it.
-		routeLink(out, pred, { ...succ, x: 62 }, ends, false, style);
-		const pts = pointsOf(out);
-		expect(pts).toHaveLength(MAX_PATH_POINTS);
-		// Down the row boundary, then in from approach px left of the target.
-		expect(pts[3]).toEqual({ x: 62 - style.approach, y: 28 });
-		expect(pts[5]).toEqual({ x: 62, y: 46 });
-	});
-
-	it('keeps the plain elbow when the run is long enough', () => {
-		const out = newPath();
-		routeLink(out, pred, { ...succ, x: 50 + 8 + 9 }, ends, false, style);
-		expect(out.n).toBe(4);
-	});
-
-	it('keeps the approach into an end as well (finish to finish)', () => {
-		const out = newPath();
-		routeLink(out, pred, { ...succ, x: 20 }, { ...ends, to: 'end' }, false, style);
-		const run = lastRun(out);
-		expect(run.horizontal).toBe(true);
-		expect(run.len).toBeGreaterThanOrEqual(style.approach);
+	it('has no jog for a successor that starts at the end or half a pixel before it', () => {
+		for (const dx of [-0.5, -0.25, 0, 0.25]) {
+			expect(route(pred, barAt(1, 50 + dx, 50), 0, 1), `dx ${dx}`).toHaveLength(3);
+		}
 	});
 });
 
-/** Runs of three rows: `[x0, x1, inside]` each, NaN for a row without one. */
-const runsOf = (...rows: Array<[number, number, 0 | 1] | null>): Float64Array =>
-	Float64Array.from(rows.flatMap((r) => r ?? [NaN, NaN, NaN]));
+describe('finish to start, the successor starts before the end', () => {
+	const pred = barAt(0, 100, 50);
 
-describe('names beside bars', () => {
-	const p: Rect = { x: 0, y: 10, w: 50, h: 16 };
-	const q: Rect = { x: 120, y: 66, w: 50, h: 16 };
-	const down = { predRow: 0, succRow: 2, from: 'end', to: 'start' } as const;
-	/** The x of the vertical leg of a four point path. */
-	const legX = (out: ReturnType<typeof newPath>): number => pointsOf(out)[1]?.x ?? NaN;
-
-	it('keeps its leg where it is when no name is in the way', () => {
-		const out = newPath();
-		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [200, 240, 0], null) });
-		expect(legX(out)).toBe(58);
+	it('goes round: out a stub, down into the gap, back past the start, down, then in', () => {
+		const succ = barAt(1, 90, 50);
+		expect(route(pred, succ, 0, 1)).toEqual([
+			{ x: 150, y: 14 },
+			{ x: 158, y: 14 },
+			{ x: 158, y: ROW },
+			{ x: 81, y: ROW },
+			{ x: 81, y: mid(succ) },
+			{ x: 90, y: mid(succ) },
+		]);
 	});
 
-	it('moves the leg past a name that a row between would have it run through', () => {
-		const out = newPath();
-		// A name from 50 to 70 on the row between; the leg wants 58 and goes to the name's end plus 3.
-		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [50, 70, 0], null) });
-		expect(legX(out)).toBe(73);
-		expect(out.n).toBe(4);
+	it('ends in a run of the approach into the start edge, pointing right, from a hair to far behind', () => {
+		for (let dx = -200; dx < -1; dx++) {
+			for (const down of [true, false]) {
+				const p = barAt(down ? 0 : 3, 300, 50);
+				const q = barAt(down ? 3 : 0, 350 + dx, 50);
+				const pts = route(p, q, down ? 0 : 3, down ? 3 : 0);
+				const run = lastRun(pts);
+				expect(pts, `dx ${dx}`).toHaveLength(MAX_PATH_POINTS);
+				expect(orthogonal(pts)).toBe(true);
+				expect(run.vertical).toBe(false);
+				expect(run.len).toBeGreaterThanOrEqual(style.approach);
+				expect(last(pts)).toEqual({ x: q.x, y: mid(q) });
+				// Through the row boundary next to the predecessor.
+				expect(pts[2]?.y).toBe((down ? 1 : 3) * ROW);
+			}
+		}
 	});
 
-	it('does not move for a name inside a bar, which covers the line anyway', () => {
-		const out = newPath();
-		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [50, 70, 1], null) });
-		expect(legX(out)).toBe(58);
+	it('goes round from a hair before the end, and goes direct from half a pixel before it', () => {
+		expect(route(barAt(0, 0, 50), barAt(1, 48, 50), 0, 1)).toHaveLength(MAX_PATH_POINTS);
+		expect(route(barAt(0, 0, 50), barAt(1, 49.6, 50), 0, 1)).toHaveLength(3);
 	});
 
-	it('goes back before the name when there is no room after it, and stays when there is none', () => {
-		const out = newPath();
-		// The leg may run from 52 (just right of the bar's end) to 111 (the approach before the target
-		// at 120): 58 is blocked by a name to 112, so it steps back to the name's start less the pad.
-		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [60, 112, 0], null) });
-		expect(legX(out)).toBe(57);
-		// A name that spans the whole run: nowhere to go.
-		routeLink(out, p, q, down, false, { ...style, runs: runsOf(null, [-10, 300, 0], null) });
-		expect(legX(out)).toBe(58);
-	});
-
-	it('moves the second leg of a go-round further back from the target', () => {
-		const out = newPath();
-		const target: Rect = { x: 30, y: 66, w: 50, h: 16 };
-		// The target starts behind the predecessor's end: down at 58, along the boundary, then down
-		// at 30 - 9 = 21 past row 1, where a name sits from 10 to 40: the leg goes to 7.
-		routeLink(out, p, target, down, false, { ...style, runs: runsOf(null, [10, 40, 0], null) });
-		expect(pointsOf(out)[3]?.x).toBe(7);
-		expect(pointsOf(out)[4]?.x).toBe(7);
+	it('drops from the bottom tip of a milestone to a tiny task at its instant, landing in its middle', () => {
+		const ms = barAt(0, 100, 16);
+		const succ = barAt(1, 108, 6);
+		// The diamond's tip is at 116 and the 6 wide task starts at its instant: no room for a run
+		// at mid-height, so the line leaves by the tip below and steps over 3 px.
+		expect(route(ms, succ, 0, 1, FS, kindsOf('milestone', 'task'))).toEqual([
+			{ x: 108, y: ms.y + 16 },
+			{ x: 108, y: ROW },
+			{ x: 111, y: ROW },
+			{ x: 111, y: succ.y },
+		]);
 	});
 });
 
-describe('a step-off never makes a run cross the own name of an end', () => {
-	const ROW = 28;
-	/** Whether a horizontal segment on `y` crosses the open interval (n0, n1). */
-	const crosses = (pts: ReturnType<typeof pointsOf>, y: number, n0: number, n1: number): boolean =>
-		pts.some((q, i) => {
-			const a = pts[i - 1];
-			if (i === 0 || !a || q.y !== y || a.y !== y) return false;
-			return Math.max(Math.min(q.x, a.x), n0) < Math.min(Math.max(q.x, a.x), n1);
+describe('milestones and containers', () => {
+	const ms = (row: number, cx: number): Rect => barAt(row, cx - 8, 16);
+
+	it('lands on the vertex of a diamond, from above and from below', () => {
+		const pred = barAt(0, 0, 50);
+		const down = route(pred, ms(2, 90), 0, 2, FS, kindsOf('task', 'milestone'));
+		expect(last(down)).toEqual({ x: 90, y: ms(2, 90).y });
+		expect(lastRun(down).vertical).toBe(true);
+		const p = barAt(4, 0, 50);
+		const up = route(p, ms(2, 90), 4, 2, FS, kindsOf('task', 'milestone'));
+		expect(last(up)).toEqual({ x: 90, y: ms(2, 90).y + 16 });
+	});
+
+	it('drops straight onto a milestone at the end of a task, with no bend at all', () => {
+		const pred = barAt(0, 0, 50);
+		const pts = route(pred, ms(1, 50), 0, 1, FS, kindsOf('task', 'milestone'));
+		expect(pts).toEqual([
+			{ x: 50, y: 14 },
+			{ x: 50, y: ms(1, 50).y },
+		]);
+	});
+
+	it('runs from the right tip of a milestone, and drops straight from its bottom for one at the same instant', () => {
+		const m = ms(0, 40);
+		const after = route(m, barAt(1, 100, 50), 0, 1, FS, kindsOf('milestone', 'task'));
+		expect(after[0]).toEqual({ x: 48, y: 14 });
+		const same = route(m, ms(1, 40), 0, 1, FS, kindsOf('milestone', 'milestone'));
+		expect(same).toEqual([
+			{ x: 40, y: m.y + 16 },
+			{ x: 40, y: ms(1, 40).y },
+		]);
+	});
+
+	it('treats a start to start link out of a milestone like a finish to start one', () => {
+		const m = ms(0, 40);
+		const succ = barAt(1, 100, 50);
+		const ss = route(m, succ, 0, 1, { from: 'start', to: 'start' }, kindsOf('milestone', 'task'));
+		expect(ss).toEqual(route(m, succ, 0, 1, FS, kindsOf('milestone', 'task')));
+	});
+
+	it('hooks out of a milestone to a task that starts at its instant, and lands on the task top edge', () => {
+		const m = ms(0, 40);
+		const succ = barAt(1, 40, 60);
+		const pts = route(m, succ, 0, 1, FS, kindsOf('milestone', 'task'));
+		expect(pts).toEqual([
+			{ x: 48, y: 14 },
+			{ x: 52, y: 14 },
+			{ x: 52, y: succ.y },
+		]);
+	});
+
+	it('lands a hair inside the cap of a summary bracket, on its top, and under its top bar from below', () => {
+		const pred = barAt(0, 0, 50);
+		const bracket = (row: number): Rect => barAt(row, 90, 80, 9);
+		const down = route(pred, bracket(2), 0, 2, FS, kindsOf('task', 'container'));
+		expect(last(down)).toEqual({ x: 91, y: bracket(2).y });
+		const p = barAt(4, 0, 50);
+		const up = route(p, bracket(2), 4, 2, FS, kindsOf('task', 'container'));
+		// The bracket's top bar is 5 thick: the head ends under it, between the caps.
+		expect(last(up)).toEqual({ x: 91, y: bracket(2).y + 5 });
+	});
+
+	it('leaves a bracket by its end at mid-height', () => {
+		const bracket = barAt(0, 0, 80, 9);
+		const pts = route(bracket, barAt(1, 120, 40), 0, 1, FS, kindsOf('container', 'task'));
+		expect(pts[0]).toEqual({ x: 80, y: mid(bracket) });
+	});
+});
+
+describe('what stands beside the predecessor', () => {
+	const pred = barAt(0, 0, 50);
+	/** The things beside row 0's bar begin at 64 (the end, 14 on). */
+	const beside = Float64Array.from([64, Infinity, Infinity]);
+
+	it('keeps the direct route while its run ends before the things beside the bar', () => {
+		const succ = barAt(1, 50, 50);
+		expect(route(pred, succ, 0, 1, FS, tasks, { beside })).toHaveLength(3);
+	});
+
+	it('leaves by the lower edge, near the end, and runs along the row boundary when they are in the way', () => {
+		const succ = barAt(1, 120, 50);
+		expect(route(pred, succ, 0, 1, FS, tasks, { beside })).toEqual([
+			{ x: 42, y: pred.y + pred.h },
+			{ x: 42, y: ROW },
+			{ x: 128, y: ROW },
+			{ x: 128, y: succ.y },
+		]);
+	});
+
+	it('leaves by the upper edge for a successor above', () => {
+		const p = barAt(2, 0, 50);
+		const succ = barAt(1, 120, 50);
+		const pts = route(p, succ, 2, 1, FS, tasks, { beside: Float64Array.from([NaN, NaN, 64]) });
+		expect(pts).toEqual([
+			{ x: 42, y: p.y },
+			{ x: 42, y: 2 * ROW },
+			{ x: 128, y: 2 * ROW },
+			{ x: 128, y: succ.y + succ.h },
+		]);
+	});
+
+	it('leaves a milestone by its bottom tip', () => {
+		const m = barAt(0, 32, 16);
+		const succ = barAt(1, 120, 50);
+		const pts = route(m, succ, 0, 1, FS, kindsOf('milestone', 'task'), {
+			beside: Float64Array.from([62, Infinity]),
 		});
+		expect(pts[0]).toEqual({ x: 40, y: m.y + 16 });
+		expect(pts).toHaveLength(4);
+	});
 
-	it('keeps every run clear of the own names of both ends whenever it was clear without steps', () => {
-		for (const to of ['start', 'end'] as const) {
-			for (const gap of [1, 2, 4]) {
-				for (let sx = -40; sx <= 140; sx += 5) {
-					for (let mid = -10; mid <= 90; mid += 5) {
-						const succRow = gap;
-						const pred: Rect = { x: 100, y: 6, w: 40, h: 16 };
-						const succ: Rect = { x: 100 + sx, y: succRow * ROW + 6, w: 40, h: 16 };
-						// Names beside both ends' bars (end + a gap of 14, 36 wide), and one on each row between.
-						const rows: Array<[number, number, 0 | 1] | null> = [[154, 190, 0]];
-						for (let r = 1; r < succRow; r++) rows.push([100 + mid, 136 + mid, 0]);
-						rows.push([succ.x + succ.w + 14, succ.x + succ.w + 50, 0]);
-						const link = { predRow: 0, succRow, from: 'end', to } as const;
-						const bare = newPath();
-						routeLink(bare, pred, succ, link, false, { ...style, rowHeight: ROW });
-						const out = newPath();
-						routeLink(out, pred, succ, link, false, {
-							...style,
-							rowHeight: ROW,
-							runs: runsOf(...rows),
-						});
-						const b = pointsOf(bare);
-						const o = pointsOf(out);
-						const ends: Array<[number, number, number]> = [
-							[pred.y + 8, 154, 190],
-							[succ.y + 8, succ.x + succ.w + 14, succ.x + succ.w + 50],
-						];
-						for (const [y, n0, n1] of ends) {
-							if (!crosses(b, y, n0, n1)) {
-								expect(
-									crosses(o, y, n0, n1),
-									`to ${to}, ${gap} rows, succ at ${sx}, names at ${mid}`,
-								).toBe(false);
-							}
-						}
+	it('does not mind a row with nothing beside it', () => {
+		const succ = barAt(1, 120, 50);
+		expect(route(pred, succ, 0, 1, FS, tasks, { beside: Float64Array.from([Infinity]) })).toEqual(
+			route(pred, succ, 0, 1),
+		);
+	});
+});
+
+describe('start to start, finish to finish and start to finish', () => {
+	const kinds: Array<[string, Pick<RouteEnds, 'from' | 'to'>]> = [
+		['start to start', { from: 'start', to: 'start' }],
+		['finish to finish', { from: 'end', to: 'end' }],
+		['start to finish', { from: 'start', to: 'end' }],
+	];
+	const targets: Array<[string, (row: number, x: number) => Rect, BarKind]> = [
+		['a task', (row, x) => barAt(row, x, 50), 'task'],
+		['a tiny task', (row, x) => barAt(row, x, 3), 'task'],
+		['a milestone', (row, x) => barAt(row, x, 16), 'milestone'],
+		['a bracket', (row, x) => barAt(row, x, 50, 9), 'container'],
+	];
+
+	it('end on the edge they point at, along a run of the approach, whatever the target is', () => {
+		for (const [name, kind] of kinds) {
+			for (const [what, make, bar] of targets) {
+				for (let dx = -80; dx <= 80; dx += 4) {
+					for (const [pRow, sRow] of [
+						[0, 1],
+						[0, 3],
+						[4, 3],
+						[4, 1],
+					] as const) {
+						const p = barAt(pRow, 200, 50);
+						const q = make(sRow, 230 + dx);
+						const pts = route(p, q, pRow, sRow, kind, kindsOf('task', bar));
+						const label = `${name} to ${what}, dx ${dx}, rows ${pRow} to ${sRow}`;
+						const edgeX = kind.to === 'start' ? q.x : q.x + q.w;
+						expect(orthogonal(pts), label).toBe(true);
+						expect(last(pts), label).toEqual({ x: edgeX, y: mid(q) });
+						expect(lastRun(pts).vertical, label).toBe(false);
+						expect(lastRun(pts).len, label).toBeGreaterThanOrEqual(style.approach);
+						expect(pts[0]?.x, label).toBe(kind.from === 'start' ? p.x : p.x + p.w);
+						expect(pts[0]?.y, label).toBe(mid(p));
 					}
 				}
 			}
 		}
 	});
 
-	it('leaves the endpoint rows out of what a leg steps off', () => {
-		const out = newPath();
-		// The predecessor's own name sits right where the leg would run (58): not a reason to move it.
-		const p: Rect = { x: 0, y: 10, w: 50, h: 16 };
-		const q: Rect = { x: 120, y: 66, w: 50, h: 16 };
-		routeLink(out, p, q, { predRow: 0, succRow: 2, from: 'end', to: 'start' }, false, {
-			...style,
-			runs: runsOf([54, 90, 0], null, [180, 210, 0]),
-		});
-		expect(pointsOf(out)[1]?.x).toBe(58);
+	it('runs start to start and finish to finish round the outer side with one bend', () => {
+		const a = barAt(0, 96, 96);
+		const b = barAt(1, 144, 96);
+		expect(route(a, b, 0, 1, { from: 'start', to: 'start' })).toEqual([
+			{ x: 96, y: 14 },
+			{ x: 88, y: 14 },
+			{ x: 88, y: 42 },
+			{ x: 144, y: 42 },
+		]);
+		expect(route(a, b, 0, 1, { from: 'end', to: 'end' })).toEqual([
+			{ x: 192, y: 14 },
+			{ x: 249, y: 14 },
+			{ x: 249, y: 42 },
+			{ x: 240, y: 42 },
+		]);
+	});
+
+	it('runs start to finish round the start and back past the end when the end is behind it', () => {
+		const a = barAt(0, 96, 96);
+		const b = barAt(1, 144, 96);
+		expect(route(a, b, 0, 1, { from: 'start', to: 'end' })).toEqual([
+			{ x: 96, y: 14 },
+			{ x: 88, y: 14 },
+			{ x: 88, y: ROW },
+			{ x: 249, y: ROW },
+			{ x: 249, y: 42 },
+			{ x: 240, y: 42 },
+		]);
 	});
 });
 
