@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The edit dispatcher in the built app (phase-2.md 6.8, 9.4; T13). No gesture exists yet (T16), so
-// the test dispatches a real Gantt action through the `?hooks=edits` hook (edit-hooks.ts), which
-// calls the same `dispatchAction` a drop will. It shows the toast, the patch in the text (the
+// The edit dispatcher in the built app (phase-2.md 6.8, 9.4; T13). The edit is a real key press
+// (Ctrl+Alt+Right on the focused row, T16); `?hooks=edits` (edit-hooks.ts) only reads. It shows the toast, the patch in the text (the
 // editor too in Split on desktop), the engine's reschedule, and Undo in the toast restoring the
 // text byte for byte. A newer build is offered (ADR-0012), so the status strip shows its reload
 // button: the toast must cover neither (review M2). Desktop Chrome and Pixel 7. With SCREENSHOTS=1
@@ -84,9 +83,9 @@ test.describe('a visual edit through the dispatcher', () => {
 		expect(before).toContain('effort 3d');
 		expect(end0).not.toBeNull();
 
-		// R1's keyboard alternative: one more written unit of effort.
-		const o = await h.action({ type: 'size-step', task: 'design.research', steps: 1 });
-		expect(o.status).toBe('applied');
+		// R1's keyboard alternative, as a real key press on the focused row (T16): one more unit.
+		await page.locator('[role="row"][data-key="task:design.research"]').focus();
+		await page.keyboard.press('Control+Alt+ArrowRight');
 		const toast = page.getByTestId('toast');
 		await expect(toast).toHaveCount(1);
 		await expect(toast).toContainText('Effort of Research: 3d to 4d');
@@ -96,13 +95,8 @@ test.describe('a visual edit through the dispatcher', () => {
 		if (desktop(info)) await expect.poll(() => viewText(page)).toBe(await h.text());
 
 		// The engine's result includes the edit: the toast settles and the task ends a day later.
-		await expect
-			.poll(() => h.settled(), { timeout: READY_TIMEOUT_MS })
-			.toEqual({
-				status: 'scheduled',
-			});
 		await expect(toast).toHaveAttribute('data-status', 'scheduled');
-		expect(await h.revision()).toBeGreaterThan(rev0 ?? 0);
+		await expect.poll(() => h.revision(), { timeout: READY_TIMEOUT_MS }).toBeGreaterThan(rev0 ?? 0);
 		const end1 = await h.end('design.research');
 		expect(end1).toBeGreaterThan(end0 ?? 0);
 		await expect(status).toContainText('Scheduled');

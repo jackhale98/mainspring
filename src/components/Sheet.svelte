@@ -188,7 +188,7 @@
 				<button
 					type="button"
 					class="grabber"
-					aria-label="{I.grabber}: {detent === 'half' ? I.grabberFull : I.grabberHalf}"
+					aria-label="{I.grabber}: {detent === 'full' ? I.grabberHalf : I.grabberFull}"
 					aria-expanded={detent === 'full'}
 					onpointerdown={down}
 					onpointermove={move}
@@ -278,6 +278,12 @@
 	.sheet[data-detent='half'] {
 		block-size: calc(var(--room, 100dvh) / 2);
 		max-block-size: none;
+	}
+	/* A peek: the grabber and the header, while the Gantt makes a link or lifts a row. */
+	.sheet[data-detent='peek'] {
+		block-size: calc(var(--size-tap) + 4rem);
+		max-block-size: none;
+		overflow: hidden;
 	}
 	.sheet[data-detent='full'] {
 		block-size: calc(var(--room, 100dvh) - 12px - env(safe-area-inset-top));

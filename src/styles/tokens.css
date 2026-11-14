@@ -109,6 +109,9 @@
 	--gantt-ring-width: 2px;
 	--gantt-ring-gap: 3px;
 	--gantt-hover-ring-width: 1.5px;
+	--gantt-handle-dot: 5px;
+	--gantt-handle-grip: 4px;
+	--gantt-knob-size: 6px;
 	--gantt-float-height: 1.5px;
 	--gantt-float-opacity: 0.75;
 	--gantt-dash: 4px;
@@ -131,6 +134,9 @@
 		--size-control: var(--size-tap);
 		--size-divider: 1.5rem;
 		--gantt-min-bar-width: 8px;
+		--gantt-handle-dot: 7px;
+		--gantt-handle-grip: 6px;
+		--gantt-knob-size: 8px;
 	}
 }
 

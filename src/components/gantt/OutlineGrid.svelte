@@ -22,6 +22,12 @@
 	The grid only reads: it emits intents (toggle, select, open, rename) and the Gantt decides.
 	Critical is never colour alone: the Critical column says Yes or No in words (WCAG 1.4.1).
 
+	The interactions of phase-2.md 7.1 (T16) sit on it: every key goes first to `onkeycmd` (the
+	Gantt's keyboard model: nudges, link mode, row moves; it leaves the treegrid's own keys alone),
+	a double click or F2 renames the task in place, and a grip at the end of the name starts a row
+	drag (row-drag.svelte.ts), which draws its drop line and label here. The rows stay one DOM
+	grid: the focused row reports itself (`onfocusrow`) so the chart can ring its bar.
+
 	Over 400 lines on purpose: about a third is the styles (phone and coarse-pointer rules included),
 	and the rest is one invariant, which row or cell holds the focus. The mounted rows, the tab stop,
 	the key handler and the focus calls all read it, so splitting them would spread it over two files.
@@ -29,14 +35,17 @@
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import Icon from '../Icon.svelte';
 	import { COLUMN_ORDER, widthOf, type ColumnId } from '../../lib/gantt/columns';
 	import { describeRow } from '../../lib/gantt/describe';
 	import { gridCells, spokenText, type GridRowInput } from '../../lib/gantt/grid';
 	import { gridMove, type GridFocus, type GridShape } from '../../lib/gantt/grid-nav';
 	import type { GanttRow } from '../../lib/gantt/model';
 	import type { OutlineNode } from '../../lib/state/outline';
-	import { strings } from '../../lib/strings';
+	import { ALL_KEYS, SHORTCUTS } from '../../lib/gantt/keys';
+	import { gestureStrings, strings } from '../../lib/strings';
+	import NameCell from './NameCell.svelte';
+	import RowDropMarks from './RowDropMarks.svelte';
+	import type { RowDrag } from './row-drag.svelte';
 
 	interface Props extends Omit<GridRowInput, 'pending'> {
 		pending?: ReadonlySet<string>;
@@ -58,8 +67,18 @@
 		onselect: (key: string) => void;
 		/** Enter on a row: select it and (with the inspector, T17) move focus into it. */
 		onopen?: (key: string) => void;
-		/** F2 on a row; without it the key is left alone. */
+		/** F2 on a row, or a double click on its name; without it the key is left alone. */
 		onrename?: (key: string) => void;
+		/** The row being renamed in place, by key, and what ends it. */
+		renaming?: string | null;
+		onrenamed?: (key: string, name: string) => void;
+		oncancelrename?: () => void;
+		/** Every key first: true when the Gantt's keyboard model took it (not an input's). */
+		onkeycmd?: (event: KeyboardEvent, key: string) => boolean;
+		/** The row the keyboard focus is on (null: it left the grid), and whether it shows a ring. */
+		onfocusrow?: (key: string | null) => void;
+		/** Dragging a row by its grip (R5). */
+		rowDrag?: RowDrag;
 		/** Scrolls a row into view (the rows near the viewport are the only ones mounted). */
 		onreveal: (index: number) => Promise<void>;
 		/**
@@ -87,11 +106,22 @@
 		onselect,
 		onopen,
 		onrename,
+		renaming = null,
+		onrenamed,
+		oncancelrename,
+		onkeycmd,
+		onfocusrow,
+		rowDrag,
 		onreveal,
 		outline,
 	}: Props = $props();
 
 	const rows = $derived(model.rows);
+	const uid = $props.id();
+	/** What the treegrid says about its keys when the focus enters it (WCAG 2.1.1, 4.1.2). */
+	const keysHint = gestureStrings.keys.gridHint(
+		SHORTCUTS.map((k) => `${gestureStrings.keys.label[k.id]}: ${k.show}`).join('; '),
+	);
 	let focusKey = $state<string | null>(null);
 	let grid: HTMLDivElement | undefined = $state();
 	let headClip: HTMLDivElement | undefined = $state();
@@ -208,6 +238,7 @@
 		const index = model.rowOf.get(key) ?? -1;
 		const row = rows[index];
 		lastFocus = row ? { el: t, row, index } : null;
+		onfocusrow?.(key);
 	}
 
 	/** Focus that leaves the grid lets go of the pinned row. */
@@ -216,6 +247,7 @@
 		if (!(to instanceof Node) || !grid?.contains(to)) {
 			focusKey = null;
 			focusCol = null;
+			onfocusrow?.(null);
 			// Focus that went nowhere is either a click on empty space, which is not ours to undo,
 			// or the focused row being removed, which the effect below answers. A removed node is
 			// no longer connected once this microtask runs.
@@ -259,6 +291,20 @@
 	}
 
 	const indexOf = (key: string): number => model.rowOf.get(key) ?? -1;
+
+	/** Focuses a row by key once it is mounted (a moved row has a new key). */
+	export function focusRowByKey(key: string): boolean {
+		const at = indexOf(key);
+		if (at < 0) return false;
+		void focusAt({ row: at, col: null });
+		return true;
+	}
+
+	// A lifted row is dragged with the finger: the list cancels the native scroll for it (8.2).
+	$effect(() => {
+		if (!grid || !rowDrag) return undefined;
+		return rowDrag.attach(grid);
+	});
 	const shape = $derived<GridShape>({
 		rows: rows.length,
 		cols: shown.length,
@@ -273,9 +319,15 @@
 	function onkeydown(event: KeyboardEvent): void {
 		const target = event.target;
 		if (!(target instanceof Element)) return;
+		// The rename field is a text field: its keys are its own.
+		if (target.closest('input, textarea, select')) return;
 		const key = target.closest('[data-key]')?.getAttribute('data-key');
 		const at = key ? indexOf(key) : -1;
-		if (at < 0) return;
+		if (at < 0 || !key) return;
+		if (onkeycmd?.(event, key)) {
+			event.preventDefault();
+			return;
+		}
 		const colId = target.closest('[data-col]')?.getAttribute('data-col') ?? null;
 		const col = colId === null ? null : shown.indexOf(colId as ColumnId);
 		const move = gridMove({ row: at, col: col === null || col < 0 ? null : col }, event, shape);
@@ -324,6 +376,8 @@
 	bind:this={grid}
 	role="treegrid"
 	aria-label={strings.grid.label}
+	aria-describedby="{uid}-keys"
+	aria-keyshortcuts={ALL_KEYS}
 	aria-rowcount={rows.length + 1}
 	aria-colcount={COLUMN_ORDER.length}
 	data-testid="gantt-treegrid"
@@ -375,6 +429,7 @@
 					role="row"
 					class="row"
 					class:selected={selectedKey === row.key}
+					class:dragging={rowDrag?.view?.dragged === row.key}
 					data-key={row.key}
 					aria-rowindex={index + 2}
 					aria-level={n.level}
@@ -405,21 +460,17 @@
 							aria-label={cell.blank ? spokenText(cell) : undefined}
 							tabindex={on ? tabIndexOf(row, col) : undefined}
 							style:width={on ? nameRem(col) : undefined}
+							ondblclick={col === 'name' ? () => onrename?.(row.key) : undefined}
 						>
 							{#if col === 'name'}
-								<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">
-									{#if row.expanded !== null}<span class="chevron" class:open={row.expanded}
-											><Icon name="chevronRight" size={14} /></span
-										>{/if}
-								</span>
-								<span class="label" class:summary={row.kind === 'container'}>{cell.text}</span>
-								{#if row.textOnly}
-									<span class="badge">
-										{strings.outline.textOnly}<span class="sr-only">
-											. {strings.outline.reason[row.textOnly]}</span
-										>
-									</span>
-								{/if}
+								<NameCell
+									{row}
+									text={cell.text}
+									renaming={renaming === row.key}
+									{rowDrag}
+									onrenamed={(name) => onrenamed?.(row.key, name)}
+									oncancel={() => oncancelrename?.()}
+								/>
 							{:else}
 								{cell.text}
 							{/if}
@@ -427,6 +478,7 @@
 					{/each}
 				</div>
 			{/each}
+			<RowDropMarks view={rowDrag?.view ?? null} {rowHeight} />
 		</div>
 	</div>
 	{#if overflow > 0}<div class="hbar-room" aria-hidden="true"></div>{/if}
@@ -453,6 +505,7 @@
 		{/if}
 	</div>
 </div>
+<p class="sr-only" id="{uid}-keys">{keysHint}</p>
 <!-- Not inside the grid: a live region among rows is not read reliably. -->
 <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
@@ -519,6 +572,9 @@
 	}
 	.row:hover {
 		background: var(--color-gantt-row-hover);
+	}
+	.row.dragging {
+		opacity: 0.45;
 	}
 	/* Selection: a brass wash and a thin blued-steel edge (ADR-0009). */
 	.row.selected {
@@ -641,81 +697,12 @@
 		clip-path: inset(50%);
 		white-space: nowrap;
 	}
-	.chevron {
-		display: inline-grid;
-		transition: transform var(--motion-fast);
-	}
-	.chevron.open {
-		transform: rotate(90deg);
-	}
-	/* A target of 24 px for a fine pointer, 44 px for a coarse one (WCAG 2.5.8). */
-	.twisty {
-		flex: none;
-		inline-size: 1.5rem;
-		block-size: 100%;
-		display: grid;
-		place-items: center;
-		color: var(--color-gantt-text-muted);
-	}
-	.label {
-		flex: 1 1 auto;
-		min-inline-size: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.label.summary {
-		font-weight: 600;
-	}
-	.badge {
-		flex: none;
-		padding: 0 var(--space-1);
-		background: var(--color-badge-bg);
-		color: var(--color-badge-text);
-		border-radius: var(--radius-pill);
-		font-size: var(--text-xs);
-		line-height: 1.3rem;
-	}
+	/* The name cell's parts (twisty, label, rename field, grip, badge) are NameCell.svelte's; on a
+	   phone the cell itself has a narrower indent and no gap. */
 	@media (max-width: 599px) {
-		/* A phone has little room: a slot for the chevron only on rows that have one, about 8 px
-		   of indent per level, and smaller text. */
 		.cell.name {
 			padding-inline-start: calc(var(--space-1) + var(--depth, 0) * var(--space-2));
 			gap: 0;
-		}
-		.twisty.leaf {
-			display: none;
-		}
-		/* Names may take two lines at 12.5 px, as in the phone design. */
-		.label {
-			font-size: 0.78rem;
-			line-height: 1.2;
-			white-space: normal;
-			display: -webkit-box;
-			-webkit-line-clamp: 2;
-			line-clamp: 2;
-			-webkit-box-orient: vertical;
-		}
-		/* The badge is not drawn on a phone, but its words ("text only" and the reason) stay for
-		   screen readers: hidden visually, not display: none (WCAG 1.3.1). */
-		.badge {
-			position: absolute;
-			inline-size: 1px;
-			block-size: 1px;
-			padding: 0;
-			overflow: hidden;
-			clip-path: inset(50%);
-		}
-	}
-	@media (pointer: coarse) {
-		.twisty {
-			inline-size: 2.75rem;
-		}
-	}
-	/* On a phone 44 px would take a third of the column: 32 px is still over WCAG 2.5.8's 24 px,
-	   and the whole row is a larger target for selecting. */
-	@media (pointer: coarse) and (max-width: 599px) {
-		.twisty {
-			inline-size: 2rem;
 		}
 	}
 </style>

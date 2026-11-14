@@ -5,14 +5,16 @@
  * ring round the selected bar, a thinner outline round the hovered one, a hovered link. Outlines
  * only: a filled band over the bars would veil them (the selected row's tint is on the grid layer,
  * under the bars). It is the only layer that redraws on hover, so hover never touches the bars.
- * The drag ghost, link rubber band and drop indicator of the gesture task (T16) join it here.
+ * The gestures' layer (handles, the previews and pending bars, the link rubber band and its
+ * target, the drag label; gestures.ts) is drawn last, on top of the rings.
  */
 import type { Minutes } from '../../../engine/protocol';
 import { rowRange, type GanttLayout, type MutableRect, type Point } from '../layout';
-import type { GanttModel } from '../model';
+import type { GanttLink, GanttModel } from '../model';
 import { roundedRect, toContent, type PaintFrame } from './canvas';
 import { routeShortened, traceLink } from './links';
 import { paintMarkers } from './markers';
+import { drawsGesture, paintGestures, type GestureOverlay } from './gestures';
 
 export interface OverlayState {
 	readonly selectedRow: number | null;
@@ -20,6 +22,10 @@ export interface OverlayState {
 	readonly hoverLink: number | null;
 	/** The wall-clock minute for the today line (`todayOf`); the clock is not in the model. */
 	readonly todayMin?: Minutes | null;
+	/** The row with the keyboard focus in the task list: a 3 px ring, as the DOM focus ring (10.2). */
+	readonly focusRow?: number | null;
+	/** What the gestures draw; none without one. */
+	readonly gesture?: GestureOverlay;
 }
 
 export const NO_OVERLAY: OverlayState = { selectedRow: null, hoverRow: null, hoverLink: null };
@@ -121,18 +127,65 @@ export function linkPathOf(
 	return link ? layout.linkPath(link) : [];
 }
 
+/** Strokes a link in the accent, thicker, on the very path the base layer drew (hover, selection). */
+function strokeLink(f: PaintFrame, link: GanttLink): void {
+	const { ctx, layout, theme } = f;
+	const path = routeShortened(layout, link, theme);
+	if (!path || path.n <= 1) return;
+	ctx.strokeStyle = theme.accent;
+	ctx.lineWidth = theme.linkWidthHover;
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
+	ctx.beginPath();
+	traceLink(ctx, path, theme);
+	ctx.stroke();
+	let x0 = Infinity;
+	let y0 = Infinity;
+	let x1 = -Infinity;
+	let y1 = -Infinity;
+	for (let i = 0; i < path.n; i++) {
+		const x = path.xy[2 * i] ?? 0;
+		const y = path.xy[2 * i + 1] ?? 0;
+		x0 = Math.min(x0, x);
+		y0 = Math.min(y0, y);
+		x1 = Math.max(x1, x);
+		y1 = Math.max(y1, y);
+	}
+	const pad = theme.linkWidthHover + theme.arrowSize + 2;
+	note(f, x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad);
+}
+
 export function paintOverlay(f: PaintFrame, state: OverlayState): void {
 	const { ctx, win, layout, model, theme } = f;
 	const { first, last } = rowRange(layout, win.y, win.h, 0);
 	const inRange = (r: number | null): r is number => r !== null && r >= first && r < last;
-	const link = state.hoverLink === null ? undefined : model.links[state.hoverLink];
-	const linkInRange =
-		link !== undefined &&
-		Math.max(link.predRow, link.succRow) >= first &&
-		Math.min(link.predRow, link.succRow) < last;
-	const rings = inRange(state.selectedRow) || inRange(state.hoverRow) || linkInRange;
+	const gesture = state.gesture;
+	const links = [state.hoverLink, gesture?.selectedLink ?? null].flatMap((i) => {
+		const link = i === null ? undefined : model.links[i];
+		const near =
+			link !== undefined &&
+			Math.max(link.predRow, link.succRow) >= first &&
+			Math.min(link.predRow, link.succRow) < last;
+		return near ? [link] : [];
+	});
+	const rings =
+		inRange(state.selectedRow) ||
+		inRange(state.hoverRow) ||
+		inRange(state.focusRow ?? null) ||
+		links.length > 0 ||
+		drawsGesture(gesture);
 	const today = state.todayMin ?? null;
-	const what = [model, layout, theme, state.selectedRow, state.hoverRow, state.hoverLink, today];
+	const what = [
+		model,
+		layout,
+		theme,
+		state.selectedRow,
+		state.hoverRow,
+		state.hoverLink,
+		today,
+		state.focusRow ?? null,
+		gesture,
+	];
 
 	// A move of the window up or down, with nothing else changed: the marker lines run the full
 	// height of the canvas and are still where they were on it, so unless a ring was drawn (it
@@ -170,33 +223,19 @@ export function paintOverlay(f: PaintFrame, state: OverlayState): void {
 	if (inRange(state.selectedRow)) {
 		outlineAround(f, state.selectedRow, theme.focus, theme.ringWidth, theme.ringGap);
 	}
-	const hovered = link;
-	if (hovered) {
-		// On the very path the base layer drew: shortened by the link gap, rounded corners, and its
-		// arrow head, only thicker and in the accent.
-		const path = routeShortened(layout, hovered, theme);
-		if (path && path.n > 1) {
-			ctx.strokeStyle = theme.accent;
-			ctx.lineWidth = theme.linkWidthHover;
-			ctx.lineJoin = 'round';
-			ctx.lineCap = 'round';
-			ctx.beginPath();
-			traceLink(ctx, path, theme);
-			ctx.stroke();
-			let x0 = Infinity;
-			let y0 = Infinity;
-			let x1 = -Infinity;
-			let y1 = -Infinity;
-			for (let i = 0; i < path.n; i++) {
-				const x = path.xy[2 * i] ?? 0;
-				const y = path.xy[2 * i + 1] ?? 0;
-				x0 = Math.min(x0, x);
-				y0 = Math.min(y0, y);
-				x1 = Math.max(x1, x);
-				y1 = Math.max(y1, y);
-			}
-			const pad = theme.linkWidthHover + theme.arrowSize + 2;
-			note(f, x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad);
-		}
+	if (inRange(state.focusRow ?? null)) {
+		// Round the selection ring when it is the same row: one ring further out, 3 px wide.
+		const gap = theme.ringGap + (state.focusRow === state.selectedRow ? theme.ringWidth + 1 : 0);
+		outlineAround(f, state.focusRow as number, theme.focus, theme.ringWidth + 1, gap);
+	}
+	for (const link of links) strokeLink(f, link);
+	if (gesture) {
+		paintGestures(
+			f,
+			gesture,
+			state.selectedRow,
+			(r) => r >= first && r < last,
+			(x, y, w, h) => note(f, x, y, w, h),
+		);
 	}
 }
