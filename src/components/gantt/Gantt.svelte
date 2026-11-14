@@ -577,6 +577,7 @@
 						bind:this={grid}
 						renaming={interactions.renaming}
 						onrename={(k) => interactions.startRename(k)}
+						dblclickRenames={!app.inspector.secondTapOpens}
 						onrenamed={(k, n) => void interactions.finishRename(k, n)}
 						oncancelrename={() => interactions.cancelRename()}
 						onkeycmd={(e, k) => interactions.key(e, k)}

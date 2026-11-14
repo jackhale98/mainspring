@@ -89,6 +89,13 @@ test.describe('tap to select, tap again to open (sheet layouts)', () => {
 		await expect(sheet(page).getByLabel('Name', { exact: true })).toHaveValue('Review');
 	});
 
+	test('a quick double tap on a name opens the details, not a rename', async ({ page }, info) => {
+		const rig = await Rig.open(page, info, 'week');
+		await rig.row('task:design.review').getByText('Review', { exact: true }).dblclick();
+		await expect(sheet(page).getByLabel('Name', { exact: true })).toHaveValue('Review');
+		await expect(rig.row('task:design.review').locator('input')).toHaveCount(0);
+	});
+
 	test('a drop selects the dragged task and does not open the sheet', async ({ page }, info) => {
 		const rig = await Rig.open(page, info, 'week');
 		const b = await rig.bar('design.research');
