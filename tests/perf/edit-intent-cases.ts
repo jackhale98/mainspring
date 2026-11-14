@@ -8,13 +8,15 @@
  * intents run on "Fedora+res": Fedora with a global leave, a resource group of two people (one
  * with a leave) after the project block, and `allocate dev` in one leaf. The hints are mapped
  * through that insertion, so the macro-built tasks keep their ids. Every case reports its status
- * (edit, noop or refused); the table in the gate lists them.
+ * (edit, noop or refused); the table in the gate lists them. Phase 3 (T8) adds `clearLeave` (Fedora+res)
+ * and `gapToTask` (Fedora, on one of its `{gaplength}` items).
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { ChangeSet, Text } from '@codemirror/state';
 import { createTimeZoneHost } from '../../src/engine/timezone';
 import type { ScheduleResult } from '../../src/engine/protocol';
+import type { ZoneOffsets } from '../../src/lib/tjp/values/civil';
 import { checkAction, type ActionContext, type GanttAction } from '../../src/lib/gantt/intents';
 import { resolveLinks } from '../../src/lib/gantt/links';
 import { analyseResult } from '../../src/lib/schedule/critical';
@@ -72,12 +74,13 @@ function planOf(
 	files: Record<string, string>,
 	entry: string,
 	hints: EngineHints | undefined,
+	zones?: ZoneOffsets,
 ): Plan {
 	const snap = createWorkspace({ entry, files }).snapshot();
 	return {
 		snap,
-		index: buildIndex(snap, hints, { cache: null }),
-		fresh: () => planOf(files, entry, hints),
+		index: buildIndex(snap, hints, { cache: null, ...(zones ? { zones } : {}) }),
+		fresh: () => planOf(files, entry, hints, zones),
 	};
 }
 
@@ -97,7 +100,7 @@ function fedora(r: ScheduleResult): Plan {
 }
 
 /** Fedora with resources, leaves and one allocation (module comment). */
-function withResources(base: Plan, r: ScheduleResult, leaf: string): Plan {
+function withResources(base: Plan, r: ScheduleResult, leaf: string, zones?: ZoneOffsets): Plan {
 	const files = textsOf(base.snap);
 	const text = files[ENTRY] ?? '';
 	const afterProject = text.indexOf('\n}\n', text.indexOf('\nproject ')) + 3;
@@ -119,7 +122,7 @@ function withResources(base: Plan, r: ScheduleResult, leaf: string): Plan {
 			: l > before.lines
 				? null
 				: after.lineAt(changes.mapPos(before.line(l).from, 1)).number;
-	return planOf(files, ENTRY, hintsFromResult(r, mapLine));
+	return planOf(files, ENTRY, hintsFromResult(r, mapLine), zones);
 }
 
 /** 'edit', 'noop already-set' or 'refused cycle'. */
@@ -168,11 +171,20 @@ export function fedoraCases(): TimingCase[] {
 	if (!dep?.succ || !dep.pred || !parent || !other || !a || !b || !c || !flagged) {
 		throw new Error('Fedora shape');
 	}
+	// A `depends` item with a gap (Fedora writes `{gaplength 5d}`), for gapToTask.
+	const gapped = fed.index.dependencies.find((d) => {
+		const text = fed.snap.files.get(d.item.file)?.text.sliceString(d.item.from, d.item.to) ?? '';
+		return d.form === 'depends' && d.succ && d.pred && /\bgaplength\b/.test(text);
+	});
+	if (!gapped?.succ || !gapped.pred) throw new Error('Fedora shape');
 	const sized = leaves.find((t) =>
 		t.attrs.some((x) => x.keyword === 'length' || x.keyword === 'duration'),
 	);
 	if (!sized) throw new Error('Fedora shape');
 	const res = withResources(fed, r, a.id);
+	// clearLeave compares instants, so it needs the zone data the app indexes with (Fedora sets a
+	// time zone); without it the intent stops at once (`unsupported-form`).
+	const resZoned = withResources(fed, r, a.id, createTimeZoneHost());
 	const leave = (scope: 'global' | 'resource') =>
 		res.index.leaves.find((l) => (scope === 'global') === (l.scope.kind === 'global'))?.items[0];
 	const globalLeave = leave('global');
@@ -182,6 +194,7 @@ export function fedoraCases(): TimingCase[] {
 
 	const F = (name: string, i: EditIntent) => intentCase(name, 'Fedora', fed, i);
 	const R = (name: string, i: EditIntent) => intentCase(name, 'Fedora+res', res, i);
+	const RZ = (name: string, i: EditIntent) => intentCase(name, 'Fedora+res', resZoned, i);
 	// Fedora's project header is built by macros, so its project intents are text-only: they run
 	// on the 1,000-task plan instead, which is larger.
 	const scaleSnap = golden('syn-20-scale-1000').snapshot();
@@ -242,6 +255,19 @@ export function fedoraCases(): TimingCase[] {
 			to: { type: 'annual', start: '2013-08-12', end: '2013-08-16' },
 		}),
 		R('removeLeave', { type: 'removeLeave', leave: { item: globalLeave } }),
+		// Phase 3 (T8): a split of dev's leave, and a gap turned into a waiting task.
+		RZ('clearLeave', {
+			type: 'clearLeave',
+			scope: { kind: 'resource', resource: 'dev' },
+			start: '2013-08-07',
+			end: '2013-08-08',
+		}),
+		F('gapToTask', {
+			type: 'gapToTask',
+			task: gapped.succ,
+			target: gapped.pred,
+			name: 'Wait',
+		}),
 	];
 
 	// The Gantt drop path (7.3: planAction, then applyIntent, at most 50 ms on Fedora).
