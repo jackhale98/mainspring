@@ -53,3 +53,4 @@ to the MS Project / OmniPlan style (`route.ts`, `layout.ts`, `labels.ts`, `paint
 Pictures: `screenshots/phase-2/links-<sample>-<device>-<scheme>[-scrolled][-before].png`
 (upstream-tutorial, gantt-manipulation, upstream-fedora-20, gantt-500; desktop at 2x and Pixel 7;
 light and dark), from `tests/e2e/links-screenshots.spec.ts` with `SCREENSHOTS=1`.
+| 11 | User, 2026-11-14 | **Add predecessors and successors from the task details,** not only by drawing on the chart. "Waits for" and "Followed by" get an Add button that opens a searchable task picker (by name or id). | `src/components/inspector/**` | Reuse the `addDepends` intent through the dispatcher (same refusals: loops, self, ancestors; same toast and undo). The picker is a combobox with keyboard support and 44 px rows on a phone. |
