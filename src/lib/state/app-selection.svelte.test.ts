@@ -46,6 +46,26 @@ const MACRO: Sample = {
 		}),
 };
 
+const NEST: Sample = {
+	id: 'nest' as Sample['id'],
+	label: 'nest',
+	load: () =>
+		Promise.resolve({
+			entry: 'plan.tjp',
+			files: {
+				'plan.tjp': [
+					'project p "P" 2026-01-05 +1m',
+					'task a "A" {',
+					'  task a1 "A1" {',
+					'    task a2 "A2" { effort 1d }',
+					'  }',
+					'}',
+					'',
+				].join('\n'),
+			},
+		}),
+};
+
 let app: AppState | null = null;
 afterEach(() => {
 	app?.dispose();
@@ -55,7 +75,7 @@ afterEach(() => {
 
 async function open(id = 'one'): Promise<{ app: AppState; client: FakeEngineClient }> {
 	const client = new FakeEngineClient();
-	app = new AppState({ client, samples: [SAMPLE, MACRO], initial: id, keyTarget: null });
+	app = new AppState({ client, samples: [SAMPLE, MACRO, NEST], initial: id, keyTarget: null });
 	await flush();
 	client.done(1, {
 		tasks: id === 'one' ? [task('a', 2, 600), task('b', 5, 1500), task('g', 9, 2000)] : [],
@@ -89,6 +109,30 @@ describe('text to visual', () => {
 		app.cursorMoved('plan.tjp', text(app).indexOf('effort 2d'));
 		expect(app.selection.follow).toBe(follow);
 		expect(app.selection.current).toBe(current);
+	});
+});
+
+describe('text to visual: collapsed containers', () => {
+	it('opens the containers above the task the cursor is in, and no others', async () => {
+		const { app } = await open('nest');
+		app.toggleNode('task:a');
+		app.toggleNode('task:a.a1');
+		expect([...app.collapsed].sort()).toEqual(['task:a', 'task:a.a1']);
+		app.cursorMoved('plan.tjp', text(app).indexOf('task a2') + 2);
+		expect(app.selectedTask).toBe('task:a.a1.a2');
+		expect(app.collapsed.size).toBe(0);
+		// A cursor that stays in the task changes nothing, and a collapse is the user's again.
+		app.toggleNode('task:a');
+		app.cursorMoved('plan.tjp', text(app).indexOf('effort 1d'));
+		expect(app.collapsed.has('task:a')).toBe(true);
+	});
+
+	it('forgets the follow request once a visual selects', async () => {
+		const { app } = await open();
+		app.cursorMoved('plan.tjp', text(app).indexOf('depends a'));
+		expect(app.selection.follow).not.toBeNull();
+		app.selectTask('task:a');
+		expect(app.selection.follow).toBeNull();
 	});
 });
 
@@ -198,6 +242,33 @@ describe('renames', () => {
 		}
 		await flush();
 		expect(app.selectedTask).toBe('task:g.b');
+		// Undo moves the task back and the selection with it; redo moves both forward again.
+		expect(app.history.undo()).toBe(true);
+		expect(app.selectedTask).toBe('task:b');
+		expect(app.selection.current).toMatchObject({ kind: 'task', id: 'b', origin: 'visual' });
+		expect(app.history.redo()).toBe(true);
+		expect(app.selectedTask).toBe('task:g.b');
+	});
+
+	it('follows a descendant of a moved task, and leaves other selections alone, through undo', async () => {
+		const { app } = await open();
+		const edits = app.edits;
+		if (!edits) throw new Error('no dispatcher');
+		await edits.dispatch(
+			{ type: 'moveTask', task: 'b', parent: 'g', index: 0 },
+			{ label: { text: 'Move Beta', approx: false } },
+		);
+		flushSync();
+		// Select something the move does not touch: undo leaves it be.
+		app.selectTask('task:a');
+		app.history.undo();
+		expect(app.selectedTask).toBe('task:a');
+		app.history.redo();
+		expect(app.selectedTask).toBe('task:a');
+		// A link between a moved task and another follows both ends.
+		app.inspector.showLink('g.b', 'a');
+		app.history.undo();
+		expect(app.inspector.link).toEqual({ pred: 'b', succ: 'a' });
 	});
 });
 

@@ -57,6 +57,7 @@ import {
 	workspaceDispatch,
 } from '../tjp/cm';
 import type { TjpDiagnostic } from '../tjp/diagnostics';
+import { TYPING_PAUSE_MS } from '../workspace/run-types';
 import type { ChangeInfo, Workspace } from '../workspace/workspace';
 import type { SourceMark } from './selection.svelte';
 
@@ -83,8 +84,12 @@ export function chainOf(
 	return null;
 }
 
-/** How long typing must pause before the cursor's task is looked up. */
-export const TYPING_QUIET_MS = 120;
+/**
+ * How long typing must pause before the cursor's task is looked up: a little longer than the
+ * pause after which the runner's index follows the text, so the lookup usually has a fresh index
+ * (it is correct on a lagging one too, `taskAtCursor`).
+ */
+export const TYPING_QUIET_MS = TYPING_PAUSE_MS + 30;
 
 export interface EditorControllerOptions {
 	/** The cursor's place after the user moved it or typed (module comment). */
@@ -258,7 +263,8 @@ export class EditorController {
 			this.#highlighted = null;
 		}
 		if (!m) return;
-		if (m.scroll && m.file !== this.#shown) {
+		// The file under a focused editor is not switched away from by a selection.
+		if (m.scroll && m.file !== this.#shown && !this.view.hasFocus) {
 			this.#restore++;
 			this.show(m.file, { restoreScroll: false });
 		}

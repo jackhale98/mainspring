@@ -105,6 +105,16 @@ describe('the cursor', () => {
 		expect(ctl.view.state.selection.main).toMatchObject({ from: m.cursor?.from, to: m.cursor?.to });
 	});
 
+	it('does not switch the file under a focused editor, and still marks the other file', () => {
+		focused(ctl.view, true);
+		ctl.mark({ file: 'x.tji', from: 0, to: 24, scroll: true, cursor: { from: 0, to: 4 } });
+		expect(ctl.shown).toBe('plan.tjp');
+		expect(ctl.view.state.selection.main.head).toBe(0);
+		focused(ctl.view, false);
+		ctl.show('x.tji');
+		expect(lit()).toEqual(['task c "C" { effort 1d }']);
+	});
+
 	it('stays where it is while the editor has the focus, and when a mark only moves the highlight', () => {
 		ctl.view.dispatch({ selection: { anchor: 3 } });
 		focused(ctl.view, true);

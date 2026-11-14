@@ -57,7 +57,7 @@ import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { currentRange } from '../inspector/range';
 import type { SourceRange, TaskId } from '../tjp/index';
 import { nextProblem } from './diagnostics-nav';
-import { EditDispatcher } from './edits.svelte';
+import { EditDispatcher, movedId } from './edits.svelte';
 import { HistoryControls } from './history-controls.svelte';
 import { InspectorState } from './inspector.svelte';
 import { bindHistoryKeys } from './history-keys';
@@ -394,6 +394,16 @@ export class AppState {
 			return;
 		}
 		const files = Object.keys(o.entry.applied.edit.changes);
+		// A move renames the task (and its descendants): the selection follows it back on undo and
+		// forward again on redo (the dispatcher's `pending.renames` only covers the move itself).
+		const intent = o.entry.applied.edit.intent;
+		if (intent.type === 'moveTask') {
+			const to = movedId(intent.task, intent.parent);
+			if (to !== intent.task) {
+				const [from, next] = o.direction === 'undo' ? [to, intent.task] : [intent.task, to];
+				this.selection.followRenames(new Map([[from, next]]));
+			}
+		}
 		const here = o.entry.kind === 'typing' && files.length === 1 && files[0] === this.activeFile;
 		const r = o.reveal;
 		// The keyboard focus stays where it is; a phone stays on its tab.
@@ -454,7 +464,19 @@ export class AppState {
 		const ws = this.workspace;
 		if (!run || !ws) return;
 		const id: TaskId | null = taskAtCursor(run, ws, file, pos);
-		if (id !== null) this.selection.selectTask(id, 'text');
+		if (id === null || !this.selection.selectTask(id, 'text')) return;
+		this.#expandAround(id);
+	}
+
+	/** Opens the collapsed containers above a task, so that its row exists to be shown (6.10). */
+	#expandAround(id: TaskId): void {
+		const next = new Set(this.collapsed);
+		let key = this.outline.byKey.get(`task:${id}`)?.parent ?? null;
+		for (let n = 0; key !== null && n < 1000; n++) {
+			next.delete(key);
+			key = this.outline.byKey.get(key)?.parent ?? null;
+		}
+		if (next.size !== this.collapsed.size) this.collapsed = next;
 	}
 
 	/** The selection changed: show it in the editor (a visual's) or let the text's be (module comment). */
@@ -467,7 +489,11 @@ export class AppState {
 	#onIndex(): void {
 		this.#remark();
 		const ed = this.editor;
-		if (ed?.hasFocus) this.cursorMoved(this.activeFile, ed.state.selection.main.head);
+		// The cursor is the truth only while the user is in the editor and no visual selection is
+		// being shown there (it would take the selection back from the visual that made it).
+		if (ed?.hasFocus && this.selection.current?.origin !== 'visual') {
+			this.cursorMoved(this.activeFile, ed.state.selection.main.head);
+		}
 	}
 
 	/** Where a selection's source is in the text now. */
@@ -500,7 +526,8 @@ export class AppState {
 		const same =
 			prev !== null && prev.file === block.file && prev.from === block.from && prev.to === block.to;
 		if (!scroll && same) return;
-		if (scroll) this.openFile(block.file);
+		// Another file is shown only when the user is not typing in the editor.
+		if (scroll && !this.editor?.hasFocus) this.openFile(block.file);
 		this.sourceMark = {
 			file: block.file,
 			from: block.from,

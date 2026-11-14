@@ -98,6 +98,36 @@ describe('taskAtCursor', () => {
 		expect(find(at('task c') + 1)).toBe('c');
 	});
 
+	it('does not name a task that was deleted, or its neighbour', () => {
+		const find = (pos: number) => taskAtCursor(run(), h.ws, 'plan.tjp', pos);
+		// Delete b and its supplement, from the line start of `task b` to the resource that follows.
+		const from = at('task b "B"');
+		const to = at('resource r');
+		h.ws.commit('plan.tjp', h.ws.state('plan.tjp').update({ changes: { from, to } }), 'typing');
+		expect(run().indexVersion).toBeLessThan(run().version);
+		// Where b began is now the resource: no task, and neither b nor c.
+		expect(find(from)).toBeNull();
+		expect(find(from + 3)).toBeNull();
+		expect(find(at('task c') + 1)).toBe('c');
+		expect(find(at('task a1') + 1)).toBe('a.a1');
+	});
+
+	it('does not give a task typed at the start of a line to the task that was there', () => {
+		const start = at('task c "C"');
+		h.type('task n "N" { effort 1d }\n', start);
+		const find = (pos: number) => taskAtCursor(run(), h.ws, 'plan.tjp', pos);
+		const fresh = {
+			...run(),
+			index: h.runner.ensureIndex(),
+			indexVersion: h.ws.snapshot().version,
+		};
+		expect(fresh.index.tasks.has('n')).toBe(true);
+		// The new task is not in the lagging index: its text names no task (not c), and c's own text
+		// still does.
+		expect(find(start + 2)).toBeNull();
+		expect(find(at('task c "C"') + 2)).toBe('c');
+	});
+
 	it('answers null when the changes since the index are no longer kept', () => {
 		const gone = {
 			changesSince: () => {
@@ -105,6 +135,30 @@ describe('taskAtCursor', () => {
 			},
 		};
 		expect(taskAtCursor(run(), gone, 'plan.tjp', at('effort 2d'))).toBeNull();
+	});
+});
+
+describe('taskAtCursor in an included file', () => {
+	it('maps per file: text typed at the top of the include moves only its positions', async () => {
+		const files = {
+			'plan.tjp': 'project p "P" 2026-01-05 +1m\ntask a "A" { effort 1d }\ninclude "sub.tji"\n',
+			'sub.tji': 'task s "S" {\n  effort 1d\n}\ntask t "T" { effort 1d }\n',
+		};
+		const hh = harness({ entry: 'plan.tjp', files });
+		try {
+			await hh.finish({ tasks: [task('a', 2, 600), task('s', 4, 700), task('t', 5, 800)] });
+			hh.type('# hi\n', 0, 'sub.tji');
+			const text = hh.text('sub.tji');
+			const find = (file: string, pos: number) => taskAtCursor(hh.runner.state, hh.ws, file, pos);
+			expect(hh.runner.state.indexVersion).toBeLessThan(hh.runner.state.version);
+			expect(find('sub.tji', text.indexOf('effort 1d'))).toBe('s');
+			expect(find('sub.tji', text.indexOf('task t') + 1)).toBe('t');
+			expect(find('sub.tji', 2)).toBeNull();
+			// The other file did not change: its positions are the index's own.
+			expect(find('plan.tjp', files['plan.tjp'].indexOf('effort'))).toBe('a');
+		} finally {
+			hh.dispose();
+		}
 	});
 });
 

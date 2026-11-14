@@ -10,9 +10,9 @@
  *
  * The text side is two pure functions over the runner's state and the workspace:
  * - `taskAtCursor`: the task whose declaration or supplement holds a position of the text now.
- *   The index may be older than the text (typing, an edit whose result has not come back), so the
- *   position is mapped back to the index's version through `changesSince(indexVersion).invertedDesc`
- *   before it is looked up.
+ *   The index may be older than the text (typing, an edit whose result has not come back), so each
+ *   declaration's block is mapped forward through `changesSince(indexVersion)` into the text now
+ *   and matched against the position (a deleted declaration never matches).
  * - `sourceOf` (and `linkSource`): a task's declaration block (or a link's `depends` statement) in
  *   the text now, mapped forward through `changesSince(indexVersion)` (inspector/range.ts is the
  *   same rule). A task the index cannot name falls back to its engine source line.
@@ -55,13 +55,16 @@ export interface Place {
 	readonly at: SourceRange;
 }
 
-const within = (r: SourceRange, file: WorkspacePath, pos: number): boolean =>
-	r.file === file && r.from <= pos && pos <= r.to;
-
 /**
  * The task whose declaration (or supplement) holds `pos` of `file` in the text now, using an index
  * that may lag the text. Null when the position is in no task, or cannot be mapped (the changes
  * since the index are no longer kept).
+ *
+ * Each declaration's block is mapped forward into the text now (as `sourceOf` does) and the
+ * smallest one around `pos` wins. Mapping the cursor back instead would send a position on the
+ * edge of an insertion or deletion to the start of a block that begins there, and so name a task
+ * that was deleted or a neighbour. A declaration whose header was deleted is gone from the text
+ * and never matches.
  */
 export function taskAtCursor(
 	run: Pick<RunView, 'index' | 'indexVersion'>,
@@ -69,29 +72,25 @@ export function taskAtCursor(
 	file: WorkspacePath,
 	pos: number,
 ): TaskId | null {
-	let old = pos;
+	let changes;
 	try {
-		const changes = ws.changesSince(run.indexVersion).get(file);
-		if (changes) old = changes.invertedDesc.mapPos(pos, -1);
+		changes = ws.changesSince(run.indexVersion).get(file);
 	} catch {
 		return null;
 	}
-	const { index } = run;
-	const hit = index.symbolAt(file, old);
-	if (hit?.kind === 'task') return index.tasks.has(hit.id) ? hit.id : null;
-	if (hit?.kind === 'resource') return null;
-	if (hit?.kind === 'supplement' && hit.target !== null && index.tasks.has(hit.target)) {
-		return hit.target;
-	}
-	// A reference, a macro call or an unresolved supplement: the smallest declaration around it.
 	let best: TaskId | null = null;
 	let size = Infinity;
-	for (const sym of index.tasks.values()) {
+	for (const sym of run.index.tasks.values()) {
 		for (const site of [sym.decl, ...sym.supplements]) {
 			const b = site.block;
-			if (within(b, file, old) && b.to - b.from < size) {
+			if (b.file !== file) continue;
+			const head = site.header;
+			if (changes && changes.mapPos(head.from, 1) >= changes.mapPos(head.to, -1)) continue;
+			const from = changes ? changes.mapPos(b.from, 1) : b.from;
+			const to = changes ? changes.mapPos(b.to, -1) : b.to;
+			if (from <= pos && pos <= to && to - from < size) {
 				best = sym.id;
-				size = b.to - b.from;
+				size = to - from;
 			}
 		}
 	}
@@ -238,12 +237,15 @@ export class SelectionState {
 		if (origin === 'text') {
 			if (cur?.kind === 'task' && cur.id === id) return false;
 			this.follow = { key: `task:${id}`, nonce: ++this.#nonce };
+		} else {
+			this.follow = null;
 		}
 		this.#set({ kind: 'task', id, origin });
 		return true;
 	}
 
 	selectLink(pred: TaskId, succ: TaskId): void {
+		this.follow = null;
 		this.#set({ kind: 'link', pred, succ, origin: 'visual' });
 	}
 

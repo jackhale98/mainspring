@@ -323,14 +323,17 @@
 
 	// Text to visual (phase-2.md 6.10): the cursor moved into another task in the text. Its row and
 	// bar scroll into view, without taking the focus. The request is read once, when the chart is
-	// on screen (a hidden chart has no height), and does nothing for a row that is not drawn.
+	// on screen (a hidden chart has no height) and its row exists; a selection from a visual or a
+	// newer one replaces it (selection.svelte.ts).
 	let followed = 0;
 	$effect(() => {
 		const f = app.selection.follow;
 		if (!f || f.nonce === followed || !scroller || viewH <= 0) return;
-		followed = f.nonce;
+		// A row that is not there yet (a task just added, its index not in) keeps the request.
 		const i = model.rowOf.get(f.key);
-		if (i !== undefined) untrack(() => followRow(i));
+		if (i === undefined) return;
+		followed = f.nonce;
+		untrack(() => followRow(i));
 	});
 	function followRow(index: number): void {
 		const row = model.rows[index];

@@ -236,6 +236,18 @@ test.describe('selection sync', () => {
 			.poll(async () => (await litText(page))[0], { timeout: READY_TIMEOUT_MS })
 			.toBe('task docs "Write docs" {');
 		await expect(lit(page).first()).toBeInViewport();
+		// Undo moves the task back, and the selection with it; redo moves both on again.
+		await tab(page, info, 'Gantt');
+		await page.keyboard.press('Control+z');
+		await expect(row(page, 'Write docs')).toHaveAttribute('data-key', 'task:design.docs', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(row(page, 'Write docs')).toHaveAttribute('aria-selected', 'true');
+		await page.keyboard.press('Control+y');
+		await expect(row(page, 'Write docs')).toHaveAttribute('data-key', 'task:docs', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(row(page, 'Write docs')).toHaveAttribute('aria-selected', 'true');
 	});
 
 	test('the toast Show in Visual mode opens the source sheet', async ({ page }, info) => {
