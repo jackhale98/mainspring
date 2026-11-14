@@ -845,7 +845,7 @@ The gate also records:
 14. **"Calendar: holidays, leaves and milestones by month"** does not say whose leaves. The spec adds a scope picker (Everyone, or one person).
 15. **Real-device performance.** The plan's budgets assume a mid-range phone. Phase 3 judges phones under emulation, following the Phase 2 waiver (8.5, 18.14).
 
-## Appendix A: ADR-0013 stub (for T1; `docs-writer` formats)
+## Appendix A: ADR-0013 stub (accepted; see docs/decisions/0013-authoring-on-phones.md)
 
 **ADR-0013: Authoring on phones.** Status: proposed, 2026-11-14; needs the user's approval (out-of-phase scope).
 
@@ -858,7 +858,7 @@ The gate also records:
 
 *Consequences.* The track runs early in Phase 3, before the workload work, and is small. No new intent or storage is added. Preferences for new plans share the key `new`. Phase 4 adds saving a new plan to a folder or repository.
 
-## Appendix B: ADR-0014 stub (for T1)
+## Appendix B: ADR-0014 stub (accepted; see docs/decisions/0014-resource-data-and-workload-semantics.md)
 
 **ADR-0014: Resource data and workload semantics.** Status: proposed, 2026-11-14.
 
