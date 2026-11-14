@@ -842,7 +842,10 @@ export const strings = {
 			/** "Plan status: Scheduled, 3 warnings. A new version is available. Engine and scheduler details" */
 			name: (state: string, problems: string | null, updateAvailable: boolean) =>
 				[
-					`Plan status: ${[state, problems].filter((p) => p !== null).join(', ')}.`,
+					`Plan status: ${[state, problems].filter((p) => p !== null).join(', ')}`.replace(
+						/([^.…])$/,
+						'$1.',
+					),
 					updateAvailable ? 'A new version is available.' : null,
 					'Engine and scheduler details',
 				]

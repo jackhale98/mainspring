@@ -107,7 +107,9 @@ describe('the phone status button', () => {
 		expect(button.getAttribute('popovertarget')).toBe(
 			target.querySelector('[popover]')?.getAttribute('id'),
 		);
-		expect(button.getAttribute('aria-label')).toMatch(/^Plan status: Starting the scheduler/);
+		// No plan yet: the name follows the engine's own state, here ready (review L1).
+		expect(button.getAttribute('aria-label')).toMatch(/^Plan status: Ready\. /);
+		expect(button.getAttribute('aria-label')).not.toContain('….');
 	});
 });
 

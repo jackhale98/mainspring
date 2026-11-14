@@ -4,6 +4,10 @@
 	with floating rounded panels on it, and a top bar on the canvas itself. It is as tall as the
 	viewport and never scrolls as a page: only the panels inside scroll (see layouts/Base.astro).
 
+	Over 400 lines: it is the one place that wires every layout (phone, tablet, desktop), the
+	details dock and drawer, the toasts' room and the phone tabs together; splitting it would
+	scatter that wiring across files that only make sense together.
+
 	Modes (Text, Split, Visual) are per sample and remembered (src/lib/state/mode.svelte.ts);
 	Cmd or Ctrl and 1, 2, 3 switch from anywhere. Text on a desktop shows the outline beside the
 	editor; tablets put the outline in a drawer. Split shows the editor and the Gantt side by side

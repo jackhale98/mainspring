@@ -212,6 +212,8 @@ describe('statusGlyph (the phone status button)', () => {
 
 	it('ticks while the scheduler starts or works, and before there is a status', () => {
 		expect(statusGlyph(null)).toBe('busy');
+		expect(statusGlyph(null, 'idle')).toBe('busy');
+		expect(statusGlyph(null, 'failed')).toBe('error');
 		expect(statusGlyph(v('booting'))).toBe('busy');
 		expect(statusGlyph(v('idle'))).toBe('busy');
 		expect(statusGlyph(v('scheduling', 2, 1))).toBe('busy');

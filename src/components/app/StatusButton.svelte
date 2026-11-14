@@ -27,12 +27,12 @@
 
 	const id = $props.id();
 	const s = $derived(app.status);
-	const glyph = $derived(statusGlyph(s));
+	const glyph = $derived(statusGlyph(s, app.engine));
 	const problems = $derived(s ? s.errors + s.warnings : 0);
 	const available = $derived(updates?.status === 'available');
 	const name = $derived(
 		strings.status.button.name(
-			s?.label ?? strings.status.engineStarting,
+			s?.label ?? strings.engine.status[app.engine],
 			s && problems > 0 ? s.counts : null,
 			available,
 		),
@@ -120,7 +120,7 @@
 				</details>
 			{/if}
 		{:else}
-			<p class="state"><StatusGlyph kind={glyph} size={16} />{strings.status.engineStarting}</p>
+			<p class="state"><StatusGlyph kind={glyph} size={16} />{strings.engine.status[app.engine]}</p>
 		{/if}
 		{#if available}
 			<button type="button" class="primary update" onclick={reload} data-testid="update-reload">

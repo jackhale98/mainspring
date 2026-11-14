@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import type { EngineState } from '../../engine/client';
 /**
  * What the status strip and the Plan summary show (phase-1.md 8.2), computed from the runner's
  * state as plain data: the scheduler's state, the finish date in the project's time zone and its
@@ -202,8 +203,10 @@ export type StatusGlyph = 'busy' | 'ok' | 'warning' | 'error';
 
 export function statusGlyph(
 	v: Pick<StatusView, 'kind' | 'errors' | 'warnings' | 'failure'> | null,
+	engine?: EngineState,
 ): StatusGlyph {
-	if (!v) return 'busy';
+	// Before any plan has a status, the engine's own state decides: a failed engine is a diamond.
+	if (!v) return engine === 'failed' ? 'error' : 'busy';
 	if (v.failure !== null || v.kind === 'failed') return 'error';
 	if (v.kind === 'booting' || v.kind === 'idle' || v.kind === 'scheduling') return 'busy';
 	if (v.kind === 'errors' || v.errors > 0) return 'error';
