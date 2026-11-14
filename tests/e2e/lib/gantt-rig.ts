@@ -56,9 +56,14 @@ export class Rig {
 	}
 
 	/** Opens the sample in Visual mode (the phone's Gantt tab), ready and scheduled. */
-	static async open(page: Page, info: TestInfo, zoom?: 'day' | 'week' | 'month'): Promise<Rig> {
+	static async open(
+		page: Page,
+		info: TestInfo,
+		zoom?: 'day' | 'week' | 'month',
+		sample = 'gantt-manipulation',
+	): Promise<Rig> {
 		const rig = new Rig(page, info);
-		await page.goto('/app?sample=gantt-manipulation&mode=visual&hooks=edits,gantt');
+		await page.goto(`/app?sample=${sample}&mode=visual&hooks=edits,gantt`);
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 			timeout: READY_TIMEOUT_MS,
 		});
@@ -70,7 +75,7 @@ export class Rig {
 		return rig;
 	}
 
-	async zoom(level: 'day' | 'week' | 'month'): Promise<void> {
+	async zoom(level: 'day' | 'week' | 'month' | 'quarter'): Promise<void> {
 		await this.page.getByLabel('Zoom').selectOption(level);
 		await expect(this.page.getByTestId('gantt')).toHaveAttribute('data-zoom', level);
 		await this.page.waitForTimeout(400);

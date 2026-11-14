@@ -1,0 +1,152 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Manual frame meter for the Gantt (phase-2.md 8.5; T22): /dev/gantt-perf, routed only when
+// MAINSPRING_DEV_PAGES=1 (scripts/astro-dev-pages.mjs). The app runs in a same-origin frame below
+// a strip that counts requestAnimationFrame intervals on this page, which a fling in the frame
+// drives (one renderer, one frame clock). Plain text is fine here; it is not user-facing.
+//   /dev/gantt-perf?sample=gantt-500&mode=visual     (these are the defaults)
+// Idle frames count as on time, so press Reset just before a fling, keep the fling going for
+// several seconds, and press Hold when it ends.
+// Pass criterion (18.7): at least 95% of frames on time (up to 20 ms) and none over 50 ms.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>Gantt frame meter</title>
+		<style>
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+				font: 13px/1.3 system-ui, sans-serif;
+				background: #fff;
+				color: #111;
+			}
+			body {
+				display: flex;
+				flex-direction: column;
+			}
+			#meter {
+				display: grid;
+				grid-template-columns: repeat(4, auto) 1fr;
+				gap: 2px 12px;
+				align-items: center;
+				padding: 6px 8px;
+				background: #eef;
+				border-bottom: 1px solid #99c;
+				font-variant-numeric: tabular-nums;
+			}
+			#verdict {
+				font-weight: 700;
+			}
+			#verdict[data-pass='true'] {
+				color: #060;
+			}
+			#verdict[data-pass='false'] {
+				color: #a00;
+			}
+			button {
+				min-width: 44px;
+				min-height: 44px;
+			}
+			iframe {
+				flex: 1;
+				border: 0;
+				width: 100%;
+			}
+			@media (prefers-color-scheme: dark) {
+				html,
+				body {
+					background: #111;
+					color: #eee;
+				}
+				#meter {
+					background: #223;
+					border-color: #668;
+				}
+				#verdict[data-pass='true'] {
+					color: #6d6;
+				}
+				#verdict[data-pass='false'] {
+					color: #f88;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="meter" data-testid="meter">
+			<span>fps <b id="fps">-</b></span>
+			<span>median <b id="median">-</b> ms</span>
+			<span>p95 <b id="p95">-</b> ms</span>
+			<span>max <b id="max">-</b> ms</span>
+			<span id="verdict" data-testid="verdict" data-pass="">-</span>
+			<span>on time <b id="ontime">-</b>%</span>
+			<span>over 50 ms <b id="over50">-</b></span>
+			<span>frames <b id="frames">-</b></span>
+			<span>long frames <b id="loaf">-</b></span>
+			<span>
+				<button id="reset" type="button">Reset</button>
+				<button id="hold" type="button">Hold</button>
+			</span>
+		</div>
+		<iframe id="app" title="Mainspring" data-testid="app-frame"></iframe>
+		<script>
+			import { FrameMeter } from '../../lib/perf/frame-meter';
+
+			const params = new URLSearchParams(location.search);
+			const sample = params.get('sample') ?? 'gantt-500';
+			const mode = params.get('mode') ?? 'visual';
+			const frame = document.getElementById('app') as HTMLIFrameElement;
+			const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/app/`;
+			frame.src = `${base}?sample=${encodeURIComponent(sample)}&mode=${encodeURIComponent(mode)}`;
+
+			const meter = new FrameMeter();
+			meter.start();
+			let loaf = 0;
+			try {
+				new PerformanceObserver((list) => (loaf += list.getEntries().length)).observe({
+					type: 'long-animation-frame',
+					buffered: false,
+				});
+			} catch {
+				// Not supported: the count stays 0.
+			}
+			const set = (id: string, text: string): void => {
+				const el = document.getElementById(id);
+				if (el) el.textContent = text;
+			};
+			let held = false;
+			const show = (): void => {
+				if (held) return;
+				const s = meter.summary();
+				const recent = s.frames;
+				set('fps', s.medianMs > 0 ? (1000 / s.medianMs).toFixed(0) : '-');
+				set('median', s.medianMs.toFixed(1));
+				set('p95', s.p95Ms.toFixed(1));
+				set('max', s.maxMs.toFixed(1));
+				set('ontime', s.onTimePct.toFixed(1));
+				set('over50', String(s.over50));
+				set('frames', String(recent));
+				set('loaf', String(loaf));
+				const v = document.getElementById('verdict');
+				if (v) {
+					v.dataset.pass = String(s.pass);
+					v.textContent = s.pass ? 'pass' : 'not yet';
+				}
+			};
+			setInterval(show, 250);
+			document.getElementById('reset')?.addEventListener('click', () => {
+				meter.reset();
+				loaf = 0;
+			});
+			document.getElementById('hold')?.addEventListener('click', (e) => {
+				held = !held;
+				(e.currentTarget as HTMLElement).textContent = held ? 'Resume' : 'Hold';
+			});
+		</script>
+	</body>
+</html>

@@ -4,7 +4,10 @@
 // routing ignores them; this integration injects them.
 
 /** Routes of the dev pages: URL pattern and entrypoint. */
-export const DEV_PAGES = [{ pattern: '/dev/engine', entrypoint: './src/pages/dev/_engine.astro' }];
+export const DEV_PAGES = [
+	{ pattern: '/dev/engine', entrypoint: './src/pages/dev/_engine.astro' },
+	{ pattern: '/dev/gantt-perf', entrypoint: './src/pages/dev/_gantt-perf.astro' },
+];
 
 /**
  * @param {{ MAINSPRING_DEV_PAGES?: string | undefined }} [env]
