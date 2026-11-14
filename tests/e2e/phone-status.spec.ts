@@ -77,6 +77,37 @@ test.describe('the phone status button', () => {
 		expect(gap).toBeLessThanOrEqual(10);
 	});
 
+	test('with the footer gone the chart still keeps room for the details sheet', async ({
+		page,
+	}) => {
+		await open(page);
+		await page
+			.getByTestId('gantt')
+			.locator('[role="row"][data-key]')
+			.filter({ hasText: 'Graphical User Interface' })
+			.first()
+			.click();
+		const sheet = page.locator('dialog.sheet[open]');
+		await expect(sheet).toBeVisible();
+		// The sheet reports its settled height (not where it is drawn while it slides in), so the
+		// chart's scroll range reaches past it: the last row can be scrolled clear above it.
+		await expect
+			.poll(
+				async () =>
+					page.evaluate(() => {
+						const top =
+							document.querySelector('dialog.sheet[open]')?.getBoundingClientRect().top ?? 0;
+						const scroller = document.querySelector<HTMLElement>('#panel-gantt .scroller');
+						if (!scroller) return Infinity;
+						scroller.scrollTop = scroller.scrollHeight;
+						const rows = [...document.querySelectorAll('#panel-gantt [role="row"][data-key]')];
+						return (rows.at(-1)?.getBoundingClientRect().bottom ?? Infinity) - top;
+					}),
+				{ timeout: 5_000 },
+			)
+			.toBeLessThanOrEqual(1);
+	});
+
 	test('the button is 44 px, says the state, and opens a popover that is fully on screen', async ({
 		page,
 	}) => {
