@@ -1,0 +1,1350 @@
+{
+  "desktop": {
+    "when": "2026-11-14T12:06:07.485Z",
+    "profile": "desktop",
+    "device": "Desktop Chrome",
+    "cpuThrottle": 1,
+    "browser": "chromium 153.0.8010.12",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "5a652477",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      3.78,
+      3.8,
+      6.69
+    ],
+    "input": "mouse",
+    "inputProbe": [
+      "mouse: 400 px"
+    ],
+    "scrollHeightPx": 20076,
+    "scrollWidthPx": 36089,
+    "rows": "501",
+    "scroll": {
+      "day": [
+        {
+          "frames": 588,
+          "medianMs": 16.7,
+          "p95Ms": 16.8,
+          "maxMs": 33.4,
+          "over50": 0,
+          "onTimePct": 97.8,
+          "loafCount": 0,
+          "loafMaxMs": 0,
+          "pipeline": {
+            "presented": 1149,
+            "dropped": 17,
+            "droppedPct": 1.5,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 1058,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "rafScript": {
+            "count": 1058,
+            "p50Ms": 0,
+            "p95Ms": 1.9,
+            "maxMs": 7.9
+          },
+          "inputLatency": {
+            "count": 0,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "longestTaskMs": 24.7,
+          "loafBreakdown": {
+            "count": 0,
+            "scriptMs": 0,
+            "renderMs": 0,
+            "styleLayoutMs": 0,
+            "blockingMs": 0
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19609
+          }
+        },
+        {
+          "frames": 587,
+          "medianMs": 16.7,
+          "p95Ms": 16.8,
+          "maxMs": 50,
+          "over50": 0,
+          "onTimePct": 98.3,
+          "loafCount": 0,
+          "loafMaxMs": 0,
+          "pipeline": {
+            "presented": 1150,
+            "dropped": 15,
+            "droppedPct": 1.3,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 1057,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "rafScript": {
+            "count": 1057,
+            "p50Ms": 0,
+            "p95Ms": 1.7,
+            "maxMs": 6.2
+          },
+          "inputLatency": {
+            "count": 0,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "longestTaskMs": 36.8,
+          "loafBreakdown": {
+            "count": 0,
+            "scriptMs": 0,
+            "renderMs": 0,
+            "styleLayoutMs": 0,
+            "blockingMs": 0
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19609
+          }
+        },
+        {
+          "frames": 570,
+          "medianMs": 16.7,
+          "p95Ms": 16.8,
+          "maxMs": 33.5,
+          "over50": 0,
+          "onTimePct": 95.3,
+          "loafCount": 0,
+          "loafMaxMs": 0,
+          "pipeline": {
+            "presented": 1123,
+            "dropped": 29,
+            "droppedPct": 2.5,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 1047,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "rafScript": {
+            "count": 1047,
+            "p50Ms": 0,
+            "p95Ms": 2.1,
+            "maxMs": 9.9
+          },
+          "inputLatency": {
+            "count": 0,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "longestTaskMs": 31.6,
+          "loafBreakdown": {
+            "count": 0,
+            "scriptMs": 0,
+            "renderMs": 0,
+            "styleLayoutMs": 0,
+            "blockingMs": 0
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19609
+          }
+        }
+      ],
+      "week": [
+        {
+          "frames": 597,
+          "medianMs": 16.7,
+          "p95Ms": 16.8,
+          "maxMs": 33.4,
+          "over50": 0,
+          "onTimePct": 99.8,
+          "loafCount": 0,
+          "loafMaxMs": 0,
+          "pipeline": {
+            "presented": 1174,
+            "dropped": 3,
+            "droppedPct": 0.3,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 1077,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "rafScript": {
+            "count": 1077,
+            "p50Ms": 0,
+            "p95Ms": 1.3,
+            "maxMs": 4.2
+          },
+          "inputLatency": {
+            "count": 0,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "longestTaskMs": 21.1,
+          "loafBreakdown": {
+            "count": 0,
+            "scriptMs": 0,
+            "renderMs": 0,
+            "styleLayoutMs": 0,
+            "blockingMs": 0
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19609
+          }
+        },
+        {
+          "frames": 587,
+          "medianMs": 16.7,
+          "p95Ms": 16.8,
+          "maxMs": 33.4,
+          "over50": 0,
+          "onTimePct": 97.8,
+          "loafCount": 0,
+          "loafMaxMs": 0,
+          "pipeline": {
+            "presented": 1151,
+            "dropped": 15,
+            "droppedPct": 1.3,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 1061,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "rafScript": {
+            "count": 1061,
+            "p50Ms": 0,
+            "p95Ms": 1.5,
+            "maxMs": 8.7
+          },
+          "inputLatency": {
+            "count": 0,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "longestTaskMs": 34.9,
+          "loafBreakdown": {
+            "count": 0,
+            "scriptMs": 0,
+            "renderMs": 0,
+            "styleLayoutMs": 0,
+            "blockingMs": 0
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19609
+          }
+        },
+        {
+          "frames": 594,
+          "medianMs": 16.7,
+          "p95Ms": 16.8,
+          "maxMs": 33.4,
+          "over50": 0,
+          "onTimePct": 99.3,
+          "loafCount": 0,
+          "loafMaxMs": 0,
+          "pipeline": {
+            "presented": 1170,
+            "dropped": 6,
+            "droppedPct": 0.5,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 1066,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "rafScript": {
+            "count": 1066,
+            "p50Ms": 0,
+            "p95Ms": 1.3,
+            "maxMs": 4
+          },
+          "inputLatency": {
+            "count": 0,
+            "p50Ms": 0,
+            "p95Ms": 0,
+            "maxMs": 0
+          },
+          "longestTaskMs": 41.4,
+          "loafBreakdown": {
+            "count": 0,
+            "scriptMs": 0,
+            "renderMs": 0,
+            "styleLayoutMs": 0,
+            "blockingMs": 0
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19609
+          }
+        }
+      ]
+    },
+    "scrollExtra": {
+      "day": [],
+      "week": []
+    },
+    "criterion18_7": {
+      "definition": "at least 95% of rAF intervals up to 20 ms (16.7 ms plus jitter) and none over 50 ms, in every run",
+      "runs": 6,
+      "passingRuns": 6,
+      "pass": true,
+      "emulation": "desktop, no throttle"
+    },
+    "pan": {
+      "frames": 185,
+      "medianMs": 16.7,
+      "p95Ms": 16.7,
+      "maxMs": 16.8,
+      "over50": 0,
+      "onTimePct": 100,
+      "loafCount": 0,
+      "loafMaxMs": 0,
+      "pipeline": {
+        "presented": 357,
+        "dropped": 1,
+        "droppedPct": 0.3,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 381,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 0
+      },
+      "rafScript": {
+        "count": 381,
+        "p50Ms": 0,
+        "p95Ms": 0.9,
+        "maxMs": 6
+      },
+      "inputLatency": {
+        "count": 0,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 0
+      },
+      "longestTaskMs": 19.2,
+      "loafBreakdown": {
+        "count": 0,
+        "scriptMs": 0,
+        "renderMs": 0,
+        "styleLayoutMs": 0,
+        "blockingMs": 0
+      },
+      "scrolledPx": {
+        "x": 12000,
+        "y": 0
+      }
+    },
+    "zoom": {
+      "frames": 241,
+      "medianMs": 16.7,
+      "p95Ms": 16.8,
+      "maxMs": 33.4,
+      "over50": 0,
+      "onTimePct": 99.6,
+      "loafCount": 0,
+      "loafMaxMs": 0,
+      "pipeline": {
+        "presented": 57,
+        "dropped": 2,
+        "droppedPct": 3.4,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 325,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 3.5
+      },
+      "rafScript": {
+        "count": 325,
+        "p50Ms": 0.1,
+        "p95Ms": 0.1,
+        "maxMs": 4.7
+      },
+      "inputLatency": {
+        "count": 1,
+        "p50Ms": 29.7,
+        "p95Ms": 29.7,
+        "maxMs": 29.7
+      },
+      "longestTaskMs": 18.7,
+      "loafBreakdown": {
+        "count": 0,
+        "scriptMs": 0,
+        "renderMs": 0,
+        "styleLayoutMs": 0,
+        "blockingMs": 0
+      }
+    },
+    "zoomEndedAt": "quarter",
+    "drag3s": {
+      "frames": 993,
+      "medianMs": 16.7,
+      "p95Ms": 16.7,
+      "maxMs": 50,
+      "over50": 0,
+      "onTimePct": 99.7,
+      "loafCount": 1,
+      "loafMaxMs": 60.4,
+      "pipeline": {
+        "presented": 1311,
+        "dropped": 5,
+        "droppedPct": 0.4,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 2353,
+        "p50Ms": 0,
+        "p95Ms": 0.3,
+        "maxMs": 4.3
+      },
+      "rafScript": {
+        "count": 2353,
+        "p50Ms": 0.1,
+        "p95Ms": 0.7,
+        "maxMs": 5.4
+      },
+      "inputLatency": {
+        "count": 189,
+        "p50Ms": 24.2,
+        "p95Ms": 38.2,
+        "maxMs": 45.5
+      },
+      "longestTaskMs": 45.7,
+      "loafBreakdown": {
+        "count": 1,
+        "scriptMs": 46,
+        "renderMs": 3,
+        "styleLayoutMs": 0,
+        "blockingMs": 0
+      },
+      "dropToPaintMs": 70,
+      "dropToRescheduleMs": 4342
+    },
+    "scrollDuringResult": {
+      "frames": 391,
+      "medianMs": 16.7,
+      "p95Ms": 16.7,
+      "maxMs": 33.4,
+      "over50": 0,
+      "onTimePct": 98.7,
+      "loafCount": 0,
+      "loafMaxMs": 0,
+      "pipeline": {
+        "presented": 394,
+        "dropped": 5,
+        "droppedPct": 1.3,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 827,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 1.6
+      },
+      "rafScript": {
+        "count": 827,
+        "p50Ms": 0,
+        "p95Ms": 0.6,
+        "maxMs": 17.6
+      },
+      "inputLatency": {
+        "count": 20,
+        "p50Ms": 23.5,
+        "p95Ms": 35,
+        "maxMs": 35
+      },
+      "longestTaskMs": 40.6,
+      "loafBreakdown": {
+        "count": 0,
+        "scriptMs": 0,
+        "renderMs": 0,
+        "styleLayoutMs": 0,
+        "blockingMs": 0
+      },
+      "scrolledPx": {
+        "x": 0,
+        "y": 4000
+      },
+      "dropToPaintMs": 38,
+      "dropToRescheduleMs": 4531
+    },
+    "loadAverageAtEnd": [
+      2.67,
+      3.37,
+      6.03
+    ]
+  },
+  "pixel-7-4x": {
+    "when": "2026-11-14T12:23:50.911Z",
+    "profile": "pixel-7",
+    "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+    "cpuThrottle": 4,
+    "browser": "chromium 153.0.8010.12",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+    "build": "5a652477",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      2.78,
+      3.56,
+      4.67
+    ],
+    "input": "touch",
+    "inputProbe": [
+      "touch: 417 px"
+    ],
+    "scrollHeightPx": 20064,
+    "scrollWidthPx": 35647,
+    "rows": "501",
+    "scroll": {
+      "day": [
+        {
+          "frames": 1519,
+          "medianMs": 16.7,
+          "p95Ms": 66.7,
+          "maxMs": 116.7,
+          "over50": 150,
+          "onTimePct": 62.5,
+          "loafCount": 75,
+          "loafMaxMs": 95.8,
+          "pipeline": {
+            "presented": 1744,
+            "dropped": 1112,
+            "droppedPct": 38.9,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 2029,
+            "p50Ms": 0,
+            "p95Ms": 0.6,
+            "maxMs": 10.4
+          },
+          "rafScript": {
+            "count": 2029,
+            "p50Ms": 0.1,
+            "p95Ms": 6.2,
+            "maxMs": 19.6
+          },
+          "inputLatency": {
+            "count": 540,
+            "p50Ms": 42.8,
+            "p95Ms": 86.2,
+            "maxMs": 166.3
+          },
+          "longestTaskMs": 117.4,
+          "loafBreakdown": {
+            "count": 75,
+            "scriptMs": 2219,
+            "renderMs": 2840,
+            "styleLayoutMs": 535,
+            "blockingMs": 172
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 18977
+          }
+        },
+        {
+          "frames": 1496,
+          "medianMs": 16.7,
+          "p95Ms": 50.1,
+          "maxMs": 316.7,
+          "over50": 109,
+          "onTimePct": 64.3,
+          "loafCount": 37,
+          "loafMaxMs": 86.4,
+          "pipeline": {
+            "presented": 1727,
+            "dropped": 1004,
+            "droppedPct": 36.8,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 2000,
+            "p50Ms": 0,
+            "p95Ms": 0.6,
+            "maxMs": 4.6
+          },
+          "rafScript": {
+            "count": 2000,
+            "p50Ms": 0.1,
+            "p95Ms": 6.5,
+            "maxMs": 27.2
+          },
+          "inputLatency": {
+            "count": 540,
+            "p50Ms": 40.1,
+            "p95Ms": 73.7,
+            "maxMs": 319.9
+          },
+          "longestTaskMs": 319.7,
+          "loafBreakdown": {
+            "count": 37,
+            "scriptMs": 971,
+            "renderMs": 1254,
+            "styleLayoutMs": 229,
+            "blockingMs": 27
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 18846
+          }
+        },
+        {
+          "frames": 1502,
+          "medianMs": 16.7,
+          "p95Ms": 50.1,
+          "maxMs": 166.7,
+          "over50": 97,
+          "onTimePct": 63.9,
+          "loafCount": 30,
+          "loafMaxMs": 107.9,
+          "pipeline": {
+            "presented": 1775,
+            "dropped": 960,
+            "droppedPct": 35.1,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 2017,
+            "p50Ms": 0,
+            "p95Ms": 0.6,
+            "maxMs": 1.9
+          },
+          "rafScript": {
+            "count": 2017,
+            "p50Ms": 0.1,
+            "p95Ms": 6.2,
+            "maxMs": 12.7
+          },
+          "inputLatency": {
+            "count": 540,
+            "p50Ms": 39.7,
+            "p95Ms": 70,
+            "maxMs": 176.8
+          },
+          "longestTaskMs": 156,
+          "loafBreakdown": {
+            "count": 30,
+            "scriptMs": 817,
+            "renderMs": 1074,
+            "styleLayoutMs": 208,
+            "blockingMs": 37
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19424
+          }
+        }
+      ],
+      "week": [
+        {
+          "frames": 1500,
+          "medianMs": 16.7,
+          "p95Ms": 50.1,
+          "maxMs": 200,
+          "over50": 77,
+          "onTimePct": 66,
+          "loafCount": 23,
+          "loafMaxMs": 71.4,
+          "pipeline": {
+            "presented": 1784,
+            "dropped": 828,
+            "droppedPct": 31.7,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 2018,
+            "p50Ms": 0,
+            "p95Ms": 0.4,
+            "maxMs": 3.1
+          },
+          "rafScript": {
+            "count": 2018,
+            "p50Ms": 0,
+            "p95Ms": 6,
+            "maxMs": 11.4
+          },
+          "inputLatency": {
+            "count": 540,
+            "p50Ms": 35.4,
+            "p95Ms": 69.2,
+            "maxMs": 185.5
+          },
+          "longestTaskMs": 192.3,
+          "loafBreakdown": {
+            "count": 23,
+            "scriptMs": 448,
+            "renderMs": 589,
+            "styleLayoutMs": 111,
+            "blockingMs": 0
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19365
+          }
+        },
+        {
+          "frames": 1501,
+          "medianMs": 16.7,
+          "p95Ms": 50.1,
+          "maxMs": 116.6,
+          "over50": 81,
+          "onTimePct": 64.1,
+          "loafCount": 29,
+          "loafMaxMs": 68,
+          "pipeline": {
+            "presented": 1792,
+            "dropped": 861,
+            "droppedPct": 32.5,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 2016,
+            "p50Ms": 0,
+            "p95Ms": 0.5,
+            "maxMs": 4
+          },
+          "rafScript": {
+            "count": 2016,
+            "p50Ms": 0,
+            "p95Ms": 5.8,
+            "maxMs": 12.3
+          },
+          "inputLatency": {
+            "count": 540,
+            "p50Ms": 36.8,
+            "p95Ms": 67.2,
+            "maxMs": 236.5
+          },
+          "longestTaskMs": 131.6,
+          "loafBreakdown": {
+            "count": 29,
+            "scriptMs": 622,
+            "renderMs": 852,
+            "styleLayoutMs": 188,
+            "blockingMs": 9
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19424
+          }
+        },
+        {
+          "frames": 1500,
+          "medianMs": 16.7,
+          "p95Ms": 50,
+          "maxMs": 166.7,
+          "over50": 69,
+          "onTimePct": 64.8,
+          "loafCount": 31,
+          "loafMaxMs": 83.2,
+          "pipeline": {
+            "presented": 1777,
+            "dropped": 881,
+            "droppedPct": 33.1,
+            "checkerboardedFrames": 0
+          },
+          "inputScript": {
+            "count": 2020,
+            "p50Ms": 0,
+            "p95Ms": 0.5,
+            "maxMs": 5.8
+          },
+          "rafScript": {
+            "count": 2020,
+            "p50Ms": 0,
+            "p95Ms": 5.7,
+            "maxMs": 12.7
+          },
+          "inputLatency": {
+            "count": 540,
+            "p50Ms": 36.7,
+            "p95Ms": 69,
+            "maxMs": 164
+          },
+          "longestTaskMs": 152.7,
+          "loafBreakdown": {
+            "count": 31,
+            "scriptMs": 669,
+            "renderMs": 930,
+            "styleLayoutMs": 223,
+            "blockingMs": 36
+          },
+          "scrolledPx": {
+            "x": 0,
+            "y": 19317
+          }
+        }
+      ]
+    },
+    "scrollExtra": {
+      "day": [],
+      "week": []
+    },
+    "criterion18_7": {
+      "definition": "at least 95% of rAF intervals up to 20 ms (16.7 ms plus jitter) and none over 50 ms, in every run",
+      "runs": 6,
+      "passingRuns": 0,
+      "pass": false,
+      "emulation": "Pixel 7 emulation, 4x CPU throttle, no GPU, no real device"
+    },
+    "pan": {
+      "frames": 576,
+      "medianMs": 16.7,
+      "p95Ms": 66.6,
+      "maxMs": 83.4,
+      "over50": 42,
+      "onTimePct": 76.7,
+      "loafCount": 0,
+      "loafMaxMs": 0,
+      "pipeline": {
+        "presented": 769,
+        "dropped": 221,
+        "droppedPct": 22.3,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 832,
+        "p50Ms": 0,
+        "p95Ms": 0.6,
+        "maxMs": 2.7
+      },
+      "rafScript": {
+        "count": 832,
+        "p50Ms": 0,
+        "p95Ms": 4.7,
+        "maxMs": 12.2
+      },
+      "inputLatency": {
+        "count": 167,
+        "p50Ms": 29.5,
+        "p95Ms": 79.8,
+        "maxMs": 104.3
+      },
+      "longestTaskMs": 94.6,
+      "loafBreakdown": {
+        "count": 0,
+        "scriptMs": 0,
+        "renderMs": 0,
+        "styleLayoutMs": 0,
+        "blockingMs": 0
+      },
+      "scrolledPx": {
+        "x": 15123,
+        "y": 0
+      }
+    },
+    "zoom": {
+      "frames": 537,
+      "medianMs": 16.7,
+      "p95Ms": 50,
+      "maxMs": 133.3,
+      "over50": 26,
+      "onTimePct": 79.7,
+      "loafCount": 8,
+      "loafMaxMs": 65.7,
+      "pipeline": {
+        "presented": 214,
+        "dropped": 282,
+        "droppedPct": 56.9,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 716,
+        "p50Ms": 0,
+        "p95Ms": 11.6,
+        "maxMs": 32.5
+      },
+      "rafScript": {
+        "count": 716,
+        "p50Ms": 0,
+        "p95Ms": 2.4,
+        "maxMs": 16.5
+      },
+      "inputLatency": {
+        "count": 160,
+        "p50Ms": 50.1,
+        "p95Ms": 110.7,
+        "maxMs": 130.3
+      },
+      "longestTaskMs": 140.3,
+      "loafBreakdown": {
+        "count": 8,
+        "scriptMs": 169,
+        "renderMs": 138,
+        "styleLayoutMs": 111,
+        "blockingMs": 5
+      }
+    },
+    "zoomEndedAt": "quarter",
+    "drag3s": {
+      "frames": 1277,
+      "medianMs": 16.7,
+      "p95Ms": 66.7,
+      "maxMs": 166.7,
+      "over50": 109,
+      "onTimePct": 53.2,
+      "loafCount": 12,
+      "loafMaxMs": 137.2,
+      "pipeline": {
+        "presented": 1782,
+        "dropped": 1040,
+        "droppedPct": 36.9,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 3191,
+        "p50Ms": 0,
+        "p95Ms": 0.5,
+        "maxMs": 23
+      },
+      "rafScript": {
+        "count": 3191,
+        "p50Ms": 0.3,
+        "p95Ms": 3.7,
+        "maxMs": 20.2
+      },
+      "inputLatency": {
+        "count": 188,
+        "p50Ms": 69.3,
+        "p95Ms": 156.2,
+        "maxMs": 187.6
+      },
+      "longestTaskMs": 108.1,
+      "loafBreakdown": {
+        "count": 12,
+        "scriptMs": 767,
+        "renderMs": 90,
+        "styleLayoutMs": 23,
+        "blockingMs": 349
+      },
+      "dropToPaintMs": 43,
+      "dropToRescheduleMs": 4715
+    },
+    "scrollDuringResult": {
+      "frames": 363,
+      "medianMs": 16.7,
+      "p95Ms": 66.7,
+      "maxMs": 333.4,
+      "over50": 35,
+      "onTimePct": 65.8,
+      "loafCount": 13,
+      "loafMaxMs": 248.3,
+      "pipeline": {
+        "presented": 530,
+        "dropped": 121,
+        "droppedPct": 18.6,
+        "checkerboardedFrames": 0
+      },
+      "inputScript": {
+        "count": 711,
+        "p50Ms": 0,
+        "p95Ms": 0.6,
+        "maxMs": 7.2
+      },
+      "rafScript": {
+        "count": 711,
+        "p50Ms": 0,
+        "p95Ms": 3.2,
+        "maxMs": 16.9
+      },
+      "inputLatency": {
+        "count": 75,
+        "p50Ms": 49.6,
+        "p95Ms": 118.6,
+        "maxMs": 337.2
+      },
+      "longestTaskMs": 251.5,
+      "loafBreakdown": {
+        "count": 13,
+        "scriptMs": 773,
+        "renderMs": 430,
+        "styleLayoutMs": 64,
+        "blockingMs": 309
+      },
+      "scrolledPx": {
+        "x": 116,
+        "y": 4047
+      },
+      "dropToPaintMs": 38,
+      "dropToRescheduleMs": 4660
+    },
+    "loadAverageAtEnd": [
+      2.78,
+      3.08,
+      4.01
+    ]
+  },
+  "touch-listener-with": {
+    "when": "2026-11-14T11:48:04.338Z",
+    "profile": "pixel-7",
+    "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+    "cpuThrottle": 4,
+    "browser": "chromium 153.0.8010.12",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+    "build": "5a652477",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      8.67,
+      12.34,
+      13.13
+    ],
+    "input": "touch",
+    "runs": [
+      {
+        "frames": 1565,
+        "medianMs": 16.7,
+        "p95Ms": 66.7,
+        "maxMs": 200,
+        "over50": 209,
+        "onTimePct": 59.2,
+        "loafCount": 88,
+        "loafMaxMs": 172.2,
+        "pipeline": {
+          "presented": 1733,
+          "dropped": 1335,
+          "droppedPct": 43.5,
+          "checkerboardedFrames": 0
+        },
+        "inputScript": {
+          "count": 2079,
+          "p50Ms": 0,
+          "p95Ms": 0.7,
+          "maxMs": 25
+        },
+        "rafScript": {
+          "count": 2079,
+          "p50Ms": 0,
+          "p95Ms": 7,
+          "maxMs": 65.3
+        },
+        "inputLatency": {
+          "count": 540,
+          "p50Ms": 48.6,
+          "p95Ms": 87.2,
+          "maxMs": 221.4
+        },
+        "longestTaskMs": 189.3,
+        "scrolledPx": {
+          "x": 0,
+          "y": 19280
+        }
+      },
+      {
+        "frames": 1578,
+        "medianMs": 16.7,
+        "p95Ms": 66.7,
+        "maxMs": 150,
+        "over50": 208,
+        "onTimePct": 60.1,
+        "loafCount": 87,
+        "loafMaxMs": 132.5,
+        "pipeline": {
+          "presented": 1732,
+          "dropped": 1387,
+          "droppedPct": 44.5,
+          "checkerboardedFrames": 0
+        },
+        "inputScript": {
+          "count": 2090,
+          "p50Ms": 0,
+          "p95Ms": 0.6,
+          "maxMs": 5.1
+        },
+        "rafScript": {
+          "count": 2090,
+          "p50Ms": 0.1,
+          "p95Ms": 6.9,
+          "maxMs": 32.3
+        },
+        "inputLatency": {
+          "count": 540,
+          "p50Ms": 49.5,
+          "p95Ms": 95.1,
+          "maxMs": 188.1
+        },
+        "longestTaskMs": 163.8,
+        "scrolledPx": {
+          "x": 0,
+          "y": 19229
+        }
+      },
+      {
+        "frames": 1556,
+        "medianMs": 16.7,
+        "p95Ms": 66.7,
+        "maxMs": 200,
+        "over50": 233,
+        "onTimePct": 60.5,
+        "loafCount": 105,
+        "loafMaxMs": 94.2,
+        "pipeline": {
+          "presented": 1724,
+          "dropped": 1390,
+          "droppedPct": 44.6,
+          "checkerboardedFrames": 0
+        },
+        "inputScript": {
+          "count": 2065,
+          "p50Ms": 0,
+          "p95Ms": 0.6,
+          "maxMs": 9.3
+        },
+        "rafScript": {
+          "count": 2065,
+          "p50Ms": 0.1,
+          "p95Ms": 7.3,
+          "maxMs": 30
+        },
+        "inputLatency": {
+          "count": 540,
+          "p50Ms": 49,
+          "p95Ms": 88.7,
+          "maxMs": 133.2
+        },
+        "longestTaskMs": 212,
+        "scrolledPx": {
+          "x": 0,
+          "y": 18821
+        }
+      }
+    ],
+    "loadAverageAtEnd": [
+      8.67,
+      12.34,
+      13.13
+    ]
+  },
+  "touch-listener-without": {
+    "when": "2026-11-14T11:51:21.888Z",
+    "profile": "pixel-7",
+    "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+    "cpuThrottle": 4,
+    "browser": "chromium 153.0.8010.12",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+    "build": "5a652477",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      5.06,
+      9.11,
+      11.73
+    ],
+    "input": "touch",
+    "runs": [
+      {
+        "frames": 1556,
+        "medianMs": 16.7,
+        "p95Ms": 66.7,
+        "maxMs": 266.6,
+        "over50": 243,
+        "onTimePct": 60.8,
+        "loafCount": 104,
+        "loafMaxMs": 148.4,
+        "pipeline": {
+          "presented": 1711,
+          "dropped": 1404,
+          "droppedPct": 45.1,
+          "checkerboardedFrames": 0
+        },
+        "inputScript": {
+          "count": 2060,
+          "p50Ms": 0,
+          "p95Ms": 0.2,
+          "maxMs": 4.9
+        },
+        "rafScript": {
+          "count": 2060,
+          "p50Ms": 0.1,
+          "p95Ms": 7.1,
+          "maxMs": 33.4
+        },
+        "inputLatency": {
+          "count": 540,
+          "p50Ms": 49.2,
+          "p95Ms": 89,
+          "maxMs": 136.6
+        },
+        "longestTaskMs": 267.9,
+        "scrolledPx": {
+          "x": 0,
+          "y": 18765
+        }
+      },
+      {
+        "frames": 1526,
+        "medianMs": 16.7,
+        "p95Ms": 66.7,
+        "maxMs": 216.7,
+        "over50": 187,
+        "onTimePct": 61.6,
+        "loafCount": 71,
+        "loafMaxMs": 133.1,
+        "pipeline": {
+          "presented": 1720,
+          "dropped": 1209,
+          "droppedPct": 41.3,
+          "checkerboardedFrames": 0
+        },
+        "inputScript": {
+          "count": 2035,
+          "p50Ms": 0,
+          "p95Ms": 0.1,
+          "maxMs": 21.6
+        },
+        "rafScript": {
+          "count": 2035,
+          "p50Ms": 0.1,
+          "p95Ms": 6.6,
+          "maxMs": 21
+        },
+        "inputLatency": {
+          "count": 540,
+          "p50Ms": 45.8,
+          "p95Ms": 86.8,
+          "maxMs": 219
+        },
+        "longestTaskMs": 214.4,
+        "scrolledPx": {
+          "x": 0,
+          "y": 18765
+        }
+      },
+      {
+        "frames": 1502,
+        "medianMs": 16.7,
+        "p95Ms": 50.1,
+        "maxMs": 200.1,
+        "over50": 113,
+        "onTimePct": 64,
+        "loafCount": 31,
+        "loafMaxMs": 77.5,
+        "pipeline": {
+          "presented": 1745,
+          "dropped": 1009,
+          "droppedPct": 36.6,
+          "checkerboardedFrames": 0
+        },
+        "inputScript": {
+          "count": 2016,
+          "p50Ms": 0,
+          "p95Ms": 0.1,
+          "maxMs": 1.4
+        },
+        "rafScript": {
+          "count": 2016,
+          "p50Ms": 0.1,
+          "p95Ms": 6.4,
+          "maxMs": 15.3
+        },
+        "inputLatency": {
+          "count": 540,
+          "p50Ms": 40.4,
+          "p95Ms": 71,
+          "maxMs": 184.5
+        },
+        "longestTaskMs": 201.4,
+        "scrolledPx": {
+          "x": 0,
+          "y": 19233
+        }
+      }
+    ],
+    "loadAverageAtEnd": [
+      5.06,
+      9.11,
+      11.73
+    ]
+  },
+  "first-open-desktop": {
+    "when": "2026-11-14T12:33:01.640Z",
+    "profile": "desktop",
+    "device": "Desktop Chrome",
+    "cpuThrottle": 1,
+    "browser": "chromium 153.0.8010.12",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "5a652477",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      4.11,
+      3.33,
+      3.99
+    ],
+    "sample": "gantt-200",
+    "budgets": {
+      "appShellMs": 1500,
+      "engineReadyMs": 4000
+    },
+    "appShellFirstContentfulPaintMs": 575,
+    "appShellRowsMs": 494,
+    "domContentLoadedMs": 69,
+    "loadMs": 105,
+    "engineStartedMs": 2434,
+    "engineReadyMs": 6128,
+    "firstScheduleMs": 5068,
+    "wallMs": 6365,
+    "loadAverageAtEnd": [
+      4.11,
+      3.33,
+      3.99
+    ]
+  },
+  "first-open-pixel-7": {
+    "when": "2026-11-14T12:33:08.370Z",
+    "profile": "pixel-7",
+    "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+    "cpuThrottle": 1,
+    "browser": "chromium 153.0.8010.12",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+    "build": "5a652477",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      4.1,
+      3.34,
+      3.99
+    ],
+    "sample": "gantt-200",
+    "budgets": {
+      "appShellMs": 1500,
+      "engineReadyMs": 4000
+    },
+    "appShellFirstContentfulPaintMs": 568,
+    "appShellRowsMs": 467,
+    "domContentLoadedMs": 66,
+    "loadMs": 94,
+    "engineStartedMs": 2115,
+    "engineReadyMs": 5490,
+    "firstScheduleMs": 4557,
+    "wallMs": 5775,
+    "loadAverageAtEnd": [
+      4.1,
+      3.34,
+      3.99
+    ]
+  }
+}

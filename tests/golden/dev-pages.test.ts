@@ -25,8 +25,11 @@ describe('devPages integration', () => {
 		expect(injected({ MAINSPRING_DEV_PAGES: '0' })).toEqual([]);
 	});
 
-	it('injects /dev/engine when MAINSPRING_DEV_PAGES=1', () => {
-		expect(injected({ MAINSPRING_DEV_PAGES: '1' }).map((r) => r.pattern)).toEqual(['/dev/engine']);
+	it('injects /dev/engine and /dev/gantt-perf when MAINSPRING_DEV_PAGES=1', () => {
+		expect(injected({ MAINSPRING_DEV_PAGES: '1' }).map((r) => r.pattern)).toEqual([
+			'/dev/engine',
+			'/dev/gantt-perf',
+		]);
 	});
 
 	it('keeps the page files out of file-based routing and on disk', () => {

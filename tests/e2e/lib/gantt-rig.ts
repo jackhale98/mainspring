@@ -75,9 +75,10 @@ export class Rig {
 		info: TestInfo,
 		zoom?: 'day' | 'week' | 'month',
 		mode: 'visual' | 'split' = 'visual',
+		sample = 'gantt-manipulation',
 	): Promise<Rig> {
 		const rig = new Rig(page, info);
-		await page.goto(`/app?sample=gantt-manipulation&mode=${mode}&hooks=edits,gantt`);
+		await page.goto(`/app?sample=${sample}&mode=${mode}&hooks=edits,gantt`);
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 			timeout: READY_TIMEOUT_MS,
 		});
@@ -89,7 +90,7 @@ export class Rig {
 		return rig;
 	}
 
-	async zoom(level: 'day' | 'week' | 'month'): Promise<void> {
+	async zoom(level: 'day' | 'week' | 'month' | 'quarter'): Promise<void> {
 		await this.page.getByLabel('Zoom').selectOption(level);
 		await expect(this.page.getByTestId('gantt')).toHaveAttribute('data-zoom', level);
 		await this.page.waitForTimeout(400);

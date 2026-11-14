@@ -152,6 +152,8 @@
 	.outline-button,
 	.project-button {
 		display: inline-flex;
+		/* Never squeezed below the control size: on a phone the plan's name shrinks instead (10.3). */
+		flex: none;
 		align-items: center;
 		justify-content: center;
 		inline-size: var(--size-control);

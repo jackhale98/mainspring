@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Frame cost of the gestures (phase-2.md 7.3, 8.2; T16), measured and recorded, not enforced (a
 // shared runner has no GPU and other load; T22 owns the budgets): the frame intervals during a 3 s
-// drag of the size handle (desktop, and the Pixel 7 with a finger at 4x CPU), and the intervals of
-// a native one-finger scroll at 4x with the non-passive `touchmove` listener the Gantt attaches
-// (8.2) and with it left out (an init script drops it), for the touch-listener comparison. Written
-// to test-results/gantt-gesture-frames.json.
+// drag of the size handle (desktop, and the Pixel 7 with a finger at 4x CPU) on the small
+// gantt-manipulation plan. The scroll frame times, the touch-listener comparison (8.2) and the
+// 500-task drag live in gantt-perf.spec.ts (T22), on gantt-500. Written to
+// test-results/gantt-gesture-frames.json.
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -85,41 +85,4 @@ test.describe('gesture frame cost (recorded)', () => {
 		await rig.drag(b.endEdge, to, { steps: 60 });
 		record(rig.touch ? 'drag-touch-4x' : 'drag-mouse', await stopMeter(page));
 	});
-
-	// The comparison of 8.2: the same native one-finger scroll at 4x CPU, each on a page of its own
-	// (a fresh page, so that neither run has the other's drag, undo or heap behind it), once with
-	// the Gantt's non-passive touchmove listener and once with it dropped by an init script.
-	for (const without of [false, true]) {
-		test(`a native scroll at 4x ${without ? 'without' : 'with'} the touchmove listener`, async ({
-			page,
-		}, info) => {
-			test.skip(info.project.name !== 'pixel-7', 'the touch listener comparison is a phone one');
-			if (without) {
-				await page.addInitScript(() => {
-					const add = EventTarget.prototype.addEventListener;
-					EventTarget.prototype.addEventListener = function (type, fn, opts) {
-						const passive = typeof opts === 'object' && opts !== null ? opts.passive : undefined;
-						if (type === 'touchmove' && passive === false) return;
-						return add.call(this, type, fn, opts);
-					};
-				});
-			}
-			await Rig.open(page, info);
-			const cdp = await page.context().newCDPSession(page);
-			await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-			const box = await page.getByTestId('gantt').locator('.scroller').boundingBox();
-			if (!box) throw new Error('no chart');
-			await startMeter(page);
-			for (let i = 0; i < 3; i++) {
-				await cdp.send('Input.synthesizeScrollGesture', {
-					x: box.x + box.width / 2,
-					y: box.y + box.height / 2,
-					yDistance: i % 2 === 0 ? -400 : 400,
-					speed: 500,
-					gestureSourceType: 'touch',
-				});
-			}
-			record(`scroll-4x-${without ? 'without' : 'with'}-listener`, await stopMeter(page));
-		});
-	}
 });

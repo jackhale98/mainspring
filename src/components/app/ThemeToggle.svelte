@@ -32,6 +32,8 @@
 <style>
 	.icon-button {
 		display: inline-flex;
+		/* Never squeezed below the control size in a narrow header (10.3). */
+		flex: none;
 		align-items: center;
 		justify-content: center;
 		inline-size: var(--size-control);
