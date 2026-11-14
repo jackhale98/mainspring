@@ -109,7 +109,8 @@ jobs:
   fidelity:
     name: Patch fidelity
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The fidelity properties take about 2 minutes, the fast-path suites about 5 more.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -131,6 +132,19 @@ jobs:
           if [ -f test-results/fidelity-report.md ]; then
             cat test-results/fidelity-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
+      # The fast path (ADR-0010, section CI): the review repros and the guards, then the
+      # equivalence suite over every golden plan (2 rewrites each, plus a patch of both), 50
+      # generated plans, 20 plans of the direction family and a shuffled replay of 25 plans. Each
+      # fast result must equal a full run of the same text. Fixed seed; about 5 minutes. The
+      # nightly run explores 500 generated plans with a new seed every night.
+      - name: Fast path equivalence
+        run: npm run test:fast-path
+        env:
+          FAST_PATH: '1'
+          FAST_PATH_RUNS: '50'
+          FAST_PATH_DIRECTION_RUNS: '20'
+          FAST_PATH_CORPUS_EDITS: '2'
+          FAST_PATH_SHUFFLED: '25'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -138,6 +152,7 @@ jobs:
           path: |
             test-results/fidelity-report.md
             test-results/fidelity-report.json
+            test-results/fast-path-equivalence.json
           if-no-files-found: warn
           retention-days: 30
 
