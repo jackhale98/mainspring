@@ -12,6 +12,9 @@
  *   `milestone` are one family; `period` sets `start` and `end`, so it joins both of theirs), in
  *   any scenario and any supplement;
  * - for `priority`, the task is a leaf: children copy it when they are created;
+ * - the task has no `purge` statement anywhere (a purge after the statement resets its value;
+ *   the bridge refuses a rewrite with any later purge on the task, and this module does not
+ *   order statements across supplements and files, so it leaves the whole task out);
  * - the value has no macro call.
  *
  * `fastEditsOf` turns a change (an intent's edit, or an undo or redo of one) into edits when
@@ -87,6 +90,7 @@ export function fastSites(snap: WorkspaceSnapshot, index: SymbolIndex): FastSite
 	for (const task of index.tasks.values()) {
 		if (task.textOnly || task.expandedOnly || task.bodyMacroCalls.length > 0) continue;
 		if (task.sharedWith.length > 0) continue;
+		if (task.attrs.some((a) => a.keyword === 'purge')) continue;
 		for (const a of task.attrs) {
 			const keyword = a.keyword;
 			if (!isFastAttr(keyword) || a.scenario !== null || !a.value || a.textOnly) continue;

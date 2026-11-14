@@ -123,6 +123,12 @@ export interface PlanOpts {
 	minTasks?: number;
 	/** Force statement-level macros, scenarios, supplements and several files. */
 	rich?: boolean;
+	/**
+	 * Add `purge` statements (model-attrs.ts `purges`), for the fast-path suites (ADR-0010,
+	 * review round 3). Off by default: the fidelity suite's plans, and the seeds recorded for
+	 * them, stay as they are.
+	 */
+	purge?: boolean;
 }
 
 export const mk = (key: string, value: string | null, extra: Partial<MStmt> = {}): MStmt => ({

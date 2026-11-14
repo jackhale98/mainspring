@@ -43,6 +43,9 @@
 #   keyword, on that task, in the top scenario, and no later action of the
 #   same family ran on that task (fast_path_sites.rb; `period` is in the
 #   start and end families); file names are compared expanded;
+# - no `purge` of any attribute, in any scenario, ran on that task after the
+#   edited line (a purge resets the value and clears provided; the kept copy
+#   holds that state, and the rewrite would set the value again);
 # - the base parse gave no attr_overwrite warning for that task;
 # - an attribute the pattern sets that children inherit (inheritedFromParent:
 #   of these, priority) is only rewritten on a leaf, since children copy it
@@ -239,6 +242,10 @@ module MainspringBridge
         end
         later = b.by_task[e['task']].any? { |s| s.seq > site.seq && FAMILY[e['attribute']].include?(s.keyword) }
         fallback('a later statement sets it again') if later
+        # Any later purge on the task, of any attribute in any scenario (round 3, D1): the full
+        # parse sets the value and the purge clears it; the kept copy holds the cleared state.
+        purge = b.by_task[e['task']].find { |s| s.keyword == 'purge' && s.seq > site.seq }
+        fallback("a later purge on that task (#{purge.detail})") if purge
         fallback('the base parse overwrote an attribute of that task') if b.overwritten[e['task']]
       end
 
