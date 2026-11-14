@@ -272,7 +272,7 @@ test.describe('gantt perf (gantt-500)', () => {
 		const phone = info.project.name === 'pixel-7';
 		const throttle = phone ? 4 : 1;
 		await installProbe(page);
-		const rig = await Rig.open(page, info, 'day', 'gantt-500');
+		const rig = await Rig.open(page, info, 'day', 'visual', 'gantt-500');
 		// The engine has the plan; let the first paint, the analysis and the idle work settle.
 		await page.waitForTimeout(3000);
 		const cdp = await page.context().newCDPSession(page);
@@ -422,7 +422,7 @@ test.describe('gantt perf (gantt-500)', () => {
 					};
 				});
 			}
-			const rig = await Rig.open(page, info, 'week', 'gantt-500');
+			const rig = await Rig.open(page, info, 'week', 'visual', 'gantt-500');
 			void rig;
 			await page.waitForTimeout(3000);
 			const cdp = await page.context().newCDPSession(page);

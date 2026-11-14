@@ -42,10 +42,23 @@ const START = Date.UTC(2026, 2, 2);
 export const minute = (date: string, hour: number): number =>
 	(Date.parse(`${date}T00:00:00Z`) - START) / 60_000 + hour * 60;
 
-export const isTouch = (info: TestInfo): boolean => info.project.name === 'pixel-7';
+export const isIphone = (info: TestInfo): boolean => info.project.name === 'iphone-14';
+/** A finger: the Pixel 7 (real touch events through CDP) and the iPhone 14 (dispatched events). */
+export const isTouch = (info: TestInfo): boolean =>
+	info.project.name === 'pixel-7' || isIphone(info);
+/** The name a device has in picture file names. */
+export const deviceName = (info: TestInfo): string =>
+	isIphone(info) ? 'iphone-14' : isTouch(info) ? 'pixel-7' : 'desktop';
 
 export class Rig {
 	readonly touch: boolean;
+	/**
+	 * Whether a finger's drag is made of dispatched pointer events instead of CDP touch events:
+	 * Playwright cannot drive a touch drag in WebKit (phase-2.md 18.14), so the iPhone 14 does. The
+	 * variable GANTT_DISPATCHED=1 makes Chromium do the same, to run that path where WebKit is not
+	 * installed.
+	 */
+	readonly dispatched: boolean;
 	#cdp: CDPSession | null = null;
 
 	constructor(
@@ -53,6 +66,7 @@ export class Rig {
 		readonly info: TestInfo,
 	) {
 		this.touch = isTouch(info);
+		this.dispatched = this.touch && (isIphone(info) || process.env['GANTT_DISPATCHED'] === '1');
 	}
 
 	/** Opens the sample in Visual mode (the phone's Gantt tab), ready and scheduled. */
@@ -60,10 +74,11 @@ export class Rig {
 		page: Page,
 		info: TestInfo,
 		zoom?: 'day' | 'week' | 'month',
+		mode: 'visual' | 'split' = 'visual',
 		sample = 'gantt-manipulation',
 	): Promise<Rig> {
 		const rig = new Rig(page, info);
-		await page.goto(`/app?sample=${sample}&mode=visual&hooks=edits,gantt`);
+		await page.goto(`/app?sample=${sample}&mode=${mode}&hooks=edits,gantt`);
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 			timeout: READY_TIMEOUT_MS,
 		});
@@ -126,7 +141,49 @@ export class Rig {
 	}
 
 	async #touch(type: 'touchStart' | 'touchMove' | 'touchEnd', p?: Point): Promise<void> {
-		await this.touches(type, p ? [p] : []);
+		if (this.dispatched) await this.#pointer(type, p);
+		else await this.touches(type, p ? [p] : []);
+	}
+
+	/**
+	 * One finger as a dispatched touch pointer: the press goes to the element under the point, and
+	 * the moves and the release go to the same element (what pointer capture gives a real finger).
+	 */
+	async #pointer(type: 'touchStart' | 'touchMove' | 'touchEnd', p?: Point): Promise<void> {
+		await this.page.evaluate(
+			({ type, p }) => {
+				const w = window as unknown as { __finger?: { el: Element; x: number; y: number } };
+				if (type === 'touchStart' && p) {
+					w.__finger = { el: document.elementFromPoint(p.x, p.y) ?? document.body, x: p.x, y: p.y };
+				}
+				const f = w.__finger;
+				if (!f) throw new Error('no finger is down');
+				if (p) {
+					f.x = p.x;
+					f.y = p.y;
+				}
+				const name = { touchStart: 'pointerdown', touchMove: 'pointermove', touchEnd: 'pointerup' }[
+					type
+				];
+				f.el.dispatchEvent(
+					new PointerEvent(name, {
+						pointerId: 41,
+						pointerType: 'touch',
+						isPrimary: true,
+						clientX: f.x,
+						clientY: f.y,
+						buttons: type === 'touchEnd' ? 0 : 1,
+						width: 1,
+						height: 1,
+						bubbles: true,
+						cancelable: true,
+						composed: true,
+					}),
+				);
+				if (type === 'touchEnd') delete w.__finger;
+			},
+			{ type, p },
+		);
 	}
 
 	/** Raw touch points (one to two fingers), for the specs that need a gesture of their own. */
@@ -207,6 +264,24 @@ export class Rig {
 		// The sheet on a phone moves the chart (the selected row is scrolled above it).
 		await this.page.waitForTimeout(400);
 		return this.bar(task);
+	}
+
+	/**
+	 * The painted bar of a task ends where the engine's result says it ends (13.2 step 6): the right
+	 * edge on the screen is the chart's x of the finish, within rounding.
+	 */
+	async barOnEngine(task: string): Promise<void> {
+		await expect
+			.poll(
+				async () => {
+					const b = await this.bar(task);
+					const end = await this.end(task);
+					if (end === null) return Infinity;
+					return Math.abs(b.box.x + b.box.w - (await this.x(end)));
+				},
+				{ timeout: 10_000, message: `the bar of ${task} matches the engine's finish` },
+			)
+			.toBeLessThan(3);
 	}
 
 	/** Waits for the engine's result that includes the edit (a newer revision). */
