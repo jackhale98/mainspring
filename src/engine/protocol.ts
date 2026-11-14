@@ -11,6 +11,15 @@
  * Fast path (phase-2 spec 6.12, spike T19, ADR-0010): `ScheduleRequest.retain` and `fast`, and the
  * fast-path fields of `Timings`. `files` always carries the full text; a request the bridge cannot
  * run fast runs in full, with the same result.
+ *
+ * Result schema v3 (phase-3 spec 6.1, ADR-0014) adds fields only, for the workload, calendar and
+ * explainer: `ProjectInfo.weekStartsMonday` and `leaves`, per resource scenario `workingTime` and
+ * `leaves` (`ResourceScenarioResult`), and per task scenario `allocate`. Every v2 field keeps its
+ * meaning. The v3 fields are optional (`?`) for now: T2 merges the types before the serializer,
+ * and the engine still writes v2, so a consumer must not rely on them yet. T6 (bridge schema v3)
+ * writes them, makes them required, and moves `GoldenFile.schemaVersion` to 3 in the same change.
+ * Until then nothing reads them; the derived modules that do (src/lib/workload, explain, demand)
+ * are built after T6.
  */
 
 /** Strictly increasing per EngineClient. */
@@ -141,6 +150,36 @@ export interface ProjectInfo {
 	 * failed, because TaskJuggler builds the scoreboard only when it schedules.
 	 */
 	workingTime: Array<[start: Minutes, end: Minutes]>;
+	/**
+	 * v3 (optional until T6; see the module comment). `weekstartsmonday` (default true): week
+	 * buckets start on Monday, else on Sunday, at local midnight in the plan's time zone.
+	 */
+	weekStartsMonday?: boolean;
+	/**
+	 * v3 (optional until T6). The global leaves as declared (`project['leaves']`), in plan order.
+	 * A `vacation` reads as `holiday`, with the name null (TaskJuggler drops it).
+	 */
+	leaves?: ProjectLeave[];
+}
+
+/**
+ * v3. TaskJuggler's leave types (`LeaveList::Types`), in its order: project 1, annual 2, special 3,
+ * sick 4, unpaid 5, holiday 6, unemployed 7. The index is what bits 2 to 5 of a resource
+ * scoreboard slot hold. A slot holds one type; which one wins where leaves overlap is
+ * TaskJuggler's precedence (ResourceScenario#initScoreboard), not decided here.
+ */
+export type EngineLeaveType =
+	'project' | 'annual' | 'special' | 'sick' | 'unpaid' | 'holiday' | 'unemployed';
+
+/** v3. One global leave (`ProjectInfo.leaves`). */
+export interface ProjectLeave {
+	type: EngineLeaveType;
+	/** The leave's name as written, or null when it has none. */
+	name: string | null;
+	/** [start, end) as declared. */
+	// T2: "as declared" is read as not clipped to the project frame: the bounds may be negative or
+	// past the frame's end. The scoreboard fields (`ResourceScenarioResult`) are inside the frame.
+	interval: [start: Minutes, end: Minutes];
 }
 export interface ScenarioInfo {
 	id: string;
@@ -202,6 +241,21 @@ export interface TaskScenarioResult {
 	/** v2. This task's end must come before these (`precedes` after inheritance), in
 	 *  TaskJuggler's order. */
 	precedes: DependencyResult[];
+	/**
+	 * v3 (optional until T6; see the module comment). The task's `allocate` items after
+	 * inheritance (TaskScenario 'allocate'), in TaskJuggler's order. `allocated` lists only the
+	 * people who were booked; this is what the task asked for.
+	 */
+	allocate?: AllocateItem[];
+}
+
+/** v3. One `allocate` item of a task scenario (`TaskScenarioResult.allocate`). */
+export interface AllocateItem {
+	/**
+	 * Resource ids in order: first the written resource, then its alternatives. A group stays
+	 * the group's id, as written; it is not expanded into its members.
+	 */
+	candidates: string[];
 }
 
 /**
@@ -233,7 +287,38 @@ export interface ResourceResult {
 	/** Null when TaskJuggler has no source file information for the property. */
 	source: SourceRef | null;
 	group: boolean;
-	scenarios: Record<string, { efficiency: number }>;
+	/** Keyed by scenario id; active scenarios only. */
+	scenarios: Record<string, ResourceScenarioResult>;
+}
+
+/** One resource in one scenario. All interval lists are inside the project frame. */
+export interface ResourceScenarioResult {
+	efficiency: number;
+	/**
+	 * v3 (optional until T6; see the module comment). The slots the resource could work, free or
+	 * booked (ResourceScenario#getWorkSlots semantics: its working hours or shifts, minus global
+	 * and its own leaves), as [start, end) pairs: ascending, disjoint, touching pairs merged.
+	 * Leaf resources only; [] for groups (their roll-ups are the sums of their members).
+	 */
+	workingTime?: Array<[start: Minutes, end: Minutes]>;
+	/**
+	 * v3 (optional until T6). The slots that carry a leave type on the resource's scoreboard (bits 2
+	 * to 5), merged per type, types in `EngineLeaveType` order. Global leaves are on every
+	 * resource's scoreboard, so they appear here too, and each slot counts for the one type the
+	 * scoreboard holds. Off-hours slots inside a leave are included, so a leave reads as one run.
+	 */
+	// T2: 6.1 says "leaf resources only; [] for groups" for `workingTime` and nothing for `leaves`.
+	// Read the same way: TaskJuggler passes a group's `leaves` down to its members (the attribute
+	// is inherited from the parent), so the members' entries already show them. Also read: a type
+	// with no slots has no entry (no empty `intervals`).
+	leaves?: ResourceLeaves[];
+}
+
+/** v3. The slots of one leave type on a resource's scoreboard (`ResourceScenarioResult.leaves`). */
+export interface ResourceLeaves {
+	type: EngineLeaveType;
+	/** [start, end): ascending, disjoint, touching pairs merged. */
+	intervals: Array<[start: Minutes, end: Minutes]>;
 }
 
 /** Allocated time from the scoreboard after scheduling, including user `booking`s. See 11.5. */
