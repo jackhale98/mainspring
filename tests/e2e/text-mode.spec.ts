@@ -37,7 +37,8 @@ test.describe('text mode', () => {
 		const marked = page.locator('.cm-line', { has: page.locator('.cm-lintRange-error') });
 		await expect(marked).toHaveCount(1);
 		await expect(marked).toContainText('depends nosuchtask');
-		await expect(strip(page).getByRole('button', { name: /error/ })).toBeVisible();
+		// The count is a button on wider layouts and plain text in the phone's hidden status group.
+		await expect(strip(page)).toContainText('1 error');
 		await expect(strip(page)).toContainText('last good');
 		await page.keyboard.press('ControlOrMeta+z');
 		await settled(page);

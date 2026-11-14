@@ -34,7 +34,10 @@ async function open(page: Page, mode: 'visual' | 'text' = 'visual'): Promise<voi
 async function typePlan(page: Page, text: string): Promise<void> {
 	await page.getByRole('tab', { name: 'Text', exact: true }).click();
 	await editor(page).click();
-	await page.keyboard.press('ControlOrMeta+a');
+	// The editor's select-all is Cmd on Apple platforms, including the emulated iPhone (WebKit),
+	// even when the test host is Linux, where Playwright's ControlOrMeta means Control.
+	const apple = await page.evaluate(() => /Mac|iPhone|iPad/.test(navigator.platform));
+	await page.keyboard.press(apple ? 'Meta+a' : 'Control+a');
 	await page.keyboard.insertText(text);
 }
 
@@ -208,7 +211,7 @@ test.describe('the phone status button', () => {
 	test('a scheduler that cannot start shows the diamond, the reason and Try again', async ({
 		page,
 	}) => {
-		await page.route('**/engine/ruby*', (route) => route.abort());
+		await page.route('**/engine/*.wasm.gz', (route) => route.abort());
 		await page.goto('/app?sample=upstream-tutorial&mode=visual');
 		await expect(status(page)).toHaveAttribute('data-glyph', 'error', {
 			timeout: READY_TIMEOUT_MS,
@@ -266,7 +269,7 @@ test.describe('the phone status button', () => {
 			// A scheduler that does not start.
 			const failed = await page.context().newPage();
 			await failed.emulateMedia({ colorScheme: scheme });
-			await failed.route('**/engine/ruby*', (route) => route.abort());
+			await failed.route('**/engine/*.wasm.gz', (route) => route.abort());
 			await failed.goto('/app?sample=upstream-tutorial&mode=visual');
 			await expect(status(failed)).toHaveAttribute('data-glyph', 'error', {
 				timeout: READY_TIMEOUT_MS,
