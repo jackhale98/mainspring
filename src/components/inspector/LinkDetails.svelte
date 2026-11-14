@@ -14,7 +14,7 @@
 	import Select from './Select.svelte';
 
 	let { link }: { link: LinkFact } = $props();
-	const { app, actions, showInText, openTask } = getInspector();
+	const { actions, showInText, openTask } = getInspector();
 
 	/** The kind a new gap is written as, while the link has none. */
 	let picked = $state<GapKind>('gaplength');
@@ -30,7 +30,7 @@
 	async function remove(): Promise<void> {
 		const o = await actions.action({ type: 'unlink', link: link.ref });
 		// The link is gone: back to the task that waited.
-		if (o.status === 'applied') app.inspector.clearLink();
+		if (o.status === 'applied') openTask(link.succ);
 	}
 </script>
 

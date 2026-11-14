@@ -97,8 +97,11 @@
 		const el = dialog;
 		if (!el || !onheight || !open) return;
 		// From the viewport's bottom: a sheet that ends above the tab bar still covers that much.
+		// Measured from the layout (its height and its bottom margin), not from where it is drawn:
+		// while it slides in, its rectangle is still moving and said 78 px for a 380 px sheet, so the
+		// chart kept no room for it and the toasts did not clear it.
 		const report = (): void =>
-			onheight(Math.round(window.innerHeight - el.getBoundingClientRect().top));
+			onheight(Math.round(el.offsetHeight + (parseFloat(getComputedStyle(el).marginBottom) || 0)));
 		const ro = new ResizeObserver(report);
 		ro.observe(el);
 		report();

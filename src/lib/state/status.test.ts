@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { strings } from '../strings';
+import type { StatusKind } from './status';
 import { createScheduleRunner, type ScheduleRunner } from '../workspace/schedule-runner';
 import {
 	FakeEngineClient,
@@ -12,7 +13,7 @@ import {
 import { IdleQueue } from '../workspace/testing/idle-queue';
 import { PLAN, TASKS, typeInto } from '../workspace/testing/runner-fixture';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
-import { formatDelta, formatMs, formatSpan, statusView } from './status';
+import { formatDelta, formatMs, formatSpan, statusGlyph, statusView } from './status';
 
 let ws: Workspace;
 let client: FakeEngineClient;
@@ -198,5 +199,35 @@ describe('statusView engine info', () => {
 		expect(round?.label).toBe('Waiting and round trip');
 		expect(info?.note).toMatch(/queueing included/);
 		expect(info?.note).toMatch(/first run also includes the scheduler starting up/);
+	});
+});
+
+describe('statusGlyph (the phone status button)', () => {
+	const v = (kind: StatusKind, errors = 0, warnings = 0, failure: string | null = null) => ({
+		kind,
+		errors,
+		warnings,
+		failure,
+	});
+
+	it('ticks while the scheduler starts or works, and before there is a status', () => {
+		expect(statusGlyph(null)).toBe('busy');
+		expect(statusGlyph(null, 'idle')).toBe('busy');
+		expect(statusGlyph(null, 'failed')).toBe('error');
+		expect(statusGlyph(v('booting'))).toBe('busy');
+		expect(statusGlyph(v('idle'))).toBe('busy');
+		expect(statusGlyph(v('scheduling', 2, 1))).toBe('busy');
+	});
+
+	it('is a circle when scheduled with no problems, a triangle with warnings only', () => {
+		expect(statusGlyph(v('ok'))).toBe('ok');
+		expect(statusGlyph(v('ok', 0, 3))).toBe('warning');
+	});
+
+	it('is a diamond for errors and for a failed scheduler, which outranks a run under way', () => {
+		expect(statusGlyph(v('errors', 1, 0))).toBe('error');
+		expect(statusGlyph(v('errors', 1, 4))).toBe('error');
+		expect(statusGlyph(v('failed', 0, 0, 'The scheduler stopped.'))).toBe('error');
+		expect(statusGlyph(v('scheduling', 0, 0, 'The scheduler stopped.'))).toBe('error');
 	});
 });

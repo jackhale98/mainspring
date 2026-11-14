@@ -5,6 +5,11 @@
 	the text (a popover), and a retry button after a failure. The last good finish stays visible
 	and is labelled, not faded, when the newest run did not succeed. At the end sit the engine's
 	version and the last run's time, which open a popover with every stage (phase-2.md 9.4).
+
+	On a phone (`phone`) nothing of this is drawn: the footer is gone, and the top bar's status
+	button (app/StatusButton.svelte) holds the controls. What stays is the same "Plan status"
+	group, visually hidden, with the state text and the live region, so a screen reader still
+	hears every reschedule, problem and failure by the same rules. It has no focusable controls.
 -->
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
@@ -13,13 +18,13 @@
 	import { strings } from '../lib/strings';
 	import EngineInfo from './app/EngineInfo.svelte';
 	import Mark from './app/Mark.svelte';
-	import Icon from './Icon.svelte';
 
 	interface Props {
 		app: AppState;
 		/** Whether a newer build is deployed (ADR-0012); a reload button shows when it is. */
 		updates?: AppUpdates;
-		compact: boolean;
+		/** A phone: only the hidden group is drawn (module comment). */
+		phone: boolean;
 		/**
 		 * The Gantt is on screen and says what a reschedule moved (its treegrid's live region), so
 		 * a plain ok run after an ok run is not announced twice. Everything else is
@@ -27,10 +32,10 @@
 		 */
 		quiet?: boolean;
 	}
-	let { app, updates, compact, quiet = false }: Props = $props();
+	let { app, updates, phone, quiet = false }: Props = $props();
 
 	function reload(): void {
-		void updates?.reload(app.dirty, () => globalThis.confirm(strings.update.confirmReload));
+		void updates?.reloadAsking(app.dirty);
 	}
 
 	const s = $derived(app.status);
@@ -75,75 +80,93 @@
 	a polite region that is atomic would read it all out again each time. The hidden region below
 	speaks once per settled run, and only when its text changes.
 -->
-<div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
-{#if s}
-	<div class="strip" class:compact role="group" aria-label={strings.status.region}>
-		<span class="state" data-kind={s.kind}>
-			{#if s.kind === 'scheduling' || s.kind === 'booting'}<Mark size={14} busy />{:else}<span
-					class="dot"
-					aria-hidden="true"
-				></span>{/if}{s.label}
-		</span>
-		<span class="finish" class:outdated={s.outdated}>
-			<span class="key">{strings.status.finish}</span>
-			{#if s.finish}
-				<time datetime={app.run?.finish?.date}>{s.finish}</time>
-				{#if s.zone && !compact}<span class="zone">{s.zone}</span>{/if}
-				{#if s.delta}<span class="delta">{s.delta}</span>{/if}
-				{#if s.outdated}<span class="badge">{strings.status.lastGood}</span>{/if}
-			{:else}
-				<span class="zone">{strings.status.noFinish}</span>
-			{/if}
-		</span>
-		{#if problems > 0}
-			<button type="button" class="counts" onclick={jump} title={strings.status.nextProblem}>
-				{s.counts}
-			</button>
-		{:else}
-			<span class="counts plain">{s.counts}</span>
-		{/if}
-		{#if s.unlocated.length > 0}
-			<button type="button" class="counts" popovertarget="unlocated-popover">
-				{strings.status.unlocated(s.unlocated.length)}
-			</button>
-		{/if}
-		{#if s.failure}
-			<span class="failure">{s.failure}</span>
-			<button type="button" class="retry" onclick={() => app.retry()}>
-				{strings.engine.retry}
-			</button>
-		{/if}
-		{#if updates?.status === 'available'}
-			<button
-				type="button"
-				class="update"
-				class:compact
-				aria-label={strings.update.reloadLabel}
-				title={strings.update.reloadLabel}
-				onclick={reload}
-				data-testid="update-reload"
-			>
-				{#if compact}
-					<Icon name="retry" size={18} /><span class="pip corner" aria-hidden="true"></span>
+{#if phone}
+	<!-- No controls here: they are in the status button's popover (module comment). -->
+	<div class="sr-only" role="group" aria-label={strings.status.region}>
+		<div role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
+		{#if s}
+			<p class="state" data-kind={s.kind}>{s.label}</p>
+			<p class="finish">
+				<span class="key">{strings.status.finish}</span>
+				{#if s.finish}
+					<time datetime={app.run?.finish?.date}>{s.finish}</time>
+					{#if s.delta}<span class="delta">{s.delta}</span>{/if}
+					{#if s.outdated}<span class="badge">{strings.status.lastGood}</span>{/if}
 				{:else}
+					<span class="zone">{strings.status.noFinish}</span>
+				{/if}
+			</p>
+			<p class="counts">{s.counts}</p>
+			{#if s.unlocated.length > 0}<p>{strings.status.unlocated(s.unlocated.length)}</p>{/if}
+			{#if s.failure}<p class="failure">{s.failure}</p>{/if}
+		{/if}
+	</div>
+{:else}
+	<div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
+	{#if s}
+		<div class="strip" role="group" aria-label={strings.status.region}>
+			<span class="state" data-kind={s.kind}>
+				{#if s.kind === 'scheduling' || s.kind === 'booting'}<Mark size={14} busy />{:else}<span
+						class="dot"
+						aria-hidden="true"
+					></span>{/if}{s.label}
+			</span>
+			<span class="finish" class:outdated={s.outdated}>
+				<span class="key">{strings.status.finish}</span>
+				{#if s.finish}
+					<time datetime={app.run?.finish?.date}>{s.finish}</time>
+					{#if s.zone}<span class="zone">{s.zone}</span>{/if}
+					{#if s.delta}<span class="delta">{s.delta}</span>{/if}
+					{#if s.outdated}<span class="badge">{strings.status.lastGood}</span>{/if}
+				{:else}
+					<span class="zone">{strings.status.noFinish}</span>
+				{/if}
+			</span>
+			{#if problems > 0}
+				<button type="button" class="counts" onclick={jump} title={strings.status.nextProblem}>
+					{s.counts}
+				</button>
+			{:else}
+				<span class="counts plain">{s.counts}</span>
+			{/if}
+			{#if s.unlocated.length > 0}
+				<button type="button" class="counts" popovertarget="unlocated-popover">
+					{strings.status.unlocated(s.unlocated.length)}
+				</button>
+			{/if}
+			{#if s.failure}
+				<span class="failure">{s.failure}</span>
+				<button type="button" class="retry" onclick={() => app.retry()}>
+					{strings.engine.retry}
+				</button>
+			{/if}
+			{#if updates?.status === 'available'}
+				<button
+					type="button"
+					class="update"
+					aria-label={strings.update.reloadLabel}
+					title={strings.update.reloadLabel}
+					onclick={reload}
+					data-testid="update-reload"
+				>
 					<span class="pip" aria-hidden="true"></span>
 					<span aria-hidden="true">{`${strings.update.available} · ${strings.update.reload}`}</span>
-				{/if}
-			</button>
-		{/if}
-		{#if s.engine}<EngineInfo info={s.engine} {compact} {updates} onreload={reload} />{/if}
-	</div>
-	<div id="unlocated-popover" class="popover" popover="auto" bind:this={popover}>
-		<h2>{strings.status.unlocatedTitle}</h2>
-		<ul>
-			{#each s.unlocated as d, i (i)}
-				<li>
-					<strong>{strings.status.severity[d.severity]}.</strong>
-					{d.message}{d.hint ? ` ${d.hint}` : ''}
-				</li>
-			{/each}
-		</ul>
-	</div>
+				</button>
+			{/if}
+			{#if s.engine}<EngineInfo info={s.engine} {updates} onreload={reload} />{/if}
+		</div>
+		<div id="unlocated-popover" class="popover" popover="auto" bind:this={popover}>
+			<h2>{strings.status.unlocatedTitle}</h2>
+			<ul>
+				{#each s.unlocated as d, i (i)}
+					<li>
+						<strong>{strings.status.severity[d.severity]}.</strong>
+						{d.message}{d.hint ? ` ${d.hint}` : ''}
+					</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
 {/if}
 
 <style>
@@ -250,38 +273,6 @@
 	.retry:hover {
 		background: var(--color-accent-hover);
 	}
-	.compact .state {
-		font-weight: 500;
-	}
-	/* One line: a phone's strip (every tab) takes little of the height. It sits on the canvas. */
-	.strip.compact {
-		flex-wrap: nowrap;
-		gap: var(--space-1) var(--space-3);
-		min-block-size: 0;
-		padding-block: 2px;
-		padding-inline: 8px;
-		overflow: hidden;
-		font-size: var(--text-xs);
-	}
-	.compact .state,
-	.compact .counts {
-		flex: none;
-	}
-	/* The plan chip above already says "Finish"; the word stays for screen readers only, which
-	   leaves room for the whole date beside the engine button. */
-	.compact .key {
-		position: absolute;
-		inline-size: 1px;
-		block-size: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-	}
-	.compact .finish {
-		flex-wrap: nowrap;
-		min-inline-size: 0;
-		overflow: hidden;
-		white-space: nowrap;
-	}
 	@media (pointer: coarse) {
 		.counts,
 		.retry {
@@ -335,14 +326,6 @@
 		cursor: pointer;
 		min-block-size: 1.75rem;
 	}
-	/* On a phone the strip has no room for words: an icon the size of the engine button. */
-	.update.compact {
-		position: relative;
-		display: grid;
-		place-items: center;
-		padding: 0;
-		inline-size: 1.75rem;
-	}
 	.update:hover {
 		background: var(--color-row-hover);
 	}
@@ -356,17 +339,9 @@
 		border-radius: 50%;
 		background: var(--color-mark-brass);
 	}
-	.corner {
-		position: absolute;
-		inset-block-start: 6px;
-		inset-inline-end: 6px;
-	}
 	@media (pointer: coarse) {
 		.update {
 			min-block-size: var(--size-tap);
-		}
-		.update.compact {
-			inline-size: var(--size-tap);
 		}
 	}
 </style>

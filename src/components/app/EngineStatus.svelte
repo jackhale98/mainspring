@@ -2,8 +2,8 @@
 <!--
 	The engine status pill (ADR-0009): a halo dot and "Engine: Ready". The state is in the text,
 	not only the colour: the dot also changes shape (a diamond for a failure, and while it works the
-	brand mark, ticking, as the loader). On a narrow bar or a phone the words are kept for screen readers and the title, and the
-	pill shrinks to the dot.
+	brand mark, ticking, as the loader). On a narrow bar the words are kept for screen readers and
+	the title, and the pill shrinks to the dot. (A phone has the top bar's status button instead.)
 -->
 <script lang="ts">
 	import type { EngineState } from '../../engine/client';
@@ -12,18 +12,15 @@
 
 	interface Props {
 		state: EngineState;
-		/** Show only the dot (the words stay in the DOM for assistive technology). */
-		compact?: boolean;
 		/** Shrink to the dot when the top bar is narrower than 1100 px (a container query). */
 		adaptive?: boolean;
 	}
-	let { state, compact = false, adaptive = false }: Props = $props();
+	let { state, adaptive = false }: Props = $props();
 	const working = $derived(state === 'busy' || state === 'booting');
 </script>
 
 <p
 	class="engine"
-	class:compact
 	class:adaptive
 	data-testid="engine-status"
 	data-state={state}
@@ -72,16 +69,6 @@
 		transform: rotate(45deg);
 		background: var(--color-ruby);
 		box-shadow: 0 0 0 3px var(--color-ruby-wash);
-	}
-	.compact {
-		padding-inline: 10px;
-	}
-	.compact .words {
-		position: absolute;
-		inline-size: 1px;
-		block-size: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
 	}
 	@container topbar (max-width: 1099px) {
 		.adaptive {

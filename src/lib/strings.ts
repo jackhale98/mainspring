@@ -752,8 +752,6 @@ export const strings = {
 		button: (current: string, next: string) => `Theme: ${current}. Switch to ${next}`,
 	},
 	notice: 'Changes stay in this tab until saving arrives. Reloading the page discards them.',
-	/** The same notice in the compact form that a phone shows on every tab. */
-	noticeShort: 'Changes stay in this tab',
 	panels: {
 		plan: 'Plan',
 		gantt: 'Gantt',
@@ -922,6 +920,28 @@ export const strings = {
 		/** The button that opens the engine details; the accessible name says what it opens. */
 		engineDetails: 'Engine details',
 		engineDetailsTitle: 'The scheduler and its last run',
+		/**
+		 * The phone's top-bar status button (it replaces the footer strip): its name says the state
+		 * and what it opens; the popover's own sections follow.
+		 */
+		button: {
+			title: 'Plan status and engine details',
+			/** "Plan status: Scheduled, 3 warnings. A new version is available. Engine and scheduler details" */
+			name: (state: string, problems: string | null, updateAvailable: boolean) =>
+				[
+					`Plan status: ${[state, problems].filter((p) => p !== null).join(', ')}`.replace(
+						/([^.…])$/,
+						'$1.',
+					),
+					updateAvailable ? 'A new version is available.' : null,
+					'Engine and scheduler details',
+				]
+					.filter((p) => p !== null)
+					.join(' '),
+			popoverTitle: 'Plan status',
+			/** A new build is out: the popover's prominent button. */
+			newVersion: 'New version',
+		},
 		timingTitle: 'Last run',
 		/** Under the timings: the round trip is not all scheduling. */
 		timingNote:

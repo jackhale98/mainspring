@@ -88,7 +88,7 @@
 	// The selected row stays above the sheet (WCAG 2.4.11), as the sheet opens, grows or the
 	// selection changes.
 	$effect(() => {
-		const key = app.selectedTask;
+		const key = app.selectedRow;
 		const h = inspector.sheetHeight;
 		if (!desktop && h > 0) void tick().then(() => keepRowClear(key, h));
 	});
@@ -98,7 +98,7 @@
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
 		e.preventDefault();
 		if (drawer) inspector.hide();
-		focusRow(app.selectedTask);
+		focusRow(app.selectedRow);
 	}
 
 	/** The rail's toggle: dock the panel again, or open and close the drawer. */
@@ -179,7 +179,7 @@
 		focusOnOpen={false}
 		ondetent={(d) => (inspector.detent = d)}
 		onheight={(h) => (inspector.sheetHeight = h)}
-		onreturn={() => focusRow(app.selectedTask)}
+		onreturn={() => focusRow(app.selectedRow)}
 		onclose={() => inspector.hide()}
 	>
 		{#snippet actions()}

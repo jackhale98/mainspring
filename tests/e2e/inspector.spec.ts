@@ -180,6 +180,9 @@ test.describe('the inspector', () => {
 		await link.getByRole('button', { name: 'Remove', exact: true }).click();
 		await expect.poll(() => text(page)).not.toContain('depends !research');
 		await settled(page);
+		// The details go back to the task that waited (the successor), not to an empty panel.
+		await expect(details(page, info).getByLabel('Name', { exact: true })).toHaveValue('Sketch');
+		await expect(row(page, 'Sketch')).toHaveAttribute('aria-selected', 'true');
 	});
 
 	test('the project sheet edits the header and keeps the move preference', async ({

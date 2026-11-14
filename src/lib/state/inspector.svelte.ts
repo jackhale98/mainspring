@@ -10,8 +10,9 @@
  *   (`collapsed` hides it). On a tablet or a phone they are a bottom sheet: `sheet` is whether it
  *   is open, `detent` its height (half, or dragged to full). `show()` is a tap on a task;
  *   `focus()` is Enter on a row, which also moves the keyboard focus in (`focusNonce`).
- * - `link` is a selected link (its two tasks); a selected task and a selected link exclude each
- *   other (AppState.selectTask clears it).
+ * - `link` is the selected link (its two tasks). It is the link half of the app's `Selection`
+ *   (selection.svelte.ts): a selected task and a selected link exclude each other, so selecting a
+ *   task clears it.
  * - `projectOpen` and `source` are the project sheet and the show-source sheet.
  * - `sheetHeight` is the open sheet's height in px, which the chart keeps clear of (WCAG 2.4.11).
  */
@@ -20,6 +21,9 @@ import type { GanttModel } from '../gantt/model';
 import type { DrivingAnalysis } from '../schedule/critical';
 import type { TaskId } from '../tjp/index';
 import type { Detent } from '../inspector/detent';
+import { SelectionState, type LinkSelection } from './selection.svelte';
+
+export type { LinkSelection };
 
 export interface GanttView {
 	readonly model: GanttModel;
@@ -30,17 +34,11 @@ export interface GanttView {
 	readonly current: boolean;
 }
 
-export interface LinkSelection {
-	readonly pred: TaskId;
-	readonly succ: TaskId;
-}
-
 export class InspectorState {
 	view = $state.raw<GanttView | null>(null);
 	sheet = $state(false);
 	detent = $state<Detent>('half');
 	collapsed = $state(false);
-	link = $state.raw<LinkSelection | null>(null);
 	projectOpen = $state(false);
 	/** The task whose source the show-source sheet shows. */
 	source = $state<TaskId | null>(null);
@@ -50,6 +48,17 @@ export class InspectorState {
 	sheetHeight = $state(0);
 	/** The details were asked for (Enter), not just a click: a desktop in Split opens its sheet. */
 	explicit = $state(false);
+
+	/** The app's selection, whose link half `link` is (a plan of its own when used alone). */
+	readonly selection: SelectionState;
+
+	constructor(selection: SelectionState = new SelectionState()) {
+		this.selection = selection;
+	}
+
+	get link(): LinkSelection | null {
+		return this.selection.link;
+	}
 
 	/** A tap or click on a task: the sheet layouts open their sheet. */
 	show(): void {
@@ -72,19 +81,19 @@ export class InspectorState {
 	}
 
 	showLink(pred: TaskId, succ: TaskId): void {
-		this.link = { pred, succ };
+		this.selection.selectLink(pred, succ);
 		this.explicit = true;
 		this.show();
 	}
 
 	clearLink(): void {
-		this.link = null;
+		this.selection.clearLink();
 	}
 
 	/** A plan opened: nothing of the old one stays. */
 	reset(): void {
 		this.hide();
-		this.link = null;
+		this.clearLink();
 		this.projectOpen = false;
 		this.source = null;
 	}

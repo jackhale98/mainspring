@@ -60,14 +60,20 @@ test.describe('text mode', () => {
 		).toBeVisible();
 	});
 
-	test('a syntax error is marked in the text and counted', async ({ page }) => {
+	test('a syntax error is marked in the text and counted', async ({ page }, info) => {
 		await openApp(page);
 		await editor(page).click();
 		await page.keyboard.press('ControlOrMeta+End');
 		await page.keyboard.insertText('}\n');
 		await expect(page.locator('.cm-lintRange-error').first()).toBeVisible({ timeout: 10_000 });
 		const strip = page.getByRole('group', { name: 'Plan status' });
-		await expect(strip.getByRole('button', { name: /error/ })).toBeVisible();
+		// The counts are a button in the strip; a phone has the top bar's status button, whose name
+		// says them (the strip's own group is hidden there, with no controls).
+		if (info.project.name === 'desktop') {
+			await expect(strip.getByRole('button', { name: /error/ })).toBeVisible();
+		} else {
+			await expect(page.getByTestId('status-button')).toHaveAccessibleName(/1 error/);
+		}
 		// The last good finish stays visible and is labelled.
 		await expect(strip).toContainText('last good', { timeout: READY_TIMEOUT_MS });
 		await page.keyboard.press('ControlOrMeta+z');
@@ -122,11 +128,20 @@ test.describe('text mode', () => {
 		expect(await visibleActiveLine()).toBe(true);
 	});
 
-	test('the strip announces a settled run once, in a hidden live region', async ({ page }) => {
+	test('the strip announces a settled run once, in a hidden live region', async ({
+		page,
+	}, info) => {
 		await openApp(page);
 		const strip = page.getByRole('group', { name: 'Plan status' });
 		await expect(strip).not.toHaveAttribute('role', 'status');
-		await expect(strip.locator('[aria-live]')).toHaveCount(0);
+		if (info.project.name === 'desktop') {
+			// The visible strip holds buttons, so the live region is outside it.
+			await expect(strip.locator('[aria-live]')).toHaveCount(0);
+		} else {
+			// A phone's group is hidden and has no control: the live region is inside it.
+			await expect(strip.locator('[aria-live]')).toHaveCount(1);
+			await expect(strip.locator('button, a, input, [tabindex]')).toHaveCount(0);
+		}
 		const live = page.locator('[role="status"][aria-live="polite"][aria-atomic="true"]');
 		await expect(live).toContainText('Scheduled');
 		await expect(live).toContainText('Finish');

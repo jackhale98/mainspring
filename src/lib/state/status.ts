@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import type { EngineState } from '../../engine/client';
 /**
  * What the status strip and the Plan summary show (phase-1.md 8.2), computed from the runner's
  * state as plain data: the scheduler's state, the finish date in the project's time zone and its
@@ -190,4 +191,24 @@ export function statusView(
 		failure: s.status === 'failed' || s.engine === 'failed' ? (failure ?? LABELS.failed) : null,
 		engine: infoOf(s.timings, versions, locale),
 	};
+}
+
+/**
+ * The shape the phone's status button wears: the ticking mark while the scheduler works, then a
+ * circle (fine), a triangle (warnings only) or a diamond (errors, or the scheduler failed). The
+ * shapes differ, not only the colours (WCAG 1.4.1). A failure outranks a run that is under way;
+ * without a status yet the scheduler is still starting.
+ */
+export type StatusGlyph = 'busy' | 'ok' | 'warning' | 'error';
+
+export function statusGlyph(
+	v: Pick<StatusView, 'kind' | 'errors' | 'warnings' | 'failure'> | null,
+	engine?: EngineState,
+): StatusGlyph {
+	// Before any plan has a status, the engine's own state decides: a failed engine is a diamond.
+	if (!v) return engine === 'failed' ? 'error' : 'busy';
+	if (v.failure !== null || v.kind === 'failed') return 'error';
+	if (v.kind === 'booting' || v.kind === 'idle' || v.kind === 'scheduling') return 'busy';
+	if (v.kind === 'errors' || v.errors > 0) return 'error';
+	return v.warnings > 0 ? 'warning' : 'ok';
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Whether a newer build is deployed, for the status strip and the engine popover (ADR-0012).
 import { BUILD } from '../app/build';
+import { strings } from '../strings';
 import {
 	reloadToLatest,
 	watchForUpdates,
@@ -72,5 +73,10 @@ export class AppUpdates {
 		if (unsaved && !confirmLoss()) return false;
 		await reloadToLatest(this.#opts.location ?? globalThis.location, this.#fetch);
 		return true;
+	}
+
+	/** `reload` with the app's own question; every Reload button calls this. */
+	reloadAsking(unsaved: boolean): Promise<boolean> {
+		return this.reload(unsaved, () => globalThis.confirm(strings.update.confirmReload));
 	}
 }

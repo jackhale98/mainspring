@@ -9,6 +9,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { STALE_CLASS } from './lint';
+import { SOURCE_CLASS } from './source-highlight';
 
 const v = (name: string): string => `var(--${name})`;
 
@@ -47,6 +48,12 @@ export const tjpEditorTheme = EditorView.theme({
 		backgroundColor: `${v('color-editor-selection')} !important`,
 	},
 	'.cm-activeLine': { backgroundColor: v('color-editor-active-line') },
+	// The selected source (source-highlight.ts): a background and a rule, never colour alone. The
+	// rule is an inset shadow, so it does not move the text; it follows each wrapped line.
+	[`.cm-line.${SOURCE_CLASS}`]: {
+		backgroundColor: v('color-source-highlight'),
+		boxShadow: `inset 3px 0 0 ${v('color-source-rule')}`,
+	},
 	'.cm-gutters': {
 		backgroundColor: v('color-surface'),
 		color: v('color-text-muted'),

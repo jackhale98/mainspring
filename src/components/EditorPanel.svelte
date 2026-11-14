@@ -4,7 +4,9 @@
 	CodeMirror view. The workspace holds an EditorState per file (text, cursor; undo is one history);
 	switching files gives the view another of them, so each file keeps its own state. Typing,
 	format and every other transaction are committed to the workspace through `workspaceDispatch`;
-	the view never owns the text. The panel is created again for each workspace (`{#key}` in the
+	the view never owns the text. Selection sync (phase-2.md 6.10): the cursor's task goes to the
+	app (`cursorMoved`), and a selection a visual made (`app.sourceMark`) is drawn here as the
+	selected-source highlight, with a scroll and, if the editor has no focus, the cursor. The panel is created again for each workspace (`{#key}` in the
 	parent), so a new sample gets a fresh view. This component is imported with the editor packages,
 	when a mode first shows the editor (App.svelte); `ensureEditor` loads the rest and gives the
 	workspace its editor support before the view is made.
@@ -46,6 +48,7 @@
 				ws,
 				host,
 				untrack(() => app.activeFile),
+				{ onCursor: (file, pos) => app.cursorMoved(file, pos) },
 			);
 			made = c;
 			app.editor = c.view;
@@ -100,6 +103,23 @@
 		const r = app.reveal;
 		const c = ctl;
 		if (r && c) untrack(() => c.reveal(r.file, r.from, r.to, r.focus, r.select ?? true));
+	});
+
+	// A selection a visual made: the highlight, and for a new one the scroll and the cursor.
+	$effect(() => {
+		const m = app.sourceMark;
+		const c = ctl;
+		if (c) untrack(() => c.mark(m));
+	});
+
+	// The editor was hidden (Visual mode) when a selection asked for a scroll: do it when it shows.
+	$effect(() => {
+		const el = host;
+		const c = ctl;
+		if (!el || !c) return;
+		const ro = new ResizeObserver(() => c.becameVisible());
+		ro.observe(el);
+		return () => ro.disconnect();
 	});
 </script>
 
@@ -195,6 +215,14 @@
 	.host :global(.cm-scroller) {
 		overflow: auto;
 		overscroll-behavior: none;
+	}
+	/* Forced colours drop backgrounds and shadows: the selected source keeps a rule (a border in
+	   place of the padding it replaces, so the text does not move). */
+	@media (forced-colors: active) {
+		.host :global(.cm-line.cm-source-selected) {
+			border-inline-start: 3px solid CanvasText;
+			padding-inline-start: 3px;
+		}
 	}
 	@media (pointer: coarse) {
 		.actions button:not([data-testid]) {
