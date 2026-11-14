@@ -1,7 +1,107 @@
 # Phase 2 gate: Gantt and visual editing
 
-Status: **in progress.** This file collects the gate evidence as the Phase 2 tasks land (T27
-completes it). Sections so far: the edit API timing table (T6).
+Status: **evidence recorded, 2026-11-14 (T27).** The user approved moving into Phase 3 as soon as
+Phase 2 is done (2026-11-13), so Phase 3 starts without waiting; the verdict below still awaits
+the user's review.
+
+Gate commit: `bdc9af8e` (the T22/T23 merge) on `claude/new-session-6tly46`, fast-forwarded to
+`main` with the docs commit `c29a0e0c`. CI run:
+<https://github.com/jackhale98/mainspring/actions/runs/43609169886> (run 162, success: check,
+golden, fidelity with the fast-path equivalence step, responsiveness, e2e on desktop, Pixel 7 and
+both iPhone 14 shards, JS size).
+
+## Verdict
+
+| Criterion (phase-2.md 16) | Verdict |
+| --- | --- |
+| 1. Each row of the direct-manipulation table works on desktop and in phone emulation, produces the documented patch, and is undoable | **Pass** |
+| 2. 500-task scroll at 60 fps on a mid-range Android device | **Not met under emulation; device run waived.** Desktop passes. The user decided on 2026-11-14 to record the result and move on, with a real-device check in Phase 6 |
+
+## Criterion 1
+
+Evidence: `docs/phases/phase-2-test-audit.md` (maps every 13.2 item and every criterion to its
+spec) and the CI run above, where all of these pass.
+
+| Row | Gesture (desktop / phone) | Patch asserted | Undo and Redo | Keyboard or inspector alternative | Devices in CI |
+| --- | --- | --- | --- | --- | --- |
+| R1 change effort or length | drag the bar's end | `effort 3d` becomes `effort 5d`, bar matches the engine (`barOnEngine`) | yes | Ctrl+Alt+arrow; inspector stepper | desktop, Pixel 7, iPhone 14 |
+| R2 move (`start` and `gap` kinds) | drag the bar | `start` rewritten, or the dependency's `gapduration` | yes | Alt+arrow | desktop, Pixel 7, iPhone 14 |
+| R3 link | drag from the link handle, or tap then tap | `depends` added; a refused target says why | yes | link mode by key | desktop, Pixel 7, iPhone 14 |
+| R4 remove a link | select the line, Remove | `depends` entry removed | yes | inspector Remove | desktop, Pixel 7 |
+| R5 reorder or re-parent | row drag (long press on a phone) | block moved, references follow, across files too | yes | Alt+Shift+arrows; row menu | desktop, Pixel 7, iPhone 14 |
+| R6 assign a person | drop a person chip | `allocate` added; a container refuses with a message | yes | inspector people field | desktop, Pixel 7 |
+| R7 replace a person | inspector chip menu (18.3; the heatmap gesture is a Phase 3 gate item) | one id token rewritten (`dev1` to `dev3`) | yes | the same menu | desktop, Pixel 7 |
+| R8 rename | double-click the name (desktop) or the sheet field | the task's name string | yes | F2; the details field | desktop, Pixel 7 |
+| R9 mark progress | drag the progress handle | `complete` set | yes | key | desktop, Pixel 7, iPhone 14 |
+| R10 navigate | scroll, pan, pinch | text unchanged (asserted); undo does not apply | n/a | arrows, PageUp/PageDown, T, zoom keys | desktop, Pixel 7 |
+| Add and delete a task | toolbar and row menu | exact text of `plan.tjp` and `lib/build.tji` | yes | keys | desktop, Pixel 7 |
+
+Each row's expected text is written inline as an exact replacement of the original lines, next to
+the gesture (audit, "Decisions"). Also passing:
+
+- **Android Enter** (`text-mode-android-enter.spec.ts`, Pixel 7): passes with the dispatcher gate,
+  and fails with the gate stubbed out (verified by mutation in the audit).
+- **"No longer schedules"** (`gantt-schedule-fail.spec.ts`): the last good schedule stays, dimmed,
+  and Undo and Redo go through it.
+- **Two-way selection sync** (`selection-sync.spec.ts`, `gantt-sync.spec.ts`, across files) and
+  **unified undo** across typing and chart edits (`gantt-undo.spec.ts`, the history property tests).
+- **Accessibility** (`gantt-a11y.spec.ts`, `phase-2-perf-a11y.md` A1 to A13): axe finds no
+  violations in any state, light and dark, desktop and Pixel 7; 44 px targets on a coarse pointer
+  (rows are 40 px by design, 10.3). Open by design: A11, the row menu acts on the selected row,
+  not the focused one.
+- **Screenshots**: `docs/phases/screenshots/phase-2/` (336 files: every mode, light and dark,
+  desktop, tablet and phone, plus the gesture pictures).
+
+## Criterion 2
+
+The real-device run (8.5, T26) was dropped by the user on 2026-11-13. Under emulation
+(`phase-2-perf-a11y.md` P4, `tests/e2e/gantt-perf.spec.ts`, `scripts/perf-android.mjs`):
+
+- **Desktop, unthrottled: met.** 6 of 6 runs at least 95% on time (95.3 to 99.8%), no interval
+  over 50 ms.
+- **Pixel 7 emulation at 4x CPU: not met.** 0 of 6 runs: 62.5 to 66% on time, 32 to 39% of
+  compositor frames dropped, 69 to 150 frames over 50 ms per run, longest 117 to 317 ms.
+- **Cause:** style, layout and paint while treegrid rows mount during the scroll, plus canvas
+  redraws; not input handling (0.5 ms per frame) and not the touch listener (P12 shows no
+  difference). Software raster in emulation may overstate it.
+- **Decision (user, 2026-11-14): record and move on.** The fixes are polish item 12
+  (`getClientRects` forced layout in `Timeline.svelte` and `TimeHeader.svelte`, fewer rows mounted
+  on a coarse pointer, `contain: strict`), and a real-device check is in Phase 6.
+
+## Deliverables
+
+- **Canvas Gantt** with outline, zoom, collapse, dependency lines (rerouted like MS Project and
+  OmniPlan), critical path, float tails, today and status-date lines: screenshots above;
+  `gantt-critical`, treegrid and analysis tests.
+- **Split, Text and Visual modes** with selection sync, the inspector (bottom sheet on phones,
+  tap to select and tap again for details), every MVP gesture on mouse and touch, unified undo
+  (phone Undo and Redo in the top bar, with a long-press History rewind).
+- **Fast path spike (T19, ADR-0010): accepted with a condition, merged but switched off.**
+  Equivalence over three review rounds: 0 differences (round 3: 2,578 and 2,544 cases at two
+  seeds, plus 194 shuffled fast runs). Median engine time saving 37 to 51% on Fedora 20 and 34 to
+  44% on `gantt-200`. It is switched on only after a third independent adversarial review finds no
+  wrong-result case; that review is paused for machine capacity and resumes next.
+- **Other items the gate records:**
+  - reschedule time up to 200 tasks: the first schedule of `gantt-200` lands at 5.1 s on desktop
+    (Ready 6.1 s) against the 4 s budget; boot alone is 2.4 s (P2, P3; a known Phase 0 deviation,
+    wasm code cache is Phase 4);
+  - drag script time per frame 1.0 ms desktop and 4.2 ms at 4x (P7, budget 8 ms);
+  - JS size 424,010 bytes gzip against the 450,000 byte cap (CI `js-sizes.json`);
+  - goldens: still **provisional, Ruby 3.3.6** (ADR-0003 #5, amended), schema v2;
+  - edit API timings: the T6 table below; every Fedora intent and drop path is under 50 ms p90.
+
+## Open items carried forward
+
+| Item | Where |
+| --- | --- |
+| Engine memory: about 1.1 MB kept per full run; ruby.wasm fails past 2 GiB, after about 1,800 runs | `engine-specialist` investigating; fix before Phase 3 work in `src/engine/client.ts` |
+| `gantt-500` analysis cold 13 to 26 ms against 10 ms (warm meets it) | P13; open |
+| First 200-task schedule over 4 s | P3; Phase 4 code cache |
+| Phone scroll cost under emulation | polish 12; Phase 6 device check |
+| Remaining phone layout; add-dependency picker in the details | polish 8, 11 |
+| Fast path switched off | ADR-0010 final review |
+| Project intents on the 1,000-task plan at 44 to 51 ms p90 cold | T6 "Open" below |
+| Ruby 3.4 golden re-record | the user (ADR-0003 #5) |
 
 ## Edit API timings (T6)
 
