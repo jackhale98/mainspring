@@ -51,6 +51,11 @@ describe('checkScheduleRequest', () => {
 		expect(checkScheduleRequest(request(2, { options: { now: '2026-01-05T09:00:00Z' } })).revision).toBe(2);
 	});
 
+	it('accepts the fast-path fields, leaving the patch for the bridge to check', () => {
+		const r = checkScheduleRequest({ ...request(3), retain: true, fast: { base: 2, edits: [] } });
+		expect(r).toMatchObject({ retain: true, fast: { base: 2, edits: [] } });
+	});
+
 	it.each([
 		['a non-object', 'x'],
 		['a missing revision', { ...request(1), revision: undefined }],
@@ -60,6 +65,8 @@ describe('checkScheduleRequest', () => {
 		['a missing entry', { ...request(1), entry: null }],
 		['options that are not an object', request(1, { options: 'now' })],
 		['a now that is not a string', request(1, { options: { now: 5 } })],
+		['a retain that is not a boolean', { ...request(1), retain: 'yes' }],
+		['a fast patch that is not an object', { ...request(1), fast: [] }],
 	])('rejects %s as invalid-request', (_, value) => {
 		try {
 			checkScheduleRequest(value);

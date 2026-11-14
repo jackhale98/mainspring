@@ -7,6 +7,10 @@
  * Result schema v2 (phase-2 spec 6.1) adds fields only; every v1 field keeps its meaning:
  * `ProjectInfo.dailyWorkingHours` and `workingTime`, and per task scenario `direction`,
  * `complete`, `depends` and `precedes` (`DependencyResult`). The worker messages are unchanged.
+ *
+ * Fast path (phase-2 spec 6.12, spike T19, ADR-0010): `ScheduleRequest.retain` and `fast`, and the
+ * fast-path fields of `Timings`. `files` always carries the full text; a request the bridge cannot
+ * run fast runs in full, with the same result.
  */
 
 /** Strictly increasing per EngineClient. */
@@ -24,7 +28,38 @@ export interface ScheduleRequest {
 	revision: Revision;
 	/** EXTENSION to the plan, see 11.4 and ADR-0002. */
 	options?: ScheduleOptions;
+	/**
+	 * Keep this run's parsed project as the base of later fast runs (engine/bridge/fast_path.rb).
+	 * It costs a copy of the project (`Timings.retainMs`). The worker keeps one base: only the next
+	 * run with `retain` replaces it.
+	 */
+	retain?: boolean;
+	/** Run by rewriting values in the kept base instead of parsing `files` (ADR-0010). */
+	fast?: FastPatch;
 }
+
+/** In-place value rewrites relative to the text of the run `base` (phase-2 spec 6.12). */
+export interface FastPatch {
+	/** The revision of a full run sent with `retain: true`. */
+	base: Revision;
+	edits: FastEdit[];
+}
+
+export interface FastEdit {
+	/** The task's full id. */
+	task: string;
+	attribute: FastAttr;
+	/** Top scenario only: null. */
+	scenario: null;
+	/** The value as written in the new text ('7d', '2026-03-09'). */
+	value: string;
+	/** Where the statement is: its only line, unchanged in count. */
+	file: WorkspacePath;
+	/** 1-based. */
+	line: number;
+}
+
+export type FastAttr = 'effort' | 'length' | 'duration' | 'start' | 'end' | 'priority' | 'complete';
 export interface ScheduleOptions {
 	/** ISO 8601 UTC ("2026-01-05T09:00:00Z"). Used only when the plan has no `now`. Golden/test use. */
 	now?: string;
@@ -229,6 +264,18 @@ export interface Timings {
 	scheduleMs: number;
 	serializeMs: number;
 	totalMs: number;
+	/** Which run gave the result; absent from engines before the fast path. */
+	path?: 'full' | 'fast';
+	/** A full run with `retain`: copying the parsed project, and the size of the copy kept. */
+	retainMs?: number;
+	retainBytes?: number;
+	/** A full run with `retain` whose project could not be copied: why (nothing is kept). */
+	retainError?: string;
+	/** A fast run: loading the kept copy, and applying the edits. */
+	cloneMs?: number;
+	applyMs?: number;
+	/** A request with `fast` that ran in full: why. */
+	fastFallback?: string;
 }
 
 export interface SyntaxDocs {

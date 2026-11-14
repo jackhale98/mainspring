@@ -829,7 +829,7 @@ Each task runs in its own worktree and goes through `reviewer` before merge. UI 
 | T23 | Accessibility audit (section 10), 44 px carry-over | `perf-a11y-auditor` | `tests/e2e/gantt-a11y.spec.ts`, fixes in components | T16, T17, T18 |
 | T24 | Engine version and timings in the status strip (Phase 0 carry-over) | `ui-builder` | `src/components/StatusStrip.svelte`, `src/lib/state/status.ts` | none |
 | T25 | CI changes (13.4) | `test-writer`; `engine-specialist` reviews golden and fidelity | `.github/workflows/*.yml`, size script | as suites land |
-| T26 | Real-device run (8.5) and Text-mode keystroke latency on the device | **User** provides the device; `perf-a11y-auditor` prepares the procedure; main session runs it with the user | `test-results/gantt-perf-android.json`, gate file | T22 |
+| T26 | ~~Real-device run (8.5) and Text-mode keystroke latency on the device~~ **Dropped by the user, 2026-11-13: no real-device run in Phase 2. Criterion 2 is met under Pixel 7 emulation with CPU throttling (T22), and the gate file records the waiver.** | **User** provides the device; `perf-a11y-auditor` prepares the procedure; main session runs it with the user | `test-results/gantt-perf-android.json`, gate file | T22 |
 | T27 | Gate evidence | main session; `test-runner` runs suites | `docs/phases/phase-2-gate.md` | all |
 
 ### 14.1 Parallel waves
@@ -889,6 +889,8 @@ Copied word for word from the plan:
   - screenshots in light and dark, desktop and phone, in every mode.
 
 ### Criterion 2: "500-task scroll at 60 fps on a mid-range Android device"
+
+> **Waived by the user, 2026-11-13:** the real-device run (8.5, T26) is not done. Criterion 2 is judged on the emulated Pixel 7 runs with CPU throttling from T22 and the CI responsiveness gate; the gate file says so.
 
 - **How it is shown.**
   - `scripts/perf-android.mjs` on the user's device (8.5), `gantt-500`, all rows expanded, three runs.
