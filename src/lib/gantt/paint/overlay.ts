@@ -127,18 +127,16 @@ export function linkPathOf(
 	return link ? layout.linkPath(link) : [];
 }
 
-/** Strokes a link in the accent, thicker, on the very path the base layer drew (hover, selection). */
+/**
+ * Strokes a link in the accent, thicker, on the very path the base layer drew (hover, selection).
+ * The overlay is above the bars, but a link runs under them (links.ts), so the bars of the rows
+ * it spans are cut out of the stroke: the highlight is the same line, not one struck through
+ * a bar. A line only ever ends on a bar's edge, so nothing of the line or its head is lost.
+ */
 function strokeLink(f: PaintFrame, link: GanttLink): void {
 	const { ctx, layout, theme } = f;
 	const path = routeShortened(layout, link, theme);
 	if (!path || path.n <= 1) return;
-	ctx.strokeStyle = theme.accent;
-	ctx.lineWidth = theme.linkWidthHover;
-	ctx.lineJoin = 'round';
-	ctx.lineCap = 'round';
-	ctx.beginPath();
-	traceLink(ctx, path, theme);
-	ctx.stroke();
 	let x0 = Infinity;
 	let y0 = Infinity;
 	let x1 = -Infinity;
@@ -152,8 +150,30 @@ function strokeLink(f: PaintFrame, link: GanttLink): void {
 		y1 = Math.max(y1, y);
 	}
 	const pad = theme.linkWidthHover + theme.arrowSize + 2;
+	ctx.save();
+	// Everything in the padded box, less the bars of the rows between and at the ends.
+	ctx.beginPath();
+	ctx.rect(x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad);
+	for (
+		let r = Math.min(link.predRow, link.succRow);
+		r <= Math.max(link.predRow, link.succRow);
+		r++
+	) {
+		if (layout.barInto(r, cutOut)) ctx.rect(cutOut.x, cutOut.y, cutOut.w, cutOut.h);
+	}
+	ctx.clip('evenodd');
+	ctx.strokeStyle = theme.accent;
+	ctx.lineWidth = theme.linkWidthHover;
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
+	ctx.beginPath();
+	traceLink(ctx, path, theme);
+	ctx.stroke();
+	ctx.restore();
 	note(f, x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad);
 }
+
+const cutOut: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
 
 export function paintOverlay(f: PaintFrame, state: OverlayState): void {
 	const { ctx, win, layout, model, theme } = f;

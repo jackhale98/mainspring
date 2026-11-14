@@ -21,6 +21,20 @@
 	With `top: auto` instead, Safari on iPhone placed the sheet off screen and only the backdrop
 	showed. It is `position: fixed` so that it does the same when it is not modal.
 -->
+<script lang="ts" module>
+	/** Whether a pointer is down now, for every sheet (one pair of listeners, set up on first use). */
+	let pressed = false;
+	let tracking = false;
+	function track(): void {
+		if (tracking || typeof window === 'undefined') return;
+		tracking = true;
+		const set = (v: boolean) => () => (pressed = v);
+		window.addEventListener('pointerdown', set(true), true);
+		window.addEventListener('pointerup', set(false), true);
+		window.addEventListener('pointercancel', set(false), true);
+	}
+</script>
+
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import {
@@ -68,11 +82,14 @@
 		children,
 	}: Props = $props();
 
+	track();
 	const uid = $props.id();
 	const titleId = `sheet-title-${uid}`;
 	let dialog: HTMLDialogElement | undefined = $state();
 	let dragPx = $state<number | null>(null);
 	let opener: Element | null = null;
+	/** A finger was down when it opened (a press and hold): the click that ends it is not a tap. */
+	let openedPressed = false;
 	/** The sheet is closed by its `open` prop (a tab changed), not by the person. */
 	let byProp = false;
 
@@ -80,6 +97,7 @@
 		if (!dialog) return;
 		if (open && !dialog.open) {
 			opener = document.activeElement;
+			openedPressed = pressed;
 			if (modal) dialog.showModal();
 			else {
 				dialog.show();
@@ -112,6 +130,12 @@
 	});
 
 	function backdropClick(event: MouseEvent): void {
+		// A press and hold opens a sheet while the finger is down; its release then clicks what is
+		// under the finger, which is this sheet's backdrop. That one click is not a request to close.
+		if (openedPressed) {
+			openedPressed = false;
+			return;
+		}
 		if (modal && event.target === dialog) dialog?.close();
 	}
 
@@ -180,6 +204,7 @@
 	aria-labelledby={titleId}
 	onclose={closed}
 	onclick={backdropClick}
+	onpointerdown={() => (openedPressed = false)}
 	{onkeydown}
 >
 	{#if open}
@@ -266,6 +291,43 @@
 		/* The sheet's own width, so a tablet gets a sheet and not a full-width slab. */
 		inline-size: min(44rem, 100vw);
 	}
+	/*
+	   A modal bottom sheet (the docs, the project settings, the source) is a transparent dialog that
+	   fills the viewport, with the panel pinned to its foot by flexbox. Nothing then depends on how
+	   the browser sizes or places a top-layer dialog: on a real iPhone (a home-screen app) the
+	   fit-content box with an auto top margin was laid out off screen, so only the backdrop showed.
+	   A tap on the empty part is a tap on the dialog itself, which closes it (backdropClick).
+	*/
+	.sheet[data-side='bottom'][data-modal='true'] {
+		inset: 0;
+		margin: 0;
+		inline-size: 100%;
+		block-size: 100%;
+		max-block-size: none;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		animation: none;
+	}
+	.sheet[data-side='bottom'][data-modal='true'][open] {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: center;
+	}
+	.sheet[data-side='bottom'][data-modal='true'] .inner {
+		inline-size: min(40rem, 100%);
+		block-size: auto;
+		max-block-size: 80%;
+		border: 1px solid var(--color-border);
+		border-block-end: 0;
+		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+		background: var(--color-surface);
+		box-shadow: var(--shadow-raised);
+		padding-block-end: env(safe-area-inset-bottom);
+		animation: slide-bottom var(--motion-base) ease-out;
+	}
 	/* On a phone the sheet ends above the floating tab bar (the margin, not a padding, so that the
 	   top stays auto and the sheet keeps the iPhone placement above). The heights below are shares
 	   of what is left. */
@@ -288,6 +350,12 @@
 	.sheet[data-detent='full'] {
 		block-size: calc(var(--room, 100dvh) - 12px - env(safe-area-inset-top));
 		max-block-size: none;
+	}
+	/* A phone's top bar holds Undo and Redo (edits make no toast there): full height stops below it. */
+	@media (max-width: 599px) {
+		.sheet[data-detent='full'] {
+			block-size: calc(var(--room, 100dvh) - var(--size-topbar) - env(safe-area-inset-top));
+		}
 	}
 	.sheet[data-dragging] {
 		max-block-size: none;

@@ -61,9 +61,26 @@ export class InspectorState {
 		return this.selection.link;
 	}
 
+	/**
+	 * Sheet layouts (set by App.svelte): a first tap on a task only selects it, so that its handles
+	 * can be used (link dot, resize edge, progress knob) with the chart in full view, and a tap on
+	 * the task that is already selected opens the details.
+	 */
+	secondTapOpens = $state(false);
+
 	/** A tap or click on a task: the sheet layouts open their sheet. */
 	show(): void {
 		this.sheet = true;
+	}
+
+	/**
+	 * A tap or click that selected a task (`alreadySelected`: it was the selection before).
+	 * Returns whether the details are open now. With `secondTapOpens`, a first tap on a task while
+	 * the sheet is closed only selects; an open sheet follows the selection as before.
+	 */
+	tap(alreadySelected: boolean): boolean {
+		if (!this.secondTapOpens || alreadySelected || this.sheet) this.show();
+		return this.sheet;
 	}
 
 	/** Enter on a row: open the details and move the keyboard focus into them. */

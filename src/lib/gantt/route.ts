@@ -50,6 +50,14 @@ function put(p: PathBuf, x: number, y: number): void {
 	p.n++;
 }
 
+/** What a bar is, for the edges a line lands on: a pill, a summary bracket, a diamond. */
+export type BarKind = 'task' | 'container' | 'milestone';
+
+export interface RouteKinds {
+	readonly pred: BarKind;
+	readonly succ: BarKind;
+}
+
 export interface RouteEnds {
 	readonly predRow: number;
 	readonly succRow: number;
@@ -75,6 +83,17 @@ export interface RouteStyle {
 	 * end crosses that end's own name. Null to ignore the names.
 	 */
 	readonly runs: Float64Array | null;
+	/**
+	 * Where what stands beside a row's bar begins (its name, then its avatars), by row, Infinity
+	 * for a row with nothing: a line that leaves a bar by its end at mid-height may not run into
+	 * it, so it leaves by the bar's lower or upper edge instead. Null to ignore them.
+	 */
+	readonly beside: Float64Array | null;
+	/** How far inside a bar's start a line lands on its top or bottom edge, clamped to the bar. */
+	readonly inset: number;
+	/** A summary bracket's top bar and end caps: the underside a line from below lands on. */
+	readonly stem: number;
+	readonly cap: number;
 }
 
 /** Clear space kept between a leg and a name, in px. */
@@ -136,43 +155,127 @@ function stepOff(
 	return x;
 }
 
+/** Positions this close, in px, are the same: a start that is half a pixel early is not an overlap. */
+const EPS = 0.5;
+
+/** Where the things beside row `r`'s bar begin, or Infinity when it has none. */
+function besideStart(beside: Float64Array | null, r: number): number {
+	const x = beside?.[r];
+	return x === undefined || Number.isNaN(x) ? Infinity : x;
+}
+
+/**
+ * Finish to start where the successor starts at or after the predecessor's end (the usual case):
+ * along the predecessor's mid-height from its end to just inside the successor's start, then
+ * straight down (or up) onto the successor's top (or bottom) edge, the arrow head on that edge.
+ * Where the predecessor has a name or avatars beside it in the way, or the successor is too near
+ * for a run, the line leaves by the predecessor's lower (upper) edge instead, runs along the row
+ * boundary and drops onto the successor in the same place. False when neither fits (the
+ * successor starts before the end; a bar too small to land on): the caller goes round.
+ */
+function routeFinishToStart(
+	out: PathBuf,
+	pred: Rect,
+	succ: Rect,
+	link: RouteEnds,
+	kinds: RouteKinds,
+	style: RouteStyle,
+): boolean {
+	if (link.succRow === link.predRow) return false;
+	const down = link.succRow > link.predRow;
+	const { rowHeight, runs, inset } = style;
+	const top = Math.min(link.predRow, link.succRow) + 1;
+	const bottom = Math.max(link.predRow, link.succRow) - 1;
+	const predMilestone = kinds.pred === 'milestone';
+	const succMilestone = kinds.succ === 'milestone';
+	const x0 = pred.x + pred.w;
+	const y0 = pred.y + pred.h / 2;
+	// A milestone's instant is its middle; its drawn end is the diamond's right tip.
+	const predAt = predMilestone ? pred.x + pred.w / 2 : x0;
+	const succAt = succMilestone ? succ.x + succ.w / 2 : succ.x;
+	if (succAt < predAt - EPS) return false;
+
+	// Where the line may land along the successor's edge: a diamond has its vertex only.
+	// A bracket's top bar is flat to its very end, so a line lands a hair inside the cap.
+	const room = Math.min(kinds.succ === 'container' ? style.cap / 2 : inset, succ.w / 2);
+	const lo = succMilestone ? succAt : succ.x + room;
+	const hi = succMilestone ? succAt : succ.x + succ.w - room;
+	// The edge it lands on: a bracket seen from below is its top bar's underside.
+	const yt = down
+		? succ.y
+		: succ.y + (kinds.succ === 'container' ? Math.min(style.stem, succ.h) : succ.h);
+
+	// Along the predecessor's mid-height: a run long enough for a corner (a milestone's tip is a
+	// point, so a little more), short of the things beside the bar.
+	const minRun = predMilestone ? 4 : 2;
+	const dLo = succMilestone ? (succAt >= x0 - EPS ? succAt : Infinity) : Math.max(lo, x0 + minRun);
+	const dHi = Math.min(hi, besideStart(style.beside, link.predRow) - RUN_PAD);
+	if (dLo <= dHi) {
+		const x = stepOff(runs, top, bottom, Math.min(Math.max(lo, dLo), dHi), dLo, dHi, 1);
+		put(out, x0, y0);
+		if (Math.abs(x - x0) > 1e-6) put(out, x, y0);
+		put(out, x, yt);
+		return true;
+	}
+
+	// Out by the predecessor's lower (upper) edge, near its end, and along the row boundary.
+	const ye = down ? pred.y + pred.h : pred.y;
+	const yMid = (down ? link.predRow + 1 : link.predRow) * rowHeight;
+	if (!(down ? ye < yMid && yMid < yt : yt < yMid && yMid < ye)) return false;
+	const xe = predMilestone
+		? predAt
+		: x0 - Math.min(kinds.pred === 'container' ? style.cap / 2 : inset, pred.w / 2);
+	const x = stepOff(runs, top, bottom, lo, lo, hi, 1);
+	if (Math.abs(x - xe) <= 1.5) {
+		put(out, x, ye);
+		put(out, x, yt);
+		return true;
+	}
+	put(out, xe, ye);
+	put(out, xe, yMid);
+	put(out, x, yMid);
+	put(out, x, yt);
+	return true;
+}
+
 /** Routes a link between two bars into `out` (cleared first). */
 export function routeLink(
 	out: PathBuf,
 	pred: Rect,
 	succ: Rect,
 	link: RouteEnds,
-	predIsMilestone: boolean,
+	kinds: RouteKinds,
 	style: RouteStyle,
 ): void {
 	const { elbow, rowHeight, approach, runs } = style;
+	out.n = 0;
+	// A milestone's start and end are one instant: leaving it for a start is leaving it by its end.
+	const from = kinds.pred === 'milestone' && link.to === 'start' ? 'end' : link.from;
+	if (
+		from === 'end' &&
+		link.to === 'start' &&
+		routeFinishToStart(out, pred, succ, link, kinds, style)
+	) {
+		return;
+	}
+	out.n = 0;
 	// The rows strictly between the ends: the only ones whose names a leg steps off.
 	const top = Math.min(link.predRow, link.succRow) + 1;
 	const bottom = Math.max(link.predRow, link.succRow) - 1;
 	// A leg right of an end that leaves or enters a bar by its end may not pass that bar's own name:
 	// the horizontal run to the end would cross it.
 	const capRight = Math.min(
-		link.from === 'end' ? nameStart(runs, link.predRow) - RUN_PAD : Infinity,
+		from === 'end' ? nameStart(runs, link.predRow) - RUN_PAD : Infinity,
 		link.to === 'end' ? nameStart(runs, link.succRow) - RUN_PAD : Infinity,
 	);
-	out.n = 0;
-	const x0 = link.from === 'end' ? pred.x + pred.w : pred.x;
+	const x0 = from === 'end' ? pred.x + pred.w : pred.x;
 	const y0 = pred.y + pred.h / 2;
 	const x1 = link.to === 'start' ? succ.x : succ.x + succ.w;
 	const y1 = succ.y + succ.h / 2;
 	// The direction of travel leaving the predecessor and arriving at the successor.
-	const d0 = link.from === 'end' ? 1 : -1;
+	const d0 = from === 'end' ? 1 : -1;
 	const d1 = link.to === 'start' ? 1 : -1;
 	const down = link.succRow > link.predRow;
-
-	// A milestone and a task that start at the same instant: a straight drop along the start
-	// edge, not a loop round it.
-	const centre = pred.x + pred.w / 2;
-	if (predIsMilestone && link.to === 'start' && Math.abs(x1 - centre) <= elbow) {
-		put(out, centre, down ? pred.y + pred.h : pred.y);
-		put(out, centre, y1);
-		return;
-	}
 
 	const a = x0 + d0 * elbow;
 	// The last bend keeps the approach, even where the elbow alone would be shorter.

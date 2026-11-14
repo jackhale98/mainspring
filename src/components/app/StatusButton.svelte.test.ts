@@ -7,6 +7,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AppState } from '../../lib/state/app.svelte';
 import type { StatusView } from '../../lib/state/status';
+import type { ThemeState } from '../../lib/state/theme.svelte';
 import type { AppUpdates } from '../../lib/state/updates.svelte';
 import StatusButton from './StatusButton.svelte';
 
@@ -36,7 +37,18 @@ function setup(status: StatusView | null, update: 'available' | 'current' | 'unk
 	const goToNextProblem = vi.fn(() => true);
 	const retry = vi.fn();
 	const reloadAsking = vi.fn(async () => true);
-	const app = $state({ status, run: null, engine: 'idle', dirty: false, goToNextProblem, retry });
+	const history = $state({ canUndo: true, undoLabel: 'Undo: set effort' });
+	const app = $state({
+		status,
+		run: null,
+		engine: 'idle',
+		dirty: false,
+		goToNextProblem,
+		retry,
+		history,
+		historyOpen: false,
+	});
+	const theme = $state({ pref: 'system', set: vi.fn() });
 	const updates = $state({
 		status: update,
 		checking: false,
@@ -49,13 +61,17 @@ function setup(status: StatusView | null, update: 'available' | 'current' | 'unk
 	mounted.push(
 		mount(StatusButton, {
 			target,
-			props: { app: app as unknown as AppState, updates: updates as unknown as AppUpdates },
+			props: {
+				app: app as unknown as AppState,
+				updates: updates as unknown as AppUpdates,
+				theme: theme as unknown as ThemeState,
+			},
 		}),
 	);
 	flushSync();
 	const button = target.querySelector<HTMLButtonElement>('[data-testid="status-button"]');
 	if (!button) throw new Error('no status button');
-	return { target, button, app, updates, goToNextProblem, retry, reloadAsking };
+	return { target, button, app, updates, theme, history, goToNextProblem, retry, reloadAsking };
 }
 
 describe('the phone status button', () => {
@@ -181,5 +197,33 @@ describe('the popover', () => {
 			expect(text).toContain(part);
 		}
 		expect(text.indexOf('Scheduled')).toBeLessThan(text.indexOf('Scheduler total'));
+	});
+});
+
+describe('the popover on a phone: History and Appearance', () => {
+	it('has a History row that opens the sheet, and is off while there is nothing to undo', () => {
+		const { target, app, history } = setup(view());
+		HTMLElement.prototype.hidePopover = vi.fn();
+		const row = target.querySelector<HTMLButtonElement>('[data-testid="open-history"]');
+		expect(row?.textContent).toContain('Undo history');
+		row?.click();
+		expect(app.historyOpen).toBe(true);
+		history.canUndo = false;
+		flushSync();
+		expect(row?.disabled).toBe(true);
+	});
+
+	it('has the theme as System, Light and Dark radios, the current one checked', () => {
+		const { target, theme } = setup(view());
+		const group = target.querySelector('[data-testid="appearance"]');
+		expect(group?.querySelector('legend')?.textContent).toBe('Appearance');
+		const radios = [...(group?.querySelectorAll<HTMLInputElement>('input[type="radio"]') ?? [])];
+		expect(radios.map((r) => r.value)).toEqual(['system', 'light', 'dark']);
+		expect(radios.map((r) => r.checked)).toEqual([true, false, false]);
+		const dark = radios[2];
+		if (!dark) throw new Error('no dark radio');
+		dark.checked = true;
+		dark.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(theme.set).toHaveBeenCalledWith('dark');
 	});
 });

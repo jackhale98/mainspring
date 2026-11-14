@@ -16,3 +16,41 @@ phone and a desktop screenshot. An item is struck through when its fix merges.
 | 8 | User, 2026-11-13 | **Use the phone screen better.** The chart should get more of the screen. | Phone layout (`App.svelte`, `TopBar.svelte`, `GanttToolbar.svelte`) | Task details in a slide-up bottom sheet: already specified in T17 (half height, drag to full, 44 px steppers). Beyond that: a slimmer top bar, chips that collapse into one control, a narrower name column with a swipe to widen it, and the "Changes stay in this tab" note folded into the status line. Mock it on the design canvas first. |
 | 9 | T5 review (8) | ~~**On a phone, the "whole path before the status date" pill covers the bottom row.** The list still scrolls, and the pill ignores pointer events.~~ **Fixed:** the Gantt reserves the pill's measured height (and its gap) as padding at the bottom of the scroller while the pill shows, on a phone only. Test: `tests/e2e/gantt-phone-polish.spec.ts`. | Phone task pill | Reserve the pill's height at the bottom of the scroller while the pill shows. |
 | 10 | User, 2026-11-13 | ~~**Let the user resize the table against the chart.** A draggable divider between the task table and the Gantt, like the text Split view. The table keeps natural column widths and scrolls sideways in its own pane; no automatic column hiding.~~ **Fixed:** the Visual view has a draggable divider between the task table and the chart (`SplitDivider.svelte`, `table.ts`, `mode.svelte.ts`); every column is drawn at its natural width, the table scrolls inside its pane behind the frozen Task column and a focused cell is scrolled into view (`columns.ts` no longer hides columns); one shared vertical scroll; the pane is never narrower than the name column and the widest other column, and the separator reports that limit; dragging it repaints no canvas and builds no layout (no long task on gantt-500, `tests/e2e/gantt-table-divider.spec.ts`); the position is stored per sample; the phone keeps the single name column. Tests: `tests/e2e/gantt-table-divider.spec.ts`. Pictures: `polish-10-*`. | `Gantt.svelte`, `OutlineGrid.svelte`, `columns.ts`, the split divider component | ADR-0008 amendment (2026-11-13). Reuse the text Split view's divider (keyboard, 44 px target). Task column frozen at the table's left; one shared vertical scroll; position stored per sample. Phone unchanged. |
+
+## Item 1 revisited (user, 2026-11-14): how links reach a task below
+
+"The arrows on the Gantt for tasks directly below predecessors still don't look great." The
+rule of item 1 (a run of the arrow head plus 4 px into every target, else go round) made a task
+directly below its predecessor take the S-jog, and links into a bar, a bracket or a diamond
+below the Spike row ended in down-pointing heads beside the target instead of on it. Reworked
+to the MS Project / OmniPlan style (`route.ts`, `layout.ts`, `labels.ts`, `paint/links.ts`,
+`paint/overlay.ts`; the 121-position sweep in `route.test.ts` asserts the shapes):
+
+- **Finish to start, the successor starts at or after the end** (half a pixel of tolerance):
+  along the predecessor's mid-height to 8 px inside the successor's start (the middle of a bar
+  shorter than 16 px, the vertex of a diamond, a hair inside a bracket's cap), then straight down
+  or up onto the successor's top or bottom edge. The head is on that edge (a bracket seen from
+  below: under its top bar). No jog, adjacent rows included.
+- **Where that run would cross what stands beside the predecessor** (its name beside the bar, or
+  its avatars; `GanttLayout.beside`, `labels.ts besideStarts`), the line leaves by the bar's
+  lower or upper edge near its end (a milestone: its tip), runs along the row boundary and drops
+  onto the successor in the same place. A line never runs through the names or avatars of its
+  own endpoints.
+- **Finish to start, the successor starts before the end:** the go-round, as before: a short
+  stub, down into the gap, back past the start, down, then a run into the start with a
+  right-pointing head. Start to start, finish to finish and start to finish keep their C and
+  go-round shapes, and end on the edge they point at.
+- A start to start or start to finish link out of a milestone is routed as a finish to start
+  one (a milestone's start and end are one instant).
+- **Heads touch:** `--gantt-link-gap` is now 0, so the tip is on the edge, not 2 px short.
+- **Under the bars:** the base layer already painted links before bars; a test now pins it. The
+  hovered or selected link is on the overlay above the bars, so the bars of its rows are cut out
+  of its stroke: it is the same line, not one struck through a bar. A link behind a bar is hit
+  where it shows (the bar wins inside its hit area), pinned in `hit.test.ts`.
+- Step-off of a vertical leg from names beside the bars of the rows between is kept: the leg
+  slides along the successor's edge (inside the bar) to clear them.
+
+Pictures: `screenshots/phase-2/links-<sample>-<device>-<scheme>[-scrolled][-before].png`
+(upstream-tutorial, gantt-manipulation, upstream-fedora-20, gantt-500; desktop at 2x and Pixel 7;
+light and dark), from `tests/e2e/links-screenshots.spec.ts` with `SCREENSHOTS=1`.
+| 11 | User, 2026-11-14 | **Add predecessors and successors from the task details,** not only by drawing on the chart. "Waits for" and "Followed by" get an Add button that opens a searchable task picker (by name or id). | `src/components/inspector/**` | Reuse the `addDepends` intent through the dispatcher (same refusals: loops, self, ancestors; same toast and undo). The picker is a combobox with keyboard support and 44 px rows on a phone. |

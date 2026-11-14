@@ -58,7 +58,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		});
 		const after = before.replace('    effort 3d\n', '    effort 5d\n');
 		await rig.patched(after);
-		await expect(rig.toast.last()).toContainText('Effort of Research: 3d to about 5d');
+		await expect(rig.edited.last()).toContainText('Effort of Research: 3d to about 5d');
 		await rig.rescheduled(rev);
 		await expect.poll(() => rig.end('design.research')).toBe(minute('2026-03-06', 17));
 		await rig.barOnEngine('design.research');
@@ -265,9 +265,12 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const sketch = rig.row('task:design.sketch');
 		const sheet = page.locator('dialog.sheet[data-detent]');
 		if (rig.touch) {
-			// The grip shows on the selected row; the sheet shrinks to a peek once the row is lifted.
+			// The grip shows on the selected row; the sheet (a second tap opens it) shrinks to a peek
+			// once the row is lifted.
 			await sketch.locator('.label').tap();
 			await expect(sketch).toHaveAttribute('aria-selected', 'true');
+			await page.waitForTimeout(600);
+			await sketch.locator('.label').tap();
 			await expect(sheet).toHaveAttribute('data-detent', 'half');
 			await page.waitForTimeout(400);
 		} else {
@@ -316,7 +319,6 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		if (rig.touch) {
 			// A finger has no keys: the row menu's button (WCAG 2.5.7).
 			await rig.row('task:launch').locator('.label').tap();
-			await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
 			await page.getByTestId('row-menu').tap();
 			await page.getByRole('menuitem', { name: 'Move up' }).tap();
 		} else {
@@ -335,7 +337,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const b = await rig.bar('design.research');
 		const rev = await rig.revision();
 		if (rig.touch) {
-			await rig.select('design.research');
+			await rig.openDetails('design.research');
 			// A finger books people in the details sheet: its people are the palette's twin here.
 			await shoot(page, info, 'people-palette');
 			await page.getByRole('combobox', { name: /Add a person/ }).selectOption({ label: 'Dev 2' });
@@ -383,7 +385,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 	}, info) => {
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		const rev = await rig.revision();
 		await page.getByRole('combobox', { name: /Replace Dev 1/ }).selectOption({ label: 'Dev 3' });
 		await rig.patched(
@@ -403,7 +405,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const before = await rig.text();
 		const rev = await rig.revision();
 		if (rig.touch) {
-			await rig.select('design.research');
+			await rig.openDetails('design.research');
 			const name = page.getByRole('textbox', { name: 'Name' });
 			await name.fill('Investigate');
 			await name.press('Enter');
@@ -487,9 +489,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await expect(gantt).toHaveAttribute('data-zoom', 'quarter');
 		expect(await rig.text()).toBe(before);
 		// Nothing was done, so there is nothing to undo.
-		// (A phone's top bar has no undo button; its text is unchanged and no toast came up.)
-		if (!rig.touch)
-			await expect(page.getByRole('button', { name: /^Undo/ }).first()).toBeDisabled();
+		await expect(page.getByRole('button', { name: /^Undo/ }).first()).toBeDisabled();
 		await expect(rig.toast).toHaveCount(0);
 	});
 	test('R10 by key: T scrolls back to today, and PageDown moves the rows; the text stays', async ({

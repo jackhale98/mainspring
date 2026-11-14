@@ -96,7 +96,7 @@
 	--gantt-link-width-hover: 2.4px;
 	--gantt-link-elbow: 8px;
 	--gantt-link-radius: 4px;
-	--gantt-link-gap: 2px;
+	--gantt-link-gap: 0px;
 	--gantt-arrow-size: 5px;
 	--gantt-outline-width: 1.5px;
 	--gantt-critical-edge-width: 2px;

@@ -6,10 +6,10 @@
 	toggle. It answers to its own width (a container query), not the window's: below 900 px the
 	mode switch keeps icons and the active label, the engine pill shrinks to its dot and the
 	wordmark goes. A phone has its own header: the mark, the plan's name as a serif title with the
-	finish date under it, the project button, the status button (the plan's state as a shape; it
-	opens the status and the engine details, and carries a pip when a new version is out) and the
-	theme toggle; its tab bar replaces the mode
-	switch, and undo and redo live in the editor's toolbar there.
+	finish date under it, the project button, undo and redo (always visible; a press and hold on Undo
+	opens the History sheet) and the status button (the plan's state as a shape; it opens the status,
+	the History row, the Appearance choice that replaces the theme toggle here, and the engine
+	details, and carries a pip when a new version is out); its tab bar replaces the mode switch.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -20,6 +20,7 @@
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 	import EngineStatus from './EngineStatus.svelte';
+	import HistorySheet from './HistorySheet.svelte';
 	import Mark from './Mark.svelte';
 	import ModeSwitch from './ModeSwitch.svelte';
 	import PlanChip from './PlanChip.svelte';
@@ -59,8 +60,9 @@
 			<Icon name="sliders" size={17} />
 			<span class="sr-only">{strings.inspector.projectSettings}</span>
 		</button>
-		<StatusButton {app} {updates} />
-		<ThemeToggle {theme} />
+		<UndoRedo {app} phone />
+		<StatusButton {app} {updates} {theme} />
+		<HistorySheet {app} />
 	{:else}
 		{#if drawer}
 			<button

@@ -5,7 +5,14 @@
 // declaration order, every effort leaf has an allocation, fixed dates stay early and no hard
 // constraints are combined. The printer (printer.ts) turns it into text and records the oracle.
 // This file builds the tree, the resources and the files; model-attrs.ts adds the statements.
-import { macros, precedes, resourceStatements, statements, supplements } from './model-attrs';
+import {
+	macros,
+	precedes,
+	purges,
+	resourceStatements,
+	statements,
+	supplements,
+} from './model-attrs';
 import {
 	FLAGS,
 	IDS,
@@ -59,6 +66,7 @@ export function genPlan(rng: Rng, opts: PlanOpts = {}): MPlan {
 	precedes(rng, all);
 	if (rich || rng.chance(0.25)) supplements(rng, all, leafRes, declared);
 	if (rich || rng.chance(0.3)) macros(rng, plan, all);
+	if (opts.purge) purges(rng, all, plan.scenarios);
 	assignFiles(rng, plan, opts.minTasks === undefined && rng.chance(0.45) ? 2 : 0);
 	return plan;
 }

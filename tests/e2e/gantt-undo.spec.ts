@@ -38,14 +38,14 @@ test.describe('one history for typing and visual edits', () => {
 		// The edit on the chart: one more unit of effort, by the key on the task's row.
 		if (isTouch(info)) {
 			await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
-			await rig.select('design.research');
+			await rig.openDetails('design.research');
 			await page.getByRole('button', { name: 'Increase Effort' }).tap();
 		} else {
 			await rig.row('task:design.research').focus();
 			await page.keyboard.press('Control+Alt+ArrowRight');
 		}
 		await expect.poll(() => rig.text()).toBe(both);
-		await expect(rig.toast.last()).toBeVisible();
+		await expect(rig.edited.last()).toBeAttached();
 
 		// Undo twice (the focus is on the chart, not in a text field), redo twice.
 		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());

@@ -28,13 +28,14 @@ test.describe('an edit that stops the plan scheduling', () => {
 		const rev0 = await rig.revision();
 		expect(end0).not.toBeNull();
 
-		await rig.select('design.research');
+		await rig.openDetails('design.research');
 		const size = page.getByRole('group', { name: 'Effort' }).getByRole('textbox');
 		await size.fill('900d');
 		await size.press('Enter');
 		await expect.poll(() => rig.text()).toBe(patched);
 
-		// The first result that includes the edit is an error: the toast settles as such, with Undo.
+		// The first result that includes the edit is an error: the toast settles as such (on a phone, as
+		// the compact message, with Undo in the top bar).
 		await expect(rig.toast.last()).toHaveAttribute('data-status', 'not-scheduled', {
 			timeout: READY_TIMEOUT_MS,
 		});
@@ -55,7 +56,7 @@ test.describe('an edit that stops the plan scheduling', () => {
 		}
 
 		// Undo: the text is back, and the engine schedules it again.
-		await rig.toast.last().getByRole('button', { name: 'Undo' }).click();
+		await rig.undoNewest();
 		await expect.poll(() => rig.text()).toBe(before);
 		await expect(status).toContainText('Scheduled', { timeout: READY_TIMEOUT_MS });
 		await expect(status).not.toContainText('Not scheduled');

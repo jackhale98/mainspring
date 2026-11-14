@@ -285,6 +285,38 @@ export function resourceStatements(rng: Rng, plan: MPlan): void {
 const flat = (rs: readonly MRes[]): MRes[] => rs.flatMap((r) => [r, ...flat(r.kids)]);
 const isUnder = (a: MRes, b: MRes): boolean => flat(a.kids).includes(b);
 
+/** The attributes `purges` clears: the fast path's seven, the ones that share their families, others. */
+const PURGED = [
+	'start',
+	'end',
+	'effort',
+	'length',
+	'duration',
+	'milestone',
+	'priority',
+	'complete',
+	'forward',
+	'allocate',
+	'depends',
+	'flags',
+];
+
+/**
+ * `purge` statements (PlanOpts.purge): on about a third of the tasks, a `purge <attribute>`
+ * (`late:` scoped now and then) at a random place among its statements, or in its supplement
+ * when it has one. A purge after a value statement resets that value (TjpSyntaxRules.rb
+ * rule_purge); the plan may then not schedule, which the suites compare too.
+ */
+export function purges(rng: Rng, all: MTask[], scenarios: boolean): void {
+	for (const t of all) {
+		if (!rng.chance(0.3)) continue;
+		const attr = rng.pick(PURGED);
+		const value = scenarios && rng.chance(0.3) ? `late:${attr}` : attr;
+		const into = t.supp.length > 0 && rng.chance(0.4) ? t.supp : t.stmts;
+		into.splice(rng.int(0, into.length), 0, mk('purge', value));
+	}
+}
+
 /**
  * `precedes`: an effort task ends before a task with a fixed start well into the project. It makes the
  * task ALAP, so it needs no start, end or dependency of its own, and the later task must not start at once.

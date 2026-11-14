@@ -8,12 +8,20 @@
  * - `paintWindow` (paint-window.ts, re-exported here) decides which part of the content the
  *   canvases hold.
  */
-import { LABEL_STRIDE, labelRunInto, sideFont, type LabelRun, type TextMeasure } from './labels';
+import {
+	LABEL_STRIDE,
+	besideStarts,
+	labelRunInto,
+	sideFont,
+	type LabelRun,
+	type TextMeasure,
+} from './labels';
 import type { GanttLink, GanttModel, GanttRow } from './model';
 import type { Theme } from './paint/theme';
 import {
 	newPath,
 	pointsOf,
+	type BarKind,
 	routeLink,
 	type MutableRect,
 	type PathBuf,
@@ -55,8 +63,11 @@ export interface Metrics {
 	readonly milestoneHalf: number;
 	/** The narrowest a bar is drawn, so a short task stays visible. */
 	readonly minBarWidth: number;
-	/** Space left of a link's first bend. */
+	/** Space left of a link's first bend, and how far inside a bar's start a link lands on its edge. */
 	readonly elbow: number;
+	/** A summary bracket's top bar and end caps (link routing lands on and leaves by them). */
+	readonly summaryStem: number;
+	readonly summaryCap: number;
 	/** Space inside a bar around its name, and between a bar's end and a name beside it. */
 	readonly labelPad: number;
 	readonly labelGap: number;
@@ -86,6 +97,8 @@ export function metricsFor(theme: Theme, coarse: boolean): Metrics {
 		milestoneHalf: theme.milestoneHalf,
 		minBarWidth: theme.minBarWidth,
 		elbow: theme.linkElbow,
+		summaryStem: theme.summaryStem,
+		summaryCap: theme.summaryCap,
 		approach: theme.arrowSize + LINK_APPROACH_PAD,
 		labelPad: theme.labelPad,
 		labelGap: theme.labelGap,
@@ -119,6 +132,12 @@ export interface GanttLayout {
 	 * the marker lines leave it alone before anything is painted. Empty without a text measure.
 	 */
 	readonly labels: Float64Array;
+	/**
+	 * Where what stands beside each row's bar begins (its name, then its avatars), Infinity for
+	 * none: the links keep clear of it (route.ts). Unlike `labels` it needs no text measure for the
+	 * avatars.
+	 */
+	readonly beside: Float64Array;
 	rowTop(row: number): number;
 	/** The row at a content y, or null above the first or below the last. */
 	rowAt(y: number): number | null;
@@ -249,8 +268,9 @@ export function createLayout(
 			labels[LABEL_STRIDE * i + 2] = run.inside ? 1 : 0;
 		}
 	}
+	const beside = besideStarts(rows, bars, labels, scale, metrics.labelGap);
 	const width = Math.max(viewWidth, Math.ceil(scale.x(model.endMin)));
-	return layoutOver(model, scale, metrics, bars, avatars, labels, width);
+	return layoutOver(model, scale, metrics, bars, avatars, labels, beside, width);
 }
 
 function layoutOver(
@@ -260,6 +280,7 @@ function layoutOver(
 	bars: BarArrays,
 	avatars: Float64Array,
 	labels: Float64Array,
+	beside: Float64Array,
 	width: number,
 ): GanttLayout {
 	const rows = model.rows;
@@ -269,6 +290,10 @@ function layoutOver(
 		rowHeight,
 		approach: metrics.approach,
 		runs: labels.length > 0 ? labels : null,
+		beside,
+		inset: metrics.elbow,
+		stem: metrics.summaryStem,
+		cap: metrics.summaryCap,
 	};
 	const rowTop = (row: number): number => row * rowHeight;
 
@@ -295,13 +320,15 @@ function layoutOver(
 
 	const pred: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
 	const succ: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
+	const kinds: { pred: BarKind; succ: BarKind } = { pred: 'task', succ: 'task' };
 	const linkInto = (link: GanttLink, out: PathBuf): boolean => {
 		if (!barInto(link.predRow, pred) || !barInto(link.succRow, succ)) {
 			out.n = 0;
 			return false;
 		}
-		const milestone = rows[link.predRow]?.kind === 'milestone';
-		routeLink(out, pred, succ, link, milestone, style);
+		kinds.pred = rows[link.predRow]?.kind ?? 'task';
+		kinds.succ = rows[link.succRow]?.kind ?? 'task';
+		routeLink(out, pred, succ, link, kinds, style);
 		return true;
 	};
 
@@ -314,6 +341,7 @@ function layoutOver(
 		bars,
 		avatars,
 		labels,
+		beside,
 		rowTop,
 		rowAt: (y) => {
 			const row = Math.floor(y / rowHeight);
@@ -334,7 +362,7 @@ function layoutOver(
 			const buf = newPath();
 			return linkInto(link, buf) ? pointsOf(buf) : [];
 		},
-		withBars: (b) => layoutOver(model, scale, metrics, b, avatars, labels, width),
+		withBars: (b) => layoutOver(model, scale, metrics, b, avatars, labels, beside, width),
 	};
 }
 

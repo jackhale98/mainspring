@@ -78,7 +78,8 @@ export interface GestureHost {
 	/** The visible chart in viewport px, minus what a sheet or a drawer covers. */
 	visible(): Box;
 	scroller(): HTMLElement | undefined;
-	select(row: number): void;
+	/** `drop`: the selection after a drag, which never opens the details. */
+	select(row: number, drop?: boolean): void;
 	selectLink(link: number): void;
 	/** A task written with macros: its source (long-press). */
 	showSource(task: string): void;
@@ -530,9 +531,9 @@ export class GanttGestures {
 		// The action is queued (and its pending bar set) before the preview goes, in one task.
 		void this.#h.actor.run(drop.action, { defer: true }, drop.mark);
 		this.drag = null;
-		// The dragged task becomes the selection once it is dropped: opening the details sheet
-		// while a finger is down would scroll the chart under it.
-		if (s.row !== this.#h.selectedRow()) this.#h.select(s.row);
+		// The dragged task becomes the selection once it is dropped; the details stay as they are
+		// (opening the sheet while a finger is down would scroll the chart under it).
+		if (s.row !== this.#h.selectedRow()) this.#h.select(s.row, true);
 	}
 
 	#cancel(reason: string): void {

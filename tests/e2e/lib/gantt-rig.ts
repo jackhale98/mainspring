@@ -261,7 +261,21 @@ export class Rig {
 		const b = await this.bar(task);
 		await this.tap(b.body);
 		await expect(this.row(key)).toHaveAttribute('aria-selected', 'true');
-		// The sheet on a phone moves the chart (the selected row is scrolled above it).
+		// Re-read the bar: selecting shows its handles.
+		await this.page.waitForTimeout(400);
+		return this.bar(task);
+	}
+
+	/**
+	 * Selects a task and has its details on screen. A desktop's docked panel shows them at once; a
+	 * phone or a tablet selects on the first tap and opens its sheet on a tap on the selected bar.
+	 */
+	async openDetails(task: string, key = `task:${task}`): Promise<BarPoints> {
+		const b = await this.select(task, key);
+		if (!this.touch) return b;
+		await this.tap(b.body);
+		await expect(this.page.getByRole('dialog', { name: /Task details/ })).toBeVisible();
+		// The sheet moves the chart (the selected row is scrolled above it).
 		await this.page.waitForTimeout(400);
 		return this.bar(task);
 	}
@@ -289,8 +303,17 @@ export class Rig {
 		await expect.poll(() => this.revision(), { timeout: READY_TIMEOUT_MS }).toBeGreaterThan(after);
 	}
 
+	/** The toasts on screen: every edit's on desktop and tablet, a phone's compact messages only. */
 	get toast(): Locator {
 		return this.page.getByTestId('toast');
+	}
+
+	/**
+	 * What the newest edit announced: its toast, or on a phone, where a successful edit shows no
+	 * toast, the visually hidden line in the same live region (`toast-quiet`).
+	 */
+	get edited(): Locator {
+		return this.page.locator('[data-testid="toast"], [data-testid="toast-quiet"]');
 	}
 
 	#after: string | null = null;
@@ -302,14 +325,26 @@ export class Rig {
 	}
 
 	/**
-	 * One undo, from the toast's own button: the text is back byte for byte. Then one redo (the
-	 * keyboard, the history's own) gives the patch again, when `patched` said what it was.
+	 * One undo: the text is back byte for byte. A desktop or tablet uses the toast's own button; a
+	 * phone has no toast for an edit, so it uses the top bar's Undo. Then one redo (the keyboard,
+	 * the history's own) gives the patch again, when `patched` said what it was.
 	 */
 	async undoTo(original: string): Promise<void> {
-		await expect(this.toast.last()).toBeVisible();
-		await this.toast.last().getByRole('button', { name: 'Undo' }).click();
+		await this.undoNewest();
 		await expect.poll(() => this.text()).toBe(original);
 		if (this.#after !== null) await this.redoTo(this.#after);
+	}
+
+	/** One undo of the newest edit: the toast's Undo (desktop, tablet) or the top bar's (phone). */
+	async undoNewest(): Promise<void> {
+		if (this.touch) {
+			const undo = this.page.getByTestId('undo');
+			await expect(undo).toBeEnabled();
+			await undo.click();
+		} else {
+			await expect(this.toast.last()).toBeVisible();
+			await this.toast.last().getByRole('button', { name: 'Undo' }).click();
+		}
 	}
 
 	/** Redo with the keyboard (the global key, with the focus off any text field). */

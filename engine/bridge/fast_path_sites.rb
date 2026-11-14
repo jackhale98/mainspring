@@ -15,16 +15,21 @@
 # keyword, in the top scenario, and no later action of the same family ran on
 # that task. It also notes every task an attr_overwrite warning was given for
 # (the warning itself names no property), and the fast path refuses to rewrite
-# those.
+# those, and every `purge` on a task, with the attribute it purges: a purge
+# after a rewritten statement resets the value (AttributeBase#reset, provided
+# false), which a later rewrite of the kept copy would set again (round 3, D1),
+# so the fast path refuses a rewrite with any later purge on its task.
 #
 # How: the patterns of TaskJuggler's :taskScenarioAttributes rule whose first
-# token is one of these keywords, and the pattern of :taskPeriod (which
+# token is one of these keywords, the pattern of :taskPeriod (which
 # :taskScenarioAttributes reaches through `!taskPeriod`, TjpSyntaxRules.rb:
-# 6159-6163, 6592), are wrapped, once per pattern object, so that each call is
+# 6159-6163, 6592) and the pattern of :purge (which :taskAttributes reaches
+# through `!purge`, TjpSyntaxRules.rb:3705-3725, 5960), are wrapped, once per pattern object, so that each call is
 # noted before the original action runs (TextParser.rb:385-397 calls
 # `state.pattern.function` with @sourceFileInfo, @property and @scenarioIdx
 # set on the parser, which the action closes over). No other rule reached from
-# :taskScenarioAttributes sets one of the noted attributes. attr_overwrite is
+# a task's declaration or supplement writes, resets or clears one of the
+# noted attributes or the direction (ADR-0010 lists the walk). attr_overwrite is
 # reported through the scanner's `warning` (TextParser.rb:397), which is
 # hooked to note the parser's @property. File names are expanded, so one file
 # included as "common.tji" and "./common.tji" is one file. Nothing is noted
@@ -33,13 +38,13 @@
 # them on).
 module MainspringBridge
   module FastPathSites
-    # Keywords whose actions are noted: those the fast path rewrites, milestone, and period.
-    NOTED = %w[effort length duration milestone start end priority complete period].freeze
-    # The rules whose patterns are wrapped: the task attributes, and period's own rule.
-    RULES = %i[taskScenarioAttributes taskPeriod].freeze
-    # A noted action: where its keyword token is, the task, the keyword, the scenario index
-    # and its place in parse order.
-    Site = Struct.new(:file, :line, :task, :keyword, :scenario, :seq)
+    # Keywords whose actions are noted: those the fast path rewrites, milestone, period and purge.
+    NOTED = %w[effort length duration milestone start end priority complete period purge].freeze
+    # The rules whose patterns are wrapped: the task attributes, period's own rule, and purge's.
+    RULES = %i[taskScenarioAttributes taskPeriod purge].freeze
+    # A noted action: where its keyword token is, the task, the keyword, the scenario index,
+    # its place in parse order and, for a purge, the attribute it purges.
+    Site = Struct.new(:file, :line, :task, :keyword, :scenario, :seq, :detail)
 
     class << self
       # The actions noted so far, or nil when no kept run is being parsed.
@@ -90,8 +95,10 @@ module MainspringBridge
         sfi = parser.instance_variable_get(:@sourceFileInfo)&.first
         property = parser.instance_variable_get(:@property)
         task = property.is_a?(TaskJuggler::Task) ? property.fullId : nil
+        # `purge [<scenario>:]<attribute>`: @val is [keyword, scenario or nil, attribute id].
+        detail = keyword == 'purge' ? parser.instance_variable_get(:@val)&.[](2) : nil
         @log << Site.new(sfi&.fileName.to_s, sfi&.lineNo, task, keyword,
-                         parser.instance_variable_get(:@scenarioIdx), @log.length)
+                         parser.instance_variable_get(:@scenarioIdx), @log.length, detail)
       end
 
       # An attr_overwrite warning while a kept run is parsed: notes the task it was for.

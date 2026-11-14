@@ -69,6 +69,11 @@
 		onopen?: (key: string) => void;
 		/** F2 on a row, or a double click on its name; without it the key is left alone. */
 		onrename?: (key: string) => void;
+		/**
+		 * Whether a double click on a name renames it. Off on phones and tablets, where a second tap
+		 * on the selected task opens its details instead (rename is in the details); F2 still works.
+		 */
+		dblclickRenames?: boolean;
 		/** The row being renamed in place, by key, and what ends it. */
 		renaming?: string | null;
 		onrenamed?: (key: string, name: string) => void;
@@ -106,6 +111,7 @@
 		onselect,
 		onopen,
 		onrename,
+		dblclickRenames = true,
 		renaming = null,
 		onrenamed,
 		oncancelrename,
@@ -460,7 +466,7 @@
 							aria-label={cell.blank ? spokenText(cell) : undefined}
 							tabindex={on ? tabIndexOf(row, col) : undefined}
 							style:width={on ? nameRem(col) : undefined}
-							ondblclick={col === 'name' ? () => onrename?.(row.key) : undefined}
+							ondblclick={col === 'name' && dblclickRenames ? () => onrename?.(row.key) : undefined}
 						>
 							{#if col === 'name'}
 								<NameCell

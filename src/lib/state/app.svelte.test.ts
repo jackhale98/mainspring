@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import { Transaction } from '@codemirror/state';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { strings } from '../strings';
 import type { Sample } from '../workspace/samples';
@@ -115,6 +116,102 @@ describe('AppState', () => {
 		expect(app.history.redoLabel).toBe('Redo: typing');
 		expect(app.history.redo()).toBe(true);
 		expect(ws.texts()['x.tji']).toBe('# x\ntask c "C"\n');
+	});
+
+	describe('rewindHistory (the phone History sheet)', () => {
+		async function typed3() {
+			const { app } = await open();
+			await app.openSample('two');
+			const ws = app.workspace;
+			if (!ws) throw new Error('no workspace');
+			const before = ws.texts();
+			// Three entries (time apart, so they do not group): one in x.tji, two in plan.tjp.
+			const type = (path: string, insert: string, time: number) =>
+				ws.commit(
+					path,
+					ws.state(path).update({
+						changes: { from: 0, insert },
+						userEvent: 'input.type',
+						annotations: [Transaction.time.of(time)],
+					}),
+					'typing',
+				);
+			type('x.tji', '# 1\n', 1000);
+			type('plan.tjp', '# 2\n', 5000);
+			type('x.tji', '# 3\n', 9000);
+			return { app, ws, before };
+		}
+
+		it('lists the stack newest first and rewinds N steps in one go, then redo steps forward', async () => {
+			const { app, ws, before } = await typed3();
+			expect(app.history.items().map((i) => i.files[0])).toEqual(['x.tji', 'plan.tjp', 'x.tji']);
+			app.rewindHistory(3);
+			expect(ws.texts()).toEqual(before);
+			// The compact message names what happened; the editor's per-step note stays quiet.
+			expect(app.edits?.toasts.at(-1)?.text).toBe(strings.history.rewound(3));
+			expect(app.note).toBeNull();
+			expect(app.history.redoLabel).toBe('Redo: typing');
+			expect(app.history.redo()).toBe(true);
+			expect(ws.texts()['x.tji']).toBe(`# 1\n${before['x.tji']}`);
+			expect(ws.texts()['plan.tjp']).toBe(before['plan.tjp']);
+		});
+
+		it('does nothing for a count beyond the stack', async () => {
+			const { app, ws } = await typed3();
+			const text = ws.texts();
+			app.rewindHistory(4);
+			app.rewindHistory(0);
+			expect(ws.texts()).toEqual(text);
+		});
+
+		it('stops with a sticky message where an undo is refused, and applies nothing past it', async () => {
+			const { app, ws } = await typed3();
+			// x.tji changes outside the history after the newest entry was made.
+			ws.commit(
+				'x.tji',
+				ws.state('x.tji').update({
+					changes: { from: 0, insert: 'Z' },
+					annotations: [Transaction.addToHistory.of(false)],
+				}),
+				'typing',
+			);
+			const text = ws.texts();
+			app.rewindHistory(3);
+			// The newest entry (x.tji) diverges at once: nothing was undone.
+			expect(ws.texts()).toEqual(text);
+			const last = app.edits?.toasts.at(-1);
+			expect(last?.status).toBe('refused');
+			expect(last?.text).toBe(strings.history.rewindStopped(0, 3));
+			expect(app.history.canUndo).toBe(false);
+		});
+
+		it('waits for a held Android key, and refuses when the top changed meanwhile', async () => {
+			const { app, ws } = await typed3();
+			vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			try {
+				let held = true;
+				app.editorKeys = { keyHeld: () => held };
+				const text = ws.texts();
+				app.rewindHistory(2);
+				expect(ws.texts()).toEqual(text);
+				// Typing lands while the key is held: the entries it was asked about are no longer on top.
+				ws.commit(
+					'plan.tjp',
+					ws.state('plan.tjp').update({
+						changes: { from: 0, insert: '# 4\n' },
+						userEvent: 'input.type',
+						annotations: [Transaction.time.of(20_000)],
+					}),
+					'typing',
+				);
+				held = false;
+				await vi.advanceTimersByTimeAsync(40);
+				expect(app.edits?.toasts.at(-1)?.text).toBe(strings.history.rewindChanged);
+				expect(ws.texts()['plan.tjp']).toContain('# 4');
+			} finally {
+				vi.useRealTimers();
+			}
+		});
 	});
 
 	it('maps an outline node through the edits made since the index', async () => {
