@@ -47,7 +47,7 @@
 # runs in full. Only a full run with `retain` replaces the kept project
 # (one at a time); other runs leave it, valid for the text it was parsed from.
 #
-# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time and
+# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time, jump and
 # parser-cache patches on native Ruby too (the Intl time-zone patch needs a JS
 # host and is
 # never loaded natively). This exists only to check natively that the patches
@@ -66,6 +66,7 @@ require 'taskjuggler/TaskJuggler'
 require_relative 'wasm/tj_wasm_tz' if TJBridge::WASM
 require_relative 'wasm/tj_wasm_time' if TJBridge::PATCHES
 require_relative 'wasm/tj_parser_cache' if TJBridge::PATCHES
+require_relative 'wasm/tj_wasm_jumps' if TJBridge::PATCHES
 require_relative 'request'
 require_relative 'fast_path'
 
