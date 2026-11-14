@@ -109,9 +109,7 @@ export function linkKey(e: KeyEventLike): LinkKey | null {
 
 /** What a key does in progress mode: the change in percent, or the end of the mode. */
 export type ProgressKey =
-	| { readonly by: number }
-	| { readonly to: number }
-	| { readonly done: true };
+	{ readonly by: number } | { readonly to: number } | { readonly done: true };
 
 export const PROGRESS_STEP = 5;
 

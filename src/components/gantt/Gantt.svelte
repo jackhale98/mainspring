@@ -35,6 +35,8 @@
 
 	Over 400 lines on purpose: this one component owns the scroll container, the zoom and the sticky
 	grid, and they only work together; splitting them would spread one invariant over two files.
+	The manipulation wiring (the block after `markers`) is derived state of the same model, layout
+	and selection, so it stays beside them; the logic is in the classes named above and lib/gantt.
 
 	Zoom is one step: the scale and the scroll offset are set together, so a single paint follows.
 	A continuous Ctrl+wheel zoom first stretches the canvases with a CSS transform about the point
@@ -279,7 +281,6 @@
 	const today = $derived(todayOf(model.project, env.nowMs));
 	const markers = $derived(markerState(model, scale.m(0), today));
 
-
 	// --- Direct manipulation (phase-2.md 7.1 to 7.3, 10.2; T16) ---------------------------------
 	/** What the Gantt says aloud (the treegrid's live region): a new sentence is spoken once. */
 	let flip = false;
@@ -318,7 +319,8 @@
 			}
 			if (set.progress !== null) {
 				const to = set.progress >= 100 ? 95 : set.progress + 5;
-				if (refuses({ type: 'progress', task: id, percent: to })) next = { ...next, progress: null };
+				if (refuses({ type: 'progress', task: id, percent: to }))
+					next = { ...next, progress: null };
 			}
 			refined = { base: set, set: next };
 		});
@@ -406,7 +408,9 @@
 		roots,
 		rowHeight: () => metrics.rowHeight,
 		bodyTop: () =>
-			(scroller?.getBoundingClientRect().top ?? 0) + metrics.headerHeight - (scroller?.scrollTop ?? 0),
+			(scroller?.getBoundingClientRect().top ?? 0) +
+			metrics.headerHeight -
+			(scroller?.scrollTop ?? 0),
 		visible: visibleBox,
 		scroller: () => scroller,
 		nameOf: (k) => model.rows[model.rowOf.get(k) ?? -1]?.name ?? rowTree().get(k)?.name ?? k,
@@ -520,7 +524,10 @@
 		}
 		if (e.key !== 'Delete' || !app.inspector.link || e.defaultPrevented) return;
 		const t = e.target;
-		if (t instanceof Element && t.closest('input, textarea, select, [contenteditable], .cm-editor')) {
+		if (
+			t instanceof Element &&
+			t.closest('input, textarea, select, [contenteditable], .cm-editor')
+		) {
 			return;
 		}
 		const key = app.selectedTask ?? model.rows[0]?.key;
@@ -662,19 +669,28 @@
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
 		oncritical={() => critical.toggle()}
-		people={env.coarse ? undefined : { open: paletteOpen, count: people.length, ontoggle: () => (paletteOpen = !paletteOpen) }}
+		people={env.coarse
+			? undefined
+			: { open: paletteOpen, count: people.length, ontoggle: () => (paletteOpen = !paletteOpen) }}
 		{rowActions}
 		onpill={(h) => (pillH = h)}
 	/>
-	{#if links.state && links.state.via !== 'drag'}
-		<!-- Link mode (R3): what to do, and the way out for a pointer that has no Escape. -->
-		<div class="banner" role="status" data-testid="link-banner">
-			<span>{gestureStrings.link.banner(links.state.name)}</span>
-			<button type="button" onclick={() => links.cancel()} aria-label={gestureStrings.link.cancelLabel}>
-				{gestureStrings.link.cancel}
-			</button>
-		</div>
-	{/if}
+	<!-- Link mode (R3): what to do, and the way out for a pointer that has no Escape. It floats
+	     over the top of the chart (a zero-height anchor), so entering the mode moves nothing. -->
+	<div class="banner-anchor">
+		{#if links.state && links.state.via !== 'drag'}
+			<div class="banner" role="status" data-testid="link-banner">
+				<span>{gestureStrings.link.banner(links.state.name)}</span>
+				<button
+					type="button"
+					onclick={() => links.cancel()}
+					aria-label={gestureStrings.link.cancelLabel}
+				>
+					{gestureStrings.link.cancel}
+				</button>
+			</div>
+		{/if}
+	</div>
 	{#if paletteOpen && !env.coarse && !phone && people.length > 0}
 		<PeoplePalette
 			{people}
@@ -797,7 +813,10 @@
 			<div class="inset" aria-hidden="true" style:block-size="{app.inspector.sheetHeight}px"></div>
 		</div>
 	{/if}
-	<MovePreferenceDialog ask={interactions.actor.ask} onanswer={(k) => interactions.actor.answer(k)} />
+	<MovePreferenceDialog
+		ask={interactions.actor.ask}
+		onanswer={(k) => interactions.actor.answer(k)}
+	/>
 </div>
 
 <style>
@@ -816,9 +835,17 @@
 		block-size: 100%;
 		background: var(--color-gantt-surface);
 	}
-	/* Link mode's banner: a strip under the toolbar, with the way out for a finger. */
-	.banner {
+	/* Link mode's banner floats over the top of the chart, with the way out for a finger. */
+	.banner-anchor {
 		flex: none;
+		position: relative;
+		z-index: 8;
+		block-size: 0;
+	}
+	.banner {
+		position: absolute;
+		inset-inline: 0;
+		inset-block-start: 0;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;

@@ -12,6 +12,8 @@
 	says why in text a screen reader reads, and it is ruby when on (the critical path's colour). The selected task's line is a polite live region
 	with the people on it; the hovered one is shown but not announced. The task line is a pill that
 	floats over the chart and exists only while there is a task, so it never moves the chart.
+	Over 400 lines on purpose: about two thirds are the styles of the chips, pills and the phone
+	layout; the script is small.
 	Critical path and float are estimates (phase-2.md 6.2.1): the chip describes itself so, a
 	task's estimate note sits apart at the end of its line and stays visible when the line is cut
 	(a phone), and with nothing selected the pill says when the whole path is before the status
@@ -136,12 +138,11 @@
 				type="button"
 				class="chip people"
 				aria-pressed={people.open}
+				aria-label={gestureStrings.palette.region}
 				onclick={people.ontoggle}
-				title={gestureStrings.palette.hint}
+				title={people.open ? gestureStrings.palette.hide : gestureStrings.palette.show}
 			>
-				<Icon name="users" size={14} />{people.open
-					? gestureStrings.palette.hide
-					: gestureStrings.palette.show}
+				<Icon name="users" size={14} /><span class="lbl">{gestureStrings.palette.region}</span>
 			</button>
 		{/if}
 		{#if rowActions}
@@ -358,6 +359,15 @@
 	.stale {
 		color: var(--color-pending);
 		font-weight: 600;
+	}
+	/* A narrow chart (Split) has no room for the word: the icon is the chip. */
+	@container gantt (max-width: 899px) {
+		.people .lbl {
+			display: none;
+		}
+		.people {
+			padding-inline: 9px;
+		}
 	}
 	/* The palette is for a mouse and a pen; a finger books people in the details sheet. */
 	@media (pointer: coarse) {

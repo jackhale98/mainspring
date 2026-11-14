@@ -118,7 +118,6 @@ export class RowDrag {
 		if (this.#ctl.state !== 'idle') return;
 		const row = this.#h.rows().findIndex((r) => r.key === key);
 		if (row < 0) return;
-		e.preventDefault();
 		this.#key = key;
 		this.#grip = e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
 		const move = (ev: PointerEvent): void => this.#event('move', ev);
@@ -145,7 +144,9 @@ export class RowDrag {
 
 	#event(type: 'down' | 'move' | 'up' | 'cancel', e: PointerEvent, row?: number): void {
 		const sc = this.#h.scroller();
-		const kind = (e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse') as PointerKind;
+		const kind = (
+			e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse'
+		) as PointerKind;
 		const index = row ?? this.#h.rows().findIndex((r) => r.key === this.#key);
 		this.#last = { id: e.pointerId, kind, x: e.clientX, y: e.clientY, m: mods(e) };
 		this.#feed({
@@ -227,7 +228,14 @@ export class RowDrag {
 		const rows = this.#h.rows();
 		const own = rows.find((r) => r.key === key)?.depth ?? 0;
 		const boundary = boundaryAt(p.y - this.#h.bodyTop(), this.#h.rowHeight(), rows.length);
-		const drop = dropTarget(rows, this.#h.tree(), this.#h.roots(), key, boundary, wantedDepth(own, dx));
+		const drop = dropTarget(
+			rows,
+			this.#h.tree(),
+			this.#h.roots(),
+			key,
+			boundary,
+			wantedDepth(own, dx),
+		);
 		this.#drop = drop;
 		if (!drop) {
 			this.view = null;

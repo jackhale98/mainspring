@@ -14,12 +14,20 @@
  * - **Rows** (R5): reorder, indent and outdent through `stepTarget`; rename (R8, F2); add after,
  *   delete (extra); today (R10).
  * - **People** (R6): `book` toggles a person on a task, the palette's key path.
+ * Over 400 lines on purpose: the commands share one set of modes (link, progress, rename) and one
+ * burst table, and each reads the others' state; the key maps and the row maths are in lib/gantt.
  * The menu in the toolbar calls `perform`, the same commands for a mouse or a finger that cannot
  * drag (WCAG 2.5.7).
  */
 import type { ScheduleResult } from '../../engine/protocol';
 import { clampPercent, snapPercent } from '../../lib/gantt/handles';
-import { commandFor, linkKey, progressKey, type GanttCommand, type KeyEventLike } from '../../lib/gantt/keys';
+import {
+	commandFor,
+	linkKey,
+	progressKey,
+	type GanttCommand,
+	type KeyEventLike,
+} from '../../lib/gantt/keys';
 import type { ActionContext } from '../../lib/gantt/intents';
 import { resizeEdge } from '../../lib/gantt/intents';
 import type { GanttModel } from '../../lib/gantt/model';
@@ -379,8 +387,17 @@ export class GanttInteractions {
 	}
 
 	/** Books a person on a task, or releases them when they are already booked (R6). */
-	async book(task: string, person: string, name: string, booked: boolean): Promise<DispatchOutcome> {
-		const o = await this.actor.run({ type: booked ? 'unassign' : 'assign', task, resource: person });
+	async book(
+		task: string,
+		person: string,
+		name: string,
+		booked: boolean,
+	): Promise<DispatchOutcome> {
+		const o = await this.actor.run({
+			type: booked ? 'unassign' : 'assign',
+			task,
+			resource: person,
+		});
 		if (o.status === 'applied') {
 			const t = this.#h.model().rows.find((r) => r.id === task)?.name ?? task;
 			this.#h.announce(

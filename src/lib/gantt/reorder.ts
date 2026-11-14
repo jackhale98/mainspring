@@ -65,7 +65,11 @@ export function rootsOf(tree: Tree, order: readonly string[]): string[] {
 }
 
 function placeOf(tree: Tree, parent: string | null, index: number): Place {
-	return { parent: parent === null ? null : (tree.get(parent)?.id ?? null), parentKey: parent, index };
+	return {
+		parent: parent === null ? null : (tree.get(parent)?.id ?? null),
+		parentKey: parent,
+		index,
+	};
 }
 
 /** The current place of a node: its parent and its index among the other siblings. */
@@ -151,7 +155,8 @@ export function dropTarget(
 	if (prev && depth > prev.depth) {
 		parentKey = prev.key;
 		// Into a collapsed container, whose children are out of sight: the last place.
-		if (prev.expanded === false) index = resolved(tree, tree.get(prev.key)?.children ?? [], dragged).length;
+		if (prev.expanded === false)
+			index = resolved(tree, tree.get(prev.key)?.children ?? [], dragged).length;
 	} else {
 		let key: string | undefined = prev?.key;
 		const upto = (k: string | undefined): DropRow | undefined => rest.find((r) => r.key === k);

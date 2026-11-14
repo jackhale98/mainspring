@@ -98,7 +98,9 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await rig.undoTo(before);
 	});
 
-	test('R2 by key: Alt+Right three times, the same patch, one undo step', async ({ page }, info) => {
+	test('R2 by key: Alt+Right three times, the same patch, one undo step', async ({
+		page,
+	}, info) => {
 		test.skip(isTouch(info), 'the keyboard path is checked on desktop');
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
@@ -177,20 +179,21 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		page,
 	}, info) => {
 		test.skip(isTouch(info), 'the dry run label is checked on desktop');
-		const rig = await Rig.open(page, info, 'week');
+		const rig = await Rig.open(page, info, 'month');
 		const before = await rig.text();
-		await rig.select('design.research');
-		await rig.bar('design.gate');
-		const from = await rig.peek('design.research');
-		const gate = await rig.peek('design.gate');
-		// A link from Research to the gate would close a loop (the gate waits for Research already).
-		await rig.drag(from.dot, gate.body, {
+		// From the gate back to Research: Research is before the gate, so this would close a loop.
+		await rig.row('task:design.gate').locator('.label').click();
+		await expect(rig.row('task:design.gate')).toHaveAttribute('aria-selected', 'true');
+		await rig.bar('design.research');
+		const from = await rig.peek('design.gate');
+		const research = await rig.peek('design.research');
+		await rig.drag(from.dot, research.body, {
 			pause: async () => {
 				await expect(page.getByTestId('gantt-overlay')).toBeVisible();
 				await shoot(page, info, 'link-refused');
 			},
 		});
-		await expect(rig.toast.last()).toBeVisible();
+		await expect(rig.toast.last()).toContainText(/loop|cycle|circular|depend/i);
 		expect(await rig.text()).toBe(before);
 	});
 
@@ -199,25 +202,24 @@ test.describe('direct manipulation (R1 to R10)', () => {
 	}, info) => {
 		const rig = await Rig.open(page, info, 'week');
 		const before = await rig.text();
-		await rig.bar('design.docs');
+		await rig.bar('design.review');
 		const rev = await rig.revision();
-		const at = await page.evaluate(
-			() =>
-				(
-					window as unknown as {
-						__mainspringGantt: { link(a: string, b: string): { x: number; y: number } | null };
-					}
-				).__mainspringGantt.link('design.docs', 'design.gate'),
+		const at = await page.evaluate(() =>
+			(
+				window as unknown as {
+					__mainspringGantt: { link(a: string, b: string): { x: number; y: number } | null };
+				}
+			).__mainspringGantt.link('design.review', 'design.gate'),
 		);
 		if (!at) throw new Error('no link to select');
 		await rig.tap(at);
 		if (rig.touch) {
 			await page.getByRole('button', { name: 'Remove', exact: true }).click();
 		} else {
-			await expect(page.getByTestId('inspector')).toContainText('docs');
+			await expect(page.getByTestId('inspector')).toContainText('Review');
 			await page.keyboard.press('Delete');
 		}
-		await expect.poll(() => rig.text()).toBe(before.replace('    depends !docs\n', ''));
+		await expect.poll(() => rig.text()).toBe(before.replace('    depends !review { onend }\n', ''));
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -233,7 +235,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			// The grip shows on the selected row; close the sheet so that every row is in reach.
 			await sketch.locator('.label').tap();
 			await expect(sketch).toHaveAttribute('aria-selected', 'true');
-			await page.getByRole('button', { name: 'Close details' }).first().click();
+			await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
 			await page.waitForTimeout(400);
 		} else {
 			await sketch.hover();
@@ -278,7 +280,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		if (rig.touch) {
 			// A finger has no keys: the row menu's button (WCAG 2.5.7).
 			await rig.row('task:launch').locator('.label').tap();
-			await page.getByRole('button', { name: 'Close details' }).first().click();
+			await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
 			await page.getByTestId('row-menu').tap();
 			await page.getByRole('menuitem', { name: 'Move up' }).tap();
 		} else {
@@ -298,6 +300,8 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const rev = await rig.revision();
 		if (rig.touch) {
 			await rig.select('design.research');
+			// A finger books people in the details sheet: its people are the palette's twin here.
+			await shoot(page, info, 'people-palette');
 			await page.getByRole('combobox', { name: /Add a person/ }).selectOption({ label: 'Dev 2' });
 		} else {
 			const chip = await page.locator('[data-person="dev2"]').boundingBox();
@@ -311,7 +315,12 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		}
 		await expect
 			.poll(() => rig.text())
-			.toBe(before.replace('    allocate dev1\n    complete 40\n', '    allocate dev1, dev2\n    complete 40\n'));
+			.toBe(
+				before.replace(
+					'    allocate dev1\n    complete 40\n',
+					'    allocate dev1, dev2\n    complete 40\n',
+				),
+			);
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -341,12 +350,15 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const before = await rig.text();
 		await rig.select('design.research');
 		const rev = await rig.revision();
-		await page
-			.getByRole('combobox', { name: /Replace Dev 1/ })
-			.selectOption({ label: 'Dev 3' });
+		await page.getByRole('combobox', { name: /Replace Dev 1/ }).selectOption({ label: 'Dev 3' });
 		await expect
 			.poll(() => rig.text())
-			.toBe(before.replace('    allocate dev1\n    complete 40\n', '    allocate dev3\n    complete 40\n'));
+			.toBe(
+				before.replace(
+					'    allocate dev1\n    complete 40\n',
+					'    allocate dev3\n    complete 40\n',
+				),
+			);
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -397,7 +409,9 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const rev = await rig.revision();
 		const to = { x: b.box.x + b.box.w * 0.75, y: b.knob.y };
 		await rig.drag(b.knob, to, { steps: 6 });
-		await expect.poll(() => rig.text()).toBe(before.replace('    complete 40\n', '    complete 75\n'));
+		await expect
+			.poll(() => rig.text())
+			.toBe(before.replace('    complete 40\n', '    complete 75\n'));
 		await rig.rescheduled(rev);
 		await rig.undoTo(before);
 	});
@@ -410,7 +424,9 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await page.keyboard.press('p');
 		for (let i = 0; i < 7; i++) await page.keyboard.press('ArrowRight');
 		await page.keyboard.press('Enter');
-		await expect.poll(() => rig.text()).toBe(before.replace('    complete 40\n', '    complete 75\n'));
+		await expect
+			.poll(() => rig.text())
+			.toBe(before.replace('    complete 40\n', '    complete 75\n'));
 		await expect(rig.toast).toHaveCount(1);
 		await rig.undoTo(before);
 	});
@@ -444,7 +460,9 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await expect(gantt).toHaveAttribute('data-zoom', 'quarter');
 		expect(await rig.text()).toBe(before);
 		// Nothing was done, so there is nothing to undo.
-		await expect(page.getByRole('button', { name: /^Undo/ }).first()).toBeDisabled();
+		// (A phone's top bar has no undo button; its text is unchanged and no toast came up.)
+		if (!rig.touch)
+			await expect(page.getByRole('button', { name: /^Undo/ }).first()).toBeDisabled();
 		await expect(rig.toast).toHaveCount(0);
 	});
 });

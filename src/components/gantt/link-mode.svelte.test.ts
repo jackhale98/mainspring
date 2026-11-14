@@ -57,7 +57,11 @@ describe('LinkMode', () => {
 		flush();
 		expect(check).toHaveBeenCalledTimes(1);
 		expect(check).toHaveBeenCalledWith({ type: 'link', pred: 't0', succ: 't1' });
-		expect(mode.state).toMatchObject({ target: 1, ok: true, message: 'Task 1 will wait for Task 0' });
+		expect(mode.state).toMatchObject({
+			target: 1,
+			ok: true,
+			message: 'Task 1 will wait for Task 0',
+		});
 	});
 
 	it('says why a target is not allowed, and forgets a verdict of a target left behind', () => {

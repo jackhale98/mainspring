@@ -230,8 +230,12 @@ export function paintOverlay(f: PaintFrame, state: OverlayState): void {
 	}
 	for (const link of links) strokeLink(f, link);
 	if (gesture) {
-		paintGestures(f, gesture, state.selectedRow, (r) => r >= first && r < last, (x, y, w, h) =>
-			note(f, x, y, w, h),
+		paintGestures(
+			f,
+			gesture,
+			state.selectedRow,
+			(r) => r >= first && r < last,
+			(x, y, w, h) => note(f, x, y, w, h),
 		);
 	}
 }

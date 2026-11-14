@@ -17,6 +17,10 @@
  *   that is visible, not the whole scroller (a sheet or a drawer may cover an edge; viewport.ts).
  * - A pinch zooms about the fingers and two fingers pan (README, section 2).
  *
+ * Over 400 lines on purpose: one class owns the DOM events, the controller and the drag state
+ * they share (`#session`, `#pointer`, the timers), and the three modes read each other's state;
+ * the pure parts are already in lib/gantt (drag.ts, preview.ts, handles.ts, viewport.ts).
+ *
  * Nothing here changes the plan. A tap selects, a long-press on a task written with macros opens
  * its source, and Escape or a lost pointer cancels with no edit.
  */
@@ -217,9 +221,13 @@ export class GanttGestures {
 			el.addEventListener(t, (e) => e.preventDefault());
 		}
 		// Non-passive, and it returns at once unless the controller owns the touch (8.2).
-		on('touchmove', (e) => {
-			if (this.#ctl.claimsTouch && e.cancelable) e.preventDefault();
-		}, { passive: false });
+		on(
+			'touchmove',
+			(e) => {
+				if (this.#ctl.claimsTouch && e.cancelable) e.preventDefault();
+			},
+			{ passive: false },
+		);
 		const reset = (): void => void this.#feed({ type: 'reset' });
 		const hidden = (): void => {
 			if (document.visibilityState === 'hidden') reset();
@@ -264,13 +272,24 @@ export class GanttGestures {
 
 	#hit(x: number, y: number): GestureTarget {
 		const h = this.#h;
-		return hitTest(h.layout(), h.model(), x, y, { selected: h.selectedRow(), handles: h.handles() });
+		return hitTest(h.layout(), h.model(), x, y, {
+			selected: h.selectedRow(),
+			handles: h.handles(),
+		});
 	}
 
 	#input(type: 'down' | 'move' | 'up' | 'cancel', e: PointerEvent): GestureInput {
 		const p = this.#point(e.clientX, e.clientY);
-		const kind = (e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse') as PointerKind;
-		this.#pointer = { id: e.pointerId, kind, clientX: e.clientX, clientY: e.clientY, modifiers: mods(e) };
+		const kind = (
+			e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse'
+		) as PointerKind;
+		this.#pointer = {
+			id: e.pointerId,
+			kind,
+			clientX: e.clientX,
+			clientY: e.clientY,
+			modifiers: mods(e),
+		};
 		return {
 			type,
 			id: e.pointerId,
@@ -317,7 +336,8 @@ export class GanttGestures {
 		const p = this.#point(e.clientX, e.clientY);
 		const hit = this.#hit(p.x, p.y);
 		const model = this.#h.model();
-		const row = hit.kind === 'link' ? null : hit.kind === 'bar' || hit.kind === 'empty' ? hit.row : null;
+		const row =
+			hit.kind === 'link' ? null : hit.kind === 'bar' || hit.kind === 'empty' ? hit.row : null;
 		if (row !== this.hoverRow) {
 			this.hoverRow = row;
 			this.#h.hover(row);

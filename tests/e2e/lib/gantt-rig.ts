@@ -56,7 +56,7 @@ export class Rig {
 	}
 
 	/** Opens the sample in Visual mode (the phone's Gantt tab), ready and scheduled. */
-	static async open(page: Page, info: TestInfo, zoom?: 'day' | 'week'): Promise<Rig> {
+	static async open(page: Page, info: TestInfo, zoom?: 'day' | 'week' | 'month'): Promise<Rig> {
 		const rig = new Rig(page, info);
 		await page.goto('/app?sample=gantt-manipulation&mode=visual&hooks=edits,gantt');
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
@@ -70,7 +70,7 @@ export class Rig {
 		return rig;
 	}
 
-	async zoom(level: 'day' | 'week'): Promise<void> {
+	async zoom(level: 'day' | 'week' | 'month'): Promise<void> {
 		await this.page.getByLabel('Zoom').selectOption(level);
 		await expect(this.page.getByTestId('gantt')).toHaveAttribute('data-zoom', level);
 		await this.page.waitForTimeout(400);
@@ -86,9 +86,7 @@ export class Rig {
 		return this.page.evaluate((t) => (window as unknown as Win).__mainspringEdits.end(t), task);
 	}
 	revision(): Promise<number> {
-		return this.page.evaluate(
-			() => (window as unknown as Win).__mainspringEdits.revision() ?? 0,
-		);
+		return this.page.evaluate(() => (window as unknown as Win).__mainspringEdits.revision() ?? 0);
 	}
 
 	/** Scrolls a task into view and says where its bar and handles are. */

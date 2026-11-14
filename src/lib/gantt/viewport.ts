@@ -32,8 +32,10 @@ export function visibleChart(
 	headerHeight: number,
 	covers: Covers,
 ): Box {
-	const right = covers.drawerLeft === null ? scroller.right : Math.min(scroller.right, covers.drawerLeft);
-	const bottom = covers.sheetTop === null ? scroller.bottom : Math.min(scroller.bottom, covers.sheetTop);
+	const right =
+		covers.drawerLeft === null ? scroller.right : Math.min(scroller.right, covers.drawerLeft);
+	const bottom =
+		covers.sheetTop === null ? scroller.bottom : Math.min(scroller.bottom, covers.sheetTop);
 	const left = scroller.left + chartLeft;
 	const top = scroller.top + headerHeight;
 	return { left, top, right: Math.max(left, right), bottom: Math.max(top, bottom) };

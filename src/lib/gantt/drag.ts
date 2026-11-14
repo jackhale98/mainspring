@@ -155,7 +155,9 @@ export function advance(
 	}
 	const bar: MutableRect = { x: 0, y: 0, w: 0, h: 0 };
 	if (!env.layout.barInto(s.row, bar)) return s;
-	const percent = move.atOrigin ? snapPercent(r.complete ?? 0) : snapPercent(percentAt(bar, move.x));
+	const percent = move.atOrigin
+		? snapPercent(r.complete ?? 0)
+		: snapPercent(percentAt(bar, move.x));
 	if (`p${percent}` === s.made) return s;
 	return {
 		...s,

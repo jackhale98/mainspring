@@ -134,7 +134,12 @@ export function ghostForResize(
 }
 
 /** A resize that reaches no further than where it began, for the "no change" check. */
-export function resizeUnchanged(wt: WorkingTime | null, row: GanttRow, alap: boolean, at: Minutes): boolean {
+export function resizeUnchanged(
+	wt: WorkingTime | null,
+	row: GanttRow,
+	alap: boolean,
+	at: Minutes,
+): boolean {
 	return at === resizeRef(wt, row, alap);
 }
 

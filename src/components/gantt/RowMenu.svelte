@@ -61,7 +61,8 @@
 		all[next]?.focus();
 	}
 	function onwindowdown(e: PointerEvent): void {
-		if (open && e.target instanceof Node && !button?.parentElement?.contains(e.target)) close(false);
+		if (open && e.target instanceof Node && !button?.parentElement?.contains(e.target))
+			close(false);
 	}
 </script>
 
@@ -86,7 +87,13 @@
 	{#if open}
 		<!-- A menu: the items are buttons in a list, moved through with the arrow keys. -->
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<ul id="{uid}-list" role="menu" aria-label={gestureStrings.row.menu} bind:this={list} {onkeydown}>
+		<ul
+			id="{uid}-list"
+			role="menu"
+			aria-label={gestureStrings.row.menu}
+			bind:this={list}
+			{onkeydown}
+		>
 			{#each actions as a (a.id)}
 				<li role="none">
 					<button

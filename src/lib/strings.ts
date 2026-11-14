@@ -401,7 +401,9 @@ export const gestureStrings = {
 		noPlace: 'It cannot move that way.',
 		/** The drop line, while a row is dragged. */
 		rowDrop: (parent: string | null, position: number) =>
-			parent === null ? `Top level, position ${position}` : `Inside ${parent}, position ${position}`,
+			parent === null
+				? `Top level, position ${position}`
+				: `Inside ${parent}, position ${position}`,
 		rowOpens: 'Opens when held here',
 		/** Said when a person is booked from the palette by key. */
 		assigned: (person: string, task: string) => `${person} booked on ${task}.`,

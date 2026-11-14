@@ -102,9 +102,7 @@ describe('a move', () => {
 		});
 		expect(s.days).toBe(5);
 		expect(s.ghost.start).toBe(wt.shiftDays(wt.snap(r.start!, 'start'), 5, 'start'));
-		expect(wt.workingBetween(s.ghost.start, s.ghost.end)).toBe(
-			wt.workingBetween(r.start!, r.end!),
-		);
+		expect(wt.workingBetween(s.ghost.start, s.ghost.end)).toBe(wt.workingBetween(r.start!, r.end!));
 		expect(s.text).toBe('Later by 5 working days: starts Mon, Mar 9, 2026');
 		expect(dropOf(s, env)?.action).toEqual({ type: 'move', task: 'design.research', days: 5 });
 	});
