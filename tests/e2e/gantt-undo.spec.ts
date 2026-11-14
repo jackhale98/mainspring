@@ -45,7 +45,7 @@ test.describe('one history for typing and visual edits', () => {
 			await page.keyboard.press('Control+Alt+ArrowRight');
 		}
 		await expect.poll(() => rig.text()).toBe(both);
-		await expect(rig.toast.last()).toBeVisible();
+		await expect(rig.edited.last()).toBeAttached();
 
 		// Undo twice (the focus is on the chart, not in a text field), redo twice.
 		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());

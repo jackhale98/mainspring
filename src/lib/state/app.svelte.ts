@@ -52,6 +52,7 @@ import {
 	type RunnerState,
 	type ScheduleRunner,
 } from '../workspace/schedule-runner';
+import { afterAndroidKey } from '../tjp/cm/android-key';
 import { createHistory, type HistoryOutcome, type WorkspaceHistory } from '../workspace/history';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { currentRange } from '../inspector/range';
@@ -127,6 +128,13 @@ export class AppState {
 	phoneTab = $state<PhoneTab>('text');
 	outlineOpen = $state(false);
 	docsOpen = $state(false);
+	/** The phone's History sheet (long-press on Undo, or the status card's History row). */
+	historyOpen = $state(false);
+	/**
+	 * A phone shows messages that are not edits' toasts (a refused undo) in the compact strip; the
+	 * shell sets it. Elsewhere they stay in the editor's note, as before.
+	 */
+	compactMessages = false;
 	collapsed = $state.raw<ReadonlySet<string>>(new Set());
 	/** What is selected, and where it came from (selection.svelte.ts). */
 	readonly selection = new SelectionState((s) => this.#onSelection(s));
@@ -150,7 +158,7 @@ export class AppState {
 	/** What the inspector shows and where (inspector.svelte.ts); the Gantt publishes its view here. */
 	readonly inspector = new InspectorState(this.selection);
 	/** Undo and redo for the top bar and the keys (module comment). */
-	readonly history = new HistoryControls((o) => this.#onHistory(o));
+	readonly history = new HistoryControls((o, quiet) => this.#onHistory(o, quiet));
 
 	/** The plan's files, entry first then in include order; follows the include graph. */
 	files = $state.raw<readonly WorkspacePath[]>([]);
@@ -387,10 +395,11 @@ export class AppState {
 	}
 
 	/** After an undo or redo: reveal what changed, and name it unless it was typing here. */
-	#onHistory(o: HistoryOutcome): void {
+	#onHistory(o: HistoryOutcome, quiet = false): void {
 		if (o.status === 'empty') return;
 		if (o.status === 'diverged') {
 			this.#showNote(strings.history.diverged);
+			if (this.compactMessages) this.edits?.say(strings.history.diverged, true);
 			return;
 		}
 		const files = Object.keys(o.entry.applied.edit.changes);
@@ -408,9 +417,34 @@ export class AppState {
 		const r = o.reveal;
 		// The keyboard focus stays where it is; a phone stays on its tab.
 		if (r) this.revealRange(r.file, r.from, r.to, false, false, o.entry.kind === 'intent');
-		if (here) return;
+		if (here || quiet) return;
 		const say = o.direction === 'undo' ? strings.history.undone : strings.history.redone;
 		this.#showNote(say(o.entry.label, files.join(', ')));
+	}
+
+	/**
+	 * The History sheet's "back to here": undoes `steps` entries as that many undos, after the
+	 * Android gate (no file the steps change is held by a key), and says what came of it. The
+	 * entries are checked again when the gate opens: if typing changed the top of the history
+	 * meanwhile, nothing is undone.
+	 */
+	rewindHistory(steps: number): void {
+		const asked = this.history.items().slice(0, steps);
+		if (steps < 1 || asked.length < steps) return;
+		const paths = [...new Set(asked.flatMap((i) => i.files))];
+		afterAndroidKey(
+			() => this.editorKeys?.keyHeld(paths) ?? false,
+			() => {
+				const now = this.history.items().slice(0, steps);
+				if (now.length < steps || now.some((i, k) => i.id !== asked[k]?.id)) {
+					this.edits?.say(strings.history.rewindChanged, true);
+					return;
+				}
+				const r = this.history.rewind(steps);
+				if (r.stopped === null) this.edits?.say(strings.history.rewound(r.undone));
+				else this.edits?.say(strings.history.rewindStopped(r.undone, steps), true);
+			},
+		);
 	}
 
 	/** A range of the index's text in the text now: the index may be older than the text. */

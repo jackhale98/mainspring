@@ -37,20 +37,29 @@ import {
 	entryOf,
 	extend,
 	isTjpEdit,
+	itemOf,
 	joins,
 	labelOf,
 	revealOf,
 	stepOf,
+	timeOf,
 	typingRec,
 	type HistoryEntry,
 	type HistoryIntent,
+	type HistoryItem,
 	type Rec,
 	type Step,
 } from './history-steps';
 import type { WorkspacePath } from './paths';
 import type { ChangeInfo, ChangeOrigin, Workspace, WorkspaceSnapshot } from './workspace';
 
-export type { HistoryEdit, HistoryEntry, HistoryIntent, HistoryKind } from './history-steps';
+export type {
+	HistoryEdit,
+	HistoryEntry,
+	HistoryIntent,
+	HistoryItem,
+	HistoryKind,
+} from './history-steps';
 
 export type HistoryOutcome =
 	| {
@@ -64,6 +73,16 @@ export type HistoryOutcome =
 	/** A file changed outside the history: both stacks were cleared and nothing was applied. */
 	| { status: 'diverged'; entry: HistoryEntry; direction: 'undo' | 'redo' };
 
+/** What `rewind` did: how many steps it undid, and why it stopped short (if it did). */
+export interface RewindOutcome {
+	readonly requested: number;
+	readonly undone: number;
+	/** Every undo that was done, newest undone first (the reveal and the selection follow these). */
+	readonly done: ReadonlyArray<Extract<HistoryOutcome, { status: 'done' }>>;
+	/** Set when an undo was refused: `diverged` cleared both stacks; `empty` ran out of steps. */
+	readonly stopped: 'diverged' | 'empty' | null;
+}
+
 export interface WorkspaceHistory {
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
@@ -71,7 +90,15 @@ export interface WorkspaceHistory {
 	top(): HistoryEntry | null;
 	/** The entry `redo` would redo. */
 	redoTop(): HistoryEntry | null;
+	/** The undo stack for a list, newest first (the History sheet). */
+	undoItems(): readonly HistoryItem[];
 	undo(): HistoryOutcome;
+	/**
+	 * Undoes `steps` entries, newest first, as that many `undo()` calls (so redo steps forward
+	 * again, one entry at a time). Each goes through the same version checks; the first that is
+	 * refused stops it, and nothing past it is touched. `diverged` has cleared both stacks then.
+	 */
+	rewind(steps: number): RewindOutcome;
 	redo(): HistoryOutcome;
 	subscribe(l: (h: WorkspaceHistory) => void): () => void;
 	dispose(): void;
@@ -133,6 +160,24 @@ class History implements WorkspaceHistory {
 	redoTop(): HistoryEntry | null {
 		const r = this.#undone[this.#undone.length - 1];
 		return r ? this.#entry(r) : null;
+	}
+
+	undoItems(): readonly HistoryItem[] {
+		return this.#done.map(itemOf).reverse();
+	}
+
+	rewind(steps: number): RewindOutcome {
+		const done: Array<Extract<HistoryOutcome, { status: 'done' }>> = [];
+		let stopped: RewindOutcome['stopped'] = null;
+		for (let i = 0; i < steps; i++) {
+			const o = this.undo();
+			if (o.status === 'done') done.push(o);
+			else {
+				stopped = o.status;
+				break;
+			}
+		}
+		return { requested: steps, undone: done.length, done, stopped };
 	}
 
 	undo(): HistoryOutcome {
@@ -259,7 +304,7 @@ class History implements WorkspaceHistory {
 			targets: tjp?.targets ?? null,
 			select: tjp?.select ?? null,
 			open: false,
-			lastTime: 0,
+			lastTime: info.transactions[0] ? timeOf(info.transactions[0]) : Date.now(),
 		});
 	}
 

@@ -13,8 +13,10 @@
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { statusGlyph } from '../../lib/state/status';
+	import { THEME_PREFS } from '../../lib/state/theme';
+	import type { ThemeState } from '../../lib/state/theme.svelte';
 	import type { AppUpdates } from '../../lib/state/updates.svelte';
-	import { engineLine, strings } from '../../lib/strings';
+	import { engineLine, historyStrings, strings } from '../../lib/strings';
 	import DetailsPopover from './DetailsPopover.svelte';
 	import EngineDetails from './EngineDetails.svelte';
 	import StatusGlyph from './StatusGlyph.svelte';
@@ -22,8 +24,10 @@
 	interface Props {
 		app: AppState;
 		updates?: AppUpdates | undefined;
+		/** Where the phone's theme choice lives (the top bar has no room for a toggle). */
+		theme?: ThemeState | undefined;
 	}
-	let { app, updates }: Props = $props();
+	let { app, updates, theme }: Props = $props();
 
 	const id = $props.id();
 	const s = $derived(app.status);
@@ -43,6 +47,12 @@
 
 	function reload(): void {
 		void updates?.reloadAsking(app.dirty);
+	}
+
+	/** The History sheet: the way in for anyone who cannot press and hold Undo. */
+	function openHistory(): void {
+		popover?.hidePopover();
+		app.historyOpen = true;
 	}
 
 	/** Goes to the next problem (the Text tab on a phone) and closes this card. */
@@ -127,6 +137,34 @@
 				<span class="pip" aria-hidden="true"></span>
 				{`${strings.update.available} · ${strings.update.reload}`}
 			</button>
+		{/if}
+		<button
+			type="button"
+			class="row"
+			disabled={!app.history.canUndo}
+			onclick={openHistory}
+			data-testid="open-history"
+		>
+			<span>{historyStrings.sheet.open}</span>
+		</button>
+		{#if theme}
+			<fieldset class="appearance" data-testid="appearance">
+				<legend>{strings.theme.appearance}</legend>
+				<div class="choices">
+					{#each THEME_PREFS as pref (pref)}
+						<label class:on={theme.pref === pref}>
+							<input
+								type="radio"
+								name="appearance-{id}"
+								value={pref}
+								checked={theme.pref === pref}
+								onchange={() => theme.set(pref)}
+							/>
+							<span>{strings.theme.pref[pref]}</span>
+						</label>
+					{/each}
+				</div>
+			</fieldset>
 		{/if}
 	</div>
 	<EngineDetails info={s?.engine ?? null} {updates} onreload={reload} />
@@ -257,6 +295,58 @@
 	}
 	.phone-details button.update:hover {
 		background: var(--color-row-hover);
+	}
+	.phone-details button:disabled {
+		color: var(--color-text-muted);
+		cursor: default;
+	}
+	.appearance {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		min-inline-size: 0;
+	}
+	.appearance legend {
+		padding: 0;
+		margin-block-end: var(--space-1);
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+	/* Three choices as one segmented control; the radios are real, so the arrow keys work. */
+	.choices {
+		display: flex;
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-pill);
+		overflow: hidden;
+	}
+	.choices label {
+		position: relative;
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-block-size: var(--size-tap);
+		font-size: var(--text-sm);
+		cursor: pointer;
+	}
+	.choices label + label {
+		border-inline-start: 1px solid var(--color-border-strong);
+	}
+	.choices label.on {
+		background: var(--color-accent);
+		color: var(--color-accent-text);
+		font-weight: 600;
+	}
+	.choices input {
+		position: absolute;
+		inset: 0;
+		margin: 0;
+		opacity: 0;
+		cursor: pointer;
+	}
+	.choices label:has(input:focus-visible) {
+		outline: 3px solid var(--color-focus);
+		outline-offset: -3px;
 	}
 	.unlocated summary {
 		display: flex;

@@ -15,7 +15,6 @@
 	import { onMount, untrack } from 'svelte';
 	import { EditorController } from '../lib/state/editor-controller';
 	import Icon from './Icon.svelte';
-	import UndoRedo from './app/UndoRedo.svelte';
 	import type { AppState } from '../lib/state/app.svelte';
 	import type { LayoutKind } from '../lib/state/layout.svelte';
 	import { editorStrings, strings } from '../lib/strings';
@@ -128,7 +127,6 @@
 		<FileSwitcher {app} {layout} />
 		<p class="note" role="status">{app.note ?? ''}</p>
 		<div class="actions">
-			{#if layout === 'phone'}<UndoRedo {app} />{/if}
 			<button
 				type="button"
 				onclick={() => ctl?.format()}

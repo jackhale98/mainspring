@@ -66,13 +66,23 @@ async function select(page: Page, info: { project: { name: string } }, name: str
 	return panel;
 }
 
-/** Undo in the newest toast: what Mod-Z does, and it works from a text field too. */
+/** What an edit announced: its toast, or on a phone the hidden line of the live region. */
+const allAnnounced = (page: Page) =>
+	page.locator('[data-testid="toast"], [data-testid="toast-quiet"]');
+const announced = (page: Page) => allAnnounced(page).last();
+
+/**
+ * Undo of the newest edit: what Mod-Z does, and it works from a text field too. The toast's
+ * button, or on a phone, which shows no toast for an edit, the top bar's.
+ */
 const undoToast = (page: Page) =>
-	page.getByTestId('toast').last().getByRole('button', { name: 'Undo' }).click();
+	(page.viewportSize()?.width ?? 1280) < 600
+		? page.getByTestId('undo').click()
+		: page.getByTestId('toast').last().getByRole('button', { name: 'Undo' }).click();
 
 /** After an edit: the newest toast settles on a schedule that includes it. */
 async function settled(page: Page): Promise<void> {
-	await expect(page.getByTestId('toast').last()).toHaveAttribute('data-status', 'scheduled', {
+	await expect(announced(page)).toHaveAttribute('data-status', 'scheduled', {
 		timeout: READY_TIMEOUT_MS,
 	});
 }
@@ -119,8 +129,8 @@ test.describe('the inspector', () => {
 		await expect(effort.getByRole('textbox')).toHaveValue('6d');
 		const rev0 = await revision(page);
 		await expect.poll(() => text(page)).toBe(original.replace('effort 3d', 'effort 6d'));
-		await expect(page.getByTestId('toast')).toHaveCount(1);
-		await expect(page.getByTestId('toast').first()).toContainText('Effort of Research: 3d to 6d');
+		await expect(allAnnounced(page)).toHaveCount(1);
+		await expect(allAnnounced(page).first()).toContainText('Effort of Research: 3d to 6d');
 		await settled(page);
 		expect(await revision(page)).toBeGreaterThan(rev0 ?? 0);
 		await expect(effort.getByRole('textbox')).toHaveValue('6d');
@@ -148,7 +158,7 @@ test.describe('the inspector', () => {
 		await expect
 			.poll(() => text(page))
 			.toBe(original.replace('task research "Research"', 'task research "Study"'));
-		await expect(page.getByTestId('toast').last()).toContainText('Renamed Research to Study');
+		await expect(announced(page)).toContainText('Renamed Research to Study');
 		await settled(page);
 		const renamed = (await text(page)) ?? '';
 
@@ -363,7 +373,11 @@ test.describe('the details on a phone and in a narrow Split', () => {
 		await grab.click();
 		await expect(grab).toHaveAttribute('aria-expanded', 'true');
 		await above();
-		await expect.poll(async () => (await panel.boundingBox())?.y ?? 999).toBeLessThan(40);
+		// Full height reaches up to the top bar, which stays clear for Undo and Redo.
+		await expect.poll(async () => (await panel.boundingBox())?.y ?? 999).toBeLessThan(90);
+		expect((await panel.boundingBox())?.y ?? 0).toBeGreaterThanOrEqual(
+			((await page.locator('header.topbar').boundingBox())?.height ?? 0) - 1,
+		);
 		await grab.click();
 		await page.waitForTimeout(300);
 		await above();
@@ -371,7 +385,7 @@ test.describe('the details on a phone and in a narrow Split', () => {
 		await expect(panel.getByText('Scheduled', { exact: true })).toBeVisible();
 	});
 
-	test('on a phone the toasts stay on screen with Undo reachable, also at full height (M2)', async ({
+	test('on a phone an edit shows no toast and Undo stays reachable, also at full height (M2)', async ({
 		page,
 	}, info) => {
 		test.skip(!phone(info), 'the phone sheet');
@@ -387,24 +401,28 @@ test.describe('the details on a phone and in a narrow Split', () => {
 		const effort = panel.getByRole('group', { name: 'Effort' });
 		await effort.getByRole('textbox').fill('5d');
 		await effort.getByRole('textbox').press('Enter');
-		const toast = page.getByTestId('toast').last();
-		await expect(toast).toContainText('Effort of Research: 3d to 5d');
-		await expect(toast).toBeInViewport({ ratio: 1 });
-		const undo = toast.getByRole('button', { name: 'Undo' });
+		// Nothing covers the sheet or the chart; the live region still says what happened.
+		await expect(announced(page)).toContainText('Effort of Research: 3d to 5d');
+		await expect(page.getByTestId('toast')).toHaveCount(0);
+		// At full height the sheet leaves the top bar clear, so its Undo is reachable and on top.
+		const undo = page.getByTestId('undo');
 		await expect(undo).toBeInViewport({ ratio: 1 });
+		const onTop = await undo.evaluate((el) => {
+			const r = el.getBoundingClientRect();
+			return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+		});
+		expect(onTop, 'nothing is drawn over Undo').toBe(true);
 		await undo.click();
 		await expect.poll(() => text(page)).toBe(original);
-		// Half height: the toast is above the sheet, and also on screen.
+		// Half height: the same, and the sheet is below the top bar.
 		await panel.getByRole('button', { name: /Details height/ }).click();
 		await page.waitForTimeout(300);
 		await effort.getByRole('textbox').fill('4d');
 		await effort.getByRole('textbox').press('Enter');
-		const t2 = page.getByTestId('toast').last();
-		await expect(t2).toContainText('Effort of Research: 3d to 4d');
-		await expect(t2).toBeInViewport({ ratio: 1 });
-		const sheet = await panel.boundingBox();
-		const tb = await t2.boundingBox();
-		expect(sheet && tb && tb.y + tb.height <= sheet.y + 1).toBe(true);
+		await expect(announced(page)).toContainText('Effort of Research: 3d to 4d');
+		await expect(page.getByTestId('toast')).toHaveCount(0);
+		await expect(undo).toBeInViewport({ ratio: 1 });
+		await expect(undo).toBeEnabled();
 	});
 
 	test('a narrow Split has a rail, and a click opens a drawer over the chart (M5)', async ({

@@ -6,3 +6,4 @@ export * from './machine';
 export * from './pinch';
 export * from './snap';
 export * from './types';
+export * from './button-hold';

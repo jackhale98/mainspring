@@ -98,6 +98,10 @@
 		app.inspector.secondTapOpens = kind !== 'desktop';
 	});
 	const phone = $derived(kind === 'phone');
+	// A phone shows the app's own messages (a refused undo) in the compact strip, not in a note.
+	$effect(() => {
+		app.compactMessages = phone;
+	});
 	const mode = $derived(effectiveMode(modes.choice, kind));
 	const showGantt = $derived(phone ? app.phoneTab === 'gantt' : mode !== 'text');
 	const showEditor = $derived(phone ? app.phoneTab === 'text' : mode !== 'visual');
@@ -211,6 +215,10 @@
 
 <div class="app" data-layout={kind}>
 	<TopBar {app} {theme} layout={kind} {mode} {drawer} {updates} onmode={(m) => modes.set(m)} />
+	{#if phone}
+		<!-- A phone's messages are one compact line under the top bar, in the flow (Toasts.svelte). -->
+		<Toasts {app} phone />
+	{/if}
 	<div class="work" bind:clientWidth={workW}>
 		<main
 			id="main"
@@ -301,7 +309,7 @@
 			<StatusStrip {app} {updates} phone={false} quiet={showGantt} />
 		</div>
 	{/if}
-	<Toasts {app} {phone} bottom={toastRoom} />
+	{#if !phone}<Toasts {app} bottom={toastRoom} />{/if}
 	{#if drawer}
 		<Sheet
 			open={app.outlineOpen}
@@ -327,7 +335,7 @@
 		background: var(--color-bg);
 	}
 	.app[data-layout='phone'] {
-		grid-template-rows: auto minmax(0, 1fr) auto;
+		grid-template-rows: auto auto minmax(0, 1fr) auto;
 		padding-inline: max(10px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-right));
 	}
 	/* The Gantt and its inspector side by side on a desktop; the body is what the Split divider
