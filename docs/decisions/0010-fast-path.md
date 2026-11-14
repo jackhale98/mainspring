@@ -47,22 +47,19 @@ Adoption criteria (18.12), all required:
    family, and `period`, which sets `start` and `end`), the file and line of its keyword token
    (the file name expanded, so `common.tji` and `./common.tji` are one file), the task it ran
    on, the keyword, the scenario and its place in parse order (`fast_path_sites.rb`).
-   - How: it wraps the patterns of TaskJuggler's `:taskScenarioAttributes` rule and of
-     `:taskPeriod` (which `:taskScenarioAttributes` reaches through `!taskPeriod`) on each
-     `ProjectFileParser` it opens, from the bridge (a prepended `open`).
+   - It also notes every `purge` on a task, with the attribute it purges (round 3).
+   - How: it wraps the patterns of TaskJuggler's `:taskScenarioAttributes` rule, of
+     `:taskPeriod` (which `:taskScenarioAttributes` reaches through `!taskPeriod`) and of
+     `:purge` (which `:taskAttributes` reaches through `!purge`) on each `ProjectFileParser` it
+     opens, from the bridge (a prepended `open`).
    - It also notes every task an `attr_overwrite` warning was given for. TaskJuggler's message
      names no property (`TextParser.rb:397` passes none), so a prepended `Scanner#warning` notes
      the parser's current property instead.
    - `engine/tj` is unchanged, and runs without `retain` note nothing.
    - This is how the bridge knows, from its own parse, which task and keyword a line belongs to,
      instead of taking the main thread's word for it.
-   - The rules: of the patterns of `:taskScenarioAttributes`, only `start`, `end`, `effort`,
-     `length`, `duration`, `milestone`, `priority`, `complete`, `depends`, `precedes` and
-     `scheduling` set one of the seven attributes or the direction. Of the rules it references
-     (`!allocate`, `!chargeset`, `!flags`, `!fail`, `!limits`, `!taskPeriod`,
-     `!taskShiftAssignments`, `!taskShiftsAssignments`, `!warn`), only `!taskPeriod` does: it
-     sets `start` and `end`, not the direction. `:taskAttributes` sets none of them. Checked by
-     walking `TjpSyntaxRules.rb` from `:taskScenarioAttributes`.
+   - Which rules can change the seven attributes is listed under "What can change the seven
+     attributes" below.
 3. **Applying a rewrite.** For each edit, the bridge marks the attributes that the keyword's
    pattern sets as not provided. Then it parses `supplement task <id> { <keyword> <value> }` into
    the copy with TaskJuggler's own parser.
@@ -98,6 +95,9 @@ bad one. In order:
   included twice under any spelling, or another task's line);
 - no later action of the same family ran on that task (a later `start`, a `period` after the
   `start` or `end`, or a `length` after the `effort`, would win in a full run);
+- no `purge`, of any attribute in any scenario, ran on that task after the edited line (a purge
+  resets the value and clears `provided`; the kept copy holds that state, and the rewrite
+  would set the value again);
 - the base parse gave no `attr_overwrite` warning for that task (a backstop: any statement that
   overwrites an attribute of the task, whether or not the fast path knows the attribute);
 - the base parse gave no message on an edited line;
@@ -110,6 +110,40 @@ bad one. In order:
   undone otherwise. Direction is positional (the statement read last wins), so a rewrite that
   would change it in any scenario runs in full.
 
+### What can change the seven attributes (the rule walk, round 3)
+
+The checks above are only as good as the list of statements that can write, reset or clear one
+of the seven attributes, the direction (`forward`) or `provided`. After round 3 that list was
+built from TaskJuggler's own parser tables, not from reading the grammar file: a script
+(`tests/engine/fast-path-rule-walk.rb`, run with native Ruby: `ruby
+tests/engine/fast-path-rule-walk.rb engine/tj/lib task supplementTask`) loads
+`ProjectFileParser`, walks every rule reachable from `:task` and `:supplementTask` (116 rules:
+the task header and body, `:taskAttributes`, `:taskScenarioAttributes` and everything they
+reference), and prints every pattern action that assigns `@property[...]`, calls `set`,
+`reset`, `adopt` or `inheritAttributes`, touches `provided` or `forward`, or sets the scenario
+index. The result:
+
+| Rule and pattern | What it changes among the seven, `forward` and `provided` | How the fast path handles it |
+| --- | --- | --- |
+| `:taskScenarioAttributes` `start`, `end` | `start` or `end`, and `forward` | rewritable; the family and direction checks |
+| `:taskScenarioAttributes` `effort`, `length`, `duration`, `milestone` | all four (`setDurationAttribute`) | rewritable except `milestone`; one family |
+| `:taskScenarioAttributes` `priority`, `complete` | that attribute | rewritable |
+| `:taskScenarioAttributes` `depends`, `precedes`, `scheduling` | `forward` | the direction check, in every scenario |
+| `:taskPeriod` (`period`, from `!taskPeriod`) | `start` and `end`, not `forward` | in the `start` and `end` families (round 2) |
+| `:purge` (`purge [<scenario>:]<attr>`, from `:taskAttributes`) | resets any attribute, `provided` false (`AttributeBase#reset`); without a scenario it also sets the scenario index to 0, with one it leaves it set to that scenario | any later purge on the task runs the rewrite in full (round 3); a statement read in another scenario after a scoped purge is not a top-scenario site |
+| `:taskHeader` (`task`) | `inheritAttributes`: a new child copies its parent's inheritable attributes, among the seven `priority` (and `forward`) | `priority` only on leaves; `start` and `end` are not inherited |
+| `:taskAttributes` `adopt` | the task tree (adopted children), no attribute | the rewrite runs on the same tree in both paths |
+| user-defined attributes (`extend task`, added to `:taskAttributes` and `:taskScenarioAttributes` at parse time) | only their own attribute, whose ID must start with a capital letter (`extend_id_cap`) and must not be known already (`extend_redefinition`) | cannot be one of the seven |
+
+Every other action reached from a task writes other attributes only (`allocate`, `limits`,
+`chargeset`, `shifts`, `maxend` and its kin, `effortdone`, `effortleft`, `startcredit`,
+`endcredit`, `projectid`, `scheduled`, `schedulingmode`, `flags`, `note`, `fail`, `warn`, the
+journal and bookings). Macros and `include` are expanded by the scanner, before any rule runs,
+so they add no rule of their own; the recorder sees the statements they expand to, at the lines
+the scanner reports. Round 1's walk covered `:taskScenarioAttributes` alone, round 2 added the
+rule references in it, and both missed `purge`, which `:taskAttributes` reaches. Any TaskJuggler
+update must rerun the walk as well as the suites.
+
 ### The main thread's half (`src/lib/workspace/fast-patch.ts`)
 
 `fastSites` lists the statements a fast patch may rewrite, and `fastEditsOf` turns a change (an
@@ -118,9 +152,10 @@ intent's edit, or its undo or redo) into `FastEdit`s, or null. A site is a task'
 alone on its line, with a strict value, when the task is not text-only or macro-built, has no
 statement-level macro call in its bodies, its declaration gives no other task in another include
 visit, the file is not included twice, it is the task's only statement of that family in any
-scenario (`period` is in the `start` and `end` families), and, for `priority`, the task is a
-leaf. This is the cheap first filter; the bridge's checks above are the safety net. Unit tests
-in `fast-patch.test.ts`.
+scenario (`period` is in the `start` and `end` families), the task has no `purge` statement
+anywhere (the module does not order statements across supplements and files, so it leaves the
+whole task out), and, for `priority`, the task is a leaf. This is the cheap first filter; the
+bridge's checks above are the safety net. Unit tests in `fast-patch.test.ts`.
 
 ### Protocol, refining 6.12
 
@@ -170,6 +205,32 @@ split and joined statements, CRLF and CR-only line ends, scenario-prefixed dupli
 attributes, nested includes, supplements in other files, a patch of four edits, the value forms
 (r4), and a check that a retaining run (with the recorder's hooks) gives every golden plan its
 golden result (wrapped).
+
+### Round 3 (2026-11-14): one wrong-result class; everything else held
+
+The third independent review ran about 2,750 new comparisons, the official suite at a new seed
+(0 differences), and a main thread that lies about its edits. It found one class:
+
+| Finding | Fix | Test |
+| --- | --- | --- |
+| D1 (high): a `purge <attr>` after the rewritten statement. `rule_purge` (`TjpSyntaxRules.rb:3705-3725`, reached from `:taskAttributes` at 5960) resets the attribute and clears `provided` (`AttributeBase#reset`). The full parse sets the value and then purges it; the kept copy holds the purged state, and the supplement set the value again. The recorder did not note purge, no `attr_overwrite` is given and `provided` is false, so every check passed. Minimal repro: `task a { start 2026-01-07 ; purge start }`, `start` rewritten to 2026-01-08: start and end 0 in the full run against 4320 fast. Also `effort` with `purge effort` (full: `task_underspecified`, fast scheduled it), `priority` (two tasks swap), `complete`, `end`, `purge late:start`, `purge late:effort`, and a purge in a later supplement | The recorder wraps the `:purge` pattern and notes each purge on a task with its attribute; the bridge runs a rewrite in full when any purge, of any attribute in any scenario, ran on the task after the edited line; `fast-patch.ts` leaves out every statement of a task with a purge. The rule walk is redone from TaskJuggler's own parser tables and listed above | the reviewer's probes b4, b5 and b6 (17 cases) and two plans its generator found (seed 12, plans 0 and 5) in `fast-path.adversarial.test.ts`; a purge family in the equivalence suite; `fast-patch.test.ts` |
+
+Two of the probes must stay fast and do: a `purge start` before the `start`, and a purge of an
+unrelated list attribute before the edited line. One shows a TaskJuggler quirk the checks
+already handle: after `purge late:allocate` the parser stays in the late scenario (the rule sets
+the scenario index to 0 only when no scenario is given), so an unprefixed `priority` after it is
+a late statement, which the bridge does not take as a top-scenario site.
+
+The purge family (`FAST_PATH_PURGE_RUNS`, default 100) alternates small `purgePlan` plans
+(`fast-path-cases.ts`) with fidelity-generator plans that have `purge` statements (the new
+opt-in `genPlan(rng, { purge: true })`, `tests/fidelity/gen/model-attrs.ts` `purges`; off by
+default, so the fidelity suite's plans and recorded seeds are unchanged). Up to 8 lone value lines
+of each plan are rewritten, those of tasks with a purge first, whether or not the main thread
+would offer them, so the bridge's checks alone decide. With the bridge's purge check removed for
+a test, the family finds **31 differences in 692 cases** at seed 20261113 (29 in `purgePlan`
+plans, 2 in generator plans); with it, none. The reviewer's own purge generator (gen2.mjs) gives
+0 differences at its failing seed 12 (938 cases, 13 before the fix) and at new seeds 31, 32 and
+33 (2,495 cases), and its first generator (gen.mjs) 0 at seed 41 (833 cases).
 
 ## Equivalence (tests/engine/fast-path.equivalence.test.ts)
 
@@ -299,7 +360,7 @@ Run B (after round 1), in detail (ms):
    shuffled), `npm run golden:wasm` matches 40 of 40 plans and 71 of 71 time-zone edge cases, and
    native `tj3` reproduces all 40 committed goldens (`record-native.mjs --verify --allow-ruby`,
    Ruby 3.3.6: the goldens are provisional, ADR-0003).
-4. Bundle growth: +8,412 bytes gzip (409,411 against 400,999), +29,371 bytes raw.
+4. Bundle growth: +8,867 bytes gzip (409,866 against 400,999), +30,707 bytes raw.
 
 Scope of adoption:
 
@@ -387,17 +448,18 @@ Scope of adoption:
   (see Timings).
 - **Memory.** The worker holds one copy (`retainBytes`: about 1.4 MB for Fedora, 2 MB for
   scale-1000).
-- **Bundle.** +8,412 bytes gzip (409,411 against 400,999 for the base branch's bundle, built the
-  same way), +29,371 bytes raw; the draft added 5,126 bytes gzip, and the site recorder and the
-  stricter checks are the difference.
+- **Bundle.** +8,867 bytes gzip (409,866 against 400,999 for the bundle without the fast path,
+  built the same way), +30,707 bytes raw; the draft added 5,126 bytes gzip, and the site
+  recorder and the stricter checks are the difference.
 - **The schedule step of a fast run may be a few percent slower** than a full run's (see
   Timings); the saving is net of it.
 - **Coupling to TaskJuggler internals.** The bridge relies on:
   - the attribute-hash default procs, whose code it copies;
   - the `@provided` flag;
   - the parser's `@project`, `@property`, `@scenarioIdx`, `@sourceFileInfo` and `@rules`, and
-    the pattern objects of the `:taskScenarioAttributes` and `:taskPeriod` rules (and that no
-    other rule under `:taskScenarioAttributes` sets the seven attributes);
+    the pattern objects of the `:taskScenarioAttributes`, `:taskPeriod` and `:purge` rules, the
+    parser's `@val` when a purge runs, and the rule walk's result (no other rule reached from a
+    task changes the seven attributes, `forward` or `provided`);
   - `Scanner#warning` as the one way `attr_overwrite` is reported (`TextParser.rb:397`);
   - TjTime's class-level zone.
 
@@ -410,18 +472,19 @@ Scope of adoption:
 ## CI
 
 `npm run test:fast-path` runs three files with `FAST_PATH=1`: the review repros
-(`fast-path.adversarial.test.ts`, 70 cases: 15 from round 1, 54 from round 2 in
-`fast-path-review-cases.ts`, and the retaining run over every golden plan), the guards
-(`fast-path.guards.test.ts`, 22 cases)
-and the equivalence suite (`fast-path.equivalence.test.ts`). The sizes are environment
+(`fast-path.adversarial.test.ts`, 89 cases: 15 from round 1, 54 from round 2 in
+`fast-path-review-cases.ts`, 19 from round 3 in `fast-path-review3-cases.ts`, and the retaining
+run over every golden plan), the guards (`fast-path.guards.test.ts`, 22 cases) and the
+equivalence suite (`fast-path.equivalence.test.ts`). The sizes are environment
 variables of the equivalence suite.
 
 | | Per push (`ci.yml`, job Patch fidelity, step Fast path equivalence; blocking) | Nightly (`nightly.yml`, job fast-path-nightly; reporting, like the other nightly jobs) |
 | --- | --- | --- |
-| Repros and guards | all 92 cases | all 92 cases |
+| Repros and guards | all 111 cases | all 111 cases |
 | Golden plans (`FAST_PATH_CORPUS_EDITS`) | all 40, 2 rewrites each plus a patch of both | all 40, 6 rewrites each plus a patch of three |
 | Generated plans (`FAST_PATH_RUNS`) | 50 | 500 |
 | Direction family (`FAST_PATH_DIRECTION_RUNS`) | 20 | 200 |
+| Purge family (`FAST_PATH_PURGE_RUNS`, round 3) | 20 | 200 |
 | Shuffled replay (`FAST_PATH_SHUFFLED`) | 25 plans | all (the golden plans with sites and 60 generated) |
 | Seed (`FAST_PATH_SEED`) | 20261113, fixed | the run number, new every night |
 | Report | `test-results/fast-path-equivalence.json`, uploaded with the fidelity report | the same, in the step summary and as an artifact |
@@ -451,8 +514,8 @@ the suites above cover the fast path.
 
 Rewrites in other scenarios, criterion changes (`effort` to `length`), plans with shifts,
 statements on shared or macro lines, statements that a later statement of the same family
-overrides (a `period` after a `start` or `end` among them), and tasks the base parse gave an
-`attr_overwrite` for all run in full.
+overrides (a `period` after a `start` or `end` among them), statements a later `purge` on the
+task follows, and tasks the base parse gave an `attr_overwrite` for all run in full.
 
 Some values TaskJuggler accepts are refused by the strict value checks and run in full: `.5d`,
 a bare number (`effort 10`), a date without leading zeros (`2026-1-7`) and an offset without a
