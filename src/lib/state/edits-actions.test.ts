@@ -102,3 +102,21 @@ describe('steppers', () => {
 		expect(h.text()).toBe(before);
 	});
 });
+
+describe('check, the gestures’ dry run', () => {
+	it('answers what a drop would do and applies nothing', () => {
+		const before = h.text();
+		const size = h.edits.check({ type: 'size-step', task: 'design.research', steps: 1 }, source);
+		expect(size).toMatchObject({ status: 'edit', label: { text: 'Effort of Research: 3d to 4d' } });
+		expect(h.text()).toBe(before);
+		expect(h.edits.toasts).toEqual([]);
+		expect(h.history.top()).toBeNull();
+	});
+
+	it('says why not, with the reason, for a cycle and a milestone', () => {
+		const link = h.edits.check({ type: 'link', pred: 'design.gate', succ: 'design.gate' }, source);
+		expect(link).toMatchObject({ status: 'refused', reason: 'cycle' });
+		const ms = h.edits.check({ type: 'size-step', task: 'design.gate', steps: 1 }, source);
+		expect(ms).toMatchObject({ status: 'refused', reason: 'milestone' });
+	});
+});

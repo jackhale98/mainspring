@@ -9,13 +9,21 @@
  * `needs-schedule` included, is final: planning again at once would give the same answer.
  */
 import type { ScheduleResult } from '../../engine/protocol';
-import { planAction, refusalMessage, type ActionContext, type ToastLabel } from '../gantt/intents';
+import {
+	checkAction,
+	planAction,
+	refusalMessage,
+	type ActionContext,
+	type ActionOutcome,
+	type GanttAction,
+	type ToastLabel,
+} from '../gantt/intents';
 import { readMovePreference } from '../gantt/prefs';
 import { report } from '../report';
 import { workingTimeOf, type WorkingTime } from '../schedule/working-time';
 import { ganttActionStrings, toastStrings } from '../strings';
 import { applyIntent } from '../tjp/edit/apply';
-import type { EditIntent, SourceRange, TjpEdit } from '../tjp/edit/types';
+import type { EditIntent, EditOptions, SourceRange, TjpEdit } from '../tjp/edit/types';
 import type { SymbolIndex, TaskId, TextOnlyReason } from '../tjp/index';
 import type { WorkspaceSnapshot } from '../workspace/workspace';
 import type { Located } from './edits-settle';
@@ -98,6 +106,29 @@ export function prepare(d: Deps, job: Job, on?: Base): Prepared {
 		return { status: 'done', outcome: { status: 'confirm-shared', affects: r.affects ?? [] } };
 	}
 	return { status: 'done', outcome, ...at(r.at) };
+}
+
+/**
+ * A dry run of a Gantt action on the current text, applying nothing: what a drop would do, for
+ * the gestures' checks at drag start and on a link target (phase-2.md 7.3). Null when there is no
+ * answer to give (the index could not be built, or the text has moved past it: ask again).
+ */
+export function checkOn(
+	d: Deps,
+	action: GanttAction,
+	source: ActionSource,
+	opts: EditOptions = {},
+): ActionOutcome | null {
+	let index: SymbolIndex;
+	try {
+		index = d.runner.ensureIndex();
+	} catch (e) {
+		report(e);
+		return null;
+	}
+	const snap = d.workspace.snapshot();
+	if (index.version !== snap.version) return null;
+	return checkAction(action, contextOf(d, source, index), snap, opts);
 }
 
 /** The `ActionContext` for a Gantt action on `index` (intents.ts). */

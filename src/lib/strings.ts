@@ -360,6 +360,91 @@ export const toastStrings = {
 const plural = (n: number, one: string, other: string): string => `${n} ${n === 1 ? one : other}`;
 
 /**
+ * The Gantt's gestures and keys (src/components/gantt, phase-2.md 7.1, 7.2, 10.2): the labels
+ * that hang by a drag, the live-region sentences of the keyboard modes and the link mode, the
+ * move question's buttons, the people palette and the row menu. A label by a drag says what a
+ * drop would do; the toast that follows says what it did (`ganttActionStrings`).
+ */
+export const gestureStrings = {
+	drag: {
+		/** By a move: "Later by 2 working days: starts Wed, Mar 11, 2026". */
+		move: (days: number, date: string, alap: boolean) =>
+			`${days > 0 ? 'Later by' : 'Earlier by'} ${plural(Math.abs(days), 'working day', 'working days')}: ${alap ? 'ends' : 'starts'} ${date}`,
+		/** By a resize: the edit's own label, then the day the dragged edge falls on. */
+		resize: (label: string, date: string, alap: boolean) =>
+			`${label}, ${alap ? 'starts' : 'ends'} ${date}`,
+		progress: (percent: number) => `${percent}% complete`,
+		/** At the end of what the dependencies allow: the bar stops there. */
+		limit: 'Stops here: other tasks hold it',
+		/** The drag cannot drop: the sentence is the refusal's. */
+		blocked: (message: string) => `Not possible: ${message}`,
+		/** By a link: what a drop would write, or why not. */
+		linkOk: (pred: string, succ: string) => `${succ} will wait for ${pred}`,
+		linkNo: (message: string) => `Not allowed: ${message}`,
+	},
+	live: {
+		cancelled: 'Cancelled.',
+		lifted: (name: string) => `${name} lifted. Drag to move it, or release to cancel.`,
+		linkStart: (name: string) => `Linking from ${name}. Choose the task that comes after it.`,
+		linkKeys: (name: string) =>
+			`Linking from ${name}. Up and Down choose the task that comes after it, Enter links, Escape cancels.`,
+		linkTarget: (name: string, verdict: string) => `${name}: ${verdict}`,
+		linkAllowed: 'allowed',
+		linkCancelled: 'Link cancelled.',
+		progressStart: (name: string, percent: number) =>
+			`Progress of ${name}: ${percent}%. Left and right change it by 5, Enter finishes.`,
+		progressNow: (percent: number) => `${percent}%`,
+		progressDone: 'Progress set.',
+		today: 'Scrolled to today.',
+		noToday: 'Today is not on the chart.',
+		nothingToDo: 'Nothing to do there.',
+		noPlace: 'It cannot move that way.',
+		/** The drop line, while a row is dragged. */
+		rowDrop: (parent: string | null, position: number) =>
+			parent === null ? `Top level, position ${position}` : `Inside ${parent}, position ${position}`,
+		rowOpens: 'Opens when held here',
+		/** Said when a person is booked from the palette by key. */
+		assigned: (person: string, task: string) => `${person} booked on ${task}.`,
+		released: (person: string, task: string) => `${person} released from ${task}.`,
+	},
+	link: {
+		banner: (name: string) => `Linking from ${name}: choose the task that comes after it.`,
+		cancel: 'Cancel',
+		cancelLabel: 'Cancel linking',
+	},
+	moveQuestion: {
+		/** The dialog's buttons; the options and the warning are `ganttActionStrings.movePreference`. */
+		confirm: 'Move',
+		cancel: 'Cancel',
+		remember: 'Mainspring asks this once. Project settings changes it later.',
+	},
+	palette: {
+		region: 'People',
+		show: 'Show people',
+		hide: 'Hide people',
+		hint: 'Drag a person onto a bar to book them on that task. With a task selected, press a person to book or release them.',
+		chip: (name: string) => `${name}: book on the selected task`,
+		none: 'No people in this plan yet.',
+		/** The label by a dragged chip, over a bar. */
+		over: (person: string, task: string) => `Book ${person} on ${task}`,
+	},
+	row: {
+		grip: (name: string) => `Move ${name}`,
+		menu: 'Row actions',
+		up: 'Move up',
+		down: 'Move down',
+		indent: 'Indent',
+		outdent: 'Outdent',
+		rename: 'Rename',
+		add: 'Add a task after',
+		delete: 'Delete',
+		newTask: 'New task',
+		renameLabel: (name: string) => `Rename ${name}`,
+		removeLink: 'Remove the selected link',
+	},
+} as const;
+
+/**
  * The inspector, the link inspector, the project sheet and the show-source sheet
  * (src/components/inspector, phase-2.md 9.3). Labels of edits read like the Gantt's own
  * ("Priority of Code: 500"), so a toast and an undo entry say the same thing whichever view made

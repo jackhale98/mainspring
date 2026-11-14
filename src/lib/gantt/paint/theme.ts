@@ -112,6 +112,11 @@ const NUMBERS = {
 	ringWidth: ['--gantt-ring-width', 2],
 	ringGap: ['--gantt-ring-gap', 3],
 	hoverRingWidth: ['--gantt-hover-ring-width', 1.5],
+	// The handles of the selected bar (handles.ts): the link dot's radius, the size grip's width
+	// and the progress knob's half width. Their hit areas are the pointer's minimum, not these.
+	handleDot: ['--gantt-handle-dot', 5],
+	handleGrip: ['--gantt-handle-grip', 4],
+	knobSize: ['--gantt-knob-size', 6],
 	floatHeight: ['--gantt-float-height', 1.5],
 	floatOpacity: ['--gantt-float-opacity', 0.75],
 	dash: ['--gantt-dash', 4],

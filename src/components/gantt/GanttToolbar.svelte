@@ -22,8 +22,9 @@
 	import type { RowLine } from '../../lib/gantt/describe';
 	import type { LineState } from '../../lib/gantt/model';
 	import type { CriticalChip } from '../../lib/gantt/analysis';
-	import { strings } from '../../lib/strings';
+	import { gestureStrings, strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
+	import RowMenu, { type RowAction } from './RowMenu.svelte';
 
 	interface Props {
 		pxPerDay: number;
@@ -38,6 +39,12 @@
 		onlevel: (level: ZoomLevel) => void;
 		ontoday: () => void;
 		oncritical: () => void;
+		/** The people palette's toggle (R6): shown for a mouse when the plan has people. */
+		people?: { open: boolean; count: number; ontoggle: () => void } | undefined;
+		/** The selected task's row actions (R5), as buttons. */
+		rowActions?:
+			| { actions: readonly RowAction[]; disabled: boolean; onaction: (id: string) => void }
+			| undefined;
 		/**
 		 * The height of the task pill while it shows, else 0: on a phone it floats over the foot of
 		 * the chart, which reserves that much room at the bottom of the scroller.
@@ -55,6 +62,8 @@
 		onlevel,
 		ontoday,
 		oncritical,
+		people,
+		rowActions,
 		onpill,
 	}: Props = $props();
 
@@ -122,6 +131,22 @@
 			<Icon name="route" size={14} />{strings.gantt.criticalPath}
 		</button>
 		<span id="critical-why" class="sr-only">{critical.why}</span>
+		{#if people && people.count > 0}
+			<button
+				type="button"
+				class="chip people"
+				aria-pressed={people.open}
+				onclick={people.ontoggle}
+				title={gestureStrings.palette.hint}
+			>
+				<Icon name="users" size={14} />{people.open
+					? gestureStrings.palette.hide
+					: gestureStrings.palette.show}
+			</button>
+		{/if}
+		{#if rowActions}
+			<RowMenu {...rowActions} />
+		{/if}
 	</div>
 
 	<!-- The task line is a live region that always exists; its pill shows only with text. -->
@@ -334,9 +359,13 @@
 		color: var(--color-pending);
 		font-weight: 600;
 	}
+	/* The palette is for a mouse and a pen; a finger books people in the details sheet. */
 	@media (pointer: coarse) {
 		.chip {
 			min-block-size: var(--size-tap);
+		}
+		.people {
+			display: none;
 		}
 	}
 	/* A narrow chart (Split) has no room for the legend lines: only the "last good schedule"

@@ -22,6 +22,12 @@
 	The grid only reads: it emits intents (toggle, select, open, rename) and the Gantt decides.
 	Critical is never colour alone: the Critical column says Yes or No in words (WCAG 1.4.1).
 
+	The interactions of phase-2.md 7.1 (T16) sit on it: every key goes first to `onkeycmd` (the
+	Gantt's keyboard model: nudges, link mode, row moves; it leaves the treegrid's own keys alone),
+	a double click or F2 renames the task in place, and a grip at the end of the name starts a row
+	drag (row-drag.svelte.ts), which draws its drop line and label here. The rows stay one DOM
+	grid: the focused row reports itself (`onfocusrow`) so the chart can ring its bar.
+
 	Over 400 lines on purpose: about a third is the styles (phone and coarse-pointer rules included),
 	and the rest is one invariant, which row or cell holds the focus. The mounted rows, the tab stop,
 	the key handler and the focus calls all read it, so splitting them would spread it over two files.
@@ -36,7 +42,8 @@
 	import { gridMove, type GridFocus, type GridShape } from '../../lib/gantt/grid-nav';
 	import type { GanttRow } from '../../lib/gantt/model';
 	import type { OutlineNode } from '../../lib/state/outline';
-	import { strings } from '../../lib/strings';
+	import { gestureStrings, strings } from '../../lib/strings';
+	import type { RowDrag } from './row-drag.svelte';
 
 	interface Props extends Omit<GridRowInput, 'pending'> {
 		pending?: ReadonlySet<string>;
@@ -58,8 +65,18 @@
 		onselect: (key: string) => void;
 		/** Enter on a row: select it and (with the inspector, T17) move focus into it. */
 		onopen?: (key: string) => void;
-		/** F2 on a row; without it the key is left alone. */
+		/** F2 on a row, or a double click on its name; without it the key is left alone. */
 		onrename?: (key: string) => void;
+		/** The row being renamed in place, by key, and what ends it. */
+		renaming?: string | null;
+		onrenamed?: (key: string, name: string) => void;
+		oncancelrename?: () => void;
+		/** Every key first: true when the Gantt's keyboard model took it (not an input's). */
+		onkeycmd?: (event: KeyboardEvent, key: string) => boolean;
+		/** The row the keyboard focus is on (null: it left the grid), and whether it shows a ring. */
+		onfocusrow?: (key: string | null) => void;
+		/** Dragging a row by its grip (R5). */
+		rowDrag?: RowDrag;
 		/** Scrolls a row into view (the rows near the viewport are the only ones mounted). */
 		onreveal: (index: number) => Promise<void>;
 		/**
@@ -87,6 +104,12 @@
 		onselect,
 		onopen,
 		onrename,
+		renaming = null,
+		onrenamed,
+		oncancelrename,
+		onkeycmd,
+		onfocusrow,
+		rowDrag,
 		onreveal,
 		outline,
 	}: Props = $props();
@@ -208,6 +231,7 @@
 		const index = model.rowOf.get(key) ?? -1;
 		const row = rows[index];
 		lastFocus = row ? { el: t, row, index } : null;
+		onfocusrow?.(key);
 	}
 
 	/** Focus that leaves the grid lets go of the pinned row. */
@@ -216,6 +240,7 @@
 		if (!(to instanceof Node) || !grid?.contains(to)) {
 			focusKey = null;
 			focusCol = null;
+			onfocusrow?.(null);
 			// Focus that went nowhere is either a click on empty space, which is not ours to undo,
 			// or the focused row being removed, which the effect below answers. A removed node is
 			// no longer connected once this microtask runs.
@@ -259,6 +284,26 @@
 	}
 
 	const indexOf = (key: string): number => model.rowOf.get(key) ?? -1;
+
+	/** Focuses a row by key once it is mounted (a moved row has a new key). */
+	export function focusRowByKey(key: string): boolean {
+		const at = indexOf(key);
+		if (at < 0) return false;
+		void focusAt({ row: at, col: null });
+		return true;
+	}
+
+	/** The rename field takes the focus with its text selected. */
+	function startRename(node: HTMLInputElement): void {
+		node.focus();
+		node.select();
+	}
+
+	// A lifted row is dragged with the finger: the list cancels the native scroll for it (8.2).
+	$effect(() => {
+		if (!grid || !rowDrag) return undefined;
+		return rowDrag.attach(grid);
+	});
 	const shape = $derived<GridShape>({
 		rows: rows.length,
 		cols: shown.length,
@@ -273,9 +318,15 @@
 	function onkeydown(event: KeyboardEvent): void {
 		const target = event.target;
 		if (!(target instanceof Element)) return;
+		// The rename field is a text field: its keys are its own.
+		if (target.closest('input, textarea, select')) return;
 		const key = target.closest('[data-key]')?.getAttribute('data-key');
 		const at = key ? indexOf(key) : -1;
-		if (at < 0) return;
+		if (at < 0 || !key) return;
+		if (onkeycmd?.(event, key)) {
+			event.preventDefault();
+			return;
+		}
 		const colId = target.closest('[data-col]')?.getAttribute('data-col') ?? null;
 		const col = colId === null ? null : shown.indexOf(colId as ColumnId);
 		const move = gridMove({ row: at, col: col === null || col < 0 ? null : col }, event, shape);
@@ -375,6 +426,7 @@
 					role="row"
 					class="row"
 					class:selected={selectedKey === row.key}
+					class:dragging={rowDrag?.view?.dragged === row.key}
 					data-key={row.key}
 					aria-rowindex={index + 2}
 					aria-level={n.level}
@@ -405,6 +457,7 @@
 							aria-label={cell.blank ? spokenText(cell) : undefined}
 							tabindex={on ? tabIndexOf(row, col) : undefined}
 							style:width={on ? nameRem(col) : undefined}
+							ondblclick={col === 'name' ? () => onrename?.(row.key) : undefined}
 						>
 							{#if col === 'name'}
 								<span class="twisty" class:leaf={row.expanded === null} aria-hidden="true">
@@ -412,7 +465,44 @@
 											><Icon name="chevronRight" size={14} /></span
 										>{/if}
 								</span>
-								<span class="label" class:summary={row.kind === 'container'}>{cell.text}</span>
+								{#if renaming === row.key}
+									<input
+										class="rename"
+										type="text"
+										value={row.name}
+										aria-label={gestureStrings.row.renameLabel(row.name)}
+										use:startRename
+										onclick={(e) => e.stopPropagation()}
+										ondblclick={(e) => e.stopPropagation()}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												onrenamed?.(row.key, e.currentTarget.value);
+											} else if (e.key === 'Escape') {
+												e.preventDefault();
+												e.stopPropagation();
+												oncancelrename?.();
+											}
+										}}
+										onblur={(e) => onrenamed?.(row.key, e.currentTarget.value)}
+									/>
+								{:else}
+									<span class="label" class:summary={row.kind === 'container'}>{cell.text}</span>
+								{/if}
+								{#if rowDrag && renaming !== row.key}
+									<!-- A pointer's handle only: the keys and the row menu do the same (R5). -->
+									<span
+										class="grip"
+										aria-hidden="true"
+										data-testid="row-grip"
+										onpointerdown={(e) => {
+											if (e.button === 0) rowDrag.down(e, row.key);
+										}}
+										onclick={(e) => e.stopPropagation()}
+									>
+										<Icon name="grip" size={14} />
+									</span>
+								{/if}
 								{#if row.textOnly}
 									<span class="badge">
 										{strings.outline.textOnly}<span class="sr-only">
@@ -427,6 +517,17 @@
 					{/each}
 				</div>
 			{/each}
+			{#if rowDrag?.view}
+				{@const v = rowDrag.view}
+				<div
+					class="drop-line"
+					class:invalid={!v.valid}
+					style:top="{v.lineRow * rowHeight}px"
+					style:--depth={v.depth}
+					data-testid="row-drop-line"
+					aria-hidden="true"
+				></div>
+			{/if}
 		</div>
 	</div>
 	{#if overflow > 0}<div class="hbar-room" aria-hidden="true"></div>{/if}
@@ -453,6 +554,17 @@
 		{/if}
 	</div>
 </div>
+{#if rowDrag?.view}
+	<div
+		class="drop-label"
+		class:invalid={!rowDrag.view.valid}
+		style:left="{rowDrag.view.x}px"
+		style:top="{rowDrag.view.y}px"
+		aria-hidden="true"
+	>
+		{rowDrag.view.label}
+	</div>
+{/if}
 <!-- Not inside the grid: a live region among rows is not read reliably. -->
 <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
@@ -519,6 +631,9 @@
 	}
 	.row:hover {
 		background: var(--color-gantt-row-hover);
+	}
+	.row.dragging {
+		opacity: 0.45;
 	}
 	/* Selection: a brass wash and a thin blued-steel edge (ADR-0009). */
 	.row.selected {
@@ -662,6 +777,84 @@
 		min-inline-size: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.rename {
+		flex: 1 1 auto;
+		min-inline-size: 0;
+		block-size: calc(100% - 8px);
+		box-sizing: border-box;
+		padding: 0 var(--space-2);
+		border: 2px solid var(--color-gantt-accent);
+		border-radius: var(--radius-sm);
+		background: var(--color-gantt-surface);
+		color: var(--color-gantt-text);
+		font: inherit;
+	}
+	/* The row grip: a pointer's handle at the end of the name, a 24 px target (44 px coarse). It
+	   shows on the row under a mouse, the focused row and the selected one; a finger gets it on
+	   the selected row only (the name column of a phone is narrow). */
+	.grip {
+		flex: none;
+		display: none;
+		place-items: center;
+		inline-size: 24px;
+		block-size: 100%;
+		margin-inline-start: auto;
+		color: var(--color-gantt-text-faint);
+		cursor: grab;
+		touch-action: pan-y;
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+	}
+	.row:hover .grip,
+	.row:focus-within .grip,
+	.row.selected .grip {
+		display: grid;
+	}
+	.grip:hover {
+		color: var(--color-gantt-text);
+	}
+	@media (pointer: coarse) {
+		.row:hover:not(.selected) .grip,
+		.row:focus-within:not(.selected) .grip {
+			display: none;
+		}
+		.grip {
+			inline-size: 32px;
+		}
+	}
+	/* Where a dragged row would land: a line at the boundary, indented to the depth it would have. */
+	.drop-line {
+		position: absolute;
+		z-index: 3;
+		inset-inline-start: calc(var(--space-1) + var(--depth, 0) * var(--space-4));
+		inset-inline-end: 0;
+		block-size: 3px;
+		margin-block-start: -1.5px;
+		border-radius: 2px;
+		background: var(--color-gantt-accent);
+		pointer-events: none;
+	}
+	.drop-line.invalid {
+		background: var(--color-gantt-text-faint);
+		opacity: 0.6;
+	}
+	.drop-label {
+		position: fixed;
+		z-index: 40;
+		padding: 3px var(--space-3);
+		border-radius: 999px;
+		background: var(--color-gantt-text);
+		color: var(--color-gantt-surface);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		white-space: nowrap;
+		pointer-events: none;
+		transform: translate(14px, -130%);
+	}
+	.drop-label.invalid {
+		opacity: 0.75;
 	}
 	.label.summary {
 		font-weight: 600;

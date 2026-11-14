@@ -10,9 +10,14 @@
 	The Gantt never changes the schedule or the text. It draws the model built from the newest
 	good result (model.ts) and, on a tap or a click, asks the app to select a task, which puts the
 	editor cursor on its declaration. Critical path and float: gantt-analysis.svelte.ts (ADR-0007).
-	Gestures and the inspector (T16, T17) come later. Zoom is on
-	the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and - while the
-	task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
+	Zoom is on the toolbar, with Ctrl+wheel and a trackpad pinch over the chart, and with + and -
+	while the task list has the focus (never Ctrl+plus: that is the browser's own page zoom).
+
+	The direct manipulation of phase-2.md 7.1 (T16) is wired here and lives beside it: the pointer
+	events on the chart are `gestures.svelte.ts`, the keys, the link and progress modes and the
+	row commands are `interactions.svelte.ts`, a row dragged by its grip is `row-drag.svelte.ts`,
+	a person dragged from the palette is `chip-drag.svelte.ts`. Each ends in one action sent to the
+	edit dispatcher (`app.edits`); the chart only draws previews and the pending bars it holds.
 
 	The task list is the treegrid (OutlineGrid.svelte, phase-2.md 10.1). It sits in a pane of its
 	own beside the chart, and a divider (the text Split view's, SplitDivider.svelte) between them
@@ -39,7 +44,16 @@
 	import { flushSync, onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
+	import { whenIdle } from '../../lib/gantt/analysis';
 	import { RescheduleAnnouncer } from '../../lib/gantt/announce';
+	import { previewContext, workingTimeFor } from '../../lib/gantt/context';
+	import { handlesOf, type HandleSet } from '../../lib/gantt/handles';
+	import { hitTest } from '../../lib/gantt/hit';
+	import { resizeEdge } from '../../lib/gantt/intents';
+	import type { Ghost } from '../../lib/gantt/preview';
+	import { rootsOf, stepTarget, type Step } from '../../lib/gantt/reorder';
+	import { sheetTopOf, visibleChart, type Box } from '../../lib/gantt/viewport';
+	import { assignable } from '../../lib/inspector/task';
 	import { DEFAULT_COLUMNS, extrasRem, shownColumns } from '../../lib/gantt/columns';
 	import { scenarioChain, sizingOf } from '../../lib/gantt/grid';
 	import { NO_LINE, describeRowParts } from '../../lib/gantt/describe';
@@ -74,9 +88,17 @@
 	import { ticksFor } from '../../lib/gantt/ticks';
 	import { memoZones } from '../../lib/gantt/zones';
 	import type { AppState } from '../../lib/state/app.svelte';
+	import type { OutlineNode } from '../../lib/state/outline';
 	import { clampRatio } from '../../lib/state/split';
-	import { strings } from '../../lib/strings';
+	import { gestureStrings, strings } from '../../lib/strings';
+	import { ChipDrag } from './chip-drag.svelte';
 	import { ctrlWheel } from './ctrl-wheel';
+	import { GanttGestures } from './gestures.svelte';
+	import { GanttInteractions, resourceOrder } from './interactions.svelte';
+	import { installGanttHook } from './test-hook';
+	import MovePreferenceDialog from './MovePreferenceDialog.svelte';
+	import PeoplePalette, { type Person } from './PeoplePalette.svelte';
+	import { RowDrag } from './row-drag.svelte';
 	import { ZoomPreview } from './zoom-preview';
 	import { GanttAnalysis } from './gantt-analysis.svelte';
 	import { GanttEnv } from './gantt-env.svelte';
@@ -113,6 +135,12 @@
 	let dividerW = $state(0);
 	let remPx = $state(16);
 	let hoverRow = $state<number | null>(null);
+	/** The plot's grid cell: content x = client x minus its left (the gestures' origin). */
+	let plotCell: HTMLDivElement | undefined = $state();
+	let grid: OutlineGrid | undefined = $state();
+	/** The row the keyboard focus is on in the task list. */
+	let focusKey = $state<string | null>(null);
+	let paletteOpen = $state(true);
 	/** The task pill's height while it shows (a phone floats it over the chart's foot). */
 	let pillH = $state(0);
 	const critical = new GanttAnalysis();
@@ -251,10 +279,272 @@
 	const today = $derived(todayOf(model.project, env.nowMs));
 	const markers = $derived(markerState(model, scale.m(0), today));
 
+
+	// --- Direct manipulation (phase-2.md 7.1 to 7.3, 10.2; T16) ---------------------------------
+	/** What the Gantt says aloud (the treegrid's live region): a new sentence is spoken once. */
+	let flip = false;
+	function announce(text: string): void {
+		flip = !flip;
+		announcement = flip ? text : `${text}​`;
+	}
+
+	// The context the previews are planned with: the index and the shown result (not the edit's).
+	const actionCtx = $derived(previewContext(app.index, critical.shown, zones));
+	const workTime = $derived(actionCtx?.wt ?? workingTimeFor(result, zones));
+	const selectedKeyRow = $derived(selectedRow === null ? undefined : model.rows[selectedRow]);
+	const baseHandles = $derived(
+		handlesOf(
+			selectedKeyRow,
+			selectedKeyRow?.id && actionCtx ? resizeEdge(selectedKeyRow.id, actionCtx) : null,
+		),
+	);
+	// The handles the edit API would refuse are hidden (7.3): one dry run each, in an idle task.
+	let refined = $state.raw<{ base: HandleSet; set: HandleSet } | null>(null);
+	$effect(() => {
+		const set = baseHandles;
+		const id = untrack(() => selectedKeyRow?.id);
+		const edits = app.edits;
+		void app.index;
+		if (!id || !edits || (set.resize === null && set.progress === null)) return;
+		return whenIdle(() => {
+			const src = untrack(() => critical.shown);
+			const refuses = (a: Parameters<typeof edits.check>[0]): boolean => {
+				const o = edits.check(a, src);
+				return o?.status === 'refused' && o.reason !== 'at-limit';
+			};
+			let next = set;
+			if (set.resize !== null && refuses({ type: 'size-step', task: id, steps: 1 })) {
+				next = { ...next, resize: null };
+			}
+			if (set.progress !== null) {
+				const to = set.progress >= 100 ? 95 : set.progress + 5;
+				if (refuses({ type: 'progress', task: id, percent: to })) next = { ...next, progress: null };
+			}
+			refined = { base: set, set: next };
+		});
+	});
+	const handles = $derived(
+		selectedRow === null ? null : refined?.base === baseHandles ? refined.set : baseHandles,
+	);
+
+	function visibleBox(): Box {
+		const r = scroller?.getBoundingClientRect();
+		if (!r) return { left: 0, top: 0, right: 0, bottom: 0 };
+		const drawer = document.querySelector('[data-drawer]')?.getBoundingClientRect();
+		return visibleChart(r, chartLeft, metrics.headerHeight, {
+			sheetTop: sheetTopOf(app.inspector.sheetHeight, window.innerHeight),
+			drawerLeft: drawer?.left ?? null,
+		});
+	}
+
+	function focusRowSoon(key: string): void {
+		let tries = 0;
+		const attempt = (): void => {
+			if (grid?.focusRowByKey(key) || ++tries > 30) return;
+			requestAnimationFrame(attempt);
+		};
+		requestAnimationFrame(attempt);
+	}
+
+	// svelte-ignore state_referenced_locally
+	const interactions = new GanttInteractions({
+		app,
+		model: () => model,
+		shown: () => critical.shown,
+		ctx: () => actionCtx,
+		wt: () => workTime,
+		reveal: revealRow,
+		today: goToday,
+		focusRowSoon,
+		announce,
+	});
+	const links = interactions.links;
+
+	function selectLink(i: number): void {
+		const l = model.links[i];
+		if (l) app.inspector.showLink(l.pred, l.succ);
+	}
+
+	/** Zooms about a viewport x (a pinch): shown at once, painted when the fingers pause. */
+	function pinchTo(target: number, clientX: number): void {
+		if (!scroller) return;
+		const x = clientX - scroller.getBoundingClientRect().left - chartLeft;
+		zoomPreview.step(clampZoom(target), Math.max(0, x));
+	}
+
+	const gestures = new GanttGestures({
+		actor: interactions.actor,
+		links,
+		model: () => model,
+		layout: () => layout,
+		origin: () => plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
+		selectedRow: () => selectedRow,
+		handles: () => handles,
+		ctx: () => actionCtx,
+		wt: () => workTime,
+		visible: visibleBox,
+		scroller: () => scroller,
+		select: selectRow,
+		selectLink,
+		showSource: (id) => (app.inspector.source = id),
+		announce,
+		zoom: () => zoomPreview.target ?? pxPerDay,
+		zoomTo: pinchTo,
+		hover: (r) => (hoverRow = r),
+	});
+
+	// Dragging a row by its grip (R5).
+	const rowTree = (): ReadonlyMap<string, OutlineNode> => app.outline.byKey;
+	const roots = (): string[] =>
+		rootsOf(
+			rowTree(),
+			app.outline.tasks.map((n) => n.key),
+		);
+	const rowDrag = new RowDrag({
+		rows: () => model.rows,
+		tree: rowTree,
+		roots,
+		rowHeight: () => metrics.rowHeight,
+		bodyTop: () =>
+			(scroller?.getBoundingClientRect().top ?? 0) + metrics.headerHeight - (scroller?.scrollTop ?? 0),
+		visible: visibleBox,
+		scroller: () => scroller,
+		nameOf: (k) => model.rows[model.rowOf.get(k) ?? -1]?.name ?? rowTree().get(k)?.name ?? k,
+		open: (k) => {
+			if (app.collapsed.has(k)) app.toggleNode(k);
+		},
+		move: (k, parent, index) => void interactions.moveTo(k, parent, index),
+		announce,
+	});
+
+	// The people palette (R6): the plan's people, in the result's order for the avatar colours.
+	const people = $derived.by<Person[]>(() => {
+		if (!app.index) return [];
+		const order = resourceOrder(result);
+		return assignable(app.index).map((r, i) => ({ ...r, index: order.get(r.id) ?? i }));
+	});
+	const booked = $derived(new Set(selectedKeyRow?.allocated ?? []));
+	const chips = new ChipDrag({
+		rowAt: (x, y) => {
+			const o = plotCell?.getBoundingClientRect();
+			if (!o) return null;
+			const hit = hitTest(layout, model, x - o.left, y - o.top);
+			return hit.kind === 'bar' ? hit.row : null;
+		},
+		drop: (chip, row) => {
+			const p = people[chip];
+			if (p) void interactions.assign(row, p.id);
+		},
+		announce,
+	});
+	const paletteView = $derived.by(() => {
+		const v = chips.view;
+		if (!v) return null;
+		const o = plotCell?.getBoundingClientRect();
+		const p = people[v.chip];
+		const task = v.row === null ? undefined : model.rows[v.row];
+		const label =
+			o && p && task
+				? {
+						text: gestureStrings.palette.over(p.name, task.name),
+						x: v.x - o.left,
+						y: v.y - o.top,
+						blocked: false,
+					}
+				: null;
+		return { row: v.row, label };
+	});
+
+	/** The bars the dispatcher holds as preview or pending (a dropped drag, a key nudge). */
+	const pendingGhosts = $derived.by<Ghost[]>(() => {
+		const by = app.edits?.pending.byTask;
+		if (!by || by.size === 0) return [];
+		const out: Ghost[] = [];
+		for (const [task, bar] of by) {
+			const i = model.rowOf.get(`task:${task}`);
+			const r = i === undefined ? undefined : model.rows[i];
+			if (i === undefined || !r || r.start === null || r.end === null) continue;
+			out.push({
+				row: i,
+				start: bar.mark.start ?? r.start,
+				end: bar.mark.end ?? r.end,
+				state: bar.state,
+				complete: bar.mark.complete ?? null,
+			});
+		}
+		return out;
+	});
+	const pendingKeys = $derived(
+		new Set([...(app.edits?.pending.byTask.keys() ?? [])].map((t) => `task:${t}`)),
+	);
+	const selectedLinkIndex = $derived.by(() => {
+		const l = app.inspector.link;
+		if (!l) return null;
+		const i = model.links.findIndex((x) => x.pred === l.pred && x.succ === l.succ);
+		return i < 0 ? null : i;
+	});
+	const focusRow = $derived(focusKey === null ? null : (model.rowOf.get(focusKey) ?? null));
+
+	// The row menu (R5): the keys' commands as buttons.
+	const rowActions = $derived.by(() => {
+		const key = app.selectedTask;
+		const can = (step: Step): boolean =>
+			key !== null && stepTarget(rowTree(), key, step, roots()) !== null;
+		const R = gestureStrings.row;
+		return {
+			disabled: key === null || !model.rowOf.has(key),
+			actions: [
+				{ id: 'up', label: R.up, disabled: !can('up') },
+				{ id: 'down', label: R.down, disabled: !can('down') },
+				{ id: 'indent', label: R.indent, disabled: !can('indent') },
+				{ id: 'outdent', label: R.outdent, disabled: !can('outdent') },
+				{ id: 'rename', label: R.rename },
+				{ id: 'add', label: R.add },
+				{ id: 'delete', label: R.delete },
+			],
+			onaction: (id: string) => {
+				if (key === null) return;
+				if (id === 'rename') interactions.startRename(key);
+				else if (id === 'add') void interactions.add(key);
+				else if (id === 'delete') void interactions.deleteTask(key);
+				else void interactions.reorder(key, id as Step);
+			},
+		};
+	});
+
+	/** Delete with a link selected removes it (R4), wherever the focus is except a text field. */
+	function onwindowkeydown(e: KeyboardEvent): void {
+		if (e.key === 'Escape' && links.active && links.state?.via !== 'key') {
+			links.cancel();
+			return;
+		}
+		if (e.key !== 'Delete' || !app.inspector.link || e.defaultPrevented) return;
+		const t = e.target;
+		if (t instanceof Element && t.closest('input, textarea, select, [contenteditable], .cm-editor')) {
+			return;
+		}
+		const key = app.selectedTask ?? model.rows[0]?.key;
+		if (key) {
+			e.preventDefault();
+			void interactions.remove(key);
+		}
+	}
+
+	onMount(() =>
+		installGanttHook(new URLSearchParams(location.search), () => ({
+			model,
+			layout,
+			origin: plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
+			pxPerDay,
+			scroller,
+		})),
+	);
+
 	function onscroll(): void {
 		if (!scroller) return;
 		scrollLeft = scroller.scrollLeft;
 		scrollTop = scroller.scrollTop;
+		gestures.scrolled();
 	}
 
 	/**
@@ -299,13 +589,14 @@
 		zoomPreview.wheel(e.deltaY * unit, x);
 	}
 
-	function goToday(): void {
-		if (markers.target === null || !scroller) return;
+	function goToday(): boolean {
+		if (markers.target === null || !scroller) return false;
 		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		scroller.scrollTo({
 			left: Math.max(0, scale.x(markers.target) - viewW / 2),
 			behavior: reduce ? 'auto' : 'smooth',
 		});
+		return true;
 	}
 
 	/** Scrolls a row into view below the sticky header. */
@@ -342,6 +633,8 @@
 	});
 </script>
 
+<svelte:window onkeydown={onwindowkeydown} />
+
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class="gantt"
@@ -369,8 +662,31 @@
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
 		oncritical={() => critical.toggle()}
+		people={env.coarse ? undefined : { open: paletteOpen, count: people.length, ontoggle: () => (paletteOpen = !paletteOpen) }}
+		{rowActions}
 		onpill={(h) => (pillH = h)}
 	/>
+	{#if links.state && links.state.via !== 'drag'}
+		<!-- Link mode (R3): what to do, and the way out for a pointer that has no Escape. -->
+		<div class="banner" role="status" data-testid="link-banner">
+			<span>{gestureStrings.link.banner(links.state.name)}</span>
+			<button type="button" onclick={() => links.cancel()} aria-label={gestureStrings.link.cancelLabel}>
+				{gestureStrings.link.cancel}
+			</button>
+		</div>
+	{/if}
+	{#if paletteOpen && !env.coarse && !phone && people.length > 0}
+		<PeoplePalette
+			{people}
+			{booked}
+			hasTask={selectedKeyRow?.id !== undefined && selectedKeyRow.id !== null}
+			drag={chips}
+			onbook={(p) => {
+				const r = selectedKeyRow;
+				if (r?.id) void interactions.book(r.id, p.id, p.name, booked.has(p.id));
+			}}
+		/>
+	{/if}
 
 	{#if model.rows.length === 0}
 		<p class="empty">{app.phase === 'ready' ? strings.gantt.noTasks : strings.topBar.loading}</p>
@@ -416,6 +732,18 @@
 						page={Math.max(1, Math.floor(viewH / metrics.rowHeight) - 1)}
 						selectedKey={app.selectedTask}
 						{announcement}
+						pending={pendingKeys}
+						bind:this={grid}
+						renaming={interactions.renaming}
+						onrename={(k) => interactions.startRename(k)}
+						onrenamed={(k, n) => void interactions.finishRename(k, n)}
+						oncancelrename={() => interactions.cancelRename()}
+						onkeycmd={(e, k) => interactions.key(e, k)}
+						onfocusrow={(k) => {
+							focusKey = k;
+							interactions.focusMoved(k);
+						}}
+						{rowDrag}
 						ontoggle={(k) => app.toggleNode(k)}
 						onselect={(k) => {
 							app.selectTask(k);
@@ -442,7 +770,7 @@
 						</div>
 					</div>
 				{/if}
-				<div class="plot" style:--gantt-names="{chartLeft}px">
+				<div class="plot" style:--gantt-names="{chartLeft}px" bind:this={plotCell}>
 					<Timeline
 						{model}
 						{layout}
@@ -454,8 +782,14 @@
 						todayMin={today}
 						{viewW}
 						{contentW}
-						onselect={selectRow}
-						onhover={(r) => (hoverRow = r)}
+						{gestures}
+						{handles}
+						pending={pendingGhosts}
+						link={links.state}
+						selectedLink={selectedLinkIndex}
+						{focusRow}
+						within={{ left: scrollLeft, right: scrollLeft + viewW }}
+						palette={paletteView}
 					/>
 				</div>
 			</div>
@@ -463,6 +797,7 @@
 			<div class="inset" aria-hidden="true" style:block-size="{app.inspector.sheetHeight}px"></div>
 		</div>
 	{/if}
+	<MovePreferenceDialog ask={interactions.actor.ask} onanswer={(k) => interactions.actor.answer(k)} />
 </div>
 
 <style>
@@ -480,6 +815,38 @@
 		min-block-size: 0;
 		block-size: 100%;
 		background: var(--color-gantt-surface);
+	}
+	/* Link mode's banner: a strip under the toolbar, with the way out for a finger. */
+	.banner {
+		flex: none;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: var(--space-2) 14px;
+		border-block-end: 1px solid var(--color-gantt-border);
+		background: var(--color-gantt-accent);
+		color: var(--color-gantt-accent-text);
+		font-size: var(--text-sm);
+	}
+	.banner button {
+		min-block-size: 32px;
+		padding-inline: var(--space-3);
+		border: 1px solid currentColor;
+		border-radius: 999px;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+	.banner button:focus-visible {
+		outline: 3px solid var(--color-gantt-accent-text);
+		outline-offset: 2px;
+	}
+	@media (pointer: coarse) {
+		.banner button {
+			min-block-size: var(--size-tap);
+		}
 	}
 	.empty {
 		margin: 0;

@@ -13,6 +13,8 @@
  *   preview?)`. `source` is what the Gantt draws, the result and its driving analysis as one pair
  *   (`GanttAnalysis.shown`). The dispatcher adds the index (`runner.ensureIndex()`), the working
  *   time, the zones and the move preference, and plans with `planAction` (gantt/intents.ts).
+ * - **Check an action** without applying it: `check(action, source)` is the dry run (gestures use
+ *   it at drag start and on a link target; null when there is no answer yet).
  * - **Dispatch an edit intent** (the inspector's fields): `dispatch(intent, { label }, preview?)`;
  *   pass `constraint: true` when it adds a `start` or `end` the task did not have.
  * - `preview` is the dragged item's geometry (`PendingMark`). It shows at once in `pending.byTask`
@@ -77,7 +79,7 @@
  *
  * Calls run one at a time, in the order they were made.
  */
-import type { GanttAction, MoveKind } from '../gantt/intents';
+import type { ActionOutcome, GanttAction, MoveKind } from '../gantt/intents';
 import { refusalMessage } from '../gantt/intents';
 import {
 	clearMovePreference,
@@ -88,12 +90,12 @@ import {
 import { ganttActionStrings, toastStrings } from '../strings';
 import { afterAndroidKey, type KeyTimers } from '../tjp/cm/android-key';
 import { applyEdit } from '../tjp/edit/apply';
-import type { EditIntent } from '../tjp/edit/types';
+import type { EditIntent, EditOptions } from '../tjp/edit/types';
 import { historyLabel } from '../workspace/history';
 import type { WorkspacePath } from '../workspace/paths';
 import type { RunnerState } from '../workspace/run-types';
 import { Coalescer, type Gesture } from './coalesce';
-import { isZeroTotal, movedId, prepare, refused, type Prepared } from './edits-plan';
+import { checkOn, isZeroTotal, movedId, prepare, refused, type Prepared } from './edits-plan';
 import { errorIdsOf, rangeNow, type Located } from './edits-settle';
 import type {
 	ActionDispatchOptions,
@@ -194,6 +196,11 @@ export class EditDispatcher {
 		preview?: PendingMark,
 	): Promise<DispatchOutcome> {
 		return this.#enqueue({ seq: ++this.#seq, preview, kind: 'action', action, source, o });
+	}
+
+	/** A dry run on the current text (no edit, toast or history), for gestures; null: not ready. */
+	check(action: GanttAction, source: ActionSource, opts?: EditOptions): ActionOutcome | null {
+		return checkOn(this.#d, action, source, opts);
 	}
 
 	/**

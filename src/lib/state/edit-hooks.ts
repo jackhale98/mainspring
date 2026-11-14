@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * A hook for end-to-end tests to dispatch a Gantt action through the real dispatcher before the
- * Gantt has gestures (T16): `/app?hooks=edits` installs `window.__mainspringEdits`. It only calls
- * the public dispatcher, as a gesture will, so it can do nothing the user cannot do with the text;
- * the rest only reads (the text, and a task's end in the shown schedule). Without the parameter
- * nothing is installed.
+ * A hook for end-to-end tests: `/app?hooks=edits` installs `window.__mainspringEdits`, which reads
+ * the text, a task's end in the shown schedule and the newest result's revision. Its `action` calls
+ * the public dispatcher, as a gesture does, so it can do nothing the user cannot do with the text
+ * (the gestures themselves are tested with real pointer input; this stays for what they cannot
+ * reach, such as an action with no gesture yet). `hooks=edits,gantt` also installs the Gantt's
+ * geometry hook (components/gantt/test-hook.ts). Without the parameter nothing is installed.
  */
 import type { GanttAction } from '../gantt/intents';
 import { finishScenario } from '../schedule/finish';
@@ -43,7 +44,9 @@ export function installEditHooks(
 	params: URLSearchParams,
 	target: Record<string, unknown> = globalThis as unknown as Record<string, unknown>,
 ): () => void {
-	if (params.get(EDIT_HOOKS_PARAM) !== 'edits') return () => undefined;
+	// `?hooks=edits`, or a list with it (`edits,gantt`: the Gantt's geometry hook is another).
+	const asked = (params.get(EDIT_HOOKS_PARAM) ?? '').split(',').map((x) => x.trim());
+	if (!asked.includes('edits')) return () => undefined;
 	const hooks: EditHooks = {
 		settled: null,
 		async action(a) {

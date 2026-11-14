@@ -4,22 +4,33 @@
 	a window of the content (the viewport plus an overscan) that moves with the content, so the
 	browser scrolls them natively and they redraw only when the view nears the window's edge, on
 	zoom, and when the model or the colours change. The canvases are aria-hidden: the task list
-	beside them is the accessible mirror (treegrid task T18). Pointer events on the top canvas
-	select a row; the gesture machine (T9) will take over drags from here.
+	beside them is the accessible mirror (treegrid task T18). The pointer events on the top canvas
+	are the gestures' (gestures.svelte.ts feeds them to the shared controller): this component only
+	draws what they say, on the overlay: the handles of the selected bar, the preview of a dragged
+	bar, the pending bars that stay until the engine answers, a link being made and its target.
 -->
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { strings } from '../../lib/strings';
-	import { hitTest } from '../../lib/gantt/hit';
+	import type { HandleSet } from '../../lib/gantt/handles';
 	import type { GanttLayout, PaintWindow } from '../../lib/gantt/layout';
 	import type { GanttModel } from '../../lib/gantt/model';
 	import type { TickRows } from '../../lib/gantt/ticks';
 	import { sizeCanvas, type PaintFrame } from '../../lib/gantt/paint/canvas';
 	import { paintBars } from '../../lib/gantt/paint/bars';
 	import { paintGrid } from '../../lib/gantt/paint/grid';
+	import {
+		NO_GESTURE,
+		type GestureLabel,
+		type GestureOverlay,
+		type LinkTarget,
+	} from '../../lib/gantt/paint/gestures';
 	import { NO_OVERLAY, paintOverlay, type OverlayState } from '../../lib/gantt/paint/overlay';
+	import type { Ghost } from '../../lib/gantt/preview';
 	import type { Theme } from '../../lib/gantt/paint/theme';
 	import Mark from '../app/Mark.svelte';
+	import type { GanttGestures } from './gestures.svelte';
+	import type { LinkState } from './link-mode.svelte';
 
 	interface Props {
 		model: GanttModel;
@@ -35,8 +46,22 @@
 		viewW: number;
 		/** The plot's width: the content, at least as wide as the viewport. */
 		contentW: number;
-		onselect: (row: number) => void;
-		onhover: (row: number | null) => void;
+		/** The pointer wiring: its preview and cursor are drawn here, its events come from here. */
+		gestures: GanttGestures;
+		/** The handles of the selected bar, or null. */
+		handles: HandleSet | null;
+		/** Bars the dispatcher holds as preview or pending (a dropped drag, a key nudge). */
+		pending: readonly Ghost[];
+		/** The link being made, or null. */
+		link: LinkState | null;
+		/** The link selected for removal, as an index into the model's links. */
+		selectedLink: number | null;
+		/** The row with the keyboard focus in the task list, to ring (10.2). */
+		focusRow: number | null;
+		/** The content x range in view, so that a label never hangs where it is cut off. */
+		within: { readonly left: number; readonly right: number };
+		/** A person dragged from the palette: the bar it is over and the label. */
+		palette: { readonly row: number | null; readonly label: GestureLabel | null } | null;
 	}
 	let {
 		model,
@@ -49,16 +74,19 @@
 		todayMin,
 		viewW,
 		contentW,
-		onselect,
-		onhover,
+		gestures,
+		handles,
+		pending,
+		link,
+		selectedLink,
+		focusRow,
+		within,
+		palette,
 	}: Props = $props();
 
 	let gridEl: HTMLCanvasElement | undefined = $state();
 	let barsEl: HTMLCanvasElement | undefined = $state();
 	let overlayEl: HTMLCanvasElement | undefined = $state();
-
-	let hoverRow = $state<number | null>(null);
-	let hoverLink = $state<number | null>(null);
 
 	/** What the next animation frame paints; written by the effects, read by `frameFor`. */
 	interface Latest {
@@ -125,8 +153,50 @@
 		untrack(() => request('base'));
 	});
 
+	/** The label a link in progress hangs: by the pointer, else by the target bar (a key, a tap). */
+	function linkLabel(l: LinkState): GestureLabel | null {
+		if (l.target === null || l.message === null) return null;
+		const bar = layout.barRect(l.target);
+		const x = l.x ?? (bar ? bar.x + bar.w : 0);
+		const y = l.y ?? (bar ? bar.y : 0);
+		return { text: l.message, x, y, blocked: l.ok === false, within };
+	}
+
+	/** Everything the gestures draw, from the drag in flight, the pending bars and the link mode. */
+	const gesture = $derived.by<GestureOverlay>(() => {
+		const d = gestures.drag;
+		const ghosts = d?.ghost ? [...pending.filter((g) => g.row !== d.ghost?.row), d.ghost] : pending;
+		const target: LinkTarget | null =
+			link?.target != null
+				? { row: link.target, ok: link.ok !== false }
+				: palette?.row != null
+					? { row: palette.row, ok: true }
+					: null;
+		const paletteLabel = palette?.label ? { ...palette.label, within } : null;
+		const label = d?.label ?? (link ? linkLabel(link) : null) ?? paletteLabel;
+		if (!d && !link && !palette && pending.length === 0 && !handles && selectedLink === null) {
+			return NO_GESTURE;
+		}
+		return {
+			handles,
+			ghosts,
+			band: link ? { fromRow: link.from, x: link.x, y: link.y } : null,
+			target,
+			label,
+			lifted: d?.lifted ?? null,
+			selectedLink,
+		};
+	});
+
 	$effect(() => {
-		overlayState = { selectedRow, hoverRow, hoverLink, todayMin };
+		overlayState = {
+			selectedRow,
+			hoverRow: gestures.hoverRow,
+			hoverLink: gestures.hoverLink,
+			todayMin,
+			focusRow,
+			gesture,
+		};
 		untrack(() => request('overlay'));
 	});
 
@@ -140,50 +210,11 @@
 		if (raf !== 0) cancelAnimationFrame(raf);
 	});
 
-	// A pointer press that barely moves is a tap; anything more is a scroll or, later, a drag.
-	let down: { id: number; x: number; y: number; at: { x: number; y: number } } | null = null;
-	const slopOf = (e: PointerEvent): number => (e.pointerType === 'touch' ? 8 : 4);
-
-	function contentPoint(e: PointerEvent): { x: number; y: number } {
-		const r = overlayEl?.getBoundingClientRect();
-		return { x: e.clientX - (r?.left ?? 0) + win.x, y: e.clientY - (r?.top ?? 0) + win.y };
-	}
-
-	function onpointermove(e: PointerEvent): void {
-		if (e.pointerType === 'touch') return;
-		const p = contentPoint(e);
-		const hit = hitTest(layout, model, p.x, p.y);
-		const row = hit.kind === 'link' ? null : hit.row;
-		const link = hit.kind === 'link' ? hit.link : null;
-		if (row !== hoverRow) {
-			hoverRow = row;
-			onhover(row);
-		}
-		if (link !== hoverLink) hoverLink = link;
-	}
-
-	function onpointerleave(): void {
-		if (hoverRow !== null) onhover(null);
-		hoverRow = null;
-		hoverLink = null;
-	}
-
-	function onpointerdown(e: PointerEvent): void {
-		if (e.button !== 0) return;
-		// The point is taken now: the layout around the chart may shift before the pointer is up.
-		down = { id: e.pointerId, x: e.clientX, y: e.clientY, at: contentPoint(e) };
-	}
-
-	function onpointerup(e: PointerEvent): void {
-		const start = down;
-		down = null;
-		if (!start || start.id !== e.pointerId) return;
-		if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > slopOf(e)) return;
-		const hit = hitTest(layout, model, start.at.x, start.at.y);
-		// A tap that misses a link by a little lands on the row it is in.
-		const row = hit.kind === 'link' ? layout.rowAt(start.at.y) : hit.row;
-		if (row !== null) onselect(row);
-	}
+	// The pointer events on the overlay are the gestures': it listens, this draws.
+	$effect(() => {
+		if (!overlayEl) return;
+		return gestures.attach(overlayEl);
+	});
 </script>
 
 <div class="plot" style:width="{contentW}px" style:height="{layout.height}px">
@@ -195,18 +226,12 @@
 	<div class="layers">
 		<canvas bind:this={gridEl} aria-hidden="true"></canvas>
 		<canvas bind:this={barsEl} aria-hidden="true"></canvas>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<canvas
 			bind:this={overlayEl}
 			class="overlay"
-			class:pointer={hoverRow !== null}
+			style:cursor={gestures.cursor}
 			data-testid="gantt-overlay"
 			aria-hidden="true"
-			{onpointerdown}
-			{onpointermove}
-			{onpointerup}
-			{onpointerleave}
-			onpointercancel={() => (down = null)}
 		></canvas>
 	</div>
 </div>
@@ -250,10 +275,12 @@
 	}
 	.overlay {
 		cursor: default;
-		/* One-finger pans stay native; pinch and drags are the gesture machine's (T9). */
+		/* One-finger pans stay native; pinch and drags are the gesture controller's (8.2). */
 		touch-action: pan-x pan-y;
-	}
-	.overlay.pointer {
-		cursor: pointer;
+		/* No text selection and no callout on a long-press (iOS); no tap highlight. */
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+		-webkit-tap-highlight-color: transparent;
 	}
 </style>
