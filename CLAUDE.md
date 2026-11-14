@@ -98,8 +98,9 @@ away because work was split or delegated too early. These rules refine the loop 
 
 - Phase 0 approved 2026-11-11 (`docs/phases/phase-0-gate.md`).
 - Phase 1 approved 2026-11-12 (`docs/phases/phase-1-gate.md`). Phase 2 gate evidence recorded
-  2026-11-14 (`docs/phases/phase-2-gate.md`; ADR-0007, ADR-0008, ADR-0010). Phase 3 spec drafted
-  (`docs/phases/phase-3.md`), awaiting the user's answers to its section 18. Goldens are
+  2026-11-14 (`docs/phases/phase-2-gate.md`; ADR-0007, ADR-0008, ADR-0010). Phase 3 in progress
+  (`docs/phases/phase-3.md`, approved 2026-11-14 with every section 18 recommendation; ADR-0013,
+  ADR-0014). Goldens are
   provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
 - The user approved moving into Phase 3 as soon as Phase 2 is done (2026-11-13). Record the gate
   evidence in `docs/phases/phase-2-gate.md` as usual, then start Phase 3 without waiting. Show the

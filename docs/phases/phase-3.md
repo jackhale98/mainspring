@@ -1,6 +1,6 @@
 # Phase 3: Resources, workload and plan health
 
-Status: **draft for the user's approval**, 2026-11-14. Sources:
+Status: **approved by the user 2026-11-14, every recommendation in section 18 accepted as written** (including ADR-0013's out-of-phase authoring track, 18.11). Sources:
 - `docs/BUILD_PLAN.md`: "Phase 3"; "Planning best practices the app builds in"; "Product scope" (Resources, Workload, Plan health); "UX and interaction design" (views 2 to 4, direct manipulation "Rebalance load", gesture rules, layouts, design system); "Performance budgets"; "Architecture" (engine worker, edit pipeline, rendering); "Testing and quality"; "Claude Code execution plan".
 - `docs/phases/phase-2.md`, especially 6.2, 6.6, 6.8, 7, 8, 9.3, 18.3, 18.9, 18.10 and 19.9.
 - Phase 2 as built: `phase-2-gate.md` (T6 timings), `phase-2-test-audit.md`, `phase-2-perf-a11y.md` (T22, T23), `phase-2-polish.md`, `docs/backlog.md`.
