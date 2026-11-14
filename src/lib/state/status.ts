@@ -191,3 +191,21 @@ export function statusView(
 		engine: infoOf(s.timings, versions, locale),
 	};
 }
+
+/**
+ * The shape the phone's status button wears: the ticking mark while the scheduler works, then a
+ * circle (fine), a triangle (warnings only) or a diamond (errors, or the scheduler failed). The
+ * shapes differ, not only the colours (WCAG 1.4.1). A failure outranks a run that is under way;
+ * without a status yet the scheduler is still starting.
+ */
+export type StatusGlyph = 'busy' | 'ok' | 'warning' | 'error';
+
+export function statusGlyph(
+	v: Pick<StatusView, 'kind' | 'errors' | 'warnings' | 'failure'> | null,
+): StatusGlyph {
+	if (!v) return 'busy';
+	if (v.failure !== null || v.kind === 'failed') return 'error';
+	if (v.kind === 'booting' || v.kind === 'idle' || v.kind === 'scheduling') return 'busy';
+	if (v.kind === 'errors' || v.errors > 0) return 'error';
+	return v.warnings > 0 ? 'warning' : 'ok';
+}

@@ -40,7 +40,7 @@ afterEach(() => {
 	document.body.innerHTML = '';
 });
 
-function setup(quiet: boolean) {
+function setup(quiet: boolean, phone = false) {
 	const app = $state({
 		status: null as StatusView | null,
 		run: null,
@@ -52,7 +52,7 @@ function setup(quiet: boolean) {
 	mounted.push(
 		mount(StatusStrip, {
 			target,
-			props: { app: app as unknown as AppState, compact: false, quiet },
+			props: { app: app as unknown as AppState, phone, quiet },
 		}),
 	);
 	flushSync();
@@ -65,7 +65,7 @@ function setup(quiet: boolean) {
 		flushSync();
 		return live();
 	};
-	return { settle, live };
+	return { settle, live, target };
 }
 
 describe('announcesRun', () => {
@@ -111,5 +111,48 @@ describe('the strip with the Gantt shown', () => {
 		const { settle } = setup(false);
 		settle(OK);
 		expect(settle(OK)).toBe('Scheduled. Finish Jan 9. No problems');
+	});
+});
+
+describe('the strip on a phone (no footer: the top bar button holds the controls)', () => {
+	it('is a hidden "Plan status" group with the state text and no focusable control', () => {
+		const { settle, target } = setup(false, true);
+		settle(
+			view({
+				kind: 'ok',
+				warnings: 3,
+				counts: '3 warnings',
+				unlocated: [{ severity: 'warning', message: 'x', precision: 'none' } as never],
+				engine: {
+					version: 'TaskJuggler 3.8.4',
+					last: '1 ms',
+					timings: [],
+					note: null,
+					versions: [],
+				},
+			}),
+		);
+		const group = target.querySelector('[role="group"]');
+		expect(group?.getAttribute('aria-label')).toBe('Plan status');
+		expect(group?.classList.contains('sr-only')).toBe(true);
+		expect(group?.querySelector('.state')?.textContent).toBe('Scheduled');
+		expect(group?.textContent).toContain('3 warnings');
+		expect(group?.textContent).toContain('Finish');
+		expect(group?.querySelector('button, a, input, select, textarea, [tabindex]')).toBeNull();
+		// The run is still spoken, inside the group.
+		expect(group?.querySelector('[role="status"]')?.textContent).toContain('3 warnings');
+	});
+
+	it('speaks by the same rules: quiet only for a plain ok run after an ok run', () => {
+		const { settle } = setup(true, true);
+		settle(OK);
+		expect(settle(OK)).toBe('');
+		expect(settle(ERROR)).toBe('Scheduled with problems. Finish Jan 9. 1 error');
+	});
+
+	it('says a failure in the hidden group', () => {
+		const { settle, target } = setup(false, true);
+		settle(view({ kind: 'failed', label: 'Scheduler failed', failure: 'The scheduler stopped.' }));
+		expect(target.querySelector('[role="group"]')?.textContent).toContain('The scheduler stopped.');
 	});
 });

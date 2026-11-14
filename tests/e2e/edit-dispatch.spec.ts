@@ -107,20 +107,28 @@ test.describe('a visual edit through the dispatcher', () => {
 		expect(end1).toBeGreaterThan(end0 ?? 0);
 		await expect(status).toContainText('Scheduled');
 
-		// The toast sits above the footer: the status and the reload button stay visible.
-		const reload = page.getByRole('button', { name: /new version of Mainspring is available/ });
-		await expect(reload).toBeVisible({ timeout: 10_000 });
+		// The toast sits above the footer: the status and the reload button stay visible. A phone
+		// has no footer: it sits above the tab bar, and the reload is the status button's pip.
 		const box = await toast.boundingBox();
-		for (const covered of [status, reload]) {
-			const b = await covered.boundingBox();
-			expect(box && b, 'boxes').toBeTruthy();
-			if (box && b) expect(box.y + box.height).toBeLessThanOrEqual(b.y);
+		if (desktop(info)) {
+			const reload = page.getByRole('button', { name: /new version of Mainspring is available/ });
+			await expect(reload).toBeVisible({ timeout: 10_000 });
+			for (const covered of [status, reload]) {
+				const b = await covered.boundingBox();
+				expect(box && b, 'boxes').toBeTruthy();
+				if (box && b) expect(box.y + box.height).toBeLessThanOrEqual(b.y);
+			}
+			const hit = await reload.evaluate((el) => {
+				const r = el.getBoundingClientRect();
+				return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+			});
+			expect(hit, 'nothing is drawn over the reload button').toBe(true);
+		} else {
+			await expect(page.getByTestId('update-pip')).toBeVisible({ timeout: 10_000 });
+			const tabs = await page.locator('.tabbar').boundingBox();
+			expect(box && tabs, 'boxes').toBeTruthy();
+			if (box && tabs) expect(box.y + box.height).toBeLessThanOrEqual(tabs.y);
 		}
-		const hit = await reload.evaluate((el) => {
-			const r = el.getBoundingClientRect();
-			return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
-		});
-		expect(hit, 'nothing is drawn over the reload button').toBe(true);
 
 		const undo = toast.getByRole('button', { name: 'Undo' });
 		await expect(undo).toBeEnabled();
