@@ -26,10 +26,23 @@
  * Renames (phase-2.md 6.8): while a `moveTask` is pending the dispatcher publishes old id to new id
  * in `pending.renames`; `followRenames` moves the selection to the new id, a descendant of the
  * moved task included.
+ *
+ * Phase 3 (phase-3.md 6.7) adds the People kinds (`PeopleSelection`: a person, a heatmap cell, a
+ * run of calendar days) and the view types `View` and `PeopleSegment`. A cursor inside a
+ * `resource` block will select that person (Split mode), as tasks do. View, zoom, unit (hours or
+ * percent), thresholds and the collapsed groups are UI preferences per plan (ADR-0008 #3).
  */
-import type { WorkspacePath } from '../../engine/protocol';
+// T2: 6.7's `Selection` is the Phase 2 kinds plus `PeopleSelection`. `Selection` stays the Phase 2
+// union here, so that this interface change changes no behaviour: `followRenames` and `AppState`'s
+// `#onSelection`, `#onIndex`, `#placeOf` and `#remark` read every non-task selection as a link and
+// every selection as having an `origin` (widening it fails the typecheck in those five places).
+// T13 widens it (`Selection = ... | PeopleSelection`) in the change that teaches them the new
+// kinds.
+import type { Minutes, WorkspacePath } from '../../engine/protocol';
+import type { LeavePaint } from '../calendar/paint';
 import { currentRange } from '../inspector/range';
-import type { SourceRange, TaskId } from '../tjp/index';
+import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
+import type { BucketKind } from '../workload/types';
 import type { RunnerState } from '../workspace/run-types';
 import type { Workspace } from '../workspace/workspace';
 
@@ -37,6 +50,19 @@ export type Selection =
 	| { kind: 'task'; id: TaskId; origin: 'text' | 'visual' }
 	| { kind: 'link'; pred: TaskId; succ: TaskId; origin: 'visual' }
 	| null;
+
+/** Phase 3 kinds (6.7), not yet part of `Selection` (see the T2 note above). */
+export type PeopleSelection =
+	| { kind: 'resource'; id: ResourceId; origin: 'text' | 'visual' }
+	/** A heatmap cell: `bucket` is the column index in the axis of kind `axis`. */
+	| { kind: 'cell'; resource: ResourceId; bucket: number; axis: BucketKind }
+	/** Calendar days, whole local days `[from, to)`. */
+	| { kind: 'days'; scope: LeavePaint['scope']; from: Minutes; to: Minutes };
+
+/** The visual views: the desktop and tablet view switcher (18.10). */
+export type View = 'gantt' | 'workload' | 'resources' | 'calendar';
+/** The segments of the phone People tab: Load, Lanes, Calendar, Team (18.10). */
+export type PeopleSegment = 'load' | 'lanes' | 'calendar' | 'team';
 
 /** The two tasks of a selected link. */
 export interface LinkSelection {
