@@ -22,7 +22,9 @@
 			body {
 				height: 100%;
 				margin: 0;
-				font: 13px/1.3 system-ui, sans-serif;
+				font:
+					13px/1.3 system-ui,
+					sans-serif;
 				background: #fff;
 				color: #111;
 			}
@@ -79,18 +81,40 @@
 	</head>
 	<body>
 		<div id="meter" data-testid="meter">
-			<span>fps <b id="fps">-</b></span>
-			<span>median <b id="median">-</b> ms</span>
-			<span>p95 <b id="p95">-</b> ms</span>
-			<span>max <b id="max">-</b> ms</span>
-			<span id="verdict" data-testid="verdict" data-pass="">-</span>
-			<span>on time <b id="ontime">-</b>%</span>
-			<span>over 50 ms <b id="over50">-</b></span>
-			<span>frames <b id="frames">-</b></span>
-			<span>long frames <b id="loaf">-</b></span>
 			<span>
-				<button id="reset" type="button">Reset</button>
-				<button id="hold" type="button">Hold</button>
+				fps <b id="fps">-</b>
+			</span>
+			<span>
+				median <b id="median">-</b> ms
+			</span>
+			<span>
+				p95 <b id="p95">-</b> ms
+			</span>
+			<span>
+				max <b id="max">-</b> ms
+			</span>
+			<span id="verdict" data-testid="verdict" data-pass="">
+				-
+			</span>
+			<span>
+				on time <b id="ontime">-</b>%
+			</span>
+			<span>
+				over 50 ms <b id="over50">-</b>
+			</span>
+			<span>
+				frames <b id="frames">-</b>
+			</span>
+			<span>
+				long frames <b id="loaf">-</b>
+			</span>
+			<span>
+				<button id="reset" type="button">
+					Reset
+				</button>
+				<button id="hold" type="button">
+					Hold
+				</button>
 			</span>
 		</div>
 		<iframe id="app" title="Mainspring" data-testid="app-frame"></iframe>

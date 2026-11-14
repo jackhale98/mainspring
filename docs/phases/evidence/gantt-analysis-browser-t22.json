@@ -1,0 +1,36 @@
+{
+  "browser": "153.0.8010.12",
+  "cpus": 4,
+  "loadAverage": [
+    3.49,
+    3.95,
+    5.09
+  ],
+  "targetMs": 10,
+  "timings": {
+    "gantt-500 cold": {
+      "tasks": 500,
+      "ms": 26.299999998882413
+    },
+    "gantt-500 warm": {
+      "tasks": 500,
+      "ms": 7.5
+    },
+    "gantt-500 warm 4x throttle": {
+      "tasks": 500,
+      "ms": 21.899999998509884
+    },
+    "upstream-fedora-20 cold": {
+      "tasks": 414,
+      "ms": 15.300000000745058
+    },
+    "upstream-fedora-20 warm": {
+      "tasks": 414,
+      "ms": 11.099999999627471
+    },
+    "upstream-fedora-20 warm 4x throttle": {
+      "tasks": 414,
+      "ms": 14.5
+    }
+  }
+}

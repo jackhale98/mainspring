@@ -291,3 +291,49 @@ jobs:
           path: test-results/text-mode-perf.json
           if-no-files-found: warn
           retention-days: 30
+
+  gantt-perf:
+    name: Gantt frame times (500 tasks; desktop and Pixel 7 emulation at 4x CPU)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      - run: npm run build
+      # tests/e2e/gantt-perf.spec.ts (phase-2.md 8.4): scroll, pan, pinch, drag and a result during
+      # a scroll on gantt-500. The desktop profile has regression caps; the throttled phone profile
+      # is recorded and judged against the 18.7 definition in the JSON. One worker, so that the two
+      # profiles do not share the runner's CPUs.
+      - run: npx playwright test tests/e2e/gantt-perf.spec.ts --project=desktop --project=pixel-7 --workers=1
+        env:
+          E2E_PERF: '1'
+      - name: Summarise
+        if: always()
+        run: |
+          if [ -f test-results/gantt-perf.json ]; then
+            { echo '## Gantt frame times'; echo; echo '```'; node scripts/gantt-perf-summary.mjs; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gantt-perf
+          path: test-results/gantt-perf.json
+          if-no-files-found: warn
+          retention-days: 30

@@ -64,8 +64,15 @@ export interface Measure extends FrameStats {
 	inputScript: ScriptStats;
 	/** Per frame: the time in requestAnimationFrame callbacks. */
 	rafScript: ScriptStats;
+	/**
+	 * Input latency of the move events (Chromium's `InputLatency::MouseMove` and `TouchMove`): from
+	 * the event reaching the browser to the frame that shows its effect. This is the drag feedback
+	 * time of phase-2.md 7.3 (budget 16 ms).
+	 */
+	inputLatency: ScriptStats;
 	/** The longest main-thread task (top-level RunTask) in the window. */
 	longestTaskMs: number;
+	loafBreakdown?: LoafBreakdown;
 	scrolledPx?: { x: number; y: number };
 }
 
@@ -181,6 +188,30 @@ export function scriptTimes(trace: unknown): { input: ScriptStats; raf: ScriptSt
 	};
 }
 
+type Async = Ev & { id?: string; id2?: { local?: string; global?: string } };
+
+/** Durations of the move events' latency spans (async begin and end pairs), in ms. */
+export function inputLatency(trace: unknown): ScriptStats {
+	const open = new Map<string, number>();
+	const durs: number[] = [];
+	for (const e of traceEventsOf(trace) as Async[]) {
+		if (!e.name || !/^InputLatency::(Mouse|Touch|Pointer)Move$/.test(e.name)) continue;
+		const id = e.id ?? e.id2?.local ?? e.id2?.global ?? '';
+		const key = `${e.name}:${id}`;
+		if (e.ph === 'b' && e.ts !== undefined) open.set(key, e.ts);
+		else if (e.ph === 'e' && e.ts !== undefined && open.has(key)) {
+			durs.push((e.ts - (open.get(key) as number)) / 1000);
+			open.delete(key);
+		}
+	}
+	return {
+		count: durs.length,
+		p50Ms: round(percentile(durs, 50)),
+		p95Ms: round(percentile(durs, 95)),
+		maxMs: round(Math.max(0, ...durs)),
+	};
+}
+
 export function measureOf(
 	frames: readonly number[],
 	loaf: readonly number[],
@@ -192,11 +223,31 @@ export function measureOf(
 		pipeline: pipelineOf(trace),
 		inputScript: s.input,
 		rafScript: s.raf,
+		inputLatency: inputLatency(trace),
 		longestTaskMs: round(maxMainThreadTask(trace).maxMs),
 	};
 }
 
-type ProbeWin = { __frames: number[]; __loaf: number[]; __recording: boolean };
+type LoafPart = { script: number; render: number; styleLayout: number; blocking: number };
+type ProbeWin = {
+	__frames: number[];
+	__loaf: number[];
+	__loafParts: LoafPart[];
+	__recording: boolean;
+};
+
+/**
+ * Where the long animation frames' time went, summed (ms): script (the entries' `scripts`), render
+ * (from `renderStart` to the end: style, layout, paint, the work before the compositor) and, within
+ * it, style and layout. A long frame whose time is mostly render is paint or layout, not our script.
+ */
+export interface LoafBreakdown {
+	count: number;
+	scriptMs: number;
+	renderMs: number;
+	styleLayoutMs: number;
+	blockingMs: number;
+}
 
 /** Installs the frame meter and the LoAF observer for the page's whole life (before it loads). */
 export async function installProbe(page: Page): Promise<void> {
@@ -205,6 +256,7 @@ export async function installProbe(page: Page): Promise<void> {
 		w.__recording = false;
 		w.__frames = [];
 		w.__loaf = [];
+		w.__loafParts = [];
 		let last = performance.now();
 		const tick = (t: number): void => {
 			if (w.__recording) w.__frames.push(t - last);
@@ -215,7 +267,22 @@ export async function installProbe(page: Page): Promise<void> {
 		try {
 			new PerformanceObserver((list) => {
 				if (!w.__recording) return;
-				for (const e of list.getEntries()) w.__loaf.push(e.duration);
+				for (const e of list.getEntries()) {
+					w.__loaf.push(e.duration);
+					const f = e as PerformanceEntry & {
+						renderStart: number;
+						styleAndLayoutStart: number;
+						blockingDuration: number;
+						scripts: Array<{ duration: number }>;
+					};
+					const end = e.startTime + e.duration;
+					w.__loafParts.push({
+						script: f.scripts.reduce((a, x) => a + x.duration, 0),
+						render: f.renderStart ? end - f.renderStart : 0,
+						styleLayout: f.styleAndLayoutStart ? end - f.styleAndLayoutStart : 0,
+						blocking: f.blockingDuration,
+					});
+				}
 			}).observe({ type: 'long-animation-frame', buffered: false });
 		} catch {
 			// Not supported: the count stays 0.
@@ -231,23 +298,34 @@ export async function measure(page: Page, run: () => Promise<void>): Promise<Mea
 		const w = window as unknown as ProbeWin;
 		w.__frames = [];
 		w.__loaf = [];
+		w.__loafParts = [];
 		w.__recording = true;
 	});
 	await browser.startTracing(page, { categories: TRACE_CATEGORIES });
 	let raw: Buffer;
 	let frames: number[] = [];
 	let loaf: number[] = [];
+	let parts: LoafPart[] = [];
 	try {
 		await run();
 		// The window ends with the run: the idle frames of the wait below must not flatter the result.
-		({ frames, loaf } = await page.evaluate(() => {
+		({ frames, loaf, parts } = await page.evaluate(() => {
 			const w = window as unknown as ProbeWin;
 			w.__recording = false;
-			return { frames: w.__frames.slice(1), loaf: w.__loaf };
+			return { frames: w.__frames.slice(1), loaf: w.__loaf, parts: w.__loafParts };
 		}));
 		await page.waitForTimeout(300);
 	} finally {
 		raw = await browser.stopTracing();
 	}
-	return measureOf(frames, loaf, JSON.parse(raw.toString()) as unknown);
+	const m = measureOf(frames, loaf, JSON.parse(raw.toString()) as unknown);
+	const sum = (k: keyof LoafPart): number => Math.round(parts.reduce((a, x) => a + x[k], 0));
+	m.loafBreakdown = {
+		count: parts.length,
+		scriptMs: sum('script'),
+		renderMs: sum('render'),
+		styleLayoutMs: sum('styleLayout'),
+		blockingMs: sum('blocking'),
+	};
+	return m;
 }

@@ -123,10 +123,14 @@ test.describe('axe', () => {
 
 			// The people palette (a mouse's: a finger books people in the details sheet).
 			if (!rig.touch) {
-				await page.getByRole('button', { name: 'People', exact: true }).click();
-				await expect(page.getByTestId('people-palette')).toBeVisible();
+				// The palette is open by default; the chip shows and hides it.
+				const palette = page.getByTestId('people-palette');
+				if (!(await palette.isVisible()))
+					await page.getByRole('button', { name: 'People', exact: true }).click();
+				await expect(palette).toBeVisible();
 				await axe(page, `people palette (${scheme})`);
 				await page.getByRole('button', { name: 'People', exact: true }).click();
+				await expect(palette).not.toBeVisible();
 			}
 
 			// The move question: a first move of a bar asks where to write it.
@@ -169,14 +173,15 @@ test.describe('axe', () => {
 			const rig = await Rig.open(page, info);
 			await rig.select('design.research');
 			await axe(page, `tablet details sheet (${scheme})`);
-			await page.setViewportSize({ width: 1100, height: 800 });
+			await page.setViewportSize({ width: 1280, height: 800 });
 			await page.goto('/app?sample=gantt-manipulation&mode=split&hooks=edits,gantt');
 			await ready(page);
-			const toggle = page.getByRole('button', { name: /^Details/ });
-			if (await toggle.isVisible()) {
-				await toggle.click();
-				await axe(page, `desktop details drawer (${scheme})`);
-			}
+			const toggle = page.getByRole('button', { name: 'Show details' });
+			// Split at this width has no room to dock the panel: a rail, and the drawer from its toggle.
+			await expect(toggle).toBeVisible();
+			await toggle.click();
+			await expect(page.getByRole('complementary', { name: 'Details' })).toBeVisible();
+			await axe(page, `desktop details drawer (${scheme})`);
 		}
 	});
 });
@@ -193,12 +198,14 @@ async function focused(page: Page): Promise<{
 		const el = document.activeElement as HTMLElement | null;
 		if (!el)
 			return { what: 'none', region: '', outlineWidth: 0, outlineStyle: 'none', boxShadow: 'none' };
-		const cs = getComputedStyle(el);
+		// A select inside a chip is ringed through its label (:has(select:focus-visible)).
+		const ringed = el.closest('label') ?? el;
+		const cs = getComputedStyle(el.matches('select') ? ringed : el);
 		const region = el.closest('header')
 			? 'header'
 			: el.closest('[data-testid="gantt-treegrid"]')
 				? 'treegrid'
-				: el.closest('[role="complementary"], [role="dialog"]')
+				: el.closest('aside, [role="complementary"], [role="dialog"]')
 					? 'details'
 					: el.closest('[role="group"][aria-label]')
 						? 'toolbar'
@@ -275,7 +282,8 @@ test.describe('keyboard (10.2)', () => {
 		page,
 	}, info) => {
 		const rig = await Rig.open(page, info);
-		await rig.row('task:design.research').focus();
+		// The menu acts on the selected row (moving the focus never selects).
+		await rig.row('task:design.research').locator('.label').click();
 		const button = page.getByTestId('row-menu');
 		await button.focus();
 		await page.keyboard.press('Enter');
@@ -289,7 +297,7 @@ test.describe('keyboard (10.2)', () => {
 		page,
 	}, info) => {
 		const rig = await Rig.open(page, info);
-		await rig.row('task:design.research').focus();
+		await rig.row('task:design.research').locator('.label').click();
 		await page.getByTestId('row-menu').click();
 		await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click();
 		await expect(page.getByTestId('shortcuts')).toBeVisible();
@@ -311,7 +319,11 @@ test.describe('keyboard (10.2)', () => {
 
 // Target sizes on a coarse pointer (10.3): 44 x 44 CSS px. Every state is probed and the elements
 // under the minimum are listed in the failure message; `EXEMPT` holds the justified ones.
-const EXEMPT: ReadonlyArray<RegExp> = [];
+const EXEMPT: ReadonlyArray<RegExp> = [
+	// phase-2.md 10.3: a coarse pointer has 40 px rows (44 px for handles, buttons and fields); a
+	// row is as wide as the name column and 40 px clears the 24 px of WCAG 2.5.8.
+	/^div\[role=row\]/,
+];
 
 test.describe('target sizes on a coarse pointer', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -324,13 +336,18 @@ test.describe('target sizes on a coarse pointer', () => {
 	}, info) => {
 		const rig = await Rig.open(page, info);
 		const probe = async (state: string): Promise<void> => {
-			await page.waitForTimeout(400);
-			const small = (await smallTargets(page, 44)).filter(
-				(t) => !EXEMPT.some((re) => re.test(t.what)),
-			);
+			// Two samples, a moment apart: a sheet or a font still settling (on a loaded runner) is not a
+			// target that is too small.
+			await page.waitForTimeout(500);
+			const first = await smallTargets(page, 44);
+			await page.waitForTimeout(500);
+			const second = new Set((await smallTargets(page, 44)).map((t) => t.what));
+			const small = first
+				.filter((t) => second.has(t.what))
+				.filter((t) => !EXEMPT.some((re) => re.test(t.what)));
 			expect
 				.soft(
-					small.map((t) => `${t.what} ${t.width}x${t.height}`),
+					small.map((t) => `${t.what} ${t.width}x${t.height} (${t.style})`),
 					`under 44 px in ${state}`,
 				)
 				.toEqual([]);
@@ -361,6 +378,25 @@ test.describe('target sizes on a coarse pointer', () => {
 		await page.getByTestId('status-button').tap();
 		await probe('the status popover');
 		await page.keyboard.press('Escape');
+		// Link mode (the banner and its Cancel), from the row menu.
+		await page.getByTestId('row-menu').tap();
+		await page.getByRole('menuitem', { name: /^Link from this task/ }).tap();
+		await expect(page.getByTestId('link-banner')).toBeVisible();
+		await probe('link mode');
+		await page.keyboard.press('Escape');
+		// The move question, from a long-press drag of a bar.
+		const bar = await rig.bar('design.sketch');
+		await rig.drag(bar.body, { x: bar.body.x + 60, y: bar.body.y }, { hold: rig.hold, steps: 8 });
+		await expect(page.getByTestId('move-question')).toBeVisible();
+		await probe('the move question');
+		await page.getByTestId('move-question').getByRole('button', { name: 'Cancel' }).click();
+		// A toast: an edit, with its Undo.
+		await rig.select('design.research');
+		const name = page.getByLabel('Name', { exact: true });
+		await name.fill('Research again');
+		await name.press('Enter');
+		await expect(rig.toast.last()).toBeVisible();
+		await probe('a toast');
 		for (const tab of ['Text', 'Plan']) {
 			const t = page.getByRole('tab', { name: tab, exact: true });
 			if (await t.count()) {
@@ -459,6 +495,7 @@ test.describe('forced colours', () => {
 		});
 		expect.soft(diff).toEqual([]);
 		// The focus ring is an outline, which forced colours keeps.
+		await page.keyboard.press('Shift');
 		await rig.row('task:design.research').focus();
 		const ring = await focused(page);
 		expect(ring.outlineStyle).not.toBe('none');
@@ -505,4 +542,21 @@ test.describe('accessible names', () => {
 		fs.mkdirSync('test-results', { recursive: true });
 		fs.writeFileSync(`test-results/gantt-a11y-tree-${info.project.name}.txt`, tree);
 	});
+});
+
+// Screenshots of the 44 px header controls (T23 fix), desktop and Pixel 7, light and dark
+// (CLAUDE.md "Mobile counts"): docs/phases/screenshots/phase-2/a11y-header-*.png.
+test.describe('a11y screenshots', () => {
+	test.skip(!process.env['SCREENSHOTS'], 'set SCREENSHOTS=1 to refresh docs/phases/screenshots');
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+	for (const scheme of ['light', 'dark'] as const) {
+		test(`header and Gantt tab, ${scheme}`, async ({ page }, info) => {
+			await page.emulateMedia({ colorScheme: scheme });
+			await Rig.open(page, info);
+			await page.waitForTimeout(500);
+			await page.screenshot({
+				path: `docs/phases/screenshots/phase-2/a11y-header-${info.project.name}-${scheme}.png`,
+			});
+		});
+	}
 });

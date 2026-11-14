@@ -213,7 +213,8 @@ for (let i = 0; i < RUNS; i++) {
 		farthest = (await metrics()).top;
 		await swipe(0, down);
 	});
-	if (farthest < down / 2) throw new Error(`run ${i + 1}: the chart did not scroll (${farthest} px)`);
+	if (farthest < down / 2)
+		throw new Error(`run ${i + 1}: the chart did not scroll (${farthest} px)`);
 	scroll.push(m);
 	console.log(`scroll run ${i + 1}: ${JSON.stringify(m)}`);
 }

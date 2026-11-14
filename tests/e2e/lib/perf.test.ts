@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { frameStats, percentile, pipelineOf, scriptTimes } from './perf';
+import { frameStats, inputLatency, percentile, pipelineOf, scriptTimes } from './perf';
 
 describe('frameStats', () => {
 	it('counts on-time frames, the 50 ms ones and the percentiles', () => {
@@ -85,5 +85,25 @@ describe('scriptTimes', () => {
 		]);
 		expect(s.raf.count).toBe(0);
 		expect(scriptTimes([]).raf.count).toBe(0);
+	});
+});
+
+describe('inputLatency', () => {
+	it('pairs the begin and end of each move span, in ms', () => {
+		const ev = (ph: string, ts: number, id: string, name = 'InputLatency::MouseMove') => ({
+			name,
+			ph,
+			ts,
+			id,
+		});
+		const l = inputLatency([
+			ev('b', 1000, 'a'),
+			ev('b', 2000, 'b'),
+			ev('e', 13000, 'a'),
+			ev('e', 22000, 'b'),
+			ev('b', 3000, 'c', 'InputLatency::MouseDown'),
+			ev('e', 90000, 'c', 'InputLatency::MouseDown'),
+		]);
+		expect(l).toMatchObject({ count: 2, maxMs: 20 });
 	});
 });

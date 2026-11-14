@@ -13,6 +13,8 @@ export interface SmallTarget {
 	what: string;
 	width: number;
 	height: number;
+	/** What the size comes from, for a finding. */
+	style: string;
 }
 
 const INTERACTIVE =
@@ -49,8 +51,14 @@ export async function smallTargets(page: Page, min = 44): Promise<SmallTarget[]>
 				// Inside a sentence: an inline link.
 				if (el.tagName === 'A' && getComputedStyle(el).display === 'inline') continue;
 				let box = el.getBoundingClientRect();
-				if (el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type)) {
-					const l = el.closest('label') ?? el.labels?.[0];
+				if (
+					(el instanceof HTMLInputElement && ['checkbox', 'radio'].includes(el.type)) ||
+					el instanceof HTMLSelectElement
+				) {
+					// A label that wraps the control is part of it; a separate label text is the checkbox's or
+					// radio's (a click on it toggles) but not a select's.
+					const l =
+						el.closest('label') ?? (el instanceof HTMLSelectElement ? null : el.labels?.[0]);
 					if (l) box = l.getBoundingClientRect();
 				}
 				if (box.width + 0.5 >= (minimum as number) && box.height + 0.5 >= (minimum as number))
@@ -67,6 +75,7 @@ export async function smallTargets(page: Page, min = 44): Promise<SmallTarget[]>
 					what: `${el.tagName.toLowerCase()}${el.getAttribute('role') ? `[role=${el.getAttribute('role')}]` : ''}${cls ? `.${cls}` : ''} "${name(el)}"`,
 					width: Math.round(box.width * 10) / 10,
 					height: Math.round(box.height * 10) / 10,
+					style: `min-block-size ${getComputedStyle(el).minBlockSize}, display ${getComputedStyle(el).display}, parent ${el.parentElement?.tagName.toLowerCase()} ${Math.round(el.parentElement?.getBoundingClientRect().height ?? 0)}px`,
 				});
 			}
 			return out;
