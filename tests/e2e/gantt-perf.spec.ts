@@ -371,6 +371,11 @@ test.describe('gantt perf (gantt-500)', () => {
 
 		// 5. A scroll during which a result arrives: a short drag whose drop starts the runner, and
 		// the scroll begins the moment the finger or the button is released.
+		// Undo the first drag (the bar is back to its length), so that the next handle is on the screen.
+		const rev = await rig.revision();
+		await rig.toast.last().getByRole('button', { name: 'Undo' }).click();
+		await rig.rescheduled(rev);
+		await page.waitForTimeout(800);
 		const handle2 = (await selectBar(rig)).endEdge;
 		const during = await (async () => {
 			let times = { dropToPaintMs: 0, dropToRescheduleMs: 0 };

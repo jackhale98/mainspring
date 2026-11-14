@@ -11,6 +11,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -77,13 +78,17 @@ test.describe('axe', () => {
 			await page.locator('header').getByRole('button', { name: 'Project settings' }).click();
 			await expect(page.getByRole('dialog', { name: 'Project' })).toBeVisible();
 			await axe(page, `project sheet (${scheme})`);
-			await page.getByRole('dialog', { name: 'Project' }).getByRole('button', { name: 'Close' }).click();
+			await page
+				.getByRole('dialog', { name: 'Project' })
+				.getByRole('button', { name: 'Close' })
+				.click();
 
 			// The row menu, and the shortcuts dialog from it.
 			if (touch) {
 				// A phone's details sheet is over the toolbar's row; it is closed first.
 				const sheet = page.getByRole('dialog', { name: /Task details/ });
-				if (await sheet.isVisible()) await sheet.getByRole('button', { name: 'Close', exact: true }).click();
+				if (await sheet.isVisible())
+					await sheet.getByRole('button', { name: 'Close', exact: true }).click();
 			}
 			await page.getByTestId('row-menu').click();
 			await expect(page.getByRole('menu', { name: 'Row actions' })).toBeVisible();
@@ -103,7 +108,8 @@ test.describe('axe', () => {
 			if (rig.touch) {
 				await rig.row('task:design.research').locator('.label').tap();
 				const sheet = page.getByRole('dialog', { name: /Task details/ });
-				if (await sheet.isVisible()) await sheet.getByRole('button', { name: 'Close', exact: true }).click();
+				if (await sheet.isVisible())
+					await sheet.getByRole('button', { name: 'Close', exact: true }).click();
 				await page.getByTestId('row-menu').tap();
 				await page.getByRole('menuitem', { name: /^Link from this task/ }).tap();
 			} else {
@@ -265,7 +271,9 @@ test.describe('keyboard (10.2)', () => {
 		await expect(rig.row('task:design.research')).toBeFocused();
 	});
 
-	test('the row menu opens and closes by keyboard and returns the focus', async ({ page }, info) => {
+	test('the row menu opens and closes by keyboard and returns the focus', async ({
+		page,
+	}, info) => {
 		const rig = await Rig.open(page, info);
 		await rig.row('task:design.research').focus();
 		const button = page.getByTestId('row-menu');
@@ -298,5 +306,203 @@ test.describe('keyboard (10.2)', () => {
 		await page.keyboard.press('Escape');
 		await expect(page.getByTestId('link-banner')).not.toBeVisible();
 		await expect(rig.row('task:design.research')).toBeFocused();
+	});
+});
+
+// Target sizes on a coarse pointer (10.3): 44 x 44 CSS px. Every state is probed and the elements
+// under the minimum are listed in the failure message; `EXEMPT` holds the justified ones.
+const EXEMPT: ReadonlyArray<RegExp> = [];
+
+test.describe('target sizes on a coarse pointer', () => {
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(!isTouch(info) || info.project.name !== 'pixel-7', 'the Pixel 7 emulation is coarse');
+	});
+
+	test('every interactive element in the Gantt states is at least 44 x 44', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		const probe = async (state: string): Promise<void> => {
+			await page.waitForTimeout(400);
+			const small = (await smallTargets(page, 44)).filter(
+				(t) => !EXEMPT.some((re) => re.test(t.what)),
+			);
+			expect
+				.soft(
+					small.map((t) => `${t.what} ${t.width}x${t.height}`),
+					`under 44 px in ${state}`,
+				)
+				.toEqual([]);
+		};
+		await probe('the Gantt tab');
+		await rig.select('design.research');
+		await probe('the details sheet');
+		await page.getByRole('button', { name: 'Show source' }).click();
+		await probe('the source sheet');
+		await page
+			.getByRole('dialog', { name: 'Source of Research' })
+			.getByRole('button', { name: 'Close' })
+			.click();
+		await page.locator('header').getByRole('button', { name: 'Project settings' }).click();
+		await probe('the project sheet');
+		await page
+			.getByRole('dialog', { name: 'Project' })
+			.getByRole('button', { name: 'Close' })
+			.click();
+		const sheet = page.getByRole('dialog', { name: /Task details/ });
+		if (await sheet.isVisible())
+			await sheet.getByRole('button', { name: 'Close', exact: true }).click();
+		await page.getByTestId('row-menu').tap();
+		await probe('the row menu');
+		await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).tap();
+		await probe('the shortcuts dialog');
+		await page.keyboard.press('Escape');
+		await page.getByTestId('status-button').tap();
+		await probe('the status popover');
+		await page.keyboard.press('Escape');
+		for (const tab of ['Text', 'Plan']) {
+			const t = page.getByRole('tab', { name: tab, exact: true });
+			if (await t.count()) {
+				await t.click();
+				await probe(`the ${tab} tab`);
+			}
+		}
+	});
+});
+
+test.describe('reduced motion', () => {
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+
+	test('nothing animates or transitions, and the chart jumps', async ({ page }, info) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		const rig = await Rig.open(page, info);
+		await rig.select('design.research');
+		const moving = async (): Promise<string[]> =>
+			page.evaluate(() => {
+				const out: string[] = [];
+				for (const el of document.querySelectorAll('body *')) {
+					const cs = getComputedStyle(el);
+					const secs = (v: string): number =>
+						Math.max(...v.split(',').map((x) => parseFloat(x) * (x.includes('ms') ? 0.001 : 1)));
+					const anim = cs.animationName !== 'none' && secs(cs.animationDuration) > 0.05;
+					const trans = secs(cs.transitionDuration) > 0.05;
+					if (anim || trans) {
+						out.push(
+							`${el.tagName.toLowerCase()}.${String((el as HTMLElement).className).split(' ')[0]} ${anim ? `animation ${cs.animationName} ${cs.animationDuration}` : ''} ${trans ? `transition ${cs.transitionProperty} ${cs.transitionDuration}` : ''}`,
+						);
+					}
+				}
+				return out;
+			});
+		expect.soft(await moving(), 'selected').toEqual([]);
+		await page.getByTestId('row-menu').click();
+		expect.soft(await moving(), 'row menu').toEqual([]);
+		await page.keyboard.press('Escape');
+		await page.locator('header').getByRole('button', { name: 'Project settings' }).click();
+		await page.waitForTimeout(400);
+		expect.soft(await moving(), 'project sheet').toEqual([]);
+		// The Today button scrolls at once, not by a smooth scroll.
+		await page
+			.getByRole('dialog', { name: 'Project' })
+			.getByRole('button', { name: 'Close' })
+			.click();
+		const smooth = await page.evaluate(() => {
+			const s = document.querySelector('[data-testid="gantt"] .scroller') as HTMLElement;
+			return getComputedStyle(s).scrollBehavior;
+		});
+		expect(smooth).not.toBe('smooth');
+	});
+});
+
+test.describe('forced colours', () => {
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(isTouch(info), 'a desktop high contrast mode');
+	});
+
+	test('controls keep an outline, state is not carried by a background alone', async ({
+		page,
+	}, info) => {
+		await page.emulateMedia({ forcedColors: 'active' });
+		const rig = await Rig.open(page, info);
+		await rig.select('design.research');
+		await page.screenshot({ path: 'test-results/gantt-forced-colors.png' });
+		// Pressed and unpressed chips (Critical path, People, the mode switch) must differ in
+		// something other than a background, which forced colours replaces.
+		const diff = await page.evaluate(() => {
+			const sig = (el: Element): string => {
+				const cs = getComputedStyle(el);
+				const after = getComputedStyle(el, '::after');
+				return [
+					cs.borderTopWidth,
+					cs.borderTopStyle,
+					cs.outlineStyle,
+					cs.textDecorationLine,
+					cs.fontWeight,
+					after.content,
+					after.display,
+					after.borderTopWidth,
+					after.height,
+				].join('|');
+			};
+			const out: string[] = [];
+			for (const group of document.querySelectorAll('[role="group"]')) {
+				const on = group.querySelector('button[aria-pressed="true"]');
+				const off = group.querySelector('button[aria-pressed="false"]');
+				if (on && off && sig(on) === sig(off))
+					out.push(
+						`${group.getAttribute('aria-label')}: pressed looks like unpressed (${sig(on)})`,
+					);
+			}
+			return out;
+		});
+		expect.soft(diff).toEqual([]);
+		// The focus ring is an outline, which forced colours keeps.
+		await rig.row('task:design.research').focus();
+		const ring = await focused(page);
+		expect(ring.outlineStyle).not.toBe('none');
+		expect(ring.outlineWidth).toBeGreaterThanOrEqual(2);
+	});
+});
+
+test.describe('accessible names', () => {
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+
+	test('the a11y tree names the chart, its controls and its rows; canvases are hidden', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		// Canvases carry no information of their own: the treegrid is their mirror.
+		const canvases = await page
+			.locator('[data-testid="gantt"] canvas')
+			.evaluateAll((els) =>
+				els.map(
+					(e) =>
+						e.closest('[aria-hidden="true"]') !== null || e.getAttribute('aria-hidden') === 'true',
+				),
+			);
+		expect(canvases.length).toBeGreaterThan(0);
+		expect(canvases.every(Boolean), 'every canvas is aria-hidden').toBe(true);
+		await expect(page.getByRole('treegrid', { name: 'Tasks' })).toBeVisible();
+		await expect(page.getByRole('group', { name: 'Gantt controls' })).toBeVisible();
+		await expect(page.getByRole('combobox', { name: 'Zoom' })).toBeVisible();
+		await expect(page.getByRole('button', { name: /Critical path/ })).toBeVisible();
+		// A row's name says what the bar says: the task, its dates, its people, its float.
+		await expect(rig.row('task:design.research')).toHaveAccessibleName(/^Research: .+ to .+\./);
+		// The toast is in a polite live region.
+		await rig.select('design.research');
+		const name = page.getByLabel('Name', { exact: true });
+		await name.fill('Research again');
+		await name.press('Enter');
+		await expect(rig.toast.last()).toBeVisible();
+		await expect(
+			page.locator('[role="status"][aria-live="polite"]').filter({ has: rig.toast }),
+		).toHaveCount(1);
+		// The whole tree, for the findings file.
+		const tree = await page.locator('body').ariaSnapshot();
+		const fs = await import('node:fs');
+		fs.mkdirSync('test-results', { recursive: true });
+		fs.writeFileSync(`test-results/gantt-a11y-tree-${info.project.name}.txt`, tree);
 	});
 });
