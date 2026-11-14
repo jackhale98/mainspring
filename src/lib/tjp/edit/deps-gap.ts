@@ -85,8 +85,8 @@ function addToBody(file: TjpFile, item: SyntaxNode, body: SyntaxNode | null, stm
 	return op(lineStart(text, close.from), indent, lineBreakNear(text, close.from));
 }
 
-/** The ops that give one item exactly the gap `gap` (module comment). */
-function itemOps(
+/** The ops that give one item exactly the gap `gap` (module comment); gap-task.ts clears with it. */
+export function itemOps(
 	file: TjpFile,
 	item: SyntaxNode,
 	gap: { kind: 'gapduration' | 'gaplength'; value: TypedValue; text: string } | null,

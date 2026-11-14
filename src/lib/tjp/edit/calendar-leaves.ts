@@ -62,7 +62,7 @@ import {
 const LEAVE_READS = ['zone', 'granularity', 'frame'] as const;
 
 /** TaskJuggler's checks of a leave read at `pos`; skipped where the index cannot tell. */
-function checkLeave(
+export function checkLeave(
 	ctx: EditContext,
 	leave: Leave,
 	pos: SourceRange,

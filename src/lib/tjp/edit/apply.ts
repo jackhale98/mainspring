@@ -42,6 +42,8 @@ import { ALLOCATION_HANDLERS } from './allocation';
 import { WORKING_HOURS_HANDLERS } from './calendar';
 import { LEAVE_HANDLERS } from './calendar-leaves';
 import { DEPENDENCY_HANDLERS } from './deps';
+import { GAP_TASK_HANDLERS } from './gap-task';
+import { LEAVE_CLEAR_HANDLERS } from './leave-clear';
 import { PROJECT_HANDLERS } from './project';
 import { RESOURCE_ATTR_HANDLERS } from './resource-attrs';
 import { RESOURCE_TREE_HANDLERS } from './resource-tree';
@@ -93,8 +95,10 @@ export const HANDLERS: IntentHandlers = {
 	...PROJECT_HANDLERS,
 	...WORKING_HOURS_HANDLERS,
 	...LEAVE_HANDLERS,
+	...LEAVE_CLEAR_HANDLERS,
 	...TASK_ATTR_HANDLERS,
 	...TASK_TREE_HANDLERS,
+	...GAP_TASK_HANDLERS,
 };
 
 let seq = 0;

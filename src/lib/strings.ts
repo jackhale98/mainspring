@@ -292,6 +292,8 @@ export const historyStrings = {
 		addLeave: 'add leave',
 		updateLeave: 'change leave',
 		removeLeave: 'remove leave',
+		clearLeave: 'clear leave',
+		gapToTask: 'convert gap to task',
 		declareFlag: 'declare flag',
 		format: 'format',
 	} satisfies Record<Exclude<IntentType, AttrIntent>, string>,
