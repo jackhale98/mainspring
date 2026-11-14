@@ -33,8 +33,10 @@
 	import { ThemeState } from '../lib/state/theme.svelte';
 	import { newOutlineView } from '../lib/state/outline';
 	import { effectiveMode, modeFromParam, phoneTabFor } from '../lib/state/view-mode';
-	import { strings } from '../lib/strings';
+	import type { AddMode } from '../lib/gantt/add-task';
+	import { ganttActionStrings, strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
+	import { addTaskFlow } from './gantt/add-task-flow';
 	import Gantt from './gantt/Gantt.svelte';
 	import InspectorHost from './inspector/InspectorHost.svelte';
 	import OutlinePanel from './OutlinePanel.svelte';
@@ -205,6 +207,36 @@
 		app.showRange(at);
 	}
 
+	/**
+	 * Add task (+) on the phone's Plan tab, where no Gantt is mounted: the same flow as the Gantt's
+	 * (gantt/add-task-flow.ts), through the dispatcher's `addTask`. The details are the Gantt tab's
+	 * sheet, so the new task is shown there once it is in the model.
+	 */
+	function addFromPlan(mode: AddMode): Promise<string | null> {
+		return addTaskFlow(
+			{
+				app,
+				add: (at) =>
+					app.edits
+						? app.edits.dispatch(
+								{ type: 'addTask', ...at },
+								{ label: ganttActionStrings.label.add(at.name) },
+							)
+						: Promise.resolve({ status: 'cancelled' }),
+				reveal: () => undefined,
+				show: async (key) => {
+					planViews.tasks.selected = key;
+					app.phoneTab = 'gantt';
+					modes.set('visual');
+					for (let i = 0; i < 40 && !app.inspector.view?.model.rowOf.has(key); i++) {
+						await new Promise((r) => setTimeout(r, 50));
+					}
+				},
+			},
+			mode,
+		);
+	}
+
 	function pickTab(tab: 'plan' | 'gantt' | 'text'): void {
 		if (tab === 'text') modes.set('text');
 		else if (tab === 'gantt') modes.set('visual');
@@ -247,7 +279,16 @@
 				     collapse state is the app's; the scroll and the selection are kept in `planViews`. -->
 					{#if app.phoneTab === 'plan'}
 						<div class="grow">
-							<OutlinePanel {app} showTitle={false} showNotice={false} views={planViews} />
+							<OutlinePanel
+								{app}
+								showTitle={false}
+								showNotice={false}
+								views={planViews}
+								add={{
+									hasSelection: app.selectedTask !== null,
+									onadd: (mode) => void addFromPlan(mode),
+								}}
+							/>
 						</div>
 					{/if}
 				</div>

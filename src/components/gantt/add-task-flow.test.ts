@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it, vi } from 'vitest';
-import type { GanttAction } from '../../lib/gantt/intents';
 import type { DispatchOutcome } from '../../lib/state/edits.svelte';
 import type { Settlement } from '../../lib/state/edits-settle';
 import type { OutlineNode } from '../../lib/state/outline';
@@ -29,7 +28,7 @@ function rig(
 	parent: string | null,
 ) {
 	const o = outline();
-	const calls: GanttAction[] = [];
+	const calls: unknown[] = [];
 	const picked: string[] = [];
 	const events: string[] = [];
 	const app: AddFlowApp = {
@@ -42,7 +41,7 @@ function rig(
 	};
 	const env: AddFlowEnv = {
 		app,
-		run: (a) => {
+		add: (a) => {
 			calls.push(a);
 			// The index follows the text: the node is in the outline when the run has settled.
 			if (outcome.status === 'applied') {
@@ -53,6 +52,7 @@ function rig(
 			return Promise.resolve(outcome);
 		},
 		reveal: () => void events.push('reveal'),
+		show: () => (events.push('show'), Promise.resolve()),
 		pause: () => Promise.resolve(),
 	};
 	return { env, calls, picked, events };
@@ -62,9 +62,9 @@ describe('addTaskFlow', () => {
 	it('adds after the selected task, then selects it, reveals it and focuses the name', async () => {
 		const r = rig('task:a', applied({ status: 'scheduled' }), 'task:new_task', null);
 		await expect(addTaskFlow(r.env, 'after')).resolves.toBe('task:new_task');
-		expect(r.calls).toEqual([{ type: 'add', parent: null, index: 1, name: 'New task' }]);
+		expect(r.calls).toEqual([{ parent: null, index: 1, name: 'New task' }]);
 		expect(r.picked).toEqual(['task:new_task']);
-		expect(r.events).toEqual(['select', 'reveal', 'focus']);
+		expect(r.events).toEqual(['select', 'reveal', 'show', 'focus']);
 	});
 
 	it('adds at the end of the plan when nothing is selected', async () => {
@@ -76,7 +76,7 @@ describe('addTaskFlow', () => {
 	it('adds a subtask as the last child of the selected task', async () => {
 		const r = rig('task:b', applied({ status: 'scheduled' }), 'task:b.new_task', 'task:b');
 		await expect(addTaskFlow(r.env, 'subtask')).resolves.toBe('task:b.new_task');
-		expect(r.calls).toEqual([{ type: 'add', parent: 'b', index: 1, name: 'New task' }]);
+		expect(r.calls).toEqual([{ parent: 'b', index: 1, name: 'New task' }]);
 	});
 
 	it('still selects the new task when the plan does not schedule with it', async () => {
@@ -109,14 +109,14 @@ describe('addTaskFlow', () => {
 
 	it('sends no edit for a subtask without a selection', async () => {
 		const r = rig(null, applied({ status: 'scheduled' }), 'task:x', null);
-		const run = vi.spyOn(r.env, 'run');
+		const run = vi.spyOn(r.env, 'add');
 		await expect(addTaskFlow(r.env, 'subtask')).resolves.toBeNull();
 		expect(run).not.toHaveBeenCalled();
 	});
 
 	it('works in an empty plan', async () => {
 		const o = { tasks: [] as OutlineNode[], byKey: new Map<string, OutlineNode>() };
-		const calls: GanttAction[] = [];
+		const calls: unknown[] = [];
 		const env: AddFlowEnv = {
 			app: {
 				outline: o,
@@ -124,7 +124,7 @@ describe('addTaskFlow', () => {
 				selectTask: () => undefined,
 				inspector: { focusName: () => undefined },
 			},
-			run: (a) => {
+			add: (a) => {
 				calls.push(a);
 				const n = node('task:new_task', null);
 				o.tasks.push(n);
@@ -134,6 +134,6 @@ describe('addTaskFlow', () => {
 			pause: () => Promise.resolve(),
 		};
 		await expect(addTaskFlow(env, 'after')).resolves.toBe('task:new_task');
-		expect(calls).toEqual([{ type: 'add', parent: null, index: 0, name: 'New task' }]);
+		expect(calls).toEqual([{ parent: null, index: 0, name: 'New task' }]);
 	});
 });

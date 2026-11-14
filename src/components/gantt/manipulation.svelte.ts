@@ -344,7 +344,7 @@ export class Manipulation {
 		return addTaskFlow(
 			{
 				app: h.app,
-				run: (a) => this.interactions.actor.run(a),
+				add: (a) => this.interactions.actor.run({ type: 'add', ...a }),
 				reveal: (key) => {
 					const row = h.model().rowOf.get(key);
 					if (row !== undefined) void h.revealRow(row);

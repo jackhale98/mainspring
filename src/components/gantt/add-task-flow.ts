@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * The Add task (+) control's whole action (phase-3.md 9.8; ADR-0013): one `add` action through the
- * Gantt's actor (so the dispatcher, its toast and its undo step are the row menu's own), then,
+ * The Add task (+) control's whole action (phase-3.md 9.8; ADR-0013): one `addTask` edit through
+ * the dispatcher (the Gantt's actor, or `app.edits.dispatch` on the phone's Plan tab, where no
+ * Gantt is mounted; either way the toast and the undo step are the row menu's own), then,
  * once the result that includes it is in, select the new task and open the details with its name
  * focused and selected, ready to type. The name is committed by the inspector's `renameTask`: a
  * second undo step (18.11 e). A refusal or a no-op has already been shown by the dispatcher.
  * Nothing here changes the plan itself.
  */
 import type { DispatchOutcome } from '../../lib/state/edits.svelte';
-import type { GanttAction } from '../../lib/gantt/intents';
 import { addSpot, newTaskKey, type AddMode } from '../../lib/gantt/add-task';
 import { rootsOf } from '../../lib/gantt/reorder';
 import type { OutlineNode } from '../../lib/state/outline';
@@ -27,10 +27,12 @@ export interface AddFlowApp {
 
 export interface AddFlowEnv {
 	readonly app: AddFlowApp;
-	/** Sends the action through the dispatcher (the Gantt's actor). */
-	run(action: GanttAction): Promise<DispatchOutcome>;
+	/** Sends the `addTask` edit through the dispatcher. */
+	add(at: { parent: string | null; index: number; name: string }): Promise<DispatchOutcome>;
 	/** Scrolls the new task's row into view, once it has one. */
 	reveal(key: string): void;
+	/** Puts the details' host on screen for the new task (the Plan tab goes to the Gantt tab). */
+	show?: (key: string) => Promise<void>;
 	/** Waits before looking again for the new node (the index follows the text a moment later). */
 	pause?: () => Promise<void>;
 }
@@ -50,8 +52,7 @@ export async function addTaskFlow(env: AddFlowEnv, mode: AddMode): Promise<strin
 	);
 	if (!spot) return null;
 	const before = new Set(order);
-	const o = await env.run({
-		type: 'add',
+	const o = await env.add({
 		parent: spot.parent,
 		index: spot.index,
 		name: gestureStrings.row.newTask,
@@ -66,6 +67,7 @@ export async function addTaskFlow(env: AddFlowEnv, mode: AddMode): Promise<strin
 		if (key !== null) {
 			app.selectTask(key);
 			env.reveal(key);
+			await env.show?.(key);
 			app.inspector.focusName();
 			return key;
 		}

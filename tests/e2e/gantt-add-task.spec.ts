@@ -18,7 +18,7 @@ test.describe('Add task (+)', () => {
 	const nameField = (page: Page) => page.getByRole('textbox', { name: 'Name', exact: true });
 
 	/** Selects a row by its label: a first tap on a phone only selects. */
-	async function select(page: Page, rig: Rig, key: string): Promise<void> {
+	async function select(rig: Rig, key: string): Promise<void> {
 		const label = rig.row(key).locator('.label');
 		if (isTouch(rig.info)) await label.tap();
 		else await label.click();
@@ -56,7 +56,7 @@ test.describe('Add task (+)', () => {
 	}, info) => {
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
-		await select(page, rig, 'task:launch');
+		await select(rig, 'task:launch');
 		await press(page, rig, 'Add task after');
 		const added = before.replace(
 			'  responsible dev1\n}\n\n',
@@ -114,7 +114,7 @@ test.describe('Add task (+)', () => {
 	}, info) => {
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
-		await select(page, rig, 'task:design');
+		await select(rig, 'task:design');
 		await press(page, rig, 'Add subtask');
 		const added = before.replace(
 			'    depends !docs\n  }\n}\n',
@@ -133,7 +133,7 @@ test.describe('Add task (+)', () => {
 	}, info) => {
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
-		await select(page, rig, 'task:design.research');
+		await select(rig, 'task:design.research');
 		await press(page, rig, 'Add subtask');
 		await expect(rig.edited.last()).toContainText('conflicts', { timeout: READY_TIMEOUT_MS });
 		expect(await rig.text()).toBe(before);
@@ -166,7 +166,7 @@ test.describe('Add task (+)', () => {
 	}, info) => {
 		test.skip(isTouch(info), 'keys');
 		const rig = await Rig.open(page, info);
-		await select(page, rig, 'task:launch');
+		await select(rig, 'task:launch');
 		await add(page).focus();
 		await page.keyboard.press('Enter');
 		await expect(page.getByRole('menuitem', { name: 'Add task after' })).toBeFocused();
@@ -175,5 +175,83 @@ test.describe('Add task (+)', () => {
 		await page.keyboard.press('Escape');
 		await expect(page.getByRole('menu')).toHaveCount(0);
 		await expect(add(page)).toBeFocused();
+	});
+});
+
+// The phone's Plan tab has the same control, in the tasks' header (no Gantt is on screen there): it
+// sends `addTask` through the dispatcher, then shows the new task in the Gantt tab's details sheet.
+test.describe('Add task (+) on the Plan tab', () => {
+	test.setTimeout(READY_TIMEOUT_MS * 2);
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(info.project.name !== 'pixel-7', 'the Plan tab is the phone layout (Pixel 7)');
+	});
+
+	const planAdd = (page: Page) => page.locator('#panel-plan').getByTestId('add-task');
+	const nameField = (page: Page) => page.getByRole('textbox', { name: 'Name', exact: true });
+
+	async function openPlan(page: Page, rig: Rig): Promise<void> {
+		await page.getByRole('tab', { name: 'Plan', exact: true }).tap();
+		await expect(page.locator('#panel-plan').getByRole('treeitem').first()).toBeVisible();
+		void rig;
+	}
+
+	async function expectNameReady(page: Page, key: string): Promise<void> {
+		await expect(page.getByRole('tab', { name: 'Gantt', exact: true })).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		await expect(nameField(page)).toBeFocused({ timeout: READY_TIMEOUT_MS });
+		await expect(nameField(page)).toHaveValue('New task');
+		const sel = await nameField(page).evaluate((el: HTMLInputElement) => [
+			el.selectionStart,
+			el.selectionEnd,
+		]);
+		expect(sel).toEqual([0, 'New task'.length]);
+		await expect(page.locator(`[role="row"][data-key="${key}"]`)).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+	}
+
+	test('nothing selected: adds at the end of the plan; Undo removes it', async ({ page }, info) => {
+		const rig = await Rig.open(page, info);
+		const before = (await rig.text()) + (await rig.text('lib/build.tji'));
+		await openPlan(page, rig);
+		await expect(planAdd(page)).not.toHaveAttribute('aria-haspopup', 'menu');
+		const box = await planAdd(page).boundingBox();
+		expect(box?.width).toBeGreaterThanOrEqual(44);
+		expect(box?.height).toBeGreaterThanOrEqual(44);
+		await planAdd(page).tap();
+		await expectNameReady(page, 'task:new_task');
+		const after = (await rig.text()) + (await rig.text('lib/build.tji'));
+		expect(after).toContain('task new_task "New task"');
+		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+		await page.getByTestId('undo').click();
+		await expect
+			.poll(async () => (await rig.text()) + (await rig.text('lib/build.tji')))
+			.toBe(before);
+	});
+
+	test('a task selected: Add task after puts it right after; Undo removes it', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		const before = await rig.text();
+		await openPlan(page, rig);
+		await page.locator('#panel-plan').locator('[role="treeitem"][data-key="task:launch"]').tap();
+		await page.getByRole('tab', { name: 'Plan', exact: true }).tap();
+		await expect(planAdd(page)).toHaveAttribute('aria-haspopup', 'menu');
+		await planAdd(page).tap();
+		await page.getByRole('menuitem', { name: 'Add task after' }).tap();
+		await expectNameReady(page, 'task:new_task');
+		expect(await rig.text()).toBe(
+			before.replace(
+				'  responsible dev1\n}\n\n',
+				'  responsible dev1\n}\n\ntask new_task "New task"\n\n',
+			),
+		);
+		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+		await page.getByTestId('undo').click();
+		await expect.poll(() => rig.text()).toBe(before);
 	});
 });

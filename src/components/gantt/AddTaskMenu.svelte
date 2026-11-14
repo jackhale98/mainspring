@@ -17,8 +17,10 @@
 		/** A task is selected: the button opens the choices instead of adding at once. */
 		hasSelection: boolean;
 		onadd: (mode: AddMode) => void;
+		/** Which edge of the button the menu lines up with: `end` where the button is at the right. */
+		align?: 'start' | 'end';
 	}
-	let { hasSelection, onadd }: Props = $props();
+	let { hasSelection, onadd, align = 'start' }: Props = $props();
 
 	const S = strings.gantt.add;
 	const uid = $props.id();
@@ -90,7 +92,14 @@
 	{#if open && hasSelection}
 		<!-- A menu: the items are buttons in a list, moved through with the arrow keys. -->
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<ul id="{uid}-list" role="menu" aria-label={S.menu} bind:this={list} {onkeydown}>
+		<ul
+			id="{uid}-list"
+			role="menu"
+			class:end={align === 'end'}
+			aria-label={S.menu}
+			bind:this={list}
+			{onkeydown}
+		>
 			<li role="none">
 				<button type="button" role="menuitem" data-action="after" onclick={() => choose('after')}
 					>{S.after}</button
@@ -153,6 +162,10 @@
 		border-radius: var(--radius-md);
 		background: var(--color-surface);
 		box-shadow: var(--shadow-panel);
+	}
+	ul.end {
+		inset-inline-start: auto;
+		inset-inline-end: 0;
 	}
 	li button {
 		display: flex;
