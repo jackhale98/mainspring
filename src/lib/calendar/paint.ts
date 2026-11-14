@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * The leave-paint planner's types (phase-3.md 6.6, 7.1 W3 to W5; 18.5, 18.6). A painted or erased
- * run of days on the calendar becomes one edit intent. Types and the contract only, merged first
- * (T2); T12 adds `planLeavePaint` to this module, with the type `PlanLeavePaintFn`.
+ * The leave-paint planner's types (phase-3.md 6.6, 7.1 W3 to W5; 18.5, 18.6; ADR-0014 #7). A
+ * painted or erased run of days on the calendar becomes one edit intent. Types and the contract
+ * only, merged first (T2); T12 adds `planLeavePaint` to this module, with the type
+ * `PlanLeavePaintFn`.
  *
  * ## Contract
  *

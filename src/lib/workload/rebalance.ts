@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * The rebalance planner's types (phase-3.md 6.6, 7.1 W1 and W2; 18.9). A drop on the heatmap or
- * the lanes to another person or another week becomes one edit intent or one Gantt action. Types
- * and the contract only, merged first (T2); T12 adds `planRebalance` to this module, with the type
- * `PlanRebalanceFn`.
+ * The rebalance planner's types (phase-3.md 6.6, 7.1 W1 and W2; 18.9; ADR-0014 #5). A drop on
+ * the heatmap or the lanes to another person or another week becomes one edit intent or one Gantt
+ * action. Types and the contract only, merged first (T2); T12 adds `planRebalance` to this
+ * module, with the type `PlanRebalanceFn`.
  *
  * ## Contract
  *

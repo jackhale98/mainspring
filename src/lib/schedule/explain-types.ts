@@ -14,7 +14,8 @@
  *   the UI says so ("about" where minutes are estimated). When the explainer cannot tell, it says
  *   `unknown`. `limit` means "may hold it": limits are not engine data until Phase 5 (18.13).
  * - **Cost.** `explainTask` on demand, at most 5 ms. `demandOf` for all tasks, in an idle task.
- * - **Property** (13.1): the causes partition `[bound, at)` and never extend outside it.
+ * - **Property** (13.1): the causes partition the window between `bound` and `at` (`[bound, at)`
+ *   for ASAP, `[at, bound)` for ALAP) and never extend outside it.
  *
  * ## Rules (T10; checked against hand-computed fixtures)
  *
@@ -23,11 +24,12 @@
  *    the binding item is the cause: a dependency is `dependency`, the frame is `frame`, a written
  *    date is `constraint`.
  * 2. When `at` is later than `bound`, look at `[bound, at)` for each person in the task's v3
- *    `allocate`. Their free time is their working time minus all their bookings
- *    (`PersonAvailability.free`).
+ *    `allocate`; a group candidate counts as its leaf members. Their free time is their working
+ *    time minus all their bookings (`PersonAvailability.free`).
  *    - If no candidate had free time in the window, the window is split into `busy`, `leave` and
  *      `off-hours` causes per person, from the engine intervals, and the task is **held** for
- *      those people.
+ *      those people. v3 `leaves` holds working-hours slots only, so the nights and weekends
+ *      inside a leave read as `off-hours`.
  *    - If a candidate had free time, the cause is `limit` when a `limits` statement is on the task
  *      or on that person in the text, else `unknown`.
  * 3. **Unmet:** for a `length` or `duration` leaf, the parts of `[start, end)` where an `allocate`
@@ -88,13 +90,21 @@ export interface Placement {
 	readonly inside: readonly Cause[];
 }
 
-/** One task held or unmet for a person, over a window. */
+/** One task held or unmet for a person, over one window. */
 export interface DemandEntry {
 	readonly task: TaskId;
+	/**
+	 * [start, end) as read from the schedule (rules 2 and 3). The held or unmet minutes are this
+	 * window intersected with the person's `workingTime`. A task has one entry per disjoint window,
+	 * so it may have several per person.
+	 */
 	readonly window: [Minutes, Minutes];
 }
 
-/** Held and unmet work per person (5.4), for the load model's `held` and `unmet` and for H7, H8. */
+/**
+ * Held and unmet work per person (5.4), for the load model's `held` and `unmet` and for H7, H8.
+ * Keyed by leaf person: a group candidate in a task's `allocate` is expanded to its leaf members.
+ */
 export interface DemandMarks {
 	/** Effort tasks that wait while every person they asked for is booked elsewhere or on leave. */
 	readonly held: ReadonlyMap<ResourceId, ReadonlyArray<DemandEntry>>;

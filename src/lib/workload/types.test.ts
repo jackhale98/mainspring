@@ -2,12 +2,13 @@
 // Workload model types (phase-3.md 6.2): the default thresholds, and compile checks of the
 // interface (`npm run typecheck` enforces them). The behaviour tests come with T9's code.
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { ProjectInfo } from '../../engine/protocol';
+import type { ProjectInfo, ScheduleResult } from '../../engine/protocol';
 import type { DemandMarks } from '../schedule/explain-types';
 import type { ZoneOffsets } from '../tjp/values/civil';
 import {
 	DEFAULT_THRESHOLDS,
 	type Availability,
+	type AvailabilityFn,
 	type Band,
 	type BucketAxis,
 	type BucketAxisFn,
@@ -17,6 +18,7 @@ import {
 	type LoadInput,
 	type LoadModel,
 	type Thresholds,
+	type WithDimmedFn,
 } from './types';
 
 describe('workload types (6.2)', () => {
@@ -38,6 +40,13 @@ describe('workload types (6.2)', () => {
 		expectTypeOf<BuildLoadFn>().parameters.toEqualTypeOf<[LoadInput]>();
 		expectTypeOf<BuildLoadFn>().returns.toEqualTypeOf<LoadModel>();
 		expectTypeOf<LoadInput['demand']>().toEqualTypeOf<DemandMarks | null>();
+		expectTypeOf<LoadInput['availability']>().toEqualTypeOf<Availability>();
+		expectTypeOf<AvailabilityFn>().parameters.toEqualTypeOf<[ScheduleResult, string]>();
+		expectTypeOf<AvailabilityFn>().returns.toEqualTypeOf<Availability>();
+		expectTypeOf<WithDimmedFn>().parameters.toEqualTypeOf<[LoadModel, boolean]>();
+		expectTypeOf<WithDimmedFn>().returns.toEqualTypeOf<LoadModel>();
+		// Dimming is not an input: it re-wraps a model (`WithDimmedFn`).
+		expectTypeOf<LoadInput>().not.toHaveProperty('outdated');
 	});
 
 	it('takes sample values', () => {

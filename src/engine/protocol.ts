@@ -4,6 +4,10 @@
  * Decisions on `now`, `bookings`, late results and dates are in ADR-0002.
  * This module holds types only; it has no runtime code.
  *
+ * Over 400 lines on purpose (CLAUDE.md): it is the one wire contract between the worker and the
+ * app, and the bridge's serializer is written against it. Splitting it would scatter the schema
+ * and its versions across files.
+ *
  * Result schema v2 (phase-2 spec 6.1) adds fields only; every v1 field keeps its meaning:
  * `ProjectInfo.dailyWorkingHours` and `workingTime`, and per task scenario `direction`,
  * `complete`, `depends` and `precedes` (`DependencyResult`). The worker messages are unchanged.
@@ -12,7 +16,7 @@
  * fast-path fields of `Timings`. `files` always carries the full text; a request the bridge cannot
  * run fast runs in full, with the same result.
  *
- * Result schema v3 (phase-3 spec 6.1, ADR-0014) adds fields only, for the workload, calendar and
+ * Result schema v3 (phase-3 spec 6.1, ADR-0014 #1) adds fields only, for the workload, calendar and
  * explainer: `ProjectInfo.weekStartsMonday` and `leaves`, per resource scenario `workingTime` and
  * `leaves` (`ResourceScenarioResult`), and per task scenario `allocate`. Every v2 field keeps its
  * meaning. The v3 fields are optional (`?`) for now: T2 merges the types before the serializer,
@@ -302,19 +306,28 @@ export interface ResourceScenarioResult {
 	 */
 	workingTime?: Array<[start: Minutes, end: Minutes]>;
 	/**
-	 * v3 (optional until T6). The slots that carry a leave type on the resource's scoreboard (bits 2
-	 * to 5), merged per type, types in `EngineLeaveType` order. Global leaves are on every
-	 * resource's scoreboard, so they appear here too, and each slot counts for the one type the
-	 * scoreboard holds. Off-hours slots inside a leave are included, so a leave reads as one run.
+	 * v3 (optional until T6). The working time the resource lost to leave: the slots of its
+	 * scoreboard that carry a leave type (bits 2 to 5) and lie in its working hours (bit 1, the
+	 * off-hours bit, clear: the scoreboard keeps it on leave slots, ResourceScenario.rb:841-866).
+	 * Off-hours leave slots are not sent. Merged per type, types in `EngineLeaveType` order, and a
+	 * type with no slots has no entry. Global leaves are on every resource's scoreboard, so they
+	 * appear here too, and each slot counts for the one type the scoreboard holds. Disjoint from
+	 * `workingTime`, so the sum per bucket is exactly the working time lost to leave (the
+	 * heatmap's hatch, `LoadModel.leave`).
+	 *
+	 * Leaf resources only; [] for groups, as for `workingTime`: TaskJuggler passes a group's
+	 * `leaves` down to its members (the attribute is inherited from the parent), so the members'
+	 * entries already show them.
+	 *
+	 * Not for drawing declared leaves: the Calendar view draws a person's leaves from the symbol
+	 * index (`LeaveSite`) and global ones from `ProjectInfo.leaves`.
 	 */
-	// T2: 6.1 says "leaf resources only; [] for groups" for `workingTime` and nothing for `leaves`.
-	// Read the same way: TaskJuggler passes a group's `leaves` down to its members (the attribute
-	// is inherited from the parent), so the members' entries already show them. Also read: a type
-	// with no slots has no entry (no empty `intervals`).
+	// T2: ruling of the main session at the T2 review (2026-11-14). It replaces 6.1's "off-hours
+	// slots inside a leave are included", so that the hatch is derived exactly from engine data.
 	leaves?: ResourceLeaves[];
 }
 
-/** v3. The slots of one leave type on a resource's scoreboard (`ResourceScenarioResult.leaves`). */
+/** v3. One leave type's slots in a resource's working hours (`ResourceScenarioResult.leaves`). */
 export interface ResourceLeaves {
 	type: EngineLeaveType;
 	/** [start, end): ascending, disjoint, touching pairs merged. */
