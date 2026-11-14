@@ -500,6 +500,7 @@
 		people={env.coarse
 			? undefined
 			: { open: paletteOpen, count: m.people.length, ontoggle: () => (paletteOpen = !paletteOpen) }}
+		add={{ hasSelection: app.selectedTask !== null, onadd: (mode) => void m.addTask(mode) }}
 		rowActions={m.rowActions}
 		onpill={(h) => (pillH = h)}
 	/>

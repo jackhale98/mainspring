@@ -20,6 +20,7 @@
  * drag (WCAG 2.5.7).
  */
 import type { ScheduleResult } from '../../engine/protocol';
+import { addSpot } from '../../lib/gantt/add-task';
 import { clampPercent, snapPercent } from '../../lib/gantt/handles';
 import {
 	commandFor,
@@ -39,7 +40,7 @@ import {
 	resizeRef,
 	type MoveEnv,
 } from '../../lib/gantt/preview';
-import { placeNow, rootsOf, stepTarget, type Step, type Tree } from '../../lib/gantt/reorder';
+import { rootsOf, stepTarget, type Step, type Tree } from '../../lib/gantt/reorder';
 import type { WorkingTime } from '../../lib/schedule/working-time';
 import type { AppState } from '../../lib/state/app.svelte';
 import type { ActionSource, DispatchOutcome } from '../../lib/state/edits.svelte';
@@ -386,13 +387,13 @@ export class GanttInteractions {
 	}
 
 	async add(key: string): Promise<void> {
-		const node = this.#tree.get(key);
-		const place = placeNow(this.#tree, key, this.#roots);
-		if (!node || !place) return;
+		if (!this.#tree.has(key)) return;
+		const spot = addSpot(this.#tree, this.#roots, key, 'after');
+		if (!spot) return;
 		await this.actor.run({
 			type: 'add',
-			parent: place.parent,
-			index: place.index + 1,
+			parent: spot.parent,
+			index: spot.index,
 			name: gestureStrings.row.newTask,
 		});
 	}

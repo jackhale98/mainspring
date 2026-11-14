@@ -854,6 +854,17 @@ export const strings = {
 	gantt: {
 		region: 'Gantt chart',
 		toolbar: 'Gantt controls',
+		/** The Add task (+) control (ADR-0013). */
+		add: {
+			label: 'Add task',
+			/** The tooltip while no task is selected: the button adds at once, at the end. */
+			hintEnd: 'Add a task at the end of the plan',
+			/** The tooltip while one is: the button opens the two choices. */
+			hintMenu: 'Add a task after the selected one, or a subtask of it',
+			menu: 'Add task options',
+			after: 'Add task after',
+			subtask: 'Add subtask',
+		},
 		zoom: 'Zoom',
 		level: { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' },
 		/** The zoom is between two presets (after a pinch or Ctrl+wheel), nearest to this one. */

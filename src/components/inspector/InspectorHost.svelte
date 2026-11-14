@@ -75,13 +75,15 @@
 		if (n === seen) return;
 		seen = n;
 		void tick().then(() =>
-			requestAnimationFrame(() =>
-				body
-					?.querySelector<HTMLElement>(
-						'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
-					)
-					?.focus(),
-			),
+			requestAnimationFrame(() => {
+				const first = body?.querySelector<HTMLElement>(
+					'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+				);
+				first?.focus();
+				// A new task's name: selected, so typing replaces "New task".
+				if (inspector.selectOnFocus && first instanceof HTMLInputElement) first.select();
+				inspector.selectOnFocus = false;
+			}),
 		);
 	});
 
