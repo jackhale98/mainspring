@@ -320,16 +320,16 @@ text before it, and the fast run.
 The engine time saved by the fast run, from every run so far (4-core machines; the load is the
 1-minute load average during the run):
 
-| Plan | Draft (my machine, load 1.4 to 2, two runs) | Review (load about 3) | After round 1, run A (my machine, load 6 to 11) | After round 1, run B (load 3.7 to 12, median 4.5) | After round 2, run C (load 3 to 5.3, median 3.8) | Range |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Fedora 20 (414 tasks) | 44.4% / 43.7% | 37.3% | 39.4% | 45.4% | 51.3% | **37 to 51%** |
-| gantt-200 | 37.1% / 41.7% | 34.6% | 41.6% | 33.9% | 37.3% | **34 to 42%** |
-| gantt-500 | 44.2% / 41.7% | 34.8% | 38.3% | 37.8% | not run | 35 to 44% |
-| scale-1000 (1,225 tasks) | 30.9% / 32.3% | not run | 27.1% | 34.2% | not run | 27 to 34% |
-| Tutorial | 78.7% (timed alone) | not run | 91.4% | 93.6% | not run | (see below) |
+| Plan | Draft (my machine, load 1.4 to 2, two runs) | Review (load about 3) | After round 1, run A (my machine, load 6 to 11) | After round 1, run B (load 3.7 to 12, median 4.5) | After round 2, run C (load 3 to 5.3, median 3.8) | After round 3, run D (load 1.8 to 2.6) | Range |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Fedora 20 (414 tasks) | 44.4% / 43.7% | 37.3% | 39.4% | 45.4% | 51.3% | 45.2% | **37 to 51%** |
+| gantt-200 | 37.1% / 41.7% | 34.6% | 41.6% | 33.9% | 37.3% | 44.1% | **34 to 44%** |
+| gantt-500 | 44.2% / 41.7% | 34.8% | 38.3% | 37.8% | not run | not run | 35 to 44% |
+| scale-1000 (1,225 tasks) | 30.9% / 32.3% | not run | 27.1% | 34.2% | not run | not run | 27 to 34% |
+| Tutorial | 78.7% (timed alone) | not run | 91.4% | 93.6% | not run | not run | (see below) |
 
-Round 2 changed only what a retaining parse notes and what the checks compare, not the fast run
-itself, so run C times Fedora and gantt-200 only.
+Rounds 2 and 3 changed only what a retaining parse notes and what the checks compare, not the
+fast run itself, so runs C and D time Fedora and gantt-200 only.
 
 Run B (after round 1), in detail (ms):
 
@@ -341,10 +341,11 @@ Run B (after round 1), in detail (ms):
 | scale-1000 | 12,735 | 3,226 | 8,732 | 8,377 | 292 | 7,125 | 10,350 | 410 | 2,031 KB |
 | Tutorial | 3,607 | 3,362 | 191 | 231 | 23 | 142 | 4,236 | 93 | 158 KB |
 
-- **Fedora, before and after:** after round 2 (run C), a full run takes 3,366 ms of engine time
-  and the fast run of the same rewrite 1,640 ms (51.3% saved), with `retainMs` 282 ms. Run B:
+- **Fedora, before and after:** after round 3 (run D), a full run takes 3,559 ms of engine time
+  and the fast run of the same rewrite 1,948 ms (45.2% saved), with `retainMs` 266 ms. After
+  round 2 (run C), 3,366 against 1,640 ms (51.3%), `retainMs` 282 ms. Run B:
   3,006 against 1,642 ms (45.4%); run A: 3,003 against 1,820 ms (39.4%); the draft: 3,429 /
-  3,037 ms against 1,907 / 1,711 ms. The fast run stays at 1.6 to 1.9 s; the full run moves
+  3,037 ms against 1,907 / 1,711 ms. The fast run stays at 1.6 to 1.95 s; the full run moves
   more with load.
 - **The spread is load.** Another run after round 1, at load 10 to 26 (median 18) on the
   same 4 cores, gave Fedora 10.5 s full against 4.8 s fast and gantt-200 4.9 s against 4.1 s,
@@ -375,8 +376,8 @@ Run B (after round 1), in detail (ms):
    (`period` in round 2, `purge` in round 3) were patterns the suites did not generate. Both
    are now repros, and the purge family generates the second; with the purge check removed it
    finds 31 differences in 692 cases.
-2. A median saving of 37 to 51% on Fedora 20 and 34 to 42% on gantt-200 over every usable run
-   so far (two of mine before the reviews, the review's, three of mine after them), against a
+2. A median saving of 37 to 51% on Fedora 20 and 34 to 44% on gantt-200 over every usable run
+   so far (two of mine before the reviews, the review's, four of mine after them), against a
    bar of 30%. The lowest are 37.3% on Fedora (the review) and 33.9% on gantt-200 (run B).
 3. Golden parity is unchanged: golden runs never send `retain` or `fast`. On the branch after the
    fixes, `npm run test:golden` passes (4 of 4, every golden plan in one long-lived worker,
