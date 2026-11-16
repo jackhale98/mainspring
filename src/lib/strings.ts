@@ -799,6 +799,7 @@ export const strings = {
 		'gantt-manipulation': 'Gantt manipulation shapes',
 		'gantt-200': 'Gantt scale: 200 tasks',
 		'gantt-500': 'Gantt scale: 500 tasks',
+		'fedora-res': 'Fedora 20 with people (generated)',
 	},
 	topBar: {
 		sample: 'Sample plan',

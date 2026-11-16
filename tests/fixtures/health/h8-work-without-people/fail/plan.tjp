@@ -1,0 +1,38 @@
+# Feature: health check H8 (work without its people), fail. Fails H8 on "side" only: a length task
+# of 5 days that asks for Dev alone. "build" (priority 1000) books Dev for 01-05..01-07, so
+# "side" has Dev only on 01-08 and 01-09, and it runs without Dev for 3 days (24 hours). Dev is
+# booked on another task in that span, so the work counts as unmet (5.4). "test" keeps Ann.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h8fail "Health H8 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  priority 1000
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task side "Side work" {
+  depends kick
+  length 5d
+  allocate dev
+}
+
+task done "Done" {
+  depends test, side
+  milestone
+}

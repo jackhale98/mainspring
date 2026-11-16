@@ -1,0 +1,37 @@
+# Feature: health check H8 (work without its people), pass. Binding: no finding. "side" is a
+# length task of 3 days that asks for Ann, who is free from 01-05, so it runs with her for all 3
+# days. "build" (priority 1000) books Dev only, so nothing contends for Ann.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h8pass "Health H8 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  priority 1000
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task side "Side work" {
+  depends kick
+  length 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test, side
+  milestone
+}

@@ -1,0 +1,41 @@
+# Feature: health check H9 (TaskJuggler resource warnings), fail. Fails H9 on "side" only: a length
+# task of 3 days that asks for Leaver alone, who has annual leave for the whole plan up to
+# 2026-03-01. Nobody is booked on "side", so TaskJuggler emits allocate_no_assigned (a leaf with
+# no effort, allocations requested, none assigned). Leaver is not booked on another task, so the
+# work is not unmet (H8, 5.4). "build" and "test" use Dev and no warning arises from them.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h9fail "Health H9 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+resource leaver "Leaver" {
+  leaves annual 2026-01-01 - 2026-03-01
+}
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate dev
+}
+
+task side "Side work" {
+  depends kick
+  length 3d
+  allocate leaver
+}
+
+task done "Done" {
+  depends test, side
+  milestone
+}

@@ -1,0 +1,33 @@
+# Feature: 15-minute resolution. timingresolution 15min makes the scheduler place work in quarter hours, so bookings start and end on :00, :15, :30 or :45, and their sums are exact in integer minutes.
+# Binding: ada's efforts are 1h15min, 1h30min and 2h45min, which are not whole hours; bo's 105-minute task ends at a quarter hour inside a working day. Every booked interval must be a multiple of 15 minutes.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project quarter "Quarter hours" 2026-01-05 - 2026-01-23 {
+  timezone "Europe/Berlin"
+  timingresolution 15min
+}
+
+resource ada "Ada"
+resource bo "Bo"
+
+task quarters "Quarter hours" {
+  task q1 "Seventy-five minutes" {
+    start 2026-01-05-09:00
+    effort 75min
+    allocate ada
+  }
+  task q2 "Ninety minutes" {
+    depends !q1
+    effort 90min
+    allocate ada
+  }
+  task q3 "Two hours forty-five" {
+    depends !q2
+    effort 165min
+    allocate ada
+  }
+  task q4 "One hundred five minutes" {
+    start 2026-01-05-09:00
+    effort 105min
+    allocate bo
+  }
+}

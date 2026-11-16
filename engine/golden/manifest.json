@@ -565,5 +565,388 @@
       "milestone",
       "complete"
     ]
+  },
+  {
+    "id": "fedora-res",
+    "kind": "workload",
+    "root": "engine/golden/plans/fedora-res",
+    "entry": "f-20.tjp",
+    "now": "2013-09-02T12:00:00Z",
+    "features": [
+      "include",
+      "resources",
+      "groups",
+      "efficiency",
+      "workinghours",
+      "leaves",
+      "holidays",
+      "supplement",
+      "allocate",
+      "timezone",
+      "macros",
+      "scenarios"
+    ]
+  },
+  {
+    "id": "workload-dst-weeks",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/dst-weeks",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "timezone",
+      "dst",
+      "weeks",
+      "effort"
+    ]
+  },
+  {
+    "id": "workload-resolution-15min",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/resolution-15min",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "timingresolution",
+      "effort",
+      "depends"
+    ]
+  },
+  {
+    "id": "workload-part-time-hours",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/part-time-hours",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "workinghours",
+      "resources",
+      "effort"
+    ]
+  },
+  {
+    "id": "workload-efficiency",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/efficiency",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "efficiency",
+      "effort",
+      "resources"
+    ]
+  },
+  {
+    "id": "workload-groups",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/groups",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "groups",
+      "nested-groups",
+      "effort"
+    ]
+  },
+  {
+    "id": "workload-leave-types",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/leave-types",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "leaves",
+      "vacation",
+      "holidays",
+      "effort"
+    ]
+  },
+  {
+    "id": "workload-overtime",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/overtime",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "booking",
+      "overtime",
+      "leaves"
+    ]
+  },
+  {
+    "id": "workload-held-effort",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/held-effort",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "priority",
+      "effort",
+      "depends",
+      "resources"
+    ]
+  },
+  {
+    "id": "workload-unmet-length",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/unmet-length",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "length",
+      "priority",
+      "resources"
+    ]
+  },
+  {
+    "id": "workload-group-allocation",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/group-allocation",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "groups",
+      "allocate"
+    ]
+  },
+  {
+    "id": "workload-alternatives",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/alternatives",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "allocate",
+      "alternative",
+      "select"
+    ]
+  },
+  {
+    "id": "workload-overlapping-global-leaves",
+    "kind": "workload",
+    "root": "tests/fixtures/workload/overlapping-global-leaves",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "leaves",
+      "holidays",
+      "overlap"
+    ]
+  },
+  {
+    "id": "health-h1-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h1-no-predecessor/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "no-predecessor",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h1-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h1-no-predecessor/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "no-predecessor",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h2-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h2-no-successor/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "no-successor",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h2-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h2-no-successor/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "no-successor",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h3-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h3-hard-constraint/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "hard-constraint",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h3-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h3-hard-constraint/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "hard-constraint",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h4-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h4-constraint-warning/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "constraint-warning",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h4-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h4-constraint-warning/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "constraint-warning",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h5-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h5-long-gap/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "long-gap",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h5-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h5-long-gap/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "long-gap",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h6-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h6-long-task/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "long-task",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h6-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h6-long-task/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "long-task",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h7-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h7-held-by-people/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "held-by-people",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h7-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h7-held-by-people/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "held-by-people",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h8-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h8-work-without-people/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "work-without-people",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h8-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h8-work-without-people/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "work-without-people",
+      "fail"
+    ]
+  },
+  {
+    "id": "health-h9-pass",
+    "kind": "health",
+    "root": "tests/fixtures/health/h9-resource-warnings/pass",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "resource-warnings",
+      "pass"
+    ]
+  },
+  {
+    "id": "health-h9-fail",
+    "kind": "health",
+    "root": "tests/fixtures/health/h9-resource-warnings/fail",
+    "entry": "plan.tjp",
+    "now": "2026-01-05T09:00:00Z",
+    "features": [
+      "health",
+      "resource-warnings",
+      "fail"
+    ]
   }
 ]

@@ -130,12 +130,12 @@ describe('manifestProblems', () => {
 		const manifest: unknown = JSON.parse(readFileSync('engine/golden/manifest.json', 'utf8'));
 		expect(manifestProblems(manifest)).toEqual([]);
 		const kinds = (manifest as { kind: string }[]).map((p) => p.kind);
-		expect(kinds).toHaveLength(41);
+		expect(kinds).toHaveLength(72);
 		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(9);
 	});
 
 	it('accepts every plan kind', () => {
-		for (const kind of ['upstream', 'poc', 'synthetic', 'bridge']) {
+		for (const kind of ['upstream', 'poc', 'synthetic', 'bridge', 'workload', 'health']) {
 			expect(manifestProblems([{ ...plan, kind }])).toEqual([]);
 		}
 	});
@@ -152,7 +152,7 @@ describe('manifestProblems', () => {
 		).toEqual([
 			'"bridge-now-line": duplicate id',
 			'"Bad_Id": id must be lower-case kebab',
-			'"Bad_Id": kind must be one of upstream, poc, synthetic, bridge',
+			'"Bad_Id": kind must be one of upstream, poc, synthetic, bridge, workload, health',
 			'"Bad_Id": now must be on a whole UTC hour',
 			'"Bad_Id": features must be an array',
 			'"no-root": root must be a non-empty string',

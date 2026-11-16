@@ -1,0 +1,528 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "workload-groups",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": "2026-01-05T09:00:00Z"
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "m1",
+        "scenario": "plan",
+        "task": "work.t1"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5220
+          ]
+        ],
+        "resource": "m2",
+        "scenario": "plan",
+        "task": "work.t2"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "m3",
+        "scenario": "plan",
+        "task": "work.t3"
+      },
+      {
+        "intervals": [
+          [
+            10620,
+            11100
+          ],
+          [
+            12060,
+            12540
+          ]
+        ],
+        "resource": "lead",
+        "scenario": "plan",
+        "task": "work.t4"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "dailyWorkingHours": 8,
+      "end": "2026-02-13T00:00:00Z",
+      "id": "groups",
+      "leaves": [],
+      "monthlyWorkingDays": 21.726166666666668,
+      "name": "Groups",
+      "now": "2026-01-05T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null,
+      "weekStartsMonday": true,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
+    },
+    "resources": [
+      {
+        "group": true,
+        "id": "team",
+        "name": "Team",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": []
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 7
+        }
+      },
+      {
+        "group": false,
+        "id": "m1",
+        "name": "M1",
+        "parent": "team",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 8
+        }
+      },
+      {
+        "group": false,
+        "id": "m2",
+        "name": "M2",
+        "parent": "team",
+        "scenarios": {
+          "plan": {
+            "efficiency": 0.8,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 9
+        }
+      },
+      {
+        "group": false,
+        "id": "m3",
+        "name": "M3",
+        "parent": "team",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "group": true,
+        "id": "leads",
+        "name": "Leads",
+        "parent": "team",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": []
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "group": false,
+        "id": "lead",
+        "name": "Lead",
+        "parent": "leads",
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "work",
+        "milestone": false,
+        "name": "Team work",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "m1",
+              "m2",
+              "m3",
+              "lead"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
+            "end": 12540,
+            "pathCriticalness": 2.4827586206896552,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 18
+        }
+      },
+      {
+        "id": "work.t1",
+        "milestone": false,
+        "name": "Member one",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "m1"
+                ]
+              }
+            ],
+            "allocated": [
+              "m1"
+            ],
+            "complete": null,
+            "criticalness": 2.4827586206896552,
+            "depends": [],
+            "direction": "asap",
+            "end": 3900,
+            "pathCriticalness": 2.4827586206896552,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 19
+        }
+      },
+      {
+        "id": "work.t2",
+        "milestone": false,
+        "name": "Member two",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "m2"
+                ]
+              }
+            ],
+            "allocated": [
+              "m2"
+            ],
+            "complete": null,
+            "criticalness": 2.4827586206896552,
+            "depends": [],
+            "direction": "asap",
+            "end": 5220,
+            "pathCriticalness": 2.4827586206896552,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      },
+      {
+        "id": "work.t3",
+        "milestone": false,
+        "name": "Member three",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "m3"
+                ]
+              }
+            ],
+            "allocated": [
+              "m3"
+            ],
+            "complete": null,
+            "criticalness": 2.4827586206896552,
+            "depends": [],
+            "direction": "asap",
+            "end": 3900,
+            "pathCriticalness": 2.4827586206896552,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 29
+        }
+      },
+      {
+        "id": "work.t4",
+        "milestone": false,
+        "name": "Lead work",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "lead"
+                ]
+              }
+            ],
+            "allocated": [
+              "lead"
+            ],
+            "complete": null,
+            "criticalness": 1.103448275862069,
+            "depends": [],
+            "direction": "asap",
+            "end": 12540,
+            "pathCriticalness": 1.103448275862069,
+            "precedes": [],
+            "scheduled": true,
+            "start": 10620
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 34
+        }
+      }
+    ]
+  },
+  "schemaVersion": 3
+}

@@ -1,0 +1,29 @@
+# Feature: health check H5 (long gap), pass. Binding: no finding. The gap before "test" is 5
+# working days, the default longGapDays. A gap is long only when it is over 5 working days.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h5pass "Health H5 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build { gaplength 5d }
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

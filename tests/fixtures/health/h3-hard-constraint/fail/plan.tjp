@@ -1,0 +1,31 @@
+# Feature: health check H3 (hard constraint), fail. Fails H3 (info) on "build" only: it carries
+# "start 2026-01-05", a hard constraint. The date equals the start the dependencies already give
+# it, so TaskJuggler's schedule is unchanged and no H4 warning appears.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h3fail "Health H3 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  start 2026-01-05
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

@@ -1,0 +1,601 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "workload-part-time-hours",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": "2026-01-05T09:00:00Z"
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            780
+          ],
+          [
+            1980,
+            2220
+          ],
+          [
+            3420,
+            3660
+          ],
+          [
+            4860,
+            5100
+          ],
+          [
+            6300,
+            6540
+          ],
+          [
+            10620,
+            10860
+          ],
+          [
+            12060,
+            12300
+          ],
+          [
+            13500,
+            13740
+          ],
+          [
+            14940,
+            15180
+          ],
+          [
+            16380,
+            16620
+          ]
+        ],
+        "resource": "part",
+        "scenario": "plan",
+        "task": "part_work.p1"
+      },
+      {
+        "intervals": [
+          [
+            20700,
+            20940
+          ],
+          [
+            22140,
+            22380
+          ],
+          [
+            23580,
+            23820
+          ],
+          [
+            25020,
+            25260
+          ],
+          [
+            26460,
+            26700
+          ],
+          [
+            30780,
+            31020
+          ],
+          [
+            32220,
+            32460
+          ],
+          [
+            33660,
+            33900
+          ]
+        ],
+        "resource": "part",
+        "scenario": "plan",
+        "task": "part_work.p2"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            6300,
+            6780
+          ]
+        ],
+        "resource": "full",
+        "scenario": "plan",
+        "task": "full_work.f1"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "dailyWorkingHours": 8,
+      "end": "2026-02-13T00:00:00Z",
+      "id": "parttime",
+      "leaves": [],
+      "monthlyWorkingDays": 21.726166666666668,
+      "name": "Part-time hours",
+      "now": "2026-01-05T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null,
+      "weekStartsMonday": true,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ],
+        [
+          46620,
+          47100
+        ],
+        [
+          50940,
+          51420
+        ],
+        [
+          52380,
+          52860
+        ],
+        [
+          53820,
+          54300
+        ],
+        [
+          55260,
+          55740
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "part",
+        "name": "Part",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": [
+              [
+                540,
+                780
+              ],
+              [
+                1980,
+                2220
+              ],
+              [
+                3420,
+                3660
+              ],
+              [
+                4860,
+                5100
+              ],
+              [
+                6300,
+                6540
+              ],
+              [
+                10620,
+                10860
+              ],
+              [
+                12060,
+                12300
+              ],
+              [
+                13500,
+                13740
+              ],
+              [
+                14940,
+                15180
+              ],
+              [
+                16380,
+                16620
+              ],
+              [
+                20700,
+                20940
+              ],
+              [
+                22140,
+                22380
+              ],
+              [
+                23580,
+                23820
+              ],
+              [
+                25020,
+                25260
+              ],
+              [
+                26460,
+                26700
+              ],
+              [
+                30780,
+                31020
+              ],
+              [
+                32220,
+                32460
+              ],
+              [
+                33660,
+                33900
+              ],
+              [
+                35100,
+                35340
+              ],
+              [
+                36540,
+                36780
+              ],
+              [
+                40860,
+                41100
+              ],
+              [
+                42300,
+                42540
+              ],
+              [
+                43740,
+                43980
+              ],
+              [
+                45180,
+                45420
+              ],
+              [
+                46620,
+                46860
+              ],
+              [
+                50940,
+                51180
+              ],
+              [
+                52380,
+                52620
+              ],
+              [
+                53820,
+                54060
+              ],
+              [
+                55260,
+                55500
+              ]
+            ]
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 7
+        }
+      },
+      {
+        "group": false,
+        "id": "full",
+        "name": "Full",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "part_work",
+        "milestone": false,
+        "name": "Part-time work",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "part"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
+            "end": 33900,
+            "pathCriticalness": 24.82758620689655,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 14
+        }
+      },
+      {
+        "id": "part_work.p1",
+        "milestone": false,
+        "name": "Part one",
+        "parent": "part_work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "part"
+                ]
+              }
+            ],
+            "allocated": [
+              "part"
+            ],
+            "complete": null,
+            "criticalness": 24.82758620689655,
+            "depends": [],
+            "direction": "asap",
+            "end": 16620,
+            "pathCriticalness": 24.82758620689655,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 15
+        }
+      },
+      {
+        "id": "part_work.p2",
+        "milestone": false,
+        "name": "Part two",
+        "parent": "part_work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "part"
+                ]
+              }
+            ],
+            "allocated": [
+              "part"
+            ],
+            "complete": null,
+            "criticalness": 19.862068965517242,
+            "depends": [],
+            "direction": "asap",
+            "end": 33900,
+            "pathCriticalness": 19.862068965517242,
+            "precedes": [],
+            "scheduled": true,
+            "start": 20700
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 20
+        }
+      },
+      {
+        "id": "full_work",
+        "milestone": false,
+        "name": "Full-time work",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "full"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
+            "end": 6780,
+            "pathCriticalness": 6.8965517241379315,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 27
+        }
+      },
+      {
+        "id": "full_work.f1",
+        "milestone": false,
+        "name": "Full one",
+        "parent": "full_work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "full"
+                ]
+              }
+            ],
+            "allocated": [
+              "full"
+            ],
+            "complete": null,
+            "criticalness": 6.8965517241379315,
+            "depends": [],
+            "direction": "asap",
+            "end": 6780,
+            "pathCriticalness": 6.8965517241379315,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 28
+        }
+      }
+    ]
+  },
+  "schemaVersion": 3
+}

@@ -81,7 +81,7 @@ afterAll(() => {
 });
 
 describe('golden corpus is the manifest', () => {
-	it('has 41 plans and 50 files', () => {
+	it('has 72 plans and 83 files', () => {
 		expect(manifest()).toHaveLength(GOLDEN_PLANS);
 		expect(golden).toHaveLength(GOLDEN_PLANS);
 		const union = new Set(golden.flatMap((p) => p.files.map((f) => `${p.root}/${f}`)));

@@ -1,0 +1,30 @@
+# Feature: health check H6 (long task), fail. Fails H6 (info) on "build" only: an effort of 21 days
+# on one person gives a span of 21 working days, over the default longTaskDays (20). "test" is
+# short.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h6fail "Health H6 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 21d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

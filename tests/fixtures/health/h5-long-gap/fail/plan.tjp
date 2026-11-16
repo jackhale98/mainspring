@@ -1,0 +1,30 @@
+# Feature: health check H5 (long gap), fail. Fails H5 on the dependency of "test" on "build":
+# its gaplength of 6 working days is over the default longGapDays (5). The gap is the only long
+# thing in the plan; no task is long (H6) and no task is constrained.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h5fail "Health H5 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build { gaplength 6d }
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

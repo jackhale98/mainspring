@@ -1,0 +1,300 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "workload-overlapping-global-leaves",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": "2026-01-05T09:00:00Z"
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ],
+          [
+            4860,
+            5340
+          ],
+          [
+            13500,
+            13980
+          ],
+          [
+            14940,
+            15420
+          ],
+          [
+            16380,
+            16860
+          ],
+          [
+            20700,
+            21180
+          ],
+          [
+            22140,
+            22620
+          ],
+          [
+            23580,
+            24060
+          ],
+          [
+            25020,
+            25500
+          ],
+          [
+            26460,
+            26940
+          ],
+          [
+            30780,
+            31260
+          ],
+          [
+            32220,
+            32700
+          ],
+          [
+            33660,
+            34140
+          ]
+        ],
+        "resource": "ada",
+        "scenario": "plan",
+        "task": "run"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "dailyWorkingHours": 8,
+      "end": "2026-05-01T00:00:00Z",
+      "id": "overlap",
+      "leaves": [
+        {
+          "interval": [
+            5760,
+            11520
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            10080,
+            12960
+          ],
+          "name": null,
+          "type": "special"
+        }
+      ],
+      "monthlyWorkingDays": 21.726166666666668,
+      "name": "Overlapping leaves",
+      "now": "2026-01-05T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-03-30T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null,
+      "weekStartsMonday": true,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ],
+        [
+          36540,
+          37020
+        ],
+        [
+          40860,
+          41340
+        ],
+        [
+          42300,
+          42780
+        ],
+        [
+          43740,
+          44220
+        ],
+        [
+          45180,
+          45660
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "ada",
+        "name": "Ada",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    12060,
+                    12540
+                  ]
+                ],
+                "type": "special"
+              },
+              {
+                "intervals": [
+                  [
+                    6300,
+                    6780
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 10
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "run",
+        "milestone": false,
+        "name": "Run",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ada"
+                ]
+              }
+            ],
+            "allocated": [
+              "ada"
+            ],
+            "complete": null,
+            "criticalness": 85.71428571428572,
+            "depends": [],
+            "direction": "asap",
+            "end": 34140,
+            "pathCriticalness": 85.71428571428572,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      }
+    ]
+  },
+  "schemaVersion": 3
+}

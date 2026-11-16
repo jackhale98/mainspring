@@ -330,6 +330,254 @@
       "serializeMs": 70.8,
       "totalMs": 963.4,
       "processMs": 1472.1
+    },
+    "fedora-res": {
+      "tasks": 414,
+      "parseMs": 641,
+      "scheduleMs": 931.5,
+      "serializeMs": 89.6,
+      "totalMs": 1666.7,
+      "processMs": 2494.3
+    },
+    "workload-dst-weeks": {
+      "tasks": 2,
+      "parseMs": 64,
+      "scheduleMs": 12,
+      "serializeMs": 1.9,
+      "totalMs": 77.9,
+      "processMs": 654.4
+    },
+    "workload-resolution-15min": {
+      "tasks": 5,
+      "parseMs": 74.4,
+      "scheduleMs": 4.3,
+      "serializeMs": 0.6,
+      "totalMs": 79.6,
+      "processMs": 675.5
+    },
+    "workload-part-time-hours": {
+      "tasks": 5,
+      "parseMs": 58.2,
+      "scheduleMs": 5.3,
+      "serializeMs": 0.5,
+      "totalMs": 64.1,
+      "processMs": 586.1
+    },
+    "workload-efficiency": {
+      "tasks": 4,
+      "parseMs": 52.5,
+      "scheduleMs": 5,
+      "serializeMs": 0.8,
+      "totalMs": 58.4,
+      "processMs": 609.6
+    },
+    "workload-groups": {
+      "tasks": 5,
+      "parseMs": 79.3,
+      "scheduleMs": 4.9,
+      "serializeMs": 1,
+      "totalMs": 89.5,
+      "processMs": 713.5
+    },
+    "workload-leave-types": {
+      "tasks": 7,
+      "parseMs": 79,
+      "scheduleMs": 13.8,
+      "serializeMs": 0.9,
+      "totalMs": 93.7,
+      "processMs": 764.4
+    },
+    "workload-overtime": {
+      "tasks": 4,
+      "parseMs": 56.4,
+      "scheduleMs": 1.9,
+      "serializeMs": 0.4,
+      "totalMs": 58.8,
+      "processMs": 827.3
+    },
+    "workload-held-effort": {
+      "tasks": 4,
+      "parseMs": 54.8,
+      "scheduleMs": 6.4,
+      "serializeMs": 0.4,
+      "totalMs": 61.7,
+      "processMs": 564.3
+    },
+    "workload-unmet-length": {
+      "tasks": 3,
+      "parseMs": 59.7,
+      "scheduleMs": 1.7,
+      "serializeMs": 0.3,
+      "totalMs": 61.8,
+      "processMs": 781.3
+    },
+    "workload-group-allocation": {
+      "tasks": 3,
+      "parseMs": 73.9,
+      "scheduleMs": 2.6,
+      "serializeMs": 0.5,
+      "totalMs": 79.3,
+      "processMs": 572.6
+    },
+    "workload-alternatives": {
+      "tasks": 3,
+      "parseMs": 63,
+      "scheduleMs": 2.4,
+      "serializeMs": 0.5,
+      "totalMs": 66.5,
+      "processMs": 612.5
+    },
+    "workload-overlapping-global-leaves": {
+      "tasks": 1,
+      "parseMs": 60.8,
+      "scheduleMs": 1.9,
+      "serializeMs": 0.3,
+      "totalMs": 63.1,
+      "processMs": 773.3
+    },
+    "health-h1-pass": {
+      "tasks": 4,
+      "parseMs": 81,
+      "scheduleMs": 4.3,
+      "serializeMs": 0.8,
+      "totalMs": 86.2,
+      "processMs": 674
+    },
+    "health-h1-fail": {
+      "tasks": 3,
+      "parseMs": 68.4,
+      "scheduleMs": 4.7,
+      "serializeMs": 0.8,
+      "totalMs": 77.6,
+      "processMs": 560.2
+    },
+    "health-h2-pass": {
+      "tasks": 4,
+      "parseMs": 76.2,
+      "scheduleMs": 4.4,
+      "serializeMs": 0.8,
+      "totalMs": 84.7,
+      "processMs": 1021.4
+    },
+    "health-h2-fail": {
+      "tasks": 3,
+      "parseMs": 53.1,
+      "scheduleMs": 5.7,
+      "serializeMs": 0.9,
+      "totalMs": 59.8,
+      "processMs": 656.2
+    },
+    "health-h3-pass": {
+      "tasks": 4,
+      "parseMs": 57.2,
+      "scheduleMs": 4.9,
+      "serializeMs": 0.9,
+      "totalMs": 63,
+      "processMs": 551.3
+    },
+    "health-h3-fail": {
+      "tasks": 4,
+      "parseMs": 53.7,
+      "scheduleMs": 4.6,
+      "serializeMs": 0.8,
+      "totalMs": 59.5,
+      "processMs": 520.7
+    },
+    "health-h4-pass": {
+      "tasks": 4,
+      "parseMs": 57.7,
+      "scheduleMs": 4.6,
+      "serializeMs": 0.8,
+      "totalMs": 63.1,
+      "processMs": 577.8
+    },
+    "health-h4-fail": {
+      "tasks": 4,
+      "parseMs": 54.8,
+      "scheduleMs": 4.4,
+      "serializeMs": 0.8,
+      "totalMs": 60,
+      "processMs": 478.9
+    },
+    "health-h5-pass": {
+      "tasks": 4,
+      "parseMs": 53.5,
+      "scheduleMs": 4.8,
+      "serializeMs": 0.8,
+      "totalMs": 59.1,
+      "processMs": 459.2
+    },
+    "health-h5-fail": {
+      "tasks": 4,
+      "parseMs": 57.1,
+      "scheduleMs": 4.9,
+      "serializeMs": 0.8,
+      "totalMs": 62.8,
+      "processMs": 534
+    },
+    "health-h6-pass": {
+      "tasks": 4,
+      "parseMs": 57.5,
+      "scheduleMs": 5,
+      "serializeMs": 0.8,
+      "totalMs": 63.6,
+      "processMs": 892.7
+    },
+    "health-h6-fail": {
+      "tasks": 4,
+      "parseMs": 57.4,
+      "scheduleMs": 5,
+      "serializeMs": 0.8,
+      "totalMs": 63.3,
+      "processMs": 682.6
+    },
+    "health-h7-pass": {
+      "tasks": 5,
+      "parseMs": 68.1,
+      "scheduleMs": 5.9,
+      "serializeMs": 0.9,
+      "totalMs": 75.5,
+      "processMs": 824.4
+    },
+    "health-h7-fail": {
+      "tasks": 5,
+      "parseMs": 57.5,
+      "scheduleMs": 5.1,
+      "serializeMs": 0.8,
+      "totalMs": 63.4,
+      "processMs": 661.4
+    },
+    "health-h8-pass": {
+      "tasks": 5,
+      "parseMs": 55.9,
+      "scheduleMs": 4.8,
+      "serializeMs": 0.8,
+      "totalMs": 62,
+      "processMs": 504.3
+    },
+    "health-h8-fail": {
+      "tasks": 5,
+      "parseMs": 56.4,
+      "scheduleMs": 5.2,
+      "serializeMs": 0.8,
+      "totalMs": 62.8,
+      "processMs": 483.4
+    },
+    "health-h9-pass": {
+      "tasks": 5,
+      "parseMs": 61.7,
+      "scheduleMs": 4.6,
+      "serializeMs": 0.8,
+      "totalMs": 67.1,
+      "processMs": 516.7
+    },
+    "health-h9-fail": {
+      "tasks": 5,
+      "parseMs": 50,
+      "scheduleMs": 4.9,
+      "serializeMs": 0.9,
+      "totalMs": 55.9,
+      "processMs": 471.4
     }
   }
 }

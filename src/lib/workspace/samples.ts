@@ -89,6 +89,12 @@ export const SAMPLES: readonly BuiltInSample[] = [
 	sample('gantt-500', 'plan.tjp', {
 		'plan.tjp': () => import('../../../engine/golden/plans/gantt/gantt-500/plan.tjp?raw'),
 	}),
+	sample('fedora-res', 'f-20.tjp', {
+		'f-20.tjp': () => import('../../../engine/golden/plans/fedora-res/f-20.tjp?raw'),
+		'reports.tji': () => import('../../../engine/golden/plans/fedora-res/reports.tji?raw'),
+		'mainspring-load.tji': () =>
+			import('../../../engine/golden/plans/fedora-res/mainspring-load.tji?raw'),
+	}),
 ];
 
 /** The sample with this id, or null. */

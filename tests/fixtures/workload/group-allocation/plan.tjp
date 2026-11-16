@@ -1,0 +1,25 @@
+# Feature: group allocation. A task allocates the group "Team" rather than a person. TaskJuggler books one or more members of the group, and the load model must show the booking on the member, not on the group row.
+# Binding: "triage" allocates team (members m1, m2) for 4 days; it is booked on whichever member TaskJuggler picks, and the group's row sums both members. "solo" is an ordinary person allocation for contrast.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project groupalloc "Group allocation" 2026-01-05 - 2026-01-30 {
+}
+
+resource team "Team" {
+  resource m1 "M1"
+  resource m2 "M2"
+}
+
+resource solo "Solo"
+
+task work "Work" {
+  task triage "Triage" {
+    start 2026-01-05
+    effort 4d
+    allocate team
+  }
+  task other "Other work" {
+    start 2026-01-05
+    effort 4d
+    allocate solo
+  }
+}

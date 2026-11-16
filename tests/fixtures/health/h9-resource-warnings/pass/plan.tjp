@@ -1,0 +1,36 @@
+# Feature: health check H9 (TaskJuggler resource warnings), pass. Binding: no warning message.
+# "side" is a length task of 3 days that asks for Ann, who is free, so TaskJuggler books her and
+# emits no allocate_no_assigned. No other task contends for her during the span.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h9pass "Health H9 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate dev
+}
+
+task side "Side work" {
+  depends kick
+  length 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test, side
+  milestone
+}

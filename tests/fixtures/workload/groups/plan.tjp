@@ -1,0 +1,39 @@
+# Feature: groups. A resource group "Team" with three members, one with efficiency 0.8, and a nested group "Leads" inside it. Each member takes its own tasks. The workload rows roll the members up into their group.
+# Binding: m1, m2 and m3 each book one task; lead (inside Leads, inside Team) books another. The group rows of the load model are the sums of their members, so Team equals m1 + m2 + m3 + lead in every bucket.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project groups "Groups" 2026-01-05 - 2026-02-13 {
+}
+
+resource team "Team" {
+  resource m1 "M1"
+  resource m2 "M2" {
+    efficiency 0.8
+  }
+  resource m3 "M3"
+  resource leads "Leads" {
+    resource lead "Lead"
+  }
+}
+
+task work "Team work" {
+  task t1 "Member one" {
+    start 2026-01-05
+    effort 3d
+    allocate m1
+  }
+  task t2 "Member two" {
+    start 2026-01-05
+    effort 3d
+    allocate m2
+  }
+  task t3 "Member three" {
+    start 2026-01-05
+    effort 3d
+    allocate m3
+  }
+  task t4 "Lead work" {
+    start 2026-01-12
+    effort 2d
+    allocate lead
+  }
+}

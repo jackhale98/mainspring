@@ -1,0 +1,37 @@
+# Feature: health check H7 (held by people), pass. Binding: no finding. "build" (priority 1000)
+# books Dev for 01-05..01-07. "side", an effort task of 3 days, takes Ann instead, who is free
+# then, so it starts when its dependency allows and is not held. "done" depends on "side" too.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h7pass "Health H7 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  priority 1000
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task side "Side work" {
+  depends kick
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test, side
+  milestone
+}

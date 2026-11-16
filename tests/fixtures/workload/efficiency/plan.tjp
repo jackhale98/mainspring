@@ -1,0 +1,33 @@
+# Feature: efficiency. A resource's efficiency weights the effort it does: a 4-day effort on a person at 0.8 books 5 days of time (booked hours are not weighted), and a person at 0.5 books 8 days.
+# Binding: eff (0.8) and half (0.5) each take a 4-day effort; norm (1.0) takes the same effort as the control. The load cells show booked hours, and the cross-check compares bookings times efficiency with TaskJuggler's weighted effort.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project efficiency "Efficiency" 2026-01-05 - 2026-03-13 {
+}
+
+resource eff "Eff" {
+  efficiency 0.8
+}
+
+resource half "Half" {
+  efficiency 0.5
+}
+
+resource norm "Norm"
+
+task weighted "Weighted work" {
+  task w1 "Eff task" {
+    start 2026-01-05
+    effort 4d
+    allocate eff
+  }
+  task w2 "Half task" {
+    start 2026-01-05
+    effort 4d
+    allocate half
+  }
+  task w3 "Norm task" {
+    start 2026-01-05
+    effort 4d
+    allocate norm
+  }
+}

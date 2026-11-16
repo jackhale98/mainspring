@@ -1,0 +1,65 @@
+# Feature: every leave type. Personal leaves of type project, annual, special, sick, unpaid and unemployed, and global holiday and vacation leaves, all inside working time of the people who take the work.
+# Binding: p1 project (01-06..01-07), p2 annual (01-08..01-09), p3 special (01-13..01-14), p4 sick (01-15..01-16), p5 unpaid (01-20..01-21), p6 unemployed (01-27..01-28). The global holiday is 01-12 and the vacation 01-26 (read as holiday in the engine's leave list). Each person has a 15-day effort from 01-05 that runs across their own leave.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project leavetypes "Every leave type" 2026-01-05 - 2026-02-13 {
+}
+
+leaves holiday "Founders day" 2026-01-12
+vacation "Company closure" 2026-01-26
+
+resource p1 "P1" {
+  leaves project "Offsite" 2026-01-06 - 2026-01-08
+}
+
+resource p2 "P2" {
+  leaves annual "Holiday" 2026-01-08 - 2026-01-10
+}
+
+resource p3 "P3" {
+  leaves special "Study leave" 2026-01-13 - 2026-01-15
+}
+
+resource p4 "P4" {
+  leaves sick "Flu" 2026-01-15 - 2026-01-17
+}
+
+resource p5 "P5" {
+  leaves unpaid "Unpaid" 2026-01-20 - 2026-01-22
+}
+
+resource p6 "P6" {
+  leaves unemployed "Gap" 2026-01-27 - 2026-01-29
+}
+
+task work "Work" {
+  task w1 "Work one" {
+    start 2026-01-05
+    effort 15d
+    allocate p1
+  }
+  task w2 "Work two" {
+    start 2026-01-05
+    effort 15d
+    allocate p2
+  }
+  task w3 "Work three" {
+    start 2026-01-05
+    effort 15d
+    allocate p3
+  }
+  task w4 "Work four" {
+    start 2026-01-05
+    effort 15d
+    allocate p4
+  }
+  task w5 "Work five" {
+    start 2026-01-05
+    effort 15d
+    allocate p5
+  }
+  task w6 "Work six" {
+    start 2026-01-05
+    effort 15d
+    allocate p6
+  }
+}
