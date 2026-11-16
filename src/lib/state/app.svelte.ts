@@ -128,6 +128,11 @@ export class AppState {
 	newPlanName = $state<string | null>(null);
 	/** Counts the plans made with "New plan…", so a second one resets what a plan's key keeps. */
 	newPlanSerial = $state(0);
+	/**
+	 * When an edit last deleted the plan's last task (ms), or 0. The empty state that appears then
+	 * takes the focus, which the deleted row held (EmptyState.svelte); a later one does not.
+	 */
+	emptiedAt = $state(0);
 	/** The New plan sheet (NewPlanSheet.svelte). */
 	newPlanOpen = $state(false);
 	phase = $state<Phase>('loading');
@@ -327,6 +332,7 @@ export class AppState {
 			reveal: (r) => this.#showPlace(r),
 			storage: browserStorage(),
 			zones: this.#zones,
+			onEmptied: () => (this.emptiedAt = Date.now()),
 		});
 		this.#unsubscribe = [
 			ws.subscribe(() => (this.dirty = true)),
@@ -518,16 +524,21 @@ export class AppState {
 	}
 
 	/**
-	 * The open plan declares no task and is not failing: the views show the empty state, with its
-	 * Add task button (EmptyState.svelte). A plan that fails for another reason keeps its error.
+	 * The views show the empty state, with its Add task button (EmptyState.svelte), when the status
+	 * says the plan is empty (empty-plan.ts), or, before the first result, when the text as it is
+	 * declares no task and has no error. A plan whose tasks come from a macro, one that fails for
+	 * another reason and one with a syntax error keep what they show.
 	 */
 	get emptyPlan(): boolean {
+		if (this.phase !== 'ready') return false;
 		const kind = this.status?.kind ?? null;
+		if (kind === 'empty') return true;
+		const run = this.run;
+		if (!run || run.latest !== null || run.failure !== null) return false;
 		return (
-			this.phase === 'ready' &&
+			run.indexVersion === run.version &&
 			this.outline.tasks.length === 0 &&
-			kind !== 'errors' &&
-			kind !== 'failed'
+			!this.localDiagnostics.some((d) => d.severity === 'error')
 		);
 	}
 

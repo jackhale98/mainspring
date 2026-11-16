@@ -43,7 +43,7 @@
 			<h3 id="outline-tasks">{strings.outline.tasks}</h3>
 		{/if}
 		{#if add && app.emptyPlan}
-			<EmptyState onadd={() => add.onadd('after')} {ontext} />
+			<EmptyState {app} onadd={() => add.onadd('after')} {ontext} />
 		{:else}
 			<OutlineTree
 				label={strings.outline.tasks}

@@ -7,18 +7,35 @@
 	not already on screen (`ontext`; in Split the editor is beside it).
 -->
 <script lang="ts">
+	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 
+	/** How long after the delete the empty state may still take the focus (ms). */
+	const FOCUS_WINDOW_MS = 3000;
+
 	interface Props {
+		app: AppState;
 		/** The same action as the + control: adds the first task and opens its details. */
 		onadd: () => Promise<unknown> | void;
 		/** Brings the editor on screen; without it the pointer to Text is not shown. */
 		ontext?: (() => void) | undefined;
 	}
-	let { onadd, ontext }: Props = $props();
+	let { app, onadd, ontext }: Props = $props();
+	let addButton: HTMLButtonElement | undefined = $state();
 
 	const S = strings.empty;
+
+	// A delete that emptied the plan took the row that had the focus (a keyboard Delete on it): the
+	// focus goes to "Add task", not to the page. Not taken from a control the person is using.
+	$effect(() => {
+		const at = app.emptiedAt;
+		if (!addButton || at === 0 || Date.now() - at > FOCUS_WINDOW_MS) return;
+		const active = document.activeElement;
+		if (active === null || active === document.body || !active.isConnected) {
+			addButton.focus({ preventScroll: true });
+		}
+	});
 	/** An add is on its way (the edit, then the result): another press would add a second task. */
 	let busy = $state(false);
 	async function add(): Promise<void> {
@@ -37,6 +54,7 @@
 	<button
 		type="button"
 		class="add"
+		bind:this={addButton}
 		data-testid="empty-add-task"
 		aria-disabled={busy ? 'true' : undefined}
 		onclick={add}

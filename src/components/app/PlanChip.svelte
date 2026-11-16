@@ -3,7 +3,8 @@
 	The plan chip (ADR-0009): the open plan's name on a pill with a file icon and a chevron. It is a
 	real <select> underneath, so it opens the native picker (the best on a phone) and keeps its
 	accessible name "Sample plan". Replacing a plan that was edited asks first (AppState). The
-	list is "New plan…" first (it opens the New plan sheet, which this component holds), then the
+	list is "New plan…" first (it opens the New plan sheet, which App.svelte mounts once, so that
+	a layout change that remounts this chip does not lose what was typed), then the
 	plan made here as "Name (new)" while it is open, then the "Samples" group (ADR-0013 #2).
 	`title` style puts the name in the serif display face for the phone header.
 -->
@@ -12,7 +13,6 @@
 	import { strings } from '../../lib/strings';
 	import { NEW_PLAN_ID } from '../../lib/workspace/samples';
 	import Icon from '../Icon.svelte';
-	import NewPlanSheet from './NewPlanSheet.svelte';
 
 	interface Props {
 		app: AppState;
@@ -58,7 +58,6 @@
 		</optgroup>
 	</select>
 </label>
-<NewPlanSheet {app} />
 
 <style>
 	.chip {

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
 	The plan's combined state as a shape, not only a colour (WCAG 1.4.1): the brand mark ticking
-	while the scheduler starts or works, a green circle when scheduled with no problems, an amber
+	while the scheduler starts or works, a green circle when scheduled with no problems, a hollow grey circle for a plan with no task yet, an amber
 	triangle with warnings only, a ruby diamond when the plan does not schedule or the scheduler
 	failed. Decorative: the words are on the control that carries it (`statusGlyph`, lib/state/status.ts).
 -->
@@ -30,6 +30,9 @@
 		{#if kind === 'ok'}
 			<circle class="halo" cx="12" cy="12" r="10.5" />
 			<circle class="fill" cx="12" cy="12" r="6.5" />
+		{:else if kind === 'empty'}
+			<circle class="halo" cx="12" cy="12" r="10.5" />
+			<circle class="fill" cx="12" cy="12" r="6" />
 		{:else if kind === 'warning'}
 			<path class="halo" d="M12 2.5 22.5 20.5H1.5Z" />
 			<path class="fill" d="M12 6 19 18H5Z" />
@@ -55,6 +58,14 @@
 	}
 	.ok .halo {
 		fill: var(--color-status-ok-halo);
+	}
+	/* Neutral and hollow: nothing is wrong, and nothing is scheduled yet. */
+	.empty .fill {
+		fill: none;
+		stroke: var(--color-status-neutral);
+	}
+	.empty .halo {
+		fill: color-mix(in srgb, var(--color-status-neutral) 14%, transparent);
 	}
 	.warning .fill {
 		fill: var(--color-diagnostic-warning);

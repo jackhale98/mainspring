@@ -205,11 +205,11 @@ export function statusView(
 
 /**
  * The shape the phone's status button wears: the ticking mark while the scheduler works, then a
- * circle (fine), a triangle (warnings only) or a diamond (errors, or the scheduler failed). The
+ * circle (fine), a hollow one (an empty plan), a triangle (warnings only) or a diamond (errors, or the scheduler failed). The
  * shapes differ, not only the colours (WCAG 1.4.1). A failure outranks a run that is under way;
  * without a status yet the scheduler is still starting.
  */
-export type StatusGlyph = 'busy' | 'ok' | 'warning' | 'error';
+export type StatusGlyph = 'busy' | 'ok' | 'empty' | 'warning' | 'error';
 
 export function statusGlyph(
 	v: Pick<StatusView, 'kind' | 'errors' | 'warnings' | 'failure'> | null,
@@ -219,8 +219,8 @@ export function statusGlyph(
 	if (!v) return engine === 'failed' ? 'error' : 'busy';
 	if (v.failure !== null || v.kind === 'failed') return 'error';
 	if (v.kind === 'booting' || v.kind === 'idle' || v.kind === 'scheduling') return 'busy';
-	// An empty plan is fine: nothing is wrong, nothing has been planned yet.
-	if (v.kind === 'empty') return v.warnings > 0 ? 'warning' : 'ok';
+	// An empty plan is neutral (a hollow circle): nothing is wrong, and nothing is scheduled.
+	if (v.kind === 'empty') return v.warnings > 0 ? 'warning' : 'empty';
 	if (v.kind === 'errors' || v.errors > 0) return 'error';
 	return v.warnings > 0 ? 'warning' : 'ok';
 }

@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { strings } from '../strings';
 import type { Sample } from '../workspace/samples';
-import { FakeEngineClient, flush, message } from '../workspace/testing/fake-engine-client';
+import { FakeEngineClient, flush, message, task } from '../workspace/testing/fake-engine-client';
 import { AppState } from './app.svelte';
 
 const PLAN = 'project p "P" 2026-01-05 +1m\ntask a "Alpha" { effort 1d }\n';
@@ -122,6 +122,63 @@ describe('openNewPlan', () => {
 		await vi.waitFor(() => expect(app?.status?.kind).toBe('empty'));
 		expect(app.emptyPlan).toBe(true);
 		expect(app.status).toMatchObject({ label: strings.status.empty, errors: 0, unlocated: [] });
+	});
+
+	describe('the empty state (emptyPlan)', () => {
+		const withText = (text: string): Sample => ({
+			id: 'one' as Sample['id'],
+			label: 'one',
+			load: () => Promise.resolve({ entry: 'plan.tjp', files: { 'plan.tjp': text } }),
+		});
+		async function openText(text: string): Promise<{ a: AppState; client: FakeEngineClient }> {
+			const client = new FakeEngineClient();
+			app = new AppState({ client, samples: [withText(text)], confirm: () => true });
+			await flush();
+			return { a: app, client };
+		}
+
+		it('is not shown for a plan whose tasks all come from a macro, which the engine schedules', async () => {
+			const { a, client } = await openText(
+				'macro mk [task a "A" { effort 1d }]\nproject p "P" 2026-01-05 +1m\n${mk}\n',
+			);
+			client.done(client.requests.at(-1)?.revision ?? 1, { tasks: [task('a', 3, 600)] });
+			await vi.waitFor(() => expect(a.status?.kind).toBe('ok'));
+			expect(a.emptyPlan).toBe(false);
+			// Touching the macro's definition drops the engine's hints for the tasks it makes, so the
+			// outline has none until the next result, while the engine's last answer is a schedule.
+			const ws = a.workspace;
+			const at = ws?.texts()['plan.tjp']?.indexOf('effort') ?? -1;
+			const state = ws?.state('plan.tjp');
+			if (!ws || !state || at < 0) throw new Error('no workspace');
+			ws.commit(
+				'plan.tjp',
+				state.update({ changes: { from: at, insert: ' ' }, userEvent: 'input.type' }),
+				'typing',
+			);
+			await vi.waitFor(() => expect(a.outline.tasks).toHaveLength(0), { timeout: 3000 });
+			expect(a.status?.kind).not.toBe('errors');
+			expect(a.emptyPlan).toBe(false);
+		});
+
+		it('is not shown while a run waits on a text with a syntax error', async () => {
+			const { a } = await openText('project p "P" 2026-01-05 +1m\ntask {\n');
+			expect(a.run?.latest).toBeNull();
+			expect(a.localDiagnostics.some((d) => d.severity === 'error')).toBe(true);
+			expect(a.emptyPlan).toBe(false);
+		});
+
+		it('is shown before the first result for a clean header-only text, and not for a failure', async () => {
+			const { a, client } = await openText('project p "P" 2026-01-05 +1m\n');
+			expect(a.run?.latest).toBeNull();
+			expect(a.emptyPlan).toBe(true);
+			client.done(client.requests.at(-1)?.revision ?? 1, {
+				ok: false,
+				tasks: [],
+				messages: [message('error', 1, 'broken')],
+			});
+			await vi.waitFor(() => expect(a.status?.kind).toBe('errors'));
+			expect(a.emptyPlan).toBe(false);
+		});
 	});
 
 	it('asks first when it replaces an edited sample', async () => {

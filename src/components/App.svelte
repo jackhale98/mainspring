@@ -36,6 +36,7 @@
 	import { canAddSubtask, type AddMode } from '../lib/gantt/add-task';
 	import { ganttActionStrings, strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
+	import NewPlanSheet from './app/NewPlanSheet.svelte';
 	import { addTaskFlow, headerAfter } from './gantt/add-task-flow';
 	import Gantt from './gantt/Gantt.svelte';
 	import InspectorHost from './inspector/InspectorHost.svelte';
@@ -394,6 +395,7 @@
 		</Sheet>
 	{/if}
 	<DocsSheet {app} />
+	<NewPlanSheet {app} />
 </div>
 
 <style>

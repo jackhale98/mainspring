@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TjpDiagnostic } from '../tjp/diagnostics';
 import { message, result } from '../workspace/testing/fake-engine-client';
-import { isEmptyPlan, isEmptyResult } from './empty-plan';
+import { emptiesPlan, isEmptyPlan, isEmptyResult } from './empty-plan';
 
 const noTasks = { ...message('error', null, 'No tasks'), id: 'no_tasks' };
 const EMPTY = result(1, { ok: false, messages: [noTasks] });
@@ -26,7 +26,7 @@ const diag = (over: Partial<TjpDiagnostic>): TjpDiagnostic => ({
 const none = new Map<string, never>();
 const some = new Map([['a', {}]]) as unknown as Map<string, never>;
 const view = (over = {}) => ({
-	latest: { result: EMPTY },
+	latest: { result: EMPTY, workspaceVersion: 3 },
 	diagnostics: [diag({})],
 	index: { tasks: none },
 	indexVersion: 3,
@@ -58,7 +58,12 @@ describe('isEmptyPlan', () => {
 		expect(isEmptyPlan(view({ index: { tasks: some } }))).toBe(false);
 	});
 
-	it('does not trust an index that is older than the text', () => {
+	it('is not empty by a result of older text: it says nothing about the text as it is', () => {
+		expect(isEmptyPlan(view({ version: 4 }))).toBe(false);
+		expect(isEmptyPlan(view({ version: 4, indexVersion: 4 }))).toBe(false);
+	});
+
+	it('does not consult an index of other text', () => {
 		expect(isEmptyPlan(view({ index: { tasks: some }, indexVersion: 2 }))).toBe(true);
 	});
 
@@ -69,6 +74,23 @@ describe('isEmptyPlan', () => {
 
 	it('is not empty without a result, or for an ok result', () => {
 		expect(isEmptyPlan(view({ latest: null }))).toBe(false);
-		expect(isEmptyPlan(view({ latest: { result: result(1) } }))).toBe(false);
+		expect(isEmptyPlan(view({ latest: { result: result(1), workspaceVersion: 3 } }))).toBe(false);
+	});
+});
+
+describe('emptiesPlan', () => {
+	const tasks = (...ids: string[]) => ({ tasks: new Map(ids.map((i) => [i, {}])) }) as never;
+
+	it('is a delete of the only task, or of the one task with all its subtasks', () => {
+		expect(emptiesPlan(tasks('a'), { type: 'deleteTask', task: 'a' })).toBe(true);
+		expect(emptiesPlan(tasks('a', 'a.b', 'a.c'), { type: 'deleteTask', task: 'a' })).toBe(true);
+	});
+
+	it('is not a delete that leaves a task, or an edit that deletes nothing', () => {
+		expect(emptiesPlan(tasks('a', 'b'), { type: 'deleteTask', task: 'a' })).toBe(false);
+		expect(emptiesPlan(tasks('a', 'ab'), { type: 'deleteTask', task: 'a' })).toBe(false);
+		expect(emptiesPlan(tasks('a'), { type: 'renameTask', task: 'a' })).toBe(false);
+		expect(emptiesPlan(tasks('a'), { type: 'deleteTask', task: 'gone' })).toBe(false);
+		expect(emptiesPlan(tasks(), { type: 'setProjectAttr' })).toBe(false);
 	});
 });

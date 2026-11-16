@@ -540,7 +540,7 @@
 
 	{#if model.rows.length === 0}
 		{#if app.emptyPlan}
-			<EmptyState onadd={() => m.addTask('after')} {ontext} />
+			<EmptyState {app} onadd={() => m.addTask('after')} {ontext} />
 		{:else}
 			<p class="empty">{app.phase === 'ready' ? strings.gantt.noTasks : strings.topBar.loading}</p>
 		{/if}

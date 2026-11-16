@@ -139,19 +139,29 @@ describe('settleOf on an empty plan', () => {
 			messages: [{ ...message('error', null, 'No tasks'), id: 'no_tasks' }],
 		});
 	const index = (tasks: Map<string, unknown>) => ({ tasks }) as unknown as RunnerView['index'];
+	/** The result's text is version 5, and the index is of it. */
+	const at5 = (tasks = new Map<string, unknown>()) =>
+		state({ latest: empty(5), index: index(tasks), indexVersion: 5 });
 
-	it('settles as empty, not as an error, when the edit took the last task', () => {
-		const s = state({ latest: empty(5), index: index(new Map()), indexVersion: 9 });
-		expect(settleOf(s, 5, NONE)).toEqual({ status: 'empty' });
+	it('settles as empty, not as an error, for the edit that deleted every task', () => {
+		expect(settleOf(at5(), 5, NONE, true)).toEqual({ status: 'empty' });
 	});
 
-	it('is plain scheduled when the plan was empty before the edit', () => {
-		const s = state({ latest: empty(5), index: index(new Map()), indexVersion: 9 });
-		expect(settleOf(s, 5, NONE, false)).toEqual({ status: 'scheduled' });
+	it('is plain scheduled for an edit that deleted nothing, though the plan is now empty', () => {
+		// (a) Select all the text and delete it, then change the time zone in Project settings within
+		// the typing pause: the zone edit was prepared on a plan that still had tasks, but it deleted
+		// none, so it must not say "Deleted".
+		expect(settleOf(at5(), 5, NONE, false)).toEqual({ status: 'scheduled' });
+		expect(settleOf(at5(), 5, NONE)).toEqual({ status: 'scheduled' });
 	});
 
 	it('stays not-scheduled when the text still declares tasks', () => {
-		const s = state({ latest: empty(5), index: index(new Map([['a', {}]])), indexVersion: 9 });
-		expect(settleOf(s, 5, NONE)).toMatchObject({ status: 'not-scheduled' });
+		const s = at5(new Map([['a', {}]]));
+		expect(settleOf(s, 5, NONE, true)).toMatchObject({ status: 'not-scheduled' });
+	});
+
+	it('is not thrown by a keystroke after the result: the result is answered for its own text', () => {
+		const s = state({ latest: empty(5), index: index(new Map()), indexVersion: 5, version: 9 });
+		expect(settleOf(s, 5, NONE, true)).toEqual({ status: 'empty' });
 	});
 });

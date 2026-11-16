@@ -13,8 +13,8 @@
  * - both: the newer revision wins;
  * - `engine === 'failed'` (the engine gave up): every pending edit is `failed`;
  * - a result that is not ok only because the plan has no task (`no_tasks`, empty-plan.ts) is not
- *   an error: `empty` when the edit took the plan's last task ("Deleted. The plan has no
- *   tasks."), plain `scheduled` when the plan was empty already.
+ *   an error: `empty` for an edit that deleted every task of the plan it was prepared on
+ *   ("Deleted. The plan has no tasks."), plain `scheduled` for any other edit.
  */
 import type { EngineMessage, ScheduleResult } from '../../engine/protocol';
 import { engineFailureStrings, toastStrings } from '../strings';
@@ -76,20 +76,24 @@ const failed = (kind: keyof typeof engineFailureStrings): Settlement => ({
 
 /**
  * How state `s` settles an edit that produced workspace version `version`, or null: not yet.
- * `hadTasks`: the plan had a task before the edit (so an empty result means the edit emptied it).
+ * `emptied`: the edit deleted every task of the plan it was prepared on (`emptiesPlan`). Only
+ * such an edit settles as `empty`. Any other edit on a plan whose result is empty (the plan was
+ * empty already, or an earlier edit emptied it before this one settled) is plain `scheduled`.
  */
 export function settleOf(
 	s: RunnerView,
 	version: number,
 	baseline: ReadonlySet<string>,
-	hadTasks = true,
+	emptied = false,
 ): Settlement | null {
 	if (s.engine === 'failed') return failed(s.failure?.error.kind ?? 'crash');
 	const r = s.latest !== null && s.latest.workspaceVersion >= version ? s.latest : null;
 	const f = s.failure !== null && s.failure.workspaceVersion >= version ? s.failure : null;
 	if (f && (!r || f.revision > r.revision)) return failed(f.error.kind);
 	if (!r) return null;
-	if (isEmptyPlan(s)) return hadTasks ? { status: 'empty' } : { status: 'scheduled' };
+	// The result's own text: a later keystroke does not make an answer about the edit stale.
+	if (isEmptyPlan({ ...s, version: r.workspaceVersion }))
+		return emptied ? { status: 'empty' } : { status: 'scheduled' };
 	const errors = r.result.messages.filter(isError);
 	const fresh = r.result.ok ? errors.filter((m) => !baseline.has(m.id)) : errors;
 	if (r.result.ok && fresh.length === 0) return { status: 'scheduled' };

@@ -25,8 +25,8 @@ export interface Entry {
 	readonly version: number;
 	/** The error ids of the good run before it (edits-settle.ts). */
 	readonly baseline: ReadonlySet<string>;
-	/** The plan had a task before the edit: an empty result then means the edit emptied it. */
-	readonly hadTasks?: boolean;
+	/** The edit deleted every task of the plan it was prepared on (`emptiesPlan`). */
+	readonly emptied?: boolean;
 	readonly toast: number;
 	readonly task: TaskId | null;
 	readonly rename: readonly [TaskId, TaskId] | null;
@@ -44,8 +44,12 @@ export class Ledger {
 	readonly #bars = new PendingBars();
 	readonly #open: Open[] = [];
 
-	constructor(toasts: Toasts) {
+	readonly #onEmptied: () => void;
+
+	/** `onEmptied` hears an edit that deleted the plan's last task once its result is in. */
+	constructor(toasts: Toasts, onEmptied: () => void = () => undefined) {
 		this.#toasts = toasts;
+		this.#onEmptied = onEmptied;
 	}
 
 	get pending(): PendingEdits {
@@ -70,14 +74,14 @@ export class Ledger {
 		const open: Open = { ...e, resolve };
 		this.#open.push(open);
 		this.#publish();
-		const st = state && settleOf(state, e.version, e.baseline, e.hadTasks ?? true);
+		const st = state && settleOf(state, e.version, e.baseline, e.emptied ?? false);
 		if (st) this.#settle(open, st);
 		return settled;
 	}
 
 	onRunner(s: RunnerState): void {
 		for (const e of [...this.#open]) {
-			const st = settleOf(s, e.version, e.baseline, e.hadTasks ?? true);
+			const st = settleOf(s, e.version, e.baseline, e.emptied ?? false);
 			if (st) this.#settle(e, st);
 		}
 		// The plan schedules again: bars marked "not scheduled" go back to normal.
@@ -115,6 +119,7 @@ export class Ledger {
 		}
 		this.#toasts.settle(e.toast, st);
 		this.#publish();
+		if (st.status === 'empty') this.#onEmptied();
 	}
 
 	#publish(): void {

@@ -128,7 +128,7 @@ describe('statusView', () => {
 			});
 			expect(v.counts).toBe(strings.status.counts(0, 0));
 			expect(v.unlocated).toEqual([]);
-			expect(statusGlyph(v)).toBe('ok');
+			expect(statusGlyph(v)).toBe('empty');
 		});
 
 		it('forgets the last good finish of tasks that are gone', async () => {
@@ -292,6 +292,11 @@ describe('statusGlyph (the phone status button)', () => {
 	it('is a circle when scheduled with no problems, a triangle with warnings only', () => {
 		expect(statusGlyph(v('ok'))).toBe('ok');
 		expect(statusGlyph(v('ok', 0, 3))).toBe('warning');
+	});
+
+	it('is a neutral hollow circle for an empty plan, a triangle if it has warnings', () => {
+		expect(statusGlyph(v('empty'))).toBe('empty');
+		expect(statusGlyph(v('empty', 0, 2))).toBe('warning');
 	});
 
 	it('is a diamond for errors and for a failed scheduler, which outranks a run under way', () => {
