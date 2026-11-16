@@ -57,7 +57,7 @@ describe('the least the pane is', () => {
 		expect(tableLimits({ ...space, ganttPx: 0 })).toEqual({ min: TABLE_MIN_RATIO, max: MAX_RATIO });
 	});
 
-	it('shows columns only where the name and the widest column fit beside each other', () => {
+	it('shows columns only where the frozen columns and the widest column fit beside each other', () => {
 		const need = 300 + WIDEST_COLUMN_REM * 16;
 		expect(columnsFit(need, 300, 16)).toBe(true);
 		expect(columnsFit(need + 50, 300, 16)).toBe(true);

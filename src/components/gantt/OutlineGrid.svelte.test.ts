@@ -7,6 +7,7 @@ import { flushSync, mount, tick, unmount } from 'svelte';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { COLUMN_ORDER } from '../../lib/gantt/columns';
 import { gridCells } from '../../lib/gantt/grid';
+import { resolveLinks } from '../../lib/gantt/links';
 import { buildGanttModel, type GanttModel } from '../../lib/gantt/model';
 import { at, plan } from '../../lib/schedule/testing';
 import { buildIndex } from '../../lib/tjp/index';
@@ -129,6 +130,27 @@ describe('the treegrid mirrors the model', () => {
 		expect(rows()).toHaveLength(model.rows.length);
 	});
 
+	it('gives every column header a name and every header and cell its column index', () => {
+		const { grid, rows } = setup();
+		const heads = [...grid.querySelectorAll<HTMLElement>('[role="columnheader"]')];
+		expect(heads).toHaveLength(COLUMN_ORDER.length);
+		heads.forEach((h, c) => {
+			expect(h.getAttribute('aria-colindex')).toBe(String(c + 1));
+			// A header whose visible text is a symbol names itself in words.
+			const name = h.getAttribute('aria-label') ?? h.textContent?.trim() ?? '';
+			expect(name.length).toBeGreaterThan(1);
+		});
+		expect(heads[0]?.textContent?.trim()).toBe('#');
+		expect(heads[0]?.getAttribute('aria-label')).toBe('Row number');
+		for (const r of rows()) {
+			const idx = [...r.querySelectorAll('[data-col]')].map((c) => c.getAttribute('aria-colindex'));
+			expect(idx).toEqual(COLUMN_ORDER.map((_, c) => String(c + 1)));
+		}
+		// The number comes first and the name second, and the links are the last two.
+		expect(COLUMN_ORDER.indexOf('name')).toBe(1);
+		expect(grid.getAttribute('aria-colcount')).toBe('11');
+	});
+
 	it('writes the level, position, set size, expansion and row index of every row', () => {
 		const { rows, model } = setup();
 		rows().forEach((el, i) => {
@@ -161,12 +183,58 @@ describe('the treegrid mirrors the model', () => {
 			expect(cells.map((c) => c.dataset['col'])).toEqual(want.map((w) => w.column));
 			cells.forEach((c, k) => {
 				const w = want[k]!;
-				const text = (w.column === 'name' ? c.querySelector('.label') : c)?.textContent?.trim();
+				const text =
+					w.label !== undefined
+						? c.querySelector('.vis')?.getAttribute('data-text')
+						: (w.column === 'name' ? c.querySelector('.label') : c)?.textContent?.trim();
 				expect(text, `${model.rows[i]?.name} ${w.column}`).toBe(w.text);
-				expect(c.getAttribute('aria-label')).toBe(w.blank ? strings.grid.emptyWords : null);
+				expect(c.getAttribute('aria-label')).toBe(
+					w.label ?? (w.blank ? strings.grid.emptyWords : null),
+				);
+				expect(c.getAttribute('title')).toBe(w.hint ?? null);
 			});
 		});
 		expect(rows()[1]?.querySelector('[data-col="effort"]')?.textContent?.trim()).toBe('2d effort');
+	});
+
+	it('draws the link cells: row numbers for the eye, names and ids for the rest', () => {
+		const text = `project p "P" 2026-01-05 +30d
+task app "App" {
+  task ui "UI" { effort 2d }
+  task api "API" { depends !ui { gaplength 2d } }
+}
+`;
+		const ws = inline({ 'plan.tjp': text });
+		const idx = buildIndex(ws.snapshot());
+		const outline = buildOutline(idx);
+		const model = buildGanttModel({
+			nodes: outline.tasks,
+			collapsed: new Set(),
+			result,
+			dimmed: false,
+			links: resolveLinks({
+				sites: idx.dependencies,
+				result: null,
+				scenario: 'plan',
+				current: true,
+			}),
+			analysis: null,
+			locale: 'en-US',
+		});
+		const { rows } = setup({}, model);
+		const cell = (r: number, col: string) =>
+			rows()[r]!.querySelector<HTMLElement>(`[data-col="${col}"]`)!;
+		expect(cell(1, 'number').textContent?.trim()).toBe('2');
+		const seen = (r: number, col: string) =>
+			cell(r, col).querySelector('.vis')?.getAttribute('data-text');
+		const heard = (r: number, col: string) => cell(r, col).getAttribute('aria-label');
+		expect(seen(2, 'predecessors')).toBe('2');
+		// The numbers are for the eye only: assistive technology reads the names instead.
+		expect(cell(2, 'predecessors').textContent?.trim()).toBe('');
+		expect(heard(2, 'predecessors')).toBe('Predecessors: UI');
+		expect(cell(2, 'predecessors').getAttribute('title')).toBe('Waits for: app.ui');
+		expect(heard(1, 'successors')).toBe('Successors: API');
+		expect(cell(1, 'predecessors').getAttribute('aria-label')).toBe('none');
 	});
 
 	it('gives each row an accessible name with its dates, and the name cell is the row header', () => {
@@ -186,6 +254,23 @@ describe('the treegrid mirrors the model', () => {
 			const name = c.dataset['col'] === 'name';
 			expect(c.classList.contains('hidden')).toBe(!name);
 			expect(c.hasAttribute('tabindex')).toBe(name);
+		}
+	});
+
+	it('keeps the number and the name when the pane has no room for more, and the name alone on a phone', () => {
+		for (const [shown, drawn] of [
+			[
+				['number', 'name'],
+				['number', 'name'],
+			],
+			[['name'], ['name']],
+		] as const) {
+			const { rows } = setup({ shown });
+			for (const c of rows()[0]!.querySelectorAll<HTMLElement>('[data-col]')) {
+				const on = (drawn as readonly string[]).includes(c.dataset['col'] ?? '');
+				expect(c.classList.contains('hidden'), `${shown.join()} ${c.dataset['col']}`).toBe(!on);
+				expect(c.hasAttribute('tabindex')).toBe(on);
+			}
 		}
 	});
 
@@ -265,6 +350,12 @@ describe('roving tabindex and the keys', () => {
 		press(ui!, 'ArrowRight');
 		await tick();
 		await tick();
+		// The row number is the first cell, then the name.
+		const number = ui!.querySelector('[data-col="number"]');
+		expect(document.activeElement).toBe(number);
+		press(number!, 'ArrowRight');
+		await tick();
+		await tick();
 		const name = ui!.querySelector('[data-col="name"]');
 		expect(document.activeElement).toBe(name);
 		press(name!, 'ArrowRight');
@@ -274,15 +365,15 @@ describe('roving tabindex and the keys', () => {
 		press(document.activeElement!, 'Home');
 		await tick();
 		await tick();
-		expect(document.activeElement).toBe(name);
-		press(name!, 'ArrowLeft');
+		expect(document.activeElement).toBe(number);
+		press(number!, 'ArrowLeft');
 		await tick();
 		await tick();
 		expect(document.activeElement).toBe(ui);
 	});
 
 	it('skips a column that is not drawn', async () => {
-		const { rows } = setup({ shown: ['name', 'start'] });
+		const { rows } = setup({ shown: ['number', 'name', 'start'] });
 		const [, ui] = rows();
 		ui?.focus();
 		press(ui!, 'ArrowRight');

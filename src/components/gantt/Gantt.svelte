@@ -51,7 +51,13 @@
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
 	import { RescheduleAnnouncer } from '../../lib/gantt/announce';
-	import { DEFAULT_COLUMNS, extrasRem, shownColumns } from '../../lib/gantt/columns';
+	import {
+		COLUMN_REM,
+		DEFAULT_COLUMNS,
+		extrasRem,
+		shownColumns,
+		type TableFit,
+	} from '../../lib/gantt/columns';
 	import { scenarioChain, sizingOf } from '../../lib/gantt/grid';
 	import { NO_LINE, describeRowParts } from '../../lib/gantt/describe';
 	import { resolveLinks } from '../../lib/gantt/links';
@@ -193,8 +199,13 @@
 	const chartLeft = $derived(tableW + (phone ? 0 : dividerW));
 	// A pane too narrow for a name and a column beside it is the name column alone, as on a phone:
 	// the name fills the pane (clipped with an ellipsis) and the other cells are not drawn.
-	const nameAlone = $derived(phone || !columnsFit(tableW, nameColW, remPx));
-	const columnsShown = $derived(shownColumns(nameAlone));
+	// The row number stays with it (polish item 16, as MS Project keeps the ID); a phone has the name only.
+	const numberPx = $derived(COLUMN_REM.number * remPx);
+	const fit = $derived<TableFit>(
+		phone ? 'phone' : columnsFit(tableW, nameColW + numberPx, remPx) ? 'full' : 'narrow',
+	);
+	const nameAlone = $derived(fit !== 'full');
+	const columnsShown = $derived(shownColumns(fit));
 	const naturalW = $derived(nameAlone ? tableW : nameColW + extrasRem(columnsShown) * remPx);
 
 	// The divider is dragged at the pointer's rate: one update per frame is all that is drawn.
@@ -582,7 +593,7 @@
 						sizing={(id) => sizingOf(app.index?.tasks.get(id), chain)}
 						shown={columnsShown}
 						naturalWidth={naturalW}
-						nameWidth={nameAlone && !phone ? tableW : undefined}
+						nameWidth={fit === 'narrow' ? tableW - numberPx : undefined}
 						first={firstRow}
 						last={lastRow}
 						rowHeight={metrics.rowHeight}

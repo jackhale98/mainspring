@@ -5,12 +5,13 @@
  *
  * The divider's position is a ratio, the table pane's share of the Gantt's width. It is kept
  * within limits so that neither pane can be dragged shut: the chart keeps a fifth of the width, and
- * the table pane is never narrower than `leastTableWidth` (polish item 13: the frozen Task column
+ * the table pane is never narrower than `leastTableWidth` (polish item 13: the frozen columns
  * alone at a readable width, names clipped with an ellipsis). The divider reports those limits (`tableLimits`).
- * While the pane is wide enough for a name and the widest other column (`columnsFit`) the table
+ * While the pane is wide enough for the row number, the name and the widest other column
+ * (`columnsFit`) the table
  * has its columns, which scroll beside the frozen name and are scrolled into view when they take
- * the keyboard focus (WCAG 2.4.7, 2.4.11); narrower, it is the name column alone, as on a phone,
- * and focus skips the cells it does not draw.
+ * the keyboard focus (WCAG 2.4.7, 2.4.11); narrower, it is the row number and the name alone
+ * (polish item 16), and focus skips the cells it does not draw.
  * Without a stored position the pane is as wide as the default columns (columns.ts
  * `DEFAULT_COLUMNS`) need, when the chart then keeps at least `MIN_CHART_SHARE` of the width, and
  * as wide as that rule allows when it does not (the table then scrolls sideways).
@@ -48,9 +49,12 @@ export function leastTableWidth(remPx: number): number {
 	return Math.round(LEAST_TABLE_REM * remPx);
 }
 
-/** Whether a pane is wide enough for the name column and the widest other column beside it. */
-export function columnsFit(panePx: number, nameColPx: number, remPx: number): boolean {
-	return panePx >= nameColPx + WIDEST_COLUMN_REM * remPx - 1;
+/**
+ * Whether a pane is wide enough for the frozen columns (the row number and the name) and the widest
+ * other column beside them.
+ */
+export function columnsFit(panePx: number, frozenPx: number, remPx: number): boolean {
+	return panePx >= frozenPx + WIDEST_COLUMN_REM * remPx - 1;
 }
 
 export interface TableSpace {

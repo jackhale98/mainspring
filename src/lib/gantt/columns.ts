@@ -15,10 +15,24 @@
  */
 
 export type ColumnId =
-	'name' | 'start' | 'end' | 'effort' | 'people' | 'float' | 'critical' | 'status';
+	| 'number'
+	| 'name'
+	| 'start'
+	| 'end'
+	| 'effort'
+	| 'people'
+	| 'float'
+	| 'critical'
+	| 'status'
+	| 'predecessors'
+	| 'successors';
 
-/** The cells' order, as in phase-2.md 10.1 (the name first). */
+/**
+ * The cells' order, as in phase-2.md 10.1 with polish item 16: the row number and the name (both
+ * frozen, MS Project style), the schedule's columns, then the links.
+ */
 export const COLUMN_ORDER: readonly ColumnId[] = [
+	'number',
 	'name',
 	'start',
 	'end',
@@ -27,10 +41,16 @@ export const COLUMN_ORDER: readonly ColumnId[] = [
 	'float',
 	'critical',
 	'status',
+	'predecessors',
+	'successors',
 ];
 
-/** The width of each column but the name, in rem. */
+/**
+ * The width of each column but the name, in rem. The row number is 2.25 rem: three digits and
+ * a little air, so that it and the name still read in the table's least width of 10 rem (table.ts).
+ */
 export const COLUMN_REM: Readonly<Record<Exclude<ColumnId, 'name'>, number>> = {
+	number: 2.25,
 	start: 6.5,
 	end: 6.5,
 	effort: 6,
@@ -38,17 +58,30 @@ export const COLUMN_REM: Readonly<Record<Exclude<ColumnId, 'name'>, number>> = {
 	float: 8.25,
 	critical: 6,
 	status: 6.25,
+	predecessors: 8,
+	successors: 8,
 };
 
 /** The widest column but the name, in rem. */
 export const WIDEST_COLUMN_REM = Math.max(...Object.values(COLUMN_REM));
 
-/** The columns the divider's default position shows: the name, the dates and the effort. */
-export const DEFAULT_COLUMNS: readonly ColumnId[] = ['name', 'start', 'end', 'effort'];
+/** The columns the divider's default position shows: the number, the name, the dates and the effort. */
+export const DEFAULT_COLUMNS: readonly ColumnId[] = ['number', 'name', 'start', 'end', 'effort'];
 
-/** The columns drawn: all of them, or on a phone the name alone. */
-export function shownColumns(phone: boolean): readonly ColumnId[] {
-	return phone ? ['name'] : COLUMN_ORDER;
+/** The columns that stay at the table's left while the others scroll under them. */
+export const FROZEN_COLUMNS: readonly ColumnId[] = ['number', 'name'];
+
+/**
+ * How much of the table is drawn: `full`, every column; `narrow`, the pane has no room for a
+ * column beside the frozen two (polish item 13), so only the row number and the name show, as
+ * MS Project keeps the ID beside the name; `phone`, the name alone (the number is in the table for
+ * a screen reader, but a phone's name column is too narrow to spend on it).
+ */
+export type TableFit = 'full' | 'narrow' | 'phone';
+
+/** The columns drawn at a fit. */
+export function shownColumns(fit: TableFit): readonly ColumnId[] {
+	return fit === 'phone' ? ['name'] : fit === 'narrow' ? FROZEN_COLUMNS : COLUMN_ORDER;
 }
 
 /** The width of the columns but the name, in rem. */

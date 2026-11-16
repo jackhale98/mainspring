@@ -30,6 +30,8 @@
 	<li class="row">
 		<div class="head">
 			<button type="button" class="name" onclick={() => openTask(otherId)}>{other}</button>
+			<!-- The TaskJuggler id, as the table's Predecessors and Successors cells show on hover. -->
+			<code class="id">{otherId}</code>
 			{#if l.state === 'pending'}<span class="tag">{S.dependency.pending}</span>{/if}
 		</div>
 		{#if !l.editable}
@@ -144,6 +146,12 @@
 		text-align: start;
 		text-decoration: underline;
 		cursor: pointer;
+		overflow-wrap: anywhere;
+	}
+	.id {
+		color: var(--color-text-muted);
+		font-family: var(--font-mono, monospace);
+		font-size: var(--text-xs);
 		overflow-wrap: anywhere;
 	}
 	.tag,

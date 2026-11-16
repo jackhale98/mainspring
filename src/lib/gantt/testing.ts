@@ -63,7 +63,20 @@ export function modelOf(
 	over: Partial<GanttModel> = {},
 ): GanttModel {
 	const rowOf = new Map(rows.map((r, i) => [r.key, i] as const));
-	return { ...EMPTY_MODEL, rows, rowOf, links, endMin: 100 * D, scheduled: true, ...over };
+	// The numbers of the rows given, in order; no link lists (a test that wants them passes `rowInfo`).
+	const rowInfo = new Map(
+		rows.map((r, i) => [r.key, { number: i + 1, predecessors: [], successors: [] }] as const),
+	);
+	return {
+		...EMPTY_MODEL,
+		rows,
+		rowOf,
+		links,
+		rowInfo,
+		endMin: 100 * D,
+		scheduled: true,
+		...over,
+	};
 }
 
 /**

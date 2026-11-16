@@ -104,7 +104,7 @@ test.describe('the table divider', () => {
 		expect(Math.abs((await widthOf(page)) - kept)).toBeGreaterThan(20);
 	});
 
-	test('the default shows Task, Start, End and Effort at natural widths', async ({
+	test('the default shows #, Task, Start, End and Effort at natural widths', async ({
 		page,
 	}, info) => {
 		test.skip(info.project.name !== 'desktop');
@@ -190,12 +190,23 @@ test.describe('the table divider', () => {
 		await page.locator('[tabindex="0"][data-key]').first().focus();
 		// Into the cells and along them to the last column, which the default hides past the pane.
 		// One key at a time: a move is finished (scrolled, focused) before the next key reads it.
-		const cols = ['name', 'start', 'end', 'effort', 'people', 'float', 'critical', 'status'];
-		for (const col of cols) {
+		const cols = [
+			'number',
+			'name',
+			'start',
+			'end',
+			'effort',
+			'people',
+			'float',
+			'critical',
+			'status',
+		];
+		const links = ['predecessors', 'successors'];
+		for (const col of [...cols, ...links]) {
 			await page.keyboard.press('ArrowRight');
 			await expect(firstRow.locator(`[data-col="${col}"]`)).toBeFocused();
 		}
-		const status = firstRow.locator('[data-col="status"]');
+		const status = firstRow.locator('[data-col="successors"]');
 		const [cell, pane, name] = await Promise.all([
 			status.boundingBox(),
 			names(page).boundingBox(),
@@ -205,9 +216,11 @@ test.describe('the table divider', () => {
 			(pane?.x ?? 0) + (pane?.width ?? 0) + 1,
 		);
 		expect(cell?.x ?? 0).toBeGreaterThanOrEqual((name?.x ?? 0) + (name?.width ?? 0) - 1);
-		// And back to the start: Home goes to the name, the next cell is scrolled back into view.
+		// And back to the start: Home goes to the number, the cell after the name is scrolled back
+		// into view.
 		await page.keyboard.press('Home');
-		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
+		await expect(firstRow.locator('[data-col="number"]')).toBeFocused();
+		await page.keyboard.press('ArrowRight');
 		await page.keyboard.press('ArrowRight');
 		const start = firstRow.locator('[data-col="start"]');
 		await expect(start).toBeFocused();
@@ -227,13 +240,21 @@ test.describe('the table divider', () => {
 		expect(await valueOf(page)).toBe(min);
 		expect(min).toBeLessThan(20);
 		await page.waitForTimeout(300);
-		// The pane is 10 rem (160 px) wide: the Task column alone, names clipped with an ellipsis.
+		// The pane is 10 rem (160 px) wide: the row number (2.25 rem) and the Task column, names
+		// clipped with an ellipsis (polish items 13 and 16: # stays beside the name).
 		const pane = await names(page).boundingBox();
 		expect(Math.abs((pane?.width ?? 0) - 160)).toBeLessThanOrEqual(2);
 		const firstRow = page.locator('[role="row"][data-key]').first();
 		const nameBox = await firstRow.locator('[data-col="name"]').boundingBox();
-		expect(Math.abs((nameBox?.width ?? 0) - (pane?.width ?? 0))).toBeLessThanOrEqual(2);
-		for (const col of ['start', 'end', 'effort']) {
+		const numberBox = await firstRow.locator('[data-col="number"]').boundingBox();
+		expect(Math.abs((numberBox?.width ?? 0) - 36)).toBeLessThanOrEqual(1);
+		expect(
+			Math.abs((nameBox?.width ?? 0) + (numberBox?.width ?? 0) - (pane?.width ?? 0)),
+		).toBeLessThanOrEqual(2);
+		expect(nameBox?.x ?? 0).toBeGreaterThanOrEqual(
+			(numberBox?.x ?? 0) + (numberBox?.width ?? 0) - 1,
+		);
+		for (const col of ['start', 'end', 'effort', 'predecessors', 'successors']) {
 			expect(
 				(await firstRow.locator(`[data-col="${col}"]`).boundingBox())?.width ?? 0,
 			).toBeLessThanOrEqual(1);
@@ -246,8 +267,11 @@ test.describe('the table divider', () => {
 			.locator('[role="row"][data-key] [data-col="name"] .label')
 			.evaluateAll((els) => els.some((el) => el.scrollWidth > el.clientWidth));
 		expect(clipped).toBe(true);
-		// The keys still work in the name column: Right goes into the row's cell and stays on it.
+		// The keys still work in the two cells drawn: Right goes into the row's number, then the
+		// name, and stays on it.
 		await page.locator('[tabindex="0"][data-key]').first().focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(firstRow.locator('[data-col="number"]')).toBeFocused();
 		await page.keyboard.press('ArrowRight');
 		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
 		await page.keyboard.press('ArrowRight');
@@ -275,6 +299,7 @@ test.describe('the table divider', () => {
 		await page.locator('[tabindex="0"][data-key]').first().focus();
 		await page.keyboard.press('ArrowRight');
 		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowRight');
 		const start = firstRow.locator('[data-col="start"]');
 		await expect(start).toBeFocused();
 		// Dragging the divider does not move the focus: the pane shrinks under the focused cell.
@@ -293,7 +318,7 @@ test.describe('the table divider', () => {
 		await expect(firstRow).toBeVisible();
 		// And the keys carry on from the row.
 		await page.keyboard.press('ArrowRight');
-		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
+		await expect(firstRow.locator('[data-col="number"]')).toBeFocused();
 	});
 
 	test('a position stored beyond the limits is clamped on load', async ({ page }, info) => {
@@ -335,7 +360,19 @@ test.describe('the table divider', () => {
 			(await firstRow.locator('[data-col="start"]').boundingBox())?.width ?? 0,
 		).toBeGreaterThan(90);
 		await page.locator('[tabindex="0"][data-key]').first().focus();
-		const cols = ['name', 'start', 'end', 'effort', 'people', 'float', 'critical', 'status'];
+		const cols = [
+			'number',
+			'name',
+			'start',
+			'end',
+			'effort',
+			'people',
+			'float',
+			'critical',
+			'status',
+			'predecessors',
+			'successors',
+		];
 		for (const col of cols) {
 			await page.keyboard.press('ArrowRight');
 			const cell = firstRow.locator(`[data-col="${col}"]`);
@@ -349,7 +386,7 @@ test.describe('the table divider', () => {
 			expect((c?.x ?? 0) + (c?.width ?? 0), `${col} within the pane`).toBeLessThanOrEqual(
 				right + 1,
 			);
-			if (col !== 'name') {
+			if (col !== 'name' && col !== 'number') {
 				expect(c?.x ?? 0, `${col} clear of the name`).toBeGreaterThanOrEqual(
 					(name?.x ?? 0) + (name?.width ?? 0) - 1,
 				);
