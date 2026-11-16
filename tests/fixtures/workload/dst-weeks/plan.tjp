@@ -9,13 +9,13 @@ resource ada "Ada"
 resource bo "Bo"
 
 task spring "Spring work" {
-  start 2026-03-23
+  start 2026-03-23-09:00
   effort 12d
   allocate ada
 }
 
 task autumn "Autumn work" {
-  start 2026-10-19
+  start 2026-10-19-09:00
   effort 10d
   allocate bo
 }

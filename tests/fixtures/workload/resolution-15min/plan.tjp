@@ -12,22 +12,22 @@ resource bo "Bo"
 task quarters "Quarter hours" {
   task q1 "Seventy-five minutes" {
     start 2026-01-05-09:00
-    effort 1h15min
+    effort 75min
     allocate ada
   }
   task q2 "Ninety minutes" {
-    depends q1
-    effort 1h30min
+    depends !q1
+    effort 90min
     allocate ada
   }
   task q3 "Two hours forty-five" {
-    depends q2
-    effort 2h45min
+    depends !q2
+    effort 165min
     allocate ada
   }
   task q4 "One hundred five minutes" {
     start 2026-01-05-09:00
-    effort 1h45min
+    effort 105min
     allocate bo
   }
 }
