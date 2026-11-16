@@ -239,6 +239,66 @@ task phase "Phase" {
 		);
 	});
 
+	describe('inherited attributes that change the wait (review F1 to F3)', () => {
+		const SCEN = `project p "P" 2026-01-05 +4m {
+  scenario plan "Plan" { scenario late "Late" }
+}
+resource dev "Dev"
+shift half "Half" { workinghours mon - fri 9:00 - 12:00 }
+`;
+		const under = (attr: string, gapText = 'gaplength 5d'): string => `${SCEN}
+task p "P" {
+  ${attr}
+  task a "A" { length 2d }
+  task b "B" {
+    depends !a { ${gapText} }
+    length 2d
+  }
+}
+`;
+		const refusedAt = (text: string): string | null => {
+			const r = run(text, gap('p.b', 'p.a')).r;
+			return r.status === 'refused' && r.reason === 'conflicting-attribute'
+				? text.slice(r.at[0]?.from, r.at[0]?.to)
+				: status(r);
+		};
+
+		it('refuses inherited shifts for a gaplength, in any scenario', () => {
+			expect(refusedAt(under('shifts half'))).toBe('shifts half');
+			expect(refusedAt(under('late:shifts half'))).toBe('late:shifts half');
+			// Calendar time on both sides: a gapduration is not affected by shifts.
+			expect(status(run(under('shifts half', 'gapduration 5d'), gap('p.b', 'p.a')).r)).toBe('edit');
+		});
+
+		it('refuses an inherited allocation in any scenario', () => {
+			expect(refusedAt(under('late:allocate dev'))).toBe('late:allocate dev');
+			expect(refusedAt(under('allocate dev', 'gapduration 5d'))).toBe('allocate dev');
+		});
+
+		it('refuses an inherited minstart, and lets maxend through', () => {
+			expect(refusedAt(under('minstart 2026-01-05'))).toBe('minstart 2026-01-05');
+			expect(refusedAt(under('late:minstart 2026-01-05', 'gapduration 5d'))).toBe(
+				'late:minstart 2026-01-05',
+			);
+			expect(status(run(under('maxend 2026-04-30'), gap('p.b', 'p.a')).r)).toBe('edit');
+			// Ancestors further up count too.
+			const deep = `${SCEN}
+task top "Top" {
+  minstart 2026-01-05
+  task p "P" {
+    task a "A" { length 2d }
+    task b "B" {
+      depends !a { gaplength 5d }
+      length 2d
+    }
+  }
+}
+`;
+			const r = run(deep, gap('top.p.b', 'top.p.a')).r;
+			expect(status(r)).toBe('refused:conflicting-attribute');
+		});
+	});
+
 	it('gives an index that reads the waiting task and the links', () => {
 		const s = setup(PLAN);
 		const r = applyIntent(s.snap, s.index, gap('build', 'design', 'Wait', 'wait'));

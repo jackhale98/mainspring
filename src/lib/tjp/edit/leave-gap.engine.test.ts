@@ -11,6 +11,10 @@
 //   they are not booked are their leave. After the edit, those slots are the ones before minus the
 //   scope's own leave in [start, end): a person's leave for a person, the global holiday for the
 //   global scope. When the engine returns schema v3 `leaves` (T6), they are compared the same way.
+// - gapToTask, the review's repros (F1 to F3): an inherited `shifts` (gaplength), a prefixed
+//   `allocate` and an inherited `minstart` are refused; the same conversion written by hand moves
+//   the successor, books the person or adds warnings, which is why.
+// - clearLeave in Europe/Berlin (F4): `+3d` across the DST change is read as instants.
 // - clearLeave, fast-check: random ranges and scopes on the fixture and on the golden plans with
 //   leaves still schedule with no new errors, and on the fixture have the effect above.
 // Needs the built engine (npm run build:engine); skipped without it unless TJP_EDIT_ENGINE=1.
@@ -171,6 +175,122 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 			expect(compared).toBeGreaterThanOrEqual(5);
 		}, 600_000);
 
+		it('gapToTask refuses inherited attributes that would change the wait (review F1 to F3)', async () => {
+			const engine = await bootNodeEngine({ log: () => {} });
+			const head = `project p "P" 2026-01-05 +4m {
+  scenario plan "Plan" { scenario late "Late" }
+}
+resource dev "Dev"
+shift half "Half" { workinghours mon - fri 9:00 - 12:00 }
+`;
+			const under = (attr: string): string => `${head}task p "P" {
+  ${attr}
+  task a "A" { length 2d }
+  task b "B" {
+    depends !a { gaplength 5d }
+    length 2d
+  }
+}
+`;
+			// What the intent would have written, by hand, to show why it refuses.
+			const byHand = (text: string): string =>
+				text.replace(
+					'  task b "B" {\n    depends !a { gaplength 5d }',
+					'  task w "W" {\n    length 5d\n    depends !a\n  }\n  task b "B" {\n    depends !w',
+				);
+			const minstart = `${head}task a "A" { length 2d }
+task p "P" {
+  minstart 2026-01-14
+  task b "B" {
+    depends a { gaplength 5d }
+    length 2d
+  }
+}
+`;
+			const at = (r: ScheduleResult, id: string, sc: string): string => {
+				const s = r.tasks.find((t) => t.id === id)?.scenarios[sc];
+				return `${s?.start}-${s?.end}`;
+			};
+			const cases: Array<{
+				name: string;
+				text: string;
+				succ: string;
+				target: string;
+				effect: (base: ScheduleResult, hand: ScheduleResult) => boolean;
+			}> = [
+				{
+					name: 'shifts half (F1)',
+					text: under('shifts half'),
+					succ: 'p.b',
+					target: 'p.a',
+					effect: (b, h) => at(b, 'p.b', 'plan') !== at(h, 'p.b', 'plan'),
+				},
+				{
+					name: 'late:shifts half (F1)',
+					text: under('late:shifts half'),
+					succ: 'p.b',
+					target: 'p.a',
+					effect: (b, h) =>
+						at(b, 'p.b', 'plan') === at(h, 'p.b', 'plan') &&
+						at(b, 'p.b', 'late') !== at(h, 'p.b', 'late'),
+				},
+				{
+					name: 'late:allocate dev (F2)',
+					text: under('late:allocate dev'),
+					succ: 'p.b',
+					target: 'p.a',
+					effect: (_b, h) =>
+						h.bookings.some(
+							(x) => x.task === 'p.w' && x.resource === 'dev' && x.scenario === 'late',
+						),
+				},
+				{
+					name: 'minstart (F3)',
+					text: minstart,
+					succ: 'p.b',
+					target: 'a',
+					effect: (b, h) =>
+						h.messages.filter((m) => m.level !== 'debug' && m.level !== 'info').length >
+						b.messages.filter((m) => m.level !== 'debug' && m.level !== 'info').length,
+				},
+			];
+			const lines: string[] = [];
+			for (const c of cases) {
+				const p = plan(c.name, {
+					files: { 'plan.tjp': c.text },
+					entry: 'plan.tjp',
+					revision: 0,
+					options: {},
+				});
+				const base = run(engine, p);
+				expect(base.ok, c.name).toBe(true);
+				const r = applyIntent(p.snap, p.index, {
+					type: 'gapToTask',
+					task: c.succ,
+					target: c.target,
+					name: 'W',
+					id: 'w',
+				});
+				expect(r.status === 'refused' && r.reason, c.name).toBe('conflicting-attribute');
+				const handText = byHand(c.text).replace(
+					'  task b "B" {\n    depends a { gaplength 5d }',
+					'  task w "W" {\n    length 5d\n    depends a\n  }\n  task b "B" {\n    depends !w',
+				);
+				expect(handText, c.name).not.toBe(c.text);
+				const hand = run(engine, p, { 'plan.tjp': handText });
+				expect(c.effect(base, hand), `${c.name}: the hand-made conversion changes nothing`).toBe(
+					true,
+				);
+				lines.push(
+					`${c.name}: refused; by hand b plan ${at(base, c.succ, 'plan')} -> ${at(hand, c.succ, 'plan')}, ` +
+						`late ${at(base, c.succ, 'late')} -> ${at(hand, c.succ, 'late')}, ` +
+						`warnings ${base.messages.filter((m) => m.level === 'warning').length} -> ` +
+						`${hand.messages.filter((m) => m.level === 'warning').length}`,
+				);
+			}
+			console.log(lines.join('\n'));
+		}, 120_000);
+
 		const FIXTURE = `project leave "Leave" 2026-03-02 - 2026-07-31 {
   now 2026-03-02
 }
@@ -320,6 +440,53 @@ task test "Test" { effort 60d allocate qa }
 				failures.push(...bad.map((b) => `${intent.start}..${intent.end}: ${b}`));
 			}
 			expect(failures).toEqual([]);
+		}, 120_000);
+
+		it('clearLeave reads `+3d` across the DST change in Europe/Berlin (review F4)', async () => {
+			const engine = await bootNodeEngine({ log: () => {} });
+			// 72 hours from Friday 12:00 CET is Monday 13:00 CEST (29 March has 23 hours).
+			const text = `project berlin "Berlin" 2026-03-02 - 2026-05-29 {
+  timezone "Europe/Berlin"
+  now 2026-03-02
+}
+resource ann "Ann" {
+  leaves sick 2026-03-27-12:00 +3d
+}
+task work "Work" { effort 40d allocate ann }
+`;
+			const p = plan('berlin', {
+				files: { 'plan.tjp': text },
+				entry: 'plan.tjp',
+				revision: 0,
+				options: {},
+			});
+			const base = run(engine, p);
+			expect(base.ok).toBe(true);
+			const intent: IntentOf<'clearLeave'> = {
+				type: 'clearLeave',
+				scope: { kind: 'resource', resource: 'ann' },
+				start: '2026-03-27',
+				end: '2026-03-30-10:00',
+			};
+			const files = edited(p, intent);
+			expect(files?.['plan.tjp']).toBe(
+				text.replace('sick 2026-03-27-12:00 +3d', 'sick 2026-03-30-10:00 - 2026-03-30-13:00'),
+			);
+			const res = run(engine, p, files ?? {});
+			expect(res.ok).toBe(true);
+			expect(newErrors(base, res)).toEqual([]);
+			const at = (iso: string): number =>
+				(Date.parse(iso) - Date.parse(base.project?.start ?? '')) / 60000;
+			const from = at('2026-03-26T23:00:00Z');
+			const to = at('2026-03-30T08:00:00Z');
+			expect(checkCleared(base, res, ['ann'], from, to, false)).toEqual([]);
+			// Monday 10:00 to 13:00 CEST (08:00 to 11:00Z) is still leave; 09:00 to 10:00 is not.
+			const offAfter = off(res, 'ann', lastBooked(res, 'ann'));
+			expect(
+				[at('2026-03-30T08:00:00Z'), at('2026-03-30T10:00:00Z')].every((m) => offAfter.has(m)),
+			).toBe(true);
+			expect(offAfter.has(at('2026-03-30T07:00:00Z'))).toBe(false);
+			expect(offAfter.has(at('2026-03-30T11:00:00Z'))).toBe(false);
 		}, 120_000);
 
 		it('clearLeave: random ranges still schedule, with the effect on the fixture', async () => {

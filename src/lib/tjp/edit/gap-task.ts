@@ -24,8 +24,17 @@
  *   of one kind, and when the link is not exactly one unprefixed `depends` item of `task`
  *   (a `precedes` item on the target, a scenario-prefixed item, or several items);
  * - `invalid-value` for a gap TaskJuggler would reject;
- * - `conflicting-attribute` when the new task would inherit an allocation from the parent: a
- *   waiting task must not book people;
+ * - `conflicting-attribute` when the new task would inherit, from any ancestor and in any
+ *   scenario (prefixed statements included), an attribute that changes what the wait means
+ *   (TaskJuggler copies inherited attributes to a child when it is declared), at those statements:
+ *   - `allocate`: a waiting task must not book people;
+ *   - `shifts`, for a `gaplength` gap: the gap counts the project's working time, but a `length`
+ *     task counts its own (inherited) shifts, so the successor would move (`gapduration` and
+ *     `duration` both count calendar time, so they are not affected);
+ *   - `minstart`: the waiting task starts at the target's end, which may be before the inherited
+ *     minimum start, and TaskJuggler would warn about a task the fix created (the H4 health
+ *     check would then flag it); telling whether it does needs the schedule, so any inherited
+ *     `minstart` refuses. `maxend` is harmless: the waiting task ends when the successor starts.
  * - `addTask`'s refusals for the new task (`id-collision`, `invalid-value` for an id, `unsafe-text`
  *   for the name, `needs-schedule` for a sibling whose id only the engine knows);
  * - `shared-declaration` in a file read in several include visits (structural, like `addTask`).
@@ -36,7 +45,7 @@ import type { ChangeSet } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 import type { WorkspaceSnapshot } from '../../workspace/workspace';
 import { changeSetOf, type TjpFile } from '../document';
-import type { SourceRange } from '../index';
+import type { SourceRange, TaskId } from '../index';
 import { statementAt, statementsIn } from '../tree';
 import { printValue } from '../values';
 import type { IntentHandler } from './apply';
@@ -65,6 +74,7 @@ import {
 	type EditOp,
 	type IntentOf,
 	type IntentPlan,
+	type Refused,
 	type TaskAttr,
 } from './types';
 
@@ -119,15 +129,8 @@ export function planGapToTask(ctx: EditContext, intent: IntentOf<'gapToTask'>): 
 	if (isRefused(v)) return v;
 	const value = printValue(v);
 	if (!value.ok) return refused('invalid-value', [d.item]);
-	// T8: the new task inherits the parent's `allocate` items (TaskJuggler copies them to a child
-	// when it is declared), so it would book people for the gap.
-	const inherited = taskState(ws, index, succ.id).inherited;
-	if (inherited && inherited.allocs.length > 0) {
-		const at = index.allocations
-			.filter((a) => a.task !== null && isAncestor(index, a.task, succ.id))
-			.map((a) => a.statement);
-		return refused('conflicting-attribute', at.length > 0 ? at : [succ.decl.header]);
-	}
+	const clash = inheritedClash(ctx, succ.id, kind.gap);
+	if (clash) return clash;
 	const parent = succ.parent === null ? null : (index.tasks.get(succ.parent) ?? null);
 	const at = siblingsAt(ctx, parent, null).findIndex((s) => s.id === succ.id);
 	if (at < 0) return refused('unknown-target', [succ.decl.header]);
@@ -143,6 +146,41 @@ export function planGapToTask(ctx: EditContext, intent: IntentOf<'gapToTask'>): 
 	const sizing = { keyword: kind.attr, text: `${kind.attr} ${value.value}` };
 	return fillTask(ctx, added, { ...d, node }, sizing, pred.id, succ.id, parent?.id ?? null);
 }
+
+/**
+ * `conflicting-attribute` when the new task, declared under `succ`'s parent, would inherit an
+ * attribute that changes what it means (module comment), in any scenario: at the ancestors'
+ * statements. Checked on every ancestor's own statements, prefixed or not, so a scenario that
+ * sets one counts too (T8, review F1 to F3).
+ */
+function inheritedClash(
+	ctx: EditContext,
+	succ: TaskId,
+	gap: 'gaplength' | 'gapduration',
+): Refused | null {
+	const { index, ws } = ctx;
+	const keys = new Set(['allocate', 'minstart', ...(gap === 'gaplength' ? ['shifts'] : [])]);
+	const at: SourceRange[] = [];
+	for (let p = index.tasks.get(succ)?.parent ?? null; p !== null;) {
+		const sym = index.tasks.get(p);
+		if (!sym) break;
+		for (const a of sym.attrs) if (keys.has(a.keyword)) at.push(a.statement);
+		p = sym.parent;
+	}
+	for (const a of index.allocations) {
+		if (a.task !== null && isAncestor(index, a.task, succ) && !at.some((r) => same(r, a.statement)))
+			at.push(a.statement);
+	}
+	// An allocation the ancestors' own statements do not show (a macro, an engine-only id).
+	const inherited = taskState(ws, index, succ).inherited;
+	if (at.length === 0 && inherited && inherited.allocs.length > 0) {
+		at.push(index.tasks.get(succ)?.decl.header ?? { file: ws.entry, from: 0, to: 0 });
+	}
+	return at.length > 0 ? refused('conflicting-attribute', at) : null;
+}
+
+const same = (a: SourceRange, b: SourceRange): boolean =>
+	a.file === b.file && a.from === b.from && a.to === b.to;
 
 /** The block statement whose header starts at `pos` in `file`, as a range. */
 function blockAt(file: TjpFile, pos: number): SourceRange | null {
