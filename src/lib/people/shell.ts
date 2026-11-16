@@ -8,9 +8,9 @@
  * - Desktop and tablet: Workload, Resources and Calendar are the views besides the Gantt.
  * - Phone: Load is the heatmap (Workload), Lanes the lanes, Calendar the calendar, and Team the
  *   resource list, which on a desktop is the table beside the lanes (Resources).
- * - A plan that declares no resource has nothing to show in Workload, Resources, Lanes or Team:
- *   they show "No people yet" with Add person. The calendar does not need people: holidays are
- *   global ("Everyone", 9.5), so it keeps its own content.
+ * - What a content shows when the plan has no resource is empty.ts, which only the lazy chunk
+ *   imports (a module the frame and the chunk both import would be a chunk of its own, fetched with
+ *   the first load).
  */
 import type { PeopleSegment, View } from '../state/selection.svelte';
 
@@ -32,21 +32,4 @@ export function contentOfSegment(segment: PeopleSegment): PeopleContent {
 		case 'team':
 			return 'team';
 	}
-}
-
-/** Whether the content is empty without people (the calendar still holds global holidays). */
-export function needsPeople(content: PeopleContent): boolean {
-	return content !== 'calendar';
-}
-
-/**
- * What the content area shows: nothing yet while the plan has no index, "No people" for a plan that
- * declares no resource, else the content itself.
- */
-export function peopleState(
-	content: PeopleContent,
-	plan: { readonly indexed: boolean; readonly resources: number },
-): 'loading' | 'none' | 'content' {
-	if (!plan.indexed) return 'loading';
-	return needsPeople(content) && plan.resources === 0 ? 'none' : 'content';
 }

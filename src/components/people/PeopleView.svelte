@@ -11,7 +11,8 @@
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { peopleState, type PeopleContent } from '../../lib/people/shell';
+	import { peopleState } from '../../lib/people/empty';
+	import type { PeopleContent } from '../../lib/people/shell';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
 	import NoPeople from './NoPeople.svelte';
