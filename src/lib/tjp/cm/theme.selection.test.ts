@@ -1,22 +1,26 @@
 // @vitest-environment jsdom
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The editor marks itself while text is selected, so the active line and the selected source drop
-// their backgrounds and the selection layer behind them shows (user, 2026-11-16).
+// Selected text is marked inline, above the active line's and the selected source's backgrounds,
+// so a selection always shows (user, 2026-11-16).
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
-import { HAS_SELECTION_CLASS, tjpTheme } from './theme';
+import { SELECTED_CLASS, tjpTheme } from './theme';
 
-describe('selectionMarker', () => {
-	it('marks the editor only while some text is selected, so line backgrounds step aside', () => {
+describe('selectionMarks', () => {
+	it('marks exactly the selected text, and nothing for a cursor', () => {
 		const view = new EditorView({
 			state: EditorState.create({ doc: 'task a "A"\ntask b "B"\n', extensions: [tjpTheme()] }),
 		});
-		expect(view.dom.classList.contains(HAS_SELECTION_CLASS)).toBe(false);
-		view.dispatch({ selection: EditorSelection.range(0, 4) });
-		expect(view.dom.classList.contains(HAS_SELECTION_CLASS)).toBe(true);
+		const marked = (): string[] =>
+			[...view.contentDOM.querySelectorAll(`.${SELECTED_CLASS}`)].map((e) => e.textContent ?? '');
+		expect(marked()).toEqual([]);
+		view.dispatch({ selection: EditorSelection.range(5, 6) });
+		expect(marked()).toEqual(['a']);
+		view.dispatch({ selection: EditorSelection.range(11, 21) });
+		expect(marked()).toEqual(['task b "B"']);
 		view.dispatch({ selection: EditorSelection.cursor(3) });
-		expect(view.dom.classList.contains(HAS_SELECTION_CLASS)).toBe(false);
+		expect(marked()).toEqual([]);
 		view.destroy();
 	});
 });

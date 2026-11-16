@@ -118,7 +118,7 @@ describe('loadReport', () => {
 });
 
 describe('week headers and wall clocks', () => {
-	it('reads the local time and offset tj3 prints', () => {
+	it('reads the local time and offset TaskJuggler prints', () => {
 		expect(parseWeekStart('2026-03-30T00:00:00+0200')).toEqual({
 			ms: Date.UTC(2026, 2, 29, 22),
 			wall: Date.UTC(2026, 2, 30),
@@ -232,7 +232,7 @@ describe('expectedLoad and loadDiffs', () => {
 		expect(d).toEqual({ problems: [], rows: 3, weeks: 2, compared: 2 + 3 * (2 + 2 * 8) });
 	});
 
-	it("checks that tj3's weeks start on the golden's week start day", () => {
+	it("checks that TaskJuggler's weeks start on the golden's week start day", () => {
 		const r = result();
 		r.project.weekStartsMonday = false;
 		expect(loadDiffs(r, parseCsv(CSV)).problems).toEqual([
@@ -256,7 +256,7 @@ describe('expectedLoad and loadDiffs', () => {
 		expect(loadDiffs(r, parseCsv(csv)).problems).toEqual([]);
 		const off = csv.replace('"Plan";"  b";1.333333', '"Plan";"  b";1.333335');
 		expect(loadDiffs(r, parseCsv(off)).problems).toEqual([
-			'Plan / b, week of 2026-01-05T00:00:00+0000: effort 1.333335 h in tj3, golden bookings x efficiency 1.3333333333333333 h',
+			'Plan / b, week of 2026-01-05T00:00:00+0000: effort 1.333335 h natively, golden bookings x efficiency 1.3333333333333333 h',
 		]);
 	});
 
@@ -267,14 +267,14 @@ describe('expectedLoad and loadDiffs', () => {
 				const first = r.bookings[0]?.intervals[0];
 				if (first) first[1] -= 60;
 			},
-			/Plan \/ team, week of 2026-01-05T00:00:00\+0000: effort 10 h in tj3, golden bookings x efficiency 9 h/,
+			/Plan \/ team, week of 2026-01-05T00:00:00\+0000: effort 10 h natively, golden bookings x efficiency 9 h/,
 		],
 		[
 			'working time',
 			(r: ReturnType<typeof result>) => {
 				r.resources[1]?.scenarios.plan?.workingTime?.pop();
 			},
-			/frame .*: freework 78 h in tj3, golden 70 h/,
+			/frame .*: freework 78 h natively, golden 70 h/,
 		],
 		[
 			'a leave type',
@@ -282,7 +282,7 @@ describe('expectedLoad and loadDiffs', () => {
 				const leave = r.resources[1]?.scenarios.plan?.leaves[0];
 				if (leave) leave.type = 'sick';
 			},
-			/annualleave 8 h in tj3, golden 0 h/,
+			/annualleave 8 h natively, golden 0 h/,
 		],
 		[
 			'efficiency',
@@ -290,7 +290,7 @@ describe('expectedLoad and loadDiffs', () => {
 				const a = r.resources[1]?.scenarios.plan;
 				if (a) a.efficiency = 0.5;
 			},
-			/effort 10 h in tj3, golden bookings x efficiency 6 h/,
+			/effort 10 h natively, golden bookings x efficiency 6 h/,
 		],
 	])('reports a changed %s', (_what, mutate, line) => {
 		const r = result();

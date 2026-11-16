@@ -6,15 +6,15 @@
  */
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { Decoration, EditorView } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { STALE_CLASS } from './lint';
 import { SOURCE_CLASS } from './source-highlight';
 
 const v = (name: string): string => `var(--${name})`;
 
-/** Set on the editor while any selection range is not empty (see the active-line rule). */
-export const HAS_SELECTION_CLASS = 'cm-has-selection';
+/** The inline mark on selected text (see the selection rule in the theme). */
+export const SELECTED_CLASS = 'cm-tjp-selected';
 
 export const tjpHighlightStyle = HighlightStyle.define([
 	{ tag: t.keyword, color: v('color-syntax-keyword'), fontWeight: '600' },
@@ -51,12 +51,10 @@ export const tjpEditorTheme = EditorView.theme({
 		backgroundColor: `${v('color-editor-selection')} !important`,
 	},
 	'.cm-activeLine': { backgroundColor: v('color-editor-active-line') },
-	// CodeMirror draws the selection in a layer behind the lines, so a line's own background hides
-	// it. While text is selected, the active line and the selected source drop their background
-	// (the source keeps its rule), so the selection always shows (user, 2026-11-16).
-	[`&.${HAS_SELECTION_CLASS} .cm-activeLine, &.${HAS_SELECTION_CLASS} .cm-line.${SOURCE_CLASS}`]: {
-		backgroundColor: 'transparent',
-	},
+	// CodeMirror draws the selection in a layer behind the lines, so a line's own background (the
+	// active line, the selected source) hides it. The selected text is also marked inline, above
+	// any line background, so a selection always shows (user, 2026-11-16).
+	[`.${SELECTED_CLASS}`]: { backgroundColor: v('color-editor-selection') },
 	// The selected source (source-highlight.ts): a background and a rule, never colour alone. The
 	// rule is an inset shadow, so it does not move the text; it follows each wrapped line.
 	[`.cm-line.${SOURCE_CLASS}`]: {
@@ -139,12 +137,17 @@ export const tjpEditorTheme = EditorView.theme({
 	},
 });
 
-/** Marks the editor while text is selected, so line backgrounds do not hide the selection. */
-export const selectionMarker = EditorView.editorAttributes.compute(['selection'], (state) =>
-	state.selection.ranges.some((r) => !r.empty) ? { class: HAS_SELECTION_CLASS } : {},
+const selectedMark = Decoration.mark({ class: SELECTED_CLASS });
+
+/** Marks the selected text inline, so line backgrounds cannot hide the selection. */
+export const selectionMarks = EditorView.decorations.compute(['selection'], (state) =>
+	Decoration.set(
+		state.selection.ranges.filter((r) => !r.empty).map((r) => selectedMark.range(r.from, r.to)),
+		true,
+	),
 );
 
 /** The editor theme and the TJP highlight style. */
 export function tjpTheme(): Extension {
-	return [tjpEditorTheme, selectionMarker, syntaxHighlighting(tjpHighlightStyle)];
+	return [tjpEditorTheme, selectionMarks, syntaxHighlighting(tjpHighlightStyle)];
 }

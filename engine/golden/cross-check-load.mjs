@@ -296,7 +296,7 @@ export function loadDiffs(result, csv, opts = {}) {
 		e.plain.forEach((v, j) => {
 			compared++;
 			if (!same(v, row.plain[j] ?? NaN)) {
-				add(`${label}, week of ${weeks[j]}: effort ${row.plain[j]} h in tj3, golden bookings x efficiency ${v} h`);
+				add(`${label}, week of ${weeks[j]}: effort ${row.plain[j]} h natively, golden bookings x efficiency ${v} h`);
 			}
 		});
 		e.cells.forEach((v, c) => {
@@ -305,7 +305,7 @@ export function loadDiffs(result, csv, opts = {}) {
 			v.forEach((x, q) => {
 				compared++;
 				const got = row.cells[c]?.[q] ?? NaN;
-				if (!same(x, got)) add(`${label}, ${period}: ${LOAD_QUERIES[q]} ${got} h in tj3, golden ${x} h`);
+				if (!same(x, got)) add(`${label}, ${period}: ${LOAD_QUERIES[q]} ${got} h natively, golden ${x} h`);
 			});
 		});
 	}
