@@ -1,33 +1,198 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Leave-paint planner types (phase-3.md 6.6): compile checks of the interface (`npm run typecheck`
-// enforces them). The planner's tests come with T12's code.
+// The leave-paint planner's paint strokes (phase-3.md 6.6, 7.1 W3 and W5, 13.1, 18.5): each outcome
+// of a paint, then the edit API's answer to the intent (a dry run with `applyIntent`): the exact
+// text after an add or a merge, Everyone and a person, a vacation, and a paint across a DST change.
+// Erase strokes (W4) and the refusals are in paint-erase.test.ts.
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Planned } from '../gantt/intents';
-import type { LeaveType } from '../tjp/edit/types';
-import type { LeavePaint, LeavePaintContext, PaintScope, PlanLeavePaintFn } from './paint';
+import { project } from '../schedule/testing';
+import { workloadPlan } from '../workload/rebalance-testing';
+import type { LeavePaint, PaintScope, PlanLeavePaintFn } from './paint';
+import { defaultLeaveType, planLeavePaint } from './paint';
+import { after, ctxOf, DAY, day, onePerson, paint, person } from './paint-testing';
 
 describe('leave-paint types (6.6)', () => {
-	it('fixes the signature T12 implements', () => {
-		expectTypeOf<PlanLeavePaintFn>().parameters.toEqualTypeOf<[LeavePaint, LeavePaintContext]>();
+	it('fixes the signature', () => {
+		expectTypeOf(planLeavePaint).toEqualTypeOf<PlanLeavePaintFn>();
 		expectTypeOf<PlanLeavePaintFn>().returns.toEqualTypeOf<Planned>();
-	});
-
-	it("paints the edit API's leave types, in one scope type for both kinds", () => {
 		expectTypeOf<LeavePaint['scope']>().toEqualTypeOf<PaintScope>();
-		expectTypeOf<Extract<LeavePaint, { type: 'paint' }>['leave']>().toEqualTypeOf<LeaveType>();
 	});
 
-	it('takes a paint and an erase', () => {
-		const strokes: LeavePaint[] = [
-			{
-				type: 'paint',
-				scope: { kind: 'resource', resource: 'dev1' },
-				from: 0,
-				to: 2880,
-				leave: 'annual',
+	it('defaults to annual for a person and holiday for Everyone (18.5)', () => {
+		expect(defaultLeaveType(person('p1'))).toBe('annual');
+		expect(defaultLeaveType({ kind: 'global' })).toBe('holiday');
+	});
+});
+
+describe('paint (W3)', () => {
+	const p = workloadPlan('leave-types');
+	const text = p.text('plan.tjp');
+
+	it('adds a leave to the person, in the 18.5 form', () => {
+		const planned = planLeavePaint(paint(person('p1'), day(14), day(16), 'sick'), ctxOf(p));
+		expect(planned).toMatchObject({
+			status: 'intent',
+			constraint: false,
+			intent: {
+				type: 'addLeave',
+				scope: { kind: 'resource', resource: 'p1' },
+				leave: { type: 'sick', start: '2026-01-19', end: '2026-01-21' },
 			},
-			{ type: 'erase', scope: { kind: 'global' }, from: 1440, to: 2880 },
-		];
-		expect(strokes.map((s) => s.type)).toEqual(['paint', 'erase']);
+		});
+		expect(planned.status === 'intent' && planned.label.text).toMatch(/^Sick leave for P1: /);
+		expect(after(p, planned)).toBe(
+			text.replace(
+				'"Offsite" 2026-01-06 - 2026-01-08',
+				'"Offsite" 2026-01-06 - 2026-01-08, sick 2026-01-19 - 2026-01-21',
+			),
+		);
+	});
+
+	it('adds a holiday for Everyone after the global leaves, with its name', () => {
+		const planned = planLeavePaint(
+			paint({ kind: 'global' }, day(14), day(15), 'holiday', 'Retreat'),
+			ctxOf(p),
+		);
+		expect(planned).toMatchObject({
+			intent: {
+				type: 'addLeave',
+				scope: { kind: 'global' },
+				leave: { type: 'holiday', name: 'Retreat', start: '2026-01-19', end: '2026-01-20' },
+			},
+		});
+		expect(planned.status === 'intent' && planned.label.text).toMatch(/^Holiday for Everyone: /);
+		expect(after(p, planned)).toBe(
+			text.replace(
+				'"Founders day" 2026-01-12\n',
+				'"Founders day" 2026-01-12, holiday "Retreat" 2026-01-19 - 2026-01-20\n',
+			),
+		);
+	});
+
+	it('merges with a leave of the same type and name it touches: the end moves', () => {
+		// P2's `annual "Holiday" 2026-01-08 - 2026-01-10`, painted on from Saturday the 10th.
+		const planned = planLeavePaint(
+			paint(person('p2'), day(5), day(8), 'annual', 'Holiday'),
+			ctxOf(p),
+		);
+		expect(planned).toMatchObject({
+			intent: {
+				type: 'updateLeave',
+				to: { type: 'annual', name: 'Holiday', start: '2026-01-08', end: '2026-01-13' },
+			},
+		});
+		expect(planned.status === 'intent' && planned.label.text).toMatch(/^Annual leave for P2 now /);
+		expect(after(p, planned)).toBe(
+			text.replace('"Holiday" 2026-01-08 - 2026-01-10', '"Holiday" 2026-01-08 - 2026-01-13'),
+		);
+	});
+
+	it('merges with one it overlaps: the start moves', () => {
+		const planned = planLeavePaint(
+			paint(person('p2'), day(1), day(4), 'annual', 'Holiday'),
+			ctxOf(p),
+		);
+		expect(after(p, planned)).toBe(
+			text.replace('"Holiday" 2026-01-08 - 2026-01-10', '"Holiday" 2026-01-06 - 2026-01-10'),
+		);
+	});
+
+	it('inside a leave of its type, leaves the text alone (noop already-set)', () => {
+		const planned = planLeavePaint(
+			paint(person('p2'), day(3), day(4), 'annual', 'Holiday'),
+			ctxOf(p),
+		);
+		expect(planned).toMatchObject({ intent: { type: 'updateLeave' } });
+		expect(after(p, planned)).toEqual({ status: 'noop', reason: 'already-set' });
+	});
+
+	it('does not merge across names or types: another item', () => {
+		for (const stroke of [
+			paint(person('p2'), day(5), day(8), 'annual'),
+			paint(person('p2'), day(5), day(8), 'annual', 'Trip'),
+			paint(person('p2'), day(3), day(8), 'sick', 'Holiday'),
+		]) {
+			expect(planLeavePaint(stroke, ctxOf(p))).toMatchObject({ intent: { type: 'addLeave' } });
+		}
+	});
+
+	it('merges a holiday into the vacation of its name (edited as holiday)', () => {
+		// `vacation "Company closure" 2026-01-26`, the one-day form; painted on to the 28th.
+		const planned = planLeavePaint(
+			paint({ kind: 'global' }, day(22), day(23), 'holiday', 'Company closure'),
+			ctxOf(p),
+		);
+		expect(planned).toMatchObject({ intent: { type: 'updateLeave' } });
+		expect(after(p, planned)).toBe(
+			text.replace(
+				'vacation "Company closure" 2026-01-26',
+				'vacation "Company closure" 2026-01-26 - 2026-01-28',
+			),
+		);
+		// Without the name it is another holiday.
+		expect(
+			planLeavePaint(paint({ kind: 'global' }, day(22), day(23), 'holiday'), ctxOf(p)),
+		).toMatchObject({ intent: { type: 'addLeave' } });
+	});
+
+	it('keeps an end written as a duration unless the start moves under it', () => {
+		const q = onePerson('leaves annual 2026-01-08 +2d');
+		const later = planLeavePaint(paint(person('dev'), day(5), day(7), 'annual'), ctxOf(q));
+		expect(after(q, later)).toBe(
+			q.text('plan.tjp').replace('2026-01-08 +2d', '2026-01-08 - 2026-01-12'),
+		);
+		const earlier = planLeavePaint(paint(person('dev'), day(1), day(3), 'annual'), ctxOf(q));
+		expect(after(q, earlier)).toBe(
+			q.text('plan.tjp').replace('2026-01-08 +2d', '2026-01-06 - 2026-01-10'),
+		);
+		const inside = planLeavePaint(paint(person('dev'), day(3), day(4), 'annual'), ctxOf(q));
+		expect(inside).toMatchObject({ intent: { to: { start: '2026-01-08', end: '+2d' } } });
+		expect(after(q, inside)).toEqual({ status: 'noop', reason: 'already-set' });
+	});
+});
+
+describe('days in the plan zone', () => {
+	it('writes local dates across a DST change (Europe/Berlin)', () => {
+		const p = workloadPlan('dst-weeks');
+		const pr = p.result.project!;
+		// TaskJuggler reads the header's date before the zone: the frame starts 01:00 local.
+		expect(pr.start).toBe('2026-03-23T00:00:00Z');
+		const m = (utc: string): number => (Date.parse(utc) - Date.parse(pr.start)) / 60_000;
+		// Friday 27 March to Tuesday 31 March, local midnights: the 29th is 23 hours long.
+		const from = m('2026-03-26T23:00:00Z');
+		const to = m('2026-03-30T22:00:00Z');
+		expect(to - from).toBe(4 * DAY - 60);
+		const planned = planLeavePaint(paint(person('ada'), from, to, 'annual'), ctxOf(p));
+		expect(planned).toMatchObject({
+			intent: {
+				type: 'addLeave',
+				leave: { type: 'annual', start: '2026-03-27', end: '2026-03-31' },
+			},
+		});
+		expect(after(p, planned)).toBe(
+			p
+				.text('plan.tjp')
+				.replace(
+					'resource ada "Ada"\n',
+					'resource ada "Ada" {\n  leaves annual 2026-03-27 - 2026-03-31\n}\n',
+				),
+		);
+		// The autumn change: Saturday 24 to Tuesday 27 October, the 25th 25 hours long.
+		const sat = m('2026-10-23T22:00:00Z');
+		const tue = m('2026-10-26T23:00:00Z');
+		expect(planLeavePaint(paint(person('bo'), sat, tue, 'sick'), ctxOf(p))).toMatchObject({
+			intent: { leave: { start: '2026-10-24', end: '2026-10-27' } },
+		});
+	});
+
+	it('labels the days with the last day painted', () => {
+		const p = workloadPlan('leave-types');
+		const planned = planLeavePaint(paint(person('p1'), day(14), day(15), 'unpaid'), {
+			...ctxOf(p),
+			result: { ...p.result, project: project({ timezone: null }) },
+		});
+		expect(planned.status === 'intent' && planned.label.text).toBe(
+			`Unpaid leave for P1: ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 0, 19)))}`,
+		);
 	});
 });
