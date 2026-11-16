@@ -37,7 +37,7 @@ describe('the driving-path analysis on every golden plan', () => {
 	const corpus = loadCorpus();
 
 	it('covers the whole corpus', () => {
-		expect(corpus.length).toBe(41);
+		expect(corpus.length).toBe(72);
 	});
 
 	for (const { plan, golden } of corpus) {

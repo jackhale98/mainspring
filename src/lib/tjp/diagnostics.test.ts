@@ -34,7 +34,9 @@ const textOf = (s: WorkspaceSnapshot, d: TjpDiagnostic): string =>
 	d.file === null ? '' : (s.files.get(d.file)?.text.sliceString(d.from, d.to) ?? '');
 
 /** For each golden message kind: the text its range must hold, its precision and its line. */
-const EXPECTED: Record<string, { text: string; precision: string; line: number | null }> = {
+// `line: 'any'`: the kind occurs on many statements of the plan (each message is still checked to
+// point at a statement containing `text`).
+const EXPECTED: Record<string, { text: string; precision: string; line: number | null | 'any' }> = {
 	'bridge-header-only/no_tasks': { text: 'project hdr', precision: 'none', line: null },
 	'bridge-include-subfolder/marco_redefinition': { text: 'owner', precision: 'token', line: 2 },
 	'bridge-parse-failure/no_reduce': { text: 'colour', precision: 'token', line: 14 },
@@ -61,6 +63,18 @@ const EXPECTED: Record<string, { text: string; precision: string; line: number |
 		text: '30min',
 		precision: 'token',
 		line: 9,
+	},
+	'fedora-res/allocate_no_assigned': { text: 'task ', precision: 'statement', line: 'any' },
+	'fedora-res/attr_overwrite': {
+		text: 'hidetask hidden | isleaf()',
+		precision: 'statement',
+		line: 91,
+	},
+	'health-h4-fail/maxstart': { text: 'maxstart 2026-01-07', precision: 'statement', line: 23 },
+	'health-h9-fail/allocate_no_assigned': {
+		text: 'task side "Side work"',
+		precision: 'statement',
+		line: 32,
 	},
 	'upstream-fedora-20/attr_overwrite': {
 		text: 'hidetask hidden | isleaf()',
@@ -91,7 +105,8 @@ describe('engineDiagnostics on the golden results', () => {
 				const want = EXPECTED[`${id}/${m.id}`];
 				expect(want).toBeDefined();
 				expect(textOf(s, d)).toContain(want?.text);
-				expect([d.precision, d.line]).toEqual([want?.precision, want?.line]);
+				if (want?.line === 'any') expect(d.precision).toBe(want.precision);
+				else expect([d.precision, d.line]).toEqual([want?.precision, want?.line]);
 				expect(d).toMatchObject({
 					source: 'engine',
 					messageId: m.id,
