@@ -11,6 +11,8 @@
  * - A refusal may carry the blocking text-only reason (`textOnly`).
  * - `TjpEdit` is a `WorkspaceEdit`, so `Workspace.apply` takes it as it is.
  * - `EditOp`: one change an intent asks for, built by layout.ts and checked by apply.ts.
+ *
+ * Phase 3 (phase-3.md 6.5) adds `clearLeave` and `gapToTask`.
  */
 import type { ChangeSet } from '@codemirror/state';
 import type { WorkspaceEdit, WorkspaceSnapshot } from '../../workspace/workspace';
@@ -109,6 +111,19 @@ export type EditIntent =
 	| { type: 'addLeave'; scope: { kind: 'global' } | Scope; leave: LeaveSpec }
 	| { type: 'updateLeave'; leave: LeaveRef; to: LeaveSpec }
 	| { type: 'removeLeave'; leave: LeaveRef }
+	/**
+	 * Removes [start, end) from every leave item of the scope it overlaps: an item inside goes, an
+	 * item over one edge is trimmed, an item spanning the range is split in two. One edit
+	 * (phase-3.md 6.5; leave-clear.ts). `start` and `end` are dates; `end` is exclusive.
+	 */
+	| { type: 'clearLeave'; scope: { kind: 'global' } | Scope; start: string; end: string }
+	/**
+	 * `task` depends on `target` with a gap: inserts a waiting task before `task` that depends on
+	 * `target` and lasts the gap (gaplength -> length, gapduration -> duration), and points `task`'s
+	 * item at it, gap removed. One edit (phase-3.md 6.5; gap-task.ts). The id is made from `name`
+	 * when not given.
+	 */
+	| { type: 'gapToTask'; task: TaskId; target: TaskId; name: string; id?: string }
 	| { type: 'declareFlag'; flag: string }
 	/** Produced by formatFile only. */
 	| { type: 'format'; file: WorkspacePath };

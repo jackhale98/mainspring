@@ -10,6 +10,8 @@ import { calendarFamily } from './calendar';
 import { depsFamily } from './deps';
 import { flagsFamily } from './flags';
 import { formatFamily } from './format';
+import { gapTaskFamily } from './gap-task';
+import { leaveClearFamily } from './leave-clear';
 import { projectFamily } from './project';
 import { renameFamily } from './rename';
 import { resourcesFamily } from './resources';
@@ -27,6 +29,8 @@ export const FAMILIES: readonly Family[] = [
 	projectFamily,
 	calendarFamily,
 	taskTreeFamily,
+	leaveClearFamily,
+	gapTaskFamily,
 ];
 
 /** The 7.1 intents whose edit code has not merged: listed as skipped, not enforced. */
