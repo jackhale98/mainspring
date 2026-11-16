@@ -150,13 +150,27 @@
 	 * The details dock beside the chart when the chart keeps at least `CHART_MIN` px of width
 	 * with the panel in (Split shares the width with the editor, by the divider's ratio);
 	 * otherwise they are a rail and a drawer over the chart. Measured on `.work`, which docking
-	 * does not change, so there is no flip-flop. Before the first measure: docked.
+	 * does not change. Before the first measure: docked.
+	 *
+	 * The divider's ratio is a share of `.body`, and docking changes `.body`'s width: with the
+	 * pointer still, the same position is a different ratio on either side of the threshold, so a
+	 * drag that crosses it would dock and undock the panel every frame (polish item 14). The mode is
+	 * therefore held from the start of a drag and settles once, when it ends.
 	 */
 	const CHART_MIN = 640;
 	const PANEL_SLOT = 328;
 	let workW = $state(0);
 	const chartShare = $derived(split && axis === 'col' ? 1 - ratio : 1);
-	const dock = $derived(workW === 0 || (workW - PANEL_SLOT) * chartShare >= CHART_MIN);
+	const wantDock = $derived(workW === 0 || (workW - PANEL_SLOT) * chartShare >= CHART_MIN);
+	let heldDock = $state<boolean | null>(null);
+	const dock = $derived(heldDock ?? wantDock);
+	function holdDock(): void {
+		heldDock = wantDock;
+	}
+	// A drag that ends by the divider going away (another mode) settles too.
+	$effect(() => {
+		if (!split) heldDock = null;
+	});
 	const splitTracks = $derived(`minmax(0, ${ratio}fr) var(--gap-panel) minmax(0, ${1 - ratio}fr)`);
 
 	/**
@@ -347,7 +361,11 @@
 					value={ratio}
 					container={body}
 					onchange={(v) => modes.setRatio(axis, v)}
-					oncommit={() => modes.saveRatios()}
+					onbegin={holdDock}
+					oncommit={() => {
+						heldDock = null;
+						modes.saveRatios();
+					}}
 				/>
 			{/if}
 			{#if ganttSeen}

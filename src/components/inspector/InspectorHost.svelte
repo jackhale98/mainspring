@@ -95,6 +95,20 @@
 		if (!desktop && h > 0) void tick().then(() => keepRowClear(key, h));
 	});
 
+	// The panel never closes because of a resize: when the room for docking goes, an open panel
+	// becomes the open drawer (a closed one stays a closed rail), once. Going back to docked is
+	// the other way: the docked panel shows unless it was collapsed.
+	let lastDock = untrack(() => dock);
+	$effect(() => {
+		const now = dock;
+		if (now === lastDock) return;
+		const was = lastDock;
+		lastDock = now;
+		untrack(() => {
+			if (was && !now && desktop) inspector.sheet = !inspector.collapsed;
+		});
+	});
+
 	/** Escape in the panel or the drawer gives the focus back to the row (the sheet does it itself). */
 	function onkeydown(e: KeyboardEvent): void {
 		if (e.key !== 'Escape' || e.defaultPrevented) return;

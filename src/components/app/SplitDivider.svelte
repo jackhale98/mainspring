@@ -25,6 +25,8 @@
 		/** The element that holds the two panels. */
 		container: HTMLElement | undefined;
 		onchange: (value: number) => void;
+		/** A pointer drag starts: the place to hold anything that the divider's own move would change. */
+		onbegin?: () => void;
 		/** A drag or a key press ended: the place to remember it. */
 		oncommit: () => void;
 		/** What the separator is called, and the name of the first panel in its value text. */
@@ -38,6 +40,7 @@
 		value,
 		container,
 		onchange,
+		onbegin,
 		oncommit,
 		label = strings.panels.divider,
 		firstName,
@@ -67,6 +70,7 @@
 		if (e.button !== 0) return;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		dragging = true;
+		onbegin?.();
 		fromPointer(e);
 		e.preventDefault();
 	}
