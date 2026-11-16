@@ -25,6 +25,7 @@ import { ganttActionStrings, toastStrings } from '../strings';
 import { applyIntent } from '../tjp/edit/apply';
 import type { EditIntent, EditOptions, SourceRange, TjpEdit } from '../tjp/edit/types';
 import type { SymbolIndex, TaskId, TextOnlyReason } from '../tjp/index';
+import type { HistoryIntent } from '../workspace/history-steps';
 import type { WorkspaceSnapshot } from '../workspace/workspace';
 import type { Located } from './edits-settle';
 import type {
@@ -166,6 +167,21 @@ export function refused(
 export function movedId(task: TaskId, parent: TaskId | null): TaskId {
 	const local = task.slice(task.lastIndexOf('.') + 1);
 	return parent === null ? local : `${parent}.${local}`;
+}
+
+/**
+ * The task id an intent (or a history entry's intent) changes, old to new: a `moveTask` to another parent, or a `renameTask`
+ * whose `id` sets a new local id (polish item 15). Null when no id changes.
+ */
+export function renamedBy(i: HistoryIntent): readonly [TaskId, TaskId] | null {
+	if (i.type === 'moveTask') {
+		const to = movedId(i.task, i.parent);
+		return to === i.task ? null : [i.task, to];
+	}
+	if (i.type !== 'renameTask' || i.id === undefined) return null;
+	const dot = i.task.lastIndexOf('.');
+	const to = dot < 0 ? i.id : `${i.task.slice(0, dot)}.${i.id}`;
+	return to === i.task ? null : [i.task, to];
 }
 
 /**

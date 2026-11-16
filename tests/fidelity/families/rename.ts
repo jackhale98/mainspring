@@ -1,10 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // renameTask (7.1): rewrites the name string only, in its own quote style. Names with `${`, `$(` or a
-// line break are refused (`unsafe-text`), and a templated name is text-only.
+// line break are refused (`unsafe-text`), and a templated name is text-only. With `id` (polish item
+// 15) it also rewrites the id token of a leaf, when nothing could name the task by it: the header
+// (`task id "name"`) is then the region, and the task and its own dependency items take the new id.
+// Most corpus tasks are named by something, so most of these are refused; the applied ones are the
+// cases that count.
+import { slugId } from '../../../src/lib/tjp/values';
 import type { Facts, Sem } from '../gen/facts';
 import { rg } from '../gen/facts';
 import type { Family } from './types';
-import { task } from './util';
+import { isLeaf, task } from './util';
+
+/** The full id `renameTask` with `id` gives the task, or null when it keeps its id. */
+function nextId(intent: { task: string; id?: string }): string | null {
+	if (intent.id === undefined) return null;
+	const dot = intent.task.lastIndexOf('.');
+	const next = dot < 0 ? intent.id : `${intent.task.slice(0, dot)}.${intent.id}`;
+	return next === intent.task ? null : next;
+}
 
 const NAMES = [
 	'Renamed task',
@@ -36,18 +49,36 @@ export const renameFamily: Family = {
 				intent: { type: 'renameTask', task: t.id, name: rng.pick(UNSAFE) },
 				mustRefuse: ['unsafe-text'],
 			};
-		return { intent: { type: 'renameTask', task: t.id, name: rng.pick(NAMES) } };
+		const name = rng.pick(NAMES);
+		if (isLeaf(t) && rng.chance(0.35)) {
+			return { intent: { type: 'renameTask', task: t.id, name, id: slugId(name) } };
+		}
+		return { intent: { type: 'renameTask', task: t.id, name } };
 	},
 	region(intent, f: Facts) {
 		if (intent.type !== 'renameTask') return [];
-		const at = task(f, intent.task).nameAt;
-		return at ? [rg(at.file, at.from, at.to)] : [];
+		const t = task(f, intent.task);
+		const at = t.nameAt;
+		if (!at) return [];
+		return nextId(intent) === null
+			? [rg(at.file, at.from, at.to)]
+			: [rg(at.file, t.block.from, at.to)];
 	},
 	expect(sem, _f, intent): Sem {
 		const out = structuredClone(sem);
 		if (intent.type === 'renameTask') {
 			const t = out.tasks.find((x) => x.id === intent.task);
 			if (t) t.name = intent.name;
+			const next = nextId(intent);
+			if (t && next !== null) {
+				t.id = next;
+				const end = (x: string): string => (x === intent.task ? next : x);
+				out.deps = out.deps.map((d) => {
+					const [pair = '', ...rest] = d.split('|');
+					const [succ = '', pred = ''] = pair.split('<-');
+					return [`${end(succ)}<-${end(pred)}`, ...rest].join('|');
+				});
+			}
 		}
 		return out;
 	},

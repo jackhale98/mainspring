@@ -23,9 +23,11 @@
  * A selection that came from the text also leaves a `follow` request: the row to scroll into view
  * (without taking focus), which the Gantt reads once.
  *
- * Renames (phase-2.md 6.8): while a `moveTask` is pending the dispatcher publishes old id to new id
- * in `pending.renames`; `followRenames` moves the selection to the new id, a descendant of the
- * moved task included.
+ * Renames (phase-2.md 6.8): while a `moveTask` (or a `renameTask` that sets the id, polish item
+ * 15) is pending the dispatcher publishes old id to new id in `pending.renames`; `followRenames`
+ * moves the selection to the new id, a descendant of the moved task included. It keeps `serial`
+ * (which task is selected) and records `renamedFrom`, so the details neither remount nor lose
+ * the task while the index still has the old id.
  *
  * Phase 3 (phase-3.md 6.7) adds the People kinds (`PeopleSelection`: a person, a heatmap cell, a
  * run of calendar days) and the view types `View` and `PeopleSegment`. A cursor inside a
@@ -248,7 +250,25 @@ export class SelectionState {
 		this.current?.kind === 'link' ? `task:${this.current.succ}` : this.taskKey,
 	);
 
-	#set(next: Selection): void {
+	/**
+	 * Which task the selection is, across renames: it changes when another task is selected, not
+	 * when `followRenames` moves the selection to the same task's new id (the details stay mounted).
+	 */
+	serial = $state(0);
+	/**
+	 * The id the selected task had before `followRenames` moved the selection, until something else
+	 * is selected: a view whose index has not caught up yet still finds the task by it.
+	 */
+	renamedFrom = $state.raw<TaskId | null>(null);
+
+	#set(next: Selection, from: TaskId | null = null): void {
+		const cur = this.current;
+		const same = cur?.kind === 'task' && next?.kind === 'task' && cur.id === next.id;
+		if (from !== null) this.renamedFrom = from;
+		else if (!same) {
+			this.serial++;
+			this.renamedFrom = null;
+		}
 		this.current = next;
 		this.#onChange(next);
 	}
@@ -292,13 +312,13 @@ export class SelectionState {
 		if (cur.kind === 'task') {
 			const id = renamed(cur.id, renames);
 			if (id === cur.id) return false;
-			this.#set({ ...cur, id });
+			this.#set({ ...cur, id }, cur.id);
 			return true;
 		}
 		const pred = renamed(cur.pred, renames);
 		const succ = renamed(cur.succ, renames);
 		if (pred === cur.pred && succ === cur.succ) return false;
-		this.#set({ ...cur, pred, succ });
+		this.#set({ ...cur, pred, succ }, cur.succ);
 		return true;
 	}
 }

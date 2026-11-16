@@ -59,7 +59,8 @@
  *     was before the gesture, and the call answers `noop` without a toast.
  *   - When something else has become the newest undo step meanwhile (typing, Mod-Z), the gesture
  *     is broken: its next call is refused as `stale`, the rest are `cancelled` until `flush`.
- * - **Renames**: while a `moveTask` is pending, `pending.renames` maps the old id to the new one.
+ * - **Renames**: while a `moveTask` (or a `renameTask` with `id`) is pending, `pending.renames`
+ *   maps the old id to the new one.
  * - **Toasts** (`toasts`, newest last; toasts.svelte.ts): `undoToast(id)` does what Mod-Z does,
  *   only while that toast's entry is the top of the history (`canUndo`); `showToast(id)` reveals
  *   its place in the text; `dismissToast(id)` closes it.
@@ -99,7 +100,7 @@ import type { RunnerState } from '../workspace/run-types';
 import { Coalescer, type Gesture } from './coalesce';
 import { afterPaint } from './edits-yield';
 import { emptiesPlan } from './empty-plan';
-import { checkOn, isZeroTotal, movedId, prepare, refused, type Prepared } from './edits-plan';
+import { checkOn, isZeroTotal, prepare, refused, renamedBy, type Prepared } from './edits-plan';
 import { errorIdsOf, rangeNow, type Located } from './edits-settle';
 import type {
 	ActionDispatchOptions,
@@ -117,7 +118,7 @@ import { Toasts, type Toast } from './toasts.svelte';
 export type * from './edits-types';
 export type { Located, Settlement } from './edits-settle';
 export type { Toast, ToastStatus } from './toasts.svelte';
-export { movedId } from './edits-plan';
+export { movedId, renamedBy } from './edits-plan';
 
 /** Quiet time before coalesced calls are dispatched. */
 export const COALESCE_MS = 300;
@@ -389,8 +390,7 @@ export class EditDispatcher {
 				emptied: emptiesPlan(p.on.index, intent),
 				toast,
 				task: job.preview?.task ?? null,
-				rename:
-					intent.type === 'moveTask' ? [intent.task, movedId(intent.task, intent.parent)] : null,
+				rename: renamedBy(intent),
 			},
 			this.#state,
 		);

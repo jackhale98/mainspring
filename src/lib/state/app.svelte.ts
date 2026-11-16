@@ -62,7 +62,7 @@ import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { currentRange } from '../inspector/range';
 import type { SourceRange, TaskId } from '../tjp/index';
 import { nextProblem } from './diagnostics-nav';
-import { EditDispatcher, movedId } from './edits.svelte';
+import { EditDispatcher, renamedBy } from './edits.svelte';
 import { HistoryControls } from './history-controls.svelte';
 import { InspectorState } from './inspector.svelte';
 import { bindHistoryKeys } from './history-keys';
@@ -447,15 +447,12 @@ export class AppState {
 			return;
 		}
 		const files = Object.keys(o.entry.applied.edit.changes);
-		// A move renames the task (and its descendants): the selection follows it back on undo and
-		// forward again on redo (the dispatcher's `pending.renames` only covers the move itself).
-		const intent = o.entry.applied.edit.intent;
-		if (intent.type === 'moveTask') {
-			const to = movedId(intent.task, intent.parent);
-			if (to !== intent.task) {
-				const [from, next] = o.direction === 'undo' ? [to, intent.task] : [intent.task, to];
-				this.selection.followRenames(new Map([[from, next]]));
-			}
+		// A move (or a rename that sets the id) renames the task and its descendants: the selection
+		// follows it back on undo and forward again on redo (`pending.renames` covers the edit only).
+		const renamed = renamedBy(o.entry.applied.edit.intent);
+		if (renamed) {
+			const [from, next] = o.direction === 'undo' ? [renamed[1], renamed[0]] : renamed;
+			this.selection.followRenames(new Map([[from, next]]));
 		}
 		const here = o.entry.kind === 'typing' && files.length === 1 && files[0] === this.activeFile;
 		const r = o.reveal;

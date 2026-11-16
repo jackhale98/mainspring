@@ -5,7 +5,10 @@
  * - `renameTask` rewrites the name string only, in its quote style (a cut-here name becomes a
  *   double-quoted one), escaping that quote; `unsafe-text` for `${`, `$(`, line breaks, or a
  *   name no quote style can hold (a trailing backslash); noop `already-set` for the same name.
- *   A templated name is text-only.
+ *   A templated name is text-only. With `id` (polish item 15), the same edit also rewrites the
+ *   id token, when task-rename-id.ts allows it (its refusals otherwise), and the edited workspace
+ *   must index to the same tree with the task under its new id (task-verify.ts). Only `id`
+ *   different from the task's local id changes it; noop `already-set` when neither changes.
  * - `declareFlag` declares the flag where every task can use it (rule_flag looks flags up while
  *   it parses): it appends `, id` to the last file-level `flags` declaration read before the
  *   first task, else inserts `flags id` before the first task (after the text above it and its
@@ -19,11 +22,15 @@ import { appendListItem, insertStatement, replaceSpan, statementNode } from './l
 import { checkSafeText, checkTextOnly } from './refuse';
 import { fileOf, taskOf } from './task-attrs-checks';
 import { readBefore } from './task-attrs-value';
+import { planIdChange } from './task-rename-id';
+import { idMap } from './task-refs';
+import { afterEdit, verifyTree } from './task-verify';
 import {
 	isRefused,
 	noop,
 	refused,
 	type EditContext,
+	type EditOp,
 	type IntentOf,
 	type IntentPlan,
 	type SourceRange,
@@ -42,11 +49,25 @@ export function planRenameTask(ctx: EditContext, intent: IntentOf<'renameTask'>)
 	if (!written.ok) {
 		return checkTextOnly(ctx, name.file, name) ?? refused('unsupported-form', [name]);
 	}
-	if (written.value === intent.name) return noop('already-set');
-	const style = written.style === 'cut' ? 'double' : written.style;
-	const printed = printStringPreferring(intent.name, style);
-	if (!printed.ok || printed.value.startsWith('-8<-')) return refused('unsafe-text', [name]);
-	return [replaceSpan(file, name, printed.value)];
+	const ops: EditOp[] = [];
+	if (written.value !== intent.name) {
+		const style = written.style === 'cut' ? 'double' : written.style;
+		const printed = printStringPreferring(intent.name, style);
+		if (!printed.ok || printed.value.startsWith('-8<-')) return refused('unsafe-text', [name]);
+		ops.push(replaceSpan(file, name, printed.value));
+	}
+	if (intent.id === undefined || intent.id === sym.localId) {
+		return ops.length > 0 ? ops : noop('already-set');
+	}
+	const idOp = planIdChange(ctx, sym, intent.id);
+	if (isRefused(idOp)) return idOp;
+	ops.push(idOp);
+	const next = sym.parent === null ? intent.id : `${sym.parent}.${intent.id}`;
+	const map = idMap(sym.id, next);
+	return (
+		verifyTree(ctx, afterEdit(ctx, ops, map), { map }, 'unfixable-reference', [sym.decl.header]) ??
+		ops
+	);
 }
 
 export function planDeclareFlag(ctx: EditContext, intent: IntentOf<'declareFlag'>): IntentPlan {

@@ -298,3 +298,37 @@ describe('checkAction and the refusal sentences', () => {
 		expect(label({ type: 'add', parent: null, index: 1, name: 'Beta' })).toBe('Added Beta');
 	});
 });
+
+describe('rename', () => {
+	const day = { start: at(0, 9), end: at(0, 17) };
+
+	it("sets the id from the name while the task has the + control's id and nothing names it", () => {
+		const f = fx('task a "A" {\n  length 1d\n}\ntask new_task "New task" {\n  length 1d\n}\n', [
+			['a', day],
+			['new_task', day],
+		]);
+		expect(intentOf(f, { type: 'rename', task: 'new_task', name: 'Write specs' })).toEqual({
+			type: 'renameTask',
+			task: 'new_task',
+			name: 'Write specs',
+			id: 'write_specs',
+		});
+		expect(intentOf(f, { type: 'rename', task: 'a', name: 'Write specs' })).toEqual({
+			type: 'renameTask',
+			task: 'a',
+			name: 'Write specs',
+		});
+		const named = fx(
+			'task new_task "New task" {\n  length 1d\n}\ntask b "B" {\n  depends !new_task\n  length 1d\n}\n',
+			[
+				['new_task', day],
+				['b', day],
+			],
+		);
+		expect(intentOf(named, { type: 'rename', task: 'new_task', name: 'W' })).toEqual({
+			type: 'renameTask',
+			task: 'new_task',
+			name: 'W',
+		});
+	});
+});
