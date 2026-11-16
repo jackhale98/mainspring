@@ -23,7 +23,17 @@
 	import type { PeopleContent } from '../../lib/people/shell';
 	import type { AppState } from '../../lib/state/app.svelte';
 
-	type View = Component<{ app: AppState; content: PeopleContent }>;
+	/** What the chunk's view is given: the plan, what to show, and the two ways back into the frame. */
+	interface ViewProps {
+		app: AppState;
+		content: PeopleContent;
+		phone: boolean;
+		/** Puts a view's toolbar chips in this slot's bar (a desktop and a tablet); null takes them out. */
+		setBar: (bar: Snippet | null) => void;
+		/** Goes to the Gantt (a view's "Show in Gantt"). */
+		showGantt: () => void;
+	}
+	type View = Component<ViewProps>;
 	/** The chunk's component once loaded: a later mount shows it at once. */
 	let loaded: View | null = null;
 </script>
@@ -62,6 +72,13 @@
 	);
 
 	let Chunk = $state.raw<View | null>(loaded);
+	/** The toolbar chips of the view on screen (T14: the heatmap's), after the view switcher. */
+	let barExtra = $state.raw<Snippet | null>(null);
+
+	function showGantt(): void {
+		if (phone) app.phoneTab = 'gantt';
+		else people.setView('gantt');
+	}
 	let failed = $state(0);
 	let loading = false;
 
@@ -107,7 +124,10 @@
 			/>
 		</div>
 	{:else if lead}
-		<ViewBar>{@render lead()}</ViewBar>
+		<ViewBar>
+			{@render lead()}
+			{#if barExtra}{@render barExtra()}{/if}
+		</ViewBar>
 	{/if}
 	<div
 		id={phone ? 'segment-panel' : undefined}
@@ -116,7 +136,7 @@
 		aria-labelledby={phone ? `segment-tab-${people.segment}` : undefined}
 	>
 		{#if Chunk}
-			<Chunk {app} {content} />
+			<Chunk {app} {content} {phone} setBar={(b) => (barExtra = b)} {showGantt} />
 		{:else if failed > 0}
 			<div class="message" role="alert" data-testid="people-failed">
 				<p>{S.loadFailed}</p>

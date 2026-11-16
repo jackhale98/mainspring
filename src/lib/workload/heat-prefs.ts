@@ -37,8 +37,7 @@ export const heatKey = (plan: string): string => `mainspring.workload.${plan}`;
 
 /** Both thresholds are percentages in range, and spare is not above over. */
 export function validThresholds(t: Thresholds): boolean {
-	const ok = (n: number): boolean =>
-		Number.isFinite(n) && n >= THRESHOLD_MIN && n <= THRESHOLD_MAX;
+	const ok = (n: number): boolean => Number.isFinite(n) && n >= THRESHOLD_MIN && n <= THRESHOLD_MAX;
 	return ok(t.spareBelow) && ok(t.overAbove) && t.spareBelow <= t.overAbove;
 }
 

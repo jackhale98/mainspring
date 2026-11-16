@@ -42,7 +42,12 @@ function fixture(collapsed: string[] = []) {
 			resourceResult('dev2', { parent: 'team' }),
 			resourceResult('solo', { workingTime: weekdays(56) }),
 		],
-		[booking('dev1', 'a', [[at(0, 9), at(0, 17)], [at(1, 9), at(1, 13)]])],
+		[
+			booking('dev1', 'a', [
+				[at(0, 9), at(0, 17)],
+				[at(1, 9), at(1, 13)],
+			]),
+		],
 	);
 	const model = buildLoad({
 		result: r,

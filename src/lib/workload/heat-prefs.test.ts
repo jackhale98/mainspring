@@ -57,7 +57,14 @@ describe('heatmap preferences', () => {
 	});
 
 	it('ignores values that are not what they should be', () => {
-		for (const bad of [null, '', 'x', '[]', '1', '{"thresholds":{"spareBelow":90,"overAbove":80}}']) {
+		for (const bad of [
+			null,
+			'',
+			'x',
+			'[]',
+			'1',
+			'{"thresholds":{"spareBelow":90,"overAbove":80}}',
+		]) {
 			expect(parseHeatPrefs(bad)).toEqual(DEFAULT_HEAT_PREFS);
 		}
 		expect(parseHeatPrefs('{"thresholds":{"spareBelow":0,"overAbove":100}}').thresholds).toEqual(

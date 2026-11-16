@@ -45,7 +45,8 @@ function format(locale: string | undefined, key: string, o: Intl.DateTimeFormatO
 /** A calendar day as `Intl` writes it in a style (from a UTC date at noon). */
 export function dayText(
 	day: number,
-	style: 'day-number' | 'month-short' | 'month-long' | 'day-month' | 'weekday-day-month' | 'month-year',
+	style:
+		'day-number' | 'month-short' | 'month-long' | 'day-month' | 'weekday-day-month' | 'month-year',
 	locale?: string,
 ): string {
 	const { year, month, day: d } = civilFromDays(day);
@@ -98,10 +99,7 @@ function build(cal: GanttCalendar, axis: BucketAxis): AxisLabels {
 			major.push({
 				c0: c,
 				c1: c + 1,
-				name:
-					kind === 'month'
-						? String(year)
-						: dayText(day, 'month-long', locale),
+				name: kind === 'month' ? String(year) : dayText(day, 'month-long', locale),
 				year: kind === 'month' ? '' : String(year),
 			});
 		}

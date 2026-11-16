@@ -131,7 +131,11 @@ describe('what a drop asks for', () => {
 			label: 'Drop on a person, not a group',
 		});
 		expect(dragPlan(model, labels, 'a', from, from)).toMatchObject({ ok: false, action: null });
-		expect(dragPlan(model, labels, 'a', from, null)).toEqual({ action: null, ok: false, label: '' });
+		expect(dragPlan(model, labels, 'a', from, null)).toEqual({
+			action: null,
+			ok: false,
+			label: '',
+		});
 	});
 
 	it('labels a drag before the task is chosen, with no action yet', () => {
@@ -142,7 +146,10 @@ describe('what a drop asks for', () => {
 
 describe('movable tasks', () => {
 	it('lists the booked tasks a drag may start from', () => {
-		expect(movableTasks(model, { row: row('dev1'), col: 0 }).map((t) => t.task)).toEqual(['a', 'b']);
+		expect(movableTasks(model, { row: row('dev1'), col: 0 }).map((t) => t.task)).toEqual([
+			'a',
+			'b',
+		]);
 		expect(movableTasks(model, { row: row('dev2'), col: 0 }).map((t) => t.task)).toEqual(['c']);
 	});
 

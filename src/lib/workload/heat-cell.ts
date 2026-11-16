@@ -85,7 +85,10 @@ export function cellInfo(
 }
 
 /** The text drawn in a cell: "38h", "95%", or a dash where there is no working time. */
-export function cellFace(i: Pick<CellInfo, 'booked' | 'available' | 'percent' | 'band'>, unit: HeatUnit) {
+export function cellFace(
+	i: Pick<CellInfo, 'booked' | 'available' | 'percent' | 'band'>,
+	unit: HeatUnit,
+) {
 	if (i.band === 'off') return W.off;
 	if (unit === 'percent') return W.percent(Math.round(i.percent ?? 0));
 	return W.hours(hoursNumber(i.booked));
@@ -175,16 +178,14 @@ export function cellDetails(i: DetailsInput): CellDetails {
 			if (n > 0) effectiveBy.set(t.task, (effectiveBy.get(t.task) ?? 0) + n * p.efficiency);
 		}
 	}
-	const tasks = model.cellTasks(row, col).map(
-		(c): DetailTask => ({
-			task: c.task,
-			name: i.taskName(c.task),
-			kind: c.kind,
-			minutes: c.minutes,
-			effective: c.kind === 'booked' ? (effectiveBy.get(c.task) ?? 0) : null,
-			movable: c.movable,
-		}),
-	);
+	const tasks = model.cellTasks(row, col).map((c): DetailTask => ({
+		task: c.task,
+		name: i.taskName(c.task),
+		kind: c.kind,
+		minutes: c.minutes,
+		effective: c.kind === 'booked' ? (effectiveBy.get(c.task) ?? 0) : null,
+		movable: c.movable,
+	}));
 	const why: string[] = [];
 	if (info.band === 'over') why.push(...overReasons(info, i.thresholds));
 	else if (info.band === 'off') why.push(W.details.noWorkingTime);

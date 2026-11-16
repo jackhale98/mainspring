@@ -54,10 +54,7 @@ task a "A" { effort 5d allocate dev1 }
 function model(kind: BucketKind = 'week') {
 	const r: ScheduleResult = withPeople(
 		plan([['a', { start: at(0, 9), end: at(4, 17) }]]),
-		[
-			resourceResult('dev1'),
-			resourceResult('dev2', { workingTime: weekdays(56).slice(0, 10) }),
-		],
+		[resourceResult('dev1'), resourceResult('dev2', { workingTime: weekdays(56).slice(0, 10) })],
 		[
 			booking(
 				'dev1',
@@ -102,7 +99,10 @@ describe('paintCells', () => {
 		const heat = FALLBACK_HEAT_THEME;
 		// Dev 1: full for week 0, then spare (nothing booked) for the rest: two runs.
 		const row0 = calls.filter(
-			(c) => c.op === 'fillRect' && (c.args[1] as number) === layout.rowTop(0) && (c.args[3] as number) === 28,
+			(c) =>
+				c.op === 'fillRect' &&
+				(c.args[1] as number) === layout.rowTop(0) &&
+				(c.args[3] as number) === 28,
 		);
 		const bands = row0.filter((c) => c.fill === heat.full || c.fill === heat.spare);
 		expect(bands.map((c) => [c.fill, c.args[0], c.args[2]])).toEqual([
@@ -210,9 +210,7 @@ describe('paintOverlay', () => {
 
 	it('rings the selected and the focused cell, the focus ring 3 px', () => {
 		const t = recorder();
-		paintOverlay(
-			frame({ ctx: t.ctx, selected: { row: 1, col: 2 }, focus: { row: 0, col: 0 } }),
-		);
+		paintOverlay(frame({ ctx: t.ctx, selected: { row: 1, col: 2 }, focus: { row: 0, col: 0 } }));
 		const rings = t.calls.filter((c) => c.op === 'strokeRect');
 		expect(rings).toHaveLength(2);
 	});

@@ -12,7 +12,13 @@ import { availabilityOf } from '../../lib/workload/availability';
 import { buildLoad } from '../../lib/workload/load';
 import type { PlanRebalanceFn } from '../../lib/workload/rebalance';
 import { booking, indexOf, resourceResult, withPeople } from '../../lib/workload/testing';
-import { Nudges, PLANNER, Rebalancer, type RebalanceEdits, type RebalanceEnv } from './rebalance-adapter';
+import {
+	Nudges,
+	PLANNER,
+	Rebalancer,
+	type RebalanceEdits,
+	type RebalanceEnv,
+} from './rebalance-adapter';
 
 const TEXT = `project p "P" 2026-01-05 - 2026-03-02 {
 }
@@ -69,7 +75,11 @@ function fakeEdits(outcomes: Array<Record<string, unknown>> = []) {
 }
 
 const ctx = { index, result } as unknown as ActionContext;
-function env(planner: PlanRebalanceFn | null, edits: RebalanceEdits | null, over: Partial<RebalanceEnv> = {}) {
+function env(
+	planner: PlanRebalanceFn | null,
+	edits: RebalanceEdits | null,
+	over: Partial<RebalanceEnv> = {},
+) {
 	const e: RebalanceEnv = {
 		planner,
 		edits: () => edits,
@@ -100,7 +110,9 @@ describe('rebalance adapter', () => {
 		const out = await r.run({ type: 'reassign', task: 'a', from: 'dev1', to: 'dev3' });
 		expect(out.status).toBe('coming');
 		expect(calls.map((c) => c.op)).toEqual(['say']);
-		expect(calls[0]?.args[0]).toBe('Moving tasks between people and weeks is coming. Nothing was changed.');
+		expect(calls[0]?.args[0]).toBe(
+			'Moving tasks between people and weeks is coming. Nothing was changed.',
+		);
 	});
 
 	it('does nothing without a dispatcher or a context', async () => {
@@ -132,7 +144,11 @@ describe('rebalance adapter', () => {
 
 	it('says the planner refusal and sends nothing', async () => {
 		const { edits, calls } = fakeEdits();
-		const planner: PlanRebalanceFn = () => ({ status: 'not-possible', reason: 'via-group', at: [] });
+		const planner: PlanRebalanceFn = () => ({
+			status: 'not-possible',
+			reason: 'via-group',
+			at: [],
+		});
 		const out = await new Rebalancer(env(planner, edits)).run({
 			type: 'reassign',
 			task: 'a',
@@ -156,13 +172,19 @@ describe('rebalance adapter', () => {
 			toBucket: 1,
 		});
 		expect(askMove).toHaveBeenCalledWith('gap');
-		expect(calls.map((c) => c.op)).toEqual(['dispatchAction', 'setMovePreference', 'dispatchAction']);
+		expect(calls.map((c) => c.op)).toEqual([
+			'dispatchAction',
+			'setMovePreference',
+			'dispatchAction',
+		]);
 		expect(out).toMatchObject({ status: 'sent', outcome: { status: 'applied' } });
 	});
 
 	it('cancels when the question is dismissed or the shared text is not confirmed', async () => {
 		const q = fakeEdits([{ status: 'ask-move-preference', suggested: 'start' }]);
-		const cancelled = await new Rebalancer(env(intentPlanner, q.edits, { askMove: async () => null })).run({
+		const cancelled = await new Rebalancer(
+			env(intentPlanner, q.edits, { askMove: async () => null }),
+		).run({
 			type: 'shift',
 			task: 'a',
 			fromBucket: 0,
@@ -223,7 +245,9 @@ describe('Alt+arrow nudges', () => {
 		n.end();
 		expect(calls.at(-1)).toMatchObject({ op: 'flush' });
 		await n.person(model, 'a', cell, 1);
-		const to = calls.filter((c) => c.op === 'dispatch').map((c) => (c.args[0] as { to: string }).to);
+		const to = calls
+			.filter((c) => c.op === 'dispatch')
+			.map((c) => (c.args[0] as { to: string }).to);
 		expect(to).toEqual(['dev2', 'dev2']);
 	});
 });

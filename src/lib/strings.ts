@@ -843,14 +843,14 @@ export const workloadStrings = {
 			held: (who: string) => `Waiting for ${who}`,
 			unmet: (who: string) => `Running without ${who}`,
 		},
-		kindNote: 'Waiting and running-without tasks are read from the schedule; their hours are about.',
+		kindNote:
+			'Waiting and running-without tasks are read from the schedule; their hours are about.',
 		noTasks: 'No tasks in this period.',
 		taskEffective: (n: string) => `${n} h effective`,
 		movePerson: 'Move to person…',
 		moveWeek: 'Move to week…',
 		showInGantt: 'Show in Gantt',
-		moveHint:
-			'Alt and the arrow keys move a task: up and down by person, left and right by week.',
+		moveHint: 'Alt and the arrow keys move a task: up and down by person, left and right by week.',
 		group: 'A group sums its members. Open a person to move their tasks.',
 	},
 	rebalance: {
@@ -871,6 +871,7 @@ export const workloadStrings = {
 			'same-place': 'That is where it is already.',
 		},
 		cancelled: 'Move cancelled.',
+		cancel: 'Cancel',
 	},
 } as const;
 
