@@ -54,8 +54,8 @@
 	--color-ruby-ink: #8a0f31;
 
 	/* The brand mark (src/lib/brand/mark.ts, ADR-0009 "Mark change, 2026-11-16"): a navy band and
-	 * brass arcs. Navy on the light ground is 11.3:1, the arcs 3.5:1. The brass is also the status
-	 * pills' working edge. */
+	 * brass arcs. On --color-bg the band is 11.27:1 and the arcs 3.48:1. The brass is also the
+	 * status pills' working edge. */
 	--color-mark-band: #1c2a55;
 	--color-mark-arc: var(--color-brass-deep);
 	--color-mark-brass: #b08d3c;
