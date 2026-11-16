@@ -20,7 +20,7 @@
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 	import EngineStatus from './EngineStatus.svelte';
-	import HistorySheet from './HistorySheet.svelte';
+	import LazyMount from './LazyMount.svelte';
 	import Mark from './Mark.svelte';
 	import ModeSwitch from './ModeSwitch.svelte';
 	import PlanChip from './PlanChip.svelte';
@@ -62,7 +62,11 @@
 		</button>
 		<UndoRedo {app} phone />
 		<StatusButton {app} {updates} {theme} />
-		<HistorySheet {app} />
+		<LazyMount
+			when={app.historyOpen}
+			load={() => import('./HistorySheet.svelte')}
+			props={{ app }}
+		/>
 	{:else}
 		{#if drawer}
 			<button
