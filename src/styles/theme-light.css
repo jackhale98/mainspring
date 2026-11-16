@@ -165,4 +165,20 @@
 	   left rule, so that it is not told by colour alone. Syntax text keeps 4.5:1 on the background. */
 	--color-source-highlight: #f1e7cc;
 	--color-source-rule: #7a5c14;
+
+	/* Workload heatmap (src/lib/workload/heat-theme.ts reads these). Bands are never told by colour
+	   alone (WCAG 1.4.1): over has a diagonal hatch and a corner mark, spare is the lightest, every
+	   cell says its band in text and in its accessible name. Leave is drawn as thin stripes over
+	   the working time it removes; `--held` marks tasks that wait for a person. */
+	--load-spare: #f6eeda;
+	--load-spare-ink: #1c1a17;
+	--load-full: #e2c070;
+	--load-full-ink: #1c1a17;
+	--load-over: #b3224a;
+	--load-over-ink: #ffffff;
+	--load-over-hatch: rgb(255 255 255 / 0.16);
+	--load-off: #ece6d8;
+	--load-off-ink: #5b5447;
+	--leave-hatch: #7a7262;
+	--held: #8a5a00;
 }

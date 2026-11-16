@@ -140,4 +140,18 @@
 	--color-editor-active-line: #181d28;
 	--color-source-highlight: #2a2414;
 	--color-source-rule: #d2ae5c;
+
+	/* Workload heatmap, as in theme-light.css. Here load is lighter as it grows, up to the brass
+	   of a full cell, and over is the ruby with its hatch and corner mark. */
+	--load-spare: #2a2517;
+	--load-spare-ink: #eee7d7;
+	--load-full: #c9a24d;
+	--load-full-ink: #1c1a17;
+	--load-over: #b02a52;
+	--load-over-ink: #ffffff;
+	--load-over-hatch: rgb(255 255 255 / 0.16);
+	--load-off: #1a1f29;
+	--load-off-ink: #a39b88;
+	--leave-hatch: #9a927f;
+	--held: #d2ae5c;
 }
