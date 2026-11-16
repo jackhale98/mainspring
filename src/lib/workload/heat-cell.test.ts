@@ -9,7 +9,6 @@ import type { GanttCalendar } from '../gantt/ticks';
 import type { DemandMarks } from '../schedule/explain-types';
 import { at, plan, weekdays } from '../schedule/testing';
 import { availabilityOf } from './availability';
-import { bucketAxis } from './axis';
 import { cellDetails, cellFace, cellInfo, cellName, hoursNumber } from './heat-cell';
 import { axisLabels } from './heat-labels';
 import { buildLoad } from './load';

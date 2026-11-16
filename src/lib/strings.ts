@@ -859,7 +859,7 @@ export const workloadStrings = {
 		dropOnPerson: 'Drop on a person',
 		dropOnGroup: 'Drop on a person, not a group',
 		toPerson: (name: string) => `To ${name}`,
-		toWeek: (date: string) => `Week of ${date}`,
+		toPeriod: (period: string) => `To ${period}`,
 		sameCell: 'Same place',
 		lifted: (name: string) => `${name} lifted. Drag to a person or a week.`,
 		which: 'Move which task?',
