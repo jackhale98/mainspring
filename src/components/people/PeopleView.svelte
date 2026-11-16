@@ -1,135 +1,67 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	The People views' frame and the door to their lazy chunk (phase-3.md 8.3, 9.1, 18.10). It is
-	mounted only while a People view is on screen: a desktop or tablet view other than the Gantt (the
-	switcher is ViewSwitcher.svelte, in the chart panel), or the phone's People tab, which has its
-	own segmented control here (Load, Lanes, Calendar, Team). The first time it shows, it imports
-	PeopleHost.svelte, so a Gantt-first load never fetches the chunk; the component is kept for
-	later mounts. A chunk that cannot load (offline, with nothing cached) says so and offers a retry.
+	The People views' content, the entry of the lazy chunk (phase-3.md 8.3): everything the People
+	views and the insight modules import hangs off this component, so a Gantt-first load never
+	fetches it (PeopleSlot.svelte imports it when a People view first opens, and keeps it).
 
-	The selected content is the person's choice (`people`, remembered per plan); the content area
-	is a tabpanel only on the phone, where the segments are tabs (on a desktop the tabpanel is the
-	chart panel's `views-body`).
+	T13 builds the shell only. For each content (`workload`, `resources`, `calendar`, `team`) it
+	shows the "No people" state when the plan declares no resource (lib/people/shell.ts), else a
+	short placeholder that T14 (heatmap), T15 (lanes), T16 (calendar) and T17 (resource table)
+	replace. After Add person the keyboard focus goes to the content, where the button was.
 -->
-<script lang="ts" module>
-	import type { Component } from 'svelte';
-	import type { PeopleContent } from '../../lib/people/shell';
-	import type { AppState } from '../../lib/state/app.svelte';
-
-	type Host = Component<{ app: AppState; content: PeopleContent }>;
-	/** The chunk's component once loaded: a later mount shows it at once. */
-	let loaded: Host | null = null;
-</script>
-
 <script lang="ts">
-	import { contentOfSegment, contentOfView } from '../../lib/people/shell';
-	import type { PeopleViewState } from '../../lib/state/people-view.svelte';
-	import type { PeopleSegment } from '../../lib/state/selection.svelte';
-	import { SEGMENTS } from '../../lib/workload/prefs';
-	import type { IconName } from '../../lib/icons';
+	import { tick } from 'svelte';
+	import { peopleState, type PeopleContent } from '../../lib/people/shell';
+	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
-	import SegmentTabs from './SegmentTabs.svelte';
+	import NoPeople from './NoPeople.svelte';
 
 	interface Props {
 		app: AppState;
-		people: PeopleViewState;
-		/** The phone's People tab: it has the segments; elsewhere the switcher chooses the view. */
-		phone: boolean;
+		content: PeopleContent;
 	}
-	let { app, people, phone }: Props = $props();
+	let { app, content }: Props = $props();
 
 	const S = strings.people;
-	const ICON: Record<PeopleSegment, IconName> = {
-		load: 'grid',
-		lanes: 'rows',
-		calendar: 'calendar',
-		team: 'users',
-	};
-	const ITEMS = SEGMENTS.map((id) => ({ id, label: S.segment[id], icon: ICON[id] }));
-
-	const content = $derived<PeopleContent>(
-		phone ? contentOfSegment(people.segment) : (contentOfView(people.view) ?? 'workload'),
+	const shown = $derived(
+		peopleState(content, {
+			indexed: app.index !== null,
+			resources: app.outline.resources.length,
+		}),
 	);
+	let coming: HTMLElement | undefined = $state();
+	let focusContent = $state(false);
 
-	let Host = $state.raw<Host | null>(loaded);
-	let failed = $state(false);
-	let loading = false;
-
-	function load(): void {
-		if (loading || Host !== null) return;
-		loading = true;
-		failed = false;
-		import('./PeopleHost.svelte').then(
-			(m) => {
-				loaded = m.default;
-				Host = m.default;
-				loading = false;
-			},
-			() => {
-				failed = true;
-				loading = false;
-			},
-		);
-	}
-	$effect(load);
+	// The button that was pressed leaves with the state: the focus goes to what replaces it, once
+	// the index has the new person (a keyboard user is not dropped on the page).
+	$effect(() => {
+		if (!focusContent || shown !== 'content' || !coming) return;
+		focusContent = false;
+		void tick().then(() => coming?.focus());
+	});
 </script>
 
-<div class="people" data-phone={phone || undefined} data-testid="people-view">
-	{#if phone}
-		<div class="segments">
-			<SegmentTabs
-				items={ITEMS}
-				value={people.segment}
-				onchange={(s) => people.setSegment(s)}
-				label={S.segments}
-				prefix="segment-tab"
-				controls="segment-panel"
-				variant="block"
-			/>
-		</div>
+<div class="host" data-testid="people-host" data-content={content} data-state={shown}>
+	{#if shown === 'loading'}
+		<p class="message" role="status">{strings.topBar.loading}</p>
+	{:else if shown === 'none'}
+		<NoPeople {app} ondone={() => (focusContent = true)} />
+	{:else}
+		<p class="message" data-testid="people-coming" tabindex="-1" bind:this={coming}>
+			{S.coming[content]}
+		</p>
 	{/if}
-	<div
-		id={phone ? 'segment-panel' : undefined}
-		class="area"
-		role={phone ? 'tabpanel' : undefined}
-		aria-labelledby={phone ? `segment-tab-${people.segment}` : undefined}
-	>
-		{#if Host}
-			<Host {app} {content} />
-		{:else if failed}
-			<div class="message" role="alert">
-				<p>{S.loadFailed}</p>
-				<button
-					type="button"
-					onclick={() => {
-						failed = false;
-						load();
-					}}>{S.retry}</button
-				>
-			</div>
-		{:else}
-			<p class="message" role="status">{S.loading}</p>
-		{/if}
-	</div>
 </div>
 
 <style>
-	.people {
+	.host {
 		display: flex;
 		flex-direction: column;
+		justify-content: center;
 		block-size: 100%;
 		min-block-size: 0;
+		overflow: auto;
 		background: var(--color-gantt-surface);
-	}
-	/* The phone's segmented control: a row above the content, in the gutter. */
-	.segments {
-		flex: none;
-		padding: var(--space-2);
-		border-block-end: 1px solid var(--color-gantt-border);
-	}
-	.area {
-		flex: 1 1 0;
-		min-block-size: 0;
 	}
 	.message {
 		margin: 0;
@@ -137,21 +69,8 @@
 		color: var(--color-text-muted);
 		text-align: center;
 	}
-	.message p {
-		margin: 0 0 var(--space-3);
-	}
-	.message button {
-		min-block-size: var(--size-control);
-		padding-inline: var(--space-6);
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font: inherit;
-		cursor: pointer;
-	}
-	.message button:focus-visible {
+	.message:focus-visible {
 		outline: 3px solid var(--color-focus);
-		outline-offset: 2px;
+		outline-offset: -3px;
 	}
 </style>

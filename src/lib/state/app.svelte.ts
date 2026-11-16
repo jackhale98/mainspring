@@ -221,6 +221,8 @@ export class AppState {
 	/** The selection's mark has not been shown yet (its task is not in the index yet). */
 	#scrollPending = false;
 	#lastIndex: unknown = null;
+	/** The selection the last `#onSelection` heard (to tell a move between one person's cells). */
+	#selected: Selection = null;
 	readonly #offEffects: () => void;
 	#noteTimer: ReturnType<typeof setTimeout> | null = null;
 	readonly #confirm: (message: string) => boolean;
@@ -577,6 +579,10 @@ export class AppState {
 
 	/** The selection changed: show it in the editor (a visual's) or let the text's be (module comment). */
 	#onSelection(s: Selection): void {
+		const prev = this.#selected;
+		this.#selected = s;
+		// Moving between cells of one person: that person's declaration is already shown.
+		if (s?.kind === 'cell' && prev?.kind === 'cell' && prev.resource === s.resource) return;
 		this.#scrollPending = s !== null && originOf(s) === 'visual';
 		this.#remark();
 	}
@@ -628,7 +634,10 @@ export class AppState {
 			prev !== null && prev.file === block.file && prev.from === block.from && prev.to === block.to;
 		if (!scroll && same) return;
 		// Another file is shown only when the user is not typing in the editor.
-		if (scroll && !this.editor?.hasFocus) this.openFile(block.file);
+		// A person's declaration is not worth switching the editor's file while no editor is on screen.
+		const quiet =
+			(s?.kind === 'resource' || s?.kind === 'cell') && this.shell?.editorShown() === false;
+		if (scroll && !this.editor?.hasFocus && !quiet) this.openFile(block.file);
 		this.sourceMark = {
 			file: block.file,
 			from: block.from,

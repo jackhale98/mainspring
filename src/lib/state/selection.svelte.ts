@@ -67,6 +67,24 @@ export type Selection =
 	| PeopleSelection
 	| null;
 
+const sameScope = (a: LeavePaint['scope'], b: LeavePaint['scope']): boolean =>
+	JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Whether two selections are the same cell, or the same days: selecting what is already selected
+ * changes nothing (no `serial`, no mark, no notice). Tasks, links and people are not compared here:
+ * selecting one again from a visual always counts (it shows its source again).
+ */
+export function identicalPeople(a: Selection, b: Selection): boolean {
+	if (a?.kind === 'cell' && b?.kind === 'cell') {
+		return a.resource === b.resource && a.bucket === b.bucket && a.axis === b.axis;
+	}
+	if (a?.kind === 'days' && b?.kind === 'days') {
+		return a.from === b.from && a.to === b.to && sameScope(a.scope, b.scope);
+	}
+	return false;
+}
+
 /** Where a selection came from: a cell and a run of days are only ever chosen in a view. */
 export function originOf(s: NonNullable<Selection>): 'text' | 'visual' {
 	return s.kind === 'task' || s.kind === 'resource' ? s.origin : 'visual';
@@ -342,14 +360,18 @@ export class SelectionState {
 
 	/** Selects a heatmap cell: `bucket` is a column of the axis of kind `axis`. */
 	selectCell(resource: ResourceId, bucket: number, axis: BucketKind): void {
+		const next: Selection = { kind: 'cell', resource, bucket, axis };
+		if (identicalPeople(this.current, next)) return;
 		this.follow = null;
-		this.#set({ kind: 'cell', resource, bucket, axis });
+		this.#set(next);
 	}
 
 	/** Selects a run of calendar days, whole local days `[from, to)`. */
 	selectDays(scope: LeavePaint['scope'], from: Minutes, to: Minutes): void {
+		const next: Selection = { kind: 'days', scope, from, to };
+		if (identicalPeople(this.current, next)) return;
 		this.follow = null;
-		this.#set({ kind: 'days', scope, from, to });
+		this.#set(next);
 	}
 
 	/** Drops a selected link (the inspector's own edits do); a selected task stays. */

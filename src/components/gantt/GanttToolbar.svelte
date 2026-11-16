@@ -20,6 +20,7 @@
 	date, so an empty highlight is never unexplained.
 -->
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { ZOOM_ORDER, ZOOM_PRESETS, nearestLevel, type ZoomLevel } from '../../lib/gantt/scale';
 	import type { RowLine } from '../../lib/gantt/describe';
 	import type { LineState } from '../../lib/gantt/model';
@@ -63,6 +64,8 @@
 		 * the chart, which reserves that much room at the bottom of the scroller.
 		 */
 		onpill?: (height: number) => void;
+		/** The row's leading group: the view switcher on a desktop and a tablet (phase-3.md 9.1). */
+		lead?: Snippet | undefined;
 	}
 	let {
 		pxPerDay,
@@ -79,6 +82,7 @@
 		add,
 		rowActions,
 		onpill,
+		lead,
 	}: Props = $props();
 
 	const L = strings.gantt.lines;
@@ -101,6 +105,7 @@
 
 <div class="bar">
 	<div class="chips" role="group" aria-label={strings.gantt.toolbar}>
+		{#if lead}{@render lead()}{/if}
 		{#if add}<AddTaskMenu {...add} />{/if}
 		<label class="chip select">
 			<span class="sr-only">{strings.gantt.zoom}</span>

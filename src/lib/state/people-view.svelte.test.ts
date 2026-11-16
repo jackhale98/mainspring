@@ -62,6 +62,20 @@ describe('PeopleViewState', () => {
 		expect(bad.view).toBe('calendar');
 	});
 
+	it('opens a plan that was just made on the Gantt and Load, whatever its key holds', () => {
+		const storage = memory();
+		const s = new PeopleViewState({ storage });
+		s.use('new');
+		s.setView('resources');
+		s.setSegment('team');
+		s.use('new', true);
+		expect([s.view, s.segment]).toEqual(['gantt', 'load']);
+		// The next choice is remembered again, and an ordinary open reads it.
+		s.setView('calendar');
+		s.use('new');
+		expect(s.view).toBe('calendar');
+	});
+
 	it('works with storage that is missing', () => {
 		const s = new PeopleViewState({ storage: null });
 		s.use('p');

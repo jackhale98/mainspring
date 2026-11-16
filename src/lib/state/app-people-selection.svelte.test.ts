@@ -124,6 +124,65 @@ describe('a person in the editor', () => {
 	});
 });
 
+describe('moving about the heatmap', () => {
+	it('marks nothing again for another cell of the same person, and once for another person', async () => {
+		const a = await open('people');
+		a.selection.selectCell('dev', 0, 'week');
+		const first = a.sourceMark;
+		expect(first?.scroll).toBe(true);
+		expect(marked(a)).toBe('resource dev "Dev"');
+		a.selection.selectCell('dev', 1, 'week');
+		a.selection.selectCell('dev', 2, 'day');
+		expect(a.sourceMark).toBe(first);
+		// The same cell again changes nothing either.
+		a.selection.selectCell('dev', 2, 'day');
+		expect(a.sourceMark).toBe(first);
+		a.selection.selectCell('ops', 1, 'week');
+		expect(marked(a)).toBe('resource ops "Ops"');
+		expect(a.sourceMark?.scroll).toBe(true);
+		const second = a.sourceMark;
+		a.selection.selectCell('ops', 4, 'week');
+		expect(a.sourceMark).toBe(second);
+	});
+
+	it('does not switch the editor file for a person while no editor is on screen', async () => {
+		const client = new FakeEngineClient();
+		app = new AppState({
+			client,
+			samples: [
+				{
+					id: 'two' as Sample['id'],
+					label: 'two',
+					load: () =>
+						Promise.resolve({
+							entry: 'plan.tjp',
+							files: {
+								'plan.tjp': WITH_PEOPLE.replace('resource dev "Dev"\n', '') + 'include "x.tji"\n',
+								'x.tji': 'resource dev "Dev"\n',
+							},
+						}),
+				},
+			],
+			initial: 'two',
+			keyTarget: null,
+		});
+		await flush();
+		client.done(1, { tasks: [task('a', 2, 600), task('b', 5, 1500)] });
+		await vi.waitFor(() => expect(app?.status?.kind).toBe('ok'));
+		const a = app;
+		expect(a.activeFile).toBe('plan.tjp');
+		a.shell = { editorShown: () => false, showInText: vi.fn() };
+		a.selection.selectResource('dev', 'visual');
+		expect(a.sourceMark?.file).toBe('x.tji');
+		expect(a.activeFile).toBe('plan.tjp');
+		// With an editor on screen the file is shown, as for a task.
+		a.shell = { editorShown: () => true, showInText: vi.fn() };
+		a.selection.selectResource('ops', 'visual');
+		a.selection.selectResource('dev', 'visual');
+		expect(a.activeFile).toBe('x.tji');
+	});
+});
+
 describe('Add person on a plan with no people', () => {
 	/** What the "No people" button runs, over the app's own dispatcher. */
 	function add(a: AppState): Promise<string | null> {

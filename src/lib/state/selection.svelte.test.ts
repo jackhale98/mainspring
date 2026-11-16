@@ -408,4 +408,28 @@ describe('People selections (phase-3.md 6.7)', () => {
 		s.selectCell('q', 0, 'week');
 		expect(s.serial).toBe(serial + 2);
 	});
+
+	it('counts an identical cell or the same days as nothing: no notice, no new serial', () => {
+		const { s, seen } = state();
+		s.selectCell('r', 2, 'week');
+		const serial = s.serial;
+		const n = seen.length;
+		s.selectCell('r', 2, 'week');
+		expect(seen).toHaveLength(n);
+		expect(s.serial).toBe(serial);
+		// Another bucket, another axis or another person is a new selection.
+		s.selectCell('r', 3, 'week');
+		s.selectCell('r', 3, 'day');
+		s.selectCell('q', 3, 'day');
+		expect(seen).toHaveLength(n + 3);
+		s.selectDays({ kind: 'resource', resource: 'r' }, 0, 1440);
+		const m = seen.length;
+		const serialDays = s.serial;
+		s.selectDays({ kind: 'resource', resource: 'r' }, 0, 1440);
+		expect(seen).toHaveLength(m);
+		expect(s.serial).toBe(serialDays);
+		s.selectDays({ kind: 'global' }, 0, 1440);
+		s.selectDays({ kind: 'global' }, 0, 2880);
+		expect(seen).toHaveLength(m + 2);
+	});
 });

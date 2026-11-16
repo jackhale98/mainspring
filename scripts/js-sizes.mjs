@@ -4,7 +4,7 @@
 //   1. the total gzip of every script in dist/_astro: a cap of 450,000 bytes, enforced (exit 1);
 //   2. the JS a first load really fetches in Visual mode and in Text mode, measured in a browser
 //      against a preview. The code-split CodeMirror chunk is fetched in Text and Split, never in
-//      Visual: that is enforced too. The People views are a lazy chunk (PeopleHost, phase-3.md
+//      Visual: that is enforced too. The People views are a lazy chunk (PeopleView, phase-3.md
 //      8.3) that no Gantt-first load, in Visual or Text mode, may fetch: enforced, and its size is
 //      reported. The Visual-first size has a target of 300,000 bytes that is reported, as a
 //      warning, not enforced (18.11).
@@ -66,7 +66,7 @@ async function firstLoad(browser, base, query) {
 		gzipBytes: list.reduce((n, f) => n + f.gzip, 0),
 		rawBytes: list.reduce((n, f) => n + f.raw, 0),
 		loadsEditorChunk: list.some((f) => f.file.startsWith('editor-controller')),
-		loadsPeopleChunk: list.some((f) => f.file.startsWith('PeopleHost')),
+		loadsPeopleChunk: list.some((f) => f.file.startsWith('PeopleView')),
 	};
 }
 
@@ -107,7 +107,7 @@ async function main() {
 	const result = {
 		distTotal: { files: files.length, gzipBytes: total, cap: TOTAL_CAP },
 		biggest: files.slice(0, 6),
-		peopleChunk: files.find((f) => f.file.startsWith('PeopleHost')) ?? null,
+		peopleChunk: files.find((f) => f.file.startsWith('PeopleView')) ?? null,
 	};
 	const problems = [];
 	if (total >= TOTAL_CAP)

@@ -825,17 +825,17 @@ export const strings = {
 	 * placeholders the heatmap, lanes, calendar and team views (T14 to T17) replace.
 	 */
 	people: {
-		/** The desktop and tablet view switcher (a tablist). */
+		/** The view switcher of the desktop and tablet toolbars (a radio group). */
 		switcher: 'Views',
 		view: { gantt: 'Gantt', workload: 'Workload', resources: 'Resources', calendar: 'Calendar' },
-		/** Said politely after a change of view, for a screen reader. */
-		viewShown: (view: string) => `${view} view`,
 		/** The segmented control of the phone's People tab (a tablist). */
 		segments: 'People views',
 		segment: { load: 'Load', lanes: 'Lanes', calendar: 'Calendar', team: 'Team' },
 		loading: 'Loading the people views…',
 		loadFailed: 'The people views could not be loaded.',
 		retry: 'Try again',
+		/** The retry failed too: the browser may remember a failed import, a reload does not. */
+		reload: 'Reload the page',
 		/** The plan declares no resource (a heatmap, lanes or a team of nobody). */
 		none: {
 			title: 'No people yet',

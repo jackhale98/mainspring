@@ -7,7 +7,10 @@
  * (Text, Split, Visual) decide whether either is shown at all.
  *
  * Like `ModeState`, it follows the open plan: call `use(plan)` when the plan changes. `?view=`
- * (a link or a test) wins once, for the plan the page opened with.
+ * (a link or a test) wins once, for the plan the page opened with; it names a desktop and tablet
+ * view only (the phone's People tab starts from the Gantt tab, and its segment is not linkable).
+ * A plan made with "New plan…" always opens on the Gantt and the Load segment (`use(plan, true)`,
+ * ADR-0013), whatever the plan key `new` was left with by an earlier one.
  */
 import {
 	DEFAULT_SEGMENT,
@@ -39,13 +42,16 @@ export class PeopleViewState {
 		this.#linked = parseView(opts.linked ?? null);
 	}
 
-	/** Switches to a plan's preferences. Call when the open plan changes. */
-	use(plan: string): void {
+	/**
+	 * Switches to a plan's preferences. Call when the open plan changes; `fresh` is a plan that was
+	 * just made: the defaults, not what its key remembers.
+	 */
+	use(plan: string, fresh = false): void {
 		this.#plan = plan;
 		const linked = this.#linked;
 		this.#linked = null;
-		this.view = linked ?? readView(this.#storage, plan) ?? DEFAULT_VIEW;
-		this.segment = readSegment(this.#storage, plan) ?? DEFAULT_SEGMENT;
+		this.view = linked ?? (fresh ? null : readView(this.#storage, plan)) ?? DEFAULT_VIEW;
+		this.segment = (fresh ? null : readSegment(this.#storage, plan)) ?? DEFAULT_SEGMENT;
 	}
 
 	setView(view: View): void {

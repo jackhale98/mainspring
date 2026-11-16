@@ -15,10 +15,12 @@
 	In Split and Visual the outline is the same drawer on every width. Phones show one panel at a
 	time under a floating pill tab bar (Plan, Gantt, People, Text).
 
-	People (phase-3.md 9.1, T13): a desktop or tablet chart panel has a view switcher (Gantt,
-	Workload, Resources, Calendar), and a phone has the People tab with Load, Lanes, Calendar and
-	Team segments. The People views are a lazy chunk (people/PeopleView.svelte imports it when one
-	first shows), and the view and segment are remembered per plan (lib/workload/prefs.ts).
+	People (phase-3.md 9.1, T13): on a desktop and a tablet the toolbar of the chart panel (the
+	Gantt's, or a People view's bar) leads with a view switcher (Gantt, Workload, Resources,
+	Calendar), and a phone has the People tab with Load, Lanes, Calendar and Team segments. The
+	People views are a lazy chunk (people/PeopleSlot.svelte imports PeopleView.svelte when one first
+	shows, and the slot is then kept mounted, as the Gantt is), and the view and segment are
+	remembered per plan (lib/workload/prefs.ts).
 
 	The editor packages are a separate chunk: the editor panel is imported when a mode first shows
 	it and then kept mounted, so a Visual-first load never fetches CodeMirror, and a switch keeps
@@ -45,7 +47,7 @@
 	import NewPlanSheet from './app/NewPlanSheet.svelte';
 	import { addTaskFlow, headerAfter } from './gantt/add-task-flow';
 	import Gantt from './gantt/Gantt.svelte';
-	import PeopleView from './people/PeopleView.svelte';
+	import PeopleSlot from './people/PeopleSlot.svelte';
 	import ViewSwitcher from './people/ViewSwitcher.svelte';
 	import InspectorHost from './inspector/InspectorHost.svelte';
 	import OutlinePanel from './OutlinePanel.svelte';
@@ -103,7 +105,8 @@
 			Object.assign(planViews.tasks, newOutlineView());
 			Object.assign(planViews.resources, newOutlineView());
 			modes.use(id);
-			people.use(id);
+			// A new plan opens on the Gantt, whatever the shared `new` key holds (ADR-0013).
+			people.use(id, id === NEW_PLAN_ID);
 			// A phone starts on the tab of the remembered mode.
 			if (modes.choice !== null) app.phoneTab = phoneTabFor(modes.choice);
 			// A new plan opens on the Gantt tab: its Add task is how the plan begins (ADR-0013).
@@ -134,6 +137,11 @@
 	let ganttSeen = $state(false);
 	$effect(() => {
 		if (showGantt) ganttSeen = true;
+	});
+	/** The People views are mounted when first shown and then kept, as the Gantt is (scroll, zoom). */
+	let peopleSeen = $state(false);
+	$effect(() => {
+		if (showPeople) peopleSeen = true;
 	});
 	/** The editor panel is imported (with CodeMirror) when first shown, and then kept mounted. */
 	let EditorPanel = $state.raw<Component<{
@@ -302,6 +310,14 @@
 	}
 </script>
 
+<!-- The view switcher, one copy in the Gantt's toolbar and one in a People view's bar (ids differ). -->
+{#snippet ganttSwitcher()}
+	<ViewSwitcher view={people.view} onchange={(v) => people.setView(v)} scope="gantt" />
+{/snippet}
+{#snippet peopleSwitcher()}
+	<ViewSwitcher view={people.view} onchange={(v) => people.setView(v)} scope="people" />
+{/snippet}
+
 <svelte:window {onkeydown} />
 
 <div class="app" data-layout={kind}>
@@ -384,8 +400,8 @@
 					}}
 				/>
 			{/if}
-			<!-- The chart panel: on a desktop and a tablet the view switcher over the chosen view (the Gantt, or
-			     a People view); on a phone the Gantt alone, and People is its own tab (below). -->
+			<!-- The chart panel: the Gantt, or on a desktop and a tablet a People view, each with the view
+			     switcher in its toolbar; on a phone the Gantt alone, and People is its own tab (below). -->
 			{#if ganttSeen || (!phone && showChart)}
 				<div
 					id="panel-gantt"
@@ -394,15 +410,7 @@
 					aria-labelledby={phone ? 'tab-gantt' : undefined}
 					hidden={!showChart}
 				>
-					{#if !phone}
-						<ViewSwitcher view={people.view} onchange={(v) => people.setView(v)} />
-					{/if}
-					<div
-						id="views-body"
-						class="views-body"
-						role={phone ? undefined : 'tabpanel'}
-						aria-labelledby={phone ? undefined : `view-tab-${people.view}`}
-					>
+					<div id="views-body" class="views-body">
 						{#if ganttSeen}
 							<div class="gantt-host" hidden={!showGantt}>
 								<Gantt
@@ -412,11 +420,14 @@
 									ontable={(v) => modes.setTable(v)}
 									ontablecommit={() => modes.saveTable()}
 									ontext={showEditor ? undefined : openText}
+									toolbarLead={phone ? undefined : ganttSwitcher}
 								/>
 							</div>
 						{/if}
-						{#if !phone && showPeople}
-							<PeopleView {app} {people} phone={false} />
+						{#if !phone && peopleSeen}
+							<div class="view-host" hidden={!showPeople}>
+								<PeopleSlot {app} {people} phone={false} lead={peopleSwitcher} />
+							</div>
 						{/if}
 					</div>
 				</div>
@@ -429,7 +440,7 @@
 					aria-labelledby="tab-people"
 					hidden={!showPeople}
 				>
-					{#if showPeople}<PeopleView {app} {people} phone />{/if}
+					{#if peopleSeen}<PeopleSlot {app} {people} phone />{/if}
 				</div>
 			{/if}
 		</main>
@@ -544,11 +555,13 @@
 		flex-direction: column;
 		min-block-size: 0;
 	}
-	.gantt-host {
+	.gantt-host,
+	.view-host {
 		flex: 1 1 0;
 		min-block-size: 0;
 	}
-	.gantt-host[hidden] {
+	.gantt-host[hidden],
+	.view-host[hidden] {
 		display: none;
 	}
 	.grow {
