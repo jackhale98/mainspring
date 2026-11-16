@@ -115,3 +115,20 @@ generated resource pool (18.1).
   show red appearing (section 15).
 - Phone checks are judged under emulation, with the Pixel 7 DOM-node cap enforced. The phone frame
   target of 90% is recorded, not enforced (18.14).
+
+## Amendments
+
+**2026-11-16 (main session, from the T6 review; a fact about TaskJuggler, not a change of scope).**
+
+- **Overtime.** TaskJuggler counts an `overtime`-booked slot as working time, on a weekend or
+  during leave too. So `workingTime` includes it, and booked time never exceeds available time.
+  The "booked is above available" clause of #3 cannot fire. It stays in the rule as a guard, and
+  "over" comes from the upper threshold and from held or unmet work. Phase 3 does not flag
+  overtime work separately; that is in `docs/backlog.md`.
+- **Overlapping global leaves.** Where two global leaves overlap, TaskJuggler marks a person's slots
+  as off-hours, so the day appears in neither `workingTime` nor `leaves`. T9 fills such days in
+  from `ProjectInfo.leaves` when it draws the leave hatch.
+- **"Same as the project".** A resource's `workingTime` is `null` when it equals
+  `ProjectInfo.workingTime` exactly, which keeps the result small (schema v3, T6).
+- **Leave names.** TaskJuggler 3.8.4 drops every leave's name when it parses, so the engine's leave
+  names are always null. The Calendar view (T16) takes holiday names from the plan text.
