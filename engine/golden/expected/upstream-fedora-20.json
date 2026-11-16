@@ -40,6 +40,7 @@
       "dailyWorkingHours": 8,
       "end": "2014-12-31T00:00:00Z",
       "id": "f20",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Fedora",
       "now": "2013-09-02T12:00:00Z",
@@ -61,6 +62,7 @@
       "timezone": "America/New_York",
       "timingResolutionMin": 60,
       "version": "20",
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -1819,6 +1821,7 @@
         "parent": null,
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -1831,6 +1834,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -1856,6 +1860,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1868,6 +1873,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1893,6 +1899,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -1905,6 +1912,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -1930,6 +1938,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1942,6 +1951,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1967,6 +1977,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1986,6 +1997,7 @@
             "start": 11340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2018,6 +2030,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2030,6 +2043,7 @@
             "start": 21840
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2055,6 +2069,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2067,6 +2082,7 @@
             "start": 42000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2092,6 +2108,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2111,6 +2128,7 @@
             "start": 51660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2143,6 +2161,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2162,6 +2181,7 @@
             "start": 51660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2194,6 +2214,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2206,6 +2227,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2231,6 +2253,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2243,6 +2266,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2268,6 +2292,7 @@
         "parent": "f20.PlanningPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2287,6 +2312,7 @@
             "start": 61740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2319,6 +2345,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2331,6 +2358,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2356,6 +2384,7 @@
         "parent": "f20.supplement_wallpaper",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2368,6 +2397,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2393,6 +2423,7 @@
         "parent": "f20.supplement_wallpaper",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2412,6 +2443,7 @@
             "start": 165420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2444,6 +2476,7 @@
         "parent": "f20.supplement_wallpaper",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2463,6 +2496,7 @@
             "start": 166860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2495,6 +2529,7 @@
         "parent": "f20.supplement_wallpaper",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2514,6 +2549,7 @@
             "start": 187020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2546,6 +2582,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2558,6 +2595,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2583,6 +2621,7 @@
         "parent": "f20.DevelopmentPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2595,6 +2634,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2620,6 +2660,7 @@
         "parent": "f20.DevelopmentPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2632,6 +2673,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2657,6 +2699,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2669,6 +2712,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2694,6 +2738,7 @@
         "parent": "f20.TestingPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2706,6 +2751,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -2731,6 +2777,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2750,6 +2797,7 @@
             "start": 110220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2782,6 +2830,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2801,6 +2850,7 @@
             "start": 113580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2833,6 +2883,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2852,6 +2903,7 @@
             "start": 116460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2884,6 +2936,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2903,6 +2956,7 @@
             "start": 123660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2935,6 +2989,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2954,6 +3009,7 @@
             "start": 126540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -2986,6 +3042,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -3005,6 +3062,7 @@
             "start": 130860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -3037,6 +3095,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3056,6 +3115,7 @@
             "start": 133740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3088,6 +3148,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3107,6 +3168,7 @@
             "start": 136620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3139,6 +3201,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3158,6 +3221,7 @@
             "start": 143820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3190,6 +3254,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3209,6 +3274,7 @@
             "start": 146700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3241,6 +3307,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3260,6 +3327,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3292,6 +3360,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3311,6 +3380,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3343,6 +3413,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3362,6 +3433,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3394,6 +3466,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3413,6 +3486,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3445,6 +3519,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3464,6 +3539,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3496,6 +3572,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -3515,6 +3592,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -3547,6 +3625,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -3566,6 +3645,7 @@
             "start": 152460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -3598,6 +3678,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3617,6 +3698,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3649,6 +3731,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3668,6 +3751,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3700,6 +3784,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3719,6 +3804,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3751,6 +3837,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3770,6 +3857,7 @@
             "start": 81420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3802,6 +3890,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3821,6 +3910,7 @@
             "start": 81420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3853,6 +3943,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3872,6 +3963,7 @@
             "start": 84780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3904,6 +3996,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3923,6 +4016,7 @@
             "start": 91980
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3955,6 +4049,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -3974,6 +4069,7 @@
             "start": 81420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4006,6 +4102,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4025,6 +4122,7 @@
             "start": 102060
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4057,6 +4155,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4076,6 +4175,7 @@
             "start": 103500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4108,6 +4208,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4127,6 +4228,7 @@
             "start": 104940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4159,6 +4261,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -4178,6 +4281,7 @@
             "start": 104940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -4210,6 +4314,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4229,6 +4334,7 @@
             "start": 111660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4261,6 +4367,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4280,6 +4387,7 @@
             "start": 111660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4312,6 +4420,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4331,6 +4440,7 @@
             "start": 111660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4363,6 +4473,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4382,6 +4493,7 @@
             "start": 111660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4414,6 +4526,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4433,6 +4546,7 @@
             "start": 111660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4465,6 +4579,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4484,6 +4599,7 @@
             "start": 111660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4516,6 +4632,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4535,6 +4652,7 @@
             "start": 113580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4567,6 +4685,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4586,6 +4705,7 @@
             "start": 115020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4618,6 +4738,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -4637,6 +4758,7 @@
             "start": 115020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -4669,6 +4791,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4688,6 +4811,7 @@
             "start": 123660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4720,6 +4844,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4739,6 +4864,7 @@
             "start": 125100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4771,6 +4897,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -4790,6 +4917,7 @@
             "start": 125100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -4822,6 +4950,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4841,6 +4970,7 @@
             "start": 132300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4873,6 +5003,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4892,6 +5023,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4924,6 +5056,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4943,6 +5076,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4975,6 +5109,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -4994,6 +5129,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5026,6 +5162,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5045,6 +5182,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5077,6 +5215,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5096,6 +5235,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5128,6 +5268,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5147,6 +5288,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5179,6 +5321,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5198,6 +5341,7 @@
             "start": 132300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5230,6 +5374,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5249,6 +5394,7 @@
             "start": 136620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5281,6 +5427,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5300,6 +5447,7 @@
             "start": 136620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5332,6 +5480,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5351,6 +5500,7 @@
             "start": 136620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5383,6 +5533,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5402,6 +5553,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5434,6 +5586,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5453,6 +5606,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5485,6 +5639,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5504,6 +5659,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5536,6 +5692,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5555,6 +5712,7 @@
             "start": 181260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5587,6 +5745,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5606,6 +5765,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5638,6 +5798,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5657,6 +5818,7 @@
             "start": 151020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5689,6 +5851,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5708,6 +5871,7 @@
             "start": 153900
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5740,6 +5904,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5759,6 +5924,7 @@
             "start": 140940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5791,6 +5957,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5810,6 +5977,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5842,6 +6010,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5861,6 +6030,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -5893,6 +6063,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5905,6 +6076,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5930,6 +6102,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5949,6 +6122,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5981,6 +6155,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6000,6 +6175,7 @@
             "start": 161100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6032,6 +6208,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6051,6 +6228,7 @@
             "start": 166860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6083,6 +6261,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6102,6 +6281,7 @@
             "start": 166860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6134,6 +6314,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6153,6 +6334,7 @@
             "start": 166860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6185,6 +6367,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6204,6 +6387,7 @@
             "start": 171180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6236,6 +6420,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6255,6 +6440,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6287,6 +6473,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6306,6 +6493,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6338,6 +6526,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6357,6 +6546,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6389,6 +6579,7 @@
         "parent": "f20.TestingPhase.alpha.software_translation",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6408,6 +6599,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6440,6 +6632,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6459,6 +6652,7 @@
             "start": 151020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6491,6 +6685,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6510,6 +6705,7 @@
             "start": 155340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6542,6 +6738,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6561,6 +6758,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6593,6 +6791,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6612,6 +6811,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6644,6 +6844,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6663,6 +6864,7 @@
             "start": 132300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6695,6 +6897,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6714,6 +6917,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6746,6 +6950,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6765,6 +6970,7 @@
             "start": 143820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6797,6 +7003,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6816,6 +7023,7 @@
             "start": 145260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6848,6 +7056,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6867,6 +7076,7 @@
             "start": 145260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -6899,6 +7109,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6918,6 +7129,7 @@
             "start": 155340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6950,6 +7162,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -6969,6 +7182,7 @@
             "start": 156780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7001,6 +7215,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7020,6 +7235,7 @@
             "start": 155340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7052,6 +7268,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7071,6 +7288,7 @@
             "start": 156780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7103,6 +7321,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7122,6 +7341,7 @@
             "start": 155340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7154,6 +7374,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7173,6 +7394,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7205,6 +7427,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7224,6 +7447,7 @@
             "start": 175500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7256,6 +7480,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7275,6 +7500,7 @@
             "start": 175500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7307,6 +7533,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7326,6 +7553,7 @@
             "start": 176940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7358,6 +7586,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7377,6 +7606,7 @@
             "start": 176940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7409,6 +7639,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7428,6 +7659,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7460,6 +7692,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7472,6 +7705,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7497,6 +7731,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7516,6 +7751,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7548,6 +7784,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7567,6 +7804,7 @@
             "start": 131820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7599,6 +7837,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7618,6 +7857,7 @@
             "start": 140940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7650,6 +7890,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7669,6 +7910,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7701,6 +7943,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7720,6 +7963,7 @@
             "start": 142380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7752,6 +7996,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7771,6 +8016,7 @@
             "start": 145260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7803,6 +8049,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7822,6 +8069,7 @@
             "start": 161100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -7854,6 +8102,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7873,6 +8122,7 @@
             "start": 153420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7905,6 +8155,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_banner",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7924,6 +8175,7 @@
             "start": 153420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7956,6 +8208,7 @@
         "parent": "f20.TestingPhase.alpha.alpha_banner",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -7975,6 +8228,7 @@
             "start": 154860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8007,6 +8261,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8026,6 +8281,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8058,6 +8314,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8077,6 +8334,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8109,6 +8367,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8128,6 +8387,7 @@
             "start": 172620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8160,6 +8420,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8179,6 +8440,7 @@
             "start": 175500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8211,6 +8473,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8230,6 +8493,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8262,6 +8526,7 @@
         "parent": "f20.TestingPhase.alpha",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8281,6 +8546,7 @@
             "start": 202860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8313,6 +8579,7 @@
         "parent": "f20.TestingPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8325,6 +8592,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8350,6 +8618,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8369,6 +8638,7 @@
             "start": 163980
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8401,6 +8671,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8420,6 +8691,7 @@
             "start": 166860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8452,6 +8724,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8471,6 +8744,7 @@
             "start": 165420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8503,6 +8777,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8522,6 +8797,7 @@
             "start": 174060
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8554,6 +8830,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8573,6 +8850,7 @@
             "start": 176940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8605,6 +8883,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8624,6 +8903,7 @@
             "start": 181260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -8656,6 +8936,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8675,6 +8956,7 @@
             "start": 184140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8707,6 +8989,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8726,6 +9009,7 @@
             "start": 187020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8758,6 +9042,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8777,6 +9062,7 @@
             "start": 194220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8809,6 +9095,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8828,6 +9115,7 @@
             "start": 197100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8860,6 +9148,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8879,6 +9168,7 @@
             "start": 182220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8911,6 +9201,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8930,6 +9221,7 @@
             "start": 182220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8962,6 +9254,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -8981,6 +9274,7 @@
             "start": 182220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9013,6 +9307,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9032,6 +9327,7 @@
             "start": 182220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9064,6 +9360,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9083,6 +9380,7 @@
             "start": 191340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9115,6 +9413,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9134,6 +9433,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9166,6 +9466,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9185,6 +9486,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9217,6 +9519,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9236,6 +9539,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9268,6 +9572,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9287,6 +9592,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9319,6 +9625,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9338,6 +9645,7 @@
             "start": 194220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9370,6 +9678,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9389,6 +9698,7 @@
             "start": 202860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9421,6 +9731,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9440,6 +9751,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9472,6 +9784,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9491,6 +9804,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9523,6 +9837,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9535,6 +9850,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9560,6 +9876,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9579,6 +9896,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9611,6 +9929,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9630,6 +9949,7 @@
             "start": 175500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9662,6 +9982,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9681,6 +10002,7 @@
             "start": 174060
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9713,6 +10035,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9732,6 +10055,7 @@
             "start": 184140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9764,6 +10088,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9783,6 +10108,7 @@
             "start": 184140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9815,6 +10141,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9834,6 +10161,7 @@
             "start": 175500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9866,6 +10194,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9885,6 +10214,7 @@
             "start": 181260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -9917,6 +10247,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9936,6 +10267,7 @@
             "start": 184140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9968,6 +10300,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -9987,6 +10320,7 @@
             "start": 181260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10019,6 +10353,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10038,6 +10373,7 @@
             "start": 181260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10070,6 +10406,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10089,6 +10426,7 @@
             "start": 191340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10121,6 +10459,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10140,6 +10479,7 @@
             "start": 191340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10172,6 +10512,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10191,6 +10532,7 @@
             "start": 205740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10223,6 +10565,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10242,6 +10585,7 @@
             "start": 211500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10274,6 +10618,7 @@
         "parent": "f20.TestingPhase.beta.beta_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10293,6 +10638,7 @@
             "start": 211500
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10325,6 +10671,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10344,6 +10691,7 @@
             "start": 187020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10376,6 +10724,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10395,6 +10744,7 @@
             "start": 187020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10427,6 +10777,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10446,6 +10797,7 @@
             "start": 187020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10478,6 +10830,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10497,6 +10850,7 @@
             "start": 187020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10529,6 +10883,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10541,6 +10896,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10566,6 +10922,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10585,6 +10942,7 @@
             "start": 201420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10617,6 +10975,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10636,6 +10995,7 @@
             "start": 205740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10668,6 +11028,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10687,6 +11048,7 @@
             "start": 205740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10719,6 +11081,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10738,6 +11101,7 @@
             "start": 180780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10770,6 +11134,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10789,6 +11154,7 @@
             "start": 180780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10821,6 +11187,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10840,6 +11207,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10872,6 +11240,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10891,6 +11260,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10923,6 +11293,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10942,6 +11313,7 @@
             "start": 173580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -10974,6 +11346,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -10993,6 +11366,7 @@
             "start": 201420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11025,6 +11399,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11044,6 +11419,7 @@
             "start": 204300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11076,6 +11452,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11095,6 +11472,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11127,6 +11505,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11146,6 +11525,7 @@
             "start": 194220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11178,6 +11558,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11197,6 +11578,7 @@
             "start": 195660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11229,6 +11611,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11248,6 +11631,7 @@
             "start": 215820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11280,6 +11664,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11299,6 +11684,7 @@
             "start": 215820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11331,6 +11717,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11350,6 +11737,7 @@
             "start": 195660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11382,6 +11770,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11401,6 +11790,7 @@
             "start": 205740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11433,6 +11823,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11452,6 +11843,7 @@
             "start": 207180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11484,6 +11876,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11503,6 +11896,7 @@
             "start": 205740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11535,6 +11929,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11554,6 +11949,7 @@
             "start": 207180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11586,6 +11982,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11605,6 +12002,7 @@
             "start": 203820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11637,6 +12035,7 @@
         "parent": "f20.TestingPhase.beta.beta_banner",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11656,6 +12055,7 @@
             "start": 203820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11688,6 +12088,7 @@
         "parent": "f20.TestingPhase.beta.beta_banner",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11707,6 +12108,7 @@
             "start": 205260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11739,6 +12141,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11758,6 +12161,7 @@
             "start": 211020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11790,6 +12194,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11809,6 +12214,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11841,6 +12247,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11860,6 +12267,7 @@
             "start": 237420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11892,6 +12300,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11911,6 +12320,7 @@
             "start": 237420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -11943,6 +12353,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11962,6 +12373,7 @@
             "start": 227340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -11994,6 +12406,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12013,6 +12426,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12045,6 +12459,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12064,6 +12479,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12096,6 +12512,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12115,6 +12532,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12147,6 +12565,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12166,6 +12585,7 @@
             "start": 225900
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12198,6 +12618,7 @@
         "parent": "f20.TestingPhase.beta",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12217,6 +12638,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12249,6 +12671,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12261,6 +12684,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12286,6 +12710,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12305,6 +12730,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12337,6 +12763,7 @@
         "parent": "f20.LaunchPhase.release_posters",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12356,6 +12783,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12388,6 +12816,7 @@
         "parent": "f20.LaunchPhase.release_posters",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12413,6 +12842,7 @@
             "start": 233100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12451,6 +12881,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12470,6 +12901,7 @@
             "start": 223020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12502,6 +12934,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12521,6 +12954,7 @@
             "start": 233100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12553,6 +12987,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12572,6 +13007,7 @@
             "start": 233100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12604,6 +13040,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12623,6 +13060,7 @@
             "start": 233100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12655,6 +13093,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12674,6 +13113,7 @@
             "start": 233100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12706,6 +13146,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12718,6 +13159,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -12743,6 +13185,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12762,6 +13205,7 @@
             "start": 215820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12794,6 +13238,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12813,6 +13258,7 @@
             "start": 204300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12845,6 +13291,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12864,6 +13311,7 @@
             "start": 207180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12896,6 +13344,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12915,6 +13364,7 @@
             "start": 214380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12947,6 +13397,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12966,6 +13417,7 @@
             "start": 217260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -12998,6 +13450,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13017,6 +13470,7 @@
             "start": 224460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13049,6 +13503,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13068,6 +13523,7 @@
             "start": 227340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13100,6 +13556,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13119,6 +13576,7 @@
             "start": 236940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13151,6 +13609,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13170,6 +13629,7 @@
             "start": 236940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13202,6 +13662,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13221,6 +13682,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13253,6 +13715,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13272,6 +13735,7 @@
             "start": 243180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13304,6 +13768,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13323,6 +13788,7 @@
             "start": 236940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13355,6 +13821,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13374,6 +13841,7 @@
             "start": 236940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13406,6 +13874,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13425,6 +13894,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13457,6 +13927,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13476,6 +13947,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13508,6 +13980,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -13527,6 +14000,7 @@
             "start": 243180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -13559,6 +14033,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13578,6 +14053,7 @@
             "start": 234540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13610,6 +14086,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13629,6 +14106,7 @@
             "start": 237420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13661,6 +14139,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -13680,6 +14159,7 @@
             "start": 231660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -13712,6 +14192,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13731,6 +14212,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13763,6 +14245,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -13775,6 +14258,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -13800,6 +14284,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13819,6 +14304,7 @@
             "start": 211020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13851,6 +14337,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13870,6 +14357,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13902,6 +14390,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13921,6 +14410,7 @@
             "start": 221580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -13953,6 +14443,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -13972,6 +14463,7 @@
             "start": 221580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14004,6 +14496,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14023,6 +14516,7 @@
             "start": 224460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14055,6 +14549,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14074,6 +14569,7 @@
             "start": 192780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14106,6 +14602,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14125,6 +14622,7 @@
             "start": 231660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14157,6 +14655,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14176,6 +14675,7 @@
             "start": 233100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14208,6 +14708,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14227,6 +14728,7 @@
             "start": 233100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14259,6 +14761,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14278,6 +14781,7 @@
             "start": 235980
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14310,6 +14814,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14329,6 +14834,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14361,6 +14867,7 @@
         "parent": "f20.LaunchPhase.rc.ga_release_notes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14380,6 +14887,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14412,6 +14920,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14431,6 +14940,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14463,6 +14973,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14482,6 +14993,7 @@
             "start": 236940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14514,6 +15026,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14533,6 +15046,7 @@
             "start": 251820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14565,6 +15079,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14584,6 +15099,7 @@
             "start": 257580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14616,6 +15132,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14635,6 +15152,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14667,6 +15185,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14686,6 +15205,7 @@
             "start": 223020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14718,6 +15238,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14737,6 +15258,7 @@
             "start": 223020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14769,6 +15291,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14788,6 +15311,7 @@
             "start": 224460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14820,6 +15344,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14839,6 +15364,7 @@
             "start": 243180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14871,6 +15397,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14890,6 +15417,7 @@
             "start": 251820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14922,6 +15450,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14941,6 +15470,7 @@
             "start": 251820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -14973,6 +15503,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -14992,6 +15523,7 @@
             "start": 251820
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15024,6 +15556,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15043,6 +15576,7 @@
             "start": 256140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15075,6 +15609,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15094,6 +15629,7 @@
             "start": 226860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15126,6 +15662,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15145,6 +15682,7 @@
             "start": 226860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15177,6 +15715,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15196,6 +15735,7 @@
             "start": 231660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15228,6 +15768,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15247,6 +15788,7 @@
             "start": 231660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15279,6 +15821,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15298,6 +15841,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15330,6 +15874,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15349,6 +15894,7 @@
             "start": 243180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15381,6 +15927,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15400,6 +15947,7 @@
             "start": 256140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15432,6 +15980,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15451,6 +16000,7 @@
             "start": 256140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15483,6 +16033,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15502,6 +16053,7 @@
             "start": 244620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15534,6 +16086,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15553,6 +16106,7 @@
             "start": 244620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15585,6 +16139,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15604,6 +16159,7 @@
             "start": 256140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15636,6 +16192,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15655,6 +16212,7 @@
             "start": 257580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15687,6 +16245,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15706,6 +16265,7 @@
             "start": 256140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15738,6 +16298,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15757,6 +16318,7 @@
             "start": 231660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15789,6 +16351,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15808,6 +16371,7 @@
             "start": 231660
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15840,6 +16404,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15859,6 +16424,7 @@
             "start": 244620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15891,6 +16457,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15910,6 +16477,7 @@
             "start": 246060
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15942,6 +16510,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15961,6 +16530,7 @@
             "start": 253260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15993,6 +16563,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16012,6 +16583,7 @@
             "start": 257580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16044,6 +16616,7 @@
         "parent": "f20.LaunchPhase.rc",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16056,6 +16629,7 @@
             "start": 251340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16081,6 +16655,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16100,6 +16675,7 @@
             "start": 251340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16132,6 +16708,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16151,6 +16728,7 @@
             "start": 251340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16183,6 +16761,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16202,6 +16781,7 @@
             "start": 251340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16234,6 +16814,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16253,6 +16834,7 @@
             "start": 251340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16285,6 +16867,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16304,6 +16887,7 @@
             "start": 251340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16336,6 +16920,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16355,6 +16940,7 @@
             "start": 261900
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16387,6 +16973,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16406,6 +16993,7 @@
             "start": 261900
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16438,6 +17026,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16457,6 +17046,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16489,6 +17079,7 @@
         "parent": "f20.LaunchPhase.rc.zero_day_relnotes",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16508,6 +17099,7 @@
             "start": 272040
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16540,6 +17132,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16559,6 +17152,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16591,6 +17185,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16610,6 +17205,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16642,6 +17238,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16661,6 +17258,7 @@
             "start": 266220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16693,6 +17291,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16712,6 +17311,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16744,6 +17344,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16763,6 +17364,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16795,6 +17397,7 @@
         "parent": "f20.LaunchPhase",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16814,6 +17417,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16846,6 +17450,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16858,6 +17463,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16883,6 +17489,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16895,6 +17502,7 @@
             "start": 1680
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16920,6 +17528,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16939,6 +17548,7 @@
             "start": 162540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16971,6 +17581,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -16990,6 +17601,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17022,6 +17634,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17041,6 +17654,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17073,6 +17687,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17092,6 +17707,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17124,6 +17740,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17143,6 +17760,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17175,6 +17793,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17194,6 +17813,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17226,6 +17846,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17245,6 +17866,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17277,6 +17899,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17296,6 +17919,7 @@
             "start": 182700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17328,6 +17952,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17347,6 +17972,7 @@
             "start": 176940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17379,6 +18005,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17398,6 +18025,7 @@
             "start": 204300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17430,6 +18058,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17449,6 +18078,7 @@
             "start": 192300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17481,6 +18111,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17500,6 +18131,7 @@
             "start": 192300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17532,6 +18164,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17551,6 +18184,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17583,6 +18217,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17602,6 +18237,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17634,6 +18270,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17653,6 +18290,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17685,6 +18323,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17704,6 +18343,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17736,6 +18376,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17755,6 +18396,7 @@
             "start": 241740
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17787,6 +18429,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17806,6 +18449,7 @@
             "start": 261420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17838,6 +18482,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17857,6 +18502,7 @@
             "start": 261420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17889,6 +18535,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17908,6 +18555,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17940,6 +18588,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17959,6 +18608,7 @@
             "start": 221580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17991,6 +18641,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18010,6 +18661,7 @@
             "start": 221580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18042,6 +18694,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18061,6 +18714,7 @@
             "start": 221580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18093,6 +18747,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18112,6 +18767,7 @@
             "start": 221580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18144,6 +18800,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18163,6 +18820,7 @@
             "start": 204300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18195,6 +18853,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18214,6 +18873,7 @@
             "start": 261420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18246,6 +18906,7 @@
         "parent": "f20.all_guides",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18265,6 +18926,7 @@
             "start": 261420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18297,6 +18959,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18309,6 +18972,7 @@
             "start": 211920
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18334,6 +18998,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18346,6 +19011,7 @@
             "start": 211920
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18371,6 +19037,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18390,6 +19057,7 @@
             "start": 211920
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18422,6 +19090,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18441,6 +19110,7 @@
             "start": 222000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18473,6 +19143,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18492,6 +19163,7 @@
             "start": 222000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18524,6 +19196,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18543,6 +19216,7 @@
             "start": 258000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18575,6 +19249,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18594,6 +19269,7 @@
             "start": 258000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18626,6 +19302,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18645,6 +19322,7 @@
             "start": 258000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18677,6 +19355,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18696,6 +19375,7 @@
             "start": 269520
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18728,6 +19408,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18747,6 +19428,7 @@
             "start": 258000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18779,6 +19461,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18798,6 +19481,7 @@
             "start": 279600
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18830,6 +19514,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18849,6 +19534,7 @@
             "start": 281040
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18881,6 +19567,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18900,6 +19587,7 @@
             "start": 283920
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18932,6 +19620,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18951,6 +19640,7 @@
             "start": 285360
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18983,6 +19673,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19002,6 +19693,7 @@
             "start": 294000
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19034,6 +19726,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19053,6 +19746,7 @@
             "start": 295440
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19085,6 +19779,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19104,6 +19799,7 @@
             "start": 295440
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19136,6 +19832,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19155,6 +19852,7 @@
             "start": 304080
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19187,6 +19885,7 @@
         "parent": "f20.elections",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19206,6 +19905,7 @@
             "start": 305520
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19238,6 +19938,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19250,6 +19951,7 @@
             "start": 201840
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19275,6 +19977,7 @@
         "parent": "f20.naming",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19287,6 +19990,7 @@
             "start": 201840
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19312,6 +20016,7 @@
         "parent": "f20.naming",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19331,6 +20036,7 @@
             "start": 212700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19363,6 +20069,7 @@
         "parent": "f20.naming",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19382,6 +20089,7 @@
             "start": 217020
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19414,6 +20122,7 @@
         "parent": "f20.naming",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19433,6 +20142,7 @@
             "start": 227100
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19465,6 +20175,7 @@
         "parent": "f20.naming",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19484,6 +20195,7 @@
             "start": 237180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19516,6 +20228,7 @@
         "parent": "f20",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19528,6 +20241,7 @@
             "start": 141900
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19553,6 +20267,7 @@
         "parent": "f20.pr",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19565,6 +20280,7 @@
             "start": 141900
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19590,6 +20306,7 @@
         "parent": "f20.pr.video",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19609,6 +20326,7 @@
             "start": 141900
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19641,6 +20359,7 @@
         "parent": "f20.pr.video",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19653,6 +20372,7 @@
             "start": 202380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19678,6 +20398,7 @@
         "parent": "f20.pr.video.video1",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19697,6 +20418,7 @@
             "start": 202380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19729,6 +20451,7 @@
         "parent": "f20.pr.video.video1",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19748,6 +20471,7 @@
             "start": 232620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19780,6 +20504,7 @@
         "parent": "f20.pr.video",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19792,6 +20517,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19817,6 +20543,7 @@
         "parent": "f20.pr.video.video2",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19836,6 +20563,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19868,6 +20596,7 @@
         "parent": "f20.pr.video.video2",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19887,6 +20616,7 @@
             "start": 252780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -19919,6 +20649,7 @@
         "parent": "f20.pr.video",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19931,6 +20662,7 @@
             "start": 223980
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19956,6 +20688,7 @@
         "parent": "f20.pr.video.release_video",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19975,6 +20708,7 @@
             "start": 223980
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20007,6 +20741,7 @@
         "parent": "f20.pr.video.release_video",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20026,6 +20761,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20058,6 +20794,7 @@
         "parent": "f20.pr",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20070,6 +20807,7 @@
             "start": 172140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20095,6 +20833,7 @@
         "parent": "f20.pr.beta_release_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20114,6 +20853,7 @@
             "start": 172140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20146,6 +20886,7 @@
         "parent": "f20.pr.beta_release_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20165,6 +20906,7 @@
             "start": 192300
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20197,6 +20939,7 @@
         "parent": "f20.pr.beta_release_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20216,6 +20959,7 @@
             "start": 202380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20248,6 +20992,7 @@
         "parent": "f20.pr.beta_release_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20267,6 +21012,7 @@
             "start": 212940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20299,6 +21045,7 @@
         "parent": "f20.pr",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20311,6 +21058,7 @@
             "start": 212460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20336,6 +21084,7 @@
         "parent": "f20.pr.spotlight_feature_blogs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20348,6 +21097,7 @@
             "start": 212460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20373,6 +21123,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature1",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20392,6 +21143,7 @@
             "start": 212460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20424,6 +21176,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature1",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20443,6 +21196,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20475,6 +21229,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature1",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20494,6 +21249,7 @@
             "start": 231180
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20526,6 +21282,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature1",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20545,6 +21302,7 @@
             "start": 232620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20577,6 +21335,7 @@
         "parent": "f20.pr.spotlight_feature_blogs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20589,6 +21348,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20614,6 +21374,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature2",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20633,6 +21394,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20665,6 +21427,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature2",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20684,6 +21447,7 @@
             "start": 232620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20716,6 +21480,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature2",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20735,6 +21500,7 @@
             "start": 242700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20767,6 +21533,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature2",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20786,6 +21553,7 @@
             "start": 241260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20818,6 +21586,7 @@
         "parent": "f20.pr.spotlight_feature_blogs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20830,6 +21599,7 @@
             "start": 232620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20855,6 +21625,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature3",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20874,6 +21645,7 @@
             "start": 232620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20906,6 +21678,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature3",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20925,6 +21698,7 @@
             "start": 242700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20957,6 +21731,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature3",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20976,6 +21751,7 @@
             "start": 252780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -21008,6 +21784,7 @@
         "parent": "f20.pr.spotlight_feature_blogs.spotlight_feature3",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21027,6 +21804,7 @@
             "start": 251340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21059,6 +21837,7 @@
         "parent": "f20.pr",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21071,6 +21850,7 @@
             "start": 205260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21096,6 +21876,7 @@
         "parent": "f20.pr.usb_keys_prebriefs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21115,6 +21896,7 @@
             "start": 205260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21147,6 +21929,7 @@
         "parent": "f20.pr.usb_keys_prebriefs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21166,6 +21949,7 @@
             "start": 205260
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21198,6 +21982,7 @@
         "parent": "f20.pr.usb_keys_prebriefs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21217,6 +22002,7 @@
             "start": 215340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21249,6 +22035,7 @@
         "parent": "f20.pr.usb_keys_prebriefs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21268,6 +22055,7 @@
             "start": 215340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21300,6 +22088,7 @@
         "parent": "f20.pr.usb_keys_prebriefs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21319,6 +22108,7 @@
             "start": 225420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21351,6 +22141,7 @@
         "parent": "f20.pr.usb_keys_prebriefs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21370,6 +22161,7 @@
             "start": 226860
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21402,6 +22194,7 @@
         "parent": "f20.pr.usb_keys_prebriefs",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21421,6 +22214,7 @@
             "start": 252780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21453,6 +22247,7 @@
         "parent": "f20.pr",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21465,6 +22260,7 @@
             "start": 202380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21490,6 +22286,7 @@
         "parent": "f20.pr.redhat_com_update",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21509,6 +22306,7 @@
             "start": 202380
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21541,6 +22339,7 @@
         "parent": "f20.pr.redhat_com_update",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21560,6 +22359,7 @@
             "start": 212460
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21592,6 +22392,7 @@
         "parent": "f20.pr.redhat_com_update",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21611,6 +22412,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21643,6 +22445,7 @@
         "parent": "f20.pr.redhat_com_update",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21662,6 +22465,7 @@
             "start": 232620
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21694,6 +22498,7 @@
         "parent": "f20.pr.redhat_com_update",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -21713,6 +22518,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -21745,6 +22551,7 @@
         "parent": "f20.pr",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21757,6 +22564,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21782,6 +22590,7 @@
         "parent": "f20.pr.ga_press_release",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21801,6 +22610,7 @@
             "start": 222540
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21833,6 +22643,7 @@
         "parent": "f20.pr.ga_press_release",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21852,6 +22663,7 @@
             "start": 242700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21884,6 +22696,7 @@
         "parent": "f20.pr.ga_press_release",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21903,6 +22716,7 @@
             "start": 252780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21935,6 +22749,7 @@
         "parent": "f20.pr.ga_press_release",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -21954,6 +22769,7 @@
             "start": 263340
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -21986,6 +22802,7 @@
         "parent": "f20.pr",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21998,6 +22815,7 @@
             "start": 236940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22023,6 +22841,7 @@
         "parent": "f20.pr.ceo_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22042,6 +22861,7 @@
             "start": 236940
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22074,6 +22894,7 @@
         "parent": "f20.pr.ceo_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22093,6 +22914,7 @@
             "start": 242700
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22125,6 +22947,7 @@
         "parent": "f20.pr.ceo_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22144,6 +22967,7 @@
             "start": 245580
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22176,6 +23000,7 @@
         "parent": "f20.pr.ceo_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22195,6 +23020,7 @@
             "start": 254220
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22227,6 +23053,7 @@
         "parent": "f20.pr.ceo_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22246,6 +23073,7 @@
             "start": 261420
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22278,6 +23106,7 @@
         "parent": "f20.pr.ceo_blog",
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -22297,6 +23126,7 @@
             "start": 264780
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -22324,5 +23154,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

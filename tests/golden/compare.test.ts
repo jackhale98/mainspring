@@ -165,6 +165,67 @@ describe('compareWithGolden', () => {
 		}
 	});
 
+	it('fails on a mutation of each schema v3 field, with ISO times on leave and working-time bounds', () => {
+		const golden = byId('syn-13-calendars-leaves');
+		const xan = (r: ScheduleResult) => r.resources.find((x) => x.id === 'xan')?.scenarios['plan'];
+		const mutations: Array<[string, (r: ScheduleResult) => void]> = [
+			[
+				'/project/weekStartsMonday',
+				(r) => {
+					if (r.project) r.project.weekStartsMonday = !r.project.weekStartsMonday;
+				},
+			],
+			[
+				'/project/leaves/0/interval/1',
+				(r) => {
+					const leave = r.project?.leaves[0];
+					if (leave) leave.interval[1] += 60;
+				},
+			],
+			[
+				'/project/leaves/0/name',
+				(r) => {
+					const leave = r.project?.leaves[0];
+					if (leave) leave.name = 'Founders day';
+				},
+			],
+			[
+				'/resources/0/scenarios/plan/workingTime/0/0',
+				(r) => {
+					const first = xan(r)?.workingTime[0];
+					if (first) first[0] += 60;
+				},
+			],
+			[
+				'/resources/0/scenarios/plan/leaves/0/type',
+				(r) => {
+					const leave = xan(r)?.leaves[0];
+					if (leave) leave.type = 'sick';
+				},
+			],
+			[
+				'/tasks/1/scenarios/plan/allocate/0/candidates/0',
+				(r) => {
+					const item = r.tasks[1]?.scenarios['plan']?.allocate[0];
+					if (item) item.candidates[0] = 'yui';
+				},
+			],
+		];
+		for (const [path, mutate] of mutations) {
+			const result = asResult(golden);
+			mutate(result);
+			const comparison = compareWithGolden(golden, result);
+			expect(comparison.ok, path).toBe(false);
+			expect(comparison.diffs.join('\n'), path).toContain(path);
+		}
+		const result = asResult(golden);
+		const leave = result.project?.leaves[0];
+		if (leave) leave.interval[0] += 60;
+		expect(compareWithGolden(golden, result).diffs[0]).toMatch(
+			/^\/project\/leaves\/0\/interval\/0: expected 50400 \(2026-02-09T00:00:00Z\), got 50460 \(2026-02-09T01:00:00Z\)$/,
+		);
+	});
+
 	it('fails with one line on a golden of another schema', () => {
 		const golden = byId('upstream-tutorial');
 		const comparison = compareWithGolden({ ...golden, schemaVersion: 1 }, asResult(golden));

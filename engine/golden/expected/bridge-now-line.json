@@ -29,6 +29,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-04-01T10:00:00Z",
       "id": "nowline",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Now from the plan",
       "now": "2026-03-04T12:00:00Z",
@@ -44,6 +45,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -150,6 +152,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -170,5 +173,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
