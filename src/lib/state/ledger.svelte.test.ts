@@ -70,6 +70,52 @@ describe('Ledger', () => {
 		expect(ledger.pending.byTask.size).toBe(0);
 	});
 
+	it('says "Deleted. The plan has no tasks." only on the delete, not on a rename it overtook', async () => {
+		// Rename the only task, then delete it before the rename's result arrives: the one result
+		// that arrives (of the delete's text) is the first newer result for both edits.
+		let emptied = 0;
+		ledger = new Ledger(toasts, () => emptied++);
+		const rename = entry({ seq: 1, entry: 'e1', version: 5 });
+		const del = entry({ seq: 2, entry: 'e2', version: 6, emptied: true });
+		const renamed = ledger.add(rename, state({ version: 6 }));
+		const deleted = ledger.add(del, state({ version: 6 }));
+		const emptyResult = {
+			revision: 2,
+			workspaceVersion: 6,
+			result: result(2, {
+				ok: false,
+				messages: [
+					{
+						level: 'error',
+						id: 'no_tasks',
+						text: 'No tasks',
+						file: null,
+						line: null,
+						column: null,
+						scenario: null,
+					},
+				],
+			}),
+		} as unknown as RunnerState['latest'];
+		ledger.onRunner(
+			state({
+				version: 6,
+				latest: emptyResult,
+				indexVersion: 6,
+				index: { tasks: new Map() } as unknown as RunnerState['index'],
+			}),
+		);
+		await expect(renamed).resolves.toEqual({ status: 'scheduled' });
+		await expect(deleted).resolves.toEqual({ status: 'empty' });
+		// The empty state takes the focus the deleted row had: told once, for the delete only.
+		expect(emptied).toBe(1);
+		expect(toasts.get(rename.toast)?.text).not.toContain('The plan has no tasks');
+		expect(toasts.get(del.toast)).toMatchObject({
+			status: 'empty',
+			text: 'Deleted. The plan has no tasks.',
+		});
+	});
+
 	it('settles at once when the engine is already down', async () => {
 		const settled = ledger.add(entry(), state({ engine: 'failed' }));
 		await expect(settled).resolves.toMatchObject({ status: 'failed' });

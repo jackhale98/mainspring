@@ -11,7 +11,10 @@
  *   its place. A result that is not ok is `not-scheduled`, with its first error and place;
  * - `failure.workspaceVersion >= v`: the run that included it failed;
  * - both: the newer revision wins;
- * - `engine === 'failed'` (the engine gave up): every pending edit is `failed`.
+ * - `engine === 'failed'` (the engine gave up): every pending edit is `failed`;
+ * - a result that is not ok only because the plan has no task (`no_tasks`, empty-plan.ts) is not
+ *   an error: `empty` for an edit that deleted every task of the plan it was prepared on
+ *   ("Deleted. The plan has no tasks."), plain `scheduled` for any other edit.
  */
 import type { EngineMessage, ScheduleResult } from '../../engine/protocol';
 import { engineFailureStrings, toastStrings } from '../strings';
@@ -19,6 +22,7 @@ import type { WorkspacePath } from '../workspace/paths';
 import type { RunnerState } from '../workspace/run-types';
 import type { Workspace } from '../workspace/workspace';
 import type { SourceRange } from '../tjp/edit/types';
+import { isEmptyPlan } from './empty-plan';
 
 /** A range in the text of one workspace version; mapped forward before it is shown. */
 export interface Located {
@@ -31,6 +35,8 @@ export interface Located {
 export type Settlement =
 	/** The result that includes the edit schedules: drop the pending mark, bars animate. */
 	| { readonly status: 'scheduled' }
+	/** The edit took the plan's last task: the plan is empty, which is not an error. */
+	| { readonly status: 'empty' }
 	/** It schedules, but the result has an error the good run before did not have. */
 	| { readonly status: 'new-error'; readonly message: string; readonly at: Located | null }
 	/** It applied, but that result does not schedule (11.2). */
@@ -46,7 +52,14 @@ export type Settlement =
 
 export type RunnerView = Pick<
 	RunnerState,
-	'engine' | 'latest' | 'failure' | 'diagnostics' | 'version' | 'lastGood'
+	| 'engine'
+	| 'latest'
+	| 'failure'
+	| 'diagnostics'
+	| 'version'
+	| 'lastGood'
+	| 'index'
+	| 'indexVersion'
 >;
 
 const isError = (m: EngineMessage): boolean => m.level === 'error' || m.level === 'fatal';
@@ -61,17 +74,26 @@ const failed = (kind: keyof typeof engineFailureStrings): Settlement => ({
 	message: toastStrings.failed(engineFailureStrings[kind]),
 });
 
-/** How state `s` settles an edit that produced workspace version `version`, or null: not yet. */
+/**
+ * How state `s` settles an edit that produced workspace version `version`, or null: not yet.
+ * `emptied`: the edit deleted every task of the plan it was prepared on (`emptiesPlan`). Only
+ * such an edit settles as `empty`. Any other edit on a plan whose result is empty (the plan was
+ * empty already, or an earlier edit emptied it before this one settled) is plain `scheduled`.
+ */
 export function settleOf(
 	s: RunnerView,
 	version: number,
 	baseline: ReadonlySet<string>,
+	emptied = false,
 ): Settlement | null {
 	if (s.engine === 'failed') return failed(s.failure?.error.kind ?? 'crash');
 	const r = s.latest !== null && s.latest.workspaceVersion >= version ? s.latest : null;
 	const f = s.failure !== null && s.failure.workspaceVersion >= version ? s.failure : null;
 	if (f && (!r || f.revision > r.revision)) return failed(f.error.kind);
 	if (!r) return null;
+	// The result's own text: a later keystroke does not make an answer about the edit stale.
+	if (isEmptyPlan({ ...s, version: r.workspaceVersion }))
+		return emptied ? { status: 'empty' } : { status: 'scheduled' };
 	const errors = r.result.messages.filter(isError);
 	const fresh = r.result.ok ? errors.filter((m) => !baseline.has(m.id)) : errors;
 	if (r.result.ok && fresh.length === 0) return { status: 'scheduled' };

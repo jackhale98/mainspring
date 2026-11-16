@@ -36,6 +36,7 @@
 	import { canAddSubtask, type AddMode } from '../lib/gantt/add-task';
 	import { ganttActionStrings, strings } from '../lib/strings';
 	import DocsSheet from './DocsSheet.svelte';
+	import NewPlanSheet from './app/NewPlanSheet.svelte';
 	import { addTaskFlow, headerAfter } from './gantt/add-task-flow';
 	import Gantt from './gantt/Gantt.svelte';
 	import InspectorHost from './inspector/InspectorHost.svelte';
@@ -46,6 +47,7 @@
 	import TabBar from './app/TabBar.svelte';
 	import Toasts from './app/Toasts.svelte';
 	import TopBar from './app/TopBar.svelte';
+	import { NEW_PLAN_ID } from '../lib/workspace/samples';
 	import { AppUpdates } from '../lib/state/updates.svelte';
 	import { sitePath } from '../lib/site-path';
 	import type { SourceRange } from '../lib/tjp/index';
@@ -83,6 +85,8 @@
 	// The preferences of the open sample: its mode and its divider.
 	$effect(() => {
 		const id = app.sampleId;
+		// A second new plan starts over, though its key is the same.
+		void app.newPlanSerial;
 		if (id === '') return;
 		untrack(() => {
 			// Another plan's outline starts at the top with nothing selected.
@@ -91,6 +95,8 @@
 			modes.use(id);
 			// A phone starts on the tab of the remembered mode.
 			if (modes.choice !== null) app.phoneTab = phoneTabFor(modes.choice);
+			// A new plan opens on the Gantt tab: its Add task is how the plan begins (ADR-0013).
+			else if (id === NEW_PLAN_ID) app.phoneTab = 'gantt';
 		});
 	});
 
@@ -254,6 +260,12 @@
 		});
 	});
 
+	/** The empty state's "write them in Text": the editor on screen (a phone's Text tab). */
+	function openText(): void {
+		modes.set('text');
+		app.phoneTab = 'text';
+	}
+
 	function pickTab(tab: 'plan' | 'gantt' | 'text'): void {
 		if (tab === 'text') modes.set('text');
 		else if (tab === 'gantt') modes.set('visual');
@@ -306,6 +318,7 @@
 									canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
 									onadd: (mode) => addFromPlan(mode),
 								}}
+								ontext={openText}
 							/>
 						</div>
 					{/if}
@@ -351,6 +364,7 @@
 						tableRatio={modes.table}
 						ontable={(v) => modes.setTable(v)}
 						ontablecommit={() => modes.saveTable()}
+						ontext={showEditor ? undefined : openText}
 					/>
 				</div>
 			{/if}
@@ -381,6 +395,7 @@
 		</Sheet>
 	{/if}
 	<DocsSheet {app} />
+	<NewPlanSheet {app} />
 </div>
 
 <style>

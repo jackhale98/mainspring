@@ -371,6 +371,8 @@ export const ganttActionStrings = {
 export const toastStrings = {
 	region: 'Edits',
 	rescheduling: 'Rescheduling…',
+	/** The edit deleted the plan's last task: the plan is empty, which is not an error. */
+	deletedLast: 'Deleted. The plan has no tasks.',
 	/** The edit applied, but the result that includes it does not schedule (11.2). */
 	noLongerSchedules: (message: string) => `Changed. The plan no longer schedules: ${message}`,
 	noMessage: 'the scheduler gave no reason',
@@ -809,6 +811,39 @@ export const strings = {
 		/** The phone's subtitle under the plan name, e.g. "Finish Wed, Jan 6, 2027". */
 		finish: (date: string) => `Finish ${date}`,
 	},
+	/** What an empty plan shows where its tasks would be (components/app/EmptyState.svelte). */
+	empty: {
+		tasksTitle: 'No tasks yet',
+		addTask: 'Add task',
+		/** The pointer to Text mode; a button where the editor is not on screen. */
+		inText: 'or write them in Text',
+	},
+	/** "New plan…" (ADR-0013): the chooser's entries and the sheet that makes the plan. */
+	newPlan: {
+		/** The chooser's first entry; the dots mean it opens a sheet. */
+		chooser: 'New plan…',
+		/** The chooser's group of built-in plans. */
+		samplesGroup: 'Samples',
+		/** How the chooser and the phone's header list a plan made here. */
+		listed: (name: string) => `${name} (new)`,
+		title: 'New plan',
+		lead: 'A new plan starts empty. You add its first task after you create it.',
+		name: 'Name',
+		namePlaceholder: 'Website relaunch',
+		start: 'Start',
+		zone: 'Time zone',
+		zoneNone: 'None (UTC)',
+		frameNote: 'The plan runs for one year from the start. Project settings change that later.',
+		create: 'Create',
+		cancel: 'Cancel',
+		errors: {
+			'name-empty': 'Give the plan a name.',
+			'name-unsafe': 'A name cannot contain ${…} or $(…): TaskJuggler would expand it.',
+			'name-backslash': 'A name cannot end with a backslash.',
+			start: 'Enter a start date from 1970 to 2035.',
+			zone: 'Choose a time zone from the list.',
+		},
+	},
 	/** The theme toggle: the preference now, and what pressing it switches to. */
 	theme: {
 		label: 'Theme',
@@ -977,6 +1012,8 @@ export const strings = {
 		engineStarting: 'Starting the scheduler…',
 		scheduling: 'Scheduling…',
 		ok: 'Scheduled',
+		/** A plan with no task: not an error (ADR-0013 #3). */
+		empty: 'No tasks yet',
 		errors: 'Scheduled with problems',
 		notScheduled: 'Not scheduled: fix the errors',
 		failed: 'Scheduler failed',

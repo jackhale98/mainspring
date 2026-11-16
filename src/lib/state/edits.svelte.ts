@@ -98,6 +98,7 @@ import type { WorkspacePath } from '../workspace/paths';
 import type { RunnerState } from '../workspace/run-types';
 import { Coalescer, type Gesture } from './coalesce';
 import { afterPaint } from './edits-yield';
+import { emptiesPlan } from './empty-plan';
 import { checkOn, isZeroTotal, movedId, prepare, refused, type Prepared } from './edits-plan';
 import { errorIdsOf, rangeNow, type Located } from './edits-settle';
 import type {
@@ -154,7 +155,7 @@ export class EditDispatcher {
 		this.#d = deps;
 		this.#timers = deps.timers ?? globalTimers;
 		this.#toasts = new Toasts(this.#timers, (t) => this.#ledger.closed(t.id));
-		this.#ledger = new Ledger(this.#toasts);
+		this.#ledger = new Ledger(this.#toasts, () => deps.onEmptied?.());
 		this.#co = new Coalescer(this.#timers, COALESCE_MS, (key) => this.#dispatchHeld(key));
 		this.#off = [
 			deps.runner.subscribe((s) => {
@@ -384,6 +385,8 @@ export class EditDispatcher {
 				entry: p.edit.id,
 				version,
 				baseline: errorIdsOf(this.#state?.lastGood?.result),
+				// From the index the edit was prepared on, which the published one may lag behind.
+				emptied: emptiesPlan(p.on.index, intent),
 				toast,
 				task: job.preview?.task ?? null,
 				rename:

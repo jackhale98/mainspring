@@ -112,6 +112,8 @@ export interface EditDispatcherDeps {
 	/** The move preference and the one-time warning (gantt/prefs.ts); null: none stored. */
 	readonly storage?: PrefStorage | null;
 	readonly zones?: ZoneOffsets;
+	/** An edit deleted the plan's last task and its result is in (the empty state takes the focus). */
+	readonly onEmptied?: () => void;
 	/** Coalescing, the Android gate and toast timers; default the global timers. */
 	readonly timers?: KeyTimers;
 }

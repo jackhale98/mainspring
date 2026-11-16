@@ -6,6 +6,7 @@
 	import { strings } from '../lib/strings';
 	import type { OutlineView } from '../lib/state/outline';
 	import AddTaskMenu from './gantt/AddTaskMenu.svelte';
+	import EmptyState from './app/EmptyState.svelte';
 	import OutlineTree from './OutlineTree.svelte';
 
 	interface Props {
@@ -24,8 +25,10 @@
 					onadd: (mode: AddMode) => Promise<unknown> | void;
 			  }
 			| undefined;
+		/** The empty state's pointer to Text (the phone's Plan tab: the editor is another tab). */
+		ontext?: (() => void) | undefined;
 	}
-	let { app, showTitle = true, showNotice = true, views, add }: Props = $props();
+	let { app, showTitle = true, showNotice = true, views, add, ontext }: Props = $props();
 </script>
 
 <div class="panel">
@@ -39,16 +42,20 @@
 		{:else}
 			<h3 id="outline-tasks">{strings.outline.tasks}</h3>
 		{/if}
-		<OutlineTree
-			label={strings.outline.tasks}
-			nodes={app.outline.tasks}
-			collapsed={app.collapsed}
-			errors={app.errors}
-			emptyText={strings.outline.noTasks}
-			ontoggle={(k) => app.toggleNode(k)}
-			onselect={(n) => app.revealNode(n)}
-			view={views?.tasks}
-		/>
+		{#if add && app.emptyPlan}
+			<EmptyState {app} onadd={() => add.onadd('after')} {ontext} />
+		{:else}
+			<OutlineTree
+				label={strings.outline.tasks}
+				nodes={app.outline.tasks}
+				collapsed={app.collapsed}
+				errors={app.errors}
+				emptyText={strings.outline.noTasks}
+				ontoggle={(k) => app.toggleNode(k)}
+				onselect={(n) => app.revealNode(n)}
+				view={views?.tasks}
+			/>
+		{/if}
 	</section>
 	<section class="resources" aria-labelledby="outline-resources">
 		<h3 id="outline-resources">{strings.outline.resources}</h3>

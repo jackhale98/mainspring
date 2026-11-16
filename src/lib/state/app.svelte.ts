@@ -29,7 +29,10 @@
  * clears the mark and asks the Gantt to scroll the task's row into view. Following a rename and the
  * toast's "Show" in Visual mode (the source sheet) are here too.
  *
- * Samples load in memory; nothing is stored (Phase 4).
+ * Samples load in memory; nothing is stored (Phase 4). So does a plan made with "New plan…"
+ * (`openNewPlan`, ADR-0013): its key is `sampleId === 'new'`, it replaces the open plan the way a
+ * sample does (asking first when that was edited), and `newPlanName` is what the chooser lists it
+ * as, "Name (new)".
  *
  * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
  * editor first mounts and then gives each workspace its editor support, so a Visual-first load
@@ -46,7 +49,8 @@ import type { EngineState } from '../../engine/client';
 import type { EngineVersions, SyntaxDocs, WorkspacePath } from '../../engine/protocol';
 import { editorStrings, strings } from '../strings';
 import type { FormatOutcome, HoverContent } from '../tjp/cm';
-import { SAMPLES, type Sample, type SampleWorkspace } from '../workspace/samples';
+import { NEW_PLAN_ID, SAMPLES, type Sample, type SampleWorkspace } from '../workspace/samples';
+import { cleanPlanName, newPlanText, type NewPlanSpec } from '../tjp/new-plan';
 import {
 	createScheduleRunner,
 	type RunnerState,
@@ -118,7 +122,19 @@ export class AppState {
 	readonly client: EngineClient;
 	readonly samples: readonly Sample[];
 
+	/** The open plan's key: a sample's id, or `new` for a plan made with "New plan…". */
 	sampleId = $state('');
+	/** The name of the open plan when it was made with "New plan…", else null. */
+	newPlanName = $state<string | null>(null);
+	/** Counts the plans made with "New plan…", so a second one resets what a plan's key keeps. */
+	newPlanSerial = $state(0);
+	/**
+	 * When an edit last deleted the plan's last task (ms), or 0. The empty state that appears then
+	 * takes the focus, which the deleted row held (EmptyState.svelte); a later one does not.
+	 */
+	emptiedAt = $state(0);
+	/** The New plan sheet (NewPlanSheet.svelte). */
+	newPlanOpen = $state(false);
 	phase = $state<Phase>('loading');
 	loadError = $state<string | null>(null);
 	workspace = $state.raw<Workspace | null>(null);
@@ -236,7 +252,7 @@ export class AppState {
 		const keys = opts.keyTarget === undefined ? (globalThis.window ?? null) : opts.keyTarget;
 		this.#offKeys = keys ? bindHistoryKeys(keys, this.history) : () => undefined;
 		const first = this.samples.find((s) => s.id === opts.initial) ?? this.samples[0];
-		if (first) void this.#load(first);
+		if (first) void this.#load(first, null);
 	}
 
 	#fetchDocs(): void {
@@ -246,19 +262,46 @@ export class AppState {
 		);
 	}
 
+	/** The open plan's name as the chooser and the phone's header show it. */
+	get planLabel(): string {
+		if (this.sampleId === NEW_PLAN_ID && this.newPlanName !== null) {
+			return strings.newPlan.listed(this.newPlanName);
+		}
+		return this.samples.find((s) => s.id === this.sampleId)?.label ?? '';
+	}
+
 	/** Opens another sample; asks first when the open plan was edited. Returns whether it opened. */
 	async openSample(id: string): Promise<boolean> {
 		const sample = this.samples.find((s) => s.id === id) ?? null;
 		if (!sample || id === this.sampleId) return false;
 		if (this.dirty && !this.#confirm(strings.topBar.confirmSwitch)) return false;
-		return this.#load(sample);
+		return this.#load(sample, null);
 	}
 
-	async #load(sample: Sample): Promise<boolean> {
+	/**
+	 * Opens a new plan (the header only; `newPlanText`) in this tab with an empty history; asks
+	 * first when the open plan was edited. Returns whether it opened. Inputs the sheet has not
+	 * checked (`newPlanProblem`) make it return false.
+	 */
+	async openNewPlan(spec: NewPlanSpec): Promise<boolean> {
+		let seed: SampleWorkspace;
+		try {
+			seed = newPlanText(spec);
+		} catch {
+			return false;
+		}
+		if (this.dirty && !this.#confirm(strings.topBar.confirmSwitch)) return false;
+		const name = cleanPlanName(spec.name);
+		this.newPlanSerial++;
+		return this.#load({ id: NEW_PLAN_ID, label: name, load: () => Promise.resolve(seed) }, name);
+	}
+
+	async #load(sample: Sample, newName: string | null): Promise<boolean> {
 		const token = ++this.#token;
 		this.phase = 'loading';
 		this.loadError = null;
 		this.sampleId = sample.id;
+		this.newPlanName = newName;
 		let seed: SampleWorkspace;
 		try {
 			seed = await sample.load();
@@ -289,6 +332,7 @@ export class AppState {
 			reveal: (r) => this.#showPlace(r),
 			storage: browserStorage(),
 			zones: this.#zones,
+			onEmptied: () => (this.emptiedAt = Date.now()),
 		});
 		this.#unsubscribe = [
 			ws.subscribe(() => (this.dirty = true)),
@@ -477,6 +521,25 @@ export class AppState {
 	 */
 	selectTask(key: string): void {
 		if (key.startsWith('task:')) this.selection.selectTask(key.slice('task:'.length), 'visual');
+	}
+
+	/**
+	 * The views show the empty state, with its Add task button (EmptyState.svelte), when the status
+	 * says the plan is empty (empty-plan.ts), or, before the first result, when the text as it is
+	 * declares no task and has no error. A plan whose tasks come from a macro, one that fails for
+	 * another reason and one with a syntax error keep what they show.
+	 */
+	get emptyPlan(): boolean {
+		if (this.phase !== 'ready') return false;
+		const kind = this.status?.kind ?? null;
+		if (kind === 'empty') return true;
+		const run = this.run;
+		if (!run || run.latest !== null || run.failure !== null) return false;
+		return (
+			run.indexVersion === run.version &&
+			this.outline.tasks.length === 0 &&
+			!this.localDiagnostics.some((d) => d.severity === 'error')
+		);
 	}
 
 	/** The outline key of the selected task, or null (a link or nothing is selected). */

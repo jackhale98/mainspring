@@ -82,7 +82,7 @@
 <style>
 	.ask {
 		inline-size: min(26rem, calc(100vw - 2 * var(--gutter)));
-		padding: var(--space-5);
+		padding: var(--space-6);
 		border: 0;
 		border-radius: var(--radius-panel);
 		background: var(--color-surface);

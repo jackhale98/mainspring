@@ -15,8 +15,10 @@ import { formatFinish } from '../schedule/finish';
 import { strings } from '../strings';
 import type { TjpDiagnostic } from '../tjp/diagnostics';
 import type { RunnerState } from '../workspace/schedule-runner';
+import { isEmptyPlan, isNoTasks } from './empty-plan';
 
-export type StatusKind = 'booting' | 'idle' | 'scheduling' | 'ok' | 'errors' | 'failed';
+/** `empty`: a plan with no task yet, which is not an error (empty-plan.ts). */
+export type StatusKind = 'booting' | 'idle' | 'scheduling' | 'ok' | 'empty' | 'errors' | 'failed';
 
 export interface StatusView {
 	readonly kind: StatusKind;
@@ -152,6 +154,7 @@ export function announcesRun(
 
 function kindOf(s: RunnerState): StatusKind {
 	if (s.engine === 'booting' && s.latest === null) return 'booting';
+	if (s.status === 'errors' && isEmptyPlan(s)) return 'empty';
 	return s.status;
 }
 
@@ -166,6 +169,7 @@ const LABELS: Record<StatusKind, string> = {
 	idle: strings.status.idle,
 	scheduling: strings.status.scheduling,
 	ok: strings.status.ok,
+	empty: strings.status.empty,
 	errors: strings.status.errors,
 	failed: strings.status.failed,
 };
@@ -175,19 +179,25 @@ export function statusView(
 	locale?: string,
 	versions: EngineVersions | null = null,
 ): StatusView {
-	const finish = s.finish;
+	const kind = kindOf(s);
+	const empty = kind === 'empty';
+	// An empty plan has no finish (the last good one is from tasks that are gone) and no problem.
+	const finish = empty ? null : s.finish;
+	const diagnostics = empty ? s.diagnostics.filter((d) => !isNoTasks(d)) : s.diagnostics;
+	const errors = empty ? 0 : s.counts.errors;
+	const warnings = s.counts.warnings;
 	const failure = s.failure ? strings.engine.failure[s.failure.error.kind] : null;
 	return {
-		kind: kindOf(s),
-		label: labelOf(s, kindOf(s)),
+		kind,
+		label: labelOf(s, kind),
 		finish: finish ? formatFinish(finish, locale) : null,
 		zone: finish ? (finish.timezone ?? 'UTC') : null,
 		delta: finish ? formatDelta(finish.delta, locale) : null,
-		outdated: s.outdated,
-		errors: s.counts.errors,
-		warnings: s.counts.warnings,
-		counts: strings.status.counts(s.counts.errors, s.counts.warnings),
-		unlocated: s.diagnostics.filter((d) => d.precision === 'none'),
+		outdated: empty ? false : s.outdated,
+		errors,
+		warnings,
+		counts: strings.status.counts(errors, warnings),
+		unlocated: diagnostics.filter((d) => d.precision === 'none'),
 		failure: s.status === 'failed' || s.engine === 'failed' ? (failure ?? LABELS.failed) : null,
 		engine: infoOf(s.timings, versions, locale),
 	};
@@ -195,11 +205,11 @@ export function statusView(
 
 /**
  * The shape the phone's status button wears: the ticking mark while the scheduler works, then a
- * circle (fine), a triangle (warnings only) or a diamond (errors, or the scheduler failed). The
+ * circle (fine), a hollow one (an empty plan), a triangle (warnings only) or a diamond (errors, or the scheduler failed). The
  * shapes differ, not only the colours (WCAG 1.4.1). A failure outranks a run that is under way;
  * without a status yet the scheduler is still starting.
  */
-export type StatusGlyph = 'busy' | 'ok' | 'warning' | 'error';
+export type StatusGlyph = 'busy' | 'ok' | 'empty' | 'warning' | 'error';
 
 export function statusGlyph(
 	v: Pick<StatusView, 'kind' | 'errors' | 'warnings' | 'failure'> | null,
@@ -209,6 +219,8 @@ export function statusGlyph(
 	if (!v) return engine === 'failed' ? 'error' : 'busy';
 	if (v.failure !== null || v.kind === 'failed') return 'error';
 	if (v.kind === 'booting' || v.kind === 'idle' || v.kind === 'scheduling') return 'busy';
+	// An empty plan is neutral (a hollow circle): nothing is wrong, and nothing is scheduled.
+	if (v.kind === 'empty') return v.warnings > 0 ? 'warning' : 'empty';
 	if (v.kind === 'errors' || v.errors > 0) return 'error';
 	return v.warnings > 0 ? 'warning' : 'ok';
 }

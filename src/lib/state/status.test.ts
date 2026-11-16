@@ -101,6 +101,76 @@ describe('statusView', () => {
 		expect(v.counts).toBe('1 error');
 	});
 
+	describe('an empty plan (no_tasks)', () => {
+		const HEADER = 'project p "P" 2026-01-05 +1m\n';
+		const noTasks = { ...message('error', null, 'No tasks'), id: 'no_tasks', file: null };
+
+		/** A runner on a header-only plan, with the engine's `no_tasks` result delivered. */
+		async function emptyPlan(text = HEADER): Promise<void> {
+			runner.dispose();
+			ws = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': text } });
+			client = new FakeEngineClient();
+			runner = createScheduleRunner({ workspace: ws, client, timers: idleTasks.timers });
+			client.done(1, { ok: false, tasks: [], messages: [noTasks] });
+			await shown();
+		}
+
+		it('reads "No tasks yet": no error, no pin, no unplaced message, a ready glyph', async () => {
+			await emptyPlan();
+			const v = statusView(runner.state, 'en');
+			expect(v).toMatchObject({
+				kind: 'empty',
+				label: 'No tasks yet',
+				errors: 0,
+				warnings: 0,
+				finish: null,
+				outdated: false,
+			});
+			expect(v.counts).toBe(strings.status.counts(0, 0));
+			expect(v.unlocated).toEqual([]);
+			expect(statusGlyph(v)).toBe('empty');
+		});
+
+		it('forgets the last good finish of tasks that are gone', async () => {
+			client.done(1, { tasks: TASKS });
+			await shown();
+			expect(statusView(runner.state, 'en').finish).not.toBeNull();
+			ws.commit(
+				'plan.tjp',
+				ws.state('plan.tjp').update({
+					changes: { from: 0, to: ws.texts()['plan.tjp']?.length ?? 0, insert: HEADER },
+				}),
+				'typing',
+			);
+			vi.advanceTimersByTime(300);
+			client.done(2, { ok: false, tasks: [], messages: [noTasks] });
+			await shown();
+			expect(statusView(runner.state, 'en')).toMatchObject({
+				kind: 'empty',
+				finish: null,
+				outdated: false,
+			});
+		});
+
+		it('stays an error when the text declares tasks, though the engine says no_tasks', async () => {
+			await emptyPlan(`${HEADER}task a "A" { effort 1d }\n`);
+			expect(statusView(runner.state, 'en')).toMatchObject({
+				kind: 'errors',
+				label: strings.status.notScheduled,
+				errors: 1,
+			});
+		});
+
+		it('stays an error for any other failure with no tasks', async () => {
+			await emptyPlan();
+			typeInto(ws, '# edit\n');
+			vi.advanceTimersByTime(300);
+			client.done(2, { ok: false, tasks: [], messages: [message('error', 1, 'broken')] });
+			await shown();
+			expect(statusView(runner.state, 'en').kind).toBe('errors');
+		});
+	});
+
 	it('explains a failed run by its kind', async () => {
 		client.done(1, { tasks: TASKS });
 		await shown();
@@ -222,6 +292,11 @@ describe('statusGlyph (the phone status button)', () => {
 	it('is a circle when scheduled with no problems, a triangle with warnings only', () => {
 		expect(statusGlyph(v('ok'))).toBe('ok');
 		expect(statusGlyph(v('ok', 0, 3))).toBe('warning');
+	});
+
+	it('is a neutral hollow circle for an empty plan, a triangle if it has warnings', () => {
+		expect(statusGlyph(v('empty'))).toBe('empty');
+		expect(statusGlyph(v('empty', 0, 2))).toBe('warning');
 	});
 
 	it('is a diamond for errors and for a failed scheduler, which outranks a run under way', () => {

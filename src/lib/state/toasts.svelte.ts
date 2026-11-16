@@ -21,7 +21,7 @@ import type { KeyTimers } from '../tjp/cm/android-key';
 import type { Located, Settlement } from './edits-settle';
 
 export type ToastStatus =
-	'pending' | 'scheduled' | 'new-error' | 'not-scheduled' | 'failed' | 'refused' | 'noop';
+	'pending' | 'scheduled' | 'empty' | 'new-error' | 'not-scheduled' | 'failed' | 'refused' | 'noop';
 
 export interface Toast {
 	readonly id: number;
@@ -101,6 +101,11 @@ export class Toasts {
 		switch (st.status) {
 			case 'scheduled':
 				this.#set({ ...t, status: 'scheduled', detail: null });
+				if (!t.sticky) this.#arm(id);
+				return;
+			case 'empty':
+				// Not a problem: it closes by itself like a plain success, and says what is left.
+				this.#set({ ...t, status: 'empty', text: toastStrings.deletedLast, detail: null });
 				if (!t.sticky) this.#arm(id);
 				return;
 			case 'new-error':
