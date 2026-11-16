@@ -4,7 +4,8 @@
 	ribbon that flows into a coil, like the end of a mainspring strip, with a brass arc beside each
 	end. `size` is the height; the width follows the mark's aspect (35 x 26 px at 26).
 	With `busy` it doubles as the loader: the ribbon is drawn along its path, from its free end into
-	the coil, then released the same way, a cycle of 2 s (two 1 s beats on the beat's easing); the
+	the coil, then released the same way (a short stub of it, 6% of the path, is always drawn, so the mark is
+	never blank), a cycle of 2 s (two 1 s beats on the beat's easing); the
 	brass arcs brighten with it. Only a dash offset and an opacity move, so it stays cheap to paint (no masks or filters, which WebKit repaints
 	every frame). Under reduced motion the mark holds still and pulses gently.
 	Decorative unless `label` is given (then it is an image with that name).
@@ -66,7 +67,7 @@
 	}
 	@keyframes mark-draw {
 		0% {
-			stroke-dashoffset: 100;
+			stroke-dashoffset: 94;
 			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
 		}
 		42% {
@@ -77,7 +78,7 @@
 			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
 		}
 		100% {
-			stroke-dashoffset: -100;
+			stroke-dashoffset: -94;
 		}
 	}
 	@keyframes mark-arc {
