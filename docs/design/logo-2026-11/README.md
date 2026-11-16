@@ -52,6 +52,11 @@ swirl rather than as a coil.
   - Real-app shots came from a local build with the mark components swapped (a temporary edit,
     reverted). In the top bar the wide small marks were shown in a slot about 1.35 times wider
     than the shipped 26 px square; shipping a wide mark would mean that small layout change.
+- `loader/`: the shipped Spring loader (`Mark.svelte`, `busy`): `loader-light|dark.webm` and `.gif`
+  (one 2 s cycle, 25 fps, the engine pill, the status strip and the Gantt placeholder together) and
+  `loader-strip-light|dark.png` (6 frames). The ribbon draws in from its free end into the coil,
+  holds, then leaves the same way, on the hairspring beat's easing; the brass arcs brighten with it.
+  Made by `tools/record-loader.mjs` from the real build, stepping the animations to exact times.
 - `tools/`: `geom.mjs` (arc construction), `marks.mjs` (the two marks and the palette), `build.mjs`
   (SVG and icon PNGs), `shoot.mjs`, `crop.py`, `compose.mjs` (mockups).
 
