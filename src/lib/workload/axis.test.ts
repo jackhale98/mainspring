@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The bucket axis (phase-3.md 6.2, 13.1): days, weeks and months in the plan's zone, DST weeks of
 // 167 and 169 hours (syn-09, Berlin), New York's gap and overlap (syn-21), Kathmandu's +05:45
-// (syn-10), Sydney (syn-11), both week starts, a Sunday start, months, `indexOf`. Expected bounds
-// are worked out by hand; `localCheck` reads every bound back with `Intl`, which shares no code
-// with axis.ts or civil.ts.
+// (syn-10), Sydney (syn-11), both week starts, a Sunday start, months, `indexOf`, bounds snapped
+// to the slot grid (Kathmandu at a 60-minute resolution), and the host calls (one per 7 days, on
+// the plain host and through the Gantt's memo). Expected bounds are worked out by hand;
+// `localCheck` reads every bound back with `Intl`, which shares no code with axis.ts or civil.ts.
 import fs from 'node:fs';
 import path from 'node:path';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { ProjectInfo, ScheduleResult } from '../../engine/protocol';
 import { createTimeZoneHost } from '../../engine/timezone';
 import { ROOT } from '../../../tests/grammar/corpus';
+import { memoZones } from '../gantt/zones';
 import { project } from '../schedule/testing';
-import { bucketAxis, frameEndOf } from './axis';
+import type { ZoneOffsets } from '../tjp/values/civil';
+import { bucketAxis, frameEndOf, gridZones } from './axis';
+import { bucketSums } from './intervals';
 import type { BucketAxis, BucketKind } from './types';
 
 const zones = createTimeZoneHost();
@@ -211,14 +216,91 @@ describe('bucketAxis across clock changes', () => {
 		expect(month.bounds[1]).toBe(29 * D + 22 * H);
 	});
 
-	it('asks the zone host about once per day', () => {
-		const p = goldenProject('syn-09-tz-dst-berlin');
-		let calls = 0;
-		const counting = {
-			offset: (z: string, e: number) => (calls++, zones.offset(z, e)),
-			valid: (z: string) => zones.valid(z),
+	it('asks the zone host about once per 7 days, on the plain host and through the Gantt memo', () => {
+		const p = goldenProject('fedora-res'); // 611 days in New York, four clock changes
+		const counted = (): { host: ZoneOffsets; calls: () => number } => {
+			let n = 0;
+			const host: ZoneOffsets = {
+				offset: (z, e) => (n++, zones.offset(z, e)),
+				valid: (z) => zones.valid(z),
+			};
+			return { host, calls: () => n };
 		};
-		const day = bucketAxis(p, counting, 'day');
-		expect(calls).toBeLessThan(day.count + 20);
+		const plain = counted();
+		const day = bucketAxis(p, plain.host, 'day');
+		expect(day.count).toBe(611);
+		localCheck(p, day);
+		// 88 blocks, a few days asked one by one in the weeks of the four changes.
+		expect(plain.calls()).toBeLessThan(140);
+		// memoZones asks the host three times on a miss; still far fewer than one call per day.
+		const memo = counted();
+		const viaMemo = bucketAxis(p, memoZones(memo.host), 'day');
+		expect(viaMemo.bounds).toEqual(day.bounds);
+		expect(memo.calls()).toBeLessThan(3 * 140);
+		const week = counted();
+		bucketAxis(p, week.host, 'week');
+		expect(week.calls()).toBeLessThan(140);
+	});
+});
+
+describe('gridZones', () => {
+	/** A fake zone whose offset flips between 0 and 3600 s at the given UTC days. */
+	const flipping = (days: readonly number[]): ZoneOffsets => ({
+		offset: (_z, e) => (days.filter((d) => e >= d * 86400).length % 2 === 1 ? 3600 : 0),
+		valid: () => true,
+	});
+
+	it("gives the host's offset at every UTC midnight when changes are 7 or more days apart", () => {
+		fc.assert(
+			fc.property(
+				fc.array(fc.integer({ min: 7, max: 60 }), { maxLength: 12 }),
+				fc.integer({ min: 20_000, max: 20_100 }),
+				(gaps, first) => {
+					const days: number[] = [];
+					let d = first;
+					for (const g of gaps) days.push((d += g));
+					const host = flipping(days);
+					const grid = gridZones(host, 'Test/Flip');
+					for (let day = first - 10; day < d + 20; day++) {
+						expect(grid.offset('Test/Flip', day * 86400)).toBe(
+							host.offset('Test/Flip', day * 86400),
+						);
+					}
+					// Other instants and other zones go to the host.
+					expect(grid.offset('Test/Flip', first * 86400 + 1)).toBe(
+						host.offset('x', first * 86400 + 1),
+					);
+					expect(grid.offset('Other/Zone', (first + 3) * 86400)).toBe(
+						host.offset('Other/Zone', (first + 3) * 86400),
+					);
+				},
+			),
+		);
+	});
+});
+
+describe('bounds on the slot grid', () => {
+	// Kathmandu is UTC+05:45, so local midnight is 18:15 UTC, inside the 18:00-19:00 slot of a
+	// 60-minute resolution (TaskJuggler refuses that resolution there today, but the rule is the
+	// same wherever an offset is off the grid, as Lord Howe's +10:30 winter is at 60 minutes).
+	const p = project({ timezone: 'Asia/Kathmandu', timingResolutionMin: 60 });
+
+	it('snaps each bound down to its slot, as dateToIdx truncates', () => {
+		const day = bucketAxis(p, zones, 'day');
+		expect([...day.bounds.slice(0, 4)]).toEqual([-6 * H, 18 * H, 42 * H, 66 * H]);
+		expect([...day.bounds].every((b) => b % 60 === 0)).toBe(true);
+		// The whole slot that holds midnight goes to the day that starts there, not 15 and 45 min.
+		const slot = bucketSums([[18 * H, 19 * H]], day.bounds);
+		expect([slot[0], slot[1]]).toEqual([0, 60]);
+		const week = bucketAxis(p, zones, 'week');
+		expect(week.bounds[1]).toBe(6 * D + 18 * H);
+	});
+
+	it('starts with the bucket that holds minute 0 when a snap moves it there', () => {
+		// 18:00 UTC is 23:45 local, but its slot holds the next midnight, so it is the next day's.
+		const late = { ...p, start: '2026-01-04T18:00:00Z', end: '2026-01-11T18:00:00Z' };
+		const day = bucketAxis(late, zones, 'day');
+		expect([...day.bounds.slice(0, 3)]).toEqual([0, D, 2 * D]);
+		expect(day.count).toBe(7);
 	});
 });
