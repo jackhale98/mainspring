@@ -1,0 +1,376 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "workload-resolution-15min",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": "2026-01-05T09:00:00Z"
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            480,
+            555
+          ]
+        ],
+        "resource": "ada",
+        "scenario": "plan",
+        "task": "quarters.q1"
+      },
+      {
+        "intervals": [
+          [
+            555,
+            645
+          ]
+        ],
+        "resource": "ada",
+        "scenario": "plan",
+        "task": "quarters.q2"
+      },
+      {
+        "intervals": [
+          [
+            645,
+            810
+          ]
+        ],
+        "resource": "ada",
+        "scenario": "plan",
+        "task": "quarters.q3"
+      },
+      {
+        "intervals": [
+          [
+            480,
+            585
+          ]
+        ],
+        "resource": "bo",
+        "scenario": "plan",
+        "task": "quarters.q4"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "dailyWorkingHours": 8,
+      "end": "2026-01-23T00:00:00Z",
+      "id": "quarter",
+      "leaves": [],
+      "monthlyWorkingDays": 21.726166666666668,
+      "name": "Quarter hours",
+      "now": "2026-01-05T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": "Europe/Berlin",
+      "timingResolutionMin": 15,
+      "version": null,
+      "weekStartsMonday": true,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          480,
+          960
+        ],
+        [
+          1920,
+          2400
+        ],
+        [
+          3360,
+          3840
+        ],
+        [
+          4800,
+          5280
+        ],
+        [
+          6240,
+          6720
+        ],
+        [
+          10560,
+          11040
+        ],
+        [
+          12000,
+          12480
+        ],
+        [
+          13440,
+          13920
+        ],
+        [
+          14880,
+          15360
+        ],
+        [
+          16320,
+          16800
+        ],
+        [
+          20640,
+          21120
+        ],
+        [
+          22080,
+          22560
+        ],
+        [
+          23520,
+          24000
+        ],
+        [
+          24960,
+          25440
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "ada",
+        "name": "Ada",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 9
+        }
+      },
+      {
+        "group": false,
+        "id": "bo",
+        "name": "Bo",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 10
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "quarters",
+        "milestone": false,
+        "name": "Quarter hours",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "ada",
+              "bo"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
+            "end": 810,
+            "pathCriticalness": 1.0803571428571428,
+            "precedes": [],
+            "scheduled": true,
+            "start": 480
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "id": "quarters.q1",
+        "milestone": false,
+        "name": "Seventy-five minutes",
+        "parent": "quarters",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ada"
+                ]
+              }
+            ],
+            "allocated": [
+              "ada"
+            ],
+            "complete": null,
+            "criticalness": 0.24553571428571427,
+            "depends": [],
+            "direction": "asap",
+            "end": 555,
+            "pathCriticalness": 1.0803571428571428,
+            "precedes": [],
+            "scheduled": true,
+            "start": 480
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 13
+        }
+      },
+      {
+        "id": "quarters.q2",
+        "milestone": false,
+        "name": "Ninety minutes",
+        "parent": "quarters",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ada"
+                ]
+              }
+            ],
+            "allocated": [
+              "ada"
+            ],
+            "complete": null,
+            "criticalness": 0.29464285714285715,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "quarters.q1"
+              }
+            ],
+            "direction": "asap",
+            "end": 645,
+            "pathCriticalness": 0.8348214285714286,
+            "precedes": [],
+            "scheduled": true,
+            "start": 555
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 18
+        }
+      },
+      {
+        "id": "quarters.q3",
+        "milestone": false,
+        "name": "Two hours forty-five",
+        "parent": "quarters",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ada"
+                ]
+              }
+            ],
+            "allocated": [
+              "ada"
+            ],
+            "complete": null,
+            "criticalness": 0.5401785714285714,
+            "depends": [
+              {
+                "gapDurationMin": 0,
+                "gapLengthMin": 0,
+                "onEnd": true,
+                "task": "quarters.q2"
+              }
+            ],
+            "direction": "asap",
+            "end": 810,
+            "pathCriticalness": 0.5401785714285714,
+            "precedes": [],
+            "scheduled": true,
+            "start": 645
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 23
+        }
+      },
+      {
+        "id": "quarters.q4",
+        "milestone": false,
+        "name": "One hundred five minutes",
+        "parent": "quarters",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "bo"
+                ]
+              }
+            ],
+            "allocated": [
+              "bo"
+            ],
+            "complete": null,
+            "criticalness": 0.109375,
+            "depends": [],
+            "direction": "asap",
+            "end": 585,
+            "pathCriticalness": 0.109375,
+            "precedes": [],
+            "scheduled": true,
+            "start": 480
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 28
+        }
+      }
+    ]
+  },
+  "schemaVersion": 3
+}

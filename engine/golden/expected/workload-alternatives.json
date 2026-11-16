@@ -1,0 +1,328 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "workload-alternatives",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": "2026-01-05T09:00:00Z"
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "ann",
+        "scenario": "plan",
+        "task": "work.lead"
+      },
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "bo",
+        "scenario": "plan",
+        "task": "work.fix"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "dailyWorkingHours": 8,
+      "end": "2026-01-30T00:00:00Z",
+      "id": "alternatives",
+      "leaves": [],
+      "monthlyWorkingDays": 21.726166666666668,
+      "name": "Alternatives",
+      "now": "2026-01-05T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null,
+      "weekStartsMonday": true,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "ann",
+        "name": "Ann",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 7
+        }
+      },
+      {
+        "group": false,
+        "id": "bo",
+        "name": "Bo",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 8
+        }
+      },
+      {
+        "group": false,
+        "id": "cy",
+        "name": "Cy",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 9
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "work",
+        "milestone": false,
+        "name": "Work",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "ann",
+              "bo"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
+            "end": 3900,
+            "pathCriticalness": 5.052631578947368,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 11
+        }
+      },
+      {
+        "id": "work.lead",
+        "milestone": false,
+        "name": "Lead work",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ann"
+                ]
+              }
+            ],
+            "allocated": [
+              "ann"
+            ],
+            "complete": null,
+            "criticalness": 5.052631578947368,
+            "depends": [],
+            "direction": "asap",
+            "end": 3900,
+            "pathCriticalness": 5.052631578947368,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "id": "work.fix",
+        "milestone": false,
+        "name": "Fix",
+        "parent": "work",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ann",
+                  "bo",
+                  "cy"
+                ]
+              }
+            ],
+            "allocated": [
+              "bo"
+            ],
+            "complete": null,
+            "criticalness": 2.526315789473684,
+            "depends": [],
+            "direction": "asap",
+            "end": 3900,
+            "pathCriticalness": 2.526315789473684,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 18
+        }
+      }
+    ]
+  },
+  "schemaVersion": 3
+}

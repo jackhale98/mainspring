@@ -1,0 +1,405 @@
+{
+  "entry": "plan.tjp",
+  "files": [
+    "plan.tjp"
+  ],
+  "id": "workload-overtime",
+  "native": {
+    "gems": {
+      "base64": "0.3.0",
+      "bigdecimal": "4.1.3",
+      "drb": "2.2.3",
+      "sync": "0.5.0",
+      "term-ansicolor": "1.11.3",
+      "tins": "1.33.0"
+    },
+    "ruby": "3.3.6",
+    "tjCommit": "3b36c799605621103d7d065c69e3f958a3dd6698",
+    "tjVersion": "3.8.4",
+    "tzdata": "2026e"
+  },
+  "options": {
+    "now": "2026-01-05T09:00:00Z"
+  },
+  "result": {
+    "bookings": [
+      {
+        "intervals": [
+          [
+            540,
+            1020
+          ],
+          [
+            1980,
+            2460
+          ],
+          [
+            3420,
+            3900
+          ]
+        ],
+        "resource": "dev",
+        "scenario": "plan",
+        "task": "sprint.normal"
+      },
+      {
+        "intervals": [
+          [
+            7740,
+            8100
+          ]
+        ],
+        "resource": "dev",
+        "scenario": "plan",
+        "task": "sprint.weekend"
+      },
+      {
+        "intervals": [
+          [
+            20700,
+            20940
+          ]
+        ],
+        "resource": "dev",
+        "scenario": "plan",
+        "task": "sprint.leave"
+      }
+    ],
+    "messages": [],
+    "ok": true,
+    "project": {
+      "dailyWorkingHours": 8,
+      "end": "2026-01-30T00:00:00Z",
+      "id": "overtime",
+      "leaves": [],
+      "monthlyWorkingDays": 21.726166666666668,
+      "name": "Overtime",
+      "now": "2026-01-05T09:00:00Z",
+      "scenarios": [
+        {
+          "active": true,
+          "id": "plan",
+          "name": "Plan Scenario",
+          "parent": null
+        }
+      ],
+      "start": "2026-01-05T00:00:00Z",
+      "timezone": null,
+      "timingResolutionMin": 60,
+      "version": null,
+      "weekStartsMonday": true,
+      "weeklyWorkingDays": 5,
+      "workingTime": [
+        [
+          540,
+          1020
+        ],
+        [
+          1980,
+          2460
+        ],
+        [
+          3420,
+          3900
+        ],
+        [
+          4860,
+          5340
+        ],
+        [
+          6300,
+          6780
+        ],
+        [
+          10620,
+          11100
+        ],
+        [
+          12060,
+          12540
+        ],
+        [
+          13500,
+          13980
+        ],
+        [
+          14940,
+          15420
+        ],
+        [
+          16380,
+          16860
+        ],
+        [
+          20700,
+          21180
+        ],
+        [
+          22140,
+          22620
+        ],
+        [
+          23580,
+          24060
+        ],
+        [
+          25020,
+          25500
+        ],
+        [
+          26460,
+          26940
+        ],
+        [
+          30780,
+          31260
+        ],
+        [
+          32220,
+          32700
+        ],
+        [
+          33660,
+          34140
+        ],
+        [
+          35100,
+          35580
+        ]
+      ],
+      "yearlyWorkingDays": 260.714
+    },
+    "resources": [
+      {
+        "group": false,
+        "id": "dev",
+        "name": "Dev",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    20940,
+                    21180
+                  ],
+                  [
+                    22140,
+                    22620
+                  ],
+                  [
+                    23580,
+                    24060
+                  ],
+                  [
+                    25020,
+                    25500
+                  ]
+                ],
+                "type": "annual"
+              }
+            ],
+            "workingTime": [
+              [
+                540,
+                1020
+              ],
+              [
+                1980,
+                2460
+              ],
+              [
+                3420,
+                3900
+              ],
+              [
+                4860,
+                5340
+              ],
+              [
+                6300,
+                6780
+              ],
+              [
+                7740,
+                8100
+              ],
+              [
+                10620,
+                11100
+              ],
+              [
+                12060,
+                12540
+              ],
+              [
+                13500,
+                13980
+              ],
+              [
+                14940,
+                15420
+              ],
+              [
+                16380,
+                16860
+              ],
+              [
+                20700,
+                20940
+              ],
+              [
+                26460,
+                26940
+              ],
+              [
+                30780,
+                31260
+              ],
+              [
+                32220,
+                32700
+              ],
+              [
+                33660,
+                34140
+              ],
+              [
+                35100,
+                35580
+              ]
+            ]
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 7
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "sprint",
+        "milestone": false,
+        "name": "Sprint",
+        "parent": null,
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "dev"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "asap",
+            "end": 20940,
+            "pathCriticalness": 4.800000000000001,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 11
+        }
+      },
+      {
+        "id": "sprint.normal",
+        "milestone": false,
+        "name": "Normal work",
+        "parent": "sprint",
+        "scenarios": {
+          "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "dev"
+                ]
+              }
+            ],
+            "allocated": [
+              "dev"
+            ],
+            "complete": null,
+            "criticalness": 4.800000000000001,
+            "depends": [],
+            "direction": "asap",
+            "end": 3900,
+            "pathCriticalness": 4.800000000000001,
+            "precedes": [],
+            "scheduled": true,
+            "start": 540
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 12
+        }
+      },
+      {
+        "id": "sprint.weekend",
+        "milestone": false,
+        "name": "Weekend push",
+        "parent": "sprint",
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "dev"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "alap",
+            "end": 8100,
+            "pathCriticalness": 0,
+            "precedes": [],
+            "scheduled": true,
+            "start": 7740
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 17
+        }
+      },
+      {
+        "id": "sprint.leave",
+        "milestone": false,
+        "name": "Leave push",
+        "parent": "sprint",
+        "scenarios": {
+          "plan": {
+            "allocate": [],
+            "allocated": [
+              "dev"
+            ],
+            "complete": null,
+            "criticalness": 0,
+            "depends": [],
+            "direction": "alap",
+            "end": 20940,
+            "pathCriticalness": 0,
+            "precedes": [],
+            "scheduled": true,
+            "start": 20700
+          }
+        },
+        "source": {
+          "column": null,
+          "file": "plan.tjp",
+          "line": 24
+        }
+      }
+    ]
+  },
+  "schemaVersion": 3
+}
