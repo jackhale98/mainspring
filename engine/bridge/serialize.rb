@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # serialize.rb - turn a parsed and scheduled TaskJuggler project into a
-# ScheduleResult v2 (docs/phases/phase-0.md, section 3.1, plus the fields of
-# docs/phases/phase-2.md, section 6.1), without `revision` and `timings`,
-# which the caller adds.
+# ScheduleResult v3 (docs/phases/phase-0.md, section 3.1, plus the fields of
+# docs/phases/phase-2.md, section 6.1, and docs/phases/phase-3.md, section
+# 6.1), without `revision` and `timings`, which the caller adds.
 #
 # Shared by the browser bridge (tj_bridge.rb on ruby.wasm) and the native
 # golden recorder (native/record.rb). It must load on plain native Ruby with
@@ -71,6 +71,47 @@
 #   TaskScenario#Xref resolves each entry's task and drops the broken ones
 #   (TaskScenario.rb:166-179, checkDependency at TaskScenario.rb:2318-2361);
 #   #dependencies applies the same rules to entries it never reached.
+#
+# Schema v3 adds fields only (phase-3 spec 6.1, ADR-0014 #1); every v2 field
+# is unchanged:
+#
+# - ProjectInfo.weekStartsMonday: the project attribute 'weekStartsMonday'
+#   (Project.rb:104, default true; set by weekstartsmonday and
+#   weekstartssunday, TjpSyntaxRules.rb:3389-3400).
+# - ProjectInfo.leaves: the project attribute 'leaves' (Project.rb:86), a
+#   LeaveList in parse order: global `leaves` (TjpSyntaxRules.rb:3595-3599)
+#   and `vacation`, which is stored as :holiday (TjpSyntaxRules.rb:3666-3670).
+#   Each Leave (LeaveList.rb) has a type, an Interval as written (not clipped
+#   to the frame) and a reason, which is the name.
+#   T6: TaskJuggler 3.8.4 never keeps a leave's name: rule_leave passes the
+#   result of rule_vacationName, which has no action ("We just throw the name
+#   away", TjpSyntaxRules.rb:2301-2305, 7498-7502), so every reason is nil and
+#   every name is null. The serializer still reads the reason, so the field
+#   needs no schema change if a later bridge captures names; until then the
+#   names are in the text (the symbol index's LeaveSite items).
+#   T6: a plan that failed to parse gets [] (as for workingTime), not the
+#   leaves its header collected before the error: its tasks and resources
+#   are empty too.
+# - ResourceScenarioResult.workingTime and leaves: the resource scoreboard
+#   (ResourceScenario.rb:22-37 for the slot encoding, initScoreboard at
+#   830-910). workingTime holds the slots ResourceScenario#getWorkSlots counts
+#   (nil or a Task, 783-789); leaves the slots #getLeaveSlots counts for each
+#   type (an Integer with bit 1 clear and the type in bits 2 to 5, 792-797).
+#   Read in the same single pass as the bookings; #scan_scoreboard says why it
+#   is raw.
+#   TaskJuggler builds a scoreboard only for the leaf resources some task can
+#   use, when it prepares a scenario (Project#prepareScenario,
+#   Project.rb:1073-1088), so for the others the pass first calls the public
+#   ResourceScenario#getWorkSlots, which builds it (countSlots calls
+#   initScoreboard, ResourceScenario.rb:912-923), as TaskJuggler's own reports
+#   do after scheduling. Groups have no scoreboard: both lists are [].
+# - TaskScenarioResult.allocate: the scenario attribute 'allocate'
+#   (Project.rb:245, AllocationAttribute, inherited), one entry per
+#   Allocation with its candidates as the parser added them: the resource
+#   written first, then each `alternative` (TjpSyntaxRules.rb:261-265,
+#   372-375). Allocation keeps that list in @candidates; its public
+#   #candidates returns the list sorted by the selection mode once scheduling
+#   has cached one (Allocation.rb:75-78, 123), so the list is read directly.
 require 'json'
 
 module MainspringBridge
@@ -81,6 +122,8 @@ module MainspringBridge
   class Serializer
     ANSI_RE = /\e\[[0-9;]*[A-Za-z]/.freeze
     LEVELS = %i[fatal error warning info debug].freeze
+    # One leaf resource's scoreboard in one scenario, as slot runs (#scan_scoreboard).
+    Scan = Struct.new(:working, :leaves, :runs)
 
     # Build the result Hash (string keys). _project_ is the TaskJuggler::Project
     # after a successful parse, or nil. _header_ is the Project created by the
@@ -125,6 +168,10 @@ module MainspringBridge
       resources.each_with_index { |r, i| @resourceRank[r] = i }
       @taskRank = {}
       tasks.each_with_index { |t, i| @taskRank[t] = i }
+      @size = project.scoreboardSize
+      # { scenarioIdx => { leaf Resource => Scan } }, filled by #resource and
+      # read by #bookings, so each scoreboard is read once.
+      @scans = Hash.new { |h, k| h[k] = {}.compare_by_identity }
 
       out['tasks'] = tasks.map { |t| task(t) }
       out['resources'] = resources.map { |r| resource(r) }
@@ -158,8 +205,23 @@ module MainspringBridge
         'yearlyWorkingDays' => p['yearlyworkingdays'],
         # _scheduled_ is true exactly for a parsed project; see #result
         # (request.rb:169 schedules every project that parsed).
-        'workingTime' => scheduled ? working_time(p) : []
+        'workingTime' => scheduled ? working_time(p) : [],
+        # v3 (phase-3 spec 6.1); sources in the header comment.
+        'weekStartsMonday' => p['weekStartsMonday'] ? true : false,
+        'leaves' => scheduled ? project_leaves(p) : []
       }
+    end
+
+    # The global leaves as TaskJuggler holds them, in parse order, bounds as
+    # written (they may lie outside the frame). Dates are aligned to the
+    # timing resolution (TjpSyntaxRules.rb:912-923, 2038-2068), so #minutes
+    # accepts them.
+    def project_leaves(p)
+      p['leaves'].map do |leave|
+        iv = leave.interval
+        { 'type' => leave.type.to_s, 'name' => leave.reason,
+          'interval' => [minutes(iv.start), minutes(iv.end)] }
+      end
     end
 
     def finite(value)
@@ -209,7 +271,13 @@ module MainspringBridge
           'direction' => t['forward', idx] ? 'asap' : 'alap',
           'complete' => t['complete', idx],
           'depends' => dependencies(t, t['depends', idx]),
-          'precedes' => dependencies(t, t['precedes', idx])
+          'precedes' => dependencies(t, t['precedes', idx]),
+          # v3 (phase-3 spec 6.1): what the task asked for, in TaskJuggler's
+          # order; groups stay groups (TaskScenario#candidates expands them
+          # only for booking). Sources in the header comment.
+          'allocate' => t['allocate', idx].map do |a|
+            { 'candidates' => a.instance_variable_get(:@candidates).map(&:fullId) }
+          end
         }
       end
       # 'milestone' is scenario-specific in TaskJuggler; the protocol has one
@@ -268,7 +336,16 @@ module MainspringBridge
     def resource(r)
       scenarios = {}
       @active.each do |id, idx|
-        scenarios[id] = { 'efficiency' => r['efficiency', idx] }
+        rs = { 'efficiency' => r['efficiency', idx], 'workingTime' => [], 'leaves' => [] }
+        unless r.container?
+          scan = (@scans[idx][r] = scan_scoreboard(r.data[idx]))
+          rs['workingTime'] = slot_minutes(scan.working)
+          rs['leaves'] = leave_names.each_with_index.filter_map do |name, typeIdx|
+            runs = scan.leaves[typeIdx]
+            { 'type' => name, 'intervals' => slot_minutes(runs) } if name && runs
+          end
+        end
+        scenarios[id] = rs
       end
       {
         'id' => r.fullId, 'name' => r.name,
@@ -277,6 +354,90 @@ module MainspringBridge
         'group' => r.container? ? true : false,
         'scenarios' => scenarios
       }
+    end
+
+    # EngineLeaveType names by scoreboard index (Leave::Types, LeaveList.rb:
+    # project 1 to unemployed 7); index 0 means no leave and is nil.
+    def leave_names
+      @leaveNames ||= TaskJuggler::Leave::Types.each_with_object([]) do |(type, i), names|
+        names[i] = type.to_s
+      end
+    end
+
+    # One leaf resource's scoreboard in one scenario, classified slot by slot
+    # in a single pass, as [first, stop) slot runs:
+    #   working: free or booked slots (getWorkSlots, ResourceScenario.rb:783-789);
+    #   leaves:  { typeIdx => runs } for Integer slots with bit 1 clear and a
+    #            leave type in bits 2 to 5 (getLeaveSlots, ResourceScenario.rb:792-797);
+    #   runs:    { Task => runs } for booked slots (see #bookings).
+    # Other Integer slots are off hours, or leave outside working hours.
+    #
+    # The pass is raw for speed (spec 6.1, "Rules for the bridge"): ResourceScenario
+    # has no reader for its scoreboard, and its public per-slot readers (bookedTask,
+    # booked?, available?) cannot tell free time from leave or off hours, while the
+    # counting methods (getWorkSlots, getLeaveSlots) give totals, not intervals, at
+    # eight scans per resource. So the scoreboard is read once through
+    # @scoreboard and its public Scoreboard#[]. Equal neighbours are skipped with
+    # equal? (slot values are nil, a Task or an Integer, all compared by identity
+    # here, which is value equality for Integers), so the classification runs once
+    # per run of equal slots; Integer#!= against a Task takes Ruby's recursion guard
+    # under ruby.wasm (see #bookings). Slots from scoreboardSize on are never read:
+    # initScoreboard and #book never write them (they stay 2, off hours).
+    def scan_scoreboard(rs)
+      sb = rs.instance_variable_get(:@scoreboard)
+      unless sb
+        # A leaf no task can use has no scoreboard yet (see the header):
+        # the public counter builds it, as TaskJuggler's reports do.
+        rs.getWorkSlots(0, 1)
+        sb = rs.instance_variable_get(:@scoreboard)
+      end
+      out = Scan.new([], {}, {}.compare_by_identity)
+      size = @size
+      return out if size <= 0
+
+      cur = sb[0]
+      first = 0
+      i = 1
+      while i < size
+        v = sb[i]
+        unless v.equal?(cur)
+          classify(out, cur, first, i)
+          cur = v
+          first = i
+        end
+        i += 1
+      end
+      classify(out, cur, first, size)
+      out
+    end
+
+    def classify(out, value, first, stop)
+      if value.nil?
+        add_run(out.working, first, stop)
+      elsif value.is_a?(Integer)
+        # (value & 0x3E) == typeIdx << 2, as getLeaveSlots tests it.
+        if (value & 0x2).zero? && !(type = (value & 0x3C) >> 2).zero?
+          add_run(out.leaves[type] ||= [], first, stop)
+        end
+      elsif value.is_a?(TaskJuggler::Task)
+        add_run(out.working, first, stop)
+        (out.runs[value] ||= []) << [first, stop]
+      end
+    end
+
+    # Appends [first, stop) to _runs_, extending the last run it touches.
+    def add_run(runs, first, stop)
+      if (last = runs.last) && last[1] == first
+        last[1] = stop
+      else
+        runs << [first, stop]
+      end
+    end
+
+    # Slot runs as minute pairs: Project#idxToDate(i) is start + i * granularity
+    # (Project.rb:951-956), so slot i is minute i * timingResolutionMin.
+    def slot_minutes(runs)
+      runs.map { |s, e| [s * @slotMin, e * @slotMin] }
     end
 
     # Every booked scoreboard slot, grouped by resource and task. This yields
@@ -288,57 +449,33 @@ module MainspringBridge
     # each Integer slot value with nil through Integer#!=, which takes Ruby's
     # recursion guard; under ruby.wasm's setjmp emulation that made the
     # 1,000-task golden spend 4.7 s in getBookings, against about 0.25 s for
-    # this scan. The output is unchanged (golden:verify and the wasm golden
-    # run both match).
-    def bookings(project, resources)
+    # a scan of its own. Since v3 the runs come from #scan_scoreboard, the
+    # same pass that reads workingTime and leaves. The output is unchanged
+    # (golden:verify and the wasm golden run both match).
+    def bookings(_project, resources)
       out = []
       # Scanning scoreboardSize slots is enough: Scoreboard allocates ceil(...)+1 slots and
       # never sets slots >= scoreboardSize to nil, so available? is false there, and booking
       # indices stop at endIdx-1 <= scoreboardSize-1.
-      size = project.scoreboardSize
       @active.each do |scenarioId, idx|
         resources.each do |r|
-          # Only leaf resources hold bookings. ResourceScenario#book adds the
-          # task to the resource's duties before it books a slot, so a leaf
-          # without duties has no booked slot (and maybe no scoreboard).
-          next if r.container? || r['duties', idx].empty?
+          # Only leaf resources hold bookings, and #resource scanned every
+          # leaf. ResourceScenario#book adds the task to the resource's duties
+          # before it books a slot, so a leaf without duties has no runs.
+          next if r.container?
 
-          runs = slot_runs(r.data[idx], size)
+          runs = @scans[idx][r].runs
           runs.keys.sort_by { |t| @taskRank[t] }.each do |t|
-            pairs = runs[t].map do |s, e|
-              [minutes(project.idxToDate(s)), minutes(project.idxToDate(e))]
-            end
             out << { 'scenario' => scenarioId, 'resource' => r.fullId,
-                     'task' => t.fullId, 'intervals' => merge(pairs) }
+                     'task' => t.fullId, 'intervals' => merge(slot_minutes(runs[t])) }
           end
         end
       end
       out
     end
 
-    # The maximal runs of slots booked for one task, as
-    # { task => [[firstSlot, lastSlot + 1], ...] } in ascending order.
-    # _rs_ is a ResourceScenario; bookedTask returns the Task or nil.
-    def slot_runs(rs, size)
-      runs = {}
-      current = nil
-      first = 0
-      i = 0
-      while i < size
-        task = rs.bookedTask(i)
-        unless task.equal?(current)
-          (runs[current] ||= []) << [first, i] if current
-          current = task
-          first = i
-        end
-        i += 1
-      end
-      (runs[current] ||= []) << [first, size] if current
-      runs
-    end
-
     # _pairs_ ([start, end] minutes, ascending by start) with touching or
-    # overlapping pairs merged. slot_runs already returns ascending runs.
+    # overlapping pairs merged. #scan_scoreboard already returns ascending runs.
     def merge(pairs)
       merged = []
       pairs.each do |s, e|

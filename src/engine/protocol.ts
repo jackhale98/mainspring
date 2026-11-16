@@ -19,11 +19,8 @@
  * Result schema v3 (phase-3 spec 6.1, ADR-0014 #1) adds fields only, for the workload, calendar and
  * explainer: `ProjectInfo.weekStartsMonday` and `leaves`, per resource scenario `workingTime` and
  * `leaves` (`ResourceScenarioResult`), and per task scenario `allocate`. Every v2 field keeps its
- * meaning. The v3 fields are optional (`?`) for now: T2 merges the types before the serializer,
- * and the engine still writes v2, so a consumer must not rely on them yet. T6 (bridge schema v3)
- * writes them, makes them required, and moves `GoldenFile.schemaVersion` to 3 in the same change.
- * Until then nothing reads them; the derived modules that do (src/lib/workload, explain, demand)
- * are built after T6.
+ * meaning. engine/bridge/serialize.rb writes them (T6), and the goldens hold schema 3
+ * (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in engine/golden/lib.mjs).
  */
 
 /** Strictly increasing per EngineClient. */
@@ -155,15 +152,17 @@ export interface ProjectInfo {
 	 */
 	workingTime: Array<[start: Minutes, end: Minutes]>;
 	/**
-	 * v3 (optional until T6; see the module comment). `weekstartsmonday` (default true): week
-	 * buckets start on Monday, else on Sunday, at local midnight in the plan's time zone.
+	 * v3. `weekstartsmonday` (default true): week buckets start on Monday, else on Sunday, at local
+	 * midnight in the plan's time zone.
 	 */
-	weekStartsMonday?: boolean;
+	weekStartsMonday: boolean;
 	/**
-	 * v3 (optional until T6). The global leaves as declared (`project['leaves']`), in plan order.
-	 * A `vacation` reads as `holiday`, with the name null (TaskJuggler drops it).
+	 * v3. The global leaves as declared (`project['leaves']`), in plan order. A `vacation` reads as
+	 * `holiday`. Empty when parsing failed, as `workingTime` is.
 	 */
-	leaves?: ProjectLeave[];
+	// T6: "empty when parsing failed": the header holds the leaves read before the error, but the
+	// result has no tasks or resources then either, so the serializer sends none.
+	leaves: ProjectLeave[];
 }
 
 /**
@@ -178,7 +177,14 @@ export type EngineLeaveType =
 /** v3. One global leave (`ProjectInfo.leaves`). */
 export interface ProjectLeave {
 	type: EngineLeaveType;
-	/** The leave's name as written, or null when it has none. */
+	/**
+	 * The leave's name as TaskJuggler holds it, or null. TaskJuggler 3.8.4 keeps no leave names, so
+	 * this is null for every leave; take a name from the text (`LeaveSite.items`) instead.
+	 */
+	// T6: the contract said "the name as written". TaskJuggler drops every leave's name at parse
+	// time, not only a vacation's (rule_leave passes rule_vacationName's result, which has no
+	// action: TjpSyntaxRules.rb:2301-2305, 7498-7502), so the engine cannot send one. The field
+	// stays, so a later bridge that captures names needs no schema change.
 	name: string | null;
 	/** [start, end) as declared. */
 	// T2: "as declared" is read as not clipped to the project frame: the bounds may be negative or
@@ -246,11 +252,11 @@ export interface TaskScenarioResult {
 	 *  TaskJuggler's order. */
 	precedes: DependencyResult[];
 	/**
-	 * v3 (optional until T6; see the module comment). The task's `allocate` items after
-	 * inheritance (TaskScenario 'allocate'), in TaskJuggler's order. `allocated` lists only the
-	 * people who were booked; this is what the task asked for.
+	 * v3. The task's `allocate` items after inheritance (TaskScenario 'allocate'), in TaskJuggler's
+	 * order. `allocated` lists only the people who were booked; this is what the task asked for.
+	 * Containers report the list they hold too (their children inherit it).
 	 */
-	allocate?: AllocateItem[];
+	allocate: AllocateItem[];
 }
 
 /** v3. One `allocate` item of a task scenario (`TaskScenarioResult.allocate`). */
@@ -299,21 +305,26 @@ export interface ResourceResult {
 export interface ResourceScenarioResult {
 	efficiency: number;
 	/**
-	 * v3 (optional until T6; see the module comment). The slots the resource could work, free or
-	 * booked (ResourceScenario#getWorkSlots semantics: its working hours or shifts, minus global
-	 * and its own leaves), as [start, end) pairs: ascending, disjoint, touching pairs merged.
-	 * Leaf resources only; [] for groups (their roll-ups are the sums of their members).
+	 * v3. The slots the resource could work, free or booked (ResourceScenario#getWorkSlots
+	 * semantics: its working hours or shifts, minus global and its own leaves), as [start, end)
+	 * pairs: ascending, disjoint, touching pairs merged. Leaf resources only; [] for groups (their
+	 * roll-ups are the sums of their members). Every booking of the resource lies inside it: a
+	 * booked slot holds the task, and getWorkSlots counts it.
 	 */
-	workingTime?: Array<[start: Minutes, end: Minutes]>;
+	// T6: so a user `booking` with `overtime` on off hours or leave adds that slot here and takes it
+	// out of `leaves` (checked natively: a 3 h Saturday booking and a 2 h booking on annual leave
+	// both read as working time). Booked time never exceeds this list; see ADR-0014 #3 for "over".
+	workingTime: Array<[start: Minutes, end: Minutes]>;
 	/**
-	 * v3 (optional until T6). The working time the resource lost to leave: the slots of its
-	 * scoreboard that carry a leave type (bits 2 to 5) and lie in its working hours (bit 1, the
-	 * off-hours bit, clear: the scoreboard keeps it on leave slots, ResourceScenario.rb:841-866).
-	 * Off-hours leave slots are not sent. Merged per type, types in `EngineLeaveType` order, and a
-	 * type with no slots has no entry. Global leaves are on every resource's scoreboard, so they
-	 * appear here too, and each slot counts for the one type the scoreboard holds. Disjoint from
-	 * `workingTime`, so the sum per bucket is exactly the working time lost to leave (the
-	 * heatmap's hatch, `LoadModel.leave`).
+	 * v3. The working time the resource lost to leave: the slots of its scoreboard that carry a
+	 * leave type (bits 2 to 5) and lie in its working hours (bit 1, the off-hours bit, clear: the
+	 * scoreboard keeps it on leave slots, ResourceScenario.rb:841-866), which is what
+	 * ResourceScenario#getLeaveSlots counts. Off-hours leave slots are not sent. Merged per type,
+	 * types in `EngineLeaveType` order, and a type with no slots has no entry. Global leaves are on
+	 * every resource's scoreboard, so they appear here too, and each slot counts for the one type
+	 * the scoreboard holds. Disjoint from `workingTime`, so the sum per bucket is exactly the
+	 * working time lost to leave as TaskJuggler counts it (getTimeOffSlots; the heatmap's hatch,
+	 * `LoadModel.leave`).
 	 *
 	 * Leaf resources only; [] for groups, as for `workingTime`: TaskJuggler passes a group's
 	 * `leaves` down to its members (the attribute is inherited from the parent), so the members'
@@ -324,7 +335,12 @@ export interface ResourceScenarioResult {
 	 */
 	// T2: ruling of the main session at the T2 review (2026-11-14). It replaces 6.1's "off-hours
 	// slots inside a leave are included", so that the hatch is derived exactly from engine data.
-	leaves?: ResourceLeaves[];
+	// T6: one TaskJuggler quirk: where two global leaves overlap, initScoreboard marks the slot as
+	// off hours (ResourceScenario.rb:842-849 reads the first leave's value as "not working time"),
+	// so a working day under two global leaves is in neither list (checked natively; TaskJuggler's
+	// own leave and time-off reports count it the same way). The project's `workingTime` treats it
+	// as leave (Project.rb:1291-1299).
+	leaves: ResourceLeaves[];
 }
 
 /** v3. One leave type's slots in a resource's working hours (`ResourceScenarioResult.leaves`). */

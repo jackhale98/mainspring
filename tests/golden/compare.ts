@@ -32,14 +32,17 @@ export function comparable(result: ScheduleResult): Omit<ScheduleResult, 'revisi
 }
 
 const DIFF_LINE = /^(\/.*?): expected (.*), got (.*)$/;
-/** Paths whose values are instants in minutes: task dates, booking and working-time bounds. */
-const MINUTE_PATH = /\/(?:start|end|(?:intervals|workingTime)\/\d+\/\d+)$/;
+/**
+ * Paths whose values are instants in minutes: task dates, booking, working-time and leave bounds
+ * (schema v3: a resource's `workingTime` and `leaves[].intervals`, a global leave's `interval`).
+ */
+const MINUTE_PATH = /\/(?:start|end|(?:intervals|workingTime)\/\d+\/\d+|interval\/\d+)$/;
 
 function isMinute(text: string): boolean {
 	return text === 'null' || /^-?\d+$/.test(text);
 }
 
-/** Adds the ISO time of start, end, booking and working-time values to a `diffPaths` line. */
+/** Adds the ISO time of start, end, booking, working-time and leave values to a `diffPaths` line. */
 export function annotateMinutes(line: string, projectStart: string | null): string {
 	const m = DIFF_LINE.exec(line);
 	if (!m || projectStart === null || !MINUTE_PATH.test(m[1] ?? '')) return line;

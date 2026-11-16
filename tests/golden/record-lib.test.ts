@@ -178,7 +178,7 @@ describe('schema version', () => {
 			new URL('../../engine/bridge/native/record.rb', import.meta.url),
 			'utf8',
 		);
-		expect(GOLDEN_SCHEMA_VERSION).toBe(2);
+		expect(GOLDEN_SCHEMA_VERSION).toBe(3);
 		expect(recorder).toContain(`'schemaVersion' => ${GOLDEN_SCHEMA_VERSION},`);
 	});
 });

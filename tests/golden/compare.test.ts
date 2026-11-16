@@ -171,7 +171,7 @@ describe('compareWithGolden', () => {
 		expect(comparison.ok).toBe(false);
 		expect(comparison.diffs).toHaveLength(1);
 		expect(comparison.diffs[0]).toMatch(
-			/^\/schemaVersion: the golden is schema 1, .* 2; re-record/,
+			/^\/schemaVersion: the golden is schema 1, .* 3; re-record/,
 		);
 		expect(compareWithGolden({ result: golden.result }, asResult(golden)).ok).toBe(true);
 	});

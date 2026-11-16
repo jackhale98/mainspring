@@ -42,6 +42,8 @@ export function project(over: Partial<ProjectInfo> = {}): ProjectInfo {
 		monthlyWorkingDays: 260.714 / 12,
 		yearlyWorkingDays: 260.714,
 		workingTime: weekdays(56),
+		weekStartsMonday: true,
+		leaves: [],
 		...over,
 	};
 }
@@ -76,6 +78,7 @@ export function taskResult(id: string, s: TaskSpec): TaskResult {
 		complete: null,
 		depends: [...(s.depends ?? [])],
 		precedes: [...(s.precedes ?? [])],
+		allocate: [],
 	};
 	const scenarios: Record<string, TaskScenarioResult> = { plan: base };
 	for (const [k, v] of Object.entries(s.scenarios ?? {})) scenarios[k] = { ...base, ...v };
