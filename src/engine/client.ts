@@ -3,8 +3,8 @@
  * Engine client (phase-0 spec 3.3): owns the engine worker, drives the latest-wins queue in
  * queue.ts, restarts the worker after a crash or reply timeout, gives up when a boot stalls, and
  * turns worker replies into settled promises. Between runs it replaces a worker whose memory
- * passed `recycleBytes` (wasm memory never shrinks; engine/bridge/wasm/tj_wasm_jumps.rb). The worker itself (worker.ts, task T6) only ever
- * sees one schedule at a time. Timers live in deadline.ts, listeners in notifier.ts, and the
+ * passed `recycleBytes` (wasm memory never shrinks; engine/bridge/wasm/tj_wasm_jumps.rb). The
+ * worker itself (worker.ts, task T6) only ever sees one schedule at a time. Timers live in deadline.ts, listeners in notifier.ts, and the
  * worker plumbing in transport.ts.
  *
  * Error `message` strings created here are diagnostics, not user-facing copy: views show
