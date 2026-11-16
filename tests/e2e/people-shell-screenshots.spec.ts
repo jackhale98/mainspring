@@ -89,7 +89,7 @@ test.describe('people shell screenshots', () => {
 		await light(page, 't13-view-switcher-workload-1500-light.png');
 	});
 
-	test('desktop: 1024 wide, a tablet width, and the compact menu in Split', async ({
+	test('desktop: 1024 wide, a tablet width, and Split beside the editor', async ({
 		page,
 	}, info) => {
 		test.skip(isTouch(info));
@@ -103,10 +103,10 @@ test.describe('people shell screenshots', () => {
 		await light(page, 't13-view-switcher-tablet-820-light.png');
 		await chooseView(page, 'Gantt');
 		await light(page, 't13-view-switcher-gantt-tablet-820-light.png');
-		await page.goto(`/app?sample=upstream-tutorial&mode=split&view=calendar`);
 		await page.setViewportSize({ width: 1280, height: 720 });
+		await page.goto(`/app?sample=upstream-tutorial&mode=split&view=calendar`);
 		await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
-		await light(page, 't13-view-switcher-compact-split-desktop-light.png');
+		await light(page, 't13-view-switcher-split-1280-light.png');
 	});
 
 	test('phone: the People tab with its segments, and "No people"', async ({ page }, info) => {

@@ -16,6 +16,7 @@ import type { DispatchOutcome } from '../state/edits.svelte';
 import type { ResourceId } from '../tjp/index';
 import type { EditIntent, TjpEdit } from '../tjp/edit/types';
 import { strings } from '../strings';
+import type { Workspace } from '../workspace/workspace';
 
 /** The outline nodes the spot is counted from (a resolved resource at level 1 is top level). */
 export interface ResourceNodeLike {
@@ -34,6 +35,20 @@ export function addPersonSpot(resources: readonly ResourceNodeLike[]): {
 /** The id an applied `addResource` gave the person, from the header it wrote; null if it is not one. */
 export function newResourceIdFromHeader(header: string): ResourceId | null {
 	return /^resource\s+([A-Za-z_][A-Za-z0-9_]*)\b/.exec(header)?.[1] ?? null;
+}
+
+/**
+ * The text of an applied edit's new header, from the workspace as it is right after the edit. (The
+ * Gantt's `headerAfter` is the same; this one stays out of the Gantt's modules so that the lazy
+ * People chunk imports nothing the first load has to fetch for it.)
+ */
+export function headerOfEdit(
+	app: { readonly workspace: Pick<Workspace, 'snapshot'> | null },
+	edit: TjpEdit,
+): string | null {
+	const at = edit.select;
+	if (!at) return null;
+	return app.workspace?.snapshot().files.get(at.file)?.text.sliceString(at.from, at.to) ?? null;
 }
 
 /** What the flow reads and does; the component passes the app's. */

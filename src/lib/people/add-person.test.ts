@@ -6,6 +6,7 @@ import { strings } from '../strings';
 import {
 	addPersonFlow,
 	addPersonSpot,
+	headerOfEdit,
 	newResourceIdFromHeader,
 	type AddPersonEnv,
 } from './add-person';
@@ -30,6 +31,27 @@ describe('newResourceIdFromHeader', () => {
 		expect(newResourceIdFromHeader('resource r2 "R"')).toBe('r2');
 		expect(newResourceIdFromHeader('task a "A"')).toBeNull();
 		expect(newResourceIdFromHeader('resource')).toBeNull();
+	});
+});
+
+describe('headerOfEdit', () => {
+	const doc = { sliceString: (from: number, to: number) => 'resource r "R"\ntask'.slice(from, to) };
+	const app = {
+		workspace: {
+			snapshot: () => ({ files: new Map([['plan.tjp', { text: doc }]]) }),
+		},
+	} as never;
+
+	it('reads the text the edit selected, now', () => {
+		const edit = { select: { file: 'plan.tjp', from: 0, to: 14 } } as unknown as TjpEdit;
+		expect(headerOfEdit(app, edit)).toBe('resource r "R"');
+	});
+
+	it('is null without a selection, a workspace or the file', () => {
+		expect(headerOfEdit(app, {} as TjpEdit)).toBeNull();
+		const at = { select: { file: 'other.tjp', from: 0, to: 3 } } as unknown as TjpEdit;
+		expect(headerOfEdit(app, at)).toBeNull();
+		expect(headerOfEdit({ workspace: null }, at)).toBeNull();
 	});
 });
 

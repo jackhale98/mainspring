@@ -380,8 +380,9 @@
 		color: var(--color-pending);
 		font-weight: 600;
 	}
-	/* A narrow chart (Split) has no room for the word: the icon is the chip. */
-	@container gantt (max-width: 899px) {
+	/* A narrow chart (Split, or a desktop with the details docked, where the view switcher takes the
+	   room) has no room for the word: the icon is the chip. */
+	@container gantt (max-width: 1049px) {
 		.people .lbl {
 			display: none;
 		}

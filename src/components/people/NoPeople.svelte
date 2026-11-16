@@ -8,11 +8,10 @@
 	put the keyboard focus where the empty state was (this button goes away with the state).
 -->
 <script lang="ts">
-	import { addPersonFlow } from '../../lib/people/add-person';
+	import { addPersonFlow, headerOfEdit } from '../../lib/people/add-person';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
-	import { headerAfter } from '../gantt/add-task-flow';
 
 	interface Props {
 		app: AppState;
@@ -34,7 +33,7 @@
 				resources: () => app.outline.resources,
 				dispatch: (intent, o) =>
 					app.edits ? app.edits.dispatch(intent, o) : Promise.resolve({ status: 'cancelled' }),
-				headerOf: (edit) => headerAfter(app, edit),
+				headerOf: (edit) => headerOfEdit(app, edit),
 				select: (rid) => app.selection.selectResource(rid, 'visual'),
 			});
 			if (id !== null) ondone?.(id);

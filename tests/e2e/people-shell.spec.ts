@@ -252,7 +252,31 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		});
 	}
 
-	test('in a narrow toolbar (Split beside the editor) the switcher is one menu button', async ({
+	test('with the details docked at 1280 the Gantt toolbar has the menu button; a People view has the radios', async ({
+		page,
+	}) => {
+		// The Gantt's toolbar is about 940 px wide here: the chips keep their labels and the legend, so
+		// four icons do not fit beside them (ViewSwitcher.svelte has the tiers). A People view has no
+		// details dock and no chips, so its bar is wide enough for the icons.
+		await open(page);
+		const menu = viewMenu(page);
+		await expect(menu).toBeVisible();
+		await expect(menu).toHaveValue('gantt');
+		await expect(page.getByRole('radiogroup', { name: 'Views' })).toBeHidden();
+		await menu.selectOption('resources');
+		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'resources', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(viewRadio(page, 'Resources')).toBeChecked();
+		await expect(viewRadio(page, 'Resources')).toBeFocused();
+		// Back to the Gantt by the radios: the Gantt's menu takes the focus.
+		await viewRadio(page, 'Gantt').click();
+		await expect(page.getByTestId('gantt')).toBeVisible();
+		await expect(viewMenu(page)).toBeFocused();
+		await expect(viewMenu(page)).toHaveValue('gantt');
+	});
+
+	test('Split keeps the editor beside a People view, and Text has no switcher', async ({
 		page,
 	}) => {
 		await page.goto(`/app?sample=${PLAN}&mode=split&view=calendar`);
@@ -260,13 +284,7 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'calendar', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		const menu = page.getByRole('combobox', { name: 'Views' });
-		await expect(menu).toBeVisible();
-		await expect(menu).toHaveValue('calendar');
-		await expect(page.getByRole('radiogroup', { name: 'Views' })).toBeHidden();
-		await menu.selectOption('resources');
-		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'resources');
-		await expect(menu).toBeFocused();
+		await expectView(page, 'Calendar');
 		await expect(page.locator('#panel-text .cm-editor')).toBeVisible({
 			timeout: READY_TIMEOUT_MS,
 		});
