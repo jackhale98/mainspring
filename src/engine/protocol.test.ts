@@ -68,7 +68,8 @@ const v3Result: ScheduleResult = {
 			parent: null,
 			source: null,
 			group: false,
-			scenarios: { plan: { efficiency: 1, workingTime: [[540, 1020]], leaves: [] } },
+			// null: the same working time as the project (T6 review ruling).
+			scenarios: { plan: { efficiency: 1, workingTime: null, leaves: [] } },
 		},
 	],
 	bookings: [{ scenario: 'plan', resource: 'dev1', task: 't', intervals: [[540, 1020]] }],
@@ -84,7 +85,7 @@ describe('schema v3 types (6.1)', () => {
 			leaves: ProjectLeave[];
 		}>();
 		expectTypeOf<Pick<ResourceScenarioResult, 'workingTime' | 'leaves'>>().toEqualTypeOf<{
-			workingTime: Array<[Minutes, Minutes]>;
+			workingTime: Array<[Minutes, Minutes]> | null;
 			leaves: ResourceLeaves[];
 		}>();
 		expectTypeOf<Pick<TaskScenarioResult, 'allocate'>>().toEqualTypeOf<{

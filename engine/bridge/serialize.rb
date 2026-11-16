@@ -101,11 +101,14 @@
 #   is raw.
 #   TaskJuggler builds a scoreboard only for the leaf resources some task can
 #   use, when it prepares a scenario (Project#prepareScenario,
-#   Project.rb:1073-1088), so for the others, and in a scenario an earlier
-#   error kept scheduling from reaching, the pass first calls the public
-#   ResourceScenario#getWorkSlots, which builds it (countSlots calls
-#   initScoreboard, ResourceScenario.rb:912-923), as TaskJuggler's own reports
-#   do after scheduling. Groups have no scoreboard: both lists are [].
+#   Project.rb:1073-1088). For the others, and in a scenario an earlier error
+#   kept scheduling from reaching, #unused_scan computes the lists from what
+#   that scoreboard would be built from, once per distinct working hours and
+#   leaves (building one per person was the T6 review's 3.8 s). Groups have
+#   no scoreboard: both lists are [].
+#   T6: workingTime is null when it equals ProjectInfo.workingTime exactly
+#   (main-session ruling at the T6 review): most people work the project's
+#   hours, and the lists doubled the result.
 # - TaskScenarioResult.allocate: the scenario attribute 'allocate'
 #   (Project.rb:245, AllocationAttribute, inherited), one entry per
 #   Allocation with its candidates as the parser added them: the resource
@@ -170,9 +173,21 @@ module MainspringBridge
       @taskRank = {}
       tasks.each_with_index { |t, i| @taskRank[t] = i }
       @size = project.scoreboardSize
+      # The last index of a resource Scoreboard over the frame (Scoreboard.rb:
+      # its size is ceil(frame / granularity) + 1), where dateToIdx clamps.
+      @sbLast = ((project['end'] - project['start']) / project['scheduleGranularity']).ceil
       # { scenarioIdx => { leaf Resource => Scan } }, filled by #resource and
       # read by #bookings, so each scoreboard is read once.
       @scans = Hash.new { |h, k| h[k] = {}.compare_by_identity }
+      # A leaf's workingTime is null when it is exactly this list (see #resource).
+      @projectWorkingTime = info['workingTime']
+      # #unused_scan's caches: on-shift runs per distinct WorkingHours, and the
+      # Scan per distinct (working hours, shifts, own leaves); #resource's
+      # output per Scan, so a Scan shared by many people is converted once.
+      @onShiftRuns = []
+      @unusedScans = []
+      @scanOutput = {}.compare_by_identity
+      @globalLeaves = project['leaves'].map { |l| leave_slots(l) }
 
       out['tasks'] = tasks.map { |t| task(t) }
       out['resources'] = resources.map { |r| resource(r) }
@@ -339,12 +354,8 @@ module MainspringBridge
       @active.each do |id, idx|
         rs = { 'efficiency' => r['efficiency', idx], 'workingTime' => [], 'leaves' => [] }
         unless r.container?
-          scan = (@scans[idx][r] = scan_scoreboard(r.data[idx]))
-          rs['workingTime'] = slot_minutes(scan.working)
-          rs['leaves'] = leave_names.each_with_index.filter_map do |name, typeIdx|
-            runs = scan.leaves[typeIdx]
-            { 'type' => name, 'intervals' => slot_minutes(runs) } if name && runs
-          end
+          scan = (@scans[idx][r] = resource_scan(r, idx))
+          rs['workingTime'], rs['leaves'] = (@scanOutput[scan] ||= scan_output(scan))
         end
         scenarios[id] = rs
       end
@@ -363,6 +374,162 @@ module MainspringBridge
       @leaveNames ||= TaskJuggler::Leave::Types.each_with_object([]) do |(type, i), names|
         names[i] = type.to_s
       end
+    end
+
+    # The Scan of leaf _r_ in scenario _idx_: its scoreboard when TaskJuggler
+    # built one, else #unused_scan.
+    def resource_scan(r, idx)
+      rs = r.data[idx]
+      return scan_scoreboard(rs) if rs.instance_variable_get(:@scoreboard)
+
+      unused_scan(r, idx, rs)
+    end
+
+    # [workingTime, leaves] of a Scan as the result holds them.
+    def scan_output(scan)
+      working = slot_minutes(scan.working)
+      leaves = leave_names.each_with_index.filter_map do |name, typeIdx|
+        runs = scan.leaves[typeIdx]
+        { 'type' => name, 'intervals' => slot_minutes(runs) } if name && runs
+      end
+      # T6: ruling of the main session at the T6 review (2026-11-16): null
+      # means "the same as ProjectInfo.workingTime", which most people's
+      # lists are, so the result stays small.
+      [working == @projectWorkingTime ? nil : working, leaves]
+    end
+
+    # A leaf TaskJuggler built no scoreboard for: no task can use it in this
+    # scenario, or scheduling never reached the scenario (see the header). It
+    # has no bookings, so its lists follow from what initScoreboard
+    # (ResourceScenario.rb:830-910) reads: its working hours or shifts, the
+    # global leaves and its own leaves. Building that scoreboard costs one
+    # onShift? call per slot of the frame and resource (T6 review: 199 unused
+    # people on a 1-year frame at 15 minutes took 3.8 s in the browser engine),
+    # so the lists are computed from those inputs instead, once per distinct
+    # (working hours, shifts, own leaves). The key holds everything
+    # initScoreboard reads besides the project's own data, so one entry serves
+    # every scenario with the same inputs.
+    #
+    # Without shifts, initScoreboard gives a slot inside the working hours
+    # (WorkingHours#onShift?) that k global leaves (project 'leaves') and some
+    # own leaves (the resource's 'leaves', copies of earlier global leaves
+    # included) cover:
+    #   - k = 0: nil (working time), unless an own leave covers it: then the
+    #     highest own type with bit 1 clear (850-868: a nil slot takes the
+    #     first own type, later ones only raise it);
+    #   - k = 1: that global's type with bit 1 clear (847), raised to the
+    #     highest own type;
+    #   - k >= 2: bit 1 set, because the second global reads the first one's
+    #     value as not nil (847); own leaves keep that bit, so off hours.
+    # A slot outside the working hours starts as 2 and keeps bit 1: off hours.
+    # Leave ranges are Scoreboard#dateToIdx's, clamped to the scoreboard.
+    # engine/golden/check-unused-scan.rb compares this, natively, with the
+    # scoreboard TaskJuggler builds, slot by slot; the load cross-check of
+    # record-native.mjs checks the result against tj3's reports too.
+    #
+    # With shifts, or working hours whose own scoreboard is not the frame's,
+    # the resource's scoreboard is built instead (#scan_scoreboard), also once
+    # per distinct key. Working hours compare with WorkingHours#==, shifts by
+    # ShiftAssignment#hashKey (the shift scenario and the interval, the key
+    # TaskJuggler itself shares shift scoreboards by, ShiftAssignments.rb:
+    # 30-32, 244-272), own leaves by type and slot range.
+    def unused_scan(r, idx, rs)
+      wh = r['workinghours', idx]
+      shifts = r['shifts', idx]
+      shiftKey = shifts && shifts.assignments.map(&:hashKey)
+      own = r['leaves', idx].map { |l| leave_slots(l) }
+      hit = @unusedScans.find { |w, s, o, _| s == shiftKey && o == own && w == wh }
+      return hit[3] if hit
+
+      runs = shifts.nil? && on_shift_runs(wh)
+      scan = runs ? classify_unused(runs, own) : scan_scoreboard(rs)
+      @unusedScans << [wh, shiftKey, own, scan]
+      scan
+    end
+
+    # [typeIdx, first slot, stop slot] of a Leave, as initScoreboard loops over
+    # it: Scoreboard#dateToIdx of its start and end, clamped to [0, @sbLast].
+    def leave_slots(leave)
+      iv = leave.interval
+      [leave.typeIdx, scoreboard_idx(iv.start), scoreboard_idx(iv.end)]
+    end
+
+    def scoreboard_idx(date)
+      ((date - @project['start']) / @project['scheduleGranularity']).to_i.clamp(0, @sbLast)
+    end
+
+    # The slot runs where WorkingHours#onShift? is true, read from the
+    # true/false scoreboard WorkingHours keeps (WorkingHours.rb:144-151,
+    # 209-240; equal copies share it), once per distinct working hours. False
+    # when that scoreboard does not line up with the frame's slots.
+    def on_shift_runs(wh)
+      return false unless wh
+
+      hit = @onShiftRuns.find { |w, _| w == wh }
+      return hit[1] if hit
+
+      runs = false
+      if wh.startDate == @project['start'] && wh.slotDuration == @project['scheduleGranularity']
+        wh.onShift?(0) # builds the scoreboard if it has none (public)
+        sb = wh.scoreboard
+        if sb.size >= @size
+          runs = []
+          first = nil
+          i = 0
+          while i < @size
+            if sb[i]
+              first ||= i
+            elsif first
+              runs << [first, i]
+              first = nil
+            end
+            i += 1
+          end
+          runs << [first, @size] if first
+        end
+      end
+      @onShiftRuns << [wh, runs]
+      runs
+    end
+
+    # The Scan of #unused_scan without shifts: the on-shift _runs_ cut by the
+    # leave ranges, each piece classified by the rules above.
+    def classify_unused(runs, own)
+      out = Scan.new([], {}, {}.compare_by_identity)
+      cuts = [0, @size]
+      (@globalLeaves + own).each do |_, first, stop|
+        cuts << first << stop if first < stop && first < @size
+      end
+      cuts = cuts.map { |c| c > @size ? @size : c }.uniq.sort
+      # [first, stop, class]: class 0 is working time, nil off hours, else the
+      # leave type.
+      segments = cuts.each_cons(2).map do |a, b|
+        k = 0
+        type = 0
+        @globalLeaves.each do |t, first, stop|
+          next unless first <= a && a < stop
+
+          k += 1
+          type = t
+        end
+        own.each { |t, first, stop| type = t if first <= a && a < stop && t > type }
+        [a, b, k >= 2 ? nil : type]
+      end
+      j = 0
+      runs.each do |first, stop|
+        j += 1 while segments[j][1] <= first
+        a = first
+        while a < stop
+          seg = segments[j]
+          b = seg[1] < stop ? seg[1] : stop
+          if (cls = seg[2])
+            add_run(cls.zero? ? out.working : (out.leaves[cls] ||= []), a, b)
+          end
+          j += 1 if b == seg[1]
+          a = b
+        end
+      end
+      out
     end
 
     # One leaf resource's scoreboard in one scenario, classified slot by slot
@@ -387,8 +554,8 @@ module MainspringBridge
     def scan_scoreboard(rs)
       sb = rs.instance_variable_get(:@scoreboard)
       unless sb
-        # A leaf no task can use has no scoreboard yet (see the header):
-        # the public counter builds it, as TaskJuggler's reports do.
+        # Only #unused_scan's fallback gets here: the public counter builds
+        # the scoreboard, as TaskJuggler's reports do.
         rs.getWorkSlots(0, 1)
         sb = rs.instance_variable_get(:@scoreboard)
       end

@@ -23,7 +23,10 @@ const hours = (day: number, from: number, to: number): [number, number] => [
 	day * DAY + from * 60,
 	day * DAY + to * 60,
 ];
-const workdays = (from: number, to: number, skip: number[] = []): Array<[number, number]> =>
+type Pairs = Array<[number, number]>;
+/** A leaf's workingTime: null is the project's (T6 review ruling). */
+const own = (pairs: Pairs): Pairs | null => pairs;
+const workdays = (from: number, to: number, skip: number[] = []): Pairs =>
 	[0, 1, 2, 3, 4, 7, 8, 9, 10, 11].filter((d) => !skip.includes(d)).map((d) => hours(d, from, to));
 
 /**
@@ -38,6 +41,7 @@ function result() {
 			timezone: null,
 			timingResolutionMin: 60,
 			weekStartsMonday: true,
+			workingTime: workdays(9, 17),
 			scenarios: [
 				{ id: 'plan', name: 'Plan', active: true },
 				{ id: 'off', name: 'Off', active: false },
@@ -57,7 +61,7 @@ function result() {
 				scenarios: {
 					plan: {
 						efficiency: 1,
-						workingTime: workdays(9, 17, [2]),
+						workingTime: own(workdays(9, 17, [2])),
 						leaves: [{ type: 'annual', intervals: [hours(2, 9, 17)] }],
 					},
 				},
@@ -66,7 +70,7 @@ function result() {
 				id: 'b',
 				parent: 'team',
 				group: false,
-				scenarios: { plan: { efficiency: 0.5, workingTime: workdays(9, 13), leaves: [] } },
+				scenarios: { plan: { efficiency: 0.5, workingTime: own(workdays(9, 13)), leaves: [] } },
 			},
 		],
 		bookings: [
@@ -206,6 +210,23 @@ describe('expectedLoad and loadDiffs', () => {
 		expect(LOAD_QUERIES).toHaveLength(8);
 	});
 
+	it("reads a null workingTime as the project's", () => {
+		const explicit = result();
+		const c1 = explicit.resources[1]?.scenarios.plan;
+		if (!c1) throw new Error('no a');
+		c1.workingTime = workdays(9, 17);
+		c1.leaves = [];
+		const nulled = result();
+		const c2 = nulled.resources[1]?.scenarios.plan;
+		if (!c2) throw new Error('no a');
+		c2.workingTime = null;
+		c2.leaves = [];
+		const ranges = loadRanges(explicit.project, [W1, W2]);
+		const a = expectedLoad(nulled, ranges).get('Plan\na');
+		expect(a).toEqual(expectedLoad(explicit, ranges).get('Plan\na'));
+		expect(a?.cells[0]).toEqual([12, 68, 48, 0, 0, 0, 0, 0]);
+	});
+
 	it('agrees with a matching report', () => {
 		const d = loadDiffs(result(), parseCsv(CSV));
 		expect(d).toEqual({ problems: [], rows: 3, weeks: 2, compared: 2 + 3 * (2 + 2 * 8) });
@@ -251,7 +272,7 @@ describe('expectedLoad and loadDiffs', () => {
 		[
 			'working time',
 			(r: ReturnType<typeof result>) => {
-				r.resources[1]?.scenarios.plan?.workingTime.pop();
+				r.resources[1]?.scenarios.plan?.workingTime?.pop();
 			},
 			/frame .*: freework 78 h in tj3, golden 70 h/,
 		],

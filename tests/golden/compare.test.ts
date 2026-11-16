@@ -192,8 +192,16 @@ describe('compareWithGolden', () => {
 			[
 				'/resources/0/scenarios/plan/workingTime/0/0',
 				(r) => {
-					const first = xan(r)?.workingTime[0];
+					const first = xan(r)?.workingTime?.[0];
 					if (first) first[0] += 60;
+				},
+			],
+			[
+				// xan has leaves of his own, so his list is not the project's: null is a difference.
+				'/resources/0/scenarios/plan/workingTime: expected',
+				(r) => {
+					const s = xan(r);
+					if (s) s.workingTime = null;
 				},
 			],
 			[

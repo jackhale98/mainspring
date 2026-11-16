@@ -307,14 +307,22 @@ export interface ResourceScenarioResult {
 	/**
 	 * v3. The slots the resource could work, free or booked (ResourceScenario#getWorkSlots
 	 * semantics: its working hours or shifts, minus global and its own leaves), as [start, end)
-	 * pairs: ascending, disjoint, touching pairs merged. Leaf resources only; [] for groups (their
-	 * roll-ups are the sums of their members). Every booking of the resource lies inside it: a
-	 * booked slot holds the task, and getWorkSlots counts it.
+	 * pairs: ascending, disjoint, touching pairs merged. Every booking of the resource lies inside
+	 * it: a booked slot holds the task, and getWorkSlots counts it. Slots booked with `overtime`
+	 * are included, so booked time never exceeds this list.
+	 *
+	 * `null` means exactly `ProjectInfo.workingTime` (the common case: the project's working hours
+	 * and only global leaves); read it as that list. Leaf resources only; [] for groups (their
+	 * roll-ups are the sums of their members).
 	 */
-	// T6: so a user `booking` with `overtime` on off hours or leave adds that slot here and takes it
-	// out of `leaves` (checked natively: a 3 h Saturday booking and a 2 h booking on annual leave
-	// both read as working time). Booked time never exceeds this list; see ADR-0014 #3 for "over".
-	workingTime: Array<[start: Minutes, end: Minutes]>;
+	// T6: overtime: a user `booking` with `overtime` on off hours or leave replaces that slot's
+	// value with the task, so the slot is here and not in `leaves` (checked natively: a 3 h
+	// Saturday booking and a 2 h booking on annual leave both read as working time). ADR-0014 #3
+	// is amended by the main session for what "over" means then.
+	// T6: null: main-session ruling at the T6 review (2026-11-16). v3 doubled the result (every
+	// leaf of syn-20 and gantt-500 repeated the project's list), and receiving it cost a long task
+	// on a throttled phone.
+	workingTime: Array<[start: Minutes, end: Minutes]> | null;
 	/**
 	 * v3. The working time the resource lost to leave: the slots of its scoreboard that carry a
 	 * leave type (bits 2 to 5) and lie in its working hours (bit 1, the off-hours bit, clear: the
@@ -324,7 +332,9 @@ export interface ResourceScenarioResult {
 	 * every resource's scoreboard, so they appear here too, and each slot counts for the one type
 	 * the scoreboard holds. Disjoint from `workingTime`, so the sum per bucket is exactly the
 	 * working time lost to leave as TaskJuggler counts it (getTimeOffSlots; the heatmap's hatch,
-	 * `LoadModel.leave`).
+	 * `LoadModel.leave`). Where two global leaves overlap, TaskJuggler marks the slots off hours, so
+	 * they are in neither list: T9 fills such days in from `ProjectInfo.leaves` when it draws the
+	 * hatch.
 	 *
 	 * Leaf resources only; [] for groups, as for `workingTime`: TaskJuggler passes a group's
 	 * `leaves` down to its members (the attribute is inherited from the parent), so the members'
@@ -339,7 +349,8 @@ export interface ResourceScenarioResult {
 	// off hours (ResourceScenario.rb:842-849 reads the first leave's value as "not working time"),
 	// so a working day under two global leaves is in neither list (checked natively; TaskJuggler's
 	// own leave and time-off reports count it the same way). The project's `workingTime` treats it
-	// as leave (Project.rb:1291-1299).
+	// as leave (Project.rb:1291-1299). The T9 sentence above is the main session's ruling at the
+	// T6 review.
 	leaves: ResourceLeaves[];
 }
 

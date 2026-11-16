@@ -40,10 +40,10 @@ const LEAVE_QUERY_TYPES = ['annual', 'special', 'sick', 'unpaid'];
 /**
  * @typedef {[number, number]} Pair
  * @typedef {{ id: string, name: string, active: boolean }} Scenario
- * @typedef {{ efficiency: number, workingTime: Pair[], leaves: Array<{ type: string, intervals: Pair[] }> }} ResourceScenario
+ * @typedef {{ efficiency: number, workingTime: Pair[] | null, leaves: Array<{ type: string, intervals: Pair[] }> }} ResourceScenario
  * @typedef {{ id: string, parent: string | null, group: boolean, scenarios: Record<string, ResourceScenario> }} Resource
  * @typedef {{ scenario: string, resource: string, intervals: Pair[] }} Booking
- * @typedef {{ start: string, end: string, timezone: string | null, timingResolutionMin: number, scenarios: Scenario[], weekStartsMonday?: boolean }} Project
+ * @typedef {{ start: string, end: string, timezone: string | null, timingResolutionMin: number, scenarios: Scenario[], weekStartsMonday?: boolean, workingTime: Pair[] }} Project
  * @typedef {{ project: Project | null, resources: Resource[], bookings: Booking[] }} LoadResult
  */
 
@@ -192,7 +192,8 @@ export function loadRanges(project, weeks, wallClock = wallClockMs) {
  */
 export function expectedLoad(result, ranges) {
 	if (!result.project) return new Map();
-	const active = result.project.scenarios.filter((s) => s.active);
+	const project = result.project;
+	const active = project.scenarios.filter((s) => s.active);
 	if (new Set(active.map((s) => s.name)).size !== active.length) throw new Error('active scenarios share a name');
 	const { res } = ranges;
 	const all = [ranges.frame, ...ranges.weeks];
@@ -215,7 +216,8 @@ export function expectedLoad(result, ranges) {
 		const lo = a * res;
 		const hi = b * res;
 		const bookedMin = within(booked.get(`${sc}\n${r.id}`) ?? [], lo, hi);
-		const freeMin = within(rs.workingTime, lo, hi) - bookedMin;
+		// A null workingTime is the project's (protocol.ts, T6 review ruling).
+		const freeMin = within(rs.workingTime ?? project.workingTime, lo, hi) - bookedMin;
 		const leave = (/** @type {string} */ type) => within(rs.leaves.find((l) => l.type === type)?.intervals ?? [], lo, hi);
 		const leaveMin = rs.leaves.reduce((n, l) => n + within(l.intervals, lo, hi), 0);
 		const eff = rs.efficiency;
