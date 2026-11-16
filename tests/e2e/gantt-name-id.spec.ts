@@ -39,6 +39,7 @@ test.describe('the id follows the first name', () => {
 		const added = await rig.text();
 		await expect(nameField(page)).toBeFocused({ timeout: READY_TIMEOUT_MS });
 		await expect(rig.row('task:new_task')).toHaveAttribute('aria-selected', 'true');
+		const gone = await watchGone(page);
 
 		await page.keyboard.type('Write specs');
 		await page.keyboard.press('Enter');
@@ -53,7 +54,7 @@ test.describe('the id follows the first name', () => {
 		await expect(rig.row('task:new_task')).toHaveCount(0);
 		await expect(rig.row('task:write_specs')).toBeInViewport();
 		await expect(nameField(page)).toHaveValue('Write specs');
-		// The details mount again for the new id; Enter left the focus in the name, and it stays there.
+		// The details stay mounted across the id change: Enter left the focus in the name, and it stays.
 		await expect(nameField(page)).toBeFocused();
 		const idLine = page.locator('.task p.id code');
 		await expect(idLine).toHaveText('write_specs');
@@ -102,7 +103,82 @@ test.describe('the id follows the first name', () => {
 			timeout: READY_TIMEOUT_MS,
 		});
 		await expect(idLine).toHaveText('new_task');
+		// Neither the rename nor its undo showed the task as gone (the add's undo then removes it).
+		expect(await gone()).toBe(false);
 		await undo.click();
 		await expect.poll(() => rig.text()).toBe(before);
+	});
+	/**
+	 * Watches, from now on, for the details' "This task is no longer in the plan." (a
+	 * MutationObserver and a check every animation frame); `seen()` says whether it ever showed.
+	 */
+	async function watchGone(page: Page): Promise<() => Promise<boolean>> {
+		await page.evaluate(() => {
+			const w = window as unknown as { __gone: boolean };
+			w.__gone = false;
+			const check = (): void => {
+				if (document.body.innerText.includes('This task is no longer in the plan.'))
+					w.__gone = true;
+			};
+			new MutationObserver(check).observe(document.body, {
+				subtree: true,
+				childList: true,
+				characterData: true,
+			});
+			const frame = (): void => {
+				check();
+				requestAnimationFrame(frame);
+			};
+			requestAnimationFrame(frame);
+		});
+		return () => page.evaluate(() => (window as unknown as { __gone: boolean }).__gone);
+	}
+
+	/** Opens the poc sample and presses +: the new task's name is focused, ready to type. */
+	async function addNew(page: Page, info: Parameters<typeof Rig.open>[1]): Promise<Rig> {
+		const rig = await Rig.open(page, info, undefined, 'visual', 'poc-sample');
+		const add = page.getByTestId('add-task');
+		if (isTouch(info)) await add.tap();
+		else await add.click();
+		await expect.poll(() => rig.text()).toContain('task new_task "New task"');
+		await expect(nameField(page)).toBeFocused({ timeout: READY_TIMEOUT_MS });
+		return rig;
+	}
+
+	test('Tab after the name: the focus is on the next field (the kind of size), and stays there', async ({
+		page,
+	}, info) => {
+		const rig = await addNew(page, info);
+		const gone = await watchGone(page);
+		await page.keyboard.type('Write specs');
+		await page.keyboard.press('Tab');
+		const kind = page.getByRole('combobox', { name: 'Kind of size', exact: true });
+		await expect.poll(() => rig.text()).toContain('task write_specs "Write specs"');
+		await expect(page.locator('.task p.id code')).toHaveText('write_specs');
+		// The details never said the task was gone while the index caught up with the new id.
+		expect(await gone()).toBe(false);
+		await expect(kind).toBeFocused();
+		// Long after the index has caught up, the focus is still on the same field.
+		await page.waitForTimeout(3000);
+		await expect(kind).toBeFocused();
+		expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('SELECT');
+	});
+
+	test('keys typed right after Enter are kept, and the task is never shown as gone', async ({
+		page,
+	}, info) => {
+		const rig = await addNew(page, info);
+		const gone = await watchGone(page);
+		await page.keyboard.type('Write specs');
+		await page.keyboard.press('Enter');
+		// No wait: these keys land while the index catches up with the new id.
+		await page.keyboard.type(' v2');
+		await page.keyboard.press('Enter');
+		await expect.poll(() => rig.text()).toContain('task write_specs "Write specs v2"');
+		await expect(nameField(page)).toHaveValue('Write specs v2');
+		await expect(nameField(page)).toBeFocused();
+		expect(await gone()).toBe(false);
+		// Two renames, one id change: the second keeps the id (it is no longer automatic).
+		expect(await rig.text()).not.toContain('write_specs_v2');
 	});
 });
