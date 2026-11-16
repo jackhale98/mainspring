@@ -5,8 +5,11 @@
 // moving the chart, with the name column frozen at the pane's left and a focused cell scrolled
 // into view; rows stay level with the bars through fast vertical scrolling; a phone has the name
 // column and no divider; the divider reaches the Task column alone at 10 rem (polish item 13) and
-// the stored position is clamped to that; axe passes with the divider and a scrolled table. Desktop Chrome and
-// Pixel 7 (phone), with SCREENSHOTS=1 also the polish-10-*.png pictures.
+// the stored position is clamped to that, and a focused cell that stops being drawn hands its
+// focus to its row; axe passes with the divider and a scrolled table. Desktop Chrome and
+// Pixel 7 (phone), with SCREENSHOTS=1 also the polish-10-*.png and polish-13-*.png pictures.
+// Over 400 lines because the divider's behaviours share one page setup (`open`) and one set of
+// locators, and a second file would repeat both; the pictures are the last block.
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
@@ -212,7 +215,7 @@ test.describe('the table divider', () => {
 		expect(back?.x ?? 0).toBeGreaterThanOrEqual((name?.x ?? 0) + (name?.width ?? 0) - 1);
 	});
 
-	test('at the divider minimum only the names remain, readable, and the limit follows the text size', async ({
+	test('at the divider minimum only the names remain, at a readable width', async ({
 		page,
 	}, info) => {
 		test.skip(info.project.name !== 'desktop');
@@ -251,6 +254,48 @@ test.describe('the table divider', () => {
 		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
 	});
 
+	test('the least width follows the text size', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		await page.addStyleTag({ content: 'html { font-size: 20px; }' });
+		await page.waitForTimeout(400);
+		await divider(page).focus();
+		await page.keyboard.press('Home');
+		await page.waitForTimeout(300);
+		// 10 rem at a 20 px root is 200 px.
+		expect(Math.abs((await widthOf(page)) - 200)).toBeLessThanOrEqual(2);
+	});
+
+	test('a focused cell that stops being drawn hands its focus to the row', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		const firstRow = page.locator('[role="row"][data-key]').first();
+		await page.locator('[tabindex="0"][data-key]').first().focus();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowRight');
+		const start = firstRow.locator('[data-col="start"]');
+		await expect(start).toBeFocused();
+		// Dragging the divider does not move the focus: the pane shrinks under the focused cell.
+		const handle = await divider(page).boundingBox();
+		if (!handle) throw new Error('no divider');
+		const x = handle.x + handle.width / 2;
+		const y = handle.y + handle.height / 2;
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		await page.mouse.move(x - 600, y, { steps: 8 });
+		await page.mouse.up();
+		await page.waitForTimeout(300);
+		expect(Math.abs((await widthOf(page)) - 160)).toBeLessThanOrEqual(2);
+		await expect(start).not.toBeFocused();
+		await expect(firstRow).toBeFocused();
+		await expect(firstRow).toBeVisible();
+		// And the keys carry on from the row.
+		await page.keyboard.press('ArrowRight');
+		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
+	});
+
 	test('a position stored beyond the limits is clamped on load', async ({ page }, info) => {
 		test.skip(info.project.name !== 'desktop');
 		await open(page);
@@ -281,7 +326,7 @@ test.describe('the table divider', () => {
 		await page.keyboard.press('Home');
 		const firstRow = page.locator('[role="row"][data-key]').first();
 		// Widen until the columns are drawn (the name column and the widest one fit).
-		for (let i = 0; i < 12; i++) {
+		for (let i = 0; i < 40; i++) {
 			await page.keyboard.press('ArrowRight');
 			await page.waitForTimeout(100);
 			if (((await firstRow.locator('[data-col="start"]').boundingBox())?.width ?? 0) > 1) break;

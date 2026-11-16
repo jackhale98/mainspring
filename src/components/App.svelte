@@ -387,7 +387,14 @@
 				</div>
 			{/if}
 		</main>
-		<InspectorHost {app} layout={kind} {dock} active={showGantt} onshowtext={showInText} />
+		<InspectorHost
+			{app}
+			layout={kind}
+			{dock}
+			measured={workW > 0}
+			active={showGantt}
+			onshowtext={showInText}
+		/>
 	</div>
 	{#if phone}
 		<!-- No footer on a phone: the panels run down to the tab bar. The status is the top bar's

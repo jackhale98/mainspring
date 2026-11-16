@@ -88,7 +88,8 @@
 		if (next === null) return;
 		e.preventDefault();
 		onchange(next);
-		oncommit();
+		// A key pressed during a drag moves the divider but does not end the drag (and its hold).
+		if (!dragging) oncommit();
 	}
 </script>
 
@@ -108,6 +109,7 @@
 	{onpointermove}
 	{onpointerup}
 	onpointercancel={onpointerup}
+	onlostpointercapture={onpointerup}
 	{onkeydown}
 >
 	<span class="grip"><Icon name="grip" size={14} stroke={2.4} /></span>

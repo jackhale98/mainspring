@@ -166,6 +166,96 @@ test.describe('the details while the Split divider moves', () => {
 		expect(changes(frames)).toBeLessThanOrEqual(2);
 	});
 
+	test('a narrow Split opens with no drawer, and Text to Split does not open one', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		// Here the chart has under 640 px beside the panel: a rail, and the drawer only when asked for.
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await page.goto('/app?sample=gantt-manipulation&mode=split');
+		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
+		await page.waitForTimeout(700);
+		await expect(page.getByRole('button', { name: 'Show details' })).toBeVisible();
+		await expect(page.locator('aside[data-testid="inspector"]')).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Text', exact: true }).click();
+		await expect(page.locator('#panel-gantt')).toBeHidden();
+		await page.getByRole('button', { name: 'Split', exact: true }).click();
+		await expect(page.locator('#panel-gantt')).toBeVisible();
+		await page.waitForTimeout(700);
+		await expect(page.getByRole('button', { name: 'Show details' })).toBeVisible();
+		await expect(page.locator('aside[data-testid="inspector"]')).toHaveCount(0);
+	});
+
+	test('a collapsed panel stays collapsed across the threshold', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		// Select a task first: a click sets the drawer's own flag, which must not matter once collapsed.
+		await page
+			.locator('[role="treegrid"] [role="row"][data-key]')
+			.filter({ hasText: 'Research' })
+			.first()
+			.click();
+		await page.getByRole('button', { name: 'Hide details' }).click();
+		await expect(page.locator('aside[data-testid="inspector"]')).toHaveCount(0);
+		for (const dx of [360, -360]) {
+			const run = await drag(page, dx);
+			expect(
+				run.all.every((f) => f.mode === 'none'),
+				`closed on every frame (${dx})`,
+			).toBe(true);
+		}
+		await expect(page.getByRole('button', { name: 'Show details' })).toBeVisible();
+	});
+
+	test('a key during a drag keeps the mode held, and a lost pointer capture ends the drag', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		await expect(details(page)).toBeVisible();
+		await divider(page).focus();
+		const h = await divider(page).boundingBox();
+		if (!h) throw new Error('no divider');
+		const y = h.y + 200;
+		let x = h.x + h.width / 2;
+		await startSampling(page);
+		await divider(page).evaluate((el) =>
+			el.addEventListener(
+				'pointerdown',
+				(e) => ((window as unknown as { __pid: number }).__pid = (e as PointerEvent).pointerId),
+			),
+		);
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		for (let i = 0; i < 30; i++) {
+			x += 8;
+			await page.mouse.move(x, y);
+			await frame(page);
+			// Part-way, a key: it moves the divider, it does not end the drag and its hold.
+			if (i === 15) await page.keyboard.press('ArrowRight');
+		}
+		await frame(page);
+		const held = await page.evaluate(() => (window as unknown as { __frames: Frame[] }).__frames);
+		expect(held.every((f) => f.open)).toBe(true);
+		expect(changes(held), 'no change while the pointer is down').toBe(0);
+		// The capture is lost (the pointer is gone, the element was taken away): the drag ends there.
+		await divider(page).evaluate((el) =>
+			el.releasePointerCapture((window as unknown as { __pid: number }).__pid),
+		);
+		// (Chrome delivers the lost capture with the next pointer event.)
+		await page.mouse.move(x + 2, y);
+		await page.waitForTimeout(400);
+		const after = await stopSampling(page);
+		expect(after.every((f) => f.open)).toBe(true);
+		expect(changes(after), 'settles once').toBe(1);
+		expect(after.at(-1)?.mode).toBe('drawer');
+		await page.mouse.up();
+	});
+
 	// Pictures for the polish list: Split with the details open after a divider drag (device scale 2).
 	test.describe('polish-14 pictures', () => {
 		test.use({ deviceScaleFactor: 2 });

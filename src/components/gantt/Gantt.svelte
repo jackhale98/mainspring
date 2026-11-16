@@ -582,7 +582,7 @@
 						sizing={(id) => sizingOf(app.index?.tasks.get(id), chain)}
 						shown={columnsShown}
 						naturalWidth={naturalW}
-						nameWidth={nameAlone ? tableW : undefined}
+						nameWidth={nameAlone && !phone ? tableW : undefined}
 						first={firstRow}
 						last={lastRow}
 						rowHeight={metrics.rowHeight}
