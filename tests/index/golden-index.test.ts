@@ -168,7 +168,7 @@ describe('totals', () => {
 			'syn-19-errors-parse',
 			'syn-22-tz-kathmandu-resolution',
 		]);
-		expect(totals.compared).toBe(38);
+		expect(totals.compared).toBe(69);
 		expect(totals.tasks).toBeGreaterThan(1500);
 		// Ids only the engine can give (macro ids, expanded-only declarations) were resolved by hints.
 		expect(totals.hinted).toBeGreaterThan(0);
