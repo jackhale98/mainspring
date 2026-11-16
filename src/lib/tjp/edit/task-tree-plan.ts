@@ -49,6 +49,7 @@ import { checkEdited, checkNewParent } from './task-semantics';
 import { afterEdit, verifyTree } from './task-verify';
 import { checkOps, checkSafeText } from './refuse';
 import { dependenciesNaming, subtree } from './refs';
+import { taken, unknownSibling } from './task-siblings';
 import {
 	isRefused,
 	noop,
@@ -64,26 +65,6 @@ const ID = /^[A-Za-z_]\w*$/;
 
 function taskOf(ctx: EditContext, id: TaskId): TaskSymbol | null {
 	return ctx.index.tasks.get(id) ?? null;
-}
-
-/** Whether a child `local` of `parent` exists, or an unresolved declaration there has that id. */
-function taken(ctx: EditContext, parent: TaskId | null, local: string, except?: TaskId): boolean {
-	const full = parent === null ? local : `${parent}.${local}`;
-	if (full !== except && ctx.index.tasks.has(full)) return true;
-	return ctx.index.unresolved.some(
-		(u) => u.kind === 'task' && u.parent === parent && u.localId === local,
-	);
-}
-
-/**
- * `needs-schedule` when `parent` has a child whose id only the engine knows (a macro or automatic
- * id without engine hints): a new id there could collide with it.
- */
-function unknownSibling(ctx: EditContext, parent: TaskId | null): IntentPlan | null {
-	const u = ctx.index.unresolved.find(
-		(x) => x.kind === 'task' && x.parent === parent && x.localId === null,
-	);
-	return u ? refused('needs-schedule', [u.decl.header]) : null;
 }
 
 const same = (id: TaskId): TaskId => id;

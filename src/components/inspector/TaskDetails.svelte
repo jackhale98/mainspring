@@ -9,6 +9,8 @@
 	import type { GanttModel } from '../../lib/gantt/model';
 	import type { LinkFact } from '../../lib/inspector/links';
 	import type { TaskDetails } from '../../lib/inspector/task';
+	import type { Settlement } from '../../lib/state/edits-settle';
+	import { renamedBy } from '../../lib/state/edits.svelte';
 	import { inspectorStrings as S } from '../../lib/strings';
 	import CommitInput from './CommitInput.svelte';
 	import { getInspector } from './context';
@@ -30,14 +32,37 @@
 	let { d, model, waitsFor, followedBy }: Props = $props();
 	const { app, actions, showInText } = getInspector();
 
+	// A rename of a task that still has the + control's id also sets the id from the name (polish
+	// item 15). The details are keyed by id, so they mount again for the new id once the schedule
+	// includes the edit. When the name was committed with the focus in it (Enter), the focus goes
+	// back to the new details' name then, unless the person has moved it meanwhile.
+	let root: HTMLElement | undefined = $state();
+
+	async function keepFocus(settled: Promise<Settlement>, id: string): Promise<void> {
+		const s = await settled;
+		if (s.status === 'undone' || s.status === 'dropped' || s.status === 'failed') return;
+		const key = `task:${id}`;
+		for (let i = 0; i < 20 && app.selectedTask === key; i++) {
+			const at = document.activeElement;
+			if (at !== null && at !== document.body) return;
+			if (app.outline.byKey.has(key)) return app.inspector.focus();
+			await new Promise((go) => setTimeout(go, 50));
+		}
+	}
+
 	const rename = async (name: string): Promise<boolean> => {
 		const text = name.trim();
 		if (text === '') return false;
-		return (await actions.action({ type: 'rename', task: d.id, name: text })).status === 'applied';
+		const typing = root?.contains(document.activeElement) ?? false;
+		const o = await actions.action({ type: 'rename', task: d.id, name: text });
+		if (o.status !== 'applied') return false;
+		const next = renamedBy(o.edit.intent);
+		if (typing && next) void keepFocus(o.settled, next[1]);
+		return true;
 	};
 </script>
 
-<div class="task">
+<div class="task" bind:this={root}>
 	{#if d.declaration}
 		<p class="notice">{S.declarationTextOnly}</p>
 	{/if}
