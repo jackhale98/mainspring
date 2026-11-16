@@ -20,9 +20,12 @@
  * 7 days, and asks for each day of a week only when the offset at its two ends differs; every
  * other instant goes to the host. So a day axis costs about one call per week, not per day, on any
  * host: the plain Intl one or the Gantt's `memoZones`, which asks the host three times on a miss.
- * Axes are kept per zone host, keyed by everything they read (frame, zone, week start, kind), so a
- * new result with the same frame reuses its axis. An axis is never changed after it is built, so
- * sharing it is safe.
+ * On fedora-res (611 days in New York) a day axis makes 113 calls on the plain host, under 1 ms,
+ * and 339 through `memoZones`, about 2 ms. Axes are kept per zone host, keyed by everything they
+ * read (frame, zone, week start, kind), so a new result with the same frame reuses its axis. An
+ * axis is never changed after it is built, so sharing it is safe. Callers should therefore pass
+ * one host for the life of a view, preferably the plain one (`createTimeZoneHost`), not a new
+ * wrapper per result.
  */
 // T9: TaskJuggler's `beginOfWeek(true)` on a Sunday subtracts -1 days and returns the next
 // Monday (TjTime.rb:207-218), so a weekly report of a frame that starts on a Sunday leaves that
