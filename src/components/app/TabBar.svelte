@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	The phone's floating pill tab bar (phase-1.md 8.1, 14.7; phase-2.md 9.2; ADR-0009): Plan, Gantt
-	and Text, inset from the edges and above the home indicator. People joins in Phase 3. A tablist
+	The phone's floating pill tab bar (phase-1.md 8.1, 14.7; phase-2.md 9.2; ADR-0009): Plan, Gantt,
+	People and Text (phase-3.md 9.1), inset from the edges and above the home indicator. A tablist
 	with arrow keys; selecting a tab shows its panel. The active tab is a brass wash with a brass
 	ink label (steel is not used here); the icons are decorative.
 -->
@@ -27,6 +27,7 @@
 	const TABS: ReadonlyArray<{ id: PhoneTab; label: string; icon: IconName }> = [
 		{ id: 'plan', label: strings.panels.plan, icon: 'list' },
 		{ id: 'gantt', label: strings.panels.gantt, icon: 'visual' },
+		{ id: 'people', label: strings.panels.people, icon: 'users' },
 		{ id: 'text', label: strings.panels.text, icon: 'code' },
 	];
 

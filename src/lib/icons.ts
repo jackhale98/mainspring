@@ -91,6 +91,11 @@ export const ICONS = {
 		'M16 3.13a4 4 0 0 1 0 7.75',
 	],
 	plus: ['M5 12h14', 'M12 5v14'],
+	/** The heatmap (Workload, Load). */
+	grid: [rect(3, 3, 7, 7, 1), rect(14, 3, 7, 7, 1), rect(14, 14, 7, 7, 1), rect(3, 14, 7, 7, 1)],
+	/** Lanes: one row per person. */
+	rows: [rect(3, 3, 18, 18, 2), 'M21 9H3', 'M21 15H3'],
+	calendar: [rect(3, 4, 18, 18, 2), 'M16 2v4', 'M8 2v4', 'M3 10h18'],
 	more: [circle(12, 12, 1), circle(19, 12, 1), circle(5, 12, 1)],
 } as const satisfies Record<string, readonly string[]>;
 

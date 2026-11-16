@@ -4,8 +4,10 @@
 //   1. the total gzip of every script in dist/_astro: a cap of 450,000 bytes, enforced (exit 1);
 //   2. the JS a first load really fetches in Visual mode and in Text mode, measured in a browser
 //      against a preview. The code-split CodeMirror chunk is fetched in Text and Split, never in
-//      Visual: that is enforced too. The Visual-first size has a target of 300,000 bytes that is
-//      reported, as a warning, not enforced (18.11).
+//      Visual: that is enforced too. The People views are a lazy chunk (PeopleHost, phase-3.md
+//      8.3) that no Gantt-first load, in Visual or Text mode, may fetch: enforced, and its size is
+//      reported. The Visual-first size has a target of 300,000 bytes that is reported, as a
+//      warning, not enforced (18.11).
 //
 //   npm run build
 //   node scripts/js-sizes.mjs --serve [--out file.json]      serves dist itself, as Pages does
@@ -64,6 +66,7 @@ async function firstLoad(browser, base, query) {
 		gzipBytes: list.reduce((n, f) => n + f.gzip, 0),
 		rawBytes: list.reduce((n, f) => n + f.raw, 0),
 		loadsEditorChunk: list.some((f) => f.file.startsWith('editor-controller')),
+		loadsPeopleChunk: list.some((f) => f.file.startsWith('PeopleHost')),
 	};
 }
 
@@ -104,6 +107,7 @@ async function main() {
 	const result = {
 		distTotal: { files: files.length, gzipBytes: total, cap: TOTAL_CAP },
 		biggest: files.slice(0, 6),
+		peopleChunk: files.find((f) => f.file.startsWith('PeopleHost')) ?? null,
 	};
 	const problems = [];
 	if (total >= TOTAL_CAP)
@@ -115,6 +119,8 @@ async function main() {
 			problems.push('a Visual-first load fetched the CodeMirror chunk (it must stay split off)');
 		if (!result.textFirst.loadsEditorChunk)
 			problems.push('a Text-first load did not fetch the CodeMirror chunk (the split moved?)');
+		if (result.visualFirst.loadsPeopleChunk || result.textFirst.loadsPeopleChunk)
+			problems.push('a Gantt-first load fetched the People chunk (it must stay lazy)');
 	}
 	const text = JSON.stringify(result, null, 2) + '\n';
 	const out = arg('--out');
@@ -135,6 +141,7 @@ async function main() {
 			`First load, Text mode: **${kb(result.textFirst.gzipBytes)}**.`,
 		);
 	}
+	if (result.peopleChunk) lines.push(`People chunk (lazy): **${kb(result.peopleChunk.gzip)}**.`);
 	lines.push(
 		'',
 		'| Chunk | gzip |',
