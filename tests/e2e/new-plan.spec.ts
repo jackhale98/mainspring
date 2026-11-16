@@ -116,7 +116,7 @@ test.describe('New plan', () => {
 		await expect(status).toContainText('No tasks yet', { timeout: READY_TIMEOUT_MS });
 		await expect(status).not.toContainText(/error|Not scheduled|without a place/i);
 		if (touch) {
-			await expect(page.getByTestId('status-button')).toHaveAttribute('data-glyph', 'ok');
+			await expect(page.getByTestId('status-button')).toHaveAttribute('data-glyph', 'empty');
 		} else {
 			await expect(status).toContainText('No problems');
 			await expect(status.getByRole('button', { name: /error|warning|message/i })).toHaveCount(0);
@@ -151,6 +151,8 @@ test.describe('New plan', () => {
 		await expect(page.getByTestId('empty-state')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 		await expect(status).toContainText('No tasks yet');
 		await expect(status).not.toContainText(/error|Not scheduled|without a place/i);
+		// The deleted row held the focus: it goes to "Add task", not to the page.
+		if (!touch) await expect(page.getByTestId('empty-add-task')).toBeFocused();
 		await expect(
 			page.getByTestId('toast').filter({ hasText: 'The plan has no tasks.' }),
 		).toHaveText(/Deleted\. The plan has no tasks\./);
@@ -234,6 +236,49 @@ test.describe('New plan', () => {
 		await page.keyboard.press('Enter');
 		await expect(sheet(page)).toBeHidden();
 		await expect(chooser(page).locator('option:checked')).toHaveText('Ok (new)');
+	});
+
+	test('a start after 2035 is refused (the engine would say time_error), and the field limits it', async ({
+		page,
+	}, info) => {
+		await open(page);
+		const before = await text(page);
+		await chooser(page).selectOption({ label: 'New plan…' });
+		await nameInput(page).fill('Far future');
+		const start = sheet(page).getByLabel('Start');
+		await expect(start).toHaveAttribute('min', '1970-01-01');
+		await expect(start).toHaveAttribute('max', '2035-12-31');
+		await start.fill('2036-01-01');
+		await tap(isTouch(info), sheet(page).getByRole('button', { name: 'Create' }));
+		await expect(sheet(page)).toBeVisible();
+		await expect(sheet(page).getByRole('alert')).toHaveText(
+			'Enter a start date from 1970 to 2035.',
+		);
+		await expect(start).toBeFocused();
+		expect(await text(page)).toBe(before);
+		// The last day the engine reads is accepted.
+		await start.fill('2035-12-31');
+		await tap(isTouch(info), sheet(page).getByRole('button', { name: 'Create' }));
+		await expect(sheet(page)).toBeHidden();
+		await expect.poll(() => text(page)).toContain('far_future "Far future" 2035-12-31 +1y');
+	});
+
+	test('what is typed in the sheet survives a layout change while it is open', async ({
+		page,
+	}, info) => {
+		test.skip(isTouch(info), 'resizes the desktop window across the phone breakpoint');
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await open(page);
+		await chooser(page).selectOption({ label: 'New plan…' });
+		await nameInput(page).fill('Kept answers');
+		await sheet(page).getByLabel('Start').fill('2027-03-01');
+		await sheet(page).getByLabel('Time zone').selectOption({ label: 'Europe/Berlin' });
+		// The top bar swaps its desktop branch for the phone's: the chip remounts.
+		await page.setViewportSize({ width: 420, height: 800 });
+		await expect(sheet(page)).toBeVisible();
+		await expect(nameInput(page)).toHaveValue('Kept answers');
+		await expect(sheet(page).getByLabel('Start')).toHaveValue('2027-03-01');
+		await expect(sheet(page).getByLabel('Time zone')).toHaveValue('Europe/Berlin');
 	});
 
 	test('Escape and Cancel close the sheet without creating', async ({ page }, info) => {
