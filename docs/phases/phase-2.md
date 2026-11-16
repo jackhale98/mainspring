@@ -737,7 +737,7 @@ The edit API does not refuse schedule-dependent errors. The dispatcher settles e
 
 ### 11.3 Other gaps
 
-- **JS budget.** CI keeps the 450,000-byte gzip cap on all `/app` JS. Phase 2 code-splits the CodeMirror view, language, autocomplete, lint and search packages into a chunk loaded when an editor first mounts. `@codemirror/state`, Lezer and the edit API stay in the main chunk, because Visual mode needs them. A new recorded metric, "initial JS with Visual mode or the Gantt tab", targets 300 KB gzip or less (18.11).
+- **JS budget.** CI keeps the 450,000-byte gzip cap on all `/app` JS. Phase 2 code-splits the CodeMirror view, language, autocomplete, lint and search packages into a chunk loaded when an editor first mounts. `@codemirror/state`, Lezer and the edit API stay in the main chunk, because Visual mode needs them. A new recorded metric, "initial JS with Visual mode or the Gantt tab", targets 300 KB gzip or less (18.11). **Amended 2026-11-16 (user):** the budgets are on first loads, Visual or Gantt-first at most 310,000 bytes gzip and Text-first at most 420,000, both enforced; a total guard of 600,000 bytes; and per-chunk caps for named lazy chunks (`scripts/js-sizes.mjs` `CHUNK_CAPS`).
 - **Wasm code cache (Phase 4).** First visits still stall frames during engine boot (Phase 0 deviation). Perf measurements start after `ready`, and the gate evidence says so.
 - **Provisional goldens.** Schema v2 needs a re-record anyway (5.3). The gate states whether the goldens are 3.3.6 or 3.4.
 - **Structural intents over 50 ms (audit §2.1).** T6 measures again and fixes anything over 50 ms p90 on Fedora, because the drop path depends on it.

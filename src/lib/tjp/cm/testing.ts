@@ -7,6 +7,7 @@ import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import type { SyntaxDocs } from '../../../engine/protocol';
 import { KEYWORDS } from '../syntax/keywords';
+import { SUMMARIES } from '../syntax/summaries.generated';
 import type { KeywordDocsSource } from '../syntax/docs';
 import { tjp, type TjpExtensionOptions } from './index';
 
@@ -20,7 +21,7 @@ export function engineDocs(tjVersion = '3.8.4'): SyntaxDocs {
 			keyword: k.keyword,
 			contexts: [...k.contexts],
 			syntax: k.syntax,
-			summary: k.summary,
+			summary: SUMMARIES[k.keyword] ?? '',
 			doc: `Full documentation of ${k.keyword}.`,
 			scenarioSpecific: k.scenarioSpecific,
 			seeAlso: k.keyword === 'effort' ? ['duration', 'length'] : [],

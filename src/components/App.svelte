@@ -43,8 +43,7 @@
 	import { effectiveMode, modeFromParam, phoneTabFor } from '../lib/state/view-mode';
 	import { canAddSubtask, type AddMode } from '../lib/gantt/add-task';
 	import { ganttActionStrings, strings } from '../lib/strings';
-	import DocsSheet from './DocsSheet.svelte';
-	import NewPlanSheet from './app/NewPlanSheet.svelte';
+	import LazyMount from './app/LazyMount.svelte';
 	import { addTaskFlow, headerAfter } from './gantt/add-task-flow';
 	import Gantt from './gantt/Gantt.svelte';
 	import PeopleSlot from './people/PeopleSlot.svelte';
@@ -476,8 +475,12 @@
 			<OutlinePanel {app} showTitle={false} />
 		</Sheet>
 	{/if}
-	<DocsSheet {app} />
-	<NewPlanSheet {app} />
+	<LazyMount when={app.docsOpen} load={() => import('./DocsSheet.svelte')} props={{ app }} />
+	<LazyMount
+		when={app.newPlanOpen}
+		load={() => import('./app/NewPlanSheet.svelte')}
+		props={{ app }}
+	/>
 </div>
 
 <style>

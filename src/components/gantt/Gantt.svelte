@@ -98,7 +98,8 @@
 	import { ctrlWheel } from './ctrl-wheel';
 	import { createManipulation } from './manipulation.svelte';
 	import { installGanttHook } from './test-hook';
-	import MovePreferenceDialog from './MovePreferenceDialog.svelte';
+	import type { MoveKind } from '../../lib/gantt/intents';
+	import LazyMount from '../app/LazyMount.svelte';
 	import PeoplePalette from './PeoplePalette.svelte';
 	import { ZoomPreview } from './zoom-preview';
 	import { GanttAnalysis } from './gantt-analysis.svelte';
@@ -684,9 +685,14 @@
 			<div class="inset" aria-hidden="true" style:block-size="{app.inspector.sheetHeight}px"></div>
 		</div>
 	{/if}
-	<MovePreferenceDialog
-		ask={interactions.actor.ask}
-		onanswer={(k) => interactions.actor.answer(k)}
+	<LazyMount
+		when={interactions.actor.ask !== null}
+		load={() => import('./MovePreferenceDialog.svelte')}
+		props={{
+			ask: interactions.actor.ask,
+			onanswer: (k: MoveKind | null) => interactions.actor.answer(k),
+		}}
+		onfail={() => interactions.actor.answer(null)}
 	/>
 </div>
 

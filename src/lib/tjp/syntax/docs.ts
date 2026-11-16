@@ -3,6 +3,7 @@
 // alone before the engine boots, then the engine's full doc and "see also" once syntax() resolves.
 import type { KeywordDoc, SyntaxDocs } from '../../../engine/protocol';
 import { KEYWORDS, keywordById, TJ_VERSION } from './keywords';
+import { SUMMARIES } from './summaries.generated';
 import type { KeywordEntry } from './types';
 
 /** Engine docs once syntax() resolves; the table alone before that. */
@@ -11,7 +12,12 @@ export interface KeywordDocsSource {
 	engine: SyntaxDocs | null;
 }
 
-export type KeywordDocView = KeywordEntry & { doc: string | null; seeAlso: readonly string[] };
+export type KeywordDocView = KeywordEntry & {
+	/** The first sentence: the entry's own, else the committed summaries'. */
+	summary: string;
+	doc: string | null;
+	seeAlso: readonly string[];
+};
 
 const engineIndex = new WeakMap<SyntaxDocs, Map<string, KeywordDoc>>();
 
@@ -48,7 +54,8 @@ function tableEntry(table: readonly KeywordEntry[], keyword: string): KeywordEnt
 export function keywordDoc(src: KeywordDocsSource, keyword: string): KeywordDocView | null {
 	const entry = tableEntry(src.table, keyword);
 	if (!entry) return null;
+	const summary = entry.summary ?? SUMMARIES[keyword] ?? '';
 	const full = engineDoc(src.engine, keyword);
-	if (!full) return { ...entry, doc: null, seeAlso: [] };
-	return { ...entry, doc: full.doc || null, seeAlso: full.seeAlso };
+	if (!full) return { ...entry, summary, doc: null, seeAlso: [] };
+	return { ...entry, summary, doc: full.doc || null, seeAlso: full.seeAlso };
 }

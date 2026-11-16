@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// JS sizes of the built app (phase-2.md 11.3, 13.4, 18.11). Two numbers:
+// JS sizes of the built app (phase-2.md 11.3, 13.4, 18.11; budget amended by the user 2026-11-16).
+// The budgets are on what a first load fetches, where the user waits, plus a loose guard on the
+// whole app and caps on named lazy chunks:
 //
-//   1. the total gzip of every script in dist/_astro: a cap of 450,000 bytes, enforced (exit 1);
-//   2. the JS a first load really fetches in Visual mode and in Text mode, measured in a browser
-//      against a preview. The code-split CodeMirror chunk is fetched in Text and Split, never in
-//      Visual: that is enforced too. The People views are a lazy chunk (PeopleView, phase-3.md
-//      8.3) that no Gantt-first load, in Visual or Text mode, may fetch: enforced, and its size is
-//      reported. The Visual-first size has a target of 300,000 bytes that is reported, as a
-//      warning, not enforced (18.11).
+//   1. the JS a first load fetches in Visual mode (310,000 bytes gzip) and in Text mode (420,000),
+//      measured in a browser against a preview: enforced (exit 1). The code-split CodeMirror chunk
+//      is fetched in Text and Split, never in Visual: enforced too;
+//   2. the total gzip of every script in dist/_astro: a guard of 600,000 bytes against accidents,
+//      enforced;
+//   3. each named lazy chunk (CHUNK_CAPS, matched by file name): its own cap, enforced.
 //
 //   npm run build
 //   node scripts/js-sizes.mjs --serve [--out file.json]      serves dist itself, as Pages does
@@ -20,8 +21,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-export const TOTAL_CAP = 450_000;
-export const VISUAL_FIRST_TARGET = 300_000;
+export const TOTAL_CAP = 600_000;
+export const VISUAL_FIRST_CAP = 310_000;
+export const TEXT_FIRST_CAP = 420_000;
+/** Lazy chunks with their own cap, by file name. Add the People chunk here when it lands (60,000). */
+export const CHUNK_CAPS = [
+	{ name: 'editor', pattern: /^editor-controller/, cap: 118_000 },
+	// The People views (phase-3.md 8.3): PeopleView.svelte is the lazy chunk's entry.
+	{ name: 'people', pattern: /^PeopleView/, cap: 60_000 },
+];
 
 const gzip = (buf) => zlib.gzipSync(buf, { level: 9 }).length;
 const arg = (name) =>
@@ -101,27 +109,66 @@ async function measureLoads() {
 
 const kb = (n) => `${(n / 1000).toFixed(1)} KB`;
 
+/**
+ * The budget problems of a measurement (empty when it is within every budget). `loads` is absent
+ * with --dist-only. Pure, so it is unit-tested (tests/scripts/js-sizes.test.ts).
+ * @param {{ files: { file: string, gzip: number }[], loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean } } }} m
+ * @returns {string[]}
+ */
+export function checkBudgets({ files, loads }) {
+	const problems = [];
+	const total = files.reduce((n, f) => n + f.gzip, 0);
+	if (total > TOTAL_CAP)
+		problems.push(`the app's JS is ${total} bytes gzip; the guard is ${TOTAL_CAP}`);
+	for (const c of CHUNK_CAPS) {
+		const size = files.filter((f) => c.pattern.test(f.file)).reduce((n, f) => n + f.gzip, 0);
+		if (size > c.cap)
+			problems.push(`the ${c.name} chunk is ${size} bytes gzip; its cap is ${c.cap}`);
+	}
+	if (loads) {
+		const { visualFirst: v, textFirst: t } = loads;
+		if (v.gzipBytes > VISUAL_FIRST_CAP)
+			problems.push(
+				`a Visual-first load fetches ${v.gzipBytes} bytes gzip; the cap is ${VISUAL_FIRST_CAP}`,
+			);
+		if (t.gzipBytes > TEXT_FIRST_CAP)
+			problems.push(
+				`a Text-first load fetches ${t.gzipBytes} bytes gzip; the cap is ${TEXT_FIRST_CAP}`,
+			);
+		if (v.loadsEditorChunk)
+			problems.push('a Visual-first load fetched the CodeMirror chunk (it must stay split off)');
+		if (!t.loadsEditorChunk)
+			problems.push('a Text-first load did not fetch the CodeMirror chunk (the split moved?)');
+		// The People views load when one opens, never with a Gantt-first load (phase-3.md 8.3).
+		if (v.loadsPeopleChunk || t.loadsPeopleChunk)
+			problems.push('a Gantt-first load fetched the People chunk (it must stay lazy)');
+	}
+	return problems;
+}
+
 async function main() {
 	const files = distScripts(path.join(process.cwd(), 'dist', '_astro'));
 	const total = files.reduce((n, f) => n + f.gzip, 0);
 	const result = {
 		distTotal: { files: files.length, gzipBytes: total, cap: TOTAL_CAP },
 		biggest: files.slice(0, 6),
-		peopleChunk: files.find((f) => f.file.startsWith('PeopleView')) ?? null,
+		chunkCaps: CHUNK_CAPS.map((c) => ({
+			name: c.name,
+			cap: c.cap,
+			gzipBytes: files.filter((f) => c.pattern.test(f.file)).reduce((n, f) => n + f.gzip, 0),
+		})),
 	};
-	const problems = [];
-	if (total >= TOTAL_CAP)
-		problems.push(`the app's JS is ${total} bytes gzip; the cap is ${TOTAL_CAP}`);
 	if (!flag('--dist-only')) {
 		Object.assign(result, await measureLoads());
-		result.visualFirstTarget = VISUAL_FIRST_TARGET;
-		if (result.visualFirst.loadsEditorChunk)
-			problems.push('a Visual-first load fetched the CodeMirror chunk (it must stay split off)');
-		if (!result.textFirst.loadsEditorChunk)
-			problems.push('a Text-first load did not fetch the CodeMirror chunk (the split moved?)');
-		if (result.visualFirst.loadsPeopleChunk || result.textFirst.loadsPeopleChunk)
-			problems.push('a Gantt-first load fetched the People chunk (it must stay lazy)');
+		result.visualFirstCap = VISUAL_FIRST_CAP;
+		result.textFirstCap = TEXT_FIRST_CAP;
 	}
+	const problems = checkBudgets({
+		files,
+		loads: result.visualFirst
+			? { visualFirst: result.visualFirst, textFirst: result.textFirst }
+			: undefined,
+	});
 	const text = JSON.stringify(result, null, 2) + '\n';
 	const out = arg('--out');
 	if (out) {
@@ -133,15 +180,16 @@ async function main() {
 	const lines = [
 		'## JS sizes (gzip)',
 		'',
-		`Total of \`dist/_astro\`: **${kb(total)}** of ${kb(TOTAL_CAP)} (${files.length} files).`,
+		`Total of \`dist/_astro\`: **${kb(total)}** of the ${kb(TOTAL_CAP)} guard (${files.length} files).`,
 	];
 	if (result.visualFirst) {
 		lines.push(
-			`First load, Visual mode: **${kb(result.visualFirst.gzipBytes)}** (target ${kb(VISUAL_FIRST_TARGET)}).`,
-			`First load, Text mode: **${kb(result.textFirst.gzipBytes)}**.`,
+			`First load, Visual mode: **${kb(result.visualFirst.gzipBytes)}** of ${kb(VISUAL_FIRST_CAP)}.`,
+			`First load, Text mode: **${kb(result.textFirst.gzipBytes)}** of ${kb(TEXT_FIRST_CAP)}.`,
 		);
 	}
-	if (result.peopleChunk) lines.push(`People chunk (lazy): **${kb(result.peopleChunk.gzip)}**.`);
+	for (const c of result.chunkCaps)
+		lines.push(`Lazy chunk ${c.name}: **${kb(c.gzipBytes)}** of ${kb(c.cap)}.`);
 	lines.push(
 		'',
 		'| Chunk | gzip |',
@@ -150,19 +198,14 @@ async function main() {
 	);
 	if (process.env.GITHUB_STEP_SUMMARY)
 		fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
-	if (
-		result.visualFirst &&
-		result.visualFirst.gzipBytes > VISUAL_FIRST_TARGET &&
-		process.env.GITHUB_ACTIONS
-	)
-		console.log(
-			`::warning title=Visual-first JS::${kb(result.visualFirst.gzipBytes)} is over the ${kb(VISUAL_FIRST_TARGET)} target (phase-2 18.11)`,
-		);
 	for (const p of problems) console.error(`js-sizes: ${p}`);
 	if (problems.length) process.exitCode = 1;
 }
 
-main().catch((e) => {
-	console.error(e);
-	process.exit(1);
-});
+// Run only as a script, so the tests can import checkBudgets.
+if (process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
+	main().catch((e) => {
+		console.error(e);
+		process.exit(1);
+	});
+}

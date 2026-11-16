@@ -471,7 +471,7 @@ These are DOM: a month is 42 day cells, and the tables and lists are short.
   Each task stays under 50 ms at 4x, chunked where needed. Targets on desktop: load at most 15 ms, demand at most 25 ms, health at most 15 ms on `fedora-res` and `scale-1000`. These are recorded, not enforced. CI's enforced rule is the responsiveness job: no task over 50 ms after ready, extended to `fedora-res` with the Workload view open.
 - **Bundle.**
   - The People views and the insight modules (`workload`, `explain`, `demand`, `health`) are one lazy chunk, loaded when a People view opens or in idle after the first result (for the health count).
-  - Total `/app` JS stays under 450,000 bytes gzip, and Visual-first initial JS grows by at most 5 KB.
+  - Total `/app` JS stays under 450,000 bytes gzip, and Visual-first initial JS grows by at most 5 KB. **Amended 2026-11-16 (user):** first loads are capped instead (Visual or Gantt-first at most 310,000 bytes gzip, Text-first at most 420,000, enforced), with a total guard of 600,000 bytes and per-chunk caps; the People chunk at 60,000 (`scripts/js-sizes.mjs`).
   - `scripts/js-sizes.mjs` reports the new chunk.
 
 ### 8.4 Measured in CI (emulation) and on the desktop

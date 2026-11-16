@@ -210,9 +210,10 @@ jobs:
       # Spread over four runners by device. The Text mode timings (text-mode-perf.spec.ts) run
       # nightly instead (nightly.yml, perf job).
       - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
-      # JS budget (phase-2 11.3, 13.4, 18.11), on the build this job already has: the total gzip of
-      # dist/_astro stays under 450,000 bytes (fails), a Visual-first load must not fetch the
-      # CodeMirror chunk (fails), and its size is reported against the 300 KB target (a warning).
+      # JS budget (phase-2 11.3, 13.4, 18.11; amended 2026-11-16), on the build this job already has:
+      # a Visual-first load at most 310,000 bytes gzip and a Text-first load at most 420,000 (fail),
+      # the total of dist/_astro under a 600,000 guard, named lazy chunks under their caps, and a
+      # Visual-first load must not fetch the CodeMirror chunk (fails).
       # It serves dist itself, as Pages does, and loads two pages to Engine Ready: about a minute, on the
       # desktop runner only (the iPhone runners are the slow ones).
       - name: JS sizes

@@ -29,7 +29,7 @@ function extra(
 	const name = keyword.split('.')[0] ?? keyword;
 	const scenarioSpecific = opts.scenarioSpecific ?? false;
 	return {
-		entry: { keyword, name, contexts, scenarioSpecific, syntax, summary: '' },
+		entry: { keyword, name, contexts, scenarioSpecific, syntax },
 		body: opts.body ?? null,
 	};
 }
