@@ -12,6 +12,8 @@ import {
 	OUT,
 	PROLOG_CONTEXT,
 	renderModule,
+	renderSummaries,
+	SUMMARIES_OUT,
 } from '../../scripts/gen-tjp-keywords.mjs';
 import * as types from '../../src/lib/tjp/syntax/types';
 
@@ -119,6 +121,18 @@ describe('renderModule and formatModule', () => {
 	it('leaves the committed table unchanged when formatted again', async () => {
 		const committed = readFileSync(new URL(`../../${OUT}`, import.meta.url), 'utf8');
 		expect(await formatModule(committed)).toBe(committed);
+	});
+
+	it('keeps the summaries out of the table and in their own module', async () => {
+		const table = buildTable({ tjVersion: '3.8.4', keywords: minimal() });
+		const keywords = await formatModule(renderModule(table, from));
+		const summaries = await formatModule(renderSummaries(table, from), SUMMARIES_OUT);
+		expect(keywords).not.toContain('summary');
+		expect(keywords).not.toContain('Sets effort.');
+		expect(summaries).toContain('Sets effort.');
+		expect(summaries).toContain('export const SUMMARIES');
+		const committed = readFileSync(new URL(`../../${SUMMARIES_OUT}`, import.meta.url), 'utf8');
+		expect(await formatModule(committed, SUMMARIES_OUT)).toBe(committed);
 	});
 });
 

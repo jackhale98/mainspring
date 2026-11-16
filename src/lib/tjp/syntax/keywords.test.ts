@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { SUMMARIES } from './summaries.generated';
 import {
 	bodyContext,
 	CONTEXTS,
@@ -50,7 +51,7 @@ describe('the committed table', () => {
 			expect(k.name, k.keyword).toBe(written);
 			expect(k.name).toMatch(/^[a-z][a-z0-9]*$/);
 			expect(k.syntax.length).toBeGreaterThan(0);
-			expect(k.summary.length).toBeGreaterThan(0);
+			expect(SUMMARIES[k.keyword]?.length, k.keyword).toBeGreaterThan(0);
 			expect(k.contexts).toEqual([...new Set(k.contexts)].sort());
 		}
 	});

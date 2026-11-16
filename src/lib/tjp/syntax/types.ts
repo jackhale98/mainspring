@@ -37,6 +37,10 @@ export interface KeywordEntry {
 	readonly scenarioSpecific: boolean;
 	/** TaskJuggler's syntax line, e.g. "effort <value> (min | h | d | w | m | y)". */
 	readonly syntax: string;
-	/** The first sentence of TaskJuggler's documentation. */
-	readonly summary: string;
+	/**
+	 * The first sentence of TaskJuggler's documentation. The generated table leaves it out so that
+	 * Visual mode does not load it; docs.ts adds it from summaries.generated.ts (`keywordDoc`).
+	 * A table passed to `keywordDoc` may carry its own.
+	 */
+	readonly summary?: string;
 }
