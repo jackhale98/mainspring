@@ -240,14 +240,17 @@ test.describe('the table divider', () => {
 		expect(await valueOf(page)).toBe(min);
 		expect(min).toBeLessThan(20);
 		await page.waitForTimeout(300);
-		// The pane is 10 rem (160 px) wide: the row number (2.25 rem) and the Task column, names
-		// clipped with an ellipsis (polish items 13 and 16: # stays beside the name).
+		// The pane is 12.25 rem (196 px): the Task column at its 10 rem, names clipped with an
+		// ellipsis, and the row number (2.25 rem) beside it, so that # does not take from the name
+		// (polish items 13 and 16).
 		const pane = await names(page).boundingBox();
-		expect(Math.abs((pane?.width ?? 0) - 160)).toBeLessThanOrEqual(2);
+		expect(Math.abs((pane?.width ?? 0) - 196)).toBeLessThanOrEqual(2);
 		const firstRow = page.locator('[role="row"][data-key]').first();
 		const nameBox = await firstRow.locator('[data-col="name"]').boundingBox();
 		const numberBox = await firstRow.locator('[data-col="number"]').boundingBox();
 		expect(Math.abs((numberBox?.width ?? 0) - 36)).toBeLessThanOrEqual(1);
+		// The name keeps its 10 rem: the number took nothing from it.
+		expect(Math.abs((nameBox?.width ?? 0) - 160)).toBeLessThanOrEqual(2);
 		expect(
 			Math.abs((nameBox?.width ?? 0) + (numberBox?.width ?? 0) - (pane?.width ?? 0)),
 		).toBeLessThanOrEqual(2);
@@ -286,8 +289,8 @@ test.describe('the table divider', () => {
 		await divider(page).focus();
 		await page.keyboard.press('Home');
 		await page.waitForTimeout(300);
-		// 10 rem at a 20 px root is 200 px.
-		expect(Math.abs((await widthOf(page)) - 200)).toBeLessThanOrEqual(2);
+		// 12.25 rem (the name's 10 and the number's 2.25) at a 20 px root is 245 px.
+		expect(Math.abs((await widthOf(page)) - 245)).toBeLessThanOrEqual(2);
 	});
 
 	test('a focused cell that stops being drawn hands its focus to the row', async ({
@@ -312,7 +315,7 @@ test.describe('the table divider', () => {
 		await page.mouse.move(x - 600, y, { steps: 8 });
 		await page.mouse.up();
 		await page.waitForTimeout(300);
-		expect(Math.abs((await widthOf(page)) - 160)).toBeLessThanOrEqual(2);
+		expect(Math.abs((await widthOf(page)) - 196)).toBeLessThanOrEqual(2);
 		await expect(start).not.toBeFocused();
 		await expect(firstRow).toBeFocused();
 		await expect(firstRow).toBeVisible();
@@ -331,7 +334,7 @@ test.describe('the table divider', () => {
 			timeout: READY_TIMEOUT_MS,
 		});
 		await page.waitForTimeout(500);
-		expect(Math.abs((await widthOf(page)) - 160)).toBeLessThanOrEqual(2);
+		expect(Math.abs((await widthOf(page)) - 196)).toBeLessThanOrEqual(2);
 		expect(await valueOf(page)).toBe(Number(await divider(page).getAttribute('aria-valuemin')));
 		await page.evaluate((k) => localStorage.setItem(k, '0.97'), key);
 		await page.reload();

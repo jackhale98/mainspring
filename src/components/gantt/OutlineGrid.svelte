@@ -52,6 +52,8 @@
 		pending?: ReadonlySet<string>;
 		/** The columns drawn, in cell order, the name first. */
 		shown: readonly ColumnId[];
+		/** The # column's width in rem (columns.ts `numberColumnRem`: it grows with the digits). */
+		numberRem?: number;
 		/** The width of the shown columns together, in px: the rows' width, the pane scrolls over it. */
 		naturalWidth: number;
 		/** The name column's width in px when it is the pane's width (the name alone); else the token's. */
@@ -102,6 +104,7 @@
 		sizing,
 		pending,
 		shown,
+		numberRem: numberWidthRem = COLUMN_REM.number,
 		naturalWidth,
 		nameWidth,
 		first,
@@ -230,9 +233,9 @@
 	});
 	const isShown = (c: ColumnId): boolean => shown.includes(c);
 	/** What the frozen row number takes of the pane's left, which the name column sits beside. */
-	const numberRem = $derived(isShown('number') ? `${COLUMN_REM.number}rem` : '0px');
+	const numberCss = $derived(isShown('number') ? `${numberWidthRem}rem` : '0px');
 	const nameRem = (c: ColumnId): string | undefined => {
-		const w = widthOf(c);
+		const w = widthOf(c, numberWidthRem);
 		return w === null ? undefined : `${w}rem`;
 	};
 
@@ -413,7 +416,7 @@
 	class:scrolled={scrolled > 0}
 	style:--natural-width="{naturalWidth}px"
 	style:--gantt-name-col={nameWidth === undefined ? undefined : `${nameWidth}px`}
-	style:--gantt-num-col={numberRem}
+	style:--gantt-num-col={numberCss}
 	{onfocusin}
 	{onfocusout}
 	{onkeydown}
@@ -491,8 +494,7 @@
 							class:yes={col === 'critical' && cell.text === strings.grid.yes}
 							data-col={col}
 							aria-colindex={c + 1}
-							aria-label={cell.blank || cell.label !== undefined ? spokenText(cell) : undefined}
-							title={cell.hint}
+							aria-label={cell.blank ? spokenText(cell) : undefined}
 							tabindex={on ? tabIndexOf(row, col) : undefined}
 							style:width={on ? nameRem(col) : undefined}
 							ondblclick={col === 'name' && dblclickRenames ? () => onrename?.(row.key) : undefined}
@@ -508,13 +510,15 @@
 								/>
 							{:else if cell.label !== undefined}
 								<!--
-									Row numbers to the eye, names to a screen reader: the cell's aria-label is the
-									names, and the numbers are drawn from `data-text` (CSS generated content, see
-									`.vis`). Real text here would be visible text that the name lacks, which fails
-									WCAG 2.5.3 (axe: label-content-name-mismatch), and a name that repeated the
-									numbers would read them aloud before the names.
+									Row numbers to the eye, task names to a screen reader: the names are real text
+									that only assistive technology reads, the numbers are hidden from it (so the
+									cell is read once, as "Predecessors: Research"), and the hover text, the ids,
+									is on the numbers for the same reason: a title on the cell would be read as a
+									second description. The cell has no aria-label, so that WCAG 2.5.3 (axe:
+									label-content-name-mismatch) has no name to compare the numbers with.
 								-->
-								<span class="vis" data-text={cell.text}></span>
+								<span class="sr-only">{cell.label}</span>
+								<span class="vis" aria-hidden="true" title={cell.hint}>{cell.text}</span>
 							{:else}
 								{cell.text}
 							{/if}
@@ -743,10 +747,6 @@
 		.thumb-hit {
 			padding-block: 5px;
 		}
-	}
-	/* A link cell's numbers (see the markup): drawn, not text, so the cell's name is the names alone. */
-	.vis::before {
-		content: attr(data-text);
 	}
 	.cell.blank {
 		color: var(--color-gantt-text-faint);

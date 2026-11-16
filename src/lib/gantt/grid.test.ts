@@ -205,7 +205,7 @@ describe('the number and link cells', () => {
 		number,
 		name,
 		type: 'finish-start',
-		gap: null,
+		gaps: [],
 		state: 'declared',
 		...over,
 	});
@@ -221,7 +221,7 @@ describe('the number and link cells', () => {
 				{
 					number: 2,
 					predecessors: [ref(1, 'Research'), ref(4, 'Brief', { type: 'start-start' })],
-					successors: [ref(3, 'Build', { gap: { kind: 'gaplength', text: '+2d' } })],
+					successors: [ref(3, 'Build', { gaps: [{ kind: 'gaplength', text: '+2d' }] })],
 				},
 			],
 			[
@@ -229,7 +229,13 @@ describe('the number and link cells', () => {
 				{
 					number: 3,
 					predecessors: [
-						ref(2, 'Sketch', { type: 'finish-finish', gap: { kind: 'gapduration', text: '-1d' } }),
+						ref(2, 'Sketch', {
+							type: 'finish-finish',
+							gaps: [
+								{ kind: 'gaplength', text: '+4h' },
+								{ kind: 'gapduration', text: '+1d' },
+							],
+						}),
 						ref(1, 'Research', { state: 'pending' }),
 					],
 					successors: [],
@@ -246,16 +252,16 @@ describe('the number and link cells', () => {
 		expect(of(0, 'successors').text).toBe('2, 3');
 		expect(of(1, 'predecessors').text).toBe('1, 4SS');
 		expect(of(1, 'successors').text).toBe('3 +2d');
-		expect(of(2, 'predecessors').text).toBe('2FF -1d, 1');
+		expect(of(2, 'predecessors').text).toBe('2FF +4h +1d, 1');
 	});
 
 	it('says the task names to a screen reader, not the numbers', () => {
 		expect(spokenText(of(1, 'predecessors'))).toBe(
 			'Predecessors: Research, Brief (start to start)',
 		);
-		expect(spokenText(of(1, 'successors'))).toBe('Successors: Build (plus 2d)');
+		expect(spokenText(of(1, 'successors'))).toBe('Successors: Build (plus 2 days)');
 		expect(spokenText(of(2, 'predecessors'))).toBe(
-			'Predecessors: Sketch (finish to finish, minus 1d calendar time), Research (not scheduled yet)',
+			'Predecessors: Sketch (finish to finish, plus 4 hours, plus 1 day calendar time), Research (not scheduled yet)',
 		);
 	});
 

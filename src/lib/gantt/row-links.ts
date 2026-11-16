@@ -19,7 +19,7 @@
  *   the parent's (links.ts), as is the line the Gantt draws.
  */
 import type { ProjectInfo } from '../../engine/protocol';
-import { gapText, typeOf, type GapKind, type LinkType } from '../inspector/links';
+import { gapOf, typeOf, type GapKind, type LinkType } from '../inspector/links';
 import type { OutlineNode } from '../state/outline';
 import type { TaskId } from '../tjp/index';
 import type { LinkState, RawLink } from './model';
@@ -32,8 +32,12 @@ export interface RowLinkRef {
 	readonly number: number;
 	readonly name: string;
 	readonly type: LinkType;
-	/** The gap, signed (a negative one is a lead): its kind and the text, "+2d" or "-4h". */
-	readonly gap: { readonly kind: GapKind; readonly text: string } | null;
+	/**
+	 * The gaps, as the details list them (inspector/links.ts `gapOf`): "+2d" of working time and
+	 * "+1d" of calendar time. Usually none or one; a link that has both lists both. None before a
+	 * schedule exists (no project): a gap of "960min" would say nothing without the working day.
+	 */
+	readonly gaps: readonly { readonly kind: GapKind; readonly text: string }[];
 	readonly state: LinkState;
 }
 
@@ -44,17 +48,21 @@ export interface RowInfo {
 	readonly successors: readonly RowLinkRef[];
 }
 
-/** The gap of a link: working time first (as the inspector does), else calendar time; signed. */
-function gapOf(
+function gapsOf(
 	l: Pick<RawLink, 'gapLengthMin' | 'gapDurationMin'>,
 	project: ProjectInfo | null,
-): RowLinkRef['gap'] {
-	const kind: GapKind | null =
-		l.gapLengthMin !== 0 ? 'gaplength' : l.gapDurationMin !== 0 ? 'gapduration' : null;
-	if (kind === null) return null;
-	const minutes = kind === 'gaplength' ? l.gapLengthMin : l.gapDurationMin;
-	const text = gapText(Math.abs(minutes), kind, project);
-	return { kind, text: minutes < 0 ? `-${text}` : `+${text}` };
+): RowLinkRef['gaps'] {
+	if (project === null) return [];
+	const out: { kind: GapKind; text: string }[] = [];
+	// `gapOf` shows one kind (working time first), so each is asked for alone.
+	for (const one of [
+		{ gapLengthMin: l.gapLengthMin, gapDurationMin: 0 },
+		{ gapLengthMin: 0, gapDurationMin: l.gapDurationMin },
+	]) {
+		const g = gapOf(one, project);
+		if (g) out.push({ kind: g.kind, text: `+${g.text}` });
+	}
+	return out;
 }
 
 /**
@@ -76,7 +84,7 @@ export function rowInfoOf(
 		const pred = byId.get(l.pred);
 		const succ = byId.get(l.succ);
 		if (!pred || !succ || pred === succ) continue;
-		const common = { type: typeOf(l), gap: gapOf(l, project), state: l.state };
+		const common = { type: typeOf(l), gaps: gapsOf(l, project), state: l.state };
 		const wait = preds.get(succ.key) ?? [];
 		wait.push({ id: l.pred, number: pred.number, name: pred.name, ...common });
 		preds.set(succ.key, wait);

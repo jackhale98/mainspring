@@ -5,11 +5,12 @@ import {
 	COLUMN_REM,
 	DEFAULT_COLUMNS,
 	extrasRem,
+	numberColumnRem,
 	FROZEN_COLUMNS,
 	shownColumns,
 	widthOf,
 } from './columns';
-import { LEAST_TABLE_REM } from './table';
+import { LEAST_TABLE_REM, leastTableWidth } from './table';
 
 describe('shownColumns', () => {
 	it('draws every column in the order of the cells; a narrow pane keeps the number and the name', () => {
@@ -39,8 +40,26 @@ describe('extrasRem', () => {
 });
 
 describe('the least table width', () => {
-	it('holds the row number and a name of useful width in 10 rem (polish item 13 and 16)', () => {
-		expect(LEAST_TABLE_REM - COLUMN_REM.number).toBeGreaterThanOrEqual(7.5);
+	it('keeps the name its 10 rem beside the row number (polish items 13 and 16)', () => {
+		const least = leastTableWidth(16);
+		expect(least - COLUMN_REM.number * 16).toBeGreaterThanOrEqual(LEAST_TABLE_REM * 16);
+		expect(least).toBe((LEAST_TABLE_REM + COLUMN_REM.number) * 16);
+	});
+});
+
+describe('numberColumnRem', () => {
+	it('has room for three digits, and half a rem more for each digit after', () => {
+		for (const rows of [1, 9, 99, 500, 999]) expect(numberColumnRem(rows)).toBe(COLUMN_REM.number);
+		expect(numberColumnRem(1000)).toBe(COLUMN_REM.number + 0.5);
+		expect(numberColumnRem(12_345)).toBe(COLUMN_REM.number + 1);
+		expect(numberColumnRem(0)).toBe(COLUMN_REM.number);
+	});
+
+	it('is the width widthOf and extrasRem use for the # column when given', () => {
+		expect(widthOf('number')).toBe(COLUMN_REM.number);
+		expect(widthOf('number', 3)).toBe(3);
+		expect(extrasRem(['number', 'name'], 3)).toBe(3);
+		expect(extrasRem(['number', 'name'])).toBe(COLUMN_REM.number);
 	});
 });
 

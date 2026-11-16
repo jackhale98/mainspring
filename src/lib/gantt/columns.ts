@@ -62,6 +62,15 @@ export const COLUMN_REM: Readonly<Record<Exclude<ColumnId, 'name'>, number>> = {
 	successors: 8,
 };
 
+/**
+ * The width of the # column for a plan of `rows` tasks, in rem: `COLUMN_REM.number` (room for three
+ * digits) and half a rem for each digit more, so that a number is never clipped.
+ */
+export function numberColumnRem(rows: number): number {
+	const digits = String(Math.max(1, Math.floor(rows))).length;
+	return COLUMN_REM.number + Math.max(0, digits - 3) * 0.5;
+}
+
 /** The widest column but the name, in rem. */
 export const WIDEST_COLUMN_REM = Math.max(...Object.values(COLUMN_REM));
 
@@ -84,17 +93,20 @@ export function shownColumns(fit: TableFit): readonly ColumnId[] {
 	return fit === 'phone' ? ['name'] : fit === 'narrow' ? FROZEN_COLUMNS : COLUMN_ORDER;
 }
 
-/** The width of the columns but the name, in rem. */
-export function extrasRem(columns: readonly ColumnId[]): number {
+/** The width of the columns but the name, in rem; `numberRem` is the # column's (`numberColumnRem`). */
+export function extrasRem(
+	columns: readonly ColumnId[],
+	numberRem: number = COLUMN_REM.number,
+): number {
 	let rem = 0;
 	for (const id of columns) {
-		const w = widthOf(id);
+		const w = widthOf(id, numberRem);
 		if (w !== null) rem += w;
 	}
 	return rem;
 }
 
 /** The width of a column in rem, or null for the name (which is a token). */
-export function widthOf(id: ColumnId): number | null {
-	return id === 'name' ? null : COLUMN_REM[id];
+export function widthOf(id: ColumnId, numberRem: number = COLUMN_REM.number): number | null {
+	return id === 'name' ? null : id === 'number' ? numberRem : COLUMN_REM[id];
 }

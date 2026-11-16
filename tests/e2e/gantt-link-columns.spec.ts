@@ -19,11 +19,9 @@ const grid = (page: Page) => page.getByTestId('gantt-treegrid');
 const row = (page: Page, key: string) => grid(page).locator(`[role="row"][data-key="${key}"]`);
 const cell = (r: Locator, col: string) => r.locator(`[data-col="${col}"]`);
 const text = async (l: Locator) => ((await l.textContent()) ?? '').replace(/\s+/g, ' ').trim();
-/** What a link cell shows: its row numbers, drawn from `data-text` (the cell's name is the task names). */
+/** What a link cell shows: its row numbers (the names a screen reader reads are beside them). */
 const seen = async (l: Locator) =>
-	(await l.locator('.vis').count()) > 0
-		? ((await l.locator('.vis').getAttribute('data-text')) ?? '')
-		: text(l);
+	(await l.locator('.vis').count()) > 0 ? text(l.locator('.vis')) : text(l);
 
 async function open(page: Page): Promise<void> {
 	if ((page.viewportSize()?.width ?? 0) >= 1024) {
@@ -100,11 +98,22 @@ test.describe('the number and link columns', () => {
 		await open(page);
 		const sketch = row(page, 'task:design.sketch');
 		await expect(cell(sketch, 'predecessors')).toHaveAccessibleName(
-			'Predecessors: Research (plus 2d)',
+			'Predecessors: Research (plus 2 days)',
 		);
-		await expect(cell(sketch, 'predecessors')).toHaveAttribute(
+		// The ids are the hover text of the numbers, which a screen reader does not read: the
+		// cell is announced once, with no second description.
+		await expect(cell(sketch, 'predecessors').locator('.vis')).toHaveAttribute(
 			'title',
-			'Waits for: design.research (plus 2d)',
+			'Waits for: design.research (plus 2 days)',
+		);
+		await expect(cell(sketch, 'predecessors')).toHaveAccessibleDescription('');
+		await expect(cell(sketch, 'predecessors')).not.toHaveAttribute('aria-label');
+		await expect(cell(sketch, 'predecessors')).not.toHaveAttribute('title');
+		// The numbers are real text (selectable, found by Ctrl+F) that assistive technology skips.
+		await expect(cell(sketch, 'predecessors').locator('.vis')).toHaveText('2 +2d');
+		await expect(cell(sketch, 'predecessors').locator('.vis')).toHaveAttribute(
+			'aria-hidden',
+			'true',
 		);
 		await expect(cell(row(page, 'task:design.review'), 'predecessors')).toHaveAccessibleName(
 			'Predecessors: Sketch (start to start)',
@@ -115,7 +124,7 @@ test.describe('the number and link columns', () => {
 		await expect(cell(row(page, 'task:design.gate'), 'successors')).toHaveAccessibleName(
 			'Successors: Hotfix, Build',
 		);
-		await expect(cell(row(page, 'task:design.gate'), 'successors')).toHaveAttribute(
+		await expect(cell(row(page, 'task:design.gate'), 'successors').locator('.vis')).toHaveAttribute(
 			'title',
 			'Followed by: support.hotfix, build',
 		);
@@ -227,12 +236,17 @@ test.describe('the number and link columns', () => {
 		await page.waitForTimeout(300);
 		const sketch = row(page, 'task:design.sketch');
 		const pane = await page.getByTestId('gantt').locator('.names').boundingBox();
-		expect(Math.abs((pane?.width ?? 0) - 160)).toBeLessThanOrEqual(2);
+		// The name keeps its 10 rem (160 px) and the number is beside it: 196 px in all.
+		expect(Math.abs((pane?.width ?? 0) - 196)).toBeLessThanOrEqual(2);
 		const [n, t] = await Promise.all([
 			cell(sketch, 'number').boundingBox(),
 			cell(sketch, 'name').boundingBox(),
 		]);
 		expect(n?.width ?? 0).toBeGreaterThan(30);
+		expect(Math.abs((t?.width ?? 0) - 160)).toBeLessThanOrEqual(2);
+		// Names read: nothing but the twisty's room is lost from a name of ordinary length.
+		const label = await row(page, 'task:design.sketch').locator('.label').boundingBox();
+		expect(label?.width ?? 0).toBeGreaterThan(90);
 		expect((n?.width ?? 0) + (t?.width ?? 0)).toBeCloseTo(pane?.width ?? 0, -1);
 		expect(await text(cell(sketch, 'number'))).toBe('3');
 		for (const col of ['start', 'predecessors', 'successors']) {
@@ -241,7 +255,7 @@ test.describe('the number and link columns', () => {
 		}
 		// Hidden from the eye, not from a screen reader: the words are still there.
 		await expect(cell(sketch, 'predecessors')).toHaveAccessibleName(
-			'Predecessors: Research (plus 2d)',
+			'Predecessors: Research (plus 2 days)',
 		);
 	});
 
@@ -257,13 +271,88 @@ test.describe('the number and link columns', () => {
 		// The table is the same for a screen reader.
 		expect(await text(cell(sketch, 'number'))).toBe('3');
 		await expect(cell(sketch, 'predecessors')).toHaveAccessibleName(
-			'Predecessors: Research (plus 2d)',
+			'Predecessors: Research (plus 2 days)',
 		);
 		if (process.env['SCREENSHOTS']) {
 			await page.screenshot({ path: path.join(OUT, 'polish-16-pixel7-gantt-light.png') });
 		}
 	});
+
+	test('widen # for a plan of more than 999 tasks, so that no number is clipped', async ({
+		page,
+	}, info) => {
+		test.skip(isPhone(info));
+		test.setTimeout(READY_TIMEOUT_MS * 2);
+		await page.setViewportSize({ width: 1440, height: 860 });
+		await page.goto(`/app?sample=${SAMPLE}&mode=split`);
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		const head = grid(page).locator('[data-col-head="number"]');
+		const three = (await head.boundingBox())?.width ?? 0;
+		expect(Math.abs(three - 36)).toBeLessThanOrEqual(1);
+		await page.getByRole('textbox', { name: /^Editor for / }).click();
+		await page.keyboard.press('ControlOrMeta+End');
+		const bulk = Array.from({ length: 1000 }, (_, i) => `task bulk${i} "Bulk ${i}" { effort 1d }`);
+		await page.keyboard.insertText(`\n${bulk.join('\n')}\n`);
+		// 16 tasks and 1,000 more: the header row is one more.
+		await expect(grid(page)).toHaveAttribute('aria-rowcount', '1017', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		// Half a rem more for the fourth digit.
+		await expect
+			.poll(async () => Math.abs(((await head.boundingBox())?.width ?? 0) - 44))
+			.toBeLessThanOrEqual(1);
+		await page
+			.getByTestId('gantt')
+			.locator('.scroller')
+			.evaluate((el) => el.scrollTo({ top: el.scrollHeight, behavior: 'instant' }));
+		const last = grid(page).locator('[role="row"][data-key="task:bulk999"]');
+		await expect(last).toBeVisible();
+		const number = cell(last, 'number');
+		await expect(number).toHaveText('1016');
+		// The digits are whole: the cell's text is not wider than the cell.
+		const [fits, name] = await Promise.all([
+			number.evaluate((el) => el.scrollWidth <= el.clientWidth),
+			cell(last, 'name').boundingBox(),
+		]);
+		expect(fits).toBe(true);
+		expect(name?.x ?? 0).toBeGreaterThan((await number.boundingBox())?.x ?? 0);
+	});
+
+	test('show the TaskJuggler ids beside the names in the details', async ({ page }, info) => {
+		await open(page);
+		const panel = await openDetails(page, info, 'task:design.sketch');
+		const waits = panel.getByRole('heading', { name: 'Waits for' });
+		await waits.scrollIntoViewIfNeeded();
+		await expect(waits).toBeVisible();
+		// Each linked task: its name as the button, its id beside it.
+		const wait = panel.locator('li', {
+			has: page.getByRole('button', { name: 'Research', exact: true }),
+		});
+		await expect(wait.locator('code.id')).toHaveText('design.research');
+		await expect(wait.locator('code.id')).toBeVisible();
+		const follow = panel.locator('li', {
+			has: page.getByRole('button', { name: 'Review', exact: true }),
+		});
+		await expect(follow.locator('code.id')).toHaveText('design.review');
+		// The name is still the link's button, unchanged.
+		await expect(wait.getByRole('button', { name: 'Research', exact: true })).toBeVisible();
+	});
 });
+
+/** Where the details are: the side panel on a desktop, the bottom sheet on a phone. */
+async function openDetails(page: Page, info: { project: { name: string } }, key: string) {
+	const panel = isPhone(info)
+		? page.getByRole('dialog', { name: /Task details/ })
+		: page.getByRole('complementary', { name: 'Details' });
+	const label = row(page, key).locator('.label');
+	await label.click();
+	// A sheet layout selects on the first tap and opens on a second.
+	if (isPhone(info) && (await panel.count()) === 0) await label.click();
+	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Sketch');
+	return panel;
+}
 
 // Pictures for the polish list: the table with the new columns, light and dark, at device scale
 // factor 2, with the details of a task open on its links, and the least width.
@@ -272,6 +361,16 @@ test.describe('polish-16 pictures', () => {
 	test.setTimeout(READY_TIMEOUT_MS + 90_000);
 	test.use({ deviceScaleFactor: 2 });
 	for (const scheme of ['light', 'dark'] as const) {
+		test(`details with ids, desktop (${scheme})`, async ({ page }, info) => {
+			test.skip(info.project.name !== 'desktop');
+			await page.emulateMedia({ colorScheme: scheme });
+			await open(page);
+			const panel = await openDetails(page, info, 'task:design.sketch');
+			await panel.getByRole('heading', { name: 'Waits for' }).scrollIntoViewIfNeeded();
+			await page.waitForTimeout(400);
+			await page.screenshot({ path: path.join(OUT, `polish-16-details-desktop-${scheme}.png`) });
+		});
+
 		test(`desktop (${scheme})`, async ({ page }, info) => {
 			test.skip(info.project.name !== 'desktop');
 			await page.emulateMedia({ colorScheme: scheme });
@@ -302,6 +401,23 @@ test.describe('polish-16 pictures', () => {
 			await page.keyboard.press('Home');
 			await page.waitForTimeout(400);
 			await page.screenshot({ path: path.join(OUT, `polish-16-desktop-min-${scheme}.png`) });
+		});
+	}
+});
+
+// The same details on the Pixel 7 emulation (its own scale factor).
+test.describe('polish-16 phone pictures', () => {
+	test.skip(!process.env['SCREENSHOTS'], 'set SCREENSHOTS=1 to write docs/phases/screenshots');
+	test.setTimeout(READY_TIMEOUT_MS + 90_000);
+	for (const scheme of ['light', 'dark'] as const) {
+		test(`details with ids, pixel 7 (${scheme})`, async ({ page }, info) => {
+			test.skip(info.project.name !== 'pixel-7');
+			await page.emulateMedia({ colorScheme: scheme });
+			await open(page);
+			const panel = await openDetails(page, info, 'task:design.sketch');
+			await panel.getByRole('heading', { name: 'Waits for' }).scrollIntoViewIfNeeded();
+			await page.waitForTimeout(400);
+			await page.screenshot({ path: path.join(OUT, `polish-16-details-pixel7-${scheme}.png`) });
 		});
 	}
 });

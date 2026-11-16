@@ -7,6 +7,7 @@ import { inline } from '../tjp/index/testing';
 import { result, task } from '../workspace/testing/fake-engine-client';
 import { resolveLinks } from './links';
 import { buildGanttModel, type RawLink } from './model';
+import { gapOf } from '../inspector/links';
 import { rowInfoOf } from './row-links';
 
 // Two files: `plan.tjp` includes `later.tji`, whose tasks depend on ones in the plan file and
@@ -232,17 +233,38 @@ describe('rowInfoOf: gaps and kinds', () => {
 			?.predecessors[0];
 
 	it('has no gap and the usual type for a plain dependency', () => {
-		expect(one({})).toMatchObject({ gap: null, type: 'finish-start' });
+		expect(one({})).toMatchObject({ gaps: [], type: 'finish-start' });
 	});
 
 	it('writes a working-time gap in whole days, else hours', () => {
-		expect(one({ gapLengthMin: 2 * 480 })?.gap).toEqual({ kind: 'gaplength', text: '+2d' });
-		expect(one({ gapLengthMin: 240 })?.gap).toEqual({ kind: 'gaplength', text: '+4h' });
+		expect(one({ gapLengthMin: 2 * 480 })?.gaps).toEqual([{ kind: 'gaplength', text: '+2d' }]);
+		expect(one({ gapLengthMin: 240 })?.gaps).toEqual([{ kind: 'gaplength', text: '+4h' }]);
 	});
 
-	it('writes a calendar gap as its own kind, and a lead with a minus', () => {
-		expect(one({ gapDurationMin: 2 * 1440 })?.gap).toEqual({ kind: 'gapduration', text: '+2d' });
-		expect(one({ gapLengthMin: -480 })?.gap).toEqual({ kind: 'gaplength', text: '-1d' });
+	it('writes a calendar gap as its own kind', () => {
+		expect(one({ gapDurationMin: 2 * 1440 })?.gaps).toEqual([{ kind: 'gapduration', text: '+2d' }]);
+	});
+
+	it('lists both gaps of a link that has both, as the details do, working time first', () => {
+		expect(one({ gapLengthMin: 480, gapDurationMin: 2 * 1440 })?.gaps).toEqual([
+			{ kind: 'gaplength', text: '+1d' },
+			{ kind: 'gapduration', text: '+2d' },
+		]);
+	});
+
+	it('writes the gap the way the details do, through the same function', () => {
+		const rel = rowInfoOf(nodes, [raw('app.ui', 'app.api', { gapLengthMin: 90 })], PROJECT);
+		expect(rel.get('task:app.api')?.predecessors[0]?.gaps).toEqual([
+			{
+				kind: 'gaplength',
+				text: `+${gapOf({ gapLengthMin: 90, gapDurationMin: 0 }, PROJECT)?.text}`,
+			},
+		]);
+	});
+
+	it('shows no gap before a schedule exists: without the working day "960min" says nothing', () => {
+		const before = rowInfoOf(nodes, [raw('app.ui', 'app.api', { gapLengthMin: 960 })], null);
+		expect(before.get('task:app.api')?.predecessors[0]).toMatchObject({ gaps: [], number: 2 });
 	});
 
 	it('reads the link type from where it leaves and where it enters', () => {

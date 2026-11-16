@@ -11,7 +11,10 @@ type Info = { project: { name: string } };
 const phone = (info: Info) => info.project.name !== 'desktop';
 
 const row = (page: Page, name: string): Locator =>
-	page.locator('[role="treegrid"] [role="row"][data-key]').filter({ hasText: name }).first();
+	page
+		.locator('[role="treegrid"] [role="row"][data-key]')
+		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
+		.first();
 const line = (page: Page, text: string): Locator =>
 	page.locator('.cm-content .cm-line').filter({ hasText: text }).first();
 /** The open file: a tab on a desktop, the File menu on a phone. */

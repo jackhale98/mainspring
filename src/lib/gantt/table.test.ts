@@ -39,17 +39,20 @@ describe('defaultTableRatio', () => {
 });
 
 describe('the least the pane is', () => {
-	it('is the name column alone at a readable width, which follows the text size', () => {
-		expect(leastTableWidth(16)).toBe(160);
-		expect(leastTableWidth(20)).toBe(200);
+	it('is the name column at 10 rem plus the # beside it, and follows the text size', () => {
+		// The # column does not take from the name's 10 rem (polish items 13 and 16).
+		expect(leastTableWidth(16)).toBe(196);
+		expect(leastTableWidth(20)).toBe(245);
 		expect(LEAST_TABLE_REM).toBe(10);
+		// A plan of thousands of tasks has a wider # and so a wider least.
+		expect(leastTableWidth(16, 2.75)).toBe(204);
 	});
 
 	it('is the divider limit the separator reports, below the Split limits', () => {
-		const space = { ganttPx: 1000, dividerPx: 10, leastPx: leastTableWidth(16) };
+		const space = { ganttPx: 1400, dividerPx: 10, leastPx: leastTableWidth(16) };
 		const limits = tableLimits(space);
 		expect(limits.max).toBe(MAX_RATIO);
-		expect(limits.min).toBeCloseTo((160 + 5) / 1000);
+		expect(limits.min).toBeCloseTo((196 + 5) / 1400);
 		expect(limits.min).toBeLessThan(MIN_RATIO);
 		// A very wide Gantt keeps the ratio floor; a narrow one cannot go below its real least.
 		expect(tableLimits({ ...space, ganttPx: 100_000 }).min).toBe(TABLE_MIN_RATIO);

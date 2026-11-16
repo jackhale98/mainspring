@@ -183,14 +183,20 @@ describe('the treegrid mirrors the model', () => {
 			expect(cells.map((c) => c.dataset['col'])).toEqual(want.map((w) => w.column));
 			cells.forEach((c, k) => {
 				const w = want[k]!;
+				// A link cell shows its numbers and holds the names for a screen reader.
 				const text =
 					w.label !== undefined
-						? c.querySelector('.vis')?.getAttribute('data-text')
+						? c.querySelector('.vis')?.textContent?.trim()
 						: (w.column === 'name' ? c.querySelector('.label') : c)?.textContent?.trim();
 				expect(text, `${model.rows[i]?.name} ${w.column}`).toBe(w.text);
-				expect(c.getAttribute('aria-label')).toBe(
-					w.label ?? (w.blank ? strings.grid.emptyWords : null),
-				);
+				expect(c.getAttribute('aria-label')).toBe(w.blank ? strings.grid.emptyWords : null);
+				if (w.label !== undefined) {
+					expect(c.querySelector('.sr-only')?.textContent).toBe(w.label);
+					expect(c.querySelector('.vis')?.getAttribute('aria-hidden')).toBe('true');
+					expect(c.querySelector('.vis')?.getAttribute('title')).toBe(w.hint);
+					// Nothing on the cell itself is read a second time (no title description).
+					expect(c.hasAttribute('title')).toBe(false);
+				}
 				expect(c.getAttribute('title')).toBe(w.hint ?? null);
 			});
 		});
@@ -225,14 +231,18 @@ task app "App" {
 		const cell = (r: number, col: string) =>
 			rows()[r]!.querySelector<HTMLElement>(`[data-col="${col}"]`)!;
 		expect(cell(1, 'number').textContent?.trim()).toBe('2');
-		const seen = (r: number, col: string) =>
-			cell(r, col).querySelector('.vis')?.getAttribute('data-text');
-		const heard = (r: number, col: string) => cell(r, col).getAttribute('aria-label');
+		const seen = (r: number, col: string) => cell(r, col).querySelector('.vis')?.textContent;
+		const heard = (r: number, col: string) => cell(r, col).querySelector('.sr-only')?.textContent;
 		expect(seen(2, 'predecessors')).toBe('2');
-		// The numbers are for the eye only: assistive technology reads the names instead.
-		expect(cell(2, 'predecessors').textContent?.trim()).toBe('');
+		// The numbers are for the eye only and the names for assistive technology, which reads the
+		// cell once: no aria-label to compare the numbers with, and the ids on the numbers, not the cell.
+		expect(cell(2, 'predecessors').querySelector('.vis')?.getAttribute('aria-hidden')).toBe('true');
+		expect(cell(2, 'predecessors').hasAttribute('aria-label')).toBe(false);
+		expect(cell(2, 'predecessors').hasAttribute('title')).toBe(false);
 		expect(heard(2, 'predecessors')).toBe('Predecessors: UI');
-		expect(cell(2, 'predecessors').getAttribute('title')).toBe('Waits for: app.ui');
+		expect(cell(2, 'predecessors').querySelector('.vis')?.getAttribute('title')).toBe(
+			'Waits for: app.ui',
+		);
 		expect(heard(1, 'successors')).toBe('Successors: API');
 		expect(cell(1, 'predecessors').getAttribute('aria-label')).toBe('none');
 	});

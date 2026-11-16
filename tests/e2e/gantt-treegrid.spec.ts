@@ -42,7 +42,10 @@ async function open(page: Page, sample = 'upstream-tutorial', mode = 'visual'): 
 
 const grid = (page: Page) => page.getByTestId('gantt-treegrid');
 const rows = (page: Page) => grid(page).locator('[role="row"][data-key]');
-const row = (page: Page, name: string) => rows(page).filter({ hasText: name }).first();
+const row = (page: Page, name: string) =>
+	rows(page)
+		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
+		.first();
 const cell = (r: Locator, col: string) => r.locator(`[data-col="${col}"]`);
 const text = async (l: Locator) => ((await l.textContent()) ?? '').replace(/\s+/g, ' ').trim();
 const tabStops = (page: Page) => grid(page).locator('[tabindex="0"]');

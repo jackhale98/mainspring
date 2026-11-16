@@ -1009,9 +1009,15 @@ export const strings = {
 				'finish-finish': 'finish to finish',
 				'start-finish': 'start to finish',
 			},
-			/** A gap in words: "plus 2d" or "minus 4h", and which clock it is on. */
-			gapWords: (text: string, calendar: boolean) =>
-				`${text.startsWith('-') ? 'minus' : 'plus'} ${text.slice(1)}${calendar ? ' calendar time' : ''}`,
+			/** A gap in words: "plus 2 days", and which clock it is on. */
+			gapWords: (amount: string, calendar: boolean) =>
+				`plus ${amount}${calendar ? ' calendar time' : ''}`,
+			/** The units of a gap, said in full. */
+			units: {
+				d: (n: number) => (n === 1 ? '1 day' : `${n} days`),
+				h: (n: number) => (n === 1 ? '1 hour' : `${n} hours`),
+				min: (n: number) => (n === 1 ? '1 minute' : `${n} minutes`),
+			},
 			/** A link the schedule shown does not include yet. */
 			pending: 'not scheduled yet',
 			/** Joins what is in the brackets after a task's name. */

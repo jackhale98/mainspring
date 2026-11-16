@@ -17,7 +17,7 @@
  * as wide as that rule allows when it does not (the table then scrolls sideways).
  */
 import { MAX_RATIO, type RatioLimits } from '../state/split';
-import { WIDEST_COLUMN_REM } from './columns';
+import { COLUMN_REM, WIDEST_COLUMN_REM } from './columns';
 
 /**
  * The table divider may go lower than the Split divider's fifth: only the pane's real least width
@@ -37,16 +37,20 @@ export function clampTableRatio(value: number, limits?: RatioLimits): number {
 export const MIN_CHART_SHARE = 0.4;
 
 /**
- * The least the table pane is, in rem: the Task column alone at a readable width, names clipped
+ * The least the name column is, in rem: the Task column alone at a readable width, names clipped
  * with an ellipsis (10 rem is 160 px at the default text size, about a dozen characters beside
  * the twisty). A 44 px strip was tried too (polish item 13): it shows only the twisties and the
  * first letter of a name, so it does not read and is not the limit.
  */
 export const LEAST_TABLE_REM = 10;
 
-/** The least the table pane is, in px, at the reader's text size. */
-export function leastTableWidth(remPx: number): number {
-	return Math.round(LEAST_TABLE_REM * remPx);
+/**
+ * The least the table pane is, in px, at the reader's text size: the name's 10 rem and, beside it,
+ * the frozen # column (`numberRem`, columns.ts `numberColumnRem`), so that the number does not take
+ * from the name (polish item 16).
+ */
+export function leastTableWidth(remPx: number, numberRem: number = COLUMN_REM.number): number {
+	return Math.round((LEAST_TABLE_REM + numberRem) * remPx);
 }
 
 /**

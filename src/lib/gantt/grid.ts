@@ -106,14 +106,21 @@ export function sizingOf(
 
 /** One end of a link as the eye reads it: its row number, the kind if unusual, the gap: "3SS +2d". */
 export function linkText(r: RowLinkRef): string {
-	return `${r.number}${G.links.typeShort[r.type]}${r.gap ? ` ${r.gap.text}` : ''}`;
+	return `${r.number}${G.links.typeShort[r.type]}${r.gaps.map((g) => ` ${g.text}`).join('')}`;
+}
+
+/** "+2d" as "2 days", "+4h" as "4 hours", "+90min" as "90 minutes": units are said, not spelt. */
+function amountWords(text: string): string {
+	const m = /^\+?(\d+)(d|h|min)$/.exec(text);
+	return m ? G.links.units[m[2] as 'd' | 'h' | 'min'](Number(m[1])) : text;
 }
 
 /** The same end in words, after a name or an id: "Research (start to start, plus 2d)". */
 export function linkWords(r: RowLinkRef, label: string): string {
 	const parts: string[] = [];
 	if (r.type !== 'finish-start') parts.push(G.links.typeWords[r.type]);
-	if (r.gap) parts.push(G.links.gapWords(r.gap.text, r.gap.kind === 'gapduration'));
+	for (const g of r.gaps)
+		parts.push(G.links.gapWords(amountWords(g.text), g.kind === 'gapduration'));
 	if (r.state === 'pending') parts.push(G.links.pending);
 	return parts.length > 0 ? `${label} (${parts.join(G.links.and)})` : label;
 }
