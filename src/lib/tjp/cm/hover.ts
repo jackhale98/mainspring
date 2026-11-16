@@ -16,7 +16,7 @@
  * hover does not exist.
  */
 import type { EditorState, Extension } from '@codemirror/state';
-import { hoverTooltip, type EditorView, type Tooltip } from '@codemirror/view';
+import { EditorView, hoverTooltip, type Tooltip } from '@codemirror/view';
 import { editorStrings as S } from '../../strings';
 import type { WorkspacePath } from '../../../engine/protocol';
 import { tjLineOf } from '../lines';
@@ -252,9 +252,37 @@ export function renderHover(content: HoverContent, doc: Document): HTMLElement {
 	return root;
 }
 
-/** Keyword and id hover (spec 6.7 `keywordHover`). */
-export function keywordHover(docs: () => KeywordDocsSource): Extension {
-	return hoverTooltip((view: EditorView, pos: number): Tooltip | null => {
+/** The kind of the last pointer seen over each editor ('mouse', 'touch' or 'pen'). */
+const lastPointer = new WeakMap<HTMLElement, string>();
+
+/**
+ * True when the last pointer over this editor was a finger or a pen. A tap fires a synthetic
+ * mouse event that CodeMirror's hover reads as a hover, and the popup then covers the text being
+ * edited; on touch the Docs button shows the same content (`docsAtCursor`) instead (user,
+ * 2026-11-16). A mouse or trackpad, an iPad's included, still gets the hover.
+ */
+export function touchPointer(view: EditorView): boolean {
+	const kind = lastPointer.get(view.dom);
+	return kind === 'touch' || kind === 'pen';
+}
+
+const notePointer = EditorView.domEventHandlers({
+	pointerdown: (e, view) => {
+		lastPointer.set(view.dom, e.pointerType);
+		return false;
+	},
+	pointermove: (e, view) => {
+		lastPointer.set(view.dom, e.pointerType);
+		return false;
+	},
+});
+
+/** The hover's source: null for touch (`touchPointer`), else the keyword or id popup. */
+export function keywordHoverSource(
+	docs: () => KeywordDocsSource,
+): (view: EditorView, pos: number) => Tooltip | null {
+	return (view: EditorView, pos: number): Tooltip | null => {
+		if (touchPointer(view)) return null;
 		const info = hoverInfo(view.state, pos, docs);
 		if (!info) return null;
 		const content = hoverContent(info);
@@ -264,5 +292,10 @@ export function keywordHover(docs: () => KeywordDocsSource): Extension {
 			above: true,
 			create: () => ({ dom: renderHover(content, view.dom.ownerDocument) }),
 		};
-	});
+	};
+}
+
+/** Keyword and id hover (spec 6.7 `keywordHover`); none for touch (`touchPointer`). */
+export function keywordHover(docs: () => KeywordDocsSource): Extension {
+	return [notePointer, hoverTooltip(keywordHoverSource(docs))];
 }
