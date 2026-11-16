@@ -22,11 +22,13 @@
  * - `followingId(index, task, name, firstName)`: the new local id for `renameTask`'s `id`, or null
  *   to change the name only: the task has an automatic id, `idKept` is null, and the slug of the
  *   new name (addTask's `slugId` with its sibling collision suffix, `taken`) differs from the id.
+ *   A name with no ASCII letter or digit (`slugOf` empty, "日本語") keeps the id: its slug would be
+ *   the meaningless fallback `task`.
  * - `planIdChange(ctx, task, id)`: the op that rewrites the id token, or the refusal (`idKept`'s,
  *   `invalid-value`, `id-collision`). The caller verifies the edited tree (task-attrs-names.ts).
  */
 import { mentionPattern, type SymbolIndex, type TaskSymbol, type TextOnlyReason } from '../index';
-import { isId, slugId } from '../values';
+import { isId, slugId, slugOf } from '../values';
 import { replaceSpan } from './layout';
 import { dependenciesNaming } from './refs';
 import { taken, unknownSibling } from './task-siblings';
@@ -117,6 +119,8 @@ export function followingId(
 ): string | null {
 	const sym = index.tasks.get(task);
 	if (!sym || !isAutomaticId(sym.localId, firstName) || idKept(index, task)) return null;
+	// A name with no ASCII letter or digit would give the fallback `task`: the id stays automatic.
+	if (slugOf(name) === '') return null;
 	const id = slugFor(index, sym, name);
 	return id === sym.localId ? null : id;
 }

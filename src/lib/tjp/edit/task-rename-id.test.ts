@@ -124,6 +124,23 @@ describe('the id follows the name', () => {
 		expect(follow(two, 'new_task_2', 'New task')).toBe('new_task');
 	});
 
+	it('keeps the automatic id for a name with no ASCII letter or digit', () => {
+		const src = HEAD + 'task new_task "New task"\n';
+		for (const name of ['日本語', '***', '— —']) expect(follow(src, 'new_task', name)).toBeNull();
+		expect(named(src, 'new_task', '日本語')).toBe(src.replace('"New task"', '"日本語"'));
+		// One ASCII letter is enough, and a name that is "Task" really means `task`.
+		expect(follow(src, 'new_task', '日本語 v2')).toBe('v2');
+		expect(follow(src, 'new_task', 'Task')).toBe('task');
+	});
+
+	it("counts an id a report's text mentions as taken (its own id included)", () => {
+		const src = HEAD + 'task new_task_2 "New task"\ntaskreport r "r" {\n  taskroot new_task_2\n}\n';
+		const free = HEAD + 'task new_task_2 "New task"\ntaskreport r "r" {\n  formats html\n}\n';
+		expect(follow(src, 'new_task_2', 'X')).toBeNull();
+		expect(follow(free, 'new_task_2', 'r')).toBe('r_2');
+		expect(follow(free, 'new_task_2', 'Write specs')).toBe('write_specs');
+	});
+
 	it('counts a dangling reference to the new id as taken', () => {
 		const src = HEAD + 'task new_task "New task"\ntask b "B" {\n  depends !write_specs\n}\n';
 		expect(follow(src, 'new_task', 'Write specs')).toBe('write_specs_2');

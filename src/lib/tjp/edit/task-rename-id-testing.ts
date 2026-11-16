@@ -29,8 +29,6 @@ export interface GenPlan {
 	readonly ids: readonly string[];
 	/** Full ids something in the plan refers to, or that have children. */
 	readonly named: ReadonlySet<string>;
-	/** Full ids an opaque statement (a report) names: their local ids count as taken for a slug. */
-	readonly opaque: readonly string[];
 	/** The task to rename and its new name. */
 	readonly task: string;
 	readonly name: string;
@@ -102,6 +100,5 @@ export const genPlan: fc.Arbitrary<GenPlan> = fc
 			text += `taskreport r "r" {\n  taskroot ${target}\n}\n`;
 			named.add(target);
 		}
-		const opaque = g.extra === 'report' ? [target] : [];
-		return { text, ids, named, opaque, task: leaves[g.pick % leaves.length] ?? 'a', name: g.name };
+		return { text, ids, named, task: leaves[g.pick % leaves.length] ?? 'a', name: g.name };
 	});

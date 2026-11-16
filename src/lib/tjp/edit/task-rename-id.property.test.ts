@@ -12,7 +12,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { syntaxIssues } from '../document';
-import type { SymbolIndex } from '../index';
+import { mentionPattern, type SymbolIndex } from '../index';
 import { slugId } from '../values';
 import { applyIntent } from './apply';
 import { idMap } from './task-refs';
@@ -49,11 +49,15 @@ describe('the id follows the name (generated plans)', () => {
 				)
 					.filter((x) => x !== sym.id)
 					.map((x) => x.slice(x.lastIndexOf('.') + 1));
-				// An id a report mentions (its full id, or `.local` in a longer one) would give that text a
-				// new meaning: it counts as taken.
+				// An id a report mentions (by the index's mention rule) would give that text a new
+				// meaning: it counts as taken.
 				const full = (x: string): string => (sym.parent === null ? x : `${sym.parent}.${x}`);
-				const mentioned = (x: string): boolean =>
-					g.opaque.some((t) => t === full(x) || (t.includes('.') && local(t) === x));
+				// The report is opaque as a whole: its keyword, id and name are mentions too.
+				const report = /\btaskreport\b[\s\S]*$/.exec(g.text)?.[0] ?? '';
+				const mentioned = (x: string): boolean => {
+					const re = mentionPattern('task', full(x));
+					return report !== '' && re.test(report);
+				};
 				const slug = slugId(g.name, (x) => siblings.includes(x) || mentioned(x));
 				expect(id).toBe(slug === sym.localId ? null : slug);
 				if (id === null) return;
