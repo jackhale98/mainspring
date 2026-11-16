@@ -272,6 +272,32 @@
       "dailyWorkingHours": 8,
       "end": "2027-04-17T02:00:00Z",
       "id": "tjweb",
+      "leaves": [
+        {
+          "interval": [
+            14700,
+            17580
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            55020,
+            57900
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            66540,
+            67980
+          ],
+          "name": null,
+          "type": "holiday"
+        }
+      ],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "TaskJuggler web front end",
       "now": "2026-11-16T05:00:00Z",
@@ -287,6 +313,7 @@
       "timezone": "America/New_York",
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -720,7 +747,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": []
           }
         },
         "source": {
@@ -736,7 +765,35 @@
         "parent": "dev",
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    15240,
+                    15720
+                  ],
+                  [
+                    16680,
+                    17160
+                  ],
+                  [
+                    55560,
+                    56040
+                  ],
+                  [
+                    57000,
+                    57480
+                  ],
+                  [
+                    67080,
+                    67560
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
           }
         },
         "source": {
@@ -752,7 +809,35 @@
         "parent": "dev",
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    15240,
+                    15720
+                  ],
+                  [
+                    16680,
+                    17160
+                  ],
+                  [
+                    55560,
+                    56040
+                  ],
+                  [
+                    57000,
+                    57480
+                  ],
+                  [
+                    67080,
+                    67560
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
           }
         },
         "source": {
@@ -768,7 +853,35 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    15240,
+                    15720
+                  ],
+                  [
+                    16680,
+                    17160
+                  ],
+                  [
+                    55560,
+                    56040
+                  ],
+                  [
+                    57000,
+                    57480
+                  ],
+                  [
+                    67080,
+                    67560
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
           }
         },
         "source": {
@@ -786,6 +899,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "jack"
             ],
@@ -813,6 +927,13 @@
         "parent": "spike",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jack"
+                ]
+              }
+            ],
             "allocated": [
               "jack"
             ],
@@ -840,6 +961,13 @@
         "parent": "spike",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jack"
+                ]
+              }
+            ],
             "allocated": [
               "jack"
             ],
@@ -874,6 +1002,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "jack",
               "ana"
@@ -909,6 +1038,13 @@
         "parent": "app",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ana"
+                ]
+              }
+            ],
             "allocated": [
               "ana"
             ],
@@ -943,6 +1079,13 @@
         "parent": "app",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jack"
+                ]
+              }
+            ],
             "allocated": [
               "jack"
             ],
@@ -977,6 +1120,18 @@
         "parent": "app",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jack"
+                ]
+              },
+              {
+                "candidates": [
+                  "ana"
+                ]
+              }
+            ],
             "allocated": [
               "jack",
               "ana"
@@ -1024,6 +1179,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "jack",
               "ana"
@@ -1052,6 +1208,13 @@
         "parent": "github",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ana"
+                ]
+              }
+            ],
             "allocated": [
               "ana"
             ],
@@ -1086,6 +1249,13 @@
         "parent": "github",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ana"
+                ]
+              }
+            ],
             "allocated": [
               "ana"
             ],
@@ -1120,6 +1290,13 @@
         "parent": "github",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jack"
+                ]
+              }
+            ],
             "allocated": [
               "jack"
             ],
@@ -1160,6 +1337,13 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "rev"
+                ]
+              }
+            ],
             "allocated": [
               "rev"
             ],
@@ -1194,6 +1378,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1221,5 +1406,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

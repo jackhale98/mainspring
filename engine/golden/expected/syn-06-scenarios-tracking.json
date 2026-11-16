@@ -282,6 +282,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "track06",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Tracking",
       "now": "2026-02-10T09:00:00Z",
@@ -303,6 +304,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -552,10 +554,14 @@
         "parent": null,
         "scenarios": {
           "actual": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           },
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -571,10 +577,14 @@
         "parent": null,
         "scenarios": {
           "actual": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           },
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -592,6 +602,7 @@
         "parent": null,
         "scenarios": {
           "actual": {
+            "allocate": [],
             "allocated": [
               "jo",
               "kai"
@@ -607,6 +618,7 @@
             "start": 540
           },
           "plan": {
+            "allocate": [],
             "allocated": [
               "jo",
               "kai"
@@ -635,6 +647,13 @@
         "parent": "proj",
         "scenarios": {
           "actual": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jo"
+                ]
+              }
+            ],
             "allocated": [
               "jo"
             ],
@@ -649,6 +668,13 @@
             "start": 540
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jo"
+                ]
+              }
+            ],
             "allocated": [
               "jo"
             ],
@@ -676,6 +702,13 @@
         "parent": "proj",
         "scenarios": {
           "actual": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jo"
+                ]
+              }
+            ],
             "allocated": [
               "jo"
             ],
@@ -690,6 +723,13 @@
             "start": 10620
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "jo"
+                ]
+              }
+            ],
             "allocated": [
               "jo"
             ],
@@ -717,6 +757,13 @@
         "parent": "proj",
         "scenarios": {
           "actual": {
+            "allocate": [
+              {
+                "candidates": [
+                  "kai"
+                ]
+              }
+            ],
             "allocated": [
               "kai"
             ],
@@ -738,6 +785,13 @@
             "start": 61140
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "kai"
+                ]
+              }
+            ],
             "allocated": [
               "kai"
             ],
@@ -772,6 +826,13 @@
         "parent": "proj",
         "scenarios": {
           "actual": {
+            "allocate": [
+              {
+                "candidates": [
+                  "kai"
+                ]
+              }
+            ],
             "allocated": [
               "kai"
             ],
@@ -786,6 +847,13 @@
             "start": 40860
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "kai"
+                ]
+              }
+            ],
             "allocated": [
               "kai"
             ],
@@ -808,5 +876,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

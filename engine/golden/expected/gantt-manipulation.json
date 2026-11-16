@@ -493,6 +493,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-06-30T00:00:00Z",
       "id": "ganttm",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Gantt manipulation",
       "now": "2026-03-09T09:00:00Z",
@@ -508,6 +509,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -865,7 +867,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -881,7 +885,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.8
+            "efficiency": 0.8,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -897,7 +903,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -913,7 +921,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -931,6 +941,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "dev1",
               "dev2"
@@ -959,6 +970,13 @@
         "parent": "design",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "dev1"
+                ]
+              }
+            ],
             "allocated": [
               "dev1"
             ],
@@ -986,6 +1004,13 @@
         "parent": "design",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "dev2"
+                ]
+              }
+            ],
             "allocated": [
               "dev2"
             ],
@@ -1020,6 +1045,7 @@
         "parent": "design",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -1052,6 +1078,18 @@
         "parent": "design",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "dev1"
+                ]
+              },
+              {
+                "candidates": [
+                  "dev2"
+                ]
+              }
+            ],
             "allocated": [
               "dev1",
               "dev2"
@@ -1080,6 +1118,7 @@
         "parent": "design",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1118,6 +1157,13 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "dev3"
+                ]
+              }
+            ],
             "allocated": [
               "dev3"
             ],
@@ -1145,6 +1191,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -1170,6 +1217,13 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ops1"
+                ]
+              }
+            ],
             "allocated": [
               "ops1"
             ],
@@ -1197,6 +1251,13 @@
         "parent": "support",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ops1"
+                ]
+              }
+            ],
             "allocated": [
               "ops1"
             ],
@@ -1231,6 +1292,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "dev2",
               "dev3",
@@ -1267,6 +1329,18 @@
         "parent": "build",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "dev2"
+                ]
+              },
+              {
+                "candidates": [
+                  "dev3"
+                ]
+              }
+            ],
             "allocated": [
               "dev2",
               "dev3"
@@ -1302,6 +1376,13 @@
         "parent": "build",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ops1"
+                ]
+              }
+            ],
             "allocated": [
               "ops1"
             ],
@@ -1342,6 +1423,13 @@
         "parent": "build",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ops1"
+                ]
+              }
+            ],
             "allocated": [
               "ops1"
             ],
@@ -1382,6 +1470,7 @@
         "parent": "build",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "ops1"
             ],
@@ -1416,6 +1505,13 @@
         "parent": "build.checks",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ops1"
+                ]
+              }
+            ],
             "allocated": [
               "ops1"
             ],
@@ -1445,5 +1541,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

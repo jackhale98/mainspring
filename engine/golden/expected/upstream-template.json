@@ -29,6 +29,88 @@
       "dailyWorkingHours": 8,
       "end": "2012-03-11T21:00:00Z",
       "id": "your_project_id",
+      "leaves": [
+        {
+          "interval": [
+            74880,
+            76320
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            95040,
+            96480
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            145440,
+            146880
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            286500,
+            287940
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            339780,
+            341220
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            427620,
+            429060
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            478020,
+            479460
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            528480,
+            529920
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            542880,
+            544320
+          ],
+          "name": null,
+          "type": "holiday"
+        },
+        {
+          "interval": [
+            590400,
+            591840
+          ],
+          "name": null,
+          "type": "holiday"
+        }
+      ],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Your Project Title",
       "now": "2011-12-24T05:00:00Z",
@@ -44,6 +126,7 @@
       "timezone": "America/New_York",
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -389,7 +472,27 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    75420,
+                    75900
+                  ],
+                  [
+                    95580,
+                    96060
+                  ],
+                  [
+                    145980,
+                    146460
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
           }
         },
         "source": {
@@ -405,7 +508,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": []
           }
         },
         "source": {
@@ -421,7 +526,27 @@
         "parent": "t1",
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    75420,
+                    75900
+                  ],
+                  [
+                    95580,
+                    96060
+                  ],
+                  [
+                    145980,
+                    146460
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
           }
         },
         "source": {
@@ -437,7 +562,27 @@
         "parent": "t1",
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    75420,
+                    75900
+                  ],
+                  [
+                    95580,
+                    96060
+                  ],
+                  [
+                    145980,
+                    146460
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
           }
         },
         "source": {
@@ -453,7 +598,27 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0
+            "efficiency": 0,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    75420,
+                    75900
+                  ],
+                  [
+                    95580,
+                    96060
+                  ],
+                  [
+                    145980,
+                    146460
+                  ]
+                ],
+                "type": "holiday"
+              }
+            ],
+            "workingTime": null
           }
         },
         "source": {
@@ -471,6 +636,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -496,6 +662,7 @@
         "parent": "project",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -521,6 +688,7 @@
         "parent": "project.wp1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -546,6 +714,7 @@
         "parent": "project.wp1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -571,6 +740,7 @@
         "parent": "project",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -603,6 +773,7 @@
         "parent": "project.wp2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -635,6 +806,7 @@
         "parent": "project.wp2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -667,6 +839,7 @@
         "parent": "project",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -692,6 +865,7 @@
         "parent": "project.deliveries",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -724,6 +898,7 @@
         "parent": "project.deliveries",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -751,5 +926,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

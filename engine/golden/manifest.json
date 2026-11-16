@@ -374,6 +374,24 @@
     ]
   },
   {
+    "id": "syn-23-unused-resources",
+    "kind": "synthetic",
+    "root": "engine/golden/plans/synthetic/23-unused-resources",
+    "entry": "plan.tjp",
+    "now": null,
+    "features": [
+      "resources",
+      "unused-resources",
+      "leaves",
+      "workinghours",
+      "shifts",
+      "weekstartssunday",
+      "timingresolution",
+      "timezone",
+      "scenarios"
+    ]
+  },
+  {
     "id": "bridge-header-only",
     "kind": "bridge",
     "root": "engine/golden/plans/bridge/header-only",

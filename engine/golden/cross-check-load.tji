@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# cross-check-load.tji - weekly resource load report for the serializer
+# cross-check of schema v3 (docs/phases/phase-3.md, section 5.3).
+#
+# record-native.mjs copies this file into the plan's workspace next to
+# cross-check.tji and, for a golden with resources, runs the real tj3 CLI
+# from engine/tj/bin with both as extra input files:
+#
+#   tj3 --silent --no-color -f --report mainspring_crosscheck \
+#       --report mainspring_crossload <workspace>/<entry> \
+#       <workspace>/mainspring-cross-check.tji \
+#       <workspace>/mainspring-cross-check-load.tji
+#
+# tj3 then writes mainspring-cross-check-load.csv with one row per resource
+# (groups included) and active scenario, in the plan's own time zone, over
+# the project frame, in hours with 6 fraction digits. The header holds each
+# week's start with its UTC offset (timeformat), so the weeks are the ones
+# TaskJuggler cut (TableReport#genCalChartHeader: beginOfWeek with the
+# project's weekstartsmonday, then sameTimeNextWeek). Two calendar columns:
+#
+# - `weekly`: TaskJuggler's own load cell, the `effort` query for the
+#   resource in that week (TableReport#genCalChartResourceCell), empty when
+#   zero. `effort` is weighted by efficiency (ResourceScenario#
+#   getEffectiveWork), so it must equal the golden's bookings in that week
+#   times the resource's efficiency.
+# - `weekly` with a celltext of eight queries joined by '|': effort,
+#   freework, freetime, timeoffdays, annualleave, specialleave, sickleave and
+#   unpaidleave (ResourceScenario#query_*). They check workingTime and leaves:
+#   free time is workingTime minus bookings, time off is the sum of the leave
+#   types, and the four leave queries are one type each. A calendar cell
+#   copies the query when it is made (ReportTableCell.rb:44), before the loop
+#   moves the query to the cell's week (TableReport.rb:973-982), and the
+#   celltext is evaluated on that copy when the CSV is written
+#   (ReportTableCell.rb:174), so this column's first cell covers the whole
+#   report period and cell k covers week k-1. The last week is in the totals
+#   only. cross-check-load.mjs says how each value is computed.
+#
+# The script rewrites the two macro bodies below: the plan's active scenario
+# ids in pre-order, and the plan's time zone ("UTC" when it sets none).
+
+macro mainspring_crossload_scenarios [plan]
+macro mainspring_crossload_timezone ["UTC"]
+
+resourcereport mainspring_crossload "mainspring-cross-check-load" {
+  formats csv
+  timezone ${mainspring_crossload_timezone}
+  timeformat "%Y-%m-%dT%H:%M:%S%z"
+  period ${projectstart} - ${projectend}
+  loadunit hours
+  numberformat "-" "" "" "." 6
+  scenarios ${mainspring_crossload_scenarios}
+  columns scenario, id, weekly,
+          weekly { celltext 1 "<-query attribute='effort'->|<-query attribute='freework'->|<-query attribute='freetime'->|<-query attribute='timeoffdays'->|<-query attribute='annualleave'->|<-query attribute='specialleave'->|<-query attribute='sickleave'->|<-query attribute='unpaidleave'->" }
+  hideresource 0
+  sortresources tree
+}

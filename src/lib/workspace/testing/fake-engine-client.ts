@@ -50,6 +50,7 @@ export function task(
 				complete: null,
 				depends: [],
 				precedes: [],
+				allocate: [],
 			},
 		},
 	};
@@ -83,6 +84,8 @@ export function result(revision: Revision, over: Partial<ScheduleResult> = {}): 
 			monthlyWorkingDays: 260.714 / 12,
 			yearlyWorkingDays: 260.714,
 			workingTime: [],
+			weekStartsMonday: true,
+			leaves: [],
 		},
 		tasks: [],
 		resources: [],

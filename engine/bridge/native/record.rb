@@ -134,9 +134,9 @@ module MainspringRecord
     end
 
     golden = {
-      # GOLDEN_SCHEMA_VERSION in engine/golden/lib.mjs; 2 since the bridge
-      # schema v2 fields (docs/phases/phase-2.md 5.3, 6.1).
-      'schemaVersion' => 2,
+      # GOLDEN_SCHEMA_VERSION in engine/golden/lib.mjs; 3 since the bridge
+      # schema v3 fields (docs/phases/phase-3.md 5.3, 6.1).
+      'schemaVersion' => 3,
       'id' => opts[:id] || File.basename(opts[:entry], '.*'),
       'entry' => opts[:entry],
       'files' => files.keys.sort,

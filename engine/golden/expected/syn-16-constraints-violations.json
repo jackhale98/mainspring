@@ -133,6 +133,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "viol16",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Constraint violations",
       "now": "2026-02-02T09:00:00Z",
@@ -148,6 +149,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -397,7 +399,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -413,7 +417,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -431,6 +437,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "sam",
               "tia"
@@ -459,6 +466,13 @@
         "parent": "limits",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "sam"
+                ]
+              }
+            ],
             "allocated": [
               "sam"
             ],
@@ -486,6 +500,13 @@
         "parent": "limits",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "tia"
+                ]
+              }
+            ],
             "allocated": [
               "tia"
             ],
@@ -513,6 +534,13 @@
         "parent": "limits",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "tia"
+                ]
+              }
+            ],
             "allocated": [
               "tia"
             ],
@@ -542,5 +570,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

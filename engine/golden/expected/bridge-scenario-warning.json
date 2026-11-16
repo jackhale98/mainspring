@@ -136,6 +136,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-05-01T20:00:00Z",
       "id": "sw",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Scenario warning",
       "now": "2026-03-02T09:00:00Z",
@@ -157,6 +158,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -350,10 +352,14 @@
         "parent": null,
         "scenarios": {
           "delayed": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           },
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -371,6 +377,13 @@
         "parent": null,
         "scenarios": {
           "delayed": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r"
+                ]
+              }
+            ],
             "allocated": [
               "r"
             ],
@@ -385,6 +398,13 @@
             "start": 20700
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r"
+                ]
+              }
+            ],
             "allocated": [
               "r"
             ],
@@ -412,6 +432,13 @@
         "parent": null,
         "scenarios": {
           "delayed": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r"
+                ]
+              }
+            ],
             "allocated": [
               "r"
             ],
@@ -426,6 +453,13 @@
             "start": 540
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r"
+                ]
+              }
+            ],
             "allocated": [
               "r"
             ],
@@ -448,5 +482,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

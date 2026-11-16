@@ -100,6 +100,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-22T00:00:00Z",
       "id": "ny21",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "New York DST edges",
       "now": "2026-03-08T07:00:00Z",
@@ -115,6 +116,7 @@
       "timezone": "America/New_York",
       "timingResolutionMin": 30,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -548,7 +550,94 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": [
+              [
+                240,
+                600
+              ],
+              [
+                10320,
+                10740
+              ],
+              [
+                20460,
+                20820
+              ],
+              [
+                30540,
+                30900
+              ],
+              [
+                40620,
+                40980
+              ],
+              [
+                50700,
+                51060
+              ],
+              [
+                60780,
+                61140
+              ],
+              [
+                70860,
+                71220
+              ],
+              [
+                80940,
+                81300
+              ],
+              [
+                91020,
+                91380
+              ],
+              [
+                101100,
+                101460
+              ],
+              [
+                111180,
+                111540
+              ],
+              [
+                121260,
+                121620
+              ],
+              [
+                131340,
+                131700
+              ],
+              [
+                141420,
+                141780
+              ],
+              [
+                151500,
+                151860
+              ],
+              [
+                161580,
+                161940
+              ],
+              [
+                171660,
+                172020
+              ],
+              [
+                181740,
+                182100
+              ],
+              [
+                191820,
+                192120
+              ],
+              [
+                201840,
+                202200
+              ]
+            ]
           }
         },
         "source": {
@@ -564,7 +653,94 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": [
+              [
+                300,
+                420
+              ],
+              [
+                10380,
+                10560
+              ],
+              [
+                20520,
+                20640
+              ],
+              [
+                30600,
+                30720
+              ],
+              [
+                40680,
+                40800
+              ],
+              [
+                50760,
+                50880
+              ],
+              [
+                60840,
+                60960
+              ],
+              [
+                70920,
+                71040
+              ],
+              [
+                81000,
+                81120
+              ],
+              [
+                91080,
+                91200
+              ],
+              [
+                101160,
+                101280
+              ],
+              [
+                111240,
+                111360
+              ],
+              [
+                121320,
+                121440
+              ],
+              [
+                131400,
+                131520
+              ],
+              [
+                141480,
+                141600
+              ],
+              [
+                151560,
+                151680
+              ],
+              [
+                161640,
+                161760
+              ],
+              [
+                171720,
+                171840
+              ],
+              [
+                181800,
+                181920
+              ],
+              [
+                191880,
+                191940
+              ],
+              [
+                201900,
+                202020
+              ]
+            ]
           }
         },
         "source": {
@@ -580,7 +756,121 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [
+              {
+                "intervals": [
+                  [
+                    10440,
+                    10470
+                  ]
+                ],
+                "type": "annual"
+              },
+              {
+                "intervals": [
+                  [
+                    191910,
+                    191970
+                  ]
+                ],
+                "type": "special"
+              }
+            ],
+            "workingTime": [
+              [
+                240,
+                600
+              ],
+              [
+                10320,
+                10440
+              ],
+              [
+                10470,
+                10740
+              ],
+              [
+                20460,
+                20820
+              ],
+              [
+                30540,
+                30900
+              ],
+              [
+                40620,
+                40980
+              ],
+              [
+                50700,
+                51060
+              ],
+              [
+                60780,
+                61140
+              ],
+              [
+                70860,
+                71220
+              ],
+              [
+                80940,
+                81300
+              ],
+              [
+                91020,
+                91380
+              ],
+              [
+                101100,
+                101460
+              ],
+              [
+                111180,
+                111540
+              ],
+              [
+                121260,
+                121620
+              ],
+              [
+                131340,
+                131700
+              ],
+              [
+                141420,
+                141780
+              ],
+              [
+                151500,
+                151860
+              ],
+              [
+                161580,
+                161940
+              ],
+              [
+                171660,
+                172020
+              ],
+              [
+                181740,
+                182100
+              ],
+              [
+                191820,
+                191910
+              ],
+              [
+                191970,
+                192120
+              ],
+              [
+                201840,
+                202200
+              ]
+            ]
           }
         },
         "source": {
@@ -598,6 +888,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "night",
               "edge",
@@ -627,6 +918,13 @@
         "parent": "autumn",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "night"
+                ]
+              }
+            ],
             "allocated": [
               "night"
             ],
@@ -654,6 +952,13 @@
         "parent": "autumn",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "edge"
+                ]
+              }
+            ],
             "allocated": [
               "edge"
             ],
@@ -681,6 +986,13 @@
         "parent": "autumn",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "leaver"
+                ]
+              }
+            ],
             "allocated": [
               "leaver"
             ],
@@ -708,6 +1020,7 @@
         "parent": "autumn",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -733,6 +1046,7 @@
         "parent": "autumn",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -758,6 +1072,7 @@
         "parent": "autumn",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -783,6 +1098,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "night",
               "edge",
@@ -812,6 +1128,13 @@
         "parent": "spring",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "night"
+                ]
+              }
+            ],
             "allocated": [
               "night"
             ],
@@ -839,6 +1162,13 @@
         "parent": "spring",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "edge"
+                ]
+              }
+            ],
             "allocated": [
               "edge"
             ],
@@ -866,6 +1196,13 @@
         "parent": "spring",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "leaver"
+                ]
+              }
+            ],
             "allocated": [
               "leaver"
             ],
@@ -893,6 +1230,7 @@
         "parent": "spring",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -918,6 +1256,7 @@
         "parent": "spring",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -943,6 +1282,7 @@
         "parent": "spring",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -963,5 +1303,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

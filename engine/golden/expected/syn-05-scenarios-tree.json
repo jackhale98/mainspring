@@ -414,6 +414,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-04-30T00:00:00Z",
       "id": "scen05",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Scenario tree",
       "now": "2026-02-02T09:00:00Z",
@@ -447,6 +448,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -792,13 +794,19 @@
         "parent": null,
         "scenarios": {
           "delayed": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           },
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           },
           "worst": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -814,13 +822,19 @@
         "parent": null,
         "scenarios": {
           "delayed": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           },
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           },
           "worst": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -838,6 +852,7 @@
         "parent": null,
         "scenarios": {
           "delayed": {
+            "allocate": [],
             "allocated": [
               "hal",
               "ivy"
@@ -853,6 +868,7 @@
             "start": 540
           },
           "plan": {
+            "allocate": [],
             "allocated": [
               "hal",
               "ivy"
@@ -868,6 +884,7 @@
             "start": 540
           },
           "worst": {
+            "allocate": [],
             "allocated": [
               "hal",
               "ivy"
@@ -896,6 +913,13 @@
         "parent": "launch",
         "scenarios": {
           "delayed": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hal"
+                ]
+              }
+            ],
             "allocated": [
               "hal"
             ],
@@ -910,6 +934,13 @@
             "start": 540
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hal"
+                ]
+              }
+            ],
             "allocated": [
               "hal"
             ],
@@ -924,6 +955,13 @@
             "start": 540
           },
           "worst": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hal"
+                ]
+              }
+            ],
             "allocated": [
               "hal"
             ],
@@ -951,6 +989,18 @@
         "parent": "launch",
         "scenarios": {
           "delayed": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hal"
+                ]
+              },
+              {
+                "candidates": [
+                  "ivy"
+                ]
+              }
+            ],
             "allocated": [
               "hal",
               "ivy"
@@ -973,6 +1023,18 @@
             "start": 10620
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hal"
+                ]
+              },
+              {
+                "candidates": [
+                  "ivy"
+                ]
+              }
+            ],
             "allocated": [
               "hal",
               "ivy"
@@ -995,6 +1057,18 @@
             "start": 10620
           },
           "worst": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hal"
+                ]
+              },
+              {
+                "candidates": [
+                  "ivy"
+                ]
+              }
+            ],
             "allocated": [
               "hal",
               "ivy"
@@ -1030,6 +1104,13 @@
         "parent": "launch",
         "scenarios": {
           "delayed": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ivy"
+                ]
+              }
+            ],
             "allocated": [
               "ivy"
             ],
@@ -1051,6 +1132,13 @@
             "start": 23580
           },
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ivy"
+                ]
+              }
+            ],
             "allocated": [
               "ivy"
             ],
@@ -1072,6 +1160,13 @@
             "start": 20700
           },
           "worst": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ivy"
+                ]
+              }
+            ],
             "allocated": [
               "ivy"
             ],
@@ -1106,6 +1201,7 @@
         "parent": "launch",
         "scenarios": {
           "delayed": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1125,6 +1221,7 @@
             "start": 34140
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1144,6 +1241,7 @@
             "start": 25500
           },
           "worst": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1171,5 +1269,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

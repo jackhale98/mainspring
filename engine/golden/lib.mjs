@@ -36,11 +36,12 @@ export function nowProblem(now) {
 export const PLAN_KINDS = ['upstream', 'poc', 'synthetic', 'bridge'];
 
 /**
- * GoldenFile.schemaVersion: the ScheduleResult schema the goldens hold. 2 since the bridge
- * schema v2 fields (docs/phases/phase-2.md, sections 5.3 and 6.1). engine/bridge/native/record.rb
- * writes the same number; record-native.mjs refuses output with any other.
+ * GoldenFile.schemaVersion: the ScheduleResult schema the goldens hold. 3 since the bridge
+ * schema v3 fields (docs/phases/phase-3.md, sections 5.3 and 6.1; 2 was phase-2's v2).
+ * engine/bridge/native/record.rb writes the same number; record-native.mjs refuses output with any
+ * other.
  */
-export const GOLDEN_SCHEMA_VERSION = 2;
+export const GOLDEN_SCHEMA_VERSION = 3;
 
 /**
  * Problems with the manifest's GoldenPlan entries that can be found without

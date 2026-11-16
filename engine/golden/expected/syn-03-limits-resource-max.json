@@ -344,6 +344,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "limits03",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Resource maximums",
       "now": "2026-02-02T09:00:00Z",
@@ -359,6 +360,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -608,7 +610,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -624,7 +628,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -640,7 +646,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -658,6 +666,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "eve",
               "fay",
@@ -687,6 +696,13 @@
         "parent": "deliver",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "eve"
+                ]
+              }
+            ],
             "allocated": [
               "eve"
             ],
@@ -714,6 +730,13 @@
         "parent": "deliver",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "fay"
+                ]
+              }
+            ],
             "allocated": [
               "fay"
             ],
@@ -741,6 +764,18 @@
         "parent": "deliver",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "eve"
+                ]
+              },
+              {
+                "candidates": [
+                  "gus"
+                ]
+              }
+            ],
             "allocated": [
               "eve",
               "gus"
@@ -776,6 +811,13 @@
         "parent": "deliver",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "fay"
+                ]
+              }
+            ],
             "allocated": [
               "fay"
             ],
@@ -810,6 +852,13 @@
         "parent": "deliver",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "gus"
+                ]
+              }
+            ],
             "allocated": [
               "gus"
             ],
@@ -839,5 +888,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

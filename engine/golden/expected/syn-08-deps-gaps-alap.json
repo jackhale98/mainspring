@@ -175,6 +175,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-04-30T00:00:00Z",
       "id": "gaps08",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Gaps and ALAP",
       "now": "2026-02-02T09:00:00Z",
@@ -190,6 +191,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -535,7 +537,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -551,7 +555,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -569,6 +575,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "pia",
               "quin"
@@ -597,6 +604,13 @@
         "parent": "line",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "pia"
+                ]
+              }
+            ],
             "allocated": [
               "pia"
             ],
@@ -624,6 +638,13 @@
         "parent": "line",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "quin"
+                ]
+              }
+            ],
             "allocated": [
               "quin"
             ],
@@ -658,6 +679,13 @@
         "parent": "line",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "pia"
+                ]
+              }
+            ],
             "allocated": [
               "pia"
             ],
@@ -692,6 +720,13 @@
         "parent": "line",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "quin"
+                ]
+              }
+            ],
             "allocated": [
               "quin"
             ],
@@ -726,6 +761,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "pia",
               "quin"
@@ -754,6 +790,13 @@
         "parent": "alap",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "pia"
+                ]
+              }
+            ],
             "allocated": [
               "pia"
             ],
@@ -788,6 +831,13 @@
         "parent": "alap",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "quin"
+                ]
+              }
+            ],
             "allocated": [
               "quin"
             ],
@@ -822,6 +872,13 @@
         "parent": "alap",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "pia"
+                ]
+              }
+            ],
             "allocated": [
               "pia"
             ],
@@ -844,5 +901,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

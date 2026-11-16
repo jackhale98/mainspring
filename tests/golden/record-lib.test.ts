@@ -130,7 +130,7 @@ describe('manifestProblems', () => {
 		const manifest: unknown = JSON.parse(readFileSync('engine/golden/manifest.json', 'utf8'));
 		expect(manifestProblems(manifest)).toEqual([]);
 		const kinds = (manifest as { kind: string }[]).map((p) => p.kind);
-		expect(kinds).toHaveLength(40);
+		expect(kinds).toHaveLength(41);
 		expect(kinds.filter((k) => k === 'bridge')).toHaveLength(9);
 	});
 
@@ -178,7 +178,7 @@ describe('schema version', () => {
 			new URL('../../engine/bridge/native/record.rb', import.meta.url),
 			'utf8',
 		);
-		expect(GOLDEN_SCHEMA_VERSION).toBe(2);
+		expect(GOLDEN_SCHEMA_VERSION).toBe(3);
 		expect(recorder).toContain(`'schemaVersion' => ${GOLDEN_SCHEMA_VERSION},`);
 	});
 });

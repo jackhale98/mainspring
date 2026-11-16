@@ -230,6 +230,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-11-06T00:00:00Z",
       "id": "berlin09",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Berlin DST",
       "now": "2026-03-20T08:00:00Z",
@@ -245,6 +246,7 @@
       "timezone": "Europe/Berlin",
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -974,7 +976,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -990,7 +994,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -1008,6 +1014,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "ute",
               "vic"
@@ -1036,6 +1043,13 @@
         "parent": "dst",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ute"
+                ]
+              }
+            ],
             "allocated": [
               "ute"
             ],
@@ -1063,6 +1077,13 @@
         "parent": "dst",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "vic"
+                ]
+              }
+            ],
             "allocated": [
               "vic"
             ],
@@ -1090,6 +1111,18 @@
         "parent": "dst",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ute"
+                ]
+              },
+              {
+                "candidates": [
+                  "vic"
+                ]
+              }
+            ],
             "allocated": [
               "ute",
               "vic"
@@ -1125,6 +1158,7 @@
         "parent": "dst",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -1158,5 +1192,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

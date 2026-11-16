@@ -40,6 +40,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "errors19",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Parse error in include",
       "now": "2026-02-02T09:00:00Z",
@@ -55,6 +56,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [],
       "yearlyWorkingDays": 260.714
@@ -62,5 +64,5 @@
     "resources": [],
     "tasks": []
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

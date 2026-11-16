@@ -39,6 +39,7 @@
       "dailyWorkingHours": 7,
       "end": "2026-05-01T20:00:00Z",
       "id": "xref",
+      "leaves": [],
       "monthlyWorkingDays": 20,
       "name": "Xref stop",
       "now": "2026-03-02T09:00:00Z",
@@ -60,6 +61,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -254,6 +256,7 @@
         "parent": null,
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -266,6 +269,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -291,6 +295,7 @@
         "parent": null,
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -303,6 +308,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -328,6 +334,7 @@
         "parent": null,
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -347,6 +354,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -379,6 +387,7 @@
         "parent": null,
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -391,6 +400,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -416,6 +426,7 @@
         "parent": "outer",
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -428,6 +439,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -453,6 +465,7 @@
         "parent": "outer",
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -478,6 +491,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -516,6 +530,7 @@
         "parent": null,
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -541,6 +556,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -579,6 +595,7 @@
         "parent": null,
         "scenarios": {
           "alt": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -605,6 +622,7 @@
             "start": null
           },
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -632,5 +650,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

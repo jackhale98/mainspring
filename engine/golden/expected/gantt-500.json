@@ -9453,6 +9453,7 @@
       "dailyWorkingHours": 8,
       "end": "2029-12-31T00:00:00Z",
       "id": "gantt500",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Gantt 500",
       "now": "2026-03-02T09:00:00Z",
@@ -9468,6 +9469,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -13641,7 +13643,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.8
+            "efficiency": 0.8,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13657,7 +13661,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.1
+            "efficiency": 1.1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13673,7 +13679,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.9
+            "efficiency": 0.9,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13689,7 +13697,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.2
+            "efficiency": 1.2,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13705,7 +13715,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13721,7 +13733,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.8
+            "efficiency": 0.8,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13737,7 +13751,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.1
+            "efficiency": 1.1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13753,7 +13769,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.9
+            "efficiency": 0.9,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13769,7 +13787,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.2
+            "efficiency": 1.2,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13785,7 +13805,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13801,7 +13823,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.8
+            "efficiency": 0.8,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13817,7 +13841,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.1
+            "efficiency": 1.1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13833,7 +13859,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.9
+            "efficiency": 0.9,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13849,7 +13877,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.2
+            "efficiency": 1.2,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13865,7 +13895,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13881,7 +13913,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.8
+            "efficiency": 0.8,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13897,7 +13931,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.1
+            "efficiency": 1.1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13913,7 +13949,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.9
+            "efficiency": 0.9,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13929,7 +13967,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.2
+            "efficiency": 1.2,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13945,7 +13985,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -13963,6 +14005,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r01",
@@ -14005,6 +14048,7 @@
         "parent": "p0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r03",
               "r10",
@@ -14036,6 +14080,13 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -14063,6 +14114,13 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -14097,6 +14155,13 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -14131,6 +14196,13 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r18"
             ],
@@ -14165,6 +14237,18 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              },
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r10",
               "r11"
@@ -14200,6 +14284,13 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -14234,6 +14325,7 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -14266,6 +14358,7 @@
         "parent": "p0.p0k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -14298,6 +14391,7 @@
         "parent": "p0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r04",
               "r08",
@@ -14331,6 +14425,7 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -14363,6 +14458,18 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              },
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r12",
               "r14"
@@ -14398,6 +14505,13 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -14432,6 +14546,13 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -14466,6 +14587,13 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -14500,6 +14628,13 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -14534,6 +14669,18 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              },
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r12",
               "r15"
@@ -14569,6 +14716,13 @@
         "parent": "p0.p0k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r18"
             ],
@@ -14603,6 +14757,7 @@
         "parent": "p0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r04",
@@ -14635,6 +14790,7 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -14660,6 +14816,7 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -14692,6 +14849,7 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -14724,6 +14882,18 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00",
               "r19"
@@ -14759,6 +14929,13 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -14793,6 +14970,13 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -14827,6 +15011,13 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -14861,6 +15052,13 @@
         "parent": "p0.p0k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -14895,6 +15093,7 @@
         "parent": "p0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r03",
               "r08",
@@ -14927,6 +15126,18 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              },
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r08",
               "r11"
@@ -14962,6 +15173,13 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -14996,6 +15214,7 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -15028,6 +15247,7 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -15060,6 +15280,7 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -15092,6 +15313,18 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r14",
               "r17"
@@ -15127,6 +15360,13 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r18"
             ],
@@ -15161,6 +15401,13 @@
         "parent": "p0.p0k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -15195,6 +15442,7 @@
         "parent": "p0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r02",
@@ -15227,6 +15475,13 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -15254,6 +15509,13 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01"
             ],
@@ -15288,6 +15550,18 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r01"
+                ]
+              },
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r01",
               "r02"
@@ -15323,6 +15597,13 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r18"
             ],
@@ -15357,6 +15638,7 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -15389,6 +15671,7 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -15421,6 +15704,7 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0,
@@ -15453,6 +15737,18 @@
         "parent": "p0.p0k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              },
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r06",
               "r08"
@@ -15488,6 +15784,7 @@
         "parent": "p0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02"
@@ -15516,6 +15813,13 @@
         "parent": "p0.p0k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -15550,6 +15854,13 @@
         "parent": "p0.p0k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -15584,6 +15895,7 @@
         "parent": "p0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -15616,6 +15928,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02",
@@ -15658,6 +15971,7 @@
         "parent": "p1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r07",
               "r08",
@@ -15689,6 +16003,13 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -15723,6 +16044,13 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -15757,6 +16085,18 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r08"
@@ -15792,6 +16132,13 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -15826,6 +16173,7 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15858,6 +16206,7 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 40,
             "criticalness": 0,
@@ -15890,6 +16239,7 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -15922,6 +16272,18 @@
         "parent": "p1.p1k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              },
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r08",
               "r10"
@@ -15957,6 +16319,7 @@
         "parent": "p1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r03",
@@ -15989,6 +16352,13 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -16023,6 +16393,13 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -16057,6 +16434,13 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -16091,6 +16475,13 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -16125,6 +16516,18 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              },
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r12",
               "r15"
@@ -16160,6 +16563,13 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -16194,6 +16604,7 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16226,6 +16637,7 @@
         "parent": "p1.p1k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 40,
             "criticalness": 0,
@@ -16258,6 +16670,7 @@
         "parent": "p1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r07",
               "r08",
@@ -16292,6 +16705,7 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16324,6 +16738,18 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              },
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r11",
               "r14"
@@ -16359,6 +16785,13 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -16393,6 +16826,13 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -16427,6 +16867,13 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -16461,6 +16908,13 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -16495,6 +16949,18 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              },
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r18",
               "r19"
@@ -16530,6 +16996,13 @@
         "parent": "p1.p1k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -16564,6 +17037,7 @@
         "parent": "p1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r10",
@@ -16594,6 +17068,7 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16626,6 +17101,7 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 40,
             "criticalness": 0,
@@ -16658,6 +17134,7 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16690,6 +17167,18 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00",
               "r19"
@@ -16725,6 +17214,13 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -16759,6 +17255,13 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -16793,6 +17296,13 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -16827,6 +17337,13 @@
         "parent": "p1.p1k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -16861,6 +17378,7 @@
         "parent": "p1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r11",
@@ -16892,6 +17410,18 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              },
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r11",
               "r14"
@@ -16927,6 +17457,13 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -16961,6 +17498,7 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -16993,6 +17531,7 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 40,
             "criticalness": 0,
@@ -17025,6 +17564,7 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17057,6 +17597,18 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00",
               "r19"
@@ -17092,6 +17644,13 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -17126,6 +17685,13 @@
         "parent": "p1.p1k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -17160,6 +17726,7 @@
         "parent": "p1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r12",
               "r16"
@@ -17188,6 +17755,13 @@
         "parent": "p1.p1k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -17222,6 +17796,13 @@
         "parent": "p1.p1k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -17256,6 +17837,7 @@
         "parent": "p1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -17288,6 +17870,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r01",
@@ -17333,6 +17916,7 @@
         "parent": "p2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r05",
               "r07",
@@ -17365,6 +17949,18 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r05"
+                ]
+              },
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r05",
               "r07"
@@ -17400,6 +17996,13 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -17434,6 +18037,7 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17466,6 +18070,7 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17498,6 +18103,7 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17530,6 +18136,18 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              },
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r13",
               "r14"
@@ -17565,6 +18183,13 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -17599,6 +18224,13 @@
         "parent": "p2.p2k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r05"
             ],
@@ -17633,6 +18265,7 @@
         "parent": "p2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r03",
@@ -17664,6 +18297,13 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -17698,6 +18338,13 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -17732,6 +18379,18 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r03"
@@ -17767,6 +18426,13 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -17801,6 +18467,7 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17833,6 +18500,7 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17865,6 +18533,7 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -17897,6 +18566,18 @@
         "parent": "p2.p2k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              },
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r03",
               "r04"
@@ -17932,6 +18613,7 @@
         "parent": "p2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r02",
@@ -17965,6 +18647,13 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01"
             ],
@@ -17999,6 +18688,13 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -18033,6 +18729,13 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -18067,6 +18770,13 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -18101,6 +18811,18 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              },
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r12",
               "r15"
@@ -18136,6 +18858,13 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -18170,6 +18899,7 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18202,6 +18932,7 @@
         "parent": "p2.p2k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18234,6 +18965,7 @@
         "parent": "p2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r06",
               "r08",
@@ -18268,6 +19000,7 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18300,6 +19033,18 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              },
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r06",
               "r08"
@@ -18335,6 +19080,13 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -18369,6 +19121,13 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -18403,6 +19162,13 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -18437,6 +19203,13 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -18471,6 +19244,18 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              },
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r14",
               "r16"
@@ -18506,6 +19291,13 @@
         "parent": "p2.p2k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -18540,6 +19332,7 @@
         "parent": "p2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r06",
@@ -18571,6 +19364,7 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18603,6 +19397,7 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18635,6 +19430,7 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -18667,6 +19463,18 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              },
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00",
               "r17"
@@ -18702,6 +19510,13 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -18736,6 +19551,13 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -18770,6 +19592,13 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -18804,6 +19633,13 @@
         "parent": "p2.p2k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -18838,6 +19674,7 @@
         "parent": "p2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r13",
@@ -18867,6 +19704,18 @@
         "parent": "p2.p2k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r19"
@@ -18902,6 +19751,13 @@
         "parent": "p2.p2k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -18936,6 +19792,7 @@
         "parent": "p2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -18968,6 +19825,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r01",
@@ -19013,6 +19871,7 @@
         "parent": "p3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r09",
@@ -19045,6 +19904,7 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19077,6 +19937,7 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19109,6 +19970,7 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19141,6 +20003,18 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              },
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r09",
               "r12"
@@ -19176,6 +20050,13 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -19210,6 +20091,13 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -19244,6 +20132,13 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -19278,6 +20173,13 @@
         "parent": "p3.p3k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -19312,6 +20214,7 @@
         "parent": "p3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r04",
@@ -19343,6 +20246,18 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              },
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01",
               "r18"
@@ -19378,6 +20293,13 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -19412,6 +20334,7 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19444,6 +20367,7 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19476,6 +20400,7 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19508,6 +20433,18 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              },
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r10",
               "r11"
@@ -19543,6 +20480,13 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -19577,6 +20521,13 @@
         "parent": "p3.p3k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -19611,6 +20562,7 @@
         "parent": "p3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r04",
               "r06",
@@ -19644,6 +20596,13 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -19678,6 +20637,13 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -19712,6 +20678,18 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              },
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r04",
               "r07"
@@ -19747,6 +20725,13 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r18"
             ],
@@ -19781,6 +20766,7 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19813,6 +20799,7 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19845,6 +20832,7 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -19877,6 +20865,18 @@
         "parent": "p3.p3k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              },
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r06",
               "r08"
@@ -19912,6 +20912,7 @@
         "parent": "p3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r04",
@@ -19945,6 +20946,13 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -19979,6 +20987,13 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -20013,6 +21028,13 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -20047,6 +21069,13 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -20081,6 +21110,18 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              },
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r12",
               "r13"
@@ -20116,6 +21157,13 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -20150,6 +21198,7 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20182,6 +21231,7 @@
         "parent": "p3.p3k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20214,6 +21264,7 @@
         "parent": "p3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r04",
@@ -20248,6 +21299,7 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20280,6 +21332,18 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r04"
@@ -20315,6 +21379,13 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -20349,6 +21420,13 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -20383,6 +21461,13 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -20417,6 +21502,13 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -20451,6 +21543,18 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r05"
@@ -20486,6 +21590,13 @@
         "parent": "p3.p3k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r18"
             ],
@@ -20520,6 +21631,7 @@
         "parent": "p3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20545,6 +21657,7 @@
         "parent": "p3.p3k5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20577,6 +21690,7 @@
         "parent": "p3.p3k5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20609,6 +21723,7 @@
         "parent": "p3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -20641,6 +21756,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r02",
@@ -20685,6 +21801,7 @@
         "parent": "p4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r03",
               "r07",
@@ -20719,6 +21836,7 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -20751,6 +21869,18 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r15",
               "r17"
@@ -20786,6 +21916,13 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -20820,6 +21957,13 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -20854,6 +21998,13 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -20888,6 +22039,13 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -20922,6 +22080,18 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r09"
@@ -20957,6 +22127,13 @@
         "parent": "p4.p4k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -20991,6 +22168,7 @@
         "parent": "p4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r07",
               "r09",
@@ -21022,6 +22200,7 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21054,6 +22233,7 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21086,6 +22266,7 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21118,6 +22299,18 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              },
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r09",
               "r12"
@@ -21153,6 +22346,13 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -21187,6 +22387,13 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -21221,6 +22428,13 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -21255,6 +22469,13 @@
         "parent": "p4.p4k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -21289,6 +22510,7 @@
         "parent": "p4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r03",
@@ -21322,6 +22544,18 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r01"
+                ]
+              },
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r01",
               "r03"
@@ -21357,6 +22591,13 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -21391,6 +22632,7 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21423,6 +22665,7 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21455,6 +22698,7 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21487,6 +22731,18 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              },
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r13",
               "r14"
@@ -21522,6 +22778,13 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -21556,6 +22819,13 @@
         "parent": "p4.p4k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -21590,6 +22860,7 @@
         "parent": "p4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r03",
@@ -21622,6 +22893,13 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -21656,6 +22934,13 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -21690,6 +22975,18 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              },
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r03",
               "r06"
@@ -21725,6 +23022,13 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -21759,6 +23063,7 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21791,6 +23096,7 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21823,6 +23129,7 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -21855,6 +23162,18 @@
         "parent": "p4.p4k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r04"
@@ -21890,6 +23209,7 @@
         "parent": "p4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r04",
@@ -21922,6 +23242,13 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -21956,6 +23283,13 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -21990,6 +23324,13 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -22024,6 +23365,13 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -22058,6 +23406,18 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              },
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r04",
               "r07"
@@ -22093,6 +23453,13 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r18"
             ],
@@ -22127,6 +23494,7 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22159,6 +23527,7 @@
         "parent": "p4.p4k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22191,6 +23560,7 @@
         "parent": "p4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r05"
@@ -22219,6 +23589,7 @@
         "parent": "p4.p4k5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22251,6 +23622,18 @@
         "parent": "p4.p4k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r05"
@@ -22286,6 +23669,7 @@
         "parent": "p4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -22318,6 +23702,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r01",
@@ -22363,6 +23748,7 @@
         "parent": "p5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r08",
@@ -22396,6 +23782,13 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -22430,6 +23823,13 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -22464,6 +23864,13 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -22498,6 +23905,13 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -22532,6 +23946,18 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              },
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r15",
               "r18"
@@ -22567,6 +23993,13 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -22601,6 +24034,7 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22633,6 +24067,7 @@
         "parent": "p5.p5k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22665,6 +24100,7 @@
         "parent": "p5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r04",
@@ -22700,6 +24136,7 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -22732,6 +24169,18 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              },
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r16",
               "r19"
@@ -22767,6 +24216,13 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -22801,6 +24257,13 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -22835,6 +24298,13 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -22869,6 +24339,13 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01"
             ],
@@ -22903,6 +24380,18 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              },
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r11",
               "r14"
@@ -22938,6 +24427,13 @@
         "parent": "p5.p5k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -22972,6 +24468,7 @@
         "parent": "p5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r07",
               "r11",
@@ -23004,6 +24501,7 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23036,6 +24534,7 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23068,6 +24567,7 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23100,6 +24600,18 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              },
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r12",
               "r15"
@@ -23135,6 +24647,13 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -23169,6 +24688,13 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -23203,6 +24729,13 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -23237,6 +24770,13 @@
         "parent": "p5.p5k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -23271,6 +24811,7 @@
         "parent": "p5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02",
@@ -23302,6 +24843,18 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r09"
@@ -23337,6 +24890,13 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -23371,6 +24931,7 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23403,6 +24964,7 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23435,6 +24997,7 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23467,6 +25030,18 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r09"
@@ -23502,6 +25077,13 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -23536,6 +25118,13 @@
         "parent": "p5.p5k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -23570,6 +25159,7 @@
         "parent": "p5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r03",
@@ -23603,6 +25193,13 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -23637,6 +25234,13 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01"
             ],
@@ -23671,6 +25275,18 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              },
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r03",
               "r05"
@@ -23706,6 +25322,13 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -23740,6 +25363,7 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23772,6 +25396,7 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23804,6 +25429,7 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -23836,6 +25462,18 @@
         "parent": "p5.p5k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r09"
@@ -23871,6 +25509,7 @@
         "parent": "p5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r08"
             ],
@@ -23898,6 +25537,13 @@
         "parent": "p5.p5k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -23932,6 +25578,13 @@
         "parent": "p5.p5k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -23966,6 +25619,7 @@
         "parent": "p5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -23998,6 +25652,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r01",
@@ -24041,6 +25696,7 @@
         "parent": "p6",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r04",
@@ -24073,6 +25729,13 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -24107,6 +25770,13 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -24141,6 +25811,18 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r15",
               "r17"
@@ -24176,6 +25858,13 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -24210,6 +25899,7 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -24242,6 +25932,7 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -24274,6 +25965,7 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -24306,6 +25998,18 @@
         "parent": "p6.p6k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r14",
               "r17"
@@ -24341,6 +26045,7 @@
         "parent": "p6",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r01",
@@ -24374,6 +26079,13 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -24408,6 +26120,13 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -24442,6 +26161,13 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -24476,6 +26202,13 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -24510,6 +26243,18 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01",
               "r19"
@@ -24545,6 +26290,13 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -24579,6 +26331,7 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -24611,6 +26364,7 @@
         "parent": "p6.p6k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -24643,6 +26397,7 @@
         "parent": "p6",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r03",
@@ -24677,6 +26432,7 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -24709,6 +26465,18 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01",
               "r19"
@@ -24744,6 +26512,13 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -24778,6 +26553,13 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -24812,6 +26594,13 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -24846,6 +26635,13 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -24880,6 +26676,18 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r16",
               "r17"
@@ -24915,6 +26723,13 @@
         "parent": "p6.p6k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -24949,6 +26764,7 @@
         "parent": "p6",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r02",
@@ -24981,6 +26797,7 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25013,6 +26830,7 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25045,6 +26863,7 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25077,6 +26896,18 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r18"
+                ]
+              },
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r18",
               "r19"
@@ -25112,6 +26943,13 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -25146,6 +26984,13 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01"
             ],
@@ -25180,6 +27025,13 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -25214,6 +27066,13 @@
         "parent": "p6.p6k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -25248,6 +27107,7 @@
         "parent": "p6",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r07",
@@ -25281,6 +27141,18 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              },
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r13",
               "r16"
@@ -25316,6 +27188,13 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -25350,6 +27229,7 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25382,6 +27262,7 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25414,6 +27295,7 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25446,6 +27328,18 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              },
+              {
+                "candidates": [
+                  "r18"
+                ]
+              }
+            ],
             "allocated": [
               "r17",
               "r18"
@@ -25481,6 +27375,13 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -25515,6 +27416,13 @@
         "parent": "p6.p6k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -25549,6 +27457,7 @@
         "parent": "p6",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r06",
               "r15"
@@ -25577,6 +27486,13 @@
         "parent": "p6.p6k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -25611,6 +27527,13 @@
         "parent": "p6.p6k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -25645,6 +27568,7 @@
         "parent": "p6",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -25677,6 +27601,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r01",
@@ -25720,6 +27645,7 @@
         "parent": "p7",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r05",
@@ -25753,6 +27679,18 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r15",
               "r17"
@@ -25788,6 +27726,13 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -25822,6 +27767,7 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25854,6 +27800,7 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25886,6 +27833,7 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -25918,6 +27866,18 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00",
               "r19"
@@ -25953,6 +27913,13 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -25987,6 +27954,13 @@
         "parent": "p7.p7k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r05"
             ],
@@ -26021,6 +27995,7 @@
         "parent": "p7",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r05",
@@ -26052,6 +28027,13 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -26086,6 +28068,13 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -26120,6 +28109,18 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r05"
+                ]
+              },
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r05",
               "r08"
@@ -26155,6 +28156,13 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -26189,6 +28197,7 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -26221,6 +28230,7 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -26253,6 +28263,7 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -26285,6 +28296,18 @@
         "parent": "p7.p7k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r05"
@@ -26320,6 +28343,7 @@
         "parent": "p7",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r04",
               "r11",
@@ -26351,6 +28375,13 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -26385,6 +28416,13 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -26419,6 +28457,13 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -26453,6 +28498,13 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -26487,6 +28539,18 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              },
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r12",
               "r13"
@@ -26522,6 +28586,13 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -26556,6 +28627,7 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -26588,6 +28660,7 @@
         "parent": "p7.p7k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -26620,6 +28693,7 @@
         "parent": "p7",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02",
@@ -26654,6 +28728,7 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -26686,6 +28761,18 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r03"
@@ -26721,6 +28808,13 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -26755,6 +28849,13 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -26789,6 +28890,13 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -26823,6 +28931,13 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -26857,6 +28972,18 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              },
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r11",
               "r12"
@@ -26892,6 +29019,13 @@
         "parent": "p7.p7k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r13"
             ],
@@ -26926,6 +29060,7 @@
         "parent": "p7",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r07",
               "r08",
@@ -26957,6 +29092,7 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -26989,6 +29125,7 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27021,6 +29158,7 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27053,6 +29191,18 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              },
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r08",
               "r11"
@@ -27088,6 +29238,13 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -27122,6 +29279,13 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -27156,6 +29320,13 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -27190,6 +29361,13 @@
         "parent": "p7.p7k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -27224,6 +29402,7 @@
         "parent": "p7",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r01",
               "r15",
@@ -27253,6 +29432,18 @@
         "parent": "p7.p7k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r01"
+                ]
+              }
+            ],
             "allocated": [
               "r01",
               "r19"
@@ -27288,6 +29479,13 @@
         "parent": "p7.p7k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -27322,6 +29520,7 @@
         "parent": "p7",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -27354,6 +29553,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02",
@@ -27396,6 +29596,7 @@
         "parent": "p8",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r06",
               "r08",
@@ -27428,6 +29629,7 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27460,6 +29662,7 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27492,6 +29695,7 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27524,6 +29728,18 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              },
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r08",
               "r09"
@@ -27559,6 +29775,13 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -27593,6 +29816,13 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -27627,6 +29857,13 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -27661,6 +29898,13 @@
         "parent": "p8.p8k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -27695,6 +29939,7 @@
         "parent": "p8",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02",
@@ -27726,6 +29971,18 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              },
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00",
               "r19"
@@ -27761,6 +30018,13 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -27795,6 +30059,7 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27827,6 +30092,7 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27859,6 +30125,7 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -27891,6 +30158,18 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              },
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -27925,6 +30204,13 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r02"
             ],
@@ -27959,6 +30245,13 @@
         "parent": "p8.p8k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -27993,6 +30286,7 @@
         "parent": "p8",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r03",
               "r04",
@@ -28024,6 +30318,13 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              }
+            ],
             "allocated": [
               "r03"
             ],
@@ -28058,6 +30359,13 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -28092,6 +30400,18 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r16",
               "r17"
@@ -28127,6 +30447,13 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -28161,6 +30488,7 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28193,6 +30521,7 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28225,6 +30554,7 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28257,6 +30587,18 @@
         "parent": "p8.p8k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              },
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r03",
               "r04"
@@ -28292,6 +30634,7 @@
         "parent": "p8",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r07",
               "r08",
@@ -28324,6 +30667,13 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -28358,6 +30708,13 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -28392,6 +30749,13 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              }
+            ],
             "allocated": [
               "r16"
             ],
@@ -28426,6 +30790,13 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -28460,6 +30831,18 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r09"
@@ -28495,6 +30878,13 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -28529,6 +30919,7 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28561,6 +30952,7 @@
         "parent": "p8.p8k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28593,6 +30985,7 @@
         "parent": "p8",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r02",
               "r03",
@@ -28627,6 +31020,7 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28659,6 +31053,18 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              },
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r03",
               "r05"
@@ -28694,6 +31100,13 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -28728,6 +31141,13 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -28762,6 +31182,13 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -28796,6 +31223,13 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -28830,6 +31264,18 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r02"
+                ]
+              },
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r02",
               "r04"
@@ -28865,6 +31311,13 @@
         "parent": "p8.p8k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -28899,6 +31352,7 @@
         "parent": "p8",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28924,6 +31378,7 @@
         "parent": "p8.p8k5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28956,6 +31411,7 @@
         "parent": "p8.p8k5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -28988,6 +31444,7 @@
         "parent": "p8",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -29020,6 +31477,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02",
@@ -29064,6 +31522,7 @@
         "parent": "p9",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r05",
               "r06",
@@ -29097,6 +31556,7 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -29129,6 +31589,18 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              },
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r06",
               "r08"
@@ -29164,6 +31636,13 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -29198,6 +31677,13 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -29232,6 +31718,13 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -29266,6 +31759,13 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -29300,6 +31800,18 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r13"
+                ]
+              },
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r13",
               "r15"
@@ -29335,6 +31847,13 @@
         "parent": "p9.p9k0",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r05"
+                ]
+              }
+            ],
             "allocated": [
               "r05"
             ],
@@ -29369,6 +31888,7 @@
         "parent": "p9",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r08",
               "r10",
@@ -29401,6 +31921,7 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -29433,6 +31954,7 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -29465,6 +31987,7 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -29497,6 +32020,18 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              },
+              {
+                "candidates": [
+                  "r13"
+                ]
+              }
+            ],
             "allocated": [
               "r10",
               "r13"
@@ -29532,6 +32067,13 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r11"
+                ]
+              }
+            ],
             "allocated": [
               "r11"
             ],
@@ -29566,6 +32108,13 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -29600,6 +32149,13 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r19"
+                ]
+              }
+            ],
             "allocated": [
               "r19"
             ],
@@ -29634,6 +32190,13 @@
         "parent": "p9.p9k1",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r12"
+                ]
+              }
+            ],
             "allocated": [
               "r12"
             ],
@@ -29668,6 +32231,7 @@
         "parent": "p9",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r03",
               "r06",
@@ -29698,6 +32262,18 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              },
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r03",
               "r06"
@@ -29733,6 +32309,13 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              }
+            ],
             "allocated": [
               "r07"
             ],
@@ -29767,6 +32350,7 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -29799,6 +32383,7 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -29831,6 +32416,7 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -29863,6 +32449,18 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r03"
+                ]
+              },
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r03",
               "r06"
@@ -29898,6 +32496,13 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r08"
             ],
@@ -29932,6 +32537,13 @@
         "parent": "p9.p9k2",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -29966,6 +32578,7 @@
         "parent": "p9",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r06",
               "r07",
@@ -29998,6 +32611,13 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r06"
+                ]
+              }
+            ],
             "allocated": [
               "r06"
             ],
@@ -30032,6 +32652,13 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r17"
             ],
@@ -30066,6 +32693,18 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r09"
@@ -30101,6 +32740,13 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r10"
+                ]
+              }
+            ],
             "allocated": [
               "r10"
             ],
@@ -30135,6 +32781,7 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -30167,6 +32814,7 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -30199,6 +32847,7 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -30231,6 +32880,18 @@
         "parent": "p9.p9k3",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r07"
+                ]
+              },
+              {
+                "candidates": [
+                  "r08"
+                ]
+              }
+            ],
             "allocated": [
               "r07",
               "r08"
@@ -30266,6 +32927,7 @@
         "parent": "p9",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r00",
               "r02",
@@ -30298,6 +32960,13 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              }
+            ],
             "allocated": [
               "r00"
             ],
@@ -30332,6 +33001,13 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r14"
+                ]
+              }
+            ],
             "allocated": [
               "r14"
             ],
@@ -30366,6 +33042,13 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r15"
+                ]
+              }
+            ],
             "allocated": [
               "r15"
             ],
@@ -30400,6 +33083,13 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r04"
+                ]
+              }
+            ],
             "allocated": [
               "r04"
             ],
@@ -30434,6 +33124,18 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r00"
+                ]
+              },
+              {
+                "candidates": [
+                  "r02"
+                ]
+              }
+            ],
             "allocated": [
               "r00",
               "r02"
@@ -30469,6 +33171,13 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r09"
+                ]
+              }
+            ],
             "allocated": [
               "r09"
             ],
@@ -30503,6 +33212,7 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -30535,6 +33245,7 @@
         "parent": "p9.p9k4",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -30567,6 +33278,7 @@
         "parent": "p9",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "r16",
               "r17"
@@ -30595,6 +33307,7 @@
         "parent": "p9.p9k5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -30627,6 +33340,18 @@
         "parent": "p9.p9k5",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "r16"
+                ]
+              },
+              {
+                "candidates": [
+                  "r17"
+                ]
+              }
+            ],
             "allocated": [
               "r16",
               "r17"
@@ -30662,6 +33387,7 @@
         "parent": "p9",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -30689,5 +33415,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

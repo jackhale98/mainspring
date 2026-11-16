@@ -447,6 +447,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "min04",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Task minimum limits",
       "now": "2026-02-02T09:00:00Z",
@@ -462,6 +463,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -711,7 +713,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -727,7 +731,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -743,7 +749,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -759,7 +767,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -777,6 +787,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "pat",
               "quy",
@@ -807,6 +818,13 @@
         "parent": "minimums",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "pat"
+                ]
+              }
+            ],
             "allocated": [
               "pat"
             ],
@@ -834,6 +852,13 @@
         "parent": "minimums",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "quy"
+                ]
+              }
+            ],
             "allocated": [
               "quy"
             ],
@@ -861,6 +886,13 @@
         "parent": "minimums",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "rhea"
+                ]
+              }
+            ],
             "allocated": [
               "rhea"
             ],
@@ -888,6 +920,18 @@
         "parent": "minimums",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "pat"
+                ]
+              },
+              {
+                "candidates": [
+                  "sol"
+                ]
+              }
+            ],
             "allocated": [
               "pat",
               "sol"
@@ -923,6 +967,18 @@
         "parent": "minimums",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "pat"
+                ]
+              },
+              {
+                "candidates": [
+                  "sol"
+                ]
+              }
+            ],
             "allocated": [
               "pat",
               "sol"
@@ -951,6 +1007,13 @@
         "parent": "minimums",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "rhea"
+                ]
+              }
+            ],
             "allocated": [
               "rhea"
             ],
@@ -978,6 +1041,13 @@
         "parent": "minimums",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "quy"
+                ]
+              }
+            ],
             "allocated": [
               "quy"
             ],
@@ -1007,5 +1077,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

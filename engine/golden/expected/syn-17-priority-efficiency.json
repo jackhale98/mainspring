@@ -348,6 +348,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "prio17",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Priority and efficiency",
       "now": "2026-02-02T09:00:00Z",
@@ -363,6 +364,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -612,7 +614,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 0.5
+            "efficiency": 0.5,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -628,7 +632,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1.5
+            "efficiency": 1.5,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -644,7 +650,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -662,6 +670,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "fox",
               "gil",
@@ -691,6 +700,13 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "fox"
+                ]
+              }
+            ],
             "allocated": [
               "fox"
             ],
@@ -718,6 +734,13 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "fox"
+                ]
+              }
+            ],
             "allocated": [
               "fox"
             ],
@@ -745,6 +768,13 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "fox"
+                ]
+              }
+            ],
             "allocated": [
               "fox"
             ],
@@ -772,6 +802,13 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "gil"
+                ]
+              }
+            ],
             "allocated": [
               "gil"
             ],
@@ -799,6 +836,13 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "fox"
+                ]
+              }
+            ],
             "allocated": [
               "fox"
             ],
@@ -833,6 +877,23 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hana"
+                ]
+              },
+              {
+                "candidates": [
+                  "gil"
+                ]
+              },
+              {
+                "candidates": [
+                  "fox"
+                ]
+              }
+            ],
             "allocated": [
               "gil",
               "hana"
@@ -861,6 +922,13 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "hana"
+                ]
+              }
+            ],
             "allocated": [
               "hana"
             ],
@@ -888,6 +956,7 @@
         "parent": "contend",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -921,5 +990,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

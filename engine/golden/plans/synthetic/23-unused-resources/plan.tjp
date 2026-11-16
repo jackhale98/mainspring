@@ -1,0 +1,118 @@
+# Feature: many resources that no task allocates (no scoreboard after scheduling), with shared and distinct working hours and leaves; weekstartssunday; 15-minute slots in Europe/Berlin
+# Binding: the bridge computes their working time and leaves without building scoreboards (serialize.rb #unused_scan), so every rule of ResourceScenario#initScoreboard shows here:
+# two overlapping global leaves make Easter Monday off hours for everyone; an own leave raises a global's type only when higher; a leave on a weekend is off hours;
+# leaves cross the frame's start and end; u_shift has shifts (the fallback that builds a scoreboard); u_late is used only in scenario late; members inherit their group's leave.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project unused23 "Unused resources" 2026-01-04 - 2026-07-05 {
+  timezone "Europe/Berlin"
+  timingresolution 15min
+  weekstartssunday
+  now 2026-01-05-09:00
+  scenario plan "Plan" {
+    scenario late "Late"
+  }
+}
+
+leaves holiday "New Year" 2025-12-31 - 2026-01-07
+leaves holiday "Easter" 2026-04-03 - 2026-04-07
+leaves special "Overlap" 2026-04-06 - 2026-04-08
+vacation "Closure" 2026-05-14
+leaves project "Offsite" 2026-06-01-13:00 - 2026-06-02-12:00
+leaves unemployed "After" 2026-07-01 - 2026-08-01
+
+shift evenings "Evenings" {
+  workinghours mon - fri 17:00 - 21:00
+}
+
+resource busy "Busy"
+
+resource pool "Pool" {
+  resource u01 "U01"
+  resource u02 "U02"
+  resource u03 "U03"
+  resource u04 "U04"
+  resource u05 "U05"
+  resource u06 "U06"
+  resource u07 "U07"
+  resource u08 "U08"
+  resource u09 "U09"
+  resource u10 "U10"
+  resource u11 "U11"
+  resource u12 "U12"
+  resource u13 "U13"
+  resource u14 "U14"
+  resource u15 "U15"
+  resource u16 "U16"
+  resource u17 "U17"
+  resource u18 "U18"
+  resource u19 "U19"
+  resource u20 "U20"
+}
+
+resource part "Part-timers" {
+  workinghours mon - fri off
+  workinghours mon - wed 9:00 - 13:00
+  resource p1 "P1"
+  resource p2 "P2"
+  resource p3 "P3" {
+    leaves annual "Trip" 2026-03-02 - 2026-03-05
+  }
+}
+
+resource crew "Crew" {
+  leaves annual "Crew retreat" 2026-02-16 - 2026-02-18
+  resource c1 "C1"
+  resource c2 "C2" {
+    leaves sick 2026-02-17 - 2026-02-20
+  }
+}
+
+resource u_annual "Annual" {
+  leaves annual "Spring" 2026-03-09 - 2026-03-14
+}
+resource u_unemployed "Unemployed before" {
+  leaves unemployed 2025-12-01 - 2026-01-20
+}
+resource u_raise "Raises Easter" {
+  leaves unpaid 2026-04-02 - 2026-04-04
+  leaves unemployed 2026-04-03 - 2026-04-04
+}
+resource u_lower "Below Easter" {
+  leaves annual 2026-04-02 - 2026-04-07
+}
+resource u_overlap "On the overlap" {
+  leaves unemployed 2026-04-06 - 2026-04-07
+}
+resource u_weekend "Weekend leave" {
+  leaves special 2026-01-10 - 2026-01-12
+}
+resource u_hours "Leave inside a day" {
+  leaves sick 2026-01-21-10:30 - 2026-01-21-14:15
+  leaves project 2026-01-22-16:00 - 2026-01-23-10:00
+}
+resource u_end "Past the end" {
+  leaves special 2026-06-29 - 2026-07-15
+}
+resource u_shift "Shifted" {
+  shifts evenings 2026-02-02 - 2026-03-02
+}
+resource u_eff "Half efficient" {
+  efficiency 0.5
+  leaves annual 2026-05-18 - 2026-05-20
+}
+resource u_late "Used only late" {
+  leaves annual 2026-02-23 - 2026-02-25
+}
+
+task work "Work" {
+  task first "First" {
+    effort 10d
+    allocate busy
+  }
+  task second "Second" {
+    depends !first
+    effort 5d
+    allocate busy
+    late:allocate u_late
+  }
+}

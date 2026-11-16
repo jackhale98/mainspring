@@ -252,6 +252,7 @@
       "dailyWorkingHours": 8,
       "end": "2027-05-28T00:00:00Z",
       "id": "sydney11",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Southern DST",
       "now": "2026-12-09T22:00:00Z",
@@ -267,6 +268,7 @@
       "timezone": "Australia/Sydney",
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -1000,7 +1002,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -1016,7 +1020,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -1034,6 +1040,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "tam",
               "uma"
@@ -1062,6 +1069,13 @@
         "parent": "southern",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "tam"
+                ]
+              }
+            ],
             "allocated": [
               "tam"
             ],
@@ -1089,6 +1103,13 @@
         "parent": "southern",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "uma"
+                ]
+              }
+            ],
             "allocated": [
               "uma"
             ],
@@ -1123,6 +1144,13 @@
         "parent": "southern",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "uma"
+                ]
+              }
+            ],
             "allocated": [
               "uma"
             ],
@@ -1150,6 +1178,13 @@
         "parent": "southern",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "tam"
+                ]
+              }
+            ],
             "allocated": [
               "tam"
             ],
@@ -1177,6 +1212,18 @@
         "parent": "southern",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "tam"
+                ]
+              },
+              {
+                "candidates": [
+                  "uma"
+                ]
+              }
+            ],
             "allocated": [
               "tam",
               "uma"
@@ -1207,5 +1254,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

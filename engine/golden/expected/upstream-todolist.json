@@ -29,6 +29,7 @@
       "dailyWorkingHours": 8,
       "end": "2015-12-31T00:00:00Z",
       "id": "prj",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "My TODO List",
       "now": "2011-12-20T00:00:00Z",
@@ -44,6 +45,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -5270,6 +5272,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5295,6 +5298,7 @@
         "parent": "_Task_1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0.014,
@@ -5320,6 +5324,7 @@
         "parent": "_Task_1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 0,
             "criticalness": 0.01,
@@ -5345,6 +5350,7 @@
         "parent": "_Task_1",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0.01,
@@ -5370,6 +5376,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 0,
@@ -5395,6 +5402,7 @@
         "parent": "_Task_5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 100,
             "criticalness": 0.012,
@@ -5420,6 +5428,7 @@
         "parent": "_Task_5",
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": 42,
             "criticalness": 0.006,
@@ -5440,5 +5449,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

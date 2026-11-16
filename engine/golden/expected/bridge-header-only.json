@@ -39,6 +39,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-04-01T10:00:00Z",
       "id": "hdr",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Header only",
       "now": "2026-03-02T08:00:00Z",
@@ -54,6 +55,7 @@
       "timezone": "Europe/Berlin",
       "timingResolutionMin": 60,
       "version": "0.9",
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -154,5 +156,5 @@
     "resources": [],
     "tasks": []
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

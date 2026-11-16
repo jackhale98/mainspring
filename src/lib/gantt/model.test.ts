@@ -47,6 +47,7 @@ function scheduled(
 				pathCriticalness: 0,
 				direction: 'asap',
 				complete: null,
+				allocate: [{ candidates: ['dev'] }],
 				depends: [],
 				precedes: [],
 			},

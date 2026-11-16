@@ -69,6 +69,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-04-01T10:00:00Z",
       "id": "inc",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Include subfolder",
       "now": "2026-03-02T09:00:00Z",
@@ -84,6 +85,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -189,7 +191,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": []
           }
         },
         "source": {
@@ -205,7 +209,9 @@
         "parent": "team",
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -221,7 +227,9 @@
         "parent": "team",
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -239,6 +247,13 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "ann"
+                ]
+              }
+            ],
             "allocated": [
               "ann"
             ],
@@ -266,6 +281,13 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "bob"
+                ]
+              }
+            ],
             "allocated": [
               "bob"
             ],
@@ -300,6 +322,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [],
             "complete": null,
             "criticalness": 1,
@@ -327,5 +350,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }

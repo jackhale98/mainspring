@@ -85,6 +85,7 @@
       "dailyWorkingHours": 8,
       "end": "2026-03-27T00:00:00Z",
       "id": "struct18",
+      "leaves": [],
       "monthlyWorkingDays": 21.726166666666668,
       "name": "Structure and includes",
       "now": "2026-02-02T09:00:00Z",
@@ -100,6 +101,7 @@
       "timezone": null,
       "timingResolutionMin": 60,
       "version": null,
+      "weekStartsMonday": true,
       "weeklyWorkingDays": 5,
       "workingTime": [
         [
@@ -349,7 +351,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -365,7 +369,9 @@
         "parent": null,
         "scenarios": {
           "plan": {
-            "efficiency": 1
+            "efficiency": 1,
+            "leaves": [],
+            "workingTime": null
           }
         },
         "source": {
@@ -383,6 +389,13 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "lena"
+                ]
+              }
+            ],
             "allocated": [
               "lena"
             ],
@@ -410,6 +423,7 @@
         "parent": null,
         "scenarios": {
           "plan": {
+            "allocate": [],
             "allocated": [
               "lena",
               "mira"
@@ -438,6 +452,13 @@
         "parent": "rollout",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "lena"
+                ]
+              }
+            ],
             "allocated": [
               "lena"
             ],
@@ -465,6 +486,13 @@
         "parent": "rollout",
         "scenarios": {
           "plan": {
+            "allocate": [
+              {
+                "candidates": [
+                  "mira"
+                ]
+              }
+            ],
             "allocated": [
               "mira"
             ],
@@ -494,5 +522,5 @@
       }
     ]
   },
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
