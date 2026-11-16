@@ -30,16 +30,25 @@ export const cleanPlanName = (name: string): string => name.replace(/\s+/g, ' ')
 
 /** The project id for a name: its slug, or `plan` when the name has no letter or digit. */
 export function planId(name: string): string {
-	const readable = /[a-z0-9_]/i.test(cleanPlanName(name).normalize('NFKD'));
+	const readable = /[a-z0-9]/i.test(cleanPlanName(name).normalize('NFKD'));
 	return readable ? slugId(cleanPlanName(name)) : 'plan';
 }
+
+/** The years TaskJuggler reads (values/date.ts); a later start is `time_error` in the engine. */
+export const MIN_YEAR = 1970;
+export const MAX_YEAR = 2035;
 
 function validStart(start: string): boolean {
 	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(start);
 	if (!m) return false;
 	const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
 	return (
-		year >= 1970 && month >= 1 && month <= 12 && day >= 1 && day <= lastDayOfMonth(month, year)
+		year >= MIN_YEAR &&
+		year <= MAX_YEAR &&
+		month >= 1 &&
+		month <= 12 &&
+		day >= 1 &&
+		day <= lastDayOfMonth(month, year)
 	);
 }
 

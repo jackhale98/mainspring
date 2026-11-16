@@ -14,7 +14,7 @@
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
 	import { deviceZone, isoDate, zoneChoices } from '../../lib/tjp/new-plan-defaults';
-	import { newPlanProblem, type NewPlanProblem } from '../../lib/tjp/new-plan';
+	import { MAX_YEAR, MIN_YEAR, newPlanProblem, type NewPlanProblem } from '../../lib/tjp/new-plan';
 	import Sheet from '../Sheet.svelte';
 
 	interface Props {
@@ -115,6 +115,8 @@
 					bind:this={startField}
 					bind:value={start}
 					type="date"
+					min="{MIN_YEAR}-01-01"
+					max="{MAX_YEAR}-12-31"
 					class="input"
 					required
 					aria-required="true"

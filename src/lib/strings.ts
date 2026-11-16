@@ -838,7 +838,7 @@ export const strings = {
 			'name-empty': 'Give the plan a name.',
 			'name-unsafe': 'A name cannot contain ${…} or $(…): TaskJuggler would expand it.',
 			'name-backslash': 'A name cannot end with a backslash.',
-			start: 'Enter a start date.',
+			start: 'Enter a start date from 1970 to 2035.',
 			zone: 'Choose a time zone from the list.',
 		},
 	},

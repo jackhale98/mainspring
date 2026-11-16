@@ -58,6 +58,10 @@ describe('planId', () => {
 		expect(planId('???')).toBe('plan');
 		expect(planId('日本語')).toBe('plan');
 		expect(planId('!')).toBe('plan');
+		// Underscores alone make no id either: the slug would be empty, and `task` is not a plan's.
+		expect(planId('___')).toBe('plan');
+		expect(planId('_')).toBe('plan');
+		expect(planId('a_')).toBe('a');
 	});
 });
 
@@ -71,6 +75,13 @@ describe('newPlanProblem', () => {
 		expect(newPlanProblem({ ...base, start: '2026-02-30' })).toBe('start');
 		expect(newPlanProblem({ ...base, start: '14/11/2026' })).toBe('start');
 		expect(newPlanProblem({ ...base, timezone: 'Zone${x}' })).toBe('zone');
+	});
+	it('limits the start to the years TaskJuggler reads (the engine says time_error after 2035)', () => {
+		expect(newPlanProblem({ ...base, start: '2035-12-31' })).toBeNull();
+		expect(newPlanProblem({ ...base, start: '1970-01-01' })).toBeNull();
+		expect(newPlanProblem({ ...base, start: '2036-01-01' })).toBe('start');
+		expect(newPlanProblem({ ...base, start: '1969-12-31' })).toBe('start');
+		expect(() => text('Plan', '2036-01-01')).toThrow(RangeError);
 	});
 	it('accepts leap days', () => {
 		expect(newPlanProblem({ ...base, start: '2028-02-29' })).toBeNull();
