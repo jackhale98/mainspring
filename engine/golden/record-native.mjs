@@ -27,6 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { LOAD_CSV, LOAD_REPORT_ID, LOAD_TJI, loadDiffs, loadReport } from './cross-check-load.mjs';
 import {
 	csvLinkRows, csvRows, expectedLinkRows, expectedRows, linkRowDiffs, parseCsv, rowDiffs,
 	withoutPrecursors,
@@ -204,7 +205,11 @@ function recordOnce(plan, workspace) {
 // neither side parses, tj3 must also exit non-zero. Schema v2 (phase-2 spec
 // 5.3) adds the report's precursors and completion columns: the dependencies
 // that end at each task, and every `complete` the plan sets
-// (cross-check-rows.mjs expectedLinkRows).
+// (cross-check-rows.mjs expectedLinkRows). Schema v3 (phase-3 spec 5.3) adds, for a golden with
+// resources, the weekly resource report of cross-check-load.tji in the same tj3 run: per resource
+// and active scenario, the weekly effort must equal the golden's bookings times efficiency, and
+// free time, time off and the leave types must match its workingTime and leaves
+// (cross-check-load.mjs loadDiffs).
 function crossCheck(plan, result, workspace, tmp) {
 	const template = fs.readFileSync(path.join(GOLDEN, 'cross-check.tji'), 'utf8');
 	if (!MACRO_RE.test(template)) throw new Error('cross-check.tji lost its scenario macro line');
@@ -216,12 +221,22 @@ function crossCheck(plan, result, workspace, tmp) {
 	// A result that is not ok compares no precursors, and tj3 cannot report them for a scenario
 	// scheduling never prepared (see withoutPrecursors), so that report leaves the column out.
 	fs.writeFileSync(path.join(root, CROSS_TJI), result.ok ? report : withoutPrecursors(report));
+	// The load report needs resources to report on (Fedora 20 has none, phase-3 spec 19.1).
+	const load = result.project !== null && result.resources.length > 0;
+	const loadArgs = [];
+	if (load) {
+		if (fs.existsSync(path.join(root, LOAD_TJI))) throw new Error(`${LOAD_TJI} clashes with a plan file`);
+		const loadTemplate = fs.readFileSync(path.join(GOLDEN, 'cross-check-load.tji'), 'utf8');
+		fs.writeFileSync(path.join(root, LOAD_TJI), loadReport(loadTemplate, result));
+		loadArgs.push('--report', LOAD_REPORT_ID);
+	}
 	const outFile = path.join(tmp, 'tj3-state.json');
 	const env = { ...ENV, MAINSPRING_TJ3_OUT: outFile, MAINSPRING_CLOCK: plan.now ?? '' };
 	const r = run('bundle', ['exec', 'ruby', '-W0', '-EUTF-8', '-I', TJ_LIB,
 		'-r', path.join(GOLDEN, 'cross-check-shim.rb'), path.join(REPO, 'engine', 'tj', 'bin', 'tj3'),
-		'--silent', '--no-color', '-f', '--report', 'mainspring_crosscheck',
-		path.join(root, plan.entry), path.join(root, CROSS_TJI)], { cwd: root, env });
+		'--silent', '--no-color', '-f', '--report', 'mainspring_crosscheck', ...loadArgs,
+		path.join(root, plan.entry), path.join(root, CROSS_TJI), ...(load ? [path.join(root, LOAD_TJI)] : [])],
+	{ cwd: root, env });
 	if (!fs.existsSync(outFile)) throw new Error(`tj3 left no state (exit ${r.status}):\n${r.stderr}`);
 	const state = JSON.parse(fs.readFileSync(outFile, 'utf8'));
 	const problems = [];
@@ -260,12 +275,23 @@ function crossCheck(plan, result, workspace, tmp) {
 		// Precursors only for complete runs (see linkRowDiffs); completion always.
 		problems.push(...linkRowDiffs(expectedLinkRows(result), csvLinkRows(csv), 10, result.ok));
 	}
+	let loadNote = 'no resources, so no load report';
+	if (load) {
+		const loadCsv = path.join(root, LOAD_CSV);
+		if (!fs.existsSync(loadCsv)) {
+			problems.push(`tj3 wrote no load CSV (exit ${r.status}): ${r.stderr.trim().split('\n')[0] ?? ''}`);
+		} else {
+			const cmp = loadDiffs(result, parseCsv(fs.readFileSync(loadCsv, 'utf8')));
+			problems.push(...cmp.problems);
+			loadNote = `load: ${cmp.rows} resource rows x ${cmp.weeks} weeks, ${cmp.compared} values`;
+		}
+	}
 	if (problems.length) throw new Error(`cross-check:\n  ${problems.join('\n  ')}`);
 	const edges = result.tasks.reduce((n, t) => n + active.reduce((m, s) =>
 		m + (t.scenarios[s.id]?.depends.length ?? 0) + (t.scenarios[s.id]?.precedes.length ?? 0), 0), 0);
 	const deps = result.ok ? `${edges} dependencies` : `dependencies not compared (not ok)`;
 	return `agree: ${result.tasks.length} tasks x ${active.length} scenario(s) (dates, ${deps}, ` +
-		`completion), project frame, ${msgs.length} message(s)`;
+		`completion), project frame, ${msgs.length} message(s); ${loadNote}`;
 }
 
 function processPlan(plan, verify) {

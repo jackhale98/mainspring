@@ -8,9 +8,9 @@ The manifest holds 40 plans: the five upstream examples (read in place from
 `engine/tj/examples/`), the PoC sample, the 22 synthetic plans below, the 9 bridge fixtures
 (see "Bridge fixtures" further down), and the three Gantt plans (see "Gantt fixtures" below).
 
-Every golden holds result schema 2 (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in
-`lib.mjs`): the phase-0 fields plus the bridge v2 fields of `docs/phases/phase-2.md` 6.1, decided
-in `docs/decisions/0007-engine-data-and-derived-display-data.md` (see "Fields worth knowing").
+Every golden holds result schema 3 (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in
+`lib.mjs`): the phase-0 fields, the bridge v2 fields of `docs/phases/phase-2.md` 6.1 (ADR-0007)
+and the bridge v3 fields of `docs/phases/phase-3.md` 6.1 (ADR-0014; see "Fields worth knowing").
 A golden of another schema fails the parity test with one line that says to re-record it.
 
 Cross-check limits: tj3's task report (`cross-check.tji`) checks task dates, dependencies (the
@@ -27,6 +27,24 @@ other task and which ends each edge joins) and every `complete` the plan sets, b
   stop inside `TaskScenario#Xref`, so tj3's lists hold only the tasks it reached, while the
   golden lists every entry TaskJuggler would accept (`bridge-xref-stop`). Completion is
   compared for every run.
+
+The weekly load report (`cross-check-load.tji`, schema 3) checks every resource's bookings
+times efficiency, free time, time off and four leave types against `bookings`, `workingTime` and
+`leaves`, and the week start day against `weekStartsMonday`, but:
+
+- TaskJuggler keeps no leave names, so `ProjectInfo.leaves[].name` is null in every golden and
+  nothing checks it; the global leaves' types and bounds and `allocate` are covered by parity
+  and the fixtures only (`syn-13`, `syn-15`, `upstream-tutorial`).
+- Only `annual`, `special`, `sick` and `unpaid` have a report query of their own. `project`,
+  `holiday` and `unemployed` are checked through the time-off total (`timeoffdays`), which is
+  weighted by efficiency, so not for a resource whose efficiency is 0.
+- A leaf's `freetime` prints whole 24-hour days (TaskJuggler divides integers), so it checks free
+  time to the day; `freework` (weighted by efficiency) checks it exactly.
+- The celltext column reads each cell's period one week late (see the `.tji` header), so the
+  last week's free time, time off and leaves are checked in the frame totals only. Its effort is
+  checked in the plain weekly column, like every other week's.
+- Plans without resources (Fedora 20, the to-do list and most bridge fixtures) get no load
+  report.
 
 Details are in "What a run does", step 4.
 
@@ -157,8 +175,8 @@ checked against native Ruby each time. Before the patch, `syn-15-allocate-select
 different resource in ruby.wasm.
 
 The goldens committed now were recorded with Ruby 3.3.6 and `--allow-ruby`, most recently
-for result schema 2 (phase-2 T2). They are provisional until the user re-records them with
-Ruby 3.4.x (ADR-0003 #5, amended); one 3.4 recording after T2 covers schema 2.
+for result schema 3 (phase-3 T6). They are provisional until the user re-records them with
+Ruby 3.4.x (ADR-0003 #5, amended); one 3.4 recording after T6 covers schema 3.
 
 ### What a run does
 
@@ -199,6 +217,21 @@ bridge code (`engine/bridge/request.rb`, `engine/bridge/serialize.rb`), never th
    project's working time or `dailyworkinghours`. Those schema v2 fields are covered by
    parity and by the fixtures that exercise them (`syn-07`, `syn-08`, `syn-06`, `syn-13`,
    `syn-14`, the time-zone plans) only.
+
+   Schema 3 (phase-3 spec 5.3): for a golden with resources the same tj3 run also gets
+   `cross-check-load.tji`, a `resourcereport` in the plan's own time zone over the frame, in
+   hours with 6 fraction digits, with one weekly column of TaskJuggler's own load cells and one
+   of eight queries. `cross-check-load.mjs` checks, per resource (groups as the sums of their
+   members) and active scenario, against the golden:
+   - each week's `effort` equals the bookings in that local week times the resource's
+     efficiency (the query is weighted, `ResourceScenario#getEffectiveWork`);
+   - `freework` and `freetime` equal `workingTime` minus the bookings (weighted, and in whole
+     days for a leaf, as TaskJuggler computes them), `timeoffdays` the sum of `leaves` times
+     efficiency, and `annualleave`, `specialleave`, `sickleave` and `unpaidleave` the leaves of
+     that type, for each week but the last and for the whole frame;
+   - every week starts on Monday when `weekStartsMonday` is true, else on Sunday.
+   The weeks are read from the report header, so they are TaskJuggler's own, DST included. See
+   "Cross-check limits" above for what this leaves out.
 
    `cross-check-shim.rb` is preloaded into the tj3 process. It pins `Time.now` for plans
    without a `now` line, lets `-f` still write the report after a scheduling error (tj3
@@ -256,6 +289,17 @@ recorder sets `LANG=C.UTF-8`, passes `-EUTF-8` to Ruby, and the bridge sets
   `resources` and `bookings` are empty.
 - `milestone` is scenario-specific in TaskJuggler; `TaskResult.milestone` is its value in
   the first active scenario.
+- Schema 3 (`docs/phases/phase-3.md` 6.1; sources cited in `engine/bridge/serialize.rb`):
+  - `ProjectInfo.weekStartsMonday`, and `ProjectInfo.leaves`: the global leaves in parse order
+    (`vacation` as `holiday`), bounds as written, `name` always null (TaskJuggler 3.8.4 keeps no
+    leave names), and empty after a parse error.
+  - Per resource and scenario, `workingTime` (free or booked slots, `getWorkSlots`) and `leaves`
+    by type (leave slots in working hours, `getLeaveSlots`), merged into intervals; both empty
+    for groups. A leaf no task can use gets the scoreboard TaskJuggler's reports would build.
+    These lists are long (one pair per working day), so `syn-20-scale-1000` grew from 1.6 to
+    5.2 MB.
+  - Per task and scenario, `allocate`: each `allocate` item's candidates in the order written
+    (the resource, then its alternatives), groups as written, after inheritance.
 - Schema 2 (`docs/phases/phase-2.md` 6.1; where TaskJuggler keeps each value is cited in
   `engine/bridge/serialize.rb`):
   - `ProjectInfo.dailyWorkingHours` is the plan's `dailyworkinghours` (default 8), and
@@ -296,9 +340,10 @@ them in the browser too. Each header says what it targets and expects.
 | bridge-now-line | A `now` line wins over `options.now` |
 | bridge-xref-stop | Scheduling stops at the first broken dependency (`task_depend_unknown`), before the later tasks are resolved: their self, parent, child and repeated entries are left out in both scenarios, `ok: false`; integer `dailyworkinghours` and `yearlyworkingdays` give integer unit day counts |
 
-Unit tests for the recorder's pure helpers (`lib.mjs`, and `cross-check-rows.mjs` for the
-cross-check CSV) are in `tests/golden/record-lib.test.ts` and `tests/golden/cross-check-rows.test.ts`,
-and run with `npm run test:unit`.
+Unit tests for the recorder's pure helpers (`lib.mjs`, `cross-check-rows.mjs` for the
+cross-check CSV and `cross-check-load.mjs` for the load report) are in
+`tests/golden/record-lib.test.ts`, `tests/golden/cross-check-rows.test.ts` and
+`tests/golden/cross-check-load.test.ts`, and run with `npm run test:unit`.
 
 ### Time-zone edge cases
 
