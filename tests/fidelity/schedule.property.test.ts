@@ -160,7 +160,13 @@ function checkP4(c: Case, o: Outcome): string[] {
 		intent.type === 'format'
 	) {
 		const names = intent.type !== 'format';
-		if (normalized(before, names) !== normalized(after, names)) {
+		// A rename that sets the id (polish item 15): the task is read under its new id.
+		const want = normalized(before, names);
+		const was =
+			intent.type === 'renameTask' && intent.id !== undefined
+				? want.replaceAll(`"${intent.task}"`, `"${intent.task.replace(/[^.]*$/, intent.id)}"`)
+				: want;
+		if (was !== normalized(after, names)) {
 			bad.push('the schedule changed (compared apart from names, source lines and timings)');
 		}
 	}

@@ -3,7 +3,9 @@
 	What the inspector shows now (phase-2.md 9.3): the link that is selected, else the task that is
 	selected, else a hint to select one. Everything is read from the index and from the schedule the
 	Gantt shows (`app.inspector.view`), so the details never disagree with the chart. A task or link
-	that has gone from the plan (an undo removed it) says so.
+	that has gone from the plan (an undo removed it) says so. The task's details mount once per
+	selected task (`selection.serial`), not per id, so naming a new task, which can set its id
+	(polish item 15), keeps the field that has the focus and never shows the task as gone.
 -->
 <script lang="ts">
 	import { finishScenario } from '../../lib/schedule/finish';
@@ -33,9 +35,17 @@
 			: [],
 	);
 
-	const id = $derived(
-		app.selectedTask === null ? null : (app.outline.byKey.get(app.selectedTask)?.id ?? null),
-	);
+	// A rename that changes the id (a move, or naming a new task) moves the selection to the new id
+	// at once; until the index has it, the task is found by the id it had (`renamedFrom`).
+	const id = $derived.by(() => {
+		const key = app.selectedTask;
+		if (key === null) return null;
+		const from = app.selection.renamedFrom;
+		const node =
+			app.outline.byKey.get(key) ??
+			(from === null ? undefined : app.outline.byKey.get(`task:${from}`));
+		return node?.id ?? null;
+	});
 	const details = $derived(
 		index && id !== null
 			? taskDetails(
@@ -66,7 +76,8 @@
 		{S.projectSettings}
 	</button>
 {:else if details && lists && view}
-	{#key details.id}
+	<!-- One mount per selected task: a rename that changes its id keeps the fields (and the focus). -->
+	{#key app.selection.serial}
 		<TaskDetails
 			d={details}
 			model={view.model}

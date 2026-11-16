@@ -279,6 +279,31 @@ describe('SelectionState', () => {
 		expect(seen).toHaveLength(n);
 	});
 
+	it('keeps the serial and records the old id across a rename; another task gets a new serial', () => {
+		const { s } = state();
+		s.selectTask('new_task', 'visual');
+		const serial = s.serial;
+		expect(s.renamedFrom).toBeNull();
+		s.followRenames(new Map([['new_task', 'write_specs']]));
+		expect(s.task).toBe('write_specs');
+		expect(s.serial).toBe(serial);
+		expect(s.renamedFrom).toBe('new_task');
+		// Undo follows it back: still the same task.
+		s.followRenames(new Map([['write_specs', 'new_task']]));
+		expect(s.serial).toBe(serial);
+		expect(s.renamedFrom).toBe('write_specs');
+		// Selecting it again keeps both; selecting another task, a link or nothing does not.
+		s.selectTask('new_task', 'visual');
+		expect(s.serial).toBe(serial);
+		s.selectTask('b', 'visual');
+		expect(s.serial).toBe(serial + 1);
+		expect(s.renamedFrom).toBeNull();
+		s.selectLink('b', 'c');
+		expect(s.serial).toBe(serial + 2);
+		s.clear();
+		expect(s.serial).toBe(serial + 3);
+	});
+
 	it('clears, and says so once', () => {
 		const { s, seen } = state();
 		s.clear();

@@ -111,16 +111,24 @@ export function printIdList(ids: readonly string[], opts: IdListOptions = {}): R
 }
 
 /**
+ * The ASCII part of a name as `slugId` reads it (lower case, runs of other characters as one `_`,
+ * none at the ends); empty when the name has no ASCII letter or digit.
+ */
+export function slugOf(name: string): string {
+	return name
+		.normalize('NFKD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9_]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+}
+
+/**
  * An id made from a name: ASCII letters, digits and `_`, lower case, not starting with a digit,
  * with `_2`, `_3`, … appended while `taken` says the id is used (spec 7.1 `addTask`).
  */
 export function slugId(name: string, taken: (id: string) => boolean = () => false): string {
-	let s = name
-		.normalize('NFKD')
-		.replace(/[̀-ͯ]/g, '')
-		.toLowerCase()
-		.replace(/[^a-z0-9_]+/g, '_')
-		.replace(/^_+|_+$/g, '');
+	let s = slugOf(name);
 	if (s === '') s = 'task';
 	if (/^\d/.test(s)) s = `_${s}`;
 	if (!taken(s)) return s;

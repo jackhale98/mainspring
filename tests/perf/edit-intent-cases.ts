@@ -9,7 +9,8 @@
  * with a leave) after the project block, and `allocate dev` in one leaf. The hints are mapped
  * through that insertion, so the macro-built tasks keep their ids. Every case reports its status
  * (edit, noop or refused); the table in the gate lists them. Phase 3 (T8) adds `clearLeave` (Fedora+res)
- * and `gapToTask` (Fedora, on one of its `{gaplength}` items).
+ * and `gapToTask` (Fedora, on one of its `{gaplength}` items). Polish item 15 adds `renameTask`
+ * with an id (scale-1000, on a leaf nothing names).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,6 +24,7 @@ import { analyseResult } from '../../src/lib/schedule/critical';
 import { finishScenario } from '../../src/lib/schedule/finish';
 import { workingTimeOf } from '../../src/lib/schedule/working-time';
 import { applyIntent } from '../../src/lib/tjp/edit/apply';
+import { idKept } from '../../src/lib/tjp/edit/task-rename-id';
 import type { EditIntent } from '../../src/lib/tjp/edit/types';
 import {
 	buildIndex,
@@ -200,6 +202,10 @@ export function fedoraCases(): TimingCase[] {
 	const scaleSnap = golden('syn-20-scale-1000').snapshot();
 	const scale = planOf(textsOf(scaleSnap), scaleSnap.entry, undefined);
 	const S = (name: string, i: EditIntent) => intentCase(name, 'scale-1000', scale, i);
+	// Polish item 15: a rename that sets the id runs the reference checks and re-indexes the plan.
+	// Fedora's macros keep every id, so it runs on a leaf of the 1,000-task plan that nothing names.
+	const free = [...scale.index.tasks.values()].find((t) => idKept(scale.index, t.id) === null);
+	if (!free) throw new Error('scale-1000 shape');
 	const cases: TimingCase[] = [
 		F('setAttr priority', { type: 'setAttr', task: a.id, attr: 'priority', value: '700' }),
 		F('setAttr length', { type: 'setAttr', task: a.id, attr: 'length', value: '3d' }),
@@ -220,6 +226,12 @@ export function fedoraCases(): TimingCase[] {
 		}),
 		F('declareFlag', { type: 'declareFlag', flag: 'perf' }),
 		F('format', { type: 'format', file: ENTRY }),
+		S('renameTask id', {
+			type: 'renameTask',
+			task: free.id,
+			name: 'Renamed task',
+			id: 'renamed_task',
+		}),
 		S('setProjectHeader', { type: 'setProjectHeader', name: 'Scale' }),
 		S('setProjectAttr', { type: 'setProjectAttr', attr: 'now', value: '2026-03-09' }),
 		S('removeProjectAttr', { type: 'removeProjectAttr', attr: 'now' }),

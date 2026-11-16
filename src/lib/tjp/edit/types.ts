@@ -12,7 +12,8 @@
  * - `TjpEdit` is a `WorkspaceEdit`, so `Workspace.apply` takes it as it is.
  * - `EditOp`: one change an intent asks for, built by layout.ts and checked by apply.ts.
  *
- * Phase 3 (phase-3.md 6.5) adds `clearLeave` and `gapToTask`.
+ * Phase 3 (phase-3.md 6.5) adds `clearLeave` and `gapToTask`. Polish item 15 adds `renameTask`'s
+ * optional `id`.
  */
 import type { ChangeSet } from '@codemirror/state';
 import type { WorkspaceEdit, WorkspaceSnapshot } from '../../workspace/workspace';
@@ -61,7 +62,11 @@ export interface LeaveRef {
 export type EditIntent =
 	| { type: 'setAttr'; task: TaskId; attr: TaskAttr; value: AttrValue }
 	| { type: 'removeAttr'; task: TaskId; attr: TaskAttr }
-	| { type: 'renameTask'; task: TaskId; name: string }
+	/**
+	 * `id`: also set the task's local id, in the same edit (polish item 15; task-rename-id.ts says
+	 * when that is allowed and `followingId` gives the id that follows the name).
+	 */
+	| { type: 'renameTask'; task: TaskId; name: string; id?: string }
 	| {
 			type: 'addTask';
 			parent: TaskId | null;

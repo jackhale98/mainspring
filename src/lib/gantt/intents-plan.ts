@@ -2,10 +2,12 @@
 /**
  * `planAction` (intents.ts): one Gantt action to one edit intent. The time actions are in
  * intents-time.ts; the structural ones map one to one onto edit intents, and the edit API decides
- * their refusals.
+ * their refusals. A rename also sets the task's id from the name while it has the automatic id the
+ * + control gave it and nothing refers to it (tjp/edit/task-rename-id.ts, polish item 15).
  */
 import type { Minutes, TaskScenarioResult } from '../../engine/protocol';
-import { ganttActionStrings as S } from '../strings';
+import { ganttActionStrings as S, gestureStrings } from '../strings';
+import { followingId } from '../tjp/edit/task-rename-id';
 import type { TaskId } from '../tjp/index';
 import { factsOf, scenarioOf, type TaskFacts } from './intents-facts';
 import { ceilingOf, floorOf, planMove, writtenDriver } from './intents-move';
@@ -92,11 +94,14 @@ export function planAction(a: GanttAction, ctx: ActionContext): Planned {
 				{ type: 'replaceAllocation', task: a.task, from: a.from, to: a.to },
 				S.label.replace(personIn(ctx, a.from), personIn(ctx, a.to), nameIn(ctx, a.task)),
 			);
-		case 'rename':
+		case 'rename': {
+			// A task that still has the + control's automatic id takes its id from its first name.
+			const id = followingId(ctx.index, a.task, a.name, gestureStrings.row.newTask);
 			return intent(
-				{ type: 'renameTask', task: a.task, name: a.name },
+				{ type: 'renameTask', task: a.task, name: a.name, ...(id === null ? {} : { id }) },
 				S.label.rename(nameIn(ctx, a.task), a.name),
 			);
+		}
 		case 'add':
 			return intent(
 				{ type: 'addTask', parent: a.parent, index: a.index, name: a.name },

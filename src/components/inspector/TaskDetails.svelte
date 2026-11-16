@@ -30,10 +30,21 @@
 	let { d, model, waitsFor, followedBy }: Props = $props();
 	const { app, actions, showInText } = getInspector();
 
-	const rename = async (name: string): Promise<boolean> => {
-		const text = name.trim();
+	// The name as a value of its own: `d` is a new object whenever the details are read again (the
+	// selection follows a new id first, the index a moment later), and the field must see a change
+	// only when the name changes, or it drops the name just committed (and keys typed after it).
+	const name = $derived(d.name);
+
+	// A rename can also set the id of a new task (polish item 15): the details stay mounted
+	// (InspectorBody keys them by the selected task, not its id), so the focus stays where it is.
+	// Until the index has the new id they show the task under its old one (`renamedFrom`): a name
+	// committed in that moment goes to the id the selection has now.
+	const rename = async (typed: string): Promise<boolean> => {
+		const text = typed.trim();
 		if (text === '') return false;
-		return (await actions.action({ type: 'rename', task: d.id, name: text })).status === 'applied';
+		const sel = app.selection;
+		const task = sel.renamedFrom === d.id && sel.task !== null ? sel.task : d.id;
+		return (await actions.action({ type: 'rename', task, name: text })).status === 'applied';
 	};
 </script>
 
@@ -45,7 +56,7 @@
 		{#snippet children({ id, disabled, describedby })}
 			<CommitInput
 				{id}
-				value={d.name}
+				value={name}
 				disabled={disabled || d.declaration !== null}
 				{describedby}
 				oncommit={rename}

@@ -11,6 +11,7 @@ import {
 	refFor,
 	resolveTaskRef,
 	slugId,
+	slugOf,
 } from './ids';
 
 describe('ids', () => {
@@ -108,5 +109,12 @@ describe('slugId', () => {
 		const taken = new Set(['docs', 'docs_2']);
 		expect(slugId('Docs', (id) => taken.has(id))).toBe('docs_3');
 		expect(isId(slugId('日本語'))).toBe(true);
+	});
+
+	it('reads the ASCII part of a name, empty when there is none (slugOf)', () => {
+		expect(slugOf('Café crème')).toBe('cafe_creme');
+		expect(slugOf('日本語')).toBe('');
+		expect(slugOf('*** __ ***')).toBe('');
+		expect(slugOf('Task')).toBe('task');
 	});
 });

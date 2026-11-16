@@ -3,7 +3,8 @@
 // Selection sync in the app (phase-2.md 6.10, 11.2): the text selects a task and the Gantt is asked
 // to follow; a visual selects and the editor is asked to show the source (`sourceMark`), again
 // from a fresher index without scrolling; a link marks its depends statement; the selection
-// follows a moveTask's new id; a toast's Show opens the source sheet in Visual mode.
+// follows a moveTask's new id (and a renameTask's with an id); a toast's Show opens the source sheet
+// in Visual mode.
 import { flushSync } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Sample } from '../workspace/samples';
@@ -248,6 +249,25 @@ describe('renames', () => {
 		expect(app.selection.current).toMatchObject({ kind: 'task', id: 'b', origin: 'visual' });
 		expect(app.history.redo()).toBe(true);
 		expect(app.selectedTask).toBe('task:g.b');
+	});
+
+	it('follows a rename that sets the id, and its undo and redo (polish item 15)', async () => {
+		const { app } = await open();
+		app.selectTask('task:b');
+		const edits = app.edits;
+		if (!edits) throw new Error('no dispatcher');
+		const o = await edits.dispatch(
+			{ type: 'renameTask', task: 'b', name: 'Build', id: 'build' },
+			{ label: { text: 'Rename Beta', approx: false } },
+		);
+		expect(o.status).toBe('applied');
+		expect(edits.pending.renames.get('b')).toBe('build');
+		flushSync();
+		expect(app.selectedTask).toBe('task:build');
+		expect(app.history.undo()).toBe(true);
+		expect(app.selectedTask).toBe('task:b');
+		expect(app.history.redo()).toBe(true);
+		expect(app.selectedTask).toBe('task:build');
 	});
 
 	it('follows a descendant of a moved task, and leaves other selections alone, through undo', async () => {
