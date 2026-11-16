@@ -126,6 +126,15 @@ describe('bucketAxis in UTC', () => {
 		expect(a.count).toBe(0);
 		expect(a.indexOf(0)).toBe(-1);
 	});
+
+	it('reuses the axis of a result with the same frame, zone and week start', () => {
+		const a = bucketAxis(p, zones, 'week');
+		expect(bucketAxis({ ...p, workingTime: [], now: p.end }, zones, 'week')).toBe(a);
+		expect(bucketAxis({ ...p, end: '2026-03-09T00:00:00Z' }, zones, 'week').count).toBe(9);
+		expect(bucketAxis({ ...p, weekStartsMonday: false }, zones, 'week')).not.toBe(a);
+		expect(bucketAxis({ ...p, timezone: 'Europe/Berlin' }, zones, 'week').bounds[0]).toBe(-H);
+		expect(bucketAxis(p, zones, 'day')).not.toBe(a);
+	});
 });
 
 describe('bucketAxis across clock changes', () => {

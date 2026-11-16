@@ -16,7 +16,11 @@
  *
  * Zone lookups go through a memo keyed by the exact instant: the midnight rule reads the offset a
  * day either side of each wall-clock midnight, which for consecutive days is the next and the
- * previous midnight, so a day axis costs about one host call per day.
+ * previous midnight, so a day axis costs about one host call per day (about 5 ms for the 611 days
+ * of fedora-res in New York with the plain Intl host, 13 ms through the Gantt's `memoZones`, which
+ * asks three times on a miss). Axes are kept per zone host, keyed by everything they read (frame,
+ * zone, week start, kind), so a new result with the same frame reuses its axis. An axis is never
+ * changed after it is built, so sharing it is safe.
  */
 // T9: TaskJuggler's `beginOfWeek(true)` on a Sunday subtracts -1 days and returns the next
 // Monday (TjTime.rb:207-218), so a weekly report of a frame that starts on a Sunday leaves that
@@ -92,7 +96,23 @@ export function emptyAxis(kind: BucketKind): BucketAxis {
 	return new Axis(kind, Int32Array.of(0));
 }
 
+/** Axes already built, per zone host: a result rarely changes the frame, the zone or the week. */
+const built = new WeakMap<ZoneOffsets, Map<string, BucketAxis>>();
+const MAX_KEPT = 12;
+
 export const bucketAxis: BucketAxisFn = (p, zones, kind) => {
+	const key = `${kind}|${p.start}|${p.end}|${p.timezone ?? ''}|${p.weekStartsMonday}`;
+	let kept = built.get(zones);
+	if (!kept) built.set(zones, (kept = new Map()));
+	let axis = kept.get(key);
+	if (!axis) {
+		if (kept.size >= MAX_KEPT) kept.clear();
+		kept.set(key, (axis = buildAxis(p, zones, kind)));
+	}
+	return axis;
+};
+
+function buildAxis(p: ProjectInfo, zones: ZoneOffsets, kind: BucketKind): BucketAxis {
 	const end = frameEndOf(p);
 	if (!(end > 0)) return emptyAxis(kind);
 	const startEpoch = Date.parse(p.start) / 1000;
@@ -128,4 +148,4 @@ export const bucketAxis: BucketAxisFn = (p, zones, kind) => {
 	}
 	out.push(end);
 	return new Axis(kind, Int32Array.from(out));
-};
+}
