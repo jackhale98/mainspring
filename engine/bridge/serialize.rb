@@ -101,7 +101,8 @@
 #   is raw.
 #   TaskJuggler builds a scoreboard only for the leaf resources some task can
 #   use, when it prepares a scenario (Project#prepareScenario,
-#   Project.rb:1073-1088), so for the others the pass first calls the public
+#   Project.rb:1073-1088), so for the others, and in a scenario an earlier
+#   error kept scheduling from reaching, the pass first calls the public
 #   ResourceScenario#getWorkSlots, which builds it (countSlots calls
 #   initScoreboard, ResourceScenario.rb:912-923), as TaskJuggler's own reports
 #   do after scheduling. Groups have no scoreboard: both lists are [].
