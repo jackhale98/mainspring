@@ -53,7 +53,10 @@ async function tab(page: Page, info: Info, name: 'Text' | 'Gantt') {
 }
 
 const row = (page: Page, name: string): Locator =>
-	page.locator('[role="treegrid"] [role="row"][data-key]').filter({ hasText: name }).first();
+	page
+		.locator('[role="treegrid"] [role="row"][data-key]')
+		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
+		.first();
 const line = (page: Page, text: string): Locator =>
 	page.locator('.cm-content .cm-line').filter({ hasText: text }).first();
 

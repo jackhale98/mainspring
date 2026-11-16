@@ -92,8 +92,9 @@ test.describe('New plan', () => {
 
 		await page.keyboard.type('Write the specs');
 		await page.keyboard.press('Enter');
-		await expect.poll(() => text(page)).toBe(`${header}task new_task "Write the specs"\n`);
-		await expect(page.locator('[role="row"][data-key="task:new_task"]')).toBeVisible();
+		// The first name also sets the id (polish 15): new_task becomes write_the_specs.
+		await expect.poll(() => text(page)).toBe(`${header}task write_the_specs "Write the specs"\n`);
+		await expect(page.locator('[role="row"][data-key="task:write_the_specs"]')).toBeVisible();
 
 		// The schedule runs on the new text: the status leaves "No tasks yet" for a result.
 		await expect(page.getByRole('group', { name: 'Plan status' })).not.toContainText('Scheduling', {
@@ -132,8 +133,8 @@ test.describe('New plan', () => {
 		await expect.poll(() => text(page)).toContain('task new_task "New task"');
 		await page.keyboard.type('First task');
 		await page.keyboard.press('Enter');
-		await expect.poll(() => text(page)).toContain('task new_task "First task"');
-		const row = page.locator('[role="row"][data-key="task:new_task"]');
+		await expect.poll(() => text(page)).toContain('task first_task "First task"');
+		const row = page.locator('[role="row"][data-key="task:first_task"]');
 		await expect(row).toBeVisible();
 		await expect(empty).toHaveCount(0);
 		await expect(status).not.toContainText('No tasks yet');
@@ -159,7 +160,7 @@ test.describe('New plan', () => {
 		await expect(page.getByTestId('toast').filter({ hasText: /no longer schedules/ })).toHaveCount(
 			0,
 		);
-		expect(await text(page)).not.toContain('task new_task');
+		expect(await text(page)).not.toContain('task first_task');
 	});
 
 	test('the empty state points to Text where no editor is on screen, and not in Split', async ({

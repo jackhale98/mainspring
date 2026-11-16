@@ -14,7 +14,12 @@
  * - **Exact sums.** Times are integer `Minutes` since `ProjectInfo.start`. Booked, available and
  *   leave minutes are sums of engine intervals (`bookings`, v3 `ResourceScenarioResult.workingTime`
  *   and `leaves`), not estimates; the gate checks them (phase-3.md 16.1). Load is derived from
- *   `bookings`; the engine has no load field (ADR-0014 #2).
+ *   `bookings`; the engine has no load field (ADR-0014 #2). The one exception is the leave hatch
+ *   where two global leaves overlap (`LoadModel.leave`): the engine has no hours there, so they are
+ *   filled in from the person's own hours on the same weekday a week away (ADR-0014 amendment
+ *   2026-11-16). That fill-in is an estimate when the person's hours change by date (shifts with
+ *   periods), when the day it copies has an overtime booking, and when one of its 24-hour pieces
+ *   crosses a clock change.
  * - **Hours are booked time**, not weighted by efficiency (18.2, ADR-0014 #2). The cell details
  *   show the effective effort (booked x efficiency) beside them.
  * - **Groups** are the sums of their leaf members, per bucket. The engine gives groups no working
@@ -69,6 +74,9 @@ export interface BucketAxis {
 	// included, so bounds[0] is at or before 0 when the frame starts mid-bucket. Only the last
 	// bound is the frame end. The first bucket's sums cover the frame part only (no engine
 	// intervals lie before 0).
+	// T9: each start is snapped down to the slot grid (`timingResolutionMin`), as TaskJuggler's
+	// `dateToIdx` truncates, so the slot that holds a local midnight is the later bucket's. That
+	// moves a bound only where the zone's offset is off the grid (axis.ts).
 	readonly bounds: Int32Array;
 	readonly count: number;
 	/** The bucket holding the minute [m, m + 1); -1 outside the frame [0, frame end). */
@@ -118,7 +126,11 @@ export interface CellTask {
 	// session's ruling at the T2 review (2026-11-14).
 	readonly minutes: number;
 	readonly kind: 'booked' | 'held' | 'unmet';
-	/** Whether a rebalance drag (W1, W2) may start from it. Always false on a group row. */
+	/**
+	 * Whether a rebalance drag (W1, W2) may start from it. Always false on a group row, and on held
+	 * and unmet entries. It governs the drag only, not the cell details' menu: 9.3 offers "Move to
+	 * person…" and "Move to week…" for every task there, and the planner (T12) answers each.
+	 */
 	readonly movable: boolean;
 }
 
@@ -135,6 +147,9 @@ export interface LoadModel {
 	 * Working time lost to leave, for the hatch: the sum of v3 `ResourceScenarioResult.leaves` in
 	 * the bucket (leave slots in working hours only, so it is exact and disjoint from `available`).
 	 */
+	// T9: plus, where two global leaves overlap (ADR-0014 amendment 2026-11-16), the person's hours
+	// filled in from the same weekday a week away (availability.ts `overlapLeaveOf`): still
+	// disjoint from `available`, but read from the person's pattern, not from the engine.
 	readonly leave: readonly Int32Array[];
 	/**
 	 * Held minutes from `DemandMarks` (6.3): each held entry's window intersected with the person's
@@ -200,6 +215,13 @@ export interface PersonAvailability {
 	readonly booked: IntervalSet;
 	/** `working` minus `booked` (6.3 rule 2). */
 	readonly free: IntervalSet;
+	// T9: two members added (allowed above): the cell details show the effective effort (booked x
+	// efficiency, 18.2), and the cell's tasks and the explainer's `busy` cause need the bookings
+	// per task.
+	/** `ResourceScenarioResult.efficiency`. */
+	readonly efficiency: number;
+	/** Their bookings per task, in `bookings` order (task pre-order); each set as sent. */
+	readonly tasks: ReadonlyArray<{ readonly task: TaskId; readonly intervals: IntervalSet }>;
 }
 
 /** Every leaf person's availability in one scenario of one result. */

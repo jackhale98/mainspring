@@ -64,11 +64,15 @@ test.describe('gantt', () => {
 	}, info) => {
 		await open(page);
 		const phone = info.project.name !== 'desktop';
-		await rows(page).filter({ hasText: 'Specification' }).first().click();
-		await expect(rows(page).filter({ hasText: 'Specification' }).first()).toHaveAttribute(
-			'aria-selected',
-			'true',
-		);
+		await rows(page)
+			.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Specification' }) })
+			.first()
+			.click();
+		await expect(
+			rows(page)
+				.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Specification' }) })
+				.first(),
+		).toHaveAttribute('aria-selected', 'true');
 		await expect(page.getByRole('status').filter({ hasText: 'Specification:' })).toBeVisible();
 		if (phone) {
 			// The editor is on the Text tab: a phone stays on its Gantt tab, and the cursor moved.
@@ -257,7 +261,11 @@ test.describe('gantt', () => {
 	test('collapses and expands a summary task', async ({ page }) => {
 		await open(page);
 		const before = await rows(page).count();
-		const summary = rows(page).filter({ hasText: 'Software Development' }).first();
+		const summary = rows(page)
+			.filter({
+				has: page.locator('[data-col="name"] .label', { hasText: 'Software Development' }),
+			})
+			.first();
 		await expect(summary).toHaveAttribute('aria-expanded', 'true');
 		await summary.locator('.twisty').click();
 		await expect(summary).toHaveAttribute('aria-expanded', 'false');

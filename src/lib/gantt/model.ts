@@ -19,6 +19,9 @@
  * A collapsed container shows the links of its hidden children on its own bar, so a hidden
  * dependency is never silently lost; links that land on one pair of rows are one line that keeps
  * every site.
+ *
+ * The task table's # and link columns read `rowInfo`, built here from the same `links` and the whole
+ * outline (not the visible rows), so a number never depends on what is collapsed.
  */
 import type {
 	Minutes,
@@ -31,6 +34,7 @@ import { visibleRows, type OutlineNode, type OutlineReason } from '../state/outl
 import type { DependencySite, TaskId } from '../tjp/index';
 import type { ZoneOffsets } from '../tjp/values';
 import { finishScenario } from '../schedule/finish';
+import { rowInfoOf, type RowInfo } from './row-links';
 import { MIN_PER_DAY } from './scale';
 import type { GanttCalendar } from './ticks';
 
@@ -122,6 +126,11 @@ export interface GanttModel {
 	/** Outline key to row index. */
 	readonly rowOf: ReadonlyMap<string, number>;
 	readonly links: readonly GanttLink[];
+	/**
+	 * The # and the Predecessors and Successors columns' data for every task of the outline, by
+	 * outline key, hidden rows included (row-links.ts). Built with the model, not per cell.
+	 */
+	readonly rowInfo: ReadonlyMap<string, RowInfo>;
 	/** The time frame drawn: minutes at x = 0 and at the right edge. */
 	readonly originMin: Minutes;
 	readonly endMin: Minutes;
@@ -158,6 +167,7 @@ export const EMPTY_MODEL: GanttModel = {
 	rows: [],
 	rowOf: new Map(),
 	links: [],
+	rowInfo: new Map(),
 	originMin: 0,
 	endMin: FALLBACK_SPAN_DAYS * MIN_PER_DAY,
 	statusMin: null,
@@ -323,6 +333,7 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 		rows,
 		rowOf,
 		links,
+		rowInfo: rowInfoOf(i.nodes, i.links, project),
 		originMin,
 		endMin,
 		statusMin: project ? minutesAt(project, project.now) : null,

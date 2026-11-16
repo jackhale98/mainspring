@@ -57,7 +57,12 @@ test.describe('gantt critical path', () => {
 		await expect(chip(page)).toHaveAccessibleDescription(/estimates: they ignore resource limits/);
 		const line = page.getByRole('status').filter({ hasText: 'Graphical User Interface:' });
 
-		await rows(page).filter({ hasText: 'Graphical User Interface' }).first().click();
+		await rows(page)
+			.filter({
+				has: page.locator('[data-col="name"] .label', { hasText: 'Graphical User Interface' }),
+			})
+			.first()
+			.click();
 		await expect(line).toContainText('On the critical path (estimate)');
 		// Said once, and visible in full even where the line itself is cut (a phone).
 		expect((await line.textContent())?.match(/critical/gi)).toHaveLength(1);
@@ -67,7 +72,10 @@ test.describe('gantt critical path', () => {
 		if (!noteBox || !lineBox) throw new Error('no task line');
 		expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(lineBox.x + lineBox.width + 1);
 		expect(await note.evaluate((n) => n.scrollWidth <= n.clientWidth + 1)).toBe(true);
-		await rows(page).filter({ hasText: 'Manual' }).first().click();
+		await rows(page)
+			.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Manual' }) })
+			.first()
+			.click();
 		await expect(page.getByRole('status').filter({ hasText: 'Manual:' })).toContainText(
 			/Float about \d+ working days \(estimate\)/,
 		);
