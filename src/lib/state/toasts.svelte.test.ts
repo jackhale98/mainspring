@@ -21,6 +21,18 @@ beforeEach(() => {
 afterEach(() => void vi.useRealTimers());
 
 describe('Toasts', () => {
+	it('says an emptied plan has no tasks, as no problem, and closes it by itself', () => {
+		const id = t.edit({ text: 'Deleted Launch', approx: false }, 'e1', null);
+		t.settle(id, { status: 'empty' });
+		expect(t.get(id)).toMatchObject({
+			status: 'empty',
+			text: 'Deleted. The plan has no tasks.',
+			sticky: false,
+		});
+		vi.advanceTimersByTime(TOAST_MS);
+		expect(t.list).toHaveLength(0);
+	});
+
 	it('keeps a pending edit until it settles, then closes it 6 s later', () => {
 		const id = t.edit(label, 'e1', null);
 		expect(t.get(id)).toMatchObject({ status: 'pending', detail: toastStrings.rescheduling });

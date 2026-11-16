@@ -25,6 +25,8 @@ export interface Entry {
 	readonly version: number;
 	/** The error ids of the good run before it (edits-settle.ts). */
 	readonly baseline: ReadonlySet<string>;
+	/** The plan had a task before the edit: an empty result then means the edit emptied it. */
+	readonly hadTasks?: boolean;
 	readonly toast: number;
 	readonly task: TaskId | null;
 	readonly rename: readonly [TaskId, TaskId] | null;
@@ -68,14 +70,14 @@ export class Ledger {
 		const open: Open = { ...e, resolve };
 		this.#open.push(open);
 		this.#publish();
-		const st = state && settleOf(state, e.version, e.baseline);
+		const st = state && settleOf(state, e.version, e.baseline, e.hadTasks ?? true);
 		if (st) this.#settle(open, st);
 		return settled;
 	}
 
 	onRunner(s: RunnerState): void {
 		for (const e of [...this.#open]) {
-			const st = settleOf(s, e.version, e.baseline);
+			const st = settleOf(s, e.version, e.baseline, e.hadTasks ?? true);
 			if (st) this.#settle(e, st);
 		}
 		// The plan schedules again: bars marked "not scheduled" go back to normal.

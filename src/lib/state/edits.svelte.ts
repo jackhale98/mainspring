@@ -384,6 +384,7 @@ export class EditDispatcher {
 				entry: p.edit.id,
 				version,
 				baseline: errorIdsOf(this.#state?.lastGood?.result),
+				hadTasks: (this.#state?.index.tasks.size ?? 1) > 0,
 				toast,
 				task: job.preview?.task ?? null,
 				rename:

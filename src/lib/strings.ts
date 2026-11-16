@@ -369,6 +369,8 @@ export const ganttActionStrings = {
 export const toastStrings = {
 	region: 'Edits',
 	rescheduling: 'Rescheduling…',
+	/** The edit deleted the plan's last task: the plan is empty, which is not an error. */
+	deletedLast: 'Deleted. The plan has no tasks.',
 	/** The edit applied, but the result that includes it does not schedule (11.2). */
 	noLongerSchedules: (message: string) => `Changed. The plan no longer schedules: ${message}`,
 	noMessage: 'the scheduler gave no reason',
@@ -807,6 +809,13 @@ export const strings = {
 		/** The phone's subtitle under the plan name, e.g. "Finish Wed, Jan 6, 2027". */
 		finish: (date: string) => `Finish ${date}`,
 	},
+	/** What an empty plan shows where its tasks would be (components/app/EmptyState.svelte). */
+	empty: {
+		tasksTitle: 'No tasks yet',
+		addTask: 'Add task',
+		/** The pointer to Text mode; a button where the editor is not on screen. */
+		inText: 'or write them in Text',
+	},
 	/** "New plan…" (ADR-0013): the chooser's entries and the sheet that makes the plan. */
 	newPlan: {
 		/** The chooser's first entry; the dots mean it opens a sheet. */
@@ -1001,6 +1010,8 @@ export const strings = {
 		engineStarting: 'Starting the scheduler…',
 		scheduling: 'Scheduling…',
 		ok: 'Scheduled',
+		/** A plan with no task: not an error (ADR-0013 #3). */
+		empty: 'No tasks yet',
 		errors: 'Scheduled with problems',
 		notScheduled: 'Not scheduled: fix the errors',
 		failed: 'Scheduler failed',

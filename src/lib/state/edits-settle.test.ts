@@ -40,6 +40,8 @@ const state = (over: Partial<RunnerView>): RunnerView => ({
 	diagnostics: [],
 	version: 9,
 	lastGood: null,
+	index: { tasks: new Map() } as unknown as RunnerView['index'],
+	indexVersion: 0,
 	...over,
 });
 const NONE = new Set<string>();
@@ -127,5 +129,29 @@ describe('errorIdsOf', () => {
 		});
 		expect([...errorIdsOf(r)].sort()).toEqual(['a', 'b']);
 		expect(errorIdsOf(null).size).toBe(0);
+	});
+});
+
+describe('settleOf on an empty plan', () => {
+	const empty = (ws: number) =>
+		run(3, ws, {
+			ok: false,
+			messages: [{ ...message('error', null, 'No tasks'), id: 'no_tasks' }],
+		});
+	const index = (tasks: Map<string, unknown>) => ({ tasks }) as unknown as RunnerView['index'];
+
+	it('settles as empty, not as an error, when the edit took the last task', () => {
+		const s = state({ latest: empty(5), index: index(new Map()), indexVersion: 9 });
+		expect(settleOf(s, 5, NONE)).toEqual({ status: 'empty' });
+	});
+
+	it('is plain scheduled when the plan was empty before the edit', () => {
+		const s = state({ latest: empty(5), index: index(new Map()), indexVersion: 9 });
+		expect(settleOf(s, 5, NONE, false)).toEqual({ status: 'scheduled' });
+	});
+
+	it('stays not-scheduled when the text still declares tasks', () => {
+		const s = state({ latest: empty(5), index: index(new Map([['a', {}]])), indexVersion: 9 });
+		expect(settleOf(s, 5, NONE)).toMatchObject({ status: 'not-scheduled' });
 	});
 });
