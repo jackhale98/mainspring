@@ -111,8 +111,10 @@ const MAX_WEEKS = 8;
 // T9: the engine gives no working hours for these slots: the person's scoreboard and the
 // project's `workingTime` both leave them out. The amendment says "fill such days in from
 // ProjectInfo.leaves"; the minutes are taken from the person's own hours a week away, which is
-// exact for weekly working hours (part-time included) and an estimate where hours change by date
-// (shifts with periods). They are display data for the hatch only, never available time.
+// exact for weekly working hours (part-time included). It is an estimate where hours change by
+// date (shifts with periods), where the day it copies has an overtime booking (counted as working
+// time there), and where one of its 24-hour pieces crosses a clock change (the shift is taken at
+// the piece's start). They are display data for the hatch only, never available time.
 export function overlapLeaveOf(
 	p: ProjectInfo,
 	zones: ZoneOffsets,

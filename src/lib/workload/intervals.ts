@@ -109,7 +109,9 @@ export function totalMinutes(set: IntervalSet): number {
 
 /**
  * Adds the set's minutes inside each bucket [bounds[i], bounds[i + 1]) to `out[i]`, restricted
- * to [from, to) (the whole axis by default). Minutes outside the bounds are not counted.
+ * to [from, to) (the whole axis by default). Minutes outside the bounds are not counted. A pair
+ * across a bound is split by minute; the axis's bounds are on the slot grid (axis.ts), so engine
+ * intervals, which are whole slots, are never split inside a slot.
  */
 export function addBucketSums(
 	set: IntervalSet,

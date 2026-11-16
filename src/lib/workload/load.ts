@@ -21,7 +21,8 @@
  *   `ProjectInfo.workingTime`) are computed once per build.
  */
 // T9: an `availability` of another revision than `result` (a caller bug: the contract makes it
-// once per result) is not trusted; it is rebuilt from the result for the same scenario.
+// once per result) is not trusted; it is rebuilt from the result for the same scenario, with a
+// console warning in development builds so the bug shows.
 import type { DemandEntry, DemandMarks } from '../schedule/explain-types';
 import type { ResourceId, SymbolIndex, TaskId } from '../tjp/index';
 import { availabilityOf, globalLeaveOverlaps, overlapLeaveOf } from './availability';
@@ -184,10 +185,15 @@ function movableTask(index: SymbolIndex, task: TaskId): boolean {
 export const buildLoad: BuildLoadFn = (i) => {
 	const { result, index, zones, kind, collapsed, demand } = i;
 	const project = result.project;
-	const availability =
-		i.availability.revision === result.revision
-			? i.availability
-			: availabilityOf(result, i.availability.scenario);
+	let availability = i.availability;
+	if (availability.revision !== result.revision) {
+		if (import.meta.env.DEV) {
+			console.warn(
+				`buildLoad: availability of revision ${availability.revision} for result ${result.revision}; rebuilt from the result`,
+			);
+		}
+		availability = availabilityOf(result, availability.scenario);
+	}
 	const axis = project ? bucketAxis(project, zones, kind) : emptyAxis(kind);
 	const bounds = axis.bounds;
 	const count = axis.count;

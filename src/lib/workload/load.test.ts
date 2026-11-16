@@ -5,7 +5,7 @@
 // cell's tasks, dimming without a rebuild, and properties (shuffled bookings give the same model;
 // buckets sum to the frame; days add up to weeks and months).
 import fc from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ScheduleResult } from '../../engine/protocol';
 import { createTimeZoneHost } from '../../engine/timezone';
 import type { DemandMarks } from '../schedule/explain-types';
@@ -204,11 +204,21 @@ describe('buildLoad sums', () => {
 		expect(m.band(0, 0, DEFAULT_THRESHOLDS)).toBe('off');
 	});
 
-	it('rebuilds an availability of another revision', () => {
-		const r = { ...result(), revision: 2 };
-		const stale = availabilityOf({ ...r, bookings: [], revision: 1 }, 'plan');
-		const m = build({ result: r, availability: stale });
-		expect(hours(m.booked[row(m, 'dev1')])[0]).toBe(40);
+	it('rebuilds an availability of another revision, and warns in development', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const r = { ...result(), revision: 2 };
+			const stale = availabilityOf({ ...r, bookings: [], revision: 1 }, 'plan');
+			const m = build({ result: r, availability: stale });
+			expect(hours(m.booked[row(m, 'dev1')])[0]).toBe(40);
+			expect(import.meta.env.DEV).toBe(true);
+			expect(warn).toHaveBeenCalledTimes(1);
+			expect(String(warn.mock.calls[0]?.[0])).toContain('revision 1 for result 2');
+			build();
+			expect(warn).toHaveBeenCalledTimes(1);
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });
 

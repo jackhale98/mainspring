@@ -7,7 +7,9 @@
 //   read as the project's), walked slot by slot;
 // - leave minutes equal its `leaves`, except that buckets with slots under two or more global
 //   leaves may add up to those slots (the fill-in of the ADR-0014 amendment);
-// - every booked slot is a working slot (the amendment: booked never exceeds available).
+// - every booked slot is a working slot (the amendment: booked never exceeds available);
+// - the bounds are the local calendar's: each inner bound is where the slot's local day, week or
+//   month changes, and every slot of the frame lies in the bucket of its own key.
 // The oracle shares no code with src/lib/workload or civil.ts: local dates come from `Intl`, slot
 // by slot, and the tree from the result's own `parent` links.
 import { afterAll, describe, expect, it } from 'vitest';
@@ -187,11 +189,22 @@ describe('the load model against every golden with resources', () => {
 					return keys[kind][first] as number;
 				});
 				expect(new Set(bucketKeys).size).toBe(m.axis.count);
+				// Each inner bound is where the local key changes: the slot before it has another key.
+				const unchanged: number[] = [];
+				for (let i = 1; i < m.axis.count; i++) {
+					const s = (m.axis.bounds[i] as number) / res;
+					if (keys[kind][s - 1] === keys[kind][s]) unchanged.push(i);
+				}
+				expect(unchanged, `${kind} bounds with the same key on both sides`).toEqual([]);
+				// Every slot of the frame lies in the bucket of its own key.
+				const misplaced: number[] = [];
 				const overlapIn = new Int32Array(m.axis.count);
 				for (let s = 0; s < size; s++) {
 					const c = m.axis.indexOf(s * res);
+					if (bucketKeys[c] !== keys[kind][s]) misplaced.push(s);
 					if ((cover[s] as number) >= 2) overlapIn[c] = (overlapIn[c] as number) + res;
 				}
+				expect(misplaced.slice(0, 5), `${kind} slots outside their bucket`).toEqual([]);
 				m.rows.forEach((r, i) => {
 					for (const what of ['booked', 'available'] as const) {
 						const got = [...(m[what][i] as Int32Array)];
