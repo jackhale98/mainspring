@@ -30,12 +30,15 @@ export interface EditHooks {
 	end(task: string): number | null;
 	/** The newest good result's revision. */
 	revision(): number | null;
+	/** What the app has selected (selection.svelte.ts), or null. */
+	selection(): unknown;
 }
 
 interface Source {
 	readonly edits: EditDispatcher | null;
 	readonly run: RunnerState | null;
 	readonly workspace: Workspace | null;
+	readonly selection?: { readonly current: unknown };
 }
 
 /** Installs the hook on `target` when `params` asks for it; returns the uninstall. */
@@ -71,6 +74,7 @@ export function installEditHooks(
 			return (scenario === null ? null : t?.scenarios[scenario]?.end) ?? null;
 		},
 		revision: () => app.run?.lastGood?.revision ?? null,
+		selection: () => app.selection?.current ?? null,
 	};
 	target[EDIT_HOOKS_KEY] = hooks;
 	return () => {

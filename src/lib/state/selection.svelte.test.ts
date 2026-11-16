@@ -7,7 +7,9 @@ import { task } from '../workspace/testing/fake-engine-client';
 import { harness, type Harness } from './edits-testing';
 import {
 	linkPlace,
+	originOf,
 	placeOf,
+	resourcePlace,
 	SelectionState,
 	sourceOf,
 	taskAtCursor,
@@ -313,5 +315,97 @@ describe('SelectionState', () => {
 		expect(s.current).toBeNull();
 		expect(s.follow).toBeNull();
 		expect(seen.at(-1)).toBeNull();
+	});
+});
+
+describe('resourcePlace', () => {
+	it('is the resource declaration block, the cursor on its id', () => {
+		const p = resourcePlace(run(), h.ws, 'r');
+		expect(h.text().slice(p?.block.from, p?.block.to)).toBe('resource r "R"');
+		expect(h.text().slice(p?.at.from, p?.at.to)).toBe('r');
+		expect(resourcePlace(run(), h.ws, 'nobody')).toBeNull();
+	});
+
+	it('moves with the text the index has not seen yet', () => {
+		h.type('# above\n', 0);
+		const p = resourcePlace(run(), h.ws, 'r');
+		expect(h.text().slice(p?.block.from, p?.block.to)).toBe('resource r "R"');
+	});
+});
+
+describe('People selections (phase-3.md 6.7)', () => {
+	function state(): { s: SelectionState; seen: Selection[] } {
+		const seen: Selection[] = [];
+		return { s: new SelectionState((x) => seen.push(x)), seen };
+	}
+
+	it('says where each kind came from: a cell and days are only ever chosen in a view', () => {
+		expect(originOf({ kind: 'task', id: 'a', origin: 'text' })).toBe('text');
+		expect(originOf({ kind: 'resource', id: 'r', origin: 'text' })).toBe('text');
+		expect(originOf({ kind: 'resource', id: 'r', origin: 'visual' })).toBe('visual');
+		expect(originOf({ kind: 'link', pred: 'a', succ: 'b', origin: 'visual' })).toBe('visual');
+		expect(originOf({ kind: 'cell', resource: 'r', bucket: 2, axis: 'week' })).toBe('visual');
+		expect(originOf({ kind: 'days', scope: { kind: 'global' }, from: 0, to: 1440 })).toBe('visual');
+	});
+
+	it('selects a person, a cell and days, each replacing the last, and says so', () => {
+		const { s, seen } = state();
+		s.selectResource('r', 'visual');
+		expect(s.current).toEqual({ kind: 'resource', id: 'r', origin: 'visual' });
+		expect(s.person).toBe('r');
+		expect(s.task).toBeNull();
+		expect(s.taskKey).toBeNull();
+		expect(s.rowKey).toBeNull();
+		s.selectCell('q', 3, 'week');
+		expect(s.current).toEqual({ kind: 'cell', resource: 'q', bucket: 3, axis: 'week' });
+		expect(s.person).toBe('q');
+		s.selectDays({ kind: 'global' }, 0, 2880);
+		expect(s.current).toEqual({ kind: 'days', scope: { kind: 'global' }, from: 0, to: 2880 });
+		expect(s.person).toBeNull();
+		s.selectTask('a', 'visual');
+		expect(s.person).toBeNull();
+		expect(seen).toHaveLength(4);
+		s.clear();
+		expect(s.current).toBeNull();
+	});
+
+	it('selects a person from the text only when it changes, as a task does', () => {
+		const { s, seen } = state();
+		s.selectResource('r', 'visual');
+		expect(s.selectResource('r', 'text')).toBe(false);
+		expect(s.current).toEqual({ kind: 'resource', id: 'r', origin: 'visual' });
+		expect(s.selectResource('r', 'visual')).toBe(true);
+		expect(s.selectResource('q', 'text')).toBe(true);
+		expect(s.current).toEqual({ kind: 'resource', id: 'q', origin: 'text' });
+		expect(seen).toHaveLength(3);
+		// A person is not scrolled to in the Gantt: only a task's row is.
+		expect(s.follow).toBeNull();
+	});
+
+	it('leaves a person, a cell and days where they are when a task is renamed', () => {
+		const { s, seen } = state();
+		// A task called like the person is another thing: ids are separate namespaces.
+		const renames = new Map([['r', 'g.r']]);
+		s.selectResource('r', 'visual');
+		expect(s.followRenames(renames)).toBe(false);
+		s.selectCell('r', 1, 'day');
+		expect(s.followRenames(renames)).toBe(false);
+		s.selectDays({ kind: 'global' }, 0, 1440);
+		expect(s.followRenames(renames)).toBe(false);
+		expect(s.current).toEqual({ kind: 'days', scope: { kind: 'global' }, from: 0, to: 1440 });
+		expect(seen).toHaveLength(3);
+		expect(s.renamedFrom).toBeNull();
+	});
+
+	it('keeps the serial for the same person, and counts another thing as a new one', () => {
+		const { s } = state();
+		s.selectResource('r', 'visual');
+		const serial = s.serial;
+		s.selectResource('r', 'visual');
+		expect(s.serial).toBe(serial);
+		s.selectResource('q', 'visual');
+		expect(s.serial).toBe(serial + 1);
+		s.selectCell('q', 0, 'week');
+		expect(s.serial).toBe(serial + 2);
 	});
 });

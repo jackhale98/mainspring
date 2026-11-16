@@ -2,8 +2,8 @@
 /**
  * Selection and two-way sync between the text and the visual views (phase-2.md 6.10).
  *
- * `Selection` is the one thing the plan has selected: a task, or a link between two tasks. It has
- * an `origin`, which stops feedback loops: a selection that came from the text (the cursor moved
+ * `Selection` is the one thing the plan has selected: a task, a link between two tasks, or (Phase 3)
+ * a person, a heatmap cell or a run of days. A task, a link and a person have an `origin`, which stops feedback loops: a selection that came from the text (the cursor moved
  * into a task) never moves the editor again, and one that came from a visual (a click on a bar, a
  * row, the outline, the inspector) puts the source on show in the editor (the app does that from
  * `AppState.sourceMark`). A link comes only from a visual.
@@ -29,17 +29,22 @@
  * (which task is selected) and records `renamedFrom`, so the details neither remount nor lose
  * the task while the index still has the old id.
  *
- * Phase 3 (phase-3.md 6.7) adds the People kinds (`PeopleSelection`: a person, a heatmap cell, a
- * run of calendar days) and the view types `View` and `PeopleSegment`. A cursor inside a
- * `resource` block will select that person (Split mode), as tasks do. View, zoom, unit (hours or
- * percent), thresholds and the collapsed groups are UI preferences per plan (ADR-0008 #3).
+ * Phase 3 (phase-3.md 6.7, T13) adds the People kinds (`PeopleSelection`: a person, a heatmap
+ * cell, a run of calendar days) to `Selection`, and the view types `View` and `PeopleSegment`.
+ * - A `resource` has an `origin` as a task does; a `cell` and `days` come only from a visual
+ *   (`originOf`). A person and a cell show the person's declaration in the editor (`resourcePlace`);
+ *   days have no place in the text.
+ * - Task renames never move them: `moveTask` and `renameTask` change task ids, and no intent
+ *   changes a resource's id (`renameResource` sets the name). Task and resource ids are separate
+ *   namespaces, so a task called like the person leaves the person selected.
+ * - A selected person stays selected when the index no longer has it (an undo of Add person): the
+ *   source mark goes, and comes back with the person (a redo). The views say "no longer in the
+ *   plan", as the details do for a task.
+ * - The cursor does not select a person yet: `resourceAtCursor` comes with the person details
+ *   (T17), the first place a selected person is shown.
+ * View, zoom, unit (hours or percent), thresholds and the collapsed groups are UI preferences per
+ * plan (ADR-0008 #3; workload/prefs.ts).
  */
-// T2: 6.7's `Selection` is the Phase 2 kinds plus `PeopleSelection`. `Selection` stays the Phase 2
-// union here, so that this interface change changes no behaviour: `followRenames` and `AppState`'s
-// `#onSelection`, `#onIndex`, `#placeOf` and `#remark` read every non-task selection as a link and
-// every selection as having an `origin` (widening it fails the typecheck in those five places).
-// T13 widens it (`Selection = ... | PeopleSelection`) in the change that teaches them the new
-// kinds.
 import type { Minutes, WorkspacePath } from '../../engine/protocol';
 import type { LeavePaint } from '../calendar/paint';
 import { currentRange } from '../inspector/range';
@@ -48,18 +53,24 @@ import type { BucketKind } from '../workload/types';
 import type { RunnerState } from '../workspace/run-types';
 import type { Workspace } from '../workspace/workspace';
 
-export type Selection =
-	| { kind: 'task'; id: TaskId; origin: 'text' | 'visual' }
-	| { kind: 'link'; pred: TaskId; succ: TaskId; origin: 'visual' }
-	| null;
-
-/** Phase 3 kinds (6.7), not yet part of `Selection` (see the T2 note above). */
+/** Phase 3 kinds (6.7). */
 export type PeopleSelection =
 	| { kind: 'resource'; id: ResourceId; origin: 'text' | 'visual' }
 	/** A heatmap cell: `bucket` is the column index in the axis of kind `axis`. */
 	| { kind: 'cell'; resource: ResourceId; bucket: number; axis: BucketKind }
 	/** Calendar days, whole local days `[from, to)`. */
 	| { kind: 'days'; scope: LeavePaint['scope']; from: Minutes; to: Minutes };
+
+export type Selection =
+	| { kind: 'task'; id: TaskId; origin: 'text' | 'visual' }
+	| { kind: 'link'; pred: TaskId; succ: TaskId; origin: 'visual' }
+	| PeopleSelection
+	| null;
+
+/** Where a selection came from: a cell and a run of days are only ever chosen in a view. */
+export function originOf(s: NonNullable<Selection>): 'text' | 'visual' {
+	return s.kind === 'task' || s.kind === 'resource' ? s.origin : 'visual';
+}
 
 /** The visual views: the desktop and tablet view switcher (18.10). */
 export type View = 'gantt' | 'workload' | 'resources' | 'calendar';
@@ -195,6 +206,18 @@ export function linkPlace(run: RunView, ws: TextView, link: LinkSelection): Plac
 	return { block, at: { file: block.file, from: block.from, to: block.from } };
 }
 
+/**
+ * A person's declaration block in the text now, and where the cursor goes: its id, else its header.
+ * Null when the index has no such resource (it was removed, or the index is older than the add).
+ */
+export function resourcePlace(run: RunView, ws: TextView, id: ResourceId): Place | null {
+	const sym = run.index.resources.get(id);
+	if (!sym) return null;
+	const block = currentRange(ws, run.indexVersion, sym.decl.block);
+	const at = currentRange(ws, run.indexVersion, sym.decl.id ?? sym.decl.header);
+	return { block, at };
+}
+
 /** Where a descendant of a renamed task goes: the prefix is replaced. */
 function renamed(id: TaskId, renames: ReadonlyMap<TaskId, TaskId>): TaskId {
 	const to = renames.get(id);
@@ -245,6 +268,14 @@ export class SelectionState {
 	readonly link = $derived<LinkSelection | null>(
 		this.current?.kind === 'link' ? { pred: this.current.pred, succ: this.current.succ } : null,
 	);
+	/** The selected person (a `resource`), or the person of the selected heatmap cell. */
+	readonly person = $derived<ResourceId | null>(
+		this.current?.kind === 'resource'
+			? this.current.id
+			: this.current?.kind === 'cell'
+				? this.current.resource
+				: null,
+	);
 	/** The row the keyboard focus returns to: the task's, or a link's successor's. */
 	readonly rowKey = $derived(
 		this.current?.kind === 'link' ? `task:${this.current.succ}` : this.taskKey,
@@ -263,7 +294,9 @@ export class SelectionState {
 
 	#set(next: Selection, from: TaskId | null = null): void {
 		const cur = this.current;
-		const same = cur?.kind === 'task' && next?.kind === 'task' && cur.id === next.id;
+		const same =
+			(cur?.kind === 'task' && next?.kind === 'task' && cur.id === next.id) ||
+			(cur?.kind === 'resource' && next?.kind === 'resource' && cur.id === next.id);
 		if (from !== null) this.renamedFrom = from;
 		else if (!same) {
 			this.serial++;
@@ -295,6 +328,30 @@ export class SelectionState {
 		this.#set({ kind: 'link', pred, succ, origin: 'visual' });
 	}
 
+	/**
+	 * Selects a person. As for a task, a selection from the text changes nothing when that person
+	 * is already selected, and one from a visual always counts.
+	 */
+	selectResource(id: ResourceId, origin: 'text' | 'visual'): boolean {
+		const cur = this.current;
+		if (origin === 'text' && cur?.kind === 'resource' && cur.id === id) return false;
+		this.follow = null;
+		this.#set({ kind: 'resource', id, origin });
+		return true;
+	}
+
+	/** Selects a heatmap cell: `bucket` is a column of the axis of kind `axis`. */
+	selectCell(resource: ResourceId, bucket: number, axis: BucketKind): void {
+		this.follow = null;
+		this.#set({ kind: 'cell', resource, bucket, axis });
+	}
+
+	/** Selects a run of calendar days, whole local days `[from, to)`. */
+	selectDays(scope: LeavePaint['scope'], from: Minutes, to: Minutes): void {
+		this.follow = null;
+		this.#set({ kind: 'days', scope, from, to });
+	}
+
 	/** Drops a selected link (the inspector's own edits do); a selected task stays. */
 	clearLink(): void {
 		if (this.current?.kind === 'link') this.#set(null);
@@ -309,6 +366,8 @@ export class SelectionState {
 	followRenames(renames: ReadonlyMap<TaskId, TaskId>): boolean {
 		const cur = this.current;
 		if (!cur || renames.size === 0) return false;
+		// Task ids only: a person, a cell and days do not move with a task's rename (module comment).
+		if (cur.kind !== 'task' && cur.kind !== 'link') return false;
 		if (cur.kind === 'task') {
 			const id = renamed(cur.id, renames);
 			if (id === cur.id) return false;

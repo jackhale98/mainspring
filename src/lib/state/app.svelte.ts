@@ -69,7 +69,9 @@ import { bindHistoryKeys } from './history-keys';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
 import {
 	linkPlace,
+	originOf,
 	placeOf,
+	resourcePlace,
 	SelectionState,
 	taskAtCursor,
 	type Place,
@@ -81,7 +83,7 @@ export type { SourceMark };
 import { statusView, type StatusView } from './status';
 import { browserStorage } from './storage';
 
-export type PhoneTab = 'plan' | 'gantt' | 'text';
+export type PhoneTab = 'plan' | 'gantt' | 'people' | 'text';
 export type Phase = 'loading' | 'ready' | 'failed';
 
 /** A request to put the cursor on a range of a file; `nonce` makes repeats distinct. */
@@ -575,7 +577,7 @@ export class AppState {
 
 	/** The selection changed: show it in the editor (a visual's) or let the text's be (module comment). */
 	#onSelection(s: Selection): void {
-		this.#scrollPending = s !== null && s.origin === 'visual';
+		this.#scrollPending = s !== null && originOf(s) === 'visual';
 		this.#remark();
 	}
 
@@ -585,7 +587,8 @@ export class AppState {
 		const ed = this.editor;
 		// The cursor is the truth only while the user is in the editor and no visual selection is
 		// being shown there (it would take the selection back from the visual that made it).
-		if (ed?.hasFocus && this.selection.current?.origin !== 'visual') {
+		const cur = this.selection.current;
+		if (ed?.hasFocus && (cur === null || originOf(cur) !== 'visual')) {
 			this.cursorMoved(this.activeFile, ed.state.selection.main.head);
 		}
 	}
@@ -596,6 +599,10 @@ export class AppState {
 		const ws = this.workspace;
 		if (!run || !ws) return null;
 		if (s.kind === 'link') return linkPlace(run, ws, s);
+		// A person, and the person of a cell, show their declaration; days have no place in the text.
+		if (s.kind === 'resource') return resourcePlace(run, ws, s.id);
+		if (s.kind === 'cell') return resourcePlace(run, ws, s.resource);
+		if (s.kind === 'days') return null;
 		const place = placeOf(run, ws, s.id);
 		if (place) return place;
 		// A declaration the index could not name (text only): the outline has its place.
@@ -608,7 +615,7 @@ export class AppState {
 	/** Makes `sourceMark` from a visual's selection (null for the text's, or when nothing places it). */
 	#remark(): void {
 		const s = this.selection.current;
-		const place = s !== null && s.origin === 'visual' ? this.#placeOf(s) : null;
+		const place = s !== null && originOf(s) === 'visual' ? this.#placeOf(s) : null;
 		const prev = this.sourceMark;
 		if (!place) {
 			if (prev !== null) this.sourceMark = null;
