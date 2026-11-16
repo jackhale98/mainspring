@@ -320,3 +320,23 @@ palette.
   - `Mark.svelte` in the app;
   - `Mark.astro` on the landing page;
   - `public/favicon.svg`, written by `npm run gen:favicon`, with the dark colours under `prefers-color-scheme`. `mark.test.ts` checks that it is current.
+
+## Mark change, 2026-11-16 (user): the "Spring" mark replaces the watch-dial mark
+
+The user found the watch-dial mark unattractive and chose version B, "Spring", from the exploration
+in `docs/design/logo-2026-11/` (comparison sheets and in-app mockups there): a navy ribbon that
+flows into a coil, like the end of a mainspring strip, with a brass arc beside each end.
+
+- **Colours:** the band is navy `#1C2A55` on light and light blued steel `#B3C5F4` on dark (12.8:1
+  and 11.0:1). The arcs use `brass-deep` `#9A7424` on light (3.9:1, so they pass 3:1 for graphics)
+  and `#D2AE5C` on dark.
+- **Small sizes:** at 32 px and below, the arcs are dropped and the band is thicker. At 16 px (the
+  favicon) the coil's innermost turn is dropped so the shape stays crisp.
+- **Geometry:** one source, as before (`src/lib/brand/mark.ts`), with the equal-gap cuts baked into
+  outline paths; no masks in the shipped SVG.
+- **Top bar:** the mark's slot widens from 26 px square to the mark's aspect ratio (about 35 x 26 px).
+- **Loader:** the mark still doubles as the loader (the 2026-11-13 note). The ribbon is drawn along
+  its path into the coil and released, on the same timing and with the same reduced-motion rule.
+  The user sees the animation before it ships.
+- The watch-dial mark's files stay in git history; the brand notes above that describe it are
+  superseded by this entry.
