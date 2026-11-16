@@ -163,18 +163,23 @@ export class ScheduleQueue {
 
 	/** Rule 4: the worker finished a schedule. */
 	result(result: ScheduleResult): Effects {
-		const slot = this.#takeInFlight(result.revision);
-		if (slot === null) return [];
-		const revision = result.revision;
-		const effects: Effects = [];
-		if (slot.cancelled) {
-			effects.push(settle(revision, { status: 'cancelled', revision }));
-		} else {
-			this.#lastDelivered = revision;
-			const latest = this.#pending === null;
-			effects.push(settle(revision, { status: 'done', result, latest }));
-		}
-		return effects.concat(this.#advance());
+		const effects = this.#settleResult(result);
+		return effects === null ? [] : effects.concat(this.#advance());
+	}
+
+	/**
+	 * Like `result`, for a worker the client replaces after this run (client.ts, `recycleBytes`):
+	 * the result settles the same way, then the queue goes to `booting` instead of posting the
+	 * pending request, which waits for the new worker's `ready`. Nothing fails. A stale result
+	 * changes nothing. While a syntax request is posted the worker still owes its reply, so this is
+	 * `result` and the queue stays `ready`; the client checks `phase` to know which happened.
+	 */
+	resultThenReboot(result: ScheduleResult): Effects {
+		if (this.#syntaxPosted.length > 0) return this.result(result);
+		const effects = this.#settleResult(result);
+		if (effects === null) return [];
+		this.#phase = 'booting';
+		return effects;
 	}
 
 	/** The worker reported a failure for a schedule and stays usable (not a crash). */
@@ -278,6 +283,17 @@ export class ScheduleQueue {
 		if (this.#phase !== 'ready' || this.#inFlight !== null || pending === null) return [];
 		this.#pending = null;
 		return this.#launch(pending);
+	}
+
+	/** Settles the in-flight request with `result`; null for a stale result. */
+	#settleResult(result: ScheduleResult): Effects | null {
+		const slot = this.#takeInFlight(result.revision);
+		if (slot === null) return null;
+		const revision = result.revision;
+		if (slot.cancelled) return [settle(revision, { status: 'cancelled', revision })];
+		this.#lastDelivered = revision;
+		const latest = this.#pending === null;
+		return [settle(revision, { status: 'done', result, latest })];
 	}
 
 	#takeInFlight(revision: Revision): InFlight | null {

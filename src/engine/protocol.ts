@@ -374,6 +374,12 @@ export interface Timings {
 	applyMs?: number;
 	/** A request with `fast` that ran in full: why. */
 	fastFallback?: string;
+	/**
+	 * The engine's WebAssembly memory after the run, in bytes: the worker's high-water mark, since
+	 * wasm memory never shrinks. The client replaces a worker that reaches its threshold
+	 * (client.ts `recycleBytes`). Absent from engines that do not report it.
+	 */
+	memoryBytes?: number;
 }
 
 export interface SyntaxDocs {

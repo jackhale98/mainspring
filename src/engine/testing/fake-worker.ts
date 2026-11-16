@@ -12,6 +12,7 @@ import type {
 	ScheduleRequest,
 	ScheduleResult,
 	SyntaxDocs,
+	Timings,
 	ToWorker,
 } from '../protocol';
 
@@ -98,11 +99,16 @@ export class FakeWorker implements WorkerLike {
 		this.emit({ type: 'ready', versions: VERSIONS, bootMs: 1 });
 	}
 
-	/** Answers the oldest unanswered message, as a serial worker would. Returns what it answered. */
-	answerNext(): ToWorker | undefined {
+	/**
+	 * Answers the oldest unanswered message, as a serial worker would. Returns what it answered.
+	 * `timings` is merged into a schedule result's timings (e.g. `memoryBytes`).
+	 */
+	answerNext(timings: Partial<Timings> = {}): ToWorker | undefined {
 		const message = this.unanswered.shift();
 		if (message?.type === 'schedule') {
-			this.emit({ type: 'scheduled', result: makeResult(message.request.revision) });
+			const result = makeResult(message.request.revision);
+			result.timings = { ...result.timings, ...timings };
+			this.emit({ type: 'scheduled', result });
 		} else if (message?.type === 'syntax') {
 			this.emit({ type: 'syntax', id: message.id, result: SYNTAX });
 		}

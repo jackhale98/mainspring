@@ -91,6 +91,11 @@ jobs:
         env:
           TJP_EDIT_ENGINE: '1'
           FC_SEED: '20261112'
+      # One engine's memory must stay flat over repeated full runs of the golden plans (wasm
+      # memory never shrinks; engine/bridge/wasm/tj_wasm_jumps.rb). Fails without the engine.
+      - run: npx vitest run tests/engine/memory.engine.test.ts
+        env:
+          ENGINE_MEMORY: '1'
       # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
       # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
       # engine build hash alone (bridge-only changes) prints a note and passes.

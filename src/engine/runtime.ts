@@ -153,6 +153,7 @@ class WasmEngine implements NodeEngine {
 	readonly #bridge: RbValue;
 	readonly #clearWorkspace: () => void;
 	readonly #now: () => number;
+	readonly #memory: WebAssembly.Memory | null;
 	#broken: string | null = null;
 	#syntax: SyntaxDocs | null = null;
 
@@ -163,6 +164,7 @@ class WasmEngine implements NodeEngine {
 		timings: BootTimings;
 		clearWorkspace: () => void;
 		now: () => number;
+		memory: WebAssembly.Memory | null;
 	}) {
 		this.#vm = init.vm;
 		this.#bridge = init.vm.eval('TJBridge');
@@ -172,6 +174,7 @@ class WasmEngine implements NodeEngine {
 		this.bootMs = init.timings.totalMs;
 		this.#clearWorkspace = init.clearWorkspace;
 		this.#now = init.now;
+		this.#memory = init.memory;
 	}
 
 	schedule(request: ScheduleRequest): ScheduleResult {
@@ -201,6 +204,7 @@ class WasmEngine implements NodeEngine {
 			serializeMs: ms('serializeMs'),
 			totalMs: round1(this.#now() - t0),
 			...fastTimings(timings),
+			...(this.#memory ? { memoryBytes: this.#memory.buffer.byteLength } : {}),
 		};
 		return result;
 	}
@@ -277,7 +281,8 @@ async function boot(opts: BootOptions): Promise<WasmEngine> {
 		const files = parseBundle(decodeText(bundleBytes));
 		const fs = createEngineFs(files, log);
 		const wasi = new WASI([], ['LANG=C.UTF-8', `HOME=${WORKSPACE_ROOT}`], fs.fds, { debug: false });
-		const { vm } = await RubyVM.instantiateModule({ module, wasip1: wasi });
+		const { vm, instance } = await RubyVM.instantiateModule({ module, wasip1: wasi });
+		const memory = instance.exports['memory'];
 		installTimeZoneHost();
 		const t4 = now();
 		const lib = ['lib', 'stubs', 'bridge'].map((d) => JSON.stringify(`${BUNDLE_ROOT}/${d}`));
@@ -307,6 +312,7 @@ async function boot(opts: BootOptions): Promise<WasmEngine> {
 			timings,
 			clearWorkspace: () => clearDirectory(fs.workspace),
 			now,
+			memory: memory instanceof WebAssembly.Memory ? memory : null,
 		});
 	} catch (error) {
 		if (error instanceof EngineFailure) throw error;

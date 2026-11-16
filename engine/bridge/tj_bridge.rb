@@ -47,7 +47,23 @@
 # runs in full. Only a full run with `retain` replaces the kept project
 # (one at a time); other runs leave it, valid for the text it was parsed from.
 #
-# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time and
+# Memory (one VM serves every run of a worker): wasm memory never shrinks, so
+# nothing may pile up from run to run. wasm/tj_wasm_jumps.rb stops the leak of
+# non-local jumps under ruby.wasm (its header explains it). Each schedule also
+# empties two caches TaskJuggler keeps for the life of a process, which a
+# native tj3 run starts empty: ShiftAssignments' scoreboard registry
+# (ShiftAssignments.rb:112; its keys hold the project's object id, and
+# deleteScoreboard removes an object from only the first record it is in, so
+# records of earlier runs stayed) and DataCache (DataCache.rb; only report
+# generation flushes it). Neither is read across runs (both key on objects of
+# one run), so clearing them changes no result. The reply String of the
+# previous schedule or tokens call is emptied too: the JavaScript side keeps a
+# Ruby value it was handed until its own garbage collector finalizes the
+# wrapper, which may be long after it read the text. Nothing else holds a
+# reply. The worker reports the wasm memory size with each result, and the
+# client replaces a worker that has grown too large (src/engine/client.ts).
+#
+# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time, jump and
 # parser-cache patches on native Ruby too (the Intl time-zone patch needs a JS
 # host and is
 # never loaded natively). This exists only to check natively that the patches
@@ -66,6 +82,7 @@ require 'taskjuggler/TaskJuggler'
 require_relative 'wasm/tj_wasm_tz' if TJBridge::WASM
 require_relative 'wasm/tj_wasm_time' if TJBridge::PATCHES
 require_relative 'wasm/tj_parser_cache' if TJBridge::PATCHES
+require_relative 'wasm/tj_wasm_jumps' if TJBridge::PATCHES
 require_relative 'request'
 require_relative 'fast_path'
 
@@ -73,6 +90,22 @@ module TJBridge
   module_function
 
   def schedule(request_json)
+    reply(schedule_json(request_json))
+  end
+
+  # Empties the previous reply (see the header) and keeps this one to empty next time.
+  def reply(json)
+    @reply&.clear
+    @reply = json
+  end
+
+  # The per-process caches a fresh tj3 process starts without (see the header).
+  def clear_process_caches
+    TaskJuggler::ShiftAssignments.sbClear
+    TaskJuggler::DataCache.instance.flush
+  end
+
+  def schedule_json(request_json)
     t0 = MainspringBridge.clock_ms
     begin
       # From JS, vm.wrap(string) arrives as a JS::Object; to_s gives the text.
@@ -92,6 +125,7 @@ module TJBridge
     end
 
     begin
+      clear_process_caches
       fast = fast_run(req, now)
       result, timings = fast.is_a?(Array) ? fast : full_run(req, files, entry, now, options)
       timings['fastFallback'] = fast if fast.is_a?(String)
@@ -157,7 +191,7 @@ module TJBridge
   def tokens(text)
     require_relative 'tokens'
     text = text.to_s unless text.is_a?(String)
-    MainspringBridge::Tokens.json(text)
+    reply(MainspringBridge::Tokens.json(text))
   rescue NoMemoryError, SystemStackError => e
     exception_failure('crash', e)
   rescue StandardError, ScriptError => e
