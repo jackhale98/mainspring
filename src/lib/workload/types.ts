@@ -135,6 +135,9 @@ export interface LoadModel {
 	 * Working time lost to leave, for the hatch: the sum of v3 `ResourceScenarioResult.leaves` in
 	 * the bucket (leave slots in working hours only, so it is exact and disjoint from `available`).
 	 */
+	// T9: plus, where two global leaves overlap (ADR-0014 amendment 2026-11-16), the person's hours
+	// filled in from the same weekday a week away (availability.ts `overlapLeaveOf`): still
+	// disjoint from `available`, but read from the person's pattern, not from the engine.
 	readonly leave: readonly Int32Array[];
 	/**
 	 * Held minutes from `DemandMarks` (6.3): each held entry's window intersected with the person's
@@ -200,6 +203,13 @@ export interface PersonAvailability {
 	readonly booked: IntervalSet;
 	/** `working` minus `booked` (6.3 rule 2). */
 	readonly free: IntervalSet;
+	// T9: two members added (allowed above): the cell details show the effective effort (booked x
+	// efficiency, 18.2), and the cell's tasks and the explainer's `busy` cause need the bookings
+	// per task.
+	/** `ResourceScenarioResult.efficiency`. */
+	readonly efficiency: number;
+	/** Their bookings per task, in `bookings` order (task pre-order); each set as sent. */
+	readonly tasks: ReadonlyArray<{ readonly task: TaskId; readonly intervals: IntervalSet }>;
 }
 
 /** Every leaf person's availability in one scenario of one result. */

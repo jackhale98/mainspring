@@ -68,6 +68,8 @@ describe('workload types (6.2)', () => {
 						leave: [{ type: 'annual', intervals: [[1980, 2460]] }],
 						booked: [[540, 780]],
 						free: [[780, 1020]],
+						efficiency: 1,
+						tasks: [{ task: 'build', intervals: [[540, 780]] }],
 					},
 				],
 			]),
