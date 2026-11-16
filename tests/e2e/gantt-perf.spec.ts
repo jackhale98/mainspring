@@ -22,7 +22,15 @@ import path from 'node:path';
 import { expect, test, type CDPSession, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, type Point } from './lib/gantt-rig';
-import { MAX_FRAME_MS, installProbe, measure, type Measure } from './lib/perf';
+import {
+	EXTRA_RUN_PAUSE_MS,
+	MAX_EXTRA_RUNS,
+	MAX_FRAME_MS,
+	installProbe,
+	measure,
+	withinDesktopCaps,
+	type Measure,
+} from './lib/perf';
 
 const OUT = path.join(REPO, 'test-results', 'gantt-perf.json');
 const SCROLLER = '[data-testid="gantt"] .scroller';
@@ -205,8 +213,7 @@ async function scrolled(
 	return m;
 }
 
-/** The desktop regression caps of 8.4 for one run: at most 5% dropped compositor frames, none over 50 ms. */
-const capOk = (m: Measure): boolean => m.pipeline.droppedPct <= 5 && m.maxMs <= MAX_FRAME_MS;
+const capOk = withinDesktopCaps;
 
 /** The 18.7 definition for one run. */
 const passes = (m: Measure): boolean => m.onTimePct >= PASS_ON_TIME_PCT && m.maxMs <= MAX_FRAME_MS;
@@ -377,10 +384,17 @@ test.describe('gantt perf (gantt-500)', () => {
 				);
 			}
 			// The desktop caps are for regressions: when none of the three runs is within them, up to
-			// three more are made (a regression fails all of them; other work on a shared runner
-			// spoils some). The 18.7 judgement below uses the first three only.
+			// MAX_EXTRA_RUNS more are made (a regression fails all of them; other work on a shared
+			// runner spoils some). The extras are spaced by EXTRA_RUN_PAUSE_MS, because a noisy
+			// neighbour lasts minutes and back-to-back runs all land in the same burst. The 18.7
+			// judgement below uses the first three only.
 			extra[zoom] = [];
-			for (let i = 0; i < 3 && !phone && !scroll[zoom]!.concat(extra[zoom]!).some(capOk); i++) {
+			for (
+				let i = 0;
+				i < MAX_EXTRA_RUNS && !phone && !scroll[zoom]!.concat(extra[zoom]!).some(capOk);
+				i++
+			) {
+				await page.waitForTimeout(EXTRA_RUN_PAUSE_MS);
 				extra[zoom]!.push(
 					await scrollRun(page, cdp, picked.source, at, `scroll ${zoom} extra #${i + 1}`),
 				);

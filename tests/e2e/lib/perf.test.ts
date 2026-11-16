@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { frameStats, inputLatency, percentile, pipelineOf, scriptTimes } from './perf';
+import {
+	frameStats,
+	inputLatency,
+	percentile,
+	pipelineOf,
+	scriptTimes,
+	withinDesktopCaps,
+} from './perf';
 
 describe('frameStats', () => {
 	it('counts on-time frames, the 50 ms ones and the percentiles', () => {
@@ -105,5 +112,14 @@ describe('inputLatency', () => {
 			ev('e', 90000, 'c', 'InputLatency::MouseDown'),
 		]);
 		expect(l).toMatchObject({ count: 2, maxMs: 20 });
+	});
+});
+
+describe('withinDesktopCaps', () => {
+	const run = (droppedPct: number, maxMs: number) => ({ pipeline: { droppedPct }, maxMs });
+	it('holds the 5% and 50 ms budget exactly', () => {
+		expect(withinDesktopCaps(run(5, 50))).toBe(true);
+		expect(withinDesktopCaps(run(5.1, 50))).toBe(false);
+		expect(withinDesktopCaps(run(0.2, 50.1))).toBe(false);
 	});
 });
