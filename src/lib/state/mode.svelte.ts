@@ -7,7 +7,7 @@
  */
 import { browserStorage, readPref, writePref, type PrefStorage } from './storage';
 import { DEFAULT_RATIOS, clampRatio, parseRatios, serializeRatios, type SplitAxis } from './split';
-import { parseTableRatio, serializeTableRatio } from '../gantt/table';
+import { clampTableRatio, parseTableRatio, serializeTableRatio } from '../gantt/table';
 import { modeFromParam, type ViewMode } from './view-mode';
 
 export const modeKey = (sample: string): string => `mainspring.mode.${sample}`;
@@ -55,7 +55,7 @@ export class ModeState {
 	}
 
 	setTable(value: number): void {
-		this.table = clampRatio(value);
+		this.table = clampTableRatio(value);
 	}
 
 	/** Remembers the table divider; called when a drag or a key press ends. */

@@ -53,6 +53,8 @@
 		shown: readonly ColumnId[];
 		/** The width of the shown columns together, in px: the rows' width, the pane scrolls over it. */
 		naturalWidth: number;
+		/** The name column's width in px when it is the pane's width (the name alone); else the token's. */
+		nameWidth?: number | undefined;
 		/** The mounted range of rows; `last` is exclusive. */
 		first: number;
 		last: number;
@@ -100,6 +102,7 @@
 		pending,
 		shown,
 		naturalWidth,
+		nameWidth,
 		first,
 		last,
 		rowHeight,
@@ -390,6 +393,7 @@
 	class="grid"
 	class:scrolled={scrolled > 0}
 	style:--natural-width="{naturalWidth}px"
+	style:--gantt-name-col={nameWidth === undefined ? undefined : `${nameWidth}px`}
 	{onfocusin}
 	{onfocusout}
 	{onkeydown}
