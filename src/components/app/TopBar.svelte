@@ -78,7 +78,7 @@
 			</button>
 		{/if}
 		<h1 class="brand">
-			<Mark />
+			<Mark size={26} />
 			<span class="wordmark">{strings.appName}</span>
 		</h1>
 		<span class="rule" aria-hidden="true"></span>

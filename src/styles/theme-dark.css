@@ -40,17 +40,11 @@
 	--color-ruby-wash: #3a1620;
 	--color-ruby-ink: #f6a3b5;
 
-	/* The brand mark (src/lib/brand/mark.ts): brushed-brass arcs and a ruby jewel, lit from above. */
-	--color-mark-brass-hi: #f6e3ae;
+	/* The brand mark (src/lib/brand/mark.ts, ADR-0009 "Mark change, 2026-11-16"): a light
+	 * blued-steel band and brass arcs. The band on the dark ground is 11.5:1. */
+	--color-mark-band: #b3c5f4;
+	--color-mark-arc: var(--color-brass);
 	--color-mark-brass: #d2ae5c;
-	--color-mark-brass-lo: #9c7a34;
-	--color-mark-ruby-hi: #ff8fa6;
-	--color-mark-ruby: #e0456a;
-	--color-mark-ruby-lo: #8a1534;
-	--color-mark-steel-hi: #a9bef2;
-	--color-mark-steel: #7d9be8;
-	--color-mark-steel-lo: #3d5fb8;
-	--color-mark-glint: #ffffff;
 
 	--color-status-neutral: #a9a291;
 	--color-status-ok: #6fcf97;

@@ -1,172 +1,279 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The Mainspring mark, option C1 "Tick, refined, all brass" (ADR-0009, mark note). One geometry
-// for every use: the app top bar (Mark.svelte), the landing page (Mark.astro), the favicon
-// (public/favicon.svg, written by scripts/gen-favicon.mjs) and the loader in the status pills.
+// The Mainspring mark, "Spring" (ADR-0009, "Mark change, 2026-11-16"). One geometry for every use:
+// the app top bar and loader (Mark.svelte), the landing page (Mark.astro), the favicon
+// (public/favicon.svg, written by scripts/gen-favicon.mjs) and the app icons (scripts/gen-icons.mjs).
 //
-// A watch seen from above, in a 120 x 120 box: three brass task arcs on the dial at equal gaps, a
-// hairline inner dial ring, a blued-steel hairspring, and a ruby cap jewel in a brass setting. The
-// small form (32 px and below) drops the inner ring and the hairspring, thickens the arcs and draws
-// the mainspring itself: a lit blued-steel coil (option E) that starts under the jewel and tapers to
-// a fine tail, so it stays crisp, and still says "mainspring", at favicon size.
+// A navy ribbon of one constant width flows in an S and winds into a coil at its left end, like the
+// end of a mainspring strip. In the full form a brass arc stands beside each end. Everything is a
+// circular arc or a straight segment, stroked at one width, so the gaps are equal by construction
+// (a coil's pitch is the band width plus one gap) and no cut or mask is needed. The ribbon is one
+// path that runs from its free end into the coil, which is what the loader draws along.
+//
+// Three forms, by the height the mark is drawn at:
+//   full   (above 32 px): a slim band, a coil of 1.5 turns and the two brass arcs;
+//   small  (17 to 32 px): no arcs, a thicker band, a coil of one turn;
+//   tiny   (16 px and below, the favicon): the coil's innermost half turn is dropped as well.
 
-export const VIEWBOX = 120;
-const C = VIEWBOX / 2;
+/** The viewBox of the mark: 120 wide, as tall as the mark's slot (MARK_ASPECT). */
+export const VIEWBOX_W = 120;
+/** Width over height of the mark's slot: 35 x 26 px at the top bar's 26 px height. */
+export const MARK_ASPECT = 35 / 26;
+export const VIEWBOX_H = Math.round((VIEWBOX_W / MARK_ASPECT) * 100) / 100;
 
-/** Degrees between neighbouring arcs. Equal for all three. */
-export const ARC_GAP_DEG = 12;
-/** The three task arcs, in degrees, clockwise from the top. With the gaps they close the circle. */
-export const ARC_SPANS_DEG: readonly [number, number, number] = [120, 96, 108];
-const ARC_RADIUS = 45;
-
-/** At or below this rendered size the small form is used. */
+/** At or below this rendered height the small form is used. */
 export const SMALL_MAX_PX = 32;
+/** At or below this rendered height the tiny form is used. */
+export const TINY_MAX_PX = 16;
 
-export type MarkForm = 'full' | 'small';
+export type MarkForm = 'full' | 'small' | 'tiny';
 
-export interface MarkGeometry {
-	/** SVG path data, one per task arc. */
-	readonly arcs: readonly string[];
-	readonly arcWidth: number;
-	/** The inner dial ring radius, or null in the small form. */
-	readonly innerRing: number | null;
-	/** The full form's hairspring (a stroke), or null in the small form. */
-	readonly hairspring: string | null;
-	readonly hairspringWidth: number;
-	/** The small form's mainspring coil (a filled, tapering strip), or null in the full form. */
-	readonly coil: string | null;
-	/** The ruby jewel radius. */
-	readonly jewel: number;
-	/** The radius of the jewel's brass setting, drawn under the jewel with a soft shadow. */
-	readonly setting: number;
-	/** The ruby's radial gradient, lit from the top left. */
-	readonly jewelLight: { readonly cx: number; readonly cy: number; readonly r: number };
-	/** The highlight on the jewel: centre and radii. */
-	readonly highlight: {
-		readonly cx: number;
-		readonly cy: number;
-		readonly rx: number;
-		readonly ry: number;
-	};
+/** A form's construction, in design units (a stroke's width, a radius, degrees). */
+interface Spec {
+	/** The ribbon's width. */
+	readonly w: number;
+	/** The gap between two windings of the coil, and between the ribbon and an arc. */
+	readonly gap: number;
+	/** The brass arcs' width, or 0 for none. */
+	readonly arcW: number;
+	/** The hooks' radius (the centreline). */
+	readonly rh: number;
+	/** The hooks' centres are (-cx, +cy) and (+cx, -cy) about the origin. */
+	readonly cx: number;
+	readonly cy: number;
+	/** The angle each hook sweeps, in degrees. */
+	readonly sweep: number;
+	/** Half turns of coil after the left hook. */
+	readonly halfTurns: number;
 }
 
-const fmt = (n: number): string => (Math.round(n * 100) / 100).toString();
-
-/** A point at radius r and angle a (degrees, 0 at the top, clockwise). */
-function at(r: number, a: number): [number, number] {
-	const t = (a * Math.PI) / 180;
-	return [C + r * Math.sin(t), C - r * Math.cos(t)];
-}
-
-/** The start and end angles of each arc, centred so the gaps sit symmetrically. */
-export function arcAngles(): Array<[number, number]> {
-	const out: Array<[number, number]> = [];
-	let a = ARC_GAP_DEG / 2;
-	for (const span of ARC_SPANS_DEG) {
-		out.push([a, a + span]);
-		a += span + ARC_GAP_DEG;
-	}
-	return out;
-}
-
-function arcPath(r: number, a0: number, a1: number): string {
-	const [x0, y0] = at(r, a0);
-	const [x1, y1] = at(r, a1);
-	const large = a1 - a0 > 180 ? 1 : 0;
-	return `M${fmt(x0)} ${fmt(y0)} A${r} ${r} 0 ${large} 1 ${fmt(x1)} ${fmt(y1)}`;
-}
-
-/** An Archimedean spiral from r0 to r1 over the given turns, as a polyline. */
-function spiralPath(r0: number, r1: number, turns: number, a0: number): string {
-	const n = Math.round(turns * 72);
-	const pts: string[] = [];
-	for (let i = 0; i <= n; i++) {
-		const u = i / n;
-		const [x, y] = at(r0 + (r1 - r0) * u, a0 + 360 * turns * u);
-		pts.push(`${fmt(x)} ${fmt(y)}`);
-	}
-	return `M${pts.join(' L')}`;
-}
-
-/**
- * A filled spiral strip from r0 to r1: `w0` wide at the inner end, `w1` at the outer, easing to a
- * point over the last `tip` of its run (the spring's tail).
- */
-function coilPath(
-	r0: number,
-	r1: number,
-	turns: number,
-	a0: number,
-	w0: number,
-	w1: number,
-	tip = 0.18,
-): string {
-	const n = Math.round(turns * 120);
-	const outer: string[] = [];
-	const inner: string[] = [];
-	for (let i = 0; i <= n; i++) {
-		const u = i / n;
-		const r = r0 + (r1 - r0) * u;
-		const a = a0 + 360 * turns * u;
-		let w = w0 + (w1 - w0) * u;
-		if (u > 1 - tip) w *= Math.sin((((1 - u) / tip) * Math.PI) / 2);
-		const [ox, oy] = at(r + w / 2, a);
-		const [ix, iy] = at(r - w / 2, a);
-		outer.push(`${fmt(ox)} ${fmt(oy)}`);
-		inner.push(`${fmt(ix)} ${fmt(iy)}`);
-	}
-	return `M${outer.concat(inner.reverse()).join(' L')}Z`;
-}
-
-let markIds = 0;
-/** A gradient id prefix unique within a page, deterministic across builds (Mark.astro). */
-export function nextMarkId(): string {
-	markIds += 1;
-	return `mk${markIds}`;
-}
+const SPECS: Record<MarkForm, Spec> = {
+	full: { w: 8, gap: 3, arcW: 4, rh: 28, cx: 32, cy: 6, sweep: 180, halfTurns: 3 },
+	small: { w: 14, gap: 7, arcW: 0, rh: 31, cx: 33, cy: 7, sweep: 180, halfTurns: 2 },
+	tiny: { w: 15, gap: 8, arcW: 0, rh: 30, cx: 33, cy: 7, sweep: 180, halfTurns: 1 },
+};
+/** Where the brass arc starts and ends either side of the hook's end cut, in degrees. */
+const ARC_BEFORE = 45;
+const ARC_AFTER = 55;
+/** The ribbon is inset from the viewBox's edge by this much. */
+const MARGIN = 2;
 
 export function markForm(sizePx: number): MarkForm {
-	return sizePx <= SMALL_MAX_PX ? 'small' : 'full';
+	return sizePx <= TINY_MAX_PX ? 'tiny' : sizePx <= SMALL_MAX_PX ? 'small' : 'full';
 }
 
-export function markGeometry(form: MarkForm): MarkGeometry {
-	const small = form === 'small';
-	const jewel = small ? 9 : 5.2;
+export interface MarkGeometry {
+	/** The ribbon as one stroke, from its free end, along the S, into the coil's tip. */
+	readonly band: string;
+	readonly bandWidth: number;
+	/** The brass arcs, one stroke each (none in the small and tiny forms). */
+	readonly arcs: readonly string[];
+	readonly arcWidth: number;
+	/** The viewBox height this geometry was fitted to. */
+	readonly height: number;
+}
+
+// ---- construction -------------------------------------------------------------------------------
+
+/** A circular arc in design units: angles in degrees, y down, increasing is clockwise on screen.
+ * `a1 < a0` runs the other way. */
+interface Arc {
+	readonly cx: number;
+	readonly cy: number;
+	readonly r: number;
+	readonly a0: number;
+	readonly a1: number;
+}
+interface Line {
+	readonly from: readonly [number, number];
+	readonly to: readonly [number, number];
+}
+type Piece = Arc | Line;
+
+const rad = (d: number): number => (d * Math.PI) / 180;
+const deg = (r: number): number => (r * 180) / Math.PI;
+const onArc = (a: Arc, angle: number, r = a.r): [number, number] => [
+	a.cx + r * Math.cos(rad(angle)),
+	a.cy + r * Math.sin(rad(angle)),
+];
+const isArc = (p: Piece): p is Arc => 'r' in p;
+
+interface Design {
+	/** In drawing order: right hook, diagonal, left hook, coil. */
+	readonly band: readonly Piece[];
+	readonly arcs: readonly Arc[];
+}
+
+/** The tangent angle on the left hook where the diagonal leaves it: the S's internal tangent. */
+function hookExit(rh: number, cx: number, cy: number): number {
+	const cl = [-cx, cy] as const;
+	const d = Math.hypot(cx, cy);
+	if (d <= rh) throw new Error('the hooks overlap: there is no internal tangent');
+	const beta = Math.atan2(-cl[1], -cl[0]);
+	const off = Math.acos(rh / d);
+	for (const sign of [1, -1]) {
+		const a = beta + sign * off;
+		const px = cl[0] + rh * Math.cos(a);
+		const py = cl[1] + rh * Math.sin(a);
+		// clockwise motion at angle a heads (-sin, cos); it must head towards the origin
+		if (-Math.sin(a) * -px + Math.cos(a) * -py > 0) return deg(a);
+	}
+	throw new Error('no tangent');
+}
+
+function design(s: Spec): Design {
+	const cl: [number, number] = [-s.cx, s.cy];
+	const cr: [number, number] = [s.cx, -s.cy];
+	const aA = hookExit(s.rh, s.cx, s.cy);
+	const aB = aA + 180;
+	const aJ = aA - s.sweep;
+	const left: Arc = { cx: cl[0], cy: cl[1], r: s.rh, a0: aA, a1: aJ };
+	const right: Arc = { cx: cr[0], cy: cr[1], r: s.rh, a0: aB - s.sweep, a1: aB };
+	const a = onArc({ ...left, a0: 0, a1: 0 }, aA);
+	const band: Piece[] = [right, { from: [-a[0], -a[1]], to: a }, left];
+
+	// The coil: half-turn semicircles, each a half pitch smaller, all tangent where they meet, so
+	// the winding pitch is the band plus one gap everywhere.
+	const pitch = s.w + s.gap;
+	const u: [number, number] = [Math.cos(rad(aJ)), Math.sin(rad(aJ))];
+	let from = onArc(left, aJ);
+	for (let k = 1; k <= s.halfTurns; k++) {
+		const r = s.rh - (k * pitch) / 2;
+		const sign = k % 2 === 1 ? -1 : 1;
+		const c: [number, number] = [from[0] + sign * r * u[0], from[1] + sign * r * u[1]];
+		const arc: Arc = { cx: c[0], cy: c[1], r, a0: aJ - (k - 1) * 180, a1: aJ - k * 180 };
+		band.push(arc);
+		from = onArc(arc, arc.a1);
+	}
+
+	// The brass arcs sit one gap outside each hook, centred on where the hook ends; the second is
+	// the first turned half a turn about the origin.
+	const arcs: Arc[] = [];
+	if (s.arcW > 0) {
+		const r = s.rh + s.w / 2 + s.gap + s.arcW / 2;
+		arcs.push({ cx: cl[0], cy: cl[1], r, a0: aJ - ARC_BEFORE, a1: aJ + ARC_AFTER });
+		arcs.push({ cx: cr[0], cy: cr[1], r, a0: aJ - ARC_BEFORE + 180, a1: aJ + ARC_AFTER + 180 });
+	}
+	return { band, arcs };
+}
+
+/** Points along the outer edge of everything drawn, for the bounding box. */
+function outline(d: Design, s: Spec): Array<[number, number]> {
+	const pts: Array<[number, number]> = [];
+	const sample = (a: Arc, width: number): void => {
+		for (let i = 0; i <= 48; i++) {
+			const angle = a.a0 + ((a.a1 - a.a0) * i) / 48;
+			pts.push(onArc(a, angle, a.r + width / 2));
+			pts.push(onArc(a, angle, a.r - width / 2));
+		}
+	};
+	for (const p of d.band) {
+		if (isArc(p)) sample(p, s.w);
+		else pts.push([...p.from], [...p.to]);
+	}
+	for (const a of d.arcs) sample(a, s.arcW);
+	return pts;
+}
+
+const fmt = (n: number): string => String(Math.round(n * 100) / 100);
+
+interface Fit {
+	readonly scale: number;
+	readonly tx: number;
+	readonly ty: number;
+}
+
+function fit(pts: ReadonlyArray<readonly [number, number]>, height: number): Fit {
+	const xs = pts.map((p) => p[0]);
+	const ys = pts.map((p) => p[1]);
+	const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+	const scale = Math.min((VIEWBOX_W - 2 * MARGIN) / (x1 - x0), (height - 2 * MARGIN) / (y1 - y0));
 	return {
-		arcs: arcAngles().map(([a0, a1]) => arcPath(ARC_RADIUS, a0, a1)),
-		arcWidth: small ? 11 : 3.6,
-		innerRing: small ? null : 38.5,
-		hairspring: small ? null : spiralPath(9, 26, 2.5, 90),
-		hairspringWidth: 1.15,
-		// Two and a half turns from under the jewel to just inside the dial (option E).
-		coil: small ? coilPath(4, 34, 2.5, 30, 5.2, 3.8) : null,
-		jewel,
-		setting: jewel + 1.8,
-		jewelLight: { cx: C - jewel * 0.58, cy: C - jewel * 0.58, r: jewel * 1.55 },
-		highlight: {
-			cx: C - jewel * 0.35,
-			cy: C - jewel * 0.38,
-			rx: jewel * 0.34,
-			ry: jewel * 0.22,
-		},
+		scale,
+		tx: VIEWBOX_W / 2 - ((x0 + x1) / 2) * scale,
+		ty: height / 2 - ((y0 + y1) / 2) * scale,
 	};
 }
 
+/** Path data for the pieces, in viewBox units. Arcs of 180 degrees or more are split in two so
+ * the large-arc flag is never ambiguous. */
+function pathData(pieces: readonly Piece[], f: Fit): string {
+	const x = (v: number): string => fmt(f.tx + f.scale * v);
+	const y = (v: number): string => fmt(f.ty + f.scale * v);
+	let d = '';
+	const arc = (a: Arc, a0: number, a1: number, move: boolean): void => {
+		const p0 = onArc(a, a0);
+		const p1 = onArc(a, a1);
+		if (move) d += `M${x(p0[0])} ${y(p0[1])}`;
+		const r = fmt(a.r * f.scale);
+		d += `A${r} ${r} 0 0 ${a1 > a0 ? 1 : 0} ${x(p1[0])} ${y(p1[1])}`;
+	};
+	pieces.forEach((p, i) => {
+		if (!isArc(p)) {
+			d += `${i === 0 ? `M${x(p.from[0])} ${y(p.from[1])}` : ''}L${x(p.to[0])} ${y(p.to[1])}`;
+			return;
+		}
+		if (Math.abs(p.a1 - p.a0) >= 179.9) {
+			const mid = (p.a0 + p.a1) / 2;
+			arc(p, p.a0, mid, i === 0);
+			arc(p, mid, p.a1, false);
+		} else arc(p, p.a0, p.a1, i === 0);
+	});
+	return d;
+}
+
+/** The mark's geometry, fitted to a viewBox of VIEWBOX_W by `height` (VIEWBOX_H in the app, 120
+ * for the square favicon and icon tiles). */
+export function markGeometry(form: MarkForm, height: number = VIEWBOX_H): MarkGeometry {
+	const spec = SPECS[form];
+	const d = design(spec);
+	const f = fit(outline(d, spec), height);
+	return {
+		band: pathData(d.band, f),
+		bandWidth: Math.round(spec.w * f.scale * 100) / 100,
+		arcs: d.arcs.map((a) => pathData([a], f)),
+		arcWidth: Math.round(spec.arcW * f.scale * 100) / 100,
+		height,
+	};
+}
+
+/** The construction numbers of a form, for the tests: the band width, the gap, the coil pitch. */
+export function markSpec(form: MarkForm): Readonly<{ w: number; gap: number; pitch: number }> {
+	const s = SPECS[form];
+	return { w: s.w, gap: s.gap, pitch: s.w + s.gap };
+}
+
+/** Every drawn point's distance from the centre of a 120 x 120 box, at most (for the icon safe zone). */
+export function markReach(form: MarkForm): number {
+	const spec = SPECS[form];
+	const d = design(spec);
+	const pts = outline(d, spec);
+	const f = fit(pts, VIEWBOX_W);
+	return Math.max(
+		...pts.map((p) =>
+			Math.hypot(f.tx + f.scale * p[0] - VIEWBOX_W / 2, f.ty + f.scale * p[1] - VIEWBOX_W / 2),
+		),
+	);
+}
+
+// ---- standalone SVG ------------------------------------------------------------------------------
+
 export interface MarkColours {
-	readonly brassHi: string;
-	readonly brass: string;
-	readonly brassLo: string;
-	readonly steelHi: string;
-	readonly steel: string;
-	readonly steelLo: string;
-	readonly rubyHi: string;
-	readonly ruby: string;
-	readonly rubyLo: string;
+	/** The ribbon: the mark band token (`--color-mark-band`). */
+	readonly band: string;
+	/** The brass arcs (`--color-mark-arc`). */
+	readonly arc: string;
+}
+
+/** An app icon tile: the mark centred on a solid ground, scaled about the centre. */
+export interface MarkTile {
+	readonly background: string;
+	readonly scale: number;
 }
 
 /**
- * The mark as a standalone SVG document (the favicon). `id` prefixes the gradient ids. A `dark`
- * palette, when given, is applied under prefers-color-scheme: dark, so the tab icon follows the
- * browser.
+ * The mark as a standalone SVG document, in a square 120 x 120 viewBox (the favicon and the icons).
+ * A `dark` palette, when given, is applied under prefers-color-scheme: dark, so a tab icon follows
+ * the browser. With a `tile` the mark sits on a solid ground.
  */
 export function markSvg(
 	form: MarkForm,
@@ -174,85 +281,34 @@ export function markSvg(
 	dark?: MarkColours,
 	tile?: MarkTile,
 ): string {
-	const g = markGeometry(form);
-	const s = tile?.scale ?? 1;
-	const fit = s === 1 ? '' : ` transform="translate(${C} ${C}) scale(${s}) translate(${-C} ${-C})"`;
+	const g = markGeometry(form, VIEWBOX_W);
 	const css = (c: MarkColours): string =>
-		`.bh{stop-color:${c.brassHi}}.bm{stop-color:${c.brass}}.bl{stop-color:${c.brassLo}}` +
-		`.rh{stop-color:${c.rubyHi}}.rm{stop-color:${c.ruby}}.rl{stop-color:${c.rubyLo}}` +
-		`.sh{stop-color:${c.steelHi}}.sm{stop-color:${c.steel}}.sl{stop-color:${c.steelLo}}` +
-		`.hs{stroke:${c.steel}}.ir{stroke:${c.brass}}`;
+		`.b{stroke:${c.band}}${g.arcs.length > 0 ? `.a{stroke:${c.arc}}` : ''}`;
 	const style = css(light) + (dark ? `@media (prefers-color-scheme:dark){${css(dark)}}` : '');
+	const k = tile?.scale ?? 1;
+	const c = VIEWBOX_W / 2;
+	const open =
+		k === 1
+			? '<g fill="none">'
+			: `<g fill="none" transform="translate(${c} ${c}) scale(${k}) translate(${-c} ${-c})">`;
 	return [
-		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}">`,
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX_W} ${VIEWBOX_W}">`,
 		`<style>${style}</style>`,
-		'<defs>',
-		`<linearGradient id="b" x1="0" y1="0" x2="0" y2="${VIEWBOX}" gradientUnits="userSpaceOnUse">`,
-		'<stop class="bh" offset="0"/><stop class="bm" offset=".45"/><stop class="bl" offset="1"/>',
-		'</linearGradient>',
-		`<radialGradient id="r" cx="${fmt(g.jewelLight.cx)}" cy="${fmt(g.jewelLight.cy)}" r="${fmt(g.jewelLight.r)}" gradientUnits="userSpaceOnUse">`,
-		'<stop class="rh" offset="0"/><stop class="rm" offset=".55"/><stop class="rl" offset="1"/>',
-		'</radialGradient>',
-		'<linearGradient id="s" x1="0" y1="24" x2="0" y2="96" gradientUnits="userSpaceOnUse">',
-		'<stop class="sh" offset="0"/><stop class="sm" offset=".5"/><stop class="sl" offset="1"/>',
-		'</linearGradient>',
-		'<filter id="d" x="-50%" y="-50%" width="200%" height="200%">',
-		'<feDropShadow dx="0" dy=".8" stdDeviation=".9" flood-color="#000" flood-opacity=".3"/>',
-		'</filter>',
-		'</defs>',
-		tile ? `<rect width="${VIEWBOX}" height="${VIEWBOX}" fill="${tile.background}"/>` : '',
-		`<g${fit}>`,
-		...g.arcs.map(
-			(d) => `<path d="${d}" fill="none" stroke="url(#b)" stroke-width="${g.arcWidth}"/>`,
-		),
-		g.innerRing === null
-			? ''
-			: `<circle class="ir" cx="${C}" cy="${C}" r="${g.innerRing}" fill="none" stroke-width=".6" opacity=".55"/>`,
-		g.hairspring === null
-			? ''
-			: `<path class="hs" d="${g.hairspring}" fill="none" stroke-width="${g.hairspringWidth}" stroke-linecap="round"/>`,
-		g.coil === null ? '' : `<path d="${g.coil}" fill="url(#s)"/>`,
-		`<g filter="url(#d)"><circle cx="${C}" cy="${C}" r="${fmt(g.setting)}" fill="url(#b)"/>`,
-		`<circle cx="${C}" cy="${C}" r="${fmt(g.jewel)}" fill="url(#r)"/></g>`,
-		`<ellipse cx="${fmt(g.highlight.cx)}" cy="${fmt(g.highlight.cy)}" rx="${fmt(g.highlight.rx)}" ry="${fmt(g.highlight.ry)}" fill="#fff" opacity=".55" transform="rotate(-35 ${fmt(g.highlight.cx)} ${fmt(g.highlight.cy)})"/>`,
+		tile ? `<rect width="${VIEWBOX_W}" height="${VIEWBOX_W}" fill="${tile.background}"/>` : '',
+		open,
+		...g.arcs.map((d) => `<path class="a" d="${d}" stroke-width="${g.arcWidth}"/>`),
+		`<path class="b" d="${g.band}" stroke-width="${g.bandWidth}"/>`,
 		'</g>',
 		'</svg>',
 		'',
 	].join('');
 }
 
-/** An app icon tile: the mark centred on a solid ground, at `scale` of the tile. */
-export interface MarkTile {
-	readonly background: string;
-	readonly scale: number;
-}
+/** The app icons in the web manifest (scripts/gen-icons.mjs): the full mark on the enamel ground. */
+export const APP_ICON: MarkTile = { background: '#ece7dc', scale: 0.72 };
+/** Maskable: inside the 80% safe circle a launcher may crop to. */
+export const APP_ICON_MASKABLE: MarkTile = { background: '#ece7dc', scale: 0.6 };
 
-/** The app icons in the web manifest (scripts/gen-icons.mjs): the small form on the enamel ground. */
-export const APP_ICON: MarkTile = { background: '#ece7dc', scale: 0.78 };
-/** Maskable: inside the 80% safe circle a launcher may crop to (the small form's arcs reach 0.84 of
- * the half-box, so 0.62 keeps them within 0.52 of it). */
-export const APP_ICON_MASKABLE: MarkTile = { background: '#ece7dc', scale: 0.62 };
-
-/** The favicon palettes: the light and dark theme tokens of the mark (theme-light.css, theme-dark.css). */
-export const FAVICON_LIGHT: MarkColours = {
-	brassHi: '#ddbb6e',
-	brass: '#b08d3c',
-	brassLo: '#7e5f22',
-	steelHi: '#4e74d0',
-	steel: '#2346a0',
-	steelLo: '#142a66',
-	rubyHi: '#e0577a',
-	ruby: '#a3123a',
-	rubyLo: '#5e0820',
-};
-export const FAVICON_DARK: MarkColours = {
-	brassHi: '#f6e3ae',
-	brass: '#d2ae5c',
-	brassLo: '#9c7a34',
-	steelHi: '#a9bef2',
-	steel: '#7d9be8',
-	steelLo: '#3d5fb8',
-	rubyHi: '#ff8fa6',
-	ruby: '#e0456a',
-	rubyLo: '#8a1534',
-};
+/** The mark's palettes: the light and dark theme tokens (theme-light.css, theme-dark.css). */
+export const FAVICON_LIGHT: MarkColours = { band: '#1c2a55', arc: '#9a7424' };
+export const FAVICON_DARK: MarkColours = { band: '#b3c5f4', arc: '#d2ae5c' };

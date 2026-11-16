@@ -1,8 +1,9 @@
 # Logo exploration, November 2026
 
-Two hand-built logo directions for the user to choose from. Nothing here changes the shipped app:
-the app's `Mark` components, `public/favicon.svg` and `public/icons/` are untouched. Start with
-`mockups/comparison-light.png` and `mockups/comparison-dark.png`.
+Two hand-built logo directions for the user to choose from. The user chose B, "Spring"
+(ADR-0009, "Mark change, 2026-11-16"); it is shipped from `src/lib/brand/mark.ts`, which is now the
+one source of the geometry. The SVG and PNG files here are the exploration's own and are not used
+by the app. Start with `mockups/comparison-light.png` and `mockups/comparison-dark.png`.
 
 Colours map to ADR-0009 tokens. Light: band navy `#1C2A55` (the active-mode pill), gold brass
 `#B08D3C`, tile `#ECE7DC`. Dark: band `#B3C5F4` (accentInk, a light heat-blued steel), gold brass
