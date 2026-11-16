@@ -4,9 +4,12 @@ Plans whose native TaskJuggler outputs the browser engine must reproduce exactly
 (`docs/phases/phase-0.md`, section 6). `manifest.json` lists them; `expected/<id>.json`
 holds each plan's recorded output.
 
-The manifest holds 41 plans: the five upstream examples (read in place from
+The manifest holds 72 plans: the five upstream examples (read in place from
 `engine/tj/examples/`), the PoC sample, the 23 synthetic plans below, the 9 bridge fixtures
-(see "Bridge fixtures" further down), and the three Gantt plans (see "Gantt fixtures" below).
+(see "Bridge fixtures" further down), the three Gantt plans (see "Gantt fixtures" below),
+`fedora-res` (Fedora 20 plus a generated resource pool, `generators/fedora-res.mjs`; phase-3
+18.1), the 12 workload fixtures in `tests/fixtures/workload/` (kind `workload`) and the 18 health
+pass and fail plans in `tests/fixtures/health/` (kind `health`, one pair per check H1 to H9).
 
 Every golden holds result schema 3 (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in
 `lib.mjs`): the phase-0 fields, the bridge v2 fields of `docs/phases/phase-2.md` 6.1 (ADR-0007)
