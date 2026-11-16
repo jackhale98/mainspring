@@ -78,6 +78,8 @@
 		type ZoomLevel,
 	} from '../../lib/gantt/scale';
 	import {
+		clampTableRatio,
+		columnsFit,
 		defaultTableRatio,
 		leastTableWidth,
 		tableLimits,
@@ -86,7 +88,6 @@
 	import { ticksFor } from '../../lib/gantt/ticks';
 	import { memoZones } from '../../lib/gantt/zones';
 	import type { AppState } from '../../lib/state/app.svelte';
-	import { clampRatio } from '../../lib/state/split';
 	import { gestureStrings, strings } from '../../lib/strings';
 	import { ctrlWheel } from './ctrl-wheel';
 	import { createManipulation } from './manipulation.svelte';
@@ -176,23 +177,25 @@
 
 	/** The shown scenario and its parents: which of a task's `effort` statements applies. */
 	const chain = $derived(scenarioChain(model.project, model.scenario));
-	// The columns drawn and their natural width together; the divider decides how much of it shows.
-	const columnsShown = $derived(shownColumns(phone));
-	const naturalW = $derived(nameColW + extrasRem(columnsShown) * remPx);
 	const tableSpace = $derived({
 		ganttPx: scrollerW,
 		dividerPx: dividerW,
-		leastPx: leastTableWidth(nameColW, remPx),
+		leastPx: leastTableWidth(remPx),
 	});
-	/** What the divider can reach: the pane is never narrower than the name and the widest column. */
+	/** What the divider can reach: the pane is never narrower than its least (table.ts). */
 	const limits = $derived(tableLimits(tableSpace));
 	const defaultRatio = $derived(
 		defaultTableRatio(scrollerW, nameColW + extrasRem(DEFAULT_COLUMNS) * remPx, dividerW),
 	);
-	const ratio = $derived(clampRatio(tableRatio ?? defaultRatio, limits));
+	const ratio = $derived(clampTableRatio(tableRatio ?? defaultRatio, limits));
 	/** The table pane's width, and where the chart starts (past the divider). */
 	const tableW = $derived(phone ? nameColW : tableWidth({ ...tableSpace, ratio }));
 	const chartLeft = $derived(tableW + (phone ? 0 : dividerW));
+	// A pane too narrow for a name and a column beside it is the name column alone, as on a phone:
+	// the name fills the pane (clipped with an ellipsis) and the other cells are not drawn.
+	const nameAlone = $derived(phone || !columnsFit(tableW, nameColW, remPx));
+	const columnsShown = $derived(shownColumns(nameAlone));
+	const naturalW = $derived(nameAlone ? tableW : nameColW + extrasRem(columnsShown) * remPx);
 
 	// The divider is dragged at the pointer's rate: one update per frame is all that is drawn.
 	let tableNext: number | null = null;
@@ -579,6 +582,7 @@
 						sizing={(id) => sizingOf(app.index?.tasks.get(id), chain)}
 						shown={columnsShown}
 						naturalWidth={naturalW}
+						nameWidth={nameAlone && !phone ? tableW : undefined}
 						first={firstRow}
 						last={lastRow}
 						rowHeight={metrics.rowHeight}

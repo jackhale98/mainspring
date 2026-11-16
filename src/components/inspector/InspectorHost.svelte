@@ -37,12 +37,14 @@
 		layout: LayoutKind;
 		/** Whether a desktop has the room to dock the panel (otherwise a rail and a drawer). */
 		dock: boolean;
+		/** The room for the panel has been measured (before that, `dock` is only a guess). */
+		measured?: boolean;
 		/** The Gantt is on screen (not the Text mode, not the phone's Text tab). */
 		active: boolean;
 		/** Shows a range in the text: the shell switches the mode, then reveals it. */
 		onshowtext: (at: SourceRange) => void;
 	}
-	let { app, layout, dock, active, onshowtext }: Props = $props();
+	let { app, layout, dock, measured = true, active, onshowtext }: Props = $props();
 
 	// The app is one object for the life of the shell; the closures read it live.
 	// svelte-ignore state_referenced_locally
@@ -93,6 +95,22 @@
 		const key = app.selectedRow;
 		const h = inspector.sheetHeight;
 		if (!desktop && h > 0) void tick().then(() => keepRowClear(key, h));
+	});
+
+	// The panel never closes because of a resize: when the room for docking goes while the panel was
+	// docked on screen, an open panel becomes the open drawer and a collapsed one stays a closed
+	// rail (`sheet` may be stale from a click while docked), once. Only a change seen on screen
+	// counts: before the first measure `dock` is a guess, and a Gantt that was not on screen (the
+	// Text mode) had no panel to lose, so neither opens a drawer unasked. Going back to docked is
+	// the other way: the docked panel shows unless it was collapsed.
+	let couldDock = false;
+	$effect(() => {
+		const could = measured && active && desktop && dock;
+		const lost = measured && active && desktop && !dock;
+		untrack(() => {
+			if (couldDock && lost) inspector.sheet = !inspector.collapsed;
+		});
+		couldDock = could;
 	});
 
 	/** Escape in the panel or the drawer gives the focus back to the row (the sheet does it itself). */

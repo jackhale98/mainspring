@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
 import { MAX_RATIO, MIN_RATIO } from '../state/split';
-import { COLUMN_REM, WIDEST_COLUMN_REM } from './columns';
+import { WIDEST_COLUMN_REM } from './columns';
 import {
+	LEAST_TABLE_REM,
 	MIN_CHART_SHARE,
+	TABLE_MIN_RATIO,
+	clampTableRatio,
+	columnsFit,
 	defaultTableRatio,
 	leastTableWidth,
 	parseTableRatio,
@@ -28,49 +32,60 @@ describe('defaultTableRatio', () => {
 	});
 
 	it('never leaves the divider its limits, and copes with an unmeasured width', () => {
-		expect(defaultTableRatio(10_000, 10)).toBe(MIN_RATIO);
-		expect(defaultTableRatio(0, 500)).toBeGreaterThanOrEqual(MIN_RATIO);
+		expect(defaultTableRatio(100_000, 10)).toBe(TABLE_MIN_RATIO);
+		expect(defaultTableRatio(0, 500)).toBeGreaterThanOrEqual(TABLE_MIN_RATIO);
 		expect(defaultTableRatio(0, 500)).toBeLessThanOrEqual(MAX_RATIO);
 	});
 });
 
 describe('the least the pane is', () => {
-	it('is the name column and the widest other column, so that a focused cell fits beside the name', () => {
-		expect(WIDEST_COLUMN_REM).toBe(Math.max(...Object.values(COLUMN_REM)));
-		expect(leastTableWidth(300, 16)).toBe(300 + WIDEST_COLUMN_REM * 16);
-		expect(leastTableWidth(124, 0)).toBe(124);
+	it('is the name column alone at a readable width, which follows the text size', () => {
+		expect(leastTableWidth(16)).toBe(160);
+		expect(leastTableWidth(20)).toBe(200);
+		expect(LEAST_TABLE_REM).toBe(10);
 	});
 
-	it('is the divider limit the separator reports, within the Split limits', () => {
-		const space = { ganttPx: 1000, dividerPx: 10, leastPx: leastTableWidth(300, 16) };
+	it('is the divider limit the separator reports, below the Split limits', () => {
+		const space = { ganttPx: 1000, dividerPx: 10, leastPx: leastTableWidth(16) };
 		const limits = tableLimits(space);
 		expect(limits.max).toBe(MAX_RATIO);
-		expect(limits.min).toBeCloseTo((space.leastPx + 5) / 1000);
-		// A wide Gantt keeps the Split divider's own minimum; a narrow one cannot go below its real one.
-		expect(tableLimits({ ...space, ganttPx: 10_000 }).min).toBe(MIN_RATIO);
-		expect(tableLimits({ ...space, ganttPx: 300 }).min).toBe(MAX_RATIO);
-		expect(tableLimits({ ...space, ganttPx: 0 })).toEqual({ min: MIN_RATIO, max: MAX_RATIO });
+		expect(limits.min).toBeCloseTo((160 + 5) / 1000);
+		expect(limits.min).toBeLessThan(MIN_RATIO);
+		// A very wide Gantt keeps the ratio floor; a narrow one cannot go below its real least.
+		expect(tableLimits({ ...space, ganttPx: 100_000 }).min).toBe(TABLE_MIN_RATIO);
+		expect(tableLimits({ ...space, ganttPx: 150 }).min).toBe(MAX_RATIO);
+		expect(tableLimits({ ...space, ganttPx: 0 })).toEqual({ min: TABLE_MIN_RATIO, max: MAX_RATIO });
+	});
+
+	it('shows columns only where the name and the widest column fit beside each other', () => {
+		const need = 300 + WIDEST_COLUMN_REM * 16;
+		expect(columnsFit(need, 300, 16)).toBe(true);
+		expect(columnsFit(need + 50, 300, 16)).toBe(true);
+		expect(columnsFit(need - 20, 300, 16)).toBe(false);
+		expect(columnsFit(160, 300, 16)).toBe(false);
 	});
 });
 
 describe('tableWidth', () => {
-	const base = { ganttPx: 1000, dividerPx: 10, leastPx: 432 };
+	const base = { ganttPx: 1000, dividerPx: 10, leastPx: 160 };
 
 	it('ends half a divider before the ratio, whose centre is the divider', () => {
 		expect(tableWidth({ ...base, ratio: 0.5 })).toBe(495);
 	});
 
-	it('is never narrower than the name column and the widest column', () => {
+	it('is never narrower than its least', () => {
 		for (let r = 0; r <= 1; r += 0.01) {
-			expect(tableWidth({ ...base, ratio: r })).toBeGreaterThanOrEqual(432);
+			expect(tableWidth({ ...base, ratio: r })).toBeGreaterThanOrEqual(160);
 		}
-		expect(tableWidth({ ...base, ratio: MIN_RATIO })).toBe(432);
+		expect(tableWidth({ ...base, ratio: TABLE_MIN_RATIO })).toBe(160);
+		expect(tableWidth({ ...base, ratio: 0.2 })).toBe(195);
 	});
 
 	it('leaves the chart a fifth of the width at least, even where the least would not', () => {
 		expect(tableWidth({ ...base, ratio: 1 })).toBeLessThanOrEqual(800 - 10);
 		expect(tableWidth({ ...base, ratio: 0.95 })).toBe(790);
 		expect(tableWidth({ ...base, ganttPx: 400, leastPx: 432, ratio: 0.2 })).toBe(310);
+		expect(tableWidth({ ...base, ganttPx: 200, ratio: 0.01 })).toBe(150);
 	});
 
 	it('grows with the ratio, never shrinking', () => {
@@ -83,7 +98,7 @@ describe('tableWidth', () => {
 	});
 
 	it('is the least before the Gantt has a width', () => {
-		expect(tableWidth({ ...base, ganttPx: 0, ratio: 0.5 })).toBe(432);
+		expect(tableWidth({ ...base, ganttPx: 0, ratio: 0.5 })).toBe(160);
 	});
 });
 
@@ -95,9 +110,12 @@ describe('stored position', () => {
 		expect(parseTableRatio('NaN')).toBeNull();
 	});
 
-	it('keeps a stored ratio within the limits', () => {
-		expect(parseTableRatio('0.01')).toBe(MIN_RATIO);
+	it('keeps a stored ratio within the limits, which go below the Split divider fifth', () => {
+		expect(parseTableRatio('0.001')).toBe(TABLE_MIN_RATIO);
+		expect(parseTableRatio('0.05')).toBe(0.05);
 		expect(parseTableRatio('7')).toBe(MAX_RATIO);
 		expect(serializeTableRatio(2)).toBe(String(MAX_RATIO));
+		expect(clampTableRatio(0.03, { min: 0.1, max: 0.8 })).toBe(0.1);
+		expect(clampTableRatio(Number.NaN)).toBeGreaterThanOrEqual(TABLE_MIN_RATIO);
 	});
 });

@@ -53,6 +53,8 @@
 		shown: readonly ColumnId[];
 		/** The width of the shown columns together, in px: the rows' width, the pane scrolls over it. */
 		naturalWidth: number;
+		/** The name column's width in px when it is the pane's width (the name alone); else the token's. */
+		nameWidth?: number | undefined;
 		/** The mounted range of rows; `last` is exclusive. */
 		first: number;
 		last: number;
@@ -100,6 +102,7 @@
 		pending,
 		shown,
 		naturalWidth,
+		nameWidth,
 		first,
 		last,
 		rowHeight,
@@ -367,6 +370,19 @@
 		else onselect(row.key);
 	}
 
+	// A cell that stops being drawn (the pane dropped below what the columns need) must not keep the
+	// focus: it would have none to show (WCAG 2.4.7). It goes to the row, before the cell is hidden.
+	$effect.pre(() => {
+		const drawn = shown;
+		untrack(() => {
+			const a = document.activeElement;
+			if (!(a instanceof HTMLElement) || !grid?.contains(a)) return;
+			const col = a.dataset['col'];
+			if (col === undefined || drawn.includes(col as ColumnId)) return;
+			a.closest<HTMLElement>('[role="row"]')?.focus({ preventScroll: true });
+		});
+	});
+
 	/** A column that is no longer drawn (the Gantt was resized) cannot hold the focus. */
 	const heldCol = $derived(focusCol !== null && isShown(focusCol) ? focusCol : null);
 	const tabIndexOf = (row: GanttRow, col: ColumnId | null): 0 | -1 =>
@@ -390,6 +406,7 @@
 	class="grid"
 	class:scrolled={scrolled > 0}
 	style:--natural-width="{naturalWidth}px"
+	style:--gantt-name-col={nameWidth === undefined ? undefined : `${nameWidth}px`}
 	{onfocusin}
 	{onfocusout}
 	{onkeydown}

@@ -4,8 +4,12 @@
 // sample; the table keeps natural column widths and scrolls sideways inside its pane without
 // moving the chart, with the name column frozen at the pane's left and a focused cell scrolled
 // into view; rows stay level with the bars through fast vertical scrolling; a phone has the name
-// column and no divider; axe passes with the divider and a scrolled table. Desktop Chrome and
-// Pixel 7 (phone), with SCREENSHOTS=1 also the polish-10-*.png pictures.
+// column and no divider; the divider reaches the Task column alone at 10 rem (polish item 13) and
+// the stored position is clamped to that, and a focused cell that stops being drawn hands its
+// focus to its row; axe passes with the divider and a scrolled table. Desktop Chrome and
+// Pixel 7 (phone), with SCREENSHOTS=1 also the polish-10-*.png and polish-13-*.png pictures.
+// Over 400 lines because the divider's behaviours share one page setup (`open`) and one set of
+// locators, and a second file would repeat both; the pictures are the last block.
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
@@ -14,6 +18,7 @@ import { REPO } from '../golden/corpus';
 const READY_TIMEOUT_MS = 120_000;
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
+const OUT3 = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 const FEDORA = 'upstream-fedora-20';
 
 async function open(page: Page, sample = FEDORA): Promise<void> {
@@ -210,18 +215,125 @@ test.describe('the table divider', () => {
 		expect(back?.x ?? 0).toBeGreaterThanOrEqual((name?.x ?? 0) + (name?.width ?? 0) - 1);
 	});
 
-	test('at the divider minimum every cell is still fully visible beside the name when focused', async ({
+	test('at the divider minimum only the names remain, at a readable width', async ({
 		page,
 	}, info) => {
 		test.skip(info.project.name !== 'desktop');
 		await open(page);
 		await divider(page).focus();
 		await page.keyboard.press('Home');
-		// The separator says what its limits really are: the name and the widest column fit.
+		// The separator says what its limits really are: below the Split divider's 20%.
 		const min = Number(await divider(page).getAttribute('aria-valuemin'));
 		expect(await valueOf(page)).toBe(min);
-		expect(min).toBeGreaterThan(20);
+		expect(min).toBeLessThan(20);
+		await page.waitForTimeout(300);
+		// The pane is 10 rem (160 px) wide: the Task column alone, names clipped with an ellipsis.
+		const pane = await names(page).boundingBox();
+		expect(Math.abs((pane?.width ?? 0) - 160)).toBeLessThanOrEqual(2);
 		const firstRow = page.locator('[role="row"][data-key]').first();
+		const nameBox = await firstRow.locator('[data-col="name"]').boundingBox();
+		expect(Math.abs((nameBox?.width ?? 0) - (pane?.width ?? 0))).toBeLessThanOrEqual(2);
+		for (const col of ['start', 'end', 'effort']) {
+			expect(
+				(await firstRow.locator(`[data-col="${col}"]`).boundingBox())?.width ?? 0,
+			).toBeLessThanOrEqual(1);
+			// Not drawn, so not a tab stop (a focus ring on something unseen fails WCAG 2.4.7).
+			await expect(firstRow.locator(`[data-col="${col}"]`)).not.toHaveAttribute('tabindex');
+		}
+		await expect(page.getByTestId('gantt-table-scrollbar')).toHaveCount(0);
+		// A long name is cut with an ellipsis, not run into the chart.
+		const clipped = await page
+			.locator('[role="row"][data-key] [data-col="name"] .label')
+			.evaluateAll((els) => els.some((el) => el.scrollWidth > el.clientWidth));
+		expect(clipped).toBe(true);
+		// The keys still work in the name column: Right goes into the row's cell and stays on it.
+		await page.locator('[tabindex="0"][data-key]').first().focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
+		await page.keyboard.press('ArrowRight');
+		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
+	});
+
+	test('the least width follows the text size', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		await page.addStyleTag({ content: 'html { font-size: 20px; }' });
+		await page.waitForTimeout(400);
+		await divider(page).focus();
+		await page.keyboard.press('Home');
+		await page.waitForTimeout(300);
+		// 10 rem at a 20 px root is 200 px.
+		expect(Math.abs((await widthOf(page)) - 200)).toBeLessThanOrEqual(2);
+	});
+
+	test('a focused cell that stops being drawn hands its focus to the row', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		const firstRow = page.locator('[role="row"][data-key]').first();
+		await page.locator('[tabindex="0"][data-key]').first().focus();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowRight');
+		const start = firstRow.locator('[data-col="start"]');
+		await expect(start).toBeFocused();
+		// Dragging the divider does not move the focus: the pane shrinks under the focused cell.
+		const handle = await divider(page).boundingBox();
+		if (!handle) throw new Error('no divider');
+		const x = handle.x + handle.width / 2;
+		const y = handle.y + handle.height / 2;
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		await page.mouse.move(x - 600, y, { steps: 8 });
+		await page.mouse.up();
+		await page.waitForTimeout(300);
+		expect(Math.abs((await widthOf(page)) - 160)).toBeLessThanOrEqual(2);
+		await expect(start).not.toBeFocused();
+		await expect(firstRow).toBeFocused();
+		await expect(firstRow).toBeVisible();
+		// And the keys carry on from the row.
+		await page.keyboard.press('ArrowRight');
+		await expect(firstRow.locator('[data-col="name"]')).toBeFocused();
+	});
+
+	test('a position stored beyond the limits is clamped on load', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		const key = `mainspring.table.${FEDORA}`;
+		await page.evaluate((k) => localStorage.setItem(k, '0.0001'), key);
+		await page.reload();
+		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
+		await page.waitForTimeout(500);
+		expect(Math.abs((await widthOf(page)) - 160)).toBeLessThanOrEqual(2);
+		expect(await valueOf(page)).toBe(Number(await divider(page).getAttribute('aria-valuemin')));
+		await page.evaluate((k) => localStorage.setItem(k, '0.97'), key);
+		await page.reload();
+		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
+		await page.waitForTimeout(500);
+		expect(await valueOf(page)).toBe(80);
+	});
+
+	test('where the name and the widest column fit, every cell is still fully visible beside the name when focused', async ({
+		page,
+	}, info) => {
+		test.skip(info.project.name !== 'desktop');
+		await open(page);
+		await divider(page).focus();
+		await page.keyboard.press('Home');
+		const firstRow = page.locator('[role="row"][data-key]').first();
+		// Widen until the columns are drawn (the name column and the widest one fit).
+		for (let i = 0; i < 40; i++) {
+			await page.keyboard.press('ArrowRight');
+			await page.waitForTimeout(100);
+			if (((await firstRow.locator('[data-col="start"]').boundingBox())?.width ?? 0) > 1) break;
+		}
+		expect(
+			(await firstRow.locator('[data-col="start"]').boundingBox())?.width ?? 0,
+		).toBeGreaterThan(90);
 		await page.locator('[tabindex="0"][data-key]').first().focus();
 		const cols = ['name', 'start', 'end', 'effort', 'people', 'float', 'critical', 'status'];
 		for (const col of cols) {
@@ -358,6 +470,29 @@ test.describe('the table divider', () => {
 			).toBeLessThanOrEqual(1);
 		}
 		await expect(page.getByTestId('gantt-table-scrollbar')).toHaveCount(0);
+	});
+
+	// Pictures for the polish list (item 13): the table at its new minimum (desktop, at device scale
+	// factor 2), and the phone's Gantt tab unchanged (Pixel 7 as emulated).
+	test.describe('polish-13 pictures', () => {
+		test.use({ deviceScaleFactor: 2 });
+		for (const scheme of ['light', 'dark'] as const) {
+			test(`desktop minimum (${scheme})`, async ({ page }, info) => {
+				test.skip(!process.env['SCREENSHOTS'] || info.project.name !== 'desktop');
+				await page.emulateMedia({ colorScheme: scheme });
+				await page.setViewportSize({ width: 1440, height: 860 });
+				await open(page);
+				await divider(page).focus();
+				await page.keyboard.press('Home');
+				await page.waitForTimeout(400);
+				await page.screenshot({ path: path.join(OUT3, `polish-13-desktop-min-${scheme}.png`) });
+			});
+		}
+	});
+	test('polish-13 phone picture', async ({ page }, info) => {
+		test.skip(!process.env['SCREENSHOTS'] || info.project.name !== 'pixel-7');
+		await open(page);
+		await page.screenshot({ path: path.join(OUT3, 'polish-13-pixel7-gantt-light.png') });
 	});
 
 	// Pictures for the polish list: the default, and the divider moved both ways.
