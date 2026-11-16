@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { KeywordDoc, SyntaxDocs } from '../../../engine/protocol';
 import { engineDocsMatch, keywordDoc } from './docs';
 import { KEYWORDS, TJ_VERSION } from './keywords';
+import { SUMMARIES } from './summaries.generated';
 import type { KeywordEntry } from './types';
 
 function engineDoc(keyword: string, over: Partial<KeywordDoc> = {}): KeywordDoc {
@@ -37,7 +38,7 @@ describe('keywordDoc', () => {
 		expect(d?.seeAlso).toEqual(['duration', 'length']);
 		// Syntax and summary stay the table's.
 		expect(d?.syntax).toBe(entry?.syntax);
-		expect(d?.summary).toBe(entry?.summary);
+		expect(d?.summary).toBe(SUMMARIES['effort']);
 		// The same engine object is indexed once and gives the same answer again.
 		expect(keywordDoc({ table: KEYWORDS, engine }, 'effort')).toEqual(d);
 	});

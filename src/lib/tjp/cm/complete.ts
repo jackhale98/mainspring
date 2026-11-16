@@ -47,7 +47,7 @@ function keywordOption(src: KeywordDocsSource, e: KeywordEntry): Completion {
 		label: e.name,
 		type: 'keyword',
 		detail: e.syntax,
-		...infoOf(full?.doc ?? e.summary),
+		...infoOf(full?.doc ?? full?.summary),
 	};
 }
 

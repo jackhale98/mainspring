@@ -28,9 +28,8 @@
 	import Sheet from '../Sheet.svelte';
 	import { setInspector } from './context';
 	import InspectorBody from './InspectorBody.svelte';
-	import ProjectSheet from './ProjectSheet.svelte';
 	import SheetStatus from './SheetStatus.svelte';
-	import SourceSheet from './SourceSheet.svelte';
+	import LazyMount from '../app/LazyMount.svelte';
 
 	interface Props {
 		app: AppState;
@@ -208,8 +207,16 @@
 		{@render content()}
 	</Sheet>
 {/if}
-<ProjectSheet />
-<SourceSheet />
+<LazyMount
+	when={app.inspector.projectOpen}
+	load={() => import('./ProjectSheet.svelte')}
+	props={{}}
+/>
+<LazyMount
+	when={app.inspector.source !== null}
+	load={() => import('./SourceSheet.svelte')}
+	props={{}}
+/>
 
 <style>
 	.panel {

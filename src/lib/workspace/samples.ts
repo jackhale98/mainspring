@@ -58,6 +58,9 @@ function sample(
 	return { id, label: strings.samples[id], load: () => loadFiles(entry, files) };
 }
 
+/** The line the generator appends to upstream's f-20.tjp to bring in the people pool. */
+const FEDORA_RES_INCLUDE = 'include "mainspring-load.tji"\n';
+
 export const SAMPLES: readonly BuiltInSample[] = [
 	sample('poc-sample', 'plan.tjp', {
 		'plan.tjp': () => import('../../../engine/golden/plans/poc-sample/plan.tjp?raw'),
@@ -89,9 +92,17 @@ export const SAMPLES: readonly BuiltInSample[] = [
 	sample('gantt-500', 'plan.tjp', {
 		'plan.tjp': () => import('../../../engine/golden/plans/gantt/gantt-500/plan.tjp?raw'),
 	}),
+	// Fedora 20 with a generated people pool (engine/golden/generators/fedora-res.mjs). Its f-20.tjp
+	// is upstream's with one line appended and its reports.tji is upstream's, so both come from the
+	// upstream modules: a second copy of each would add 19 KB of gzip JS to the bundle (the JS
+	// budget, phase-2.md 11.3). samples.test.ts keeps the texts equal to the generated files.
 	sample('fedora-res', 'f-20.tjp', {
-		'f-20.tjp': () => import('../../../engine/golden/plans/fedora-res/f-20.tjp?raw'),
-		'reports.tji': () => import('../../../engine/golden/plans/fedora-res/reports.tji?raw'),
+		'f-20.tjp': async () => ({
+			default:
+				(await import('../../../engine/tj/examples/Fedora-20/f-20.tjp?raw')).default +
+				FEDORA_RES_INCLUDE,
+		}),
+		'reports.tji': () => import('../../../engine/tj/examples/Fedora-20/reports.tji?raw'),
 		'mainspring-load.tji': () =>
 			import('../../../engine/golden/plans/fedora-res/mainspring-load.tji?raw'),
 	}),
