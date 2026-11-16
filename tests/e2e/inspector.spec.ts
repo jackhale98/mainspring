@@ -49,7 +49,10 @@ const details = (page: Page, info: { project: { name: string } }): Locator =>
 		: page.getByRole('complementary', { name: 'Details' });
 
 const row = (page: Page, name: string) =>
-	page.locator('[role="treegrid"] [role="row"][data-key]').filter({ hasText: name }).first();
+	page
+		.locator('[role="treegrid"] [role="row"][data-key]')
+		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
+		.first();
 
 /**
  * Selects a task row, as a click or a tap does, and waits for its details. A sheet layout selects

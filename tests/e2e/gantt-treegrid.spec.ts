@@ -14,6 +14,7 @@ const READY_TIMEOUT_MS = 120_000;
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 const COLUMNS = [
+	'#',
 	'Task',
 	'Start',
 	'End',
@@ -22,6 +23,8 @@ const COLUMNS = [
 	'Float (estimate)',
 	'Critical (estimate)',
 	'Status',
+	'Predecessors',
+	'Successors',
 ];
 
 async function open(page: Page, sample = 'upstream-tutorial', mode = 'visual'): Promise<void> {
@@ -39,7 +42,10 @@ async function open(page: Page, sample = 'upstream-tutorial', mode = 'visual'): 
 
 const grid = (page: Page) => page.getByTestId('gantt-treegrid');
 const rows = (page: Page) => grid(page).locator('[role="row"][data-key]');
-const row = (page: Page, name: string) => rows(page).filter({ hasText: name }).first();
+const row = (page: Page, name: string) =>
+	rows(page)
+		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
+		.first();
 const cell = (r: Locator, col: string) => r.locator(`[data-col="${col}"]`);
 const text = async (l: Locator) => ((await l.textContent()) ?? '').replace(/\s+/g, ' ').trim();
 const tabStops = (page: Page) => grid(page).locator('[tabindex="0"]');
@@ -58,7 +64,7 @@ test.describe('the treegrid', () => {
 		const g = grid(page);
 		await expect(g).toHaveAttribute('role', 'treegrid');
 		await expect(g).toHaveAttribute('aria-label', 'Tasks');
-		await expect(g).toHaveAttribute('aria-colcount', '8');
+		await expect(g).toHaveAttribute('aria-colcount', '11');
 		const total = Number(await g.getAttribute('aria-rowcount'));
 		// The tutorial has more than a dozen tasks; the count includes the header row.
 		expect(total).toBeGreaterThan(14);
@@ -120,7 +126,18 @@ test.describe('the treegrid', () => {
 			// Phones: the narrow frozen name column alone; every other cell is hidden from the eye
 			// (a 1 px box) but present for a screen reader, with its words.
 			expect(await box('name')).toBeGreaterThan(100);
-			for (const c of ['start', 'end', 'effort', 'people', 'float', 'critical', 'status']) {
+			for (const c of [
+				'number',
+				'start',
+				'end',
+				'effort',
+				'people',
+				'float',
+				'critical',
+				'status',
+				'predecessors',
+				'successors',
+			]) {
 				expect(await box(c), c).toBeLessThanOrEqual(1);
 			}
 			expect(await text(cell(spec, 'start'))).toBe('Jan 16, 2002');
@@ -184,24 +201,30 @@ test.describe('the treegrid', () => {
 		await expect(accounting).toHaveAttribute('aria-expanded', 'true');
 		await expect(rows(page)).toHaveCount(before);
 
-		// Right on an expanded row goes into its first cell, and along the drawn cells.
+		// Right on an expanded row goes into its first cell, and along the drawn cells: on a desktop
+		// the row number, then the name; on a phone the name.
 		await page.keyboard.press('ArrowRight');
-		await expect(cell(accounting, 'name')).toBeFocused();
 		if (!phone(info)) {
+			await expect(cell(accounting, 'number')).toBeFocused();
+			await page.keyboard.press('ArrowRight');
+			await expect(cell(accounting, 'name')).toBeFocused();
 			await page.keyboard.press('ArrowRight');
 			await expect(cell(accounting, 'start')).toBeFocused();
 			await page.keyboard.press('End');
-			await expect(grid(page).locator('[data-col]:focus')).toHaveCount(1);
+			await expect(cell(accounting, 'successors')).toBeFocused();
 			await page.keyboard.press('Home');
-			await expect(cell(accounting, 'name')).toBeFocused();
+			await expect(cell(accounting, 'number')).toBeFocused();
 			// Down keeps the column.
+			await page.keyboard.press('ArrowRight');
 			await page.keyboard.press('ArrowRight');
 			await page.keyboard.press('ArrowDown');
 			await expect(cell(row(page, 'Specification'), 'start')).toBeFocused();
 			await page.keyboard.press('ArrowLeft');
 			await page.keyboard.press('ArrowLeft');
+			await page.keyboard.press('ArrowLeft');
 			await expect(spec).toBeFocused();
 		} else {
+			await expect(cell(accounting, 'name')).toBeFocused();
 			await page.keyboard.press('ArrowLeft');
 			await expect(accounting).toBeFocused();
 			await page.keyboard.press('ArrowDown');

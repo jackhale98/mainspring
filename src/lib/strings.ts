@@ -971,6 +971,7 @@ export const strings = {
 		tapAgain: (name: string) => `Selected ${name}. Tap again for details.`,
 		/** The column headers, in the order of the cells. */
 		columns: {
+			number: '#',
 			name: 'Task',
 			start: 'Start',
 			end: 'End',
@@ -979,6 +980,49 @@ export const strings = {
 			float: 'Float (estimate)',
 			critical: 'Critical (estimate)',
 			status: 'Status',
+			predecessors: 'Predecessors',
+			successors: 'Successors',
+		},
+		/** What a screen reader says for a header whose visible text is a symbol. */
+		columnNames: { number: 'Row number' },
+		/**
+		 * The Predecessors and Successors cells (polish item 16). The eye reads row numbers: "3",
+		 * "3SS +2d". A screen reader reads the task names, and the hover text the TaskJuggler ids,
+		 * both through `linkWords`.
+		 */
+		links: {
+			/** The cell's accessible name: "Predecessors: Research, Sketch". */
+			predecessors: (list: string) => `Predecessors: ${list}`,
+			successors: (list: string) => `Successors: ${list}`,
+			/** The hover text: the same, by id. */
+			predecessorsIds: (list: string) => `Waits for: ${list}`,
+			successorsIds: (list: string) => `Followed by: ${list}`,
+			/** The kind of link when it is not the usual finish to start, as a suffix of the number. */
+			typeShort: {
+				'finish-start': '',
+				'start-start': 'SS',
+				'finish-finish': 'FF',
+				'start-finish': 'SF',
+			},
+			typeWords: {
+				'finish-start': 'finish to start',
+				'start-start': 'start to start',
+				'finish-finish': 'finish to finish',
+				'start-finish': 'start to finish',
+			},
+			/** A gap in words: "plus 2 days", and which clock it is on. */
+			gapWords: (amount: string, calendar: boolean) =>
+				`plus ${amount}${calendar ? ' calendar time' : ''}`,
+			/** The units of a gap, said in full. */
+			units: {
+				d: (n: number) => (n === 1 ? '1 day' : `${n} days`),
+				h: (n: number) => (n === 1 ? '1 hour' : `${n} hours`),
+				min: (n: number) => (n === 1 ? '1 minute' : `${n} minutes`),
+			},
+			/** A link the schedule shown does not include yet. */
+			pending: 'not scheduled yet',
+			/** Joins what is in the brackets after a task's name. */
+			and: ', ',
 		},
 		/** A cell with nothing to say: an en dash for the eye, a word for a screen reader. */
 		empty: '–',

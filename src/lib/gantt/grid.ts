@@ -16,6 +16,7 @@ import { strings } from '../strings';
 import { floatAmount } from './describe';
 import type { ColumnId } from './columns';
 import type { GanttAnalysis, GanttModel, GanttRow } from './model';
+import type { RowLinkRef } from './row-links';
 import { formatMinutes } from './ticks';
 
 const G = strings.grid;
@@ -26,6 +27,10 @@ export interface GridCell {
 	readonly text: string;
 	/** True for a dash: the cell shows `empty` and a screen reader hears `emptyWords`. */
 	readonly blank: boolean;
+	/** What a screen reader hears instead of the text, when the text alone says too little. */
+	readonly label?: string;
+	/** The hover text. */
+	readonly hint?: string;
 }
 
 export interface GridRowInput {
@@ -99,6 +104,45 @@ export function sizingOf(
 	return text?.ok ? G.sizing(text.value, a.keyword) : G.sizingText;
 }
 
+/** One end of a link as the eye reads it: its row number, the kind if unusual, the gap: "3SS +2d". */
+export function linkText(r: RowLinkRef): string {
+	return `${r.number}${G.links.typeShort[r.type]}${r.gaps.map((g) => ` ${g.text}`).join('')}`;
+}
+
+/** "+2d" as "2 days", "+4h" as "4 hours", "+90min" as "90 minutes": units are said, not spelt. */
+function amountWords(text: string): string {
+	const m = /^\+?(\d+)(d|h|min)$/.exec(text);
+	return m ? G.links.units[m[2] as 'd' | 'h' | 'min'](Number(m[1])) : text;
+}
+
+/** The same end in words, after a name or an id: "Research (start to start, plus 2d)". */
+export function linkWords(r: RowLinkRef, label: string): string {
+	const parts: string[] = [];
+	if (r.type !== 'finish-start') parts.push(G.links.typeWords[r.type]);
+	for (const g of r.gaps)
+		parts.push(G.links.gapWords(amountWords(g.text), g.kind === 'gapduration'));
+	if (r.state === 'pending') parts.push(G.links.pending);
+	return parts.length > 0 ? `${label} (${parts.join(G.links.and)})` : label;
+}
+
+/**
+ * The Predecessors or Successors cell: row numbers for the eye, task names for a screen reader
+ * ("Predecessors: Research, Sketch") and ids on hover. Nothing here is derived: `refs` is the
+ * model's list (row-links.ts).
+ */
+function linksCell(column: 'predecessors' | 'successors', refs: readonly RowLinkRef[]): GridCell {
+	if (refs.length === 0) return cell(column, null);
+	const ids = column === 'predecessors' ? G.links.predecessorsIds : G.links.successorsIds;
+	const names = column === 'predecessors' ? G.links.predecessors : G.links.successors;
+	return {
+		column,
+		text: refs.map(linkText).join(', '),
+		blank: false,
+		label: names(refs.map((r) => linkWords(r, r.name)).join(', ')),
+		hint: ids(refs.map((r) => linkWords(r, r.id)).join(', ')),
+	};
+}
+
 function cell(column: ColumnId, text: string | null): GridCell {
 	return text === null || text === ''
 		? { column, text: G.empty, blank: true }
@@ -134,7 +178,9 @@ export function gridCells(row: GanttRow, i: GridRowInput): readonly GridCell[] {
 		const f = a.floatMin.get(id);
 		float = f === undefined ? null : f <= 0 ? '0' : floatAmount(f, i.model);
 	}
+	const info = i.model.rowInfo.get(row.key);
 	return [
+		cell('number', info ? String(info.number) : null),
 		{ column: 'name', text: row.name, blank: false },
 		cell('start', start),
 		cell('end', end),
@@ -143,10 +189,12 @@ export function gridCells(row: GanttRow, i: GridRowInput): readonly GridCell[] {
 		cell('float', float),
 		cell('critical', critical),
 		cell('status', statusOf(row, i.pending?.has(row.key) ?? false, i.model.dimmed)),
+		linksCell('predecessors', info?.predecessors ?? []),
+		linksCell('successors', info?.successors ?? []),
 	];
 }
 
-/** What a screen reader hears for a cell: its words, or "none" for a blank one. */
+/** What a screen reader hears for a cell: its label if it has one, its words, or "none" for a blank one. */
 export function spokenText(c: GridCell): string {
-	return c.blank ? G.emptyWords : c.text;
+	return c.label ?? (c.blank ? G.emptyWords : c.text);
 }

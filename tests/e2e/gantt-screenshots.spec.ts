@@ -41,7 +41,9 @@ test.describe('gantt screenshots', () => {
 				await page.emulateMedia({ colorScheme: scheme });
 				await open(page, TUTORIAL);
 				await page
-					.locator('[role="row"][data-key]', { hasText: /Project/ })
+					.locator('[role="row"][data-key]', {
+						has: page.locator('[data-col="name"] .label', { hasText: /Project/ }),
+					})
 					.first()
 					.click();
 				await page.waitForTimeout(300);
@@ -125,7 +127,11 @@ test.describe('gantt screenshots', () => {
 				s.scrollLeft = s.scrollWidth * 0.915 - s.clientWidth / 2;
 			});
 			await page.waitForTimeout(300);
-			await page.locator('[role="row"][data-key]').filter({ hasText: 'Item 386' }).first().click();
+			await page
+				.locator('[role="row"][data-key]')
+				.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Item 386' }) })
+				.first()
+				.click();
 			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
 		};
 		for (const sample of ['gantt-500', 'upstream-fedora-20']) {

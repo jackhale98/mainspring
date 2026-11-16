@@ -48,7 +48,9 @@ test.describe('ui screenshots', () => {
 				await page.emulateMedia({ colorScheme: scheme });
 				await open(page, TUTORIAL, 'split');
 				await page
-					.locator('[role="row"][data-key]', { hasText: /Project/ })
+					.locator('[role="row"][data-key]', {
+						has: page.locator('[data-col="name"] .label', { hasText: /Project/ }),
+					})
 					.first()
 					.click();
 				await page.waitForTimeout(300);

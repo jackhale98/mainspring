@@ -4,11 +4,12 @@
 	(phase-2.md 10.1, 10.2). One row per Gantt row, at the same height, so it scrolls with the bars.
 	Its header row is the frozen corner above the time header.
 
-	Columns: the task name, then start, end, effort or length, people, float (estimate), critical
-	(estimate) and status. All of them are always in the grid and all are drawn at their natural
-	widths; when the table's pane (the divider decides how wide, Gantt.svelte) is narrower than
-	they are, the rows scroll sideways inside it, behind the frozen name column, and a focused
-	cell is scrolled into view. The header row sits outside that scroller, so that it can stick to
+	Columns: the row number (#), the task name, then start, end, effort or length, people, float
+	(estimate), critical (estimate), status, and the predecessors and successors (row numbers for
+	the eye, task names for a screen reader, ids on hover; read-only, polish item 16). All of them
+	are always in the grid and all are drawn at their natural widths; when the table's pane (the
+	divider decides how wide, Gantt.svelte) is narrower than they are, the rows scroll sideways
+	inside it, behind the frozen number and name columns, and a focused cell is scrolled into view. The header row sits outside that scroller, so that it can stick to
 	the top of the Gantt's one vertical scroll, and follows its scroll position. A phone draws the
 	name column alone: the other cells are visually hidden, not removed, so a screen reader reads
 	the same table, and keyboard focus skips them (lib/gantt/columns.ts). The texts come from
@@ -35,7 +36,7 @@
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { COLUMN_ORDER, widthOf, type ColumnId } from '../../lib/gantt/columns';
+	import { COLUMN_ORDER, COLUMN_REM, widthOf, type ColumnId } from '../../lib/gantt/columns';
 	import { describeRow } from '../../lib/gantt/describe';
 	import { gridCells, spokenText, type GridRowInput } from '../../lib/gantt/grid';
 	import { gridMove, type GridFocus, type GridShape } from '../../lib/gantt/grid-nav';
@@ -51,6 +52,8 @@
 		pending?: ReadonlySet<string>;
 		/** The columns drawn, in cell order, the name first. */
 		shown: readonly ColumnId[];
+		/** The # column's width in rem (columns.ts `numberColumnRem`: it grows with the digits). */
+		numberRem?: number;
 		/** The width of the shown columns together, in px: the rows' width, the pane scrolls over it. */
 		naturalWidth: number;
 		/** The name column's width in px when it is the pane's width (the name alone); else the token's. */
@@ -101,6 +104,7 @@
 		sizing,
 		pending,
 		shown,
+		numberRem: numberWidthRem = COLUMN_REM.number,
 		naturalWidth,
 		nameWidth,
 		first,
@@ -158,9 +162,12 @@
 	 */
 	function revealCell(cell: HTMLElement): void {
 		const sc = bodyScroll;
-		if (!sc || cell.dataset['col'] === 'name') return;
-		const frozen =
-			cell.parentElement?.querySelector<HTMLElement>('[data-col="name"]')?.offsetWidth ?? 0;
+		if (!sc || cell.dataset['col'] === 'name' || cell.dataset['col'] === 'number') return;
+		let frozen = 0;
+		for (const f of cell.parentElement?.querySelectorAll<HTMLElement>(
+			'.cell.num:not(.hidden), .cell.name:not(.hidden)',
+		) ?? [])
+			frozen += f.offsetWidth;
 		const left = cell.offsetLeft;
 		const right = left + cell.offsetWidth;
 		if (left < sc.scrollLeft + frozen) sc.scrollLeft = Math.max(0, left - frozen);
@@ -225,8 +232,10 @@
 		...(pending ? { pending } : {}),
 	});
 	const isShown = (c: ColumnId): boolean => shown.includes(c);
+	/** What the frozen row number takes of the pane's left, which the name column sits beside. */
+	const numberCss = $derived(isShown('number') ? `${numberWidthRem}rem` : '0px');
 	const nameRem = (c: ColumnId): string | undefined => {
-		const w = widthOf(c);
+		const w = widthOf(c, numberWidthRem);
 		return w === null ? undefined : `${w}rem`;
 	};
 
@@ -407,6 +416,7 @@
 	class:scrolled={scrolled > 0}
 	style:--natural-width="{naturalWidth}px"
 	style:--gantt-name-col={nameWidth === undefined ? undefined : `${nameWidth}px`}
+	style:--gantt-num-col={numberCss}
 	{onfocusin}
 	{onfocusout}
 	{onkeydown}
@@ -426,8 +436,10 @@
 					class="cell head"
 					class:hidden={!isShown(col)}
 					class:name={col === 'name'}
+					class:num={col === 'number'}
 					data-col-head={col}
 					aria-colindex={c + 1}
+					aria-label={col === 'number' ? strings.grid.columnNames.number : undefined}
 					style:width={isShown(col) ? nameRem(col) : undefined}
 				>
 					{strings.grid.columns[col]}
@@ -476,6 +488,8 @@
 							class="cell"
 							class:hidden={!on}
 							class:name={col === 'name'}
+							class:num={col === 'number'}
+							class:lead={shown[0] === col}
 							class:blank={cell.blank}
 							class:yes={col === 'critical' && cell.text === strings.grid.yes}
 							data-col={col}
@@ -494,6 +508,17 @@
 									onrenamed={(name) => onrenamed?.(row.key, name)}
 									oncancel={() => oncancelrename?.()}
 								/>
+							{:else if cell.label !== undefined}
+								<!--
+									Row numbers to the eye, task names to a screen reader: the names are real text
+									that only assistive technology reads, the numbers are hidden from it (so the
+									cell is read once, as "Predecessors: Research"), and the hover text, the ids,
+									is on the numbers for the same reason: a title on the cell would be read as a
+									second description. The cell has no aria-label, so that WCAG 2.5.3 (axe:
+									label-content-name-mismatch) has no name to compare the numbers with.
+								-->
+								<span class="sr-only">{cell.label}</span>
+								<span class="vis" aria-hidden="true" title={cell.hint}>{cell.text}</span>
 							{:else}
 								{cell.text}
 							{/if}
@@ -603,7 +628,7 @@
 	.row.selected {
 		background: var(--color-gantt-row-selected);
 	}
-	.row.selected .cell.name {
+	.row.selected .cell.lead {
 		box-shadow: inset 3px 0 0 var(--color-gantt-accent);
 	}
 	.row:focus-visible,
@@ -623,10 +648,19 @@
 		font-size: var(--text-xs);
 		font-variant-numeric: tabular-nums;
 	}
-	/* The name stays at the pane's left while the other columns scroll under it. */
-	.cell.name {
+	/* The row number and the name stay at the pane's left while the other columns scroll under
+	   them (the name beside the number, whose width is `--gantt-num-col`). */
+	.cell.num {
 		position: sticky;
 		inset-inline-start: 0;
+		z-index: 1;
+		background: inherit;
+		padding-inline: var(--space-1);
+		text-align: center;
+	}
+	.cell.name {
+		position: sticky;
+		inset-inline-start: var(--gantt-num-col, 0px);
 		z-index: 1;
 		background: inherit;
 		display: flex;
@@ -651,11 +685,23 @@
 		padding-inline-start: var(--space-3);
 		background: var(--color-gantt-surface-header);
 	}
+	/* The frozen headers cover the header row's whole height, so that a taller header (Effort or
+	   length, on two lines) does not show above them while the table is scrolled under them. */
+	.head.num,
+	.head.name {
+		align-self: stretch;
+		align-items: flex-end;
+	}
+	.head.num {
+		display: flex;
+		justify-content: center;
+		background: var(--color-gantt-surface-header);
+	}
 	/* The edge of the frozen column shows once the others have scrolled under it. */
 	.grid.scrolled .cell.name {
 		box-shadow: 1px 0 0 var(--color-gantt-border);
 	}
-	.grid.scrolled .row.selected .cell.name {
+	.grid.scrolled .row.selected .cell.name.lead {
 		box-shadow:
 			inset 3px 0 0 var(--color-gantt-accent),
 			1px 0 0 var(--color-gantt-border);

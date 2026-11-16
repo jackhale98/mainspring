@@ -51,7 +51,13 @@
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
 	import { RescheduleAnnouncer } from '../../lib/gantt/announce';
-	import { DEFAULT_COLUMNS, extrasRem, shownColumns } from '../../lib/gantt/columns';
+	import {
+		DEFAULT_COLUMNS,
+		extrasRem,
+		numberColumnRem,
+		shownColumns,
+		type TableFit,
+	} from '../../lib/gantt/columns';
 	import { scenarioChain, sizingOf } from '../../lib/gantt/grid';
 	import { NO_LINE, describeRowParts } from '../../lib/gantt/describe';
 	import { resolveLinks } from '../../lib/gantt/links';
@@ -175,17 +181,23 @@
 		app.inspector.view = { model, result, analysis: critical.shown.analysis, current };
 	});
 
+	/** The # column's width: room for the digits of the last row's number (every task counts). */
+	const numberRem = $derived(numberColumnRem(model.rowInfo.size));
 	/** The shown scenario and its parents: which of a task's `effort` statements applies. */
 	const chain = $derived(scenarioChain(model.project, model.scenario));
 	const tableSpace = $derived({
 		ganttPx: scrollerW,
 		dividerPx: dividerW,
-		leastPx: leastTableWidth(remPx),
+		leastPx: leastTableWidth(remPx, numberRem),
 	});
 	/** What the divider can reach: the pane is never narrower than its least (table.ts). */
 	const limits = $derived(tableLimits(tableSpace));
 	const defaultRatio = $derived(
-		defaultTableRatio(scrollerW, nameColW + extrasRem(DEFAULT_COLUMNS) * remPx, dividerW),
+		defaultTableRatio(
+			scrollerW,
+			nameColW + extrasRem(DEFAULT_COLUMNS, numberRem) * remPx,
+			dividerW,
+		),
 	);
 	const ratio = $derived(clampTableRatio(tableRatio ?? defaultRatio, limits));
 	/** The table pane's width, and where the chart starts (past the divider). */
@@ -193,9 +205,16 @@
 	const chartLeft = $derived(tableW + (phone ? 0 : dividerW));
 	// A pane too narrow for a name and a column beside it is the name column alone, as on a phone:
 	// the name fills the pane (clipped with an ellipsis) and the other cells are not drawn.
-	const nameAlone = $derived(phone || !columnsFit(tableW, nameColW, remPx));
-	const columnsShown = $derived(shownColumns(nameAlone));
-	const naturalW = $derived(nameAlone ? tableW : nameColW + extrasRem(columnsShown) * remPx);
+	// The row number stays with it (polish item 16, as MS Project keeps the ID); a phone has the name only.
+	const numberPx = $derived(numberRem * remPx);
+	const fit = $derived<TableFit>(
+		phone ? 'phone' : columnsFit(tableW, nameColW + numberPx, remPx) ? 'full' : 'narrow',
+	);
+	const nameAlone = $derived(fit !== 'full');
+	const columnsShown = $derived(shownColumns(fit));
+	const naturalW = $derived(
+		nameAlone ? tableW : nameColW + extrasRem(columnsShown, numberRem) * remPx,
+	);
 
 	// The divider is dragged at the pointer's rate: one update per frame is all that is drawn.
 	let tableNext: number | null = null;
@@ -581,8 +600,9 @@
 						analysis={critical.shown.analysis}
 						sizing={(id) => sizingOf(app.index?.tasks.get(id), chain)}
 						shown={columnsShown}
+						{numberRem}
 						naturalWidth={naturalW}
-						nameWidth={nameAlone && !phone ? tableW : undefined}
+						nameWidth={fit === 'narrow' ? tableW - numberPx : undefined}
 						first={firstRow}
 						last={lastRow}
 						rowHeight={metrics.rowHeight}
