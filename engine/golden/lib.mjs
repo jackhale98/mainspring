@@ -33,7 +33,7 @@ export function nowProblem(now) {
 }
 
 /** GoldenPlan kinds (docs/phases/phase-0.md, section 3.4). */
-export const PLAN_KINDS = ['upstream', 'poc', 'synthetic', 'bridge'];
+export const PLAN_KINDS = ['upstream', 'poc', 'synthetic', 'bridge', 'workload', 'health'];
 
 /**
  * GoldenFile.schemaVersion: the ScheduleResult schema the goldens hold. 3 since the bridge

@@ -77,6 +77,12 @@ export const SAMPLES: readonly BuiltInSample[] = [
 		'f-20.tjp': () => import('../../../engine/tj/examples/Fedora-20/f-20.tjp?raw'),
 		'reports.tji': () => import('../../../engine/tj/examples/Fedora-20/reports.tji?raw'),
 	}),
+	sample('fedora-res', 'f-20.tjp', {
+		'f-20.tjp': () => import('../../../engine/golden/plans/fedora-res/f-20.tjp?raw'),
+		'reports.tji': () => import('../../../engine/golden/plans/fedora-res/reports.tji?raw'),
+		'mainspring-load.tji': () =>
+			import('../../../engine/golden/plans/fedora-res/mainspring-load.tji?raw'),
+	}),
 	sample('gantt-manipulation', 'plan.tjp', {
 		'plan.tjp': () => import('../../../tests/fixtures/gantt/manipulation/plan.tjp?raw'),
 		'lib/build.tji': () => import('../../../tests/fixtures/gantt/manipulation/lib/build.tji?raw'),

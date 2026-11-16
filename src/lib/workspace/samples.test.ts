@@ -17,6 +17,7 @@ const ROOTS: Record<string, string> = {
 	'gantt-manipulation': 'tests/fixtures/gantt/manipulation',
 	'gantt-200': 'engine/golden/plans/gantt/gantt-200',
 	'gantt-500': 'engine/golden/plans/gantt/gantt-500',
+	'fedora-res': 'engine/golden/plans/fedora-res',
 };
 
 describe('SAMPLES', () => {

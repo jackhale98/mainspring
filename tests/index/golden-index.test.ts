@@ -162,7 +162,7 @@ describe.each(CASES)('$id', ({ golden, files, snap }) => {
 
 describe('totals', () => {
 	it('compares every plan the engine read, and states the count', () => {
-		expect(totals.plans).toBe(41);
+		expect(totals.plans).toBe(72);
 		expect(totals.skipped.sort()).toEqual([
 			'bridge-parse-failure',
 			'syn-19-errors-parse',
