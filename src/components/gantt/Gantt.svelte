@@ -47,7 +47,7 @@
 	under the pointer, and paints once when the wheel has been still for a moment.
 -->
 <script lang="ts">
-	import { flushSync, onMount, tick, untrack } from 'svelte';
+	import { flushSync, onMount, tick, untrack, type Snippet } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { finishScenario } from '../../lib/schedule/finish';
 	import { RescheduleAnnouncer } from '../../lib/gantt/announce';
@@ -123,8 +123,18 @@
 		ontablecommit?: () => void;
 		/** Brings the editor on screen, for the empty state's "write them in Text"; none in Split. */
 		ontext?: (() => void) | undefined;
+		/** The leading group of the toolbar's row: the view switcher (people/ViewSwitcher.svelte). */
+		toolbarLead?: Snippet | undefined;
 	}
-	let { app, phone = false, tableRatio = null, ontable, ontablecommit, ontext }: Props = $props();
+	let {
+		app,
+		phone = false,
+		tableRatio = null,
+		ontable,
+		ontablecommit,
+		ontext,
+		toolbarLead,
+	}: Props = $props();
 
 	const zones = memoZones(createTimeZoneHost());
 	const env = new GanttEnv();
@@ -533,6 +543,7 @@
 			onadd: (mode) => m.addTask(mode),
 		}}
 		rowActions={m.rowActions}
+		lead={toolbarLead}
 		onpill={(h) => (pillH = h)}
 	/>
 	<!-- Link mode (R3): what to do, and the way out for a pointer that has no Escape. It floats

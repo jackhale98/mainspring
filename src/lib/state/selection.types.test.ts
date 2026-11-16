@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Phase 3 selection and view types (phase-3.md 6.7): compile checks (`npm run typecheck` enforces
-// them). `Selection` keeps the Phase 2 kinds until T13 widens it (see the T2 note in
-// selection.svelte.ts); T13 updates the first check when it does.
+// them). T13 widened `Selection` to the Phase 2 kinds plus `PeopleSelection`.
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { PaintScope } from '../calendar/paint';
 import type { BucketKind } from '../workload/types';
 import type { PeopleSegment, PeopleSelection, Selection, View } from './selection.svelte';
 
 describe('Phase 3 selection types (6.7)', () => {
-	it('keeps the Phase 2 kinds in `Selection` until T13', () => {
-		expectTypeOf<NonNullable<Selection>['kind']>().toEqualTypeOf<'task' | 'link'>();
+	it('has the Phase 2 kinds and the People kinds in `Selection`', () => {
+		expectTypeOf<NonNullable<Selection>['kind']>().toEqualTypeOf<
+			'task' | 'link' | 'resource' | 'cell' | 'days'
+		>();
+		expectTypeOf<PeopleSelection>().toExtend<NonNullable<Selection>>();
 	});
 
 	it('has the People kinds of 6.7', () => {

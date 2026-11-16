@@ -25,7 +25,11 @@ export const TOTAL_CAP = 600_000;
 export const VISUAL_FIRST_CAP = 310_000;
 export const TEXT_FIRST_CAP = 420_000;
 /** Lazy chunks with their own cap, by file name. Add the People chunk here when it lands (60,000). */
-export const CHUNK_CAPS = [{ name: 'editor', pattern: /^editor-controller/, cap: 118_000 }];
+export const CHUNK_CAPS = [
+	{ name: 'editor', pattern: /^editor-controller/, cap: 118_000 },
+	// The People views (phase-3.md 8.3): PeopleView.svelte is the lazy chunk's entry.
+	{ name: 'people', pattern: /^PeopleView/, cap: 60_000 },
+];
 
 const gzip = (buf) => zlib.gzipSync(buf, { level: 9 }).length;
 const arg = (name) =>
@@ -70,6 +74,7 @@ async function firstLoad(browser, base, query) {
 		gzipBytes: list.reduce((n, f) => n + f.gzip, 0),
 		rawBytes: list.reduce((n, f) => n + f.raw, 0),
 		loadsEditorChunk: list.some((f) => f.file.startsWith('editor-controller')),
+		loadsPeopleChunk: list.some((f) => f.file.startsWith('PeopleView')),
 	};
 }
 
@@ -107,7 +112,7 @@ const kb = (n) => `${(n / 1000).toFixed(1)} KB`;
 /**
  * The budget problems of a measurement (empty when it is within every budget). `loads` is absent
  * with --dist-only. Pure, so it is unit-tested (tests/scripts/js-sizes.test.ts).
- * @param {{ files: { file: string, gzip: number }[], loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean } } }} m
+ * @param {{ files: { file: string, gzip: number }[], loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean } } }} m
  * @returns {string[]}
  */
 export function checkBudgets({ files, loads }) {
@@ -134,6 +139,9 @@ export function checkBudgets({ files, loads }) {
 			problems.push('a Visual-first load fetched the CodeMirror chunk (it must stay split off)');
 		if (!t.loadsEditorChunk)
 			problems.push('a Text-first load did not fetch the CodeMirror chunk (the split moved?)');
+		// The People views load when one opens, never with a Gantt-first load (phase-3.md 8.3).
+		if (v.loadsPeopleChunk || t.loadsPeopleChunk)
+			problems.push('a Gantt-first load fetched the People chunk (it must stay lazy)');
 	}
 	return problems;
 }

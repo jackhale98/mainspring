@@ -819,6 +819,40 @@ export const strings = {
 		/** The pointer to Text mode; a button where the editor is not on screen. */
 		inText: 'or write them in Text',
 	},
+	/**
+	 * The People shell (phase-3.md 9.1, 18.10; components/people): the view switcher on desktop and
+	 * tablet, the segments of the phone's People tab, the "No people" state with Add person, and the
+	 * placeholders the heatmap, lanes, calendar and team views (T14 to T17) replace.
+	 */
+	people: {
+		/** The view switcher of the desktop and tablet toolbars (a radio group). */
+		switcher: 'Views',
+		view: { gantt: 'Gantt', workload: 'Workload', resources: 'Resources', calendar: 'Calendar' },
+		/** The segmented control of the phone's People tab (a tablist). */
+		segments: 'People views',
+		segment: { load: 'Load', lanes: 'Lanes', calendar: 'Calendar', team: 'Team' },
+		loading: 'Loading the people views…',
+		loadFailed: 'The people views could not be loaded.',
+		retry: 'Try again',
+		/** The retry failed too: the browser may remember a failed import, a reload does not. */
+		reload: 'Reload the page',
+		/** The plan declares no resource (a heatmap, lanes or a team of nobody). */
+		none: {
+			title: 'No people yet',
+			lead: 'Add the people who do the work. Each one is a resource in the plan.',
+			add: 'Add person',
+			/** The name the new person starts with; the details rename it. */
+			newPerson: 'New person',
+			label: (name: string) => `Added ${name}`,
+		},
+		/** What a view not built yet shows (replaced by T14 to T17). */
+		coming: {
+			workload: 'The workload heatmap is coming.',
+			resources: 'The resource lanes and table are coming.',
+			calendar: 'The calendar of holidays and leaves is coming.',
+			team: 'The team list is coming.',
+		},
+	},
 	/** "New plan…" (ADR-0013): the chooser's entries and the sheet that makes the plan. */
 	newPlan: {
 		/** The chooser's first entry; the dots mean it opens a sheet. */
@@ -857,6 +891,7 @@ export const strings = {
 	panels: {
 		plan: 'Plan',
 		gantt: 'Gantt',
+		people: 'People',
 		text: 'Text',
 		tabs: 'Panels',
 		outlineOpen: 'Outline',

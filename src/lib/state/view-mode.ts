@@ -9,6 +9,7 @@
  *   have no Split; they use the tab bar instead.
  * - `?mode=text|split|visual` picks a mode for a link or a test and wins once over the stored one.
  */
+import type { PhoneTab } from './app.svelte';
 import type { LayoutKind } from './layout.svelte';
 
 export type ViewMode = 'text' | 'split' | 'visual';
@@ -31,6 +32,6 @@ export function effectiveMode(choice: ViewMode | null, layout: LayoutKind): View
 }
 
 /** The phone tab a mode starts on. */
-export function phoneTabFor(mode: ViewMode | null): 'gantt' | 'text' {
+export function phoneTabFor(mode: ViewMode | null): PhoneTab {
 	return mode === 'text' ? 'text' : 'gantt';
 }

@@ -54,6 +54,25 @@ describe('checkBudgets', () => {
 		expect(problems.join('\n')).toMatch(/Text-first load did not fetch/);
 	});
 
+	it('caps the People chunk, and fails a Gantt-first load that fetches it', () => {
+		const people = (gzip: number) => [{ file: 'PeopleView.abc.js', gzip }];
+		expect(checkBudgets({ files: people(60_000) })).toEqual([]);
+		expect(checkBudgets({ files: people(60_001) }).join('\n')).toMatch(/people chunk/);
+		const fetched = (v: boolean, t: boolean) => ({
+			visualFirst: { ...load(290_000, false), loadsPeopleChunk: v },
+			textFirst: { ...load(400_000, true), loadsPeopleChunk: t },
+		});
+		expect(checkBudgets({ files: [], loads: fetched(false, false) })).toEqual([]);
+		for (const [v, t] of [
+			[true, false],
+			[false, true],
+		] as const) {
+			expect(checkBudgets({ files: [], loads: fetched(v, t) }).join('\n')).toMatch(
+				/Gantt-first load fetched the People chunk/,
+			);
+		}
+	});
+
 	it('checks only the dist budgets without a browser measurement', () => {
 		expect(checkBudgets({ files: [{ file: 'a.js', gzip: 1 }] })).toEqual([]);
 	});
