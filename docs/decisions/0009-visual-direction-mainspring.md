@@ -327,16 +327,31 @@ The user found the watch-dial mark unattractive and chose version B, "Spring", f
 in `docs/design/logo-2026-11/` (comparison sheets and in-app mockups there): a navy ribbon that
 flows into a coil, like the end of a mainspring strip, with a brass arc beside each end.
 
-- **Colours:** the band is navy `#1C2A55` on light and light blued steel `#B3C5F4` on dark (12.8:1
-  and 11.0:1). The arcs use `brass-deep` `#9A7424` on light (3.9:1, so they pass 3:1 for graphics)
-  and `#D2AE5C` on dark.
+- **Colours:** the band is navy `#1C2A55` on light and light blued steel `#B3C5F4` on dark. The arcs
+  use `brass-deep` `#9A7424` on light and brass `#D2AE5C` on dark. Tokens: `--color-mark-band` and
+  `--color-mark-arc` (the arcs reference the brass tokens). Contrast on `--color-bg` (the canvas the
+  top bar sits on, `#ECE7DC` / `#080B10`): band 11.27:1 and 11.46:1, arcs 3.48:1 and 9.34:1, so both
+  pass 3:1 for graphics. On `--color-surface` (`#FFFDF8` / `#11151D`): band 13.66:1 and 10.63:1,
+  arcs 4.22:1 and 8.66:1. `tests/ci/palette.test.ts` checks all eight pairs.
 - **Small sizes:** at 32 px and below, the arcs are dropped and the band is thicker. At 16 px (the
-  favicon) the coil's innermost turn is dropped so the shape stays crisp.
-- **Geometry:** one source, as before (`src/lib/brand/mark.ts`), with the equal-gap cuts baked into
-  outline paths; no masks in the shipped SVG.
-- **Top bar:** the mark's slot widens from 26 px square to the mark's aspect ratio (about 35 x 26 px).
+  favicon) the coil's innermost half turn is dropped as well, so the shape stays crisp.
+- **Geometry:** one source, as before (`src/lib/brand/mark.ts`). The mark is one ribbon of constant
+  width, built from circular arcs and a straight segment, so every gap is equal by construction and
+  no cut is needed: the shipped SVG has no mask, clip, filter or gradient.
+- **Top bar:** the mark's slot widens from 26 px square to the mark's aspect ratio (35 x 26 px). The
+  busy slots of the engine pill and the status strip have a fixed width, so nothing moves when
+  scheduling starts or stops.
 - **Loader:** the mark still doubles as the loader (the 2026-11-13 note). The ribbon is drawn along
-  its path into the coil and released, on the same timing and with the same reduced-motion rule.
-  The user sees the animation before it ships.
-- The watch-dial mark's files stay in git history; the brand notes above that describe it are
-  superseded by this entry.
+  its path from its free end into the coil, held, and released the same way: a 2 s cycle (two 1 s
+  beats) on the hairspring beat's easing, with the brass arcs brightening with it. A stub of the
+  ribbon (6% of its path) is always drawn, so the loader is never blank. The reduced-motion rule is
+  as before: the mark holds still and pulses. The user sees the animation before it ships.
+- **Uses:**
+  - `Mark.svelte` in the app and `Mark.astro` on the landing page;
+  - `public/favicon.svg`, the tiny form, written by `npm run gen:favicon`, with the dark colours
+    under `prefers-color-scheme`; `mark.test.ts` checks that it is current;
+  - the app icons, written by `npm run gen:icons`, use the full form (with the arcs) on the enamel
+    ground: 192 and 512 px, an apple-touch icon, and maskable 192 and 512 px (the 192 px maskable
+    icon is new and is listed in the manifest).
+- The watch-dial mark's files stay in git history; the brand notes above that describe it (the
+  2026-11-13 mark note, including its "Uses" line) are superseded by this entry.

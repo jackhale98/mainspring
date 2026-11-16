@@ -26,7 +26,9 @@
 	data-state={state}
 	title={engineLine(state)}
 >
-	{#if working}<Mark size={16} busy />{/if}<span class="words">{engineLine(state)}</span>
+	{#if working}<span class="slot"><Mark size={16} busy /></span>{/if}<span class="words"
+		>{engineLine(state)}</span
+	>
 </p>
 
 <style>
@@ -51,14 +53,22 @@
 		flex: none;
 		inline-size: 8px;
 		block-size: 8px;
+		/* The same 22 px as the working mark's slot, so nothing moves when scheduling starts or stops. */
+		margin-inline: 7px;
 		border-radius: 50%;
 		background: var(--color-status-neutral);
+	}
+	.slot {
+		flex: none;
+		display: inline-flex;
+		justify-content: center;
+		inline-size: 22px;
 	}
 	.engine[data-state='idle']::before {
 		background: var(--color-status-ok);
 		box-shadow: 0 0 0 3px var(--color-status-ok-halo);
 	}
-	/* Working: the ticking mark replaces the dot, so it differs from "ready" without colour. */
+	/* Working: the loader mark replaces the dot, so it differs from "ready" without colour. */
 	.engine[data-state='busy']::before,
 	.engine[data-state='booting']::before {
 		display: none;

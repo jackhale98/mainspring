@@ -106,10 +106,12 @@
 	{#if s}
 		<div class="strip" role="group" aria-label={strings.status.region}>
 			<span class="state" data-kind={s.kind}>
-				{#if s.kind === 'scheduling' || s.kind === 'booting'}<Mark size={14} busy />{:else}<span
-						class="dot"
-						aria-hidden="true"
-					></span>{/if}{s.label}
+				<span class="slot"
+					>{#if s.kind === 'scheduling' || s.kind === 'booting'}<Mark size={14} busy />{:else}<span
+							class="dot"
+							aria-hidden="true"
+						></span>{/if}</span
+				>{s.label}
 			</span>
 			<span class="finish" class:outdated={s.outdated}>
 				<span class="key">{strings.status.finish}</span>
@@ -185,8 +187,15 @@
 		gap: var(--space-2);
 		font-weight: 600;
 	}
+	.slot {
+		flex: none;
+		display: inline-flex;
+		justify-content: center;
+		/* Fits the working mark (19 px wide at 14 px high), so the label does not move. */
+		inline-size: 20px;
+	}
 	/* The dot differs in shape as well as colour: a circle when fine, a diamond for errors, and while it
-	   works the ticking brand mark instead (WCAG 1.4.1). */
+	   works the brand mark loader instead (WCAG 1.4.1). */
 	.dot {
 		flex: none;
 		inline-size: 8px;

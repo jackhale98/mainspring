@@ -165,6 +165,11 @@ const GRAPHICS: ReadonlyArray<readonly [string, string, number]> = [
 	['color-gantt-critical-top', 'color-gantt-surface', 3],
 	['color-gantt-summary', 'color-gantt-surface', 3],
 	['color-gantt-milestone', 'color-gantt-surface', 2.2],
+	// The brand mark's ribbon and brass arcs on the canvas and on a panel (ADR-0009, mark change).
+	['color-mark-band', 'color-bg', 3],
+	['color-mark-band', 'color-surface', 3],
+	['color-mark-arc', 'color-bg', 3],
+	['color-mark-arc', 'color-surface', 3],
 ];
 
 /**

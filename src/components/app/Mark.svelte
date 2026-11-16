@@ -1,18 +1,17 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	The brand mark (ADR-0009, mark note; geometry in src/lib/brand/mark.ts): three brass task arcs
-	on a dial and a ruby jewel in a brass setting. The full form has a blued-steel hairspring; at
-	32 px and below the small form draws the mainspring coil instead.
-	With `busy` it doubles as the loader, moving as a movement does. The dial is the escapement: it
-	ticks forward twelve eased steps a turn, one every half second. The small form's mainspring
-	unwinds steadily in one direction; the full form's hairspring beats once a second, and each
-	half-beat lets the dial tick. While it moves it stays cheap to paint (no masks or filters, which
-	WebKit repaints every frame): the turning coil is lit radially so its light does not spin, and
-	the jewel drops its shadow. Under reduced motion the mark holds still and pulses gently.
+	The brand mark (ADR-0009, "Mark change, 2026-11-16"; geometry in src/lib/brand/mark.ts): a navy
+	ribbon that flows into a coil, like the end of a mainspring strip, with a brass arc beside each
+	end. `size` is the height; the width follows the mark's aspect (35 x 26 px at 26).
+	With `busy` it doubles as the loader: the ribbon is drawn along its path, from its free end into
+	the coil, then released the same way (a short stub of it, 6% of the path, is always drawn, so the mark is
+	never blank), a cycle of 2 s (two 1 s beats on the beat's easing); the
+	brass arcs brighten with it. Only a dash offset and an opacity move, so it stays cheap to paint (no masks or filters, which WebKit repaints
+	every frame). Under reduced motion the mark holds still and pulses gently.
 	Decorative unless `label` is given (then it is an image with that name).
 -->
 <script lang="ts">
-	import { VIEWBOX, markForm, markGeometry } from '../../lib/brand/mark';
+	import { MARK_ASPECT, VIEWBOX_H, VIEWBOX_W, markForm, markGeometry } from '../../lib/brand/mark';
 
 	interface Props {
 		size?: number;
@@ -21,81 +20,24 @@
 	}
 	let { size = 28, busy = false, label }: Props = $props();
 
-	const uid = $props.id();
 	const g = $derived(markGeometry(markForm(size)));
-	const c = VIEWBOX / 2;
 </script>
 
 <svg
 	class="mark"
 	class:busy
-	width={size}
+	width={Math.round(size * MARK_ASPECT * 100) / 100}
 	height={size}
-	viewBox="0 0 {VIEWBOX} {VIEWBOX}"
+	viewBox="0 0 {VIEWBOX_W} {VIEWBOX_H}"
 	role={label ? 'img' : undefined}
 	aria-label={label}
 	aria-hidden={label ? undefined : 'true'}
 	focusable="false"
 >
-	<defs>
-		<linearGradient id="{uid}-b" x1="0" y1="0" x2="0" y2={VIEWBOX} gradientUnits="userSpaceOnUse">
-			<stop offset="0" class="bh" />
-			<stop offset=".45" class="bm" />
-			<stop offset="1" class="bl" />
-		</linearGradient>
-		<linearGradient id="{uid}-s" x1="0" y1="24" x2="0" y2="96" gradientUnits="userSpaceOnUse">
-			<stop offset="0" class="sh" />
-			<stop offset=".5" class="sm" />
-			<stop offset="1" class="sl" />
-		</linearGradient>
-		<radialGradient
-			id="{uid}-r"
-			cx={g.jewelLight.cx}
-			cy={g.jewelLight.cy}
-			r={g.jewelLight.r}
-			gradientUnits="userSpaceOnUse"
-		>
-			<stop offset="0" class="rh" />
-			<stop offset=".55" class="rm" />
-			<stop offset="1" class="rl" />
-		</radialGradient>
-		<filter id="{uid}-d" x="-50%" y="-50%" width="200%" height="200%">
-			<feDropShadow dx="0" dy="0.8" stdDeviation="0.9" class="shadow" />
-		</filter>
-		<!-- While it turns, the coil is lit radially, which looks the same at every angle. -->
-		<radialGradient id="{uid}-sr" cx="60" cy="60" r="36" gradientUnits="userSpaceOnUse">
-			<stop offset=".15" class="sh" />
-			<stop offset=".6" class="sm" />
-			<stop offset="1" class="sl" />
-		</radialGradient>
-	</defs>
-	<g class="dial">
-		{#each g.arcs as d (d)}
-			<path {d} fill="none" stroke="url(#{uid}-b)" stroke-width={g.arcWidth} />
-		{/each}
-	</g>
-	{#if g.innerRing !== null}
-		<circle class="inner" cx={c} cy={c} r={g.innerRing} />
-	{/if}
-	{#if g.coil !== null}
-		<path class="coil" d={g.coil} fill={busy ? `url(#${uid}-sr)` : `url(#${uid}-s)`} />
-	{/if}
-	{#if g.hairspring !== null}
-		<path class="hairspring" d={g.hairspring} stroke-width={g.hairspringWidth} />
-	{/if}
-	<g filter={busy ? undefined : `url(#${uid}-d)`}>
-		<circle cx={c} cy={c} r={g.setting} fill="url(#{uid}-b)" />
-		<circle cx={c} cy={c} r={g.jewel} fill="url(#{uid}-r)" />
-	</g>
-	<ellipse
-		cx={g.highlight.cx}
-		cy={g.highlight.cy}
-		rx={g.highlight.rx}
-		ry={g.highlight.ry}
-		class="glint"
-		opacity=".55"
-		transform="rotate(-35 {g.highlight.cx} {g.highlight.cy})"
-	/>
+	{#each g.arcs as d (d)}
+		<path class="arc" {d} stroke-width={g.arcWidth} />
+	{/each}
+	<path class="band" d={g.band} stroke-width={g.bandWidth} pathLength="100" />
 </svg>
 
 <style>
@@ -104,170 +46,53 @@
 		display: block;
 		overflow: visible;
 	}
-	.bh {
-		stop-color: var(--color-mark-brass-hi);
-	}
-	.bm {
-		stop-color: var(--color-mark-brass);
-	}
-	.bl {
-		stop-color: var(--color-mark-brass-lo);
-	}
-	.sh {
-		stop-color: var(--color-mark-steel-hi);
-	}
-	.sm {
-		stop-color: var(--color-mark-steel);
-	}
-	.sl {
-		stop-color: var(--color-mark-steel-lo);
-	}
-	.rh {
-		stop-color: var(--color-mark-ruby-hi);
-	}
-	.rm {
-		stop-color: var(--color-mark-ruby);
-	}
-	.rl {
-		stop-color: var(--color-mark-ruby-lo);
-	}
-	.shadow {
-		flood-color: #000;
-		flood-opacity: 0.3;
-	}
-	.glint {
-		fill: var(--color-mark-glint);
-	}
-	.inner {
+	.arc,
+	.band {
 		fill: none;
-		stroke: var(--color-mark-brass);
-		stroke-width: 0.6;
-		opacity: 0.55;
 	}
-	.hairspring {
-		fill: none;
-		stroke: var(--color-steel);
-		stroke-linecap: round;
+	.arc {
+		stroke: var(--color-mark-arc);
 	}
-	.dial,
-	.coil,
-	.hairspring {
-		transform-box: view-box;
-		transform-origin: 50% 50%;
+	.band {
+		stroke: var(--color-mark-band);
 	}
-	/* The escapement: a tick every half second, on the hairspring's half-beats. */
-	.busy .dial {
-		animation: mark-tick 6s 0.25s infinite;
+	/* The loader: the ribbon draws in from its free end, holds, then leaves the same way. */
+	.busy .band {
+		stroke-dasharray: 100 100;
+		animation: mark-draw 2s infinite;
 	}
-	/* The mainspring unwinds: one steady turn every 8 s, against the coil's winding. */
-	.busy .coil {
-		animation: mark-unwind 8s linear infinite;
+	/* The brass arcs wake with the ribbon and dim as it leaves. */
+	.busy .arc {
+		animation: mark-arc 2s infinite;
 	}
-	/* The balance beats: one swing a second. */
-	.busy .hairspring {
-		animation: mark-beat 1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-	}
-	@keyframes mark-tick {
-		0.000% {
-			transform: rotate(0deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
+	@keyframes mark-draw {
+		0% {
+			stroke-dashoffset: 94;
+			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
 		}
-		2.000% {
-			transform: rotate(30deg);
+		42% {
+			stroke-dashoffset: 0;
 		}
-		8.333% {
-			transform: rotate(30deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		10.333% {
-			transform: rotate(60deg);
-		}
-		16.667% {
-			transform: rotate(60deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		18.667% {
-			transform: rotate(90deg);
-		}
-		25.000% {
-			transform: rotate(90deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		27.000% {
-			transform: rotate(120deg);
-		}
-		33.333% {
-			transform: rotate(120deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		35.333% {
-			transform: rotate(150deg);
-		}
-		41.667% {
-			transform: rotate(150deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		43.667% {
-			transform: rotate(180deg);
-		}
-		50.000% {
-			transform: rotate(180deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		52.000% {
-			transform: rotate(210deg);
-		}
-		58.333% {
-			transform: rotate(210deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		60.333% {
-			transform: rotate(240deg);
-		}
-		66.667% {
-			transform: rotate(240deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		68.667% {
-			transform: rotate(270deg);
-		}
-		75.000% {
-			transform: rotate(270deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		77.000% {
-			transform: rotate(300deg);
-		}
-		83.333% {
-			transform: rotate(300deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		85.333% {
-			transform: rotate(330deg);
-		}
-		91.667% {
-			transform: rotate(330deg);
-			animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1);
-		}
-		93.667% {
-			transform: rotate(360deg);
+		58% {
+			stroke-dashoffset: 0;
+			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
 		}
 		100% {
-			transform: rotate(360deg);
+			stroke-dashoffset: -94;
 		}
 	}
-	@keyframes mark-unwind {
-		to {
-			transform: rotate(-360deg);
+	@keyframes mark-arc {
+		0% {
+			opacity: 0.3;
+			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
 		}
-	}
-	@keyframes mark-beat {
-		0%,
+		42%,
+		58% {
+			opacity: 1;
+			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+		}
 		100% {
-			transform: rotate(-40deg) scale(0.95);
-		}
-		50% {
-			transform: rotate(40deg) scale(1.04);
+			opacity: 0.3;
 		}
 	}
 	@keyframes mark-pulse {
@@ -276,10 +101,10 @@
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.busy .dial,
-		.busy .coil,
-		.busy .hairspring {
+		.busy .band,
+		.busy .arc {
 			animation: none;
+			stroke-dasharray: none;
 		}
 		.busy {
 			animation: mark-pulse 1.6s ease-in-out infinite;
