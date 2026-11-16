@@ -102,6 +102,107 @@ test.describe('New plan', () => {
 		expect(await page.evaluate(() => document.title)).toBeTruthy();
 	});
 
+	test('an empty plan is not an error: "No tasks yet", the empty state adds the first task, and deleting it returns', async ({
+		page,
+	}, info) => {
+		const touch = isTouch(info);
+		await open(page);
+		await fill(page, 'Empty one', 'None (UTC)');
+		await tap(touch, sheet(page).getByRole('button', { name: 'Create' }));
+		await expect(sheet(page)).toBeHidden();
+
+		// The status is neutral: no error, no "not scheduled", no message without a place.
+		const status = page.getByRole('group', { name: 'Plan status' });
+		await expect(status).toContainText('No tasks yet', { timeout: READY_TIMEOUT_MS });
+		await expect(status).not.toContainText(/error|Not scheduled|without a place/i);
+		if (touch) {
+			await expect(page.getByTestId('status-button')).toHaveAttribute('data-glyph', 'ok');
+		} else {
+			await expect(status).toContainText('No problems');
+			await expect(status.getByRole('button', { name: /error|warning|message/i })).toHaveCount(0);
+		}
+
+		// The empty state: one sentence and the Add task button, the same flow as the +.
+		const empty = page.getByTestId('empty-state');
+		await expect(empty).toBeVisible();
+		await expect(empty).toContainText('No tasks yet');
+		await tap(touch, page.getByTestId('empty-add-task'));
+		const name = page.getByRole('textbox', { name: 'Name', exact: true });
+		await expect(name).toBeFocused({ timeout: READY_TIMEOUT_MS });
+		await expect.poll(() => text(page)).toContain('task new_task "New task"');
+		await page.keyboard.type('First task');
+		await page.keyboard.press('Enter');
+		await expect.poll(() => text(page)).toContain('task new_task "First task"');
+		const row = page.locator('[role="row"][data-key="task:new_task"]');
+		await expect(row).toBeVisible();
+		await expect(empty).toHaveCount(0);
+		await expect(status).not.toContainText('No tasks yet');
+
+		// Deleting the only task goes back to the empty state, settled without an error.
+		if (touch) {
+			await row.locator('.label').tap();
+			await expect(row).toHaveAttribute('aria-selected', 'true');
+			await page.getByTestId('row-menu').tap();
+			await page.getByRole('menuitem', { name: 'Delete' }).tap();
+		} else {
+			await row.focus();
+			await page.keyboard.press('Delete');
+		}
+		await expect(page.getByTestId('empty-state')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(status).toContainText('No tasks yet');
+		await expect(status).not.toContainText(/error|Not scheduled|without a place/i);
+		await expect(
+			page.getByTestId('toast').filter({ hasText: 'The plan has no tasks.' }),
+		).toHaveText(/Deleted\. The plan has no tasks\./);
+		await expect(page.getByTestId('toast').filter({ hasText: /no longer schedules/ })).toHaveCount(
+			0,
+		);
+		expect(await text(page)).not.toContain('task new_task');
+	});
+
+	test('the empty state points to Text where no editor is on screen, and not in Split', async ({
+		page,
+	}, info) => {
+		const touch = isTouch(info);
+		await open(page);
+		await fill(page, 'Pointer', 'None (UTC)');
+		await tap(touch, sheet(page).getByRole('button', { name: 'Create' }));
+		const empty = page.getByTestId('empty-state');
+		await expect(empty).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		const link = page.getByRole('button', { name: 'or write them in Text' });
+		if (touch) {
+			await expect(link).toBeVisible();
+		} else {
+			// A desktop opens the new plan in Split: the editor is beside the chart, so no pointer.
+			await expect(link).toHaveCount(0);
+			await page.getByRole('button', { name: 'Visual' }).click();
+			await expect(link).toBeVisible();
+		}
+		await tap(touch, link);
+		await expect(page.getByRole('textbox', { name: /^Editor for / })).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
+	});
+
+	test('the phone Plan tab shows the same empty state, and its button adds the first task', async ({
+		page,
+	}, info) => {
+		test.skip(!isTouch(info), 'the Plan tab is the phone layout');
+		await open(page);
+		await fill(page, 'Plan tab', 'None (UTC)');
+		await tap(true, sheet(page).getByRole('button', { name: 'Create' }));
+		await expect(page.getByTestId('empty-state')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await page.getByRole('tab', { name: 'Plan', exact: true }).tap();
+		const plan = page.locator('#panel-plan');
+		await expect(plan.getByTestId('empty-state')).toBeVisible();
+		await plan.getByTestId('empty-add-task').tap();
+		// The flow takes the person to the Gantt tab, where the details open on the new task.
+		await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused({
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect.poll(() => text(page)).toContain('task new_task "New task"');
+	});
+
 	test('None (UTC) writes no time zone line', async ({ page }, info) => {
 		await open(page);
 		await fill(page, 'Launch', 'None (UTC)', '2027-01-04');

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Screenshots of "New plan…" (phase-3.md T4), light and dark, on the desktop (1440 x 860, device
 // scale factor 2) and the Pixel 7 emulation: the plan chooser with "New plan…" and the Samples
-// group, the New plan sheet, and the screen right after Create; and the sheet on a 360 x 780 phone
+// group, the New plan sheet, and the empty state right after Create (also the phone's Plan tab); and the sheet on a 360 x 780 phone
 // (light). The chooser is a native <select>, whose popup a screenshot does not capture: for the
 // picture it is shown as a list box (`size`) under the chip, with the same options. Run with
 // SCREENSHOTS=1; it writes docs/phases/screenshots/phase-3/new-plan-<what>-<device>-<light|dark>.png.
@@ -87,14 +87,24 @@ test.describe('new plan screenshots', () => {
 		if (touch) await create.tap();
 		else await create.click();
 		await expect(sheet(page)).toBeHidden();
-		await expect(page.getByTestId('add-task')).toBeVisible();
-		await page.waitForTimeout(1500);
-		await shoot(page, device, 'created');
+		await expect(page.getByTestId('empty-state')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('No tasks yet', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await page.waitForTimeout(1000);
+		await shoot(page, device, 'empty-state');
+		if (touch) {
+			// The phone's Plan tab shows the same empty state.
+			await page.getByRole('tab', { name: 'Plan', exact: true }).tap();
+			await expect(page.locator('#panel-plan').getByTestId('empty-state')).toBeVisible();
+			await page.waitForTimeout(500);
+			await page.screenshot({ path: path.join(DIR, 'new-plan-empty-plan-tab-pixel-7-light.png') });
+		}
 	}
 
 	test.describe('desktop', () => {
 		test.use({ deviceScaleFactor: 2 });
-		test('chooser, sheet, created', async ({ page }, info) => {
+		test('chooser, sheet, empty state', async ({ page }, info) => {
 			test.skip(info.project.name !== 'desktop');
 			await page.setViewportSize({ width: 1440, height: 860 });
 			await run(page, 'desktop', false);
@@ -102,7 +112,7 @@ test.describe('new plan screenshots', () => {
 	});
 
 	test.describe('pixel 7', () => {
-		test('chooser, sheet, created', async ({ page }, info) => {
+		test('chooser, sheet, empty state', async ({ page }, info) => {
 			test.skip(info.project.name !== 'pixel-7');
 			await run(page, 'pixel-7', isTouch(info));
 		});
