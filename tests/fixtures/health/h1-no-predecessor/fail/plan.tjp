@@ -1,0 +1,25 @@
+# Feature: health check H1 (no predecessor), fail. Fails H1 on "build" only: it has no depends
+# entry, no task precedes it, and it is not a milestone. The kickoff milestone is removed, so no
+# other task lacks a predecessor. Every other task keeps its predecessor and successor.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h1fail "Health H1 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task build "Build" {
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

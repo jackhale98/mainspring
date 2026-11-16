@@ -1,0 +1,21 @@
+# Feature: DST weeks. In Europe/Berlin, "spring" runs across the spring change (2026-03-29, a 167-hour week) and "autumn" across the autumn change (2026-10-25, a 25-hour day). Weekly buckets must follow the local week, and the day bucket of the changed day must hold its real hours.
+# Binding: ada's 12-day effort starts Monday 2026-03-23 and crosses 03-29; bo's 10-day effort starts Monday 2026-10-19 and crosses 10-25. Both are leaves, so every booked slot falls in one of the two weeks.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project dstweeks "DST weeks" 2026-03-23 - 2026-11-06 {
+  timezone "Europe/Berlin"
+}
+
+resource ada "Ada"
+resource bo "Bo"
+
+task spring "Spring work" {
+  start 2026-03-23
+  effort 12d
+  allocate ada
+}
+
+task autumn "Autumn work" {
+  start 2026-10-19
+  effort 10d
+  allocate bo
+}

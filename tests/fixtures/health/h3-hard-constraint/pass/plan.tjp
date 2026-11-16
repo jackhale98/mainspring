@@ -1,0 +1,29 @@
+# Feature: health check H3 (hard constraint), pass. Binding: no finding. No task has a start, end,
+# minstart or maxend attribute; the chain is driven only by its dependencies.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h3pass "Health H3 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

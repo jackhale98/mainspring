@@ -1,0 +1,31 @@
+# Feature: held effort task (people busy elsewhere). "review" is an effort task for Dev, who is booked on the higher-priority "build" for 01-05..01-07. TaskJuggler holds "review" until Dev is free on 01-08, although its only predecessor allows an earlier start (ADR-0014 "held"). Ann is free and takes "docs" in parallel.
+# Binding: review waits three working days for Dev; docs shows the same window with nobody held.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project held "Held effort" 2026-01-05 - 2026-01-30 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  priority 1000
+  effort 3d
+  allocate dev
+}
+
+task review "Review" {
+  depends kick
+  effort 2d
+  allocate dev
+}
+
+task docs "Docs" {
+  depends kick
+  effort 2d
+  allocate ann
+}

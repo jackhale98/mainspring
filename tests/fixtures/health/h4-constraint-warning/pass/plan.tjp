@@ -1,0 +1,31 @@
+# Feature: health check H4 (constraint warning), pass. Binding: no finding. "test" has a maxstart
+# of 2026-01-09; "build" ends on 2026-01-07, so "test" starts on 2026-01-08, before its latest start.
+# TaskJuggler emits no maxstart warning. maxstart is not an H3 constraint.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h4pass "Health H4 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  maxstart 2026-01-09
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

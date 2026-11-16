@@ -1,0 +1,38 @@
+# Feature: health check H7 (held by people), fail. Fails H7 on "side" only: an effort task of 3
+# days that asks for Dev alone. "build" (priority 1000) books Dev for 01-05..01-07, so "side" is
+# held until 01-08 although "kick" allows it to start on 01-05. Every person it asked for was booked
+# elsewhere. "test" keeps Ann, who is free then.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h7fail "Health H7 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  priority 1000
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task side "Side work" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task done "Done" {
+  depends test, side
+  milestone
+}

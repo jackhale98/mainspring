@@ -1,0 +1,31 @@
+# Feature: overtime booking. allocate ... { overtime 2 } books a person on time that is off their working hours: a weekend, and a day of their own leave. TaskJuggler counts those slots as working time (ADR-0014, amendment 2026-11-16), so booked time never exceeds available time.
+# Binding: the weekend push starts Saturday 2026-01-10 and books dev on that weekend; the leave push starts on dev's annual leave (2026-01-19) and books dev on it. The normal task keeps dev busy on working days.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project overtime "Overtime" 2026-01-05 - 2026-01-30 {
+}
+
+resource dev "Dev" {
+  leaves annual "Holiday" 2026-01-19 - 2026-01-23
+}
+
+task sprint "Sprint" {
+  task normal "Normal work" {
+    start 2026-01-05
+    effort 3d
+    allocate dev
+  }
+  task weekend "Weekend push" {
+    start 2026-01-10-09:00
+    effort 6h
+    allocate dev {
+      overtime 2
+    }
+  }
+  task leave "Leave push" {
+    start 2026-01-19-09:00
+    effort 4h
+    allocate dev {
+      overtime 2
+    }
+  }
+}

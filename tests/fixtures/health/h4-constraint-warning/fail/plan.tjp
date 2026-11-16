@@ -1,0 +1,31 @@
+# Feature: health check H4 (constraint warning), fail. Fails H4 on "test" only: its maxstart of
+# 2026-01-07 is earlier than its scheduled start 2026-01-08, so TaskJuggler warns "maxstart".
+# The warning is the only finding: maxstart is not an H3 constraint, and the chain has no gap.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h4fail "Health H4 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  maxstart 2026-01-07
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

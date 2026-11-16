@@ -1,0 +1,29 @@
+# Feature: health check H2 (no successor), pass. Binding: no finding. Every task has a successor,
+# and the finish milestone "done" is the last task, so it is exempt as the finish milestone.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h2pass "Health H2 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

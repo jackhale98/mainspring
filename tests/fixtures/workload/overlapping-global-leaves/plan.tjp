@@ -1,0 +1,16 @@
+# Feature: overlapping global leaves. Two global leaves overlap: "Easter" (holiday, 04-03..04-07) and "Overlap" (special, 04-06..04-08). TaskJuggler marks a person's slots on the overlap as off-hours, so the days appear in neither workingTime nor leaves (ADR-0014 amendment 2026-11-16). T9 fills those days in from the global leave list.
+# Binding: ada's 15-day effort runs across the overlap; no slot may be booked on 04-06 or 04-07.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project overlap "Overlapping leaves" 2026-03-30 - 2026-05-01 {
+}
+
+leaves holiday "Easter" 2026-04-03 - 2026-04-07
+leaves special "Overlap" 2026-04-06 - 2026-04-08
+
+resource ada "Ada"
+
+task run "Run" {
+  start 2026-03-30
+  effort 15d
+  allocate ada
+}

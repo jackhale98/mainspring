@@ -1,0 +1,33 @@
+# Feature: part-time hours. A resource with its own working hours (mon - fri 9:00 - 13:00, four hours a day, no weekends) takes the bookings, beside a full-time resource on the same tasks.
+# Binding: part's work runs in 4-hour bookings and never past 13:00 or on a weekend; full keeps the project's 9:00 - 17:00 days. The day bucket for part holds 240 minutes, not 480.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project parttime "Part-time hours" 2026-01-05 - 2026-02-13 {
+}
+
+resource part "Part" {
+  workinghours mon - fri 9:00 - 13:00
+  workinghours sat,sun off
+}
+
+resource full "Full"
+
+task part_work "Part-time work" {
+  task p1 "Part one" {
+    start 2026-01-05
+    effort 5d
+    allocate part
+  }
+  task p2 "Part two" {
+    start 2026-01-12
+    effort 4d
+    allocate part
+  }
+}
+
+task full_work "Full-time work" {
+  task f1 "Full one" {
+    start 2026-01-05
+    effort 5d
+    allocate full
+  }
+}

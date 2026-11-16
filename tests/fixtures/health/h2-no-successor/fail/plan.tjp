@@ -1,0 +1,25 @@
+# Feature: health check H2 (no successor), fail. Fails H2 on "test" only: it is an effort task
+# that no task depends on and that is not a milestone, so the finish-milestone exemption does not
+# apply. The finish milestone "done" is removed; "build" keeps its successor "test".
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h2fail "Health H2 fail" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}

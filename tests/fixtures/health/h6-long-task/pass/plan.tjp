@@ -1,0 +1,29 @@
+# Feature: health check H6 (long task), pass. Binding: no finding. "build" has an engine span of
+# exactly 20 working days, the default longTaskDays. A task is long only above 20.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h6pass "Health H6 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 20d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}

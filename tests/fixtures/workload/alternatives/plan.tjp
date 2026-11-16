@@ -1,0 +1,26 @@
+# Feature: allocation with alternatives. "fix" allocates ann with alternatives bo and cy (select order). TaskJuggler books the first free candidate. The workload model shows the booked person, never a candidate who was not booked (ADR-0014: alternatives get no intent in Phase 3).
+# Binding: ann is busy on "lead" (priority 1000) for 01-05..01-07, so "fix" takes bo, the first free alternative, for its whole effort. cy is never booked.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project alternatives "Alternatives" 2026-01-05 - 2026-01-30 {
+}
+
+resource ann "Ann"
+resource bo "Bo"
+resource cy "Cy"
+
+task work "Work" {
+  task lead "Lead work" {
+    start 2026-01-05
+    priority 1000
+    effort 3d
+    allocate ann
+  }
+  task fix "Fix" {
+    start 2026-01-05
+    effort 3d
+    allocate ann {
+      alternative bo, cy
+      select order
+    }
+  }
+}

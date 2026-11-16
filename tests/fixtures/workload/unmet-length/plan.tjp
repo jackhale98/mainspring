@@ -1,0 +1,24 @@
+# Feature: length task that runs without its person (unmet work). "watch" is a length task of 5 days that asks for Dev. Dev is booked on the higher-priority "build" for 01-05..01-07, so "watch" has Dev only on 01-08 and 01-09 and runs without Dev for 3 days (5.4, unmet).
+# Binding: the watch task's span is 5 working days; Dev's bookings inside it are 2 days. TaskJuggler does not warn (allocate_no_assigned needs no booking at all), so the gap is only visible in the schedule.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project unmet "Unmet length" 2026-01-05 - 2026-01-30 {
+}
+
+resource dev "Dev"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  priority 1000
+  effort 3d
+  allocate dev
+}
+
+task watch "Watch" {
+  depends kick
+  length 5d
+  allocate dev
+}

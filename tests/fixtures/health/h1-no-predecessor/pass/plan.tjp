@@ -1,0 +1,30 @@
+# Feature: health check H1 (no predecessor), pass. Binding: no finding. The only task without
+# a depends entry is the kickoff milestone at the project start, which the rule exempts.
+# Base chain for every H1 to H9 pair: kick -> build -> test -> done (the finish milestone).
+# SPDX-License-Identifier: GPL-2.0-or-later
+project h1pass "Health H1 pass" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+resource ann "Ann"
+
+task kick "Kickoff" {
+  milestone
+}
+
+task build "Build" {
+  depends kick
+  effort 3d
+  allocate dev
+}
+
+task test "Test" {
+  depends build
+  effort 3d
+  allocate ann
+}
+
+task done "Done" {
+  depends test
+  milestone
+}
