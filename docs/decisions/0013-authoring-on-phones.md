@@ -56,3 +56,11 @@ The gap is in the app shell. This work was not in the Phase 3 bullets, so it nee
 - Every UI state in this track ships with a phone-emulation screenshot (CLAUDE.md, "Mobile
   counts").
 - The track is small and runs before the workload work. T3 and T4 depend on this ADR.
+
+## Amendment, 2026-11-16 (user)
+
+A new task's id follows its first name. While a task still has the automatic id that `addTask`
+gave it (`new_task`, `new_task_2`, …) and nothing in the plan refers to it, renaming it also sets
+its id from the name, by `addTask`'s id rules. The rename and the id change are one edit, so #4
+still holds: add, then name, is two undo steps. Once anything refers to the task, renaming changes
+only the name (polish item 15).
