@@ -18,7 +18,9 @@ const WARNINGS =
 /** A syntax error, so that the plan is not scheduled. */
 const ERRORS = `${WARNINGS}}\n`;
 /** A plan with no task: a message that has no place in the text. */
-const UNPLACED = 'project p "P" 2026-01-05 +1m\n';
+// A task too long for the frame: the engine's `unscheduled_tasks` summary has no place in the
+// text. (A header-only plan is an empty plan since Phase 3 T5, not an error.)
+const UNPLACED = 'project p "P" 2026-01-05 +1m\ntask a "A" { length 60d }\n';
 
 const editor = (page: Page) => page.getByRole('textbox', { name: /^Editor for / });
 const status = (page: Page) => page.getByRole('button', { name: /^Plan status:/ });

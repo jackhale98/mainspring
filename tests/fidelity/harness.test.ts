@@ -105,6 +105,8 @@ describe('the families', () => {
 			'addLeave',
 			'updateLeave',
 			'removeLeave',
+			'clearLeave',
+			'gapToTask',
 			'declareFlag',
 			'format',
 		];

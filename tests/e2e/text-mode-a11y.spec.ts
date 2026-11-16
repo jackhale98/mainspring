@@ -66,9 +66,10 @@ test.describe('axe', () => {
 			await expect(page.locator('.cm-tooltip-autocomplete')).toBeVisible();
 			await axe(page, 'completion popup open');
 			await page.keyboard.press('Escape');
-			// The unlocated-problems popover: a plan with no task gives a message without a place.
+			// The unlocated-problems popover: a task too long for the frame gives the engine's
+			// `unscheduled_tasks` summary, which has no place (a header-only plan is empty since T5).
 			await page.keyboard.press('ControlOrMeta+a');
-			await page.keyboard.insertText('project p "P" 2026-01-05 +1m\n');
+			await page.keyboard.insertText('project p "P" 2026-01-05 +1m\ntask a "A" { length 60d }\n');
 			const more = page
 				.getByRole('group', { name: 'Plan status' })
 				.getByRole('button', { name: /without a place/ });
