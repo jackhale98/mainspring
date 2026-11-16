@@ -4,8 +4,8 @@ Plans whose native TaskJuggler outputs the browser engine must reproduce exactly
 (`docs/phases/phase-0.md`, section 6). `manifest.json` lists them; `expected/<id>.json`
 holds each plan's recorded output.
 
-The manifest holds 40 plans: the five upstream examples (read in place from
-`engine/tj/examples/`), the PoC sample, the 22 synthetic plans below, the 9 bridge fixtures
+The manifest holds 41 plans: the five upstream examples (read in place from
+`engine/tj/examples/`), the PoC sample, the 23 synthetic plans below, the 9 bridge fixtures
 (see "Bridge fixtures" further down), and the three Gantt plans (see "Gantt fixtures" below).
 
 Every golden holds result schema 3 (`GoldenFile.schemaVersion`, `GOLDEN_SCHEMA_VERSION` in
@@ -109,8 +109,9 @@ ruby -I /ABS/WORKTREE/poc/stubs -I /ABS/WORKTREE/engine/tj/lib /ABS/WORKTREE/eng
 | syn-20-scale-1000 | `plans/synthetic/20-scale-1000/plan.tjp` (generated) | 1,000 leaf tasks; 54 resources in 6 groups; 4-level nesting; phases chained across time | ok (exit 0); schedule runs 2026-01-05 to 2028-11-30 |
 | syn-21-tz-dst-edges-newyork | `plans/synthetic/21-tz-dst-edges-newyork/plan.tjp` | America/New_York (west of UTC); task starts and ends, leaves, working hours and `now` at the exact edges of the 2025-11-02 overlap and the 2026-03-08 gap (see "Time-zone edge cases") | ok (exit 0); overlap 01:00 is 06:00Z, gap 02:00 is 07:00Z; the gap leave ends at 07:30Z |
 | syn-22-tz-kathmandu-resolution | `plans/synthetic/22-tz-kathmandu-resolution/plan.tjp` | Asia/Kathmandu (+05:45) then `timingresolution 30min`: the cap TaskJuggler reads with `Time#getlocal` (see "Time-zone edge cases") | error (exit 1): `plan.tjp:9` too_large_timing_res "The maximum allowed timing resolution for the timezone is 15 minutes." |
+| syn-23-unused-resources | `plans/synthetic/23-unused-resources/plan.tjp` | 37 people, 35 of them used by no task (no scoreboard: the bridge computes their working time and leaves, `serialize.rb` `#unused_scan`); shared and part-time hours, own leaves of every type over global ones, overlapping global leaves, leaves across the frame's ends, a resource with shifts; weekstartssunday; 15-minute slots in Europe/Berlin; a person used only in scenario `late` | ok (exit 0); also the cost case of the T6 review (many unused resources) |
 
-Expected task counts (lines starting with `task`, including included files): 5, 5, 6, 8, 5, 5, 9, 9, 5, 5, 6, 4, 6, 6, 15, 4, 9, 4, 2 (plan 19 fails to parse at the include), 1,225 for plan 20, 14 for plan 21, and 1 for plan 22 (never parsed: the header fails).
+Expected task counts (lines starting with `task`, including included files): 5, 5, 6, 8, 5, 5, 9, 9, 5, 5, 6, 4, 6, 6, 15, 4, 9, 4, 2 (plan 19 fails to parse at the include), 1,225 for plan 20, 14 for plan 21, 1 for plan 22 (never parsed: the header fails), and 3 for plan 23.
 
 ## Regenerating plan 20
 
@@ -295,9 +296,12 @@ recorder sets `LANG=C.UTF-8`, passes `-EUTF-8` to Ruby, and the bridge sets
     leave names), and empty after a parse error.
   - Per resource and scenario, `workingTime` (free or booked slots, `getWorkSlots`) and `leaves`
     by type (leave slots in working hours, `getLeaveSlots`), merged into intervals; both empty
-    for groups. A leaf no task can use gets the scoreboard TaskJuggler's reports would build.
-    These lists are long (one pair per working day), so `syn-20-scale-1000` grew from 1.6 to
-    5.2 MB.
+    for groups. `workingTime` is `null` when it equals `ProjectInfo.workingTime` exactly (T6
+    review ruling), which every leaf of `syn-20-scale-1000` and `gantt-500` does; the cross-check
+    reads null as the project's list. A leaf no task can use has no scoreboard: the bridge
+    computes its lists from its working hours and leaves (`serialize.rb` `#unused_scan`), and
+    `check-unused-scan.rb` (developer-only, native Ruby) compares that with the scoreboard
+    TaskJuggler builds, slot by slot, for every plan of the manifest or the plans it is given.
   - Per task and scenario, `allocate`: each `allocate` item's candidates in the order written
     (the resource, then its alternatives), groups as written, after inheritance.
 - Schema 2 (`docs/phases/phase-2.md` 6.1; where TaskJuggler keeps each value is cited in
