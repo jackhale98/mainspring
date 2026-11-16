@@ -98,6 +98,7 @@
 	import { GanttEnv } from './gantt-env.svelte';
 	import SplitDivider from '../app/SplitDivider.svelte';
 	import { canAddSubtask } from '../../lib/gantt/add-task';
+	import EmptyState from '../app/EmptyState.svelte';
 	import GanttToolbar from './GanttToolbar.svelte';
 	import OutlineGrid from './OutlineGrid.svelte';
 	import TimeHeader from './TimeHeader.svelte';
@@ -112,8 +113,10 @@
 		ontable?: (ratio: number) => void;
 		/** A drag or a key press on the divider ended: the place to remember it. */
 		ontablecommit?: () => void;
+		/** Brings the editor on screen, for the empty state's "write them in Text"; none in Split. */
+		ontext?: (() => void) | undefined;
 	}
-	let { app, phone = false, tableRatio = null, ontable, ontablecommit }: Props = $props();
+	let { app, phone = false, tableRatio = null, ontable, ontablecommit, ontext }: Props = $props();
 
 	const zones = memoZones(createTimeZoneHost());
 	const env = new GanttEnv();
@@ -536,7 +539,11 @@
 	{/if}
 
 	{#if model.rows.length === 0}
-		<p class="empty">{app.phase === 'ready' ? strings.gantt.noTasks : strings.topBar.loading}</p>
+		{#if app.emptyPlan}
+			<EmptyState onadd={() => m.addTask('after')} {ontext} />
+		{:else}
+			<p class="empty">{app.phase === 'ready' ? strings.gantt.noTasks : strings.topBar.loading}</p>
+		{/if}
 	{:else}
 		<div
 			class="scroller"

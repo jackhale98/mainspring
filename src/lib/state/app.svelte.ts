@@ -517,6 +517,20 @@ export class AppState {
 		if (key.startsWith('task:')) this.selection.selectTask(key.slice('task:'.length), 'visual');
 	}
 
+	/**
+	 * The open plan declares no task and is not failing: the views show the empty state, with its
+	 * Add task button (EmptyState.svelte). A plan that fails for another reason keeps its error.
+	 */
+	get emptyPlan(): boolean {
+		const kind = this.status?.kind ?? null;
+		return (
+			this.phase === 'ready' &&
+			this.outline.tasks.length === 0 &&
+			kind !== 'errors' &&
+			kind !== 'failed'
+		);
+	}
+
 	/** The outline key of the selected task, or null (a link or nothing is selected). */
 	get selectedTask(): string | null {
 		return this.selection.taskKey;

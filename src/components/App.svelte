@@ -259,6 +259,12 @@
 		});
 	});
 
+	/** The empty state's "write them in Text": the editor on screen (a phone's Text tab). */
+	function openText(): void {
+		modes.set('text');
+		app.phoneTab = 'text';
+	}
+
 	function pickTab(tab: 'plan' | 'gantt' | 'text'): void {
 		if (tab === 'text') modes.set('text');
 		else if (tab === 'gantt') modes.set('visual');
@@ -311,6 +317,7 @@
 									canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
 									onadd: (mode) => addFromPlan(mode),
 								}}
+								ontext={openText}
 							/>
 						</div>
 					{/if}
@@ -356,6 +363,7 @@
 						tableRatio={modes.table}
 						ontable={(v) => modes.setTable(v)}
 						ontablecommit={() => modes.saveTable()}
+						ontext={showEditor ? undefined : openText}
 					/>
 				</div>
 			{/if}

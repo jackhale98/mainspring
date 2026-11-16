@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { strings } from '../strings';
 import type { Sample } from '../workspace/samples';
-import { FakeEngineClient, flush } from '../workspace/testing/fake-engine-client';
+import { FakeEngineClient, flush, message } from '../workspace/testing/fake-engine-client';
 import { AppState } from './app.svelte';
 
 const PLAN = 'project p "P" 2026-01-05 +1m\ntask a "Alpha" { effort 1d }\n';
@@ -106,6 +106,22 @@ describe('openNewPlan', () => {
 		expect(a.workspace).not.toBe(ws);
 		expect(a.dirty).toBe(false);
 		expect(a.newPlanSerial).toBe(2);
+	});
+
+	it('is an empty plan, not an error, once the engine answers no_tasks', async () => {
+		const client = new FakeEngineClient();
+		app = new AppState({ client, samples: [A], confirm: () => true });
+		await flush();
+		await app.openNewPlan(SPEC);
+		await flush();
+		client.done(client.requests.at(-1)?.revision ?? 1, {
+			ok: false,
+			tasks: [],
+			messages: [{ ...message('error', null, 'No tasks'), id: 'no_tasks', file: null }],
+		});
+		await vi.waitFor(() => expect(app?.status?.kind).toBe('empty'));
+		expect(app.emptyPlan).toBe(true);
+		expect(app.status).toMatchObject({ label: strings.status.empty, errors: 0, unlocated: [] });
 	});
 
 	it('asks first when it replaces an edited sample', async () => {
