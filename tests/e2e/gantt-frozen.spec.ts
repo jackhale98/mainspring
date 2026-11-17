@@ -401,9 +401,16 @@ test.describe('frozen header and name column', () => {
 	}, info) => {
 		test.skip(info.project.name !== 'desktop');
 		await open(page, 'gantt-500');
-		const box = await page.getByTestId('gantt-overlay').boundingBox();
-		if (!box) throw new Error('no chart');
-		await page.mouse.move(box.x + box.width / 2, box.y + 200);
+		// Inside the chart as shown: near the scroller's right edge (the table and its divider sit
+		// at the left). The canvases are drawn wider than the view (overscan), so their own box can
+		// reach under the docked details panel and is no target.
+		const at = await page.evaluate(() => {
+			const scroller = document.querySelector<HTMLElement>('[data-testid="gantt"] .scroller');
+			if (!scroller) throw new Error('no chart');
+			const r = scroller.getBoundingClientRect();
+			return { x: r.right - 150, y: r.top + 200 };
+		});
+		await page.mouse.move(at.x, at.y);
 		const frames = await sampleWhile(page, async () => {
 			await page.keyboard.down('Shift');
 			for (let i = 0; i < 150; i++) {
