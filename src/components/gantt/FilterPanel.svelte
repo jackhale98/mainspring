@@ -15,6 +15,7 @@
 	import { onMount } from 'svelte';
 	import type { FlagChoice } from '../../lib/gantt/filter';
 	import { strings } from '../../lib/strings';
+	import { filterPanelStrings as P } from '../../lib/strings-filter';
 	import PeopleList from './PeopleList.svelte';
 	import type { Person } from './types';
 
@@ -89,7 +90,7 @@
 		class="panel"
 		class:end={alignEnd}
 		role="dialog"
-		aria-label={F.panel}
+		aria-label={P.panel}
 		tabindex="-1"
 		data-testid="filter-panel"
 		{onfocusout}
@@ -101,27 +102,27 @@
 		}}
 	>
 		<div class="part" role="group" aria-labelledby="{uid}-person">
-			<p class="cap" id="{uid}-person">{F.person}</p>
+			<p class="cap" id="{uid}-person">{P.person}</p>
 			<PeopleList
 				id="{uid}-people"
 				{people}
 				booked={marked}
 				hasTask={true}
-				markLabel={F.personOn}
-				searchLabel={F.personSearch}
+				markLabel={P.personOn}
+				searchLabel={P.personSearch}
 				embedded={true}
 				focusSearch={!coarse}
 				onchoose={(p) => onperson(person === p.id ? null : p.id)}
 				{onclose}
 			/>
 			{#if person !== null && !people.some((p) => p.id === person)}
-				<p class="none">{F.gone(person)}</p>
+				<p class="none">{P.gone(person)}</p>
 			{/if}
 		</div>
 		<fieldset class="part flags">
-			<legend class="cap">{F.flag}</legend>
+			<legend class="cap">{P.flag}</legend>
 			{#if choices.length === 0}
-				<p class="none">{F.noFlags}</p>
+				<p class="none">{P.noFlags}</p>
 			{:else}
 				<div class="radios">
 					<label class="radio">
@@ -131,7 +132,7 @@
 							checked={flag === null}
 							onchange={() => onflag(null)}
 						/>
-						<span>{F.anyFlag}</span>
+						<span>{P.anyFlag}</span>
 					</label>
 					{#each choices as c (c.flag)}
 						<label class="radio">
@@ -145,7 +146,7 @@
 							<span>{c.flag}</span>
 							<small
 								><span aria-hidden="true">{c.count}</span><span class="sr-only"
-									>, {F.taskCount(c.count)}</span
+									>, {P.taskCount(c.count)}</span
 								></small
 							>
 						</label>
@@ -158,7 +159,7 @@
 			<button type="button" class="btn" disabled={matches === null} onclick={onclear}>
 				{F.clear}
 			</button>
-			<button type="button" class="btn primary" onclick={() => onclose(true)}>{F.done}</button>
+			<button type="button" class="btn primary" onclick={() => onclose(true)}>{P.done}</button>
 		</div>
 	</div>
 {/if}

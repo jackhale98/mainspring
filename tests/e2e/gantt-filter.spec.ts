@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The Gantt's filter by person and by flag (phase-3.md T19, section 22; 13.2 `gantt-filter.spec.ts`).
+// The Gantt's filter by person and by flag (phase-3.md T19, "Amendments from T19"; 13.2 `gantt-filter.spec.ts`).
 // On the Fedora plan with a people pool (fedora-res: 24 people, flags on a few hundred tasks):
 // - the rows the filter shows equal an oracle written here from the schedule result (a person's
 //   booked and named tasks) and from the plan text (flags, inherited down the tree), with the

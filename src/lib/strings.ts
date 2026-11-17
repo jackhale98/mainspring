@@ -1419,34 +1419,21 @@ export const strings = {
 		/** The task's line with its estimate note, e.g. "Code: 3 Mar to 9 Mar 2026. On the critical path (estimate)". */
 		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
-		/** The filter by person and flag (phase-3.md "Amendments from T19"; src/components/gantt/FilterPanel.svelte). */
+		/** The filter by person and flag (phase-3.md "Amendments from T19"; src/components/gantt/FilterControl.svelte). */
 		filter: {
-			/** The toolbar button, and the name of its panel. */
+			/** The toolbar button. The panel's own copy is in strings-filter.ts. */
 			label: 'Filter',
 			title: 'Show only the tasks of one person, or with one flag',
-			panel: 'Filter tasks',
 			/** The button's name while a filter is on, e.g. "Filter: Dev 1, flag key". */
 			on: (summary: string) => `Filter: ${summary}`,
 			summary: (person: string | null, flag: string | null) =>
 				[person, flag === null ? null : `flag ${flag}`].filter((p) => p !== null).join(', '),
 			clear: 'Clear filter',
-			done: 'Done',
-			person: 'Person',
-			personSearch: 'Find a person to filter by',
-			/** In the person list: the person the chart is filtered to. */
-			personOn: 'filtering by this person',
-			flag: 'Flag',
-			anyFlag: 'Any flag',
-			noFlags: 'No task in this plan has a flag.',
-			/** What a screen reader hears after a flag's name: how many tasks carry it. */
-			taskCount: (n: number) => (n === 1 ? '1 task' : `${n} tasks`),
 			/** The live line in the panel and the toolbar: how many tasks the filter shows. */
 			shown: (n: number) => (n === 1 ? '1 task shown' : `${n} tasks shown`),
 			none: 'No task matches the filter',
 			/** The chart when nothing matches. */
 			empty: 'No task matches this filter.',
-			/** A person or flag the plan no longer has (a text edit removed it). */
-			gone: (what: string) => `${what} is no longer in the plan.`,
 			/** A row's name for a screen reader when it is shown only for the tasks under it. */
 			contextRow: (line: string) => `${line}. Shown because a task under it matches the filter`,
 		},

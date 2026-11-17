@@ -389,7 +389,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('Gantt actions schedule', (
 			expect(workStart(run(e, move('b', 1), 'start'), 'b')).toBe(day('2026-03-06'));
 			expect(workStart(run(e, move('b', 2), 'start'), 'b')).toBe(day('2026-03-09'));
 			expect(refusal(e, move('b', -1), 'start')).toBe('at-limit');
-		});
+		}, 60_000); // about 2 s alone (the first engine runs of the file), over the 5 s default on a shared machine
 
 		it('H1: the ALAP mirror moves the end from the day it works', () => {
 			// Ends Mon 16 March 09:00, so its last working day is Friday 13.
