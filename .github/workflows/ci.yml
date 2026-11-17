@@ -214,12 +214,12 @@ jobs:
       - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
         env:
           E2E_SKIP_GANTT_PERF: ${{ matrix.project == 'desktop' && '1' || '' }}
-      # The Gantt frame-rate gate (gantt-perf.spec.ts) measures dropped frames, so it runs alone after
-      # the rest, one worker, and waits (up to two minutes) for the runner's load to settle: other
-      # workers' tests made it fail on noise. The 5% / 50 ms budget itself is unchanged.
-      - name: Gantt frame-rate gate
+      # The frame-rate gates (gantt-perf.spec.ts, workload-perf.spec.ts) measure dropped frames, so
+      # they run alone after the rest, one worker; the Gantt's waits (up to two minutes) for the
+      # runner's load to settle. Other workers' tests made both fail on noise. Budgets unchanged.
+      - name: Frame-rate gates
         if: matrix.project == 'desktop' && matrix.shard == '1/2' && !cancelled()
-        run: npm run test:e2e -- --project=desktop --workers=1 tests/e2e/gantt-perf.spec.ts
+        run: npm run test:e2e -- --project=desktop --workers=1 tests/e2e/gantt-perf.spec.ts tests/e2e/workload-perf.spec.ts
         env:
           PERF_MAX_LOAD: '2.5'
       # JS budget (phase-2 11.3, 13.4, 18.11; amended 2026-11-16, raised 2026-11-17), on this build:
