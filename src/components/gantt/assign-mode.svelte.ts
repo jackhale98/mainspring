@@ -26,6 +26,12 @@ export class AssignMode {
 		this.use(id);
 	}
 
+	/** A plan switch: the mode ends and nobody is recent (they belong to the plan that was open). */
+	reset(): void {
+		this.person = null;
+		this.recent = [];
+	}
+
 	/** Ends the mode; says whether it was on. */
 	end(): boolean {
 		const was = this.person !== null;

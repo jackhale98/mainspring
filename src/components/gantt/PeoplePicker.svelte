@@ -77,7 +77,10 @@
 	let dragging = false;
 	$effect(() => {
 		const now = drag.dragging;
-		if (dragging && !now) open = false;
+		if (dragging && !now && open) {
+			open = false;
+			button?.focus();
+		}
 		dragging = now;
 	});
 	// A press on a recent chip that moved was a drag, not a click.
@@ -96,7 +99,7 @@
 		bind:this={button}
 		type="button"
 		class="chip assign"
-		aria-haspopup="listbox"
+		aria-haspopup="dialog"
 		aria-expanded={open}
 		aria-controls={open ? `${uid}-panel` : undefined}
 		aria-describedby="{uid}-hint"
@@ -134,6 +137,7 @@
 						style:--bg="var(--color-gantt-avatar-{avatarColour(p.index)}-bg)"
 						style:--ink="var(--color-gantt-avatar-{avatarColour(p.index)}-ink)"
 						aria-label={p.name}
+						aria-describedby="{uid}-hint"
 						title={S.recent(p.name)}
 						onpointerdown={(e) => {
 							if (e.button !== 0) return;
@@ -248,7 +252,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1);
-		max-inline-size: 9rem;
+		max-inline-size: 7rem;
 		block-size: 26px;
 		padding: 2px 3px;
 		border: 1px solid var(--color-gantt-border-strong);

@@ -145,6 +145,8 @@ export class GanttGestures {
 	#snappers: { wt: WorkingTime; day: DragSnapper; alap: DragSnapper } | null = null;
 	#alap = false;
 	#linking = false;
+	/** The pointer that pressed a bar in assign mode: its release on a bar books the person. */
+	#assignPress: number | null = null;
 	#preflight: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(host: GestureHost) {
@@ -214,7 +216,10 @@ export class GanttGestures {
 		on('pointerdown', (e) => this.#pointerdown(e));
 		on('pointermove', (e) => this.#pointermove(e));
 		on('pointerup', (e) => this.#pointerup(e));
-		on('pointercancel', (e) => this.#feed(this.#input('cancel', e)));
+		on('pointercancel', (e) => {
+			if (this.#assignPress === e.pointerId) this.#assignPress = null;
+			else this.#feed(this.#input('cancel', e));
+		});
 		on('lostpointercapture', () => {
 			if (this.#ctl.state === 'dragging') this.#feed({ type: 'reset' });
 		});
@@ -311,10 +316,25 @@ export class GanttGestures {
 	}
 
 	#pointerdown(e: PointerEvent): void {
+		// Assign mode: a press on a bar is for the person, so no move or resize begins (a wobble of
+		// the hand while clicking must not drag the bar). Its release books them.
+		if (this.#h.assigning() && e.pointerType !== 'touch' && e.button === 0) {
+			const p = this.#point(e.clientX, e.clientY);
+			if (this.#hit(p.x, p.y).kind === 'bar') {
+				this.#assignPress = e.pointerId;
+				try {
+					this.#el?.setPointerCapture(e.pointerId);
+				} catch {
+					// The pointer is gone: the release never comes, and the press is dropped with it.
+				}
+				return;
+			}
+		}
 		this.#feed(this.#input('down', e));
 	}
 
 	#pointermove(e: PointerEvent): void {
+		if (this.#assignPress === e.pointerId) return this.#hover(e);
 		const idle = this.#ctl.state === 'idle';
 		if (idle && e.pointerType !== 'touch') {
 			this.#hover(e);
@@ -325,6 +345,18 @@ export class GanttGestures {
 	}
 
 	#pointerup(e: PointerEvent): void {
+		if (this.#assignPress === e.pointerId) {
+			this.#assignPress = null;
+			try {
+				if (this.#el?.hasPointerCapture(e.pointerId)) this.#el.releasePointerCapture(e.pointerId);
+			} catch {
+				// Already released.
+			}
+			const p = this.#point(e.clientX, e.clientY);
+			const hit = this.#hit(p.x, p.y);
+			if (hit.kind === 'bar') this.#h.assignTap(hit.row);
+			return;
+		}
 		this.#feed(this.#input('up', e));
 	}
 

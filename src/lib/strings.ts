@@ -496,7 +496,6 @@ export const gestureStrings = {
 		rowOpens: 'Opens when held here',
 		/** Said when a person is booked from the palette by key. */
 		assigned: (person: string, task: string) => `${person} booked on ${task}.`,
-		released: (person: string, task: string) => `${person} released from ${task}.`,
 	},
 	link: {
 		banner: (name: string) => `Linking from ${name}: choose the task that comes after it.`,

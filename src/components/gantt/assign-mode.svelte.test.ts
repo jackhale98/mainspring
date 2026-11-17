@@ -27,6 +27,14 @@ describe('AssignMode', () => {
 		a.use('c');
 		expect(a.recent).toEqual(['c', 'd', 'b']);
 	});
+	it('reset ends the mode and forgets the recent people', () => {
+		const a = new AssignMode();
+		a.begin('x');
+		a.use('y');
+		a.reset();
+		expect(a.active).toBe(false);
+		expect(a.recent).toEqual([]);
+	});
 	it('counts the person it begins with as used', () => {
 		const a = new AssignMode();
 		a.begin('x');

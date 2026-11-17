@@ -316,10 +316,25 @@
 	.task.wrap {
 		border-radius: 14px;
 		white-space: normal;
+		/* Not squeezed to a column beside the chips; its text is two lines at most (the whole of it
+		   stays in this status node for a screen reader). */
+		min-inline-size: min(14rem, 40%);
 	}
 	.task.wrap .note {
 		flex: 1 1 auto;
 		min-inline-size: 0;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+	}
+	/* The band keeps the height of a two-line note while there is one, even when assign mode puts
+	   the note away, so that the chart below does not jump. */
+	@container gantt (min-width: 900px) {
+		.bar:has(.task.wrap:not(.sr-only)) {
+			min-block-size: 68px;
+		}
 	}
 	.legend {
 		flex: none;
@@ -398,6 +413,16 @@
 	   beside the pill: it waits until assign mode ends. */
 	.bar.assigning .task.wrap {
 		display: none;
+	}
+	/* A note that stands alone (nothing selected) needs its two lines more than the legend does, in
+	   a chart under 1600 px: a legend that shrank beside it would wrap into a column instead. */
+	@container gantt (max-width: 1599px) {
+		.bar:has(.task.wrap:not(.sr-only)) .legend li:not(.stale) {
+			display: none;
+		}
+		.bar:has(.task.wrap:not(.sr-only)) .legend:not(:has(.stale)) {
+			display: none;
+		}
 	}
 	/* Assign mode needs the room for its pill: the legend gives way to it (and to the task line). */
 	.bar.assigning .legend li:not(.stale) {

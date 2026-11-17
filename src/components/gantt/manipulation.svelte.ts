@@ -229,6 +229,22 @@ export class Manipulation {
 		this.#recent = $derived(
 			this.assignMode.recent.flatMap((id) => this.#people.find((p) => p.id === id) ?? []),
 		);
+		// Assign mode ends when it cannot go on, so that nothing brings it back unasked:
+		// - its person left the plan (a text edit, a delete; an undo does not revive it);
+		$effect(() => {
+			if (app.index && this.assignMode.person !== null && this.#assigning === null) {
+				this.assignMode.end();
+			}
+		});
+		// - link mode began, by the key, the menu or a drag from the dot (one mode at a time);
+		$effect(() => {
+			if (this.interactions.links.active) untrack(() => this.assignMode.end());
+		});
+		// - another plan opened (the recent people belong to the plan they were used in).
+		$effect(() => {
+			void app.workspace;
+			untrack(() => this.assignMode.reset());
+		});
 		this.chips = new ChipDrag({
 			rowAt: (x, y) => {
 				// Only a bar that is on screen: not one under the palette, the header or a sheet.
@@ -397,13 +413,13 @@ export class Manipulation {
 		if (!r?.id) return this.pick(p);
 		this.assignMode.use(p.id);
 		if (this.#booked.has(p.id)) this.#h.announce(gestureStrings.palette.already(p.name, r.name));
-		else void this.interactions.book(r.id, p.id, p.name, false);
+		else void this.interactions.book(r.id, p.id, p.name);
 	}
 
 	/** A click on a bar while assign mode is on: books the person there. False when it is off. */
 	assignTo(row: number): boolean {
 		const p = this.#assigning;
-		if (!p) return false;
+		if (!p || this.interactions.links.active) return false;
 		void this.interactions.assign(row, p.id);
 		return true;
 	}
@@ -496,7 +512,7 @@ export class Manipulation {
 			links.cancel();
 			return;
 		}
-		if (e.key === 'Escape' && this.assignMode.active && !e.defaultPrevented) {
+		if (e.key === 'Escape' && this.#assigning !== null && !e.defaultPrevented) {
 			this.endAssign();
 			return;
 		}

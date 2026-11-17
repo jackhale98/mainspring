@@ -124,6 +124,8 @@
 		ontext?: (() => void) | undefined;
 		/** The leading group of the toolbar's row: the view switcher (people/ViewSwitcher.svelte). */
 		toolbarLead?: Snippet | undefined;
+		/** Whether the Gantt is the view on screen: a hidden one (Text, a People view) ends assign mode. */
+		active?: boolean;
 	}
 	let {
 		app,
@@ -133,6 +135,7 @@
 		ontablecommit,
 		ontext,
 		toolbarLead,
+		active = true,
 	}: Props = $props();
 
 	const zones = memoZones(createTimeZoneHost());
@@ -346,6 +349,10 @@
 		hover: (r) => (hoverRow = r),
 	});
 	const interactions = m.interactions;
+	// Assign mode is for the chart on screen: Text or a People view hides it, and the mode ends.
+	$effect(() => {
+		if (!active) m.assignMode.end();
+	});
 	const links = interactions.links;
 
 	onMount(() =>

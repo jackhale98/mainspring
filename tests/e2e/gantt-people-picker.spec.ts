@@ -13,7 +13,7 @@ const CONTAINER_MESSAGE =
 	'People are booked on subtasks. Drop them on a subtask, or assign them in the text.';
 
 /** The toolbar is one row: it does not scroll, nothing is cut off, and the controls share a line. */
-async function fitsOneRow(page: Page, state: string): Promise<void> {
+async function fitsOneRow(page: Page, state: string, maxHeight = 64): Promise<number> {
 	await page.waitForTimeout(150);
 	const m = await page.getByTestId('gantt').evaluate((el) => {
 		const bar = el.querySelector('.bar') as HTMLElement;
@@ -37,9 +37,10 @@ async function fitsOneRow(page: Page, state: string): Promise<void> {
 	});
 	expect(m.assign, state).toBe(true);
 	expect(m.overflow, `${state}: the row does not scroll`).toBeLessThanOrEqual(0);
-	expect(m.height, `${state}: one row`).toBeLessThan(64);
+	expect(m.height, `${state}: one row`).toBeLessThan(maxHeight);
 	expect(m.spread, `${state}: the controls share a line`).toBeLessThan(6);
 	expect(m.chipRight, `${state}: nothing is cut off`).toBeLessThanOrEqual(m.right + 0.5);
+	return m.height;
 }
 
 test.describe('the people picker', () => {
@@ -245,7 +246,7 @@ test.describe('the people picker', () => {
 			}, info) => {
 				await page.setViewportSize({ width, height });
 				const rig = await Rig.open(page, info, 'week', mode);
-				const fits = (state: string): Promise<void> => fitsOneRow(page, state);
+				const fits = (state: string): Promise<number> => fitsOneRow(page, state);
 				await fits('closed');
 				await rig.openPeople();
 				await fits('list open');
@@ -271,62 +272,235 @@ test.describe('the people picker', () => {
 	}
 
 	// The recent chips need room: none under a 1350 px chart, avatars under 1600 px, names above.
-	for (const [width, height, tier] of [
-		[1280, 720, 'none'],
-		[1500, 900, 'avatars'],
-		[1920, 1000, 'names'],
-	] as const) {
-		test(`with the details hidden at ${width} px the recent chips are ${tier} and share the row`, async ({
-			page,
-		}, info) => {
-			await page.setViewportSize({ width, height });
-			const rig = await Rig.open(page, info, 'week', 'visual');
-			await page.getByRole('button', { name: 'Hide details' }).click();
-			await expect(page.getByTestId('inspector')).toBeHidden();
-			// Four people used: the newest three are chips, newest first.
-			for (const id of ['dev1', 'dev2', 'dev3', 'ops1']) {
+	// On fedora-res the critical-path note sits beside them too (two lines at most).
+	const PLANS = {
+		'gantt-manipulation': {
+			ids: ['dev1', 'dev2', 'dev3', 'ops1'],
+			names: ['Ops 1', 'Dev 3', 'Dev 2'],
+			max: 64,
+		},
+		'fedora-res': {
+			// The longest name is among the chips (truncated at 7rem): the widest case.
+			ids: ['desk04', 'qa03', 'server02', 'docs01'],
+			names: ['Documentation 01', 'Server 02', 'Quality 03'],
+			max: 72,
+		},
+	} as const;
+	for (const sample of ['gantt-manipulation', 'fedora-res'] as const) {
+		for (const [width, height, tier] of [
+			[1280, 720, 'none'],
+			[1500, 900, 'avatars'],
+			[1920, 1000, 'names'],
+		] as const) {
+			test(`${sample}: with the details hidden at ${width} px the recent chips are ${tier} and share the row`, async ({
+				page,
+			}, info) => {
+				const plan = PLANS[sample];
+				await page.setViewportSize({ width, height });
+				const rig = await Rig.open(page, info, 'week', 'visual', sample);
+				await page.getByRole('button', { name: 'Hide details' }).click();
+				await expect(page.getByTestId('inspector')).toBeHidden();
+				// Four people used: the newest three are chips, newest first.
+				for (const id of plan.ids) {
+					await rig.openPeople();
+					await rig.personOption(id).click();
+					await page.getByRole('button', { name: 'Done assigning' }).click();
+				}
+				const chips = page.locator('.recent [data-recent]');
+				await expect(chips).toHaveCount(3);
+				if (tier === 'none') {
+					await expect(page.locator('.recent')).toBeHidden();
+				} else {
+					for (const [i, name] of plan.names.entries()) {
+						await expect(chips.nth(i)).toHaveAccessibleName(name);
+					}
+					await expect(chips.first().locator('.name')).toBeVisible({ visible: tier === 'names' });
+				}
+				const label = `${sample}, recent chips (${tier})`;
+				await fitsOneRow(page, label, plan.max);
 				await rig.openPeople();
-				await rig.personOption(id).click();
-				await page.getByRole('button', { name: 'Done assigning' }).click();
-			}
-			const chips = page.locator('.recent [data-recent]');
-			await expect(chips).toHaveCount(3);
-			if (tier === 'none') {
-				await expect(page.locator('.recent')).toBeHidden();
-			} else {
-				await expect(chips.nth(0)).toHaveAccessibleName('Ops 1');
-				await expect(chips.nth(1)).toHaveAccessibleName('Dev 3');
-				await expect(chips.nth(2)).toHaveAccessibleName('Dev 2');
-				await expect(chips.first().locator('.name')).toBeVisible({ visible: tier === 'names' });
-			}
-			await fitsOneRow(page, `recent chips (${tier})`);
-			await rig.select('design.research');
-			await fitsOneRow(page, `recent chips (${tier}), a task selected`);
-			await rig.openPeople();
-			await rig.personOption('dev1').click();
-			await fitsOneRow(page, `assigning with a task selected (${tier})`);
-		});
+				await fitsOneRow(page, `${label}, list open`, plan.max);
+				await page.keyboard.press('Escape');
+				await page.locator('[role="row"][data-key]').nth(1).locator('.label').click();
+				await fitsOneRow(page, `${label}, a task selected`, plan.max);
+				await rig.openPeople();
+				await rig.personOption(plan.ids[0]).click();
+				await fitsOneRow(page, `${label}, assigning`, plan.max);
+			});
+		}
 	}
 
 	// The Fedora plan shows a note beside the chips when nothing is selected (the critical path ends
-	// before the status date): it wraps, so assign mode must not squeeze it into a tall column.
+	// before the status date): it wraps, so it is two lines at most, and the band keeps its height
+	// when assign mode puts the note away (no jump of the chart).
 	for (const [width, height] of [
 		[1500, 900],
 		[1280, 720],
 		[1024, 768],
 		[820, 1000],
 	] as const) {
-		test(`the toolbar with the critical-path note stays on one row at ${width} px, in assign mode too`, async ({
+		test(`the toolbar with the critical-path note stays on one band at ${width} px: closed, list open, assigning`, async ({
 			page,
 		}, info) => {
 			await page.setViewportSize({ width, height });
 			const rig = await Rig.open(page, info, 'month', 'visual', 'fedora-res');
-			// Closed, that note is two lines at 1280 and a column at 1500 on the build before the picker
-			// too (not this item's); the picker must not add to it, and assign mode puts the note away.
+			const closed = await fitsOneRow(page, 'closed', 72);
 			await rig.openPeople();
+			expect(await fitsOneRow(page, 'list open', 72), 'list open: same height').toBe(closed);
 			await rig.personOption('docs02').click();
 			await expect(page.getByTestId('assign-mode')).toContainText('Assigning Documentation 02');
-			await fitsOneRow(page, 'assigning');
+			expect(await fitsOneRow(page, 'assigning', 72), 'assigning: same height').toBe(closed);
 		});
 	}
+
+	test('a press that wobbles on a bar in assign mode books the person and moves nothing', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		const before = await rig.text();
+		await rig.openPeople();
+		await rig.personOption('dev3').click();
+		const review = await rig.bar('design.review');
+		// A drag of a few pixels, down and a little along: not a move of the bar.
+		await rig.drag(review.body, { x: review.body.x + 9, y: review.body.y + 2 }, { steps: 4 });
+		await expect.poll(() => count(rig, 'dev3')).toBe(2);
+		// Only the booking changed: every other line of the plan is as it was.
+		const rest = (t: string): string[] => t.split('\n').filter((l) => !/allocate dev3/.test(l));
+		expect(rest(await rig.text())).toEqual(rest(before));
+		await expect(page.getByTestId('assign-mode')).toBeVisible();
+		// A release off any bar books no one.
+		const text = await rig.text();
+		const scroller = await page.getByTestId('gantt').locator('.scroller').boundingBox();
+		if (!scroller) throw new Error('no chart');
+		await rig.drag(
+			{ x: scroller.x + scroller.width - 30, y: scroller.y + scroller.height - 12 },
+			{ x: scroller.x + scroller.width - 60, y: scroller.y + scroller.height - 12 },
+		);
+		await page.waitForTimeout(300);
+		expect(await rig.text()).toBe(text);
+	});
+
+	test('link mode ends assign mode: the next bar click makes a link and books no one', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		const before = await rig.text();
+		await rig.openPeople();
+		await rig.personOption('dev3').click();
+		await expect(page.getByTestId('assign-mode')).toBeVisible();
+		// Choose Link from the selected row's menu (the row is selected in the task list).
+		await rig.row('task:design.sketch').locator('.label').click();
+		await page.getByTestId('row-menu').click();
+		await page.getByRole('menuitem', { name: /^Link from this task/ }).click();
+		await expect(page.getByTestId('link-banner')).toBeVisible();
+		await expect(page.getByTestId('assign-mode')).toBeHidden();
+		await rig.tap((await rig.bar('launch')).body);
+		await expect.poll(async () => (await rig.text()) !== before).toBe(true);
+		// A link was written, and no one was booked.
+		expect(await count(rig, 'dev3')).toBe(1);
+		expect(await rig.text()).toMatch(/launch[\s\S]*depends/);
+		await expect(page.getByTestId('assign-mode')).toBeHidden();
+	});
+
+	test('the key L ends assign mode too, and a click then links', async ({ page }, info) => {
+		const rig = await Rig.open(page, info);
+		await rig.openPeople();
+		await rig.personOption('dev3').click();
+		await rig.row('task:design.sketch').focus();
+		await page.keyboard.press('l');
+		await expect(page.getByTestId('link-banner')).toBeVisible();
+		await expect(page.getByTestId('assign-mode')).toBeHidden();
+		await page.keyboard.press('Escape');
+		await expect(page.getByTestId('link-banner')).toBeHidden();
+		await rig.tap((await rig.bar('design.review')).body);
+		expect(await count(rig, 'dev3')).toBe(1);
+	});
+
+	test('Escape in the middle of a drag from the list cancels the drag only: assign mode stays', async ({
+		page,
+	}, info) => {
+		const rig = await Rig.open(page, info);
+		const before = await rig.text();
+		await rig.openPeople();
+		await rig.personOption('dev3').click();
+		await rig.openPeople();
+		const review = await rig.bar('design.review');
+		await rig.drag(await rig.optionPoint('dev2'), review.body, {
+			pause: async () => {
+				await page.keyboard.press('Escape');
+			},
+		});
+		await page.waitForTimeout(300);
+		expect(await rig.text()).toBe(before);
+		await expect(page.getByTestId('assign-mode')).toContainText('Assigning Dev 3');
+		await expect(page.getByTestId('assign-button')).toBeFocused();
+		await expect(page.getByTestId('people-list')).toBeHidden();
+	});
+
+	test('assign mode ends when its person leaves the plan, and an undo does not bring it back', async ({
+		page,
+	}, info) => {
+		// No braces: the editor closes a typed bracket by itself.
+		const PLAN = (second: string): string =>
+			`project p "P" 2026-03-02 - 2026-04-30\nresource r1 "R One"\n${second}task a "A"\ntask b "B"\n`;
+		const rig = await Rig.open(page, info, 'week', 'split');
+		const edit = async (text: string): Promise<void> => {
+			await page.locator('.cm-content').click();
+			await page.keyboard.press('ControlOrMeta+a');
+			await page.keyboard.insertText(text);
+		};
+		await edit(PLAN('resource r2 "R Two"\n'));
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await rig.openPeople();
+		await rig.personOption('r2').click();
+		await expect(page.getByTestId('assign-mode')).toContainText('Assigning R Two');
+		await edit(PLAN(''));
+		await expect(page.getByTestId('assign-mode')).toBeHidden({ timeout: READY_TIMEOUT_MS });
+		// Undo in the editor brings R Two back to the plan, not to assign mode.
+		await page.keyboard.press('ControlOrMeta+z');
+		await rig.openPeople();
+		await expect(rig.personOption('r2')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(page.getByTestId('assign-mode')).toBeHidden();
+		await page.keyboard.press('Escape');
+	});
+
+	test('opening another plan ends assign mode and forgets the recent people', async ({
+		page,
+	}, info) => {
+		// Wide, so that the recent chips show; Resource 1 (r00) is in both plans, so that only the
+		// switch can end the mode.
+		await page.setViewportSize({ width: 1920, height: 1000 });
+		const rig = await Rig.open(page, info, 'week', 'visual', 'gantt-200');
+		await page.getByRole('button', { name: 'Hide details' }).click();
+		await rig.openPeople();
+		await rig.personOption('r00').click();
+		await expect(page.getByTestId('assign-mode')).toContainText('Assigning Resource 1');
+		await page.getByRole('button', { name: 'Done assigning' }).click();
+		await rig.openPeople();
+		await rig.personOption('r00').click();
+		await expect(page.getByTestId('assign-mode')).toBeVisible();
+		await page.getByRole('combobox', { name: 'Sample plan' }).selectOption('gantt-500');
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
+		await expect(page.getByTestId('assign-button')).toBeVisible();
+		await expect(page.getByTestId('assign-mode')).toBeHidden();
+		await expect(page.locator('.recent [data-recent]')).toHaveCount(0);
+	});
+
+	test('hiding the Gantt (the Text view) ends assign mode', async ({ page }, info) => {
+		const rig = await Rig.open(page, info);
+		await rig.openPeople();
+		await rig.personOption('dev3').click();
+		await expect(page.getByTestId('assign-mode')).toBeVisible();
+		const views = page.getByRole('group', { name: 'View' });
+		await views.getByRole('button', { name: 'Text' }).click();
+		await expect(page.getByTestId('gantt')).toBeHidden();
+		await views.getByRole('button', { name: 'Visual' }).click();
+		await expect(page.getByTestId('gantt')).toBeVisible();
+		await expect(page.getByTestId('assign-button')).toBeVisible();
+		await expect(page.getByTestId('assign-mode')).toBeHidden();
+	});
 });
