@@ -192,6 +192,24 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		await expect(page.getByRole('dialog', { name: /Task details/ })).toBeVisible();
 	});
 
+	test('the dependency picker works in the sheet, and the sheet still slides away with it open', async ({
+		page,
+	}) => {
+		await page.emulateMedia({ colorScheme: 'dark' });
+		const panel = await openDetails(page);
+		await page.getByRole('button', { name: 'Add a task this one waits for' }).click();
+		const search = page.getByRole('combobox', { name: 'Find a task this one waits for' });
+		await search.tap();
+		await expect(search).toBeFocused();
+		await expect(page.getByTestId('depends-picker').getByRole('option').first()).toBeVisible();
+		// A keyboard is up over the sheet's search box: the sheet closes without opening or blurring anything else.
+		await record(page, SHEET);
+		await panel.getByRole('button', { name: 'Close' }).click();
+		await expect(panel).toBeHidden();
+		await stopRecording(page);
+		expect((await recorded(page)).closing, 'it slid away with the picker open').toBe(true);
+	});
+
 	test('with reduced motion nothing slides: it closes at once', async ({ page }) => {
 		await page.emulateMedia({ reducedMotion: 'reduce' });
 		const panel = await openDetails(page);
@@ -236,6 +254,10 @@ test.describe('2. the docs sheet opens at its final place', () => {
 			(window as unknown as { __vv: typeof vv }).__vv = vv;
 		});
 		const SHEET = 'dialog.sheet[data-modal="true"] .inner';
+		// Safari on iPhone does not focus a button that is tapped: the editor keeps the focus (and the keyboard).
+		await page.evaluate(() =>
+			document.addEventListener('mousedown', (e) => e.preventDefault(), true),
+		);
 		await record(page, SHEET);
 		await page.getByRole('button', { name: 'Docs' }).click();
 		await page.waitForTimeout(150);
