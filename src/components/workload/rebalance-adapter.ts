@@ -6,11 +6,11 @@
  * planner and sends what comes back (an edit intent, or a Gantt `move` action) to the dispatcher,
  * which makes it one undo step with a toast, a pending mark and the shared-text confirmation.
  *
- * - **No planner yet.** `PLANNER` is null until T12 (`planRebalance` in
- *   src/lib/workload/rebalance.ts) merges; then every move says "coming" and nothing is sent. The
- *   switch is that one constant.
- * - **Refusals** (`not-possible`) say their sentence in the app's message strip or toast
- *   (`edits.say`); the dispatcher's own refusals are already shown by the dispatcher.
+ * - **The planner** is T12's `planRebalance` (src/lib/workload/rebalance.ts), `PLANNER`.
+ * - **Refusals** (`not-possible`) say their sentence (`rebalanceMessage`) in a toast with "Show in
+ *   text" where the refusal has a place in the text (`edits.refuse`: review finding 5, left to the
+ *   views); the dispatcher's own refusals (`inherited`, alternatives, `text-only`) are already
+ *   shown by the dispatcher, with their "Show in text".
  * - **Keys** (`Nudges`): Alt+Up and Alt+Down move a task one person per press, Alt+Left and
  *   Alt+Right one bucket per press. Each press sends the cumulative offset of a gesture named by a
  *   coalesce key, `rebalance:<task>:<from>` and `shift:<task>` (7.1), so a run of presses is one
@@ -23,16 +23,21 @@ import type {
 	DispatchOptions,
 	DispatchOutcome,
 } from '../../lib/state/edits.svelte';
-import { inspectorStrings, workloadStrings as W } from '../../lib/strings';
+import { inspectorStrings } from '../../lib/strings';
 import type { EditIntent } from '../../lib/tjp/edit/types';
-import type { PlanRebalanceFn, RebalanceAction } from '../../lib/workload/rebalance';
-import type { ResourceId, TaskId } from '../../lib/tjp/index';
+import {
+	planRebalance,
+	type PlanRebalanceFn,
+	type RebalanceAction,
+} from '../../lib/workload/rebalance';
+import { rebalanceMessage } from '../../lib/workload/rebalance-check';
+import type { ResourceId, SourceRange, TaskId } from '../../lib/tjp/index';
 import type { Cell } from '../../lib/workload/heat-layout';
 import { personAt, shiftOf } from '../../lib/workload/heat-drag';
 import type { LoadModel } from '../../lib/workload/types';
 
-/** T12's `planRebalance`, once it merges: `import { planRebalance } from '...rebalance'`. */
-export const PLANNER: PlanRebalanceFn | null = null;
+/** T12's planner. */
+export const PLANNER: PlanRebalanceFn = planRebalance;
 
 /** The part of the dispatcher the adapter uses. */
 export interface RebalanceEdits {
@@ -44,12 +49,12 @@ export interface RebalanceEdits {
 	): Promise<DispatchOutcome>;
 	setMovePreference(kind: MoveKind | null): void;
 	flush(key?: string): void;
-	say(message: string, sticky?: boolean): void;
+	/** A refusal of the view's own: a toast that stays, with "Show in text" when it has a place. */
+	refuse(message: string, at: readonly SourceRange[]): void;
 }
 
 export interface RebalanceEnv {
-	/** Null until T12 merges (`PLANNER`). */
-	readonly planner: PlanRebalanceFn | null;
+	readonly planner: PlanRebalanceFn;
 	edits(): RebalanceEdits | null;
 	/** The planner's context: the index, the shown result and what the Gantt's planner needs. */
 	context(): ActionContext | null;
@@ -60,8 +65,8 @@ export interface RebalanceEnv {
 }
 
 export type RebalanceResult =
-	/** Nothing was sent: no planner yet, no dispatcher, or the planner said not possible. */
-	| { readonly status: 'coming' | 'unavailable' | 'refused'; readonly message: string }
+	/** Nothing was sent: no dispatcher or context, or the planner said not possible. */
+	| { readonly status: 'unavailable' | 'refused'; readonly message: string }
 	/** The dispatcher has it; its outcome says what became of it. */
 	| { readonly status: 'sent'; readonly outcome: DispatchOutcome };
 
@@ -76,27 +81,16 @@ export class Rebalancer {
 		this.#env = env;
 	}
 
-	/** Whether moves can be planned at all (false until T12 merges). */
-	get ready(): boolean {
-		return this.#env.planner !== null;
-	}
-
 	async run(action: RebalanceAction, o: RunOptions = {}): Promise<RebalanceResult> {
 		const env = this.#env;
 		const edits = env.edits();
 		if (!edits) return { status: 'unavailable', message: '' };
-		const say = (message: string): RebalanceResult => {
-			edits.say(message);
-			return { status: 'coming', message };
-		};
-		const planner = env.planner;
-		if (planner === null) return say(W.rebalance.coming);
 		const ctx = env.context();
 		if (!ctx) return { status: 'unavailable', message: '' };
-		const plan = planner(action, ctx);
+		const plan = env.planner(action, ctx);
 		if (plan.status === 'not-possible') {
-			const message = W.rebalance.refusal[plan.reason];
-			edits.say(message);
+			const message = rebalanceMessage(plan, ctx, action);
+			edits.refuse(message, plan.at);
 			return { status: 'refused', message };
 		}
 		const coalesce = o.coalesceKey === undefined ? {} : { coalesceKey: o.coalesceKey };
@@ -169,8 +163,10 @@ export class Nudges {
 		const clamp = (o: number): number => Math.max(0, Math.min(model.axis.count - 1, cell.col + o));
 		const col = clamp(offset);
 		if (col === cell.col || col === clamp(offset - step)) return null;
+		const action = shiftOf(model, task, cell.col, col);
+		if (!action) return null;
 		this.#by.set(key, offset);
-		return this.#rebalancer.run(shiftOf(model, task, cell.col, col), { coalesceKey: key });
+		return this.#rebalancer.run(action, { coalesceKey: key });
 	}
 
 	/** Blur or Enter: dispatches what is held and starts every offset again from zero. */

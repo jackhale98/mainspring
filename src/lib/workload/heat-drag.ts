@@ -2,9 +2,10 @@
 /**
  * The rebalance drag's rules (phase-3.md 7.1 W1 and W2, 7.2, 18.9), pure: which axis a drag
  * locks to, which cell it targets, what a drop would ask for, and what the label by the pointer
- * says. Nothing here edits anything: a drop becomes a `RebalanceAction` for the planner (T12's
- * `planRebalance`, through components/workload/rebalance-adapter.ts), which decides whether it
- * is allowed. The label is a preview of the ask, not of the result (5.2: no preview recomputes
+ * says. The rules that decide what a drop means are T12's (`lockAxis`, `dropAction`, `dropTask`:
+ * rebalance-drop.ts); this builds the heatmap's cells for them. Nothing here edits anything: a drop
+ * becomes a `RebalanceAction` for the planner (`planRebalance`, through
+ * components/workload/rebalance-adapter.ts), which decides whether it is allowed. The label is a preview of the ask, not of the result (5.2: no preview recomputes
  * load).
  *
  * - **Axis lock.** Once the pointer is past the slop, the drag locks to the axis of the larger
@@ -17,31 +18,26 @@
  * - **Which task.** A cell may hold several tasks a drag may start from; the drop then asks which
  *   one (`WhichTask`). One task needs no question.
  */
-import type { ResourceId, TaskId } from '../tjp/index';
+import type { TaskId } from '../tjp/index';
 import { workloadStrings as W } from '../strings';
 import type { RebalanceAction } from './rebalance';
+import { dropAction, type RebalanceAxis, type RebalanceCell } from './rebalance-drop';
 import type { AxisLabels } from './heat-labels';
 import type { Cell, HeatLayout } from './heat-layout';
 import type { CellTask, LoadModel } from './types';
 
-export type Lock = 'person' | 'period' | null;
-
-/**
- * The lock after the pointer moved (`dx`, `dy` since the press, in content px): none within the
- * slop, else the larger axis the first time past it, then kept until the pointer is back.
- */
-export function lockOf(prev: Lock, dx: number, dy: number, slop: number): Lock {
-	if (Math.abs(dx) <= slop && Math.abs(dy) <= slop) return null;
-	if (prev !== null) return prev;
-	return Math.abs(dx) >= Math.abs(dy) ? 'period' : 'person';
-}
-
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
 
-/** The cell a locked drag targets: same column for a person drag, same row for a period drag. */
-export function targetOf(lock: Lock, from: Cell, x: number, y: number, l: HeatLayout): Cell | null {
-	if (lock === null || l.rows === 0 || l.cols === 0) return null;
-	if (lock === 'person') {
+/** The cell a locked drag targets: same column for a person drag, same row for a week drag. */
+export function targetOf(
+	axis: RebalanceAxis | null,
+	from: Cell,
+	x: number,
+	y: number,
+	l: HeatLayout,
+): Cell | null {
+	if (axis === null || l.rows === 0 || l.cols === 0) return null;
+	if (axis === 'person') {
 		return { row: clamp(Math.floor(y / l.rowHeight), 0, l.rows - 1), col: from.col };
 	}
 	return { row: from.row, col: clamp(Math.floor(x / l.colWidth), 0, l.cols - 1) };
@@ -52,6 +48,17 @@ export function movableTasks(model: LoadModel, cell: Cell): readonly CellTask[] 
 	return model.cellTasks(cell.row, cell.col).filter((t) => t.kind === 'booked' && t.movable);
 }
 
+/** A cell as the planner's drop rules take it (rebalance-drop.ts): the person and the bucket's bounds. */
+export function rebalanceCell(model: LoadModel, c: Cell): RebalanceCell | null {
+	const row = model.rows[c.row];
+	if (!row || c.col < 0 || c.col >= model.axis.count) return null;
+	return {
+		resource: row.id,
+		bucket: model.axis.bounds[c.col] as number,
+		bucketEnd: model.axis.bounds[c.col + 1] as number,
+	};
+}
+
 export interface DragPlan {
 	readonly action: RebalanceAction | null;
 	/** Whether a drop here would ask for anything (the label is shown either way). */
@@ -60,29 +67,10 @@ export interface DragPlan {
 }
 
 /**
- * The W2 ask for moving `task` from one bucket to another, the one place it is built (a drop, the
- * details' "Move to week…" and the Alt+arrow keys all come here). Both are bucket starts from the
- * axis bounds.
+ * What dropping `task` from `from` on `to` asks for, and what to say about it. The action is the
+ * planner's own drop rule (`dropAction`, with `toBucketEnd` filled in from the axis); the label is
+ * a preview of the ask, and the dry run (`checkRebalance`) says whether the planner allows it.
  */
-// T12: its review adds a required `toBucketEnd` (the next bound after `toBucket`, the end of the
-// target bucket) to `RebalanceAction`, and a refusal for a bucket with no working day ("No working
-// days in that week."). At merge, add `toBucketEnd: model.axis.bounds[toCol + 1] as number` here
-// and the new refusal's sentence to `workloadStrings.rebalance.refusal`.
-export function shiftOf(
-	model: LoadModel,
-	task: TaskId,
-	fromCol: number,
-	toCol: number,
-): RebalanceAction {
-	return {
-		type: 'shift',
-		task,
-		fromBucket: model.axis.bounds[fromCol] as number,
-		toBucket: model.axis.bounds[toCol] as number,
-	};
-}
-
-/** What dropping `task` from `from` on `to` asks for, and what to say about it. */
 export function dragPlan(
 	model: LoadModel,
 	labels: AxisLabels,
@@ -93,26 +81,31 @@ export function dragPlan(
 	const none = (label: string): DragPlan => ({ action: null, ok: false, label });
 	if (to === null) return none('');
 	if (to.row === from.row && to.col === from.col) return none(W.rebalance.sameCell);
-	if (to.row !== from.row) {
-		const target = model.rows[to.row];
-		if (!target) return none('');
-		if (target.group) return none(W.rebalance.dropOnGroup);
-		const source = model.rows[from.row];
-		const label = W.rebalance.toPerson(target.name);
-		if (task === null || !source) return { action: null, ok: true, label };
-		return {
-			action: { type: 'reassign', task, from: source.id as ResourceId, to: target.id },
-			ok: true,
-			label,
-		};
-	}
-	const label = W.rebalance.toPeriod(labels.period[to.col] ?? '');
-	if (task === null) return { action: null, ok: true, label };
-	return {
-		action: shiftOf(model, task, from.col, to.col),
-		ok: true,
-		label,
-	};
+	const axis: RebalanceAxis = to.row !== from.row ? 'person' : 'week';
+	const target = model.rows[to.row];
+	if (!target) return none('');
+	if (axis === 'person' && target.group) return none(W.rebalance.dropOnGroup);
+	const label =
+		axis === 'person'
+			? W.rebalance.toPerson(target.name)
+			: W.rebalance.toPeriod(labels.period[to.col] ?? '');
+	const [origin, end] = [rebalanceCell(model, from), rebalanceCell(model, to)];
+	if (task === null || !origin || !end) return { action: null, ok: true, label };
+	return { action: dropAction(task, origin, end, axis), ok: true, label };
+}
+
+/** The W2 ask for moving `task` from one column to another (the details' menu and the keys). */
+export function shiftOf(
+	model: LoadModel,
+	task: TaskId,
+	fromCol: number,
+	toCol: number,
+): RebalanceAction | null {
+	const [origin, end] = [
+		rebalanceCell(model, { row: 0, col: fromCol }),
+		rebalanceCell(model, { row: 0, col: toCol }),
+	];
+	return origin && end ? dropAction(task, origin, end, 'week') : null;
 }
 
 /** The people (leaf rows) in row order, for the keyboard's person moves. */

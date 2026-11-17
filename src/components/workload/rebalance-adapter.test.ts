@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The rebalance adapter (phase-3.md 6.6, 7.1): with no planner every move says "coming" and sends
+// The rebalance adapter (phase-3.md 6.6, 7.1): a refusal of the planner is said (with its place) and sends
 // nothing; with one, an intent goes to `dispatch`, a Gantt action to `dispatchAction`, a refusal is
 // said and nothing is sent, the move question and the shared-text confirmation are asked and the
 // call sent again, and the Alt+arrow keys send cumulative offsets under their coalesce keys.
@@ -12,13 +12,7 @@ import { availabilityOf } from '../../lib/workload/availability';
 import { buildLoad } from '../../lib/workload/load';
 import type { PlanRebalanceFn } from '../../lib/workload/rebalance';
 import { booking, indexOf, resourceResult, withPeople } from '../../lib/workload/testing';
-import {
-	Nudges,
-	PLANNER,
-	Rebalancer,
-	type RebalanceEdits,
-	type RebalanceEnv,
-} from './rebalance-adapter';
+import { Nudges, Rebalancer, type RebalanceEdits, type RebalanceEnv } from './rebalance-adapter';
 
 const TEXT = `project p "P" 2026-01-05 - 2026-03-02 {
 }
@@ -69,14 +63,14 @@ function fakeEdits(outcomes: Array<Record<string, unknown>> = []) {
 		},
 		setMovePreference: (...args) => void calls.push({ op: 'setMovePreference', args }),
 		flush: (...args) => void calls.push({ op: 'flush', args }),
-		say: (...args) => void calls.push({ op: 'say', args }),
+		refuse: (...args) => void calls.push({ op: 'refuse', args }),
 	};
 	return { edits, calls };
 }
 
 const ctx = { index, result } as unknown as ActionContext;
 function env(
-	planner: PlanRebalanceFn | null,
+	planner: PlanRebalanceFn,
 	edits: RebalanceEdits | null,
 	over: Partial<RebalanceEnv> = {},
 ) {
@@ -102,19 +96,6 @@ const intentPlanner: PlanRebalanceFn = (a) =>
 		: { status: 'action', action: { type: 'move', task: a.task, days: 5 } };
 
 describe('rebalance adapter', () => {
-	it('has no planner until T12 merges, and says so without sending anything', async () => {
-		expect(PLANNER).toBeNull();
-		const { edits, calls } = fakeEdits();
-		const r = new Rebalancer(env(PLANNER, edits));
-		expect(r.ready).toBe(false);
-		const out = await r.run({ type: 'reassign', task: 'a', from: 'dev1', to: 'dev3' });
-		expect(out.status).toBe('coming');
-		expect(calls.map((c) => c.op)).toEqual(['say']);
-		expect(calls[0]?.args[0]).toBe(
-			'Moving tasks between people and weeks is coming. Nothing was changed.',
-		);
-	});
-
 	it('does nothing without a dispatcher or a context', async () => {
 		const none = new Rebalancer(env(intentPlanner, null));
 		expect((await none.run({ type: 'reassign', task: 'a', from: 'dev1', to: 'dev3' })).status).toBe(
@@ -122,21 +103,24 @@ describe('rebalance adapter', () => {
 		);
 		const { edits, calls } = fakeEdits();
 		const noCtx = new Rebalancer(env(intentPlanner, edits, { context: () => null }));
-		expect((await noCtx.run({ type: 'shift', task: 'a', fromBucket: 0, toBucket: 1 })).status).toBe(
-			'unavailable',
-		);
+		expect(
+			(await noCtx.run({ type: 'shift', task: 'a', fromBucket: 0, toBucket: 1, toBucketEnd: 2 }))
+				.status,
+		).toBe('unavailable');
 		expect(calls).toEqual([]);
 	});
 
 	it('sends a reassign intent with its label and an action through the action path', async () => {
 		const { edits, calls } = fakeEdits();
 		const r = new Rebalancer(env(intentPlanner, edits));
-		expect(r.ready).toBe(true);
 		const a = await r.run({ type: 'reassign', task: 'a', from: 'dev1', to: 'dev3' });
 		expect(a).toMatchObject({ status: 'sent', outcome: { status: 'applied' } });
 		expect(calls[0]).toMatchObject({ op: 'dispatch' });
 		expect(calls[0]?.args[1]).toMatchObject({ label: { text: 'Moved' }, confirmShared: false });
-		await r.run({ type: 'shift', task: 'a', fromBucket: 0, toBucket: 10080 }, { coalesceKey: 'k' });
+		await r.run(
+			{ type: 'shift', task: 'a', fromBucket: 0, toBucket: 10080, toBucketEnd: 20160 },
+			{ coalesceKey: 'k' },
+		);
 		expect(calls[1]).toMatchObject({ op: 'dispatchAction' });
 		expect(calls[1]?.args[0]).toEqual({ type: 'move', task: 'a', days: 5 });
 		expect(calls[1]?.args[2]).toMatchObject({ coalesceKey: 'k' });
@@ -147,6 +131,7 @@ describe('rebalance adapter', () => {
 		const planner: PlanRebalanceFn = () => ({
 			status: 'not-possible',
 			reason: 'via-group',
+			group: 'team',
 			at: [],
 		});
 		const out = await new Rebalancer(env(planner, edits)).run({
@@ -157,9 +142,9 @@ describe('rebalance adapter', () => {
 		});
 		expect(out).toEqual({
 			status: 'refused',
-			message: "Booked through a group. Change the task's people in its details.",
+			message: "Booked through Team. Change the task's people in its details.",
 		});
-		expect(calls.map((c) => c.op)).toEqual(['say']);
+		expect(calls.map((c) => c.op)).toEqual(['refuse']);
 	});
 
 	it('asks the move question, stores the answer and sends again', async () => {
@@ -170,6 +155,7 @@ describe('rebalance adapter', () => {
 			task: 'a',
 			fromBucket: 0,
 			toBucket: 1,
+			toBucketEnd: 2,
 		});
 		expect(askMove).toHaveBeenCalledWith('gap');
 		expect(calls.map((c) => c.op)).toEqual([
@@ -189,6 +175,7 @@ describe('rebalance adapter', () => {
 			task: 'a',
 			fromBucket: 0,
 			toBucket: 1,
+			toBucketEnd: 2,
 		});
 		expect(cancelled).toMatchObject({ outcome: { status: 'cancelled' } });
 		expect(q.calls.map((c) => c.op)).toEqual(['dispatchAction']);

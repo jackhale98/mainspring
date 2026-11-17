@@ -921,22 +921,13 @@ export const workloadStrings = {
 		group: 'A group sums its members. Open a person to move their tasks.',
 	},
 	rebalance: {
-		/** T12's planner has not merged: every move says so, and nothing changes. */
-		coming: 'Moving tasks between people and weeks is coming. Nothing was changed.',
 		dropOnPerson: 'Drop on a person',
 		dropOnGroup: 'Drop on a person, not a group',
 		toPerson: (name: string) => `To ${name}`,
 		toPeriod: (period: string) => `To ${period}`,
 		sameCell: 'Same place',
 		lifted: (name: string) => `${name} lifted. Drag to a person or a week.`,
-		which: 'Move which task?',
 		whichLead: 'This cell has several tasks that can move. Choose one.',
-		refusal: {
-			'via-group': "Booked through a group. Change the task's people in its details.",
-			'not-a-person': 'Drop on a person, not a group.',
-			'not-booked': 'That task is not booked here.',
-			'same-place': 'That is where it is already.',
-		},
 		cancelled: 'Move cancelled.',
 		cancel: 'Cancel',
 	},

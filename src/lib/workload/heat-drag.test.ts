@@ -8,7 +8,7 @@ import { createTimeZoneHost } from '../../engine/timezone';
 import type { GanttCalendar } from '../gantt/ticks';
 import { at, plan } from '../schedule/testing';
 import { availabilityOf } from './availability';
-import { dragPlan, lockOf, movableTasks, peopleRows, personAt, targetOf } from './heat-drag';
+import { dragPlan, movableTasks, peopleRows, personAt, shiftOf, targetOf } from './heat-drag';
 import { heatLayout } from './heat-layout';
 import { axisLabels } from './heat-labels';
 import { buildLoad } from './load';
@@ -67,37 +67,20 @@ const ids = model.rows.map((r) => r.id);
 const row = (id: string): number => ids.indexOf(id);
 const layout = heatLayout(model.rows.length, model.axis.count, { rowHeight: 28, colWidth: 56 });
 
-describe('axis lock', () => {
-	it('is none within the slop and takes the larger movement past it', () => {
-		expect(lockOf(null, 2, 2, 3)).toBeNull();
-		expect(lockOf(null, 10, 4, 3)).toBe('period');
-		expect(lockOf(null, 3.5, 12, 3)).toBe('person');
-		expect(lockOf(null, 8, 8, 3)).toBe('period');
-	});
-
-	it('stays locked while the pointer is out, and unlocks back at the origin', () => {
-		expect(lockOf('person', 30, 4, 3)).toBe('person');
-		expect(lockOf('period', 1, 40, 3)).toBe('period');
-		expect(lockOf('person', 1, 2, 3)).toBeNull();
-		// After unlocking, the next larger movement picks again.
-		expect(lockOf(lockOf('person', 0, 0, 3), 20, 3.5, 3)).toBe('period');
-	});
-});
-
 describe('targets', () => {
 	const from = { row: row('dev1'), col: 1 };
 
 	it('keeps the column for a person drag and the row for a period drag', () => {
 		expect(targetOf('person', from, 999, 3 * 28 + 5, layout)).toEqual({ row: 3, col: 1 });
-		expect(targetOf('period', from, 4 * 56 + 3, 0, layout)).toEqual({ row: from.row, col: 4 });
+		expect(targetOf('week', from, 4 * 56 + 3, 0, layout)).toEqual({ row: from.row, col: 4 });
 		expect(targetOf(null, from, 0, 0, layout)).toBeNull();
 	});
 
 	it('clamps to the grid', () => {
 		expect(targetOf('person', from, 0, -50, layout)).toEqual({ row: 0, col: 1 });
 		expect(targetOf('person', from, 0, 9999, layout)).toEqual({ row: ids.length - 1, col: 1 });
-		expect(targetOf('period', from, -10, 0, layout)?.col).toBe(0);
-		expect(targetOf('period', from, 99999, 0, layout)?.col).toBe(model.axis.count - 1);
+		expect(targetOf('week', from, -10, 0, layout)?.col).toBe(0);
+		expect(targetOf('week', from, 99999, 0, layout)?.col).toBe(model.axis.count - 1);
 	});
 });
 
@@ -120,6 +103,7 @@ describe('what a drop asks for', () => {
 			task: 'a',
 			fromBucket: model.axis.bounds[0],
 			toBucket: model.axis.bounds[2],
+			toBucketEnd: model.axis.bounds[3],
 		});
 		expect(p.label).toBe('To week of 19 January');
 	});
@@ -141,6 +125,19 @@ describe('what a drop asks for', () => {
 	it('labels a drag before the task is chosen, with no action yet', () => {
 		const p = dragPlan(model, labels, null, from, { row: row('solo'), col: 0 });
 		expect(p).toEqual({ action: null, ok: true, label: 'To Solo' });
+	});
+});
+
+describe('the W2 ask', () => {
+	it('carries the end of the target bucket, from the axis bounds', () => {
+		expect(shiftOf(model, 'a', 0, 2)).toEqual({
+			type: 'shift',
+			task: 'a',
+			fromBucket: model.axis.bounds[0],
+			toBucket: model.axis.bounds[2],
+			toBucketEnd: model.axis.bounds[3],
+		});
+		expect(shiftOf(model, 'a', 0, 99)).toBeNull();
 	});
 });
 

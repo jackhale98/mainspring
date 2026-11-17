@@ -44,6 +44,8 @@
 	import { ZOOMS } from '../../lib/workload/heat-prefs';
 	import { FALLBACK_HEAT_THEME, colWidthOf, heatThemeOf } from '../../lib/workload/heat-theme';
 	import type { RebalanceAction } from '../../lib/workload/rebalance';
+	import { checkRebalance } from '../../lib/workload/rebalance-check';
+	import { dropTask } from '../../lib/workload/rebalance-drop';
 	import type { BucketKind } from '../../lib/workload/types';
 	import LazyMount from '../app/LazyMount.svelte';
 	import Mark from '../app/Mark.svelte';
@@ -449,7 +451,7 @@
 	async function perform(action: RebalanceAction | null): Promise<void> {
 		if (!action) return;
 		const r = await rebalancer.run(action);
-		note = r.status === 'coming' || r.status === 'refused' ? r.message : '';
+		note = r.status === 'refused' ? r.message : '';
 		if (r.status !== 'sent') announce(r.message);
 	}
 
@@ -471,7 +473,7 @@
 			axis === 'person'
 				? await nudges.person(model, t.task, selected, step)
 				: await nudges.period(model, t.task, selected, step);
-		if (r && (r.status === 'coming' || r.status === 'refused')) note = r.message;
+		if (r && r.status === 'refused') note = r.message;
 	}
 
 	function showInGantt(t: DetailTask): void {
@@ -500,9 +502,21 @@
 		visible: visibleBox,
 		tap,
 		open: openDetails,
+		check: (action) => {
+			// Planned and dry-run on the snapshot the index was built from (null while the text is ahead).
+			const snap = app.workspace?.snapshot();
+			const ctx = context();
+			if (!snap || !ctx || ctx.index.version !== snap.version) return null;
+			const o = checkRebalance(action, ctx, snap);
+			return o.status === 'refused'
+				? { ok: false, message: o.message }
+				: { ok: true, message: null };
+		},
 		drop: (d) => {
-			if (d.tasks.length === 1) {
-				void perform(d.plan(d.tasks[0] ?? null).action);
+			const pick = dropTask(d.tasks);
+			if (pick.kind === 'none') return;
+			if (pick.kind === 'one') {
+				void perform(d.plan(d.tasks.find((t) => t.task === pick.task) ?? null).action);
 				return;
 			}
 			which = {

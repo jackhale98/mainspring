@@ -38,14 +38,9 @@ import type {
 	PointerKind,
 } from '../../lib/gesture/types';
 import { workloadStrings as W } from '../../lib/strings';
-import {
-	dragPlan,
-	lockOf,
-	movableTasks,
-	targetOf,
-	type DragPlan,
-	type Lock,
-} from '../../lib/workload/heat-drag';
+import { dragPlan, movableTasks, targetOf, type DragPlan } from '../../lib/workload/heat-drag';
+import type { RebalanceAction } from '../../lib/workload/rebalance';
+import { lockAxis, type RebalanceAxis } from '../../lib/workload/rebalance-drop';
 import type { AxisLabels } from '../../lib/workload/heat-labels';
 import {
 	cellId,
@@ -74,6 +69,11 @@ export interface HeatHost {
 	tap(cell: Cell | null, touch: boolean): void;
 	/** Opens the cell's details (a long-press that did not drag, or a cell with nothing to move). */
 	open(cell: Cell): void;
+	/**
+	 * The dry run of a drop (`checkRebalance`, 7.2): whether the planner and the edit API would take
+	 * it, and the sentence when not. Null when there is no answer yet.
+	 */
+	check(action: RebalanceAction): { readonly ok: boolean; readonly message: string | null } | null;
 	/** A drag was dropped on `to`: the host plans it (and may ask which task first). */
 	drop(d: {
 		readonly from: Cell;
@@ -100,8 +100,12 @@ interface Session {
 	readonly x0: number;
 	readonly y0: number;
 	readonly kind: PointerKind;
-	lock: Lock;
+	lock: RebalanceAxis | null;
 	target: Cell | null;
+	/** The target the dry run was asked about, its answer, and the timer that asks. */
+	checked: string;
+	verdict: { readonly ok: boolean; readonly message: string | null } | null;
+	timer: ReturnType<typeof setTimeout> | null;
 }
 
 const mods = (e: PointerEvent): Modifiers => ({
@@ -367,6 +371,9 @@ export class HeatGestures {
 			kind: this.#pointer?.kind ?? 'mouse',
 			lock: null,
 			target: null,
+			checked: '',
+			verdict: null,
+			timer: null,
 		};
 		this.lifted = cell;
 		this.cursor = 'grabbing';
@@ -378,7 +385,7 @@ export class HeatGestures {
 		const model = this.#h.model();
 		const labels = this.#h.labels();
 		if (!s || !model || !labels) return;
-		s.lock = lockOf(s.lock, x - s.x0, y - s.y0, SLOP[s.kind]);
+		s.lock = lockAxis(x - s.x0, y - s.y0, SLOP[s.kind], s.lock);
 		s.target = targetOf(s.lock, s.from, x, y, this.#h.layout());
 		// With one task the label can name the whole ask; with several it names the target.
 		const plan = dragPlan(
@@ -388,10 +395,36 @@ export class HeatGestures {
 			s.from,
 			s.target,
 		);
+		// One dry run per target change, in an idle task (7.2), as the Gantt does at a link's target.
+		const key = s.target ? `${s.target.row}:${s.target.col}` : '';
+		if (key !== s.checked) {
+			s.checked = key;
+			s.verdict = null;
+			if (s.timer !== null) clearTimeout(s.timer);
+			const action = plan.action;
+			s.timer = action
+				? setTimeout(() => {
+						s.timer = null;
+						if (this.#session !== s || s.checked !== key) return;
+						s.verdict = this.#h.check(action);
+						const last = this.#pointer
+							? this.#point(this.#pointer.clientX, this.#pointer.clientY)
+							: { x, y };
+						this.#show(s, plan, last.x, last.y);
+					}, 0)
+				: null;
+		}
+		this.#show(s, plan, x, y);
+	}
+
+	/** The ghost and its label: the planner's sentence when the dry run refused, else the ask. */
+	#show(s: Session, plan: DragPlan, x: number, y: number): void {
+		const refused = s.verdict !== null && !s.verdict.ok;
+		const text = refused ? (s.verdict?.message ?? plan.label) : plan.label;
 		this.drag = {
 			target: s.target,
-			ok: plan.ok,
-			label: plan.label === '' ? null : { text: plan.label, x, y },
+			ok: plan.ok && !refused,
+			label: text === '' ? null : { text, x, y },
 		};
 	}
 
@@ -424,6 +457,7 @@ export class HeatGestures {
 	}
 
 	#clear(): void {
+		if (this.#session?.timer) clearTimeout(this.#session.timer);
 		this.#session = null;
 		this.#liftedAt = null;
 		this.drag = null;

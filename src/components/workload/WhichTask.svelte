@@ -7,7 +7,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { workloadStrings as W } from '../../lib/strings';
+	import { rebalanceStrings, workloadStrings as W } from '../../lib/strings';
 	import { hoursNumber } from '../../lib/workload/heat-cell';
 
 	interface Props {
@@ -33,7 +33,7 @@
 	class="which"
 	role="dialog"
 	tabindex="-1"
-	aria-label={W.rebalance.which}
+	aria-label={rebalanceStrings.which}
 	data-testid="which-task"
 	onkeydown={(e) => {
 		if (e.key === 'Escape') {
@@ -42,8 +42,8 @@
 		}
 	}}
 >
-	<p class="title">{W.rebalance.which} <span class="ask">{ask}</span></p>
-	<p class="lead">{W.rebalance.whichLead}</p>
+	<p class="title">{rebalanceStrings.which} <span class="ask">{ask}</span></p>
+	<p class="lead">{rebalanceStrings.whichLead}</p>
 	<ul>
 		{#each tasks as t (t.task)}
 			<li>
