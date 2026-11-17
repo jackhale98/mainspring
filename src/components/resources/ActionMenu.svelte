@@ -40,11 +40,19 @@
 
 	const uid = $props.id();
 	let open = $state(false);
-	/** The menu is a bottom sheet (a finger), not a popover (decided when it opens). */
-	let sheet = $state(false);
+	/** The menu is a bottom sheet (a finger), not a popover; follows the primary pointer. */
+	const coarse = typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)') : null;
+	let sheet = $state(coarse?.matches ?? false);
+	$effect(() => {
+		const on = (): void => {
+			sheet = coarse?.matches ?? false;
+		};
+		coarse?.addEventListener('change', on);
+		return () => coarse?.removeEventListener('change', on);
+	});
 	/** Where the popover goes: fixed to the viewport, beside the button, inside the room there is. */
 	let place = $state('');
-	/** The action chosen in the sheet, run when the sheet has closed. */
+	/** The action chosen in the sheet, run when the sheet has gone (its `onleft`, in the task of the tap). */
 	let chosen: string | null = null;
 	let button: HTMLButtonElement | undefined = $state();
 	let list: HTMLUListElement | undefined = $state();
@@ -53,7 +61,7 @@
 		list ? [...list.querySelectorAll<HTMLButtonElement>('button:not([disabled])')] : [];
 
 	function show(): void {
-		sheet = matchMedia('(pointer: coarse)').matches;
+		sheet = coarse?.matches ?? false;
 		if (!sheet && button) {
 			const r = button.getBoundingClientRect();
 			const below = innerHeight - r.bottom - 12;
@@ -68,9 +76,12 @@
 		open = true;
 		if (!sheet) queueMicrotask(() => items()[0]?.focus());
 	}
-	/** The sheet closed (any way): the chosen action runs now, after the focus came back. */
-	function sheetClosed(): void {
-		open = false;
+	/**
+	 * The sheet has gone: the chosen action runs now. It is `onleft`, in the timer task that ended the
+	 * slide, not `onclose` (the dialog's `close` event, a task of its own without the tap): a Rename
+	 * that focuses its field there still raises the touch keyboard on an iPhone.
+	 */
+	function sheetLeft(): void {
 		const id = chosen;
 		chosen = null;
 		if (id !== null) onaction(id);
@@ -80,6 +91,8 @@
 		if (refocus) button?.focus();
 	}
 	function onkeydown(e: KeyboardEvent): void {
+		// In the sheet the dialog has Escape and the focus trap; the arrows, Home and End are ours.
+		if (sheet && (e.key === 'Escape' || e.key === 'Tab')) return;
 		const all = items();
 		const at = all.indexOf(document.activeElement as HTMLButtonElement);
 		let next: number | null = null;
@@ -96,22 +109,32 @@
 		e.preventDefault();
 		all[next]?.focus();
 	}
+	/** A scroll that is not the menu's own (a view under it) takes the popover's place away. */
+	function onscroll(e: Event): void {
+		if (open && !sheet && !(e.target instanceof Node && list?.contains(e.target))) close(false);
+	}
+	/** The first item that can be chosen takes the focus when the sheet opens. */
+	const firstId = $derived(actions.find((a) => !a.disabled)?.id);
 	function onwindowdown(e: PointerEvent): void {
 		if (open && !sheet && e.target instanceof Node && !button?.parentElement?.contains(e.target))
 			close(false);
 	}
 </script>
 
-<svelte:window onpointerdown={onwindowdown} onresize={() => !sheet && open && close(false)} />
+<svelte:window
+	onpointerdown={onwindowdown}
+	onresize={() => !sheet && open && close(false)}
+	onscrollcapture={onscroll}
+/>
 
 <div class="menu">
 	<button
 		bind:this={button}
 		type="button"
 		class="trigger"
-		aria-haspopup="menu"
+		aria-haspopup={sheet ? 'dialog' : 'menu'}
 		aria-expanded={open}
-		aria-controls="{uid}-list"
+		aria-controls={open && !sheet ? `${uid}-list` : undefined}
 		aria-label={R.table.menu}
 		title={disabled ? R.table.menuOff : R.table.menu}
 		{disabled}
@@ -140,8 +163,23 @@
 	{/if}
 </div>
 {#if sheet}
-	<Sheet open={open && sheet} side="bottom" title={R.table.menu} onclose={sheetClosed}>
-		<ul class="sheet-list" role="menu" aria-label={R.table.menu} data-testid="resource-menu-sheet">
+	<Sheet
+		open={open && sheet}
+		side="bottom"
+		title={R.table.menu}
+		onclose={() => (open = false)}
+		onleft={sheetLeft}
+	>
+		<!-- A menu: the items are buttons in a list, moved through with the arrow keys. -->
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<ul
+			class="sheet-list"
+			role="menu"
+			aria-label={R.table.menu}
+			data-testid="resource-menu-sheet"
+			bind:this={list}
+			{onkeydown}
+		>
 			{@render entries((id) => {
 				chosen = id;
 				open = false;
@@ -153,12 +191,14 @@
 {#snippet entries(choose: (id: string) => void)}
 	{#each actions as a (a.id)}
 		<li role="none">
+			<!-- svelte-ignore a11y_autofocus -->
 			<button
 				type="button"
 				role="menuitem"
 				disabled={a.disabled}
 				data-action={a.id}
 				aria-keyshortcuts={a.aria}
+				autofocus={sheet && a.id === firstId}
 				onclick={() => choose(a.id)}
 				><span>{a.label}</span>{#if a.show}<kbd aria-hidden="true">{a.show}</kbd>{/if}</button
 			>
@@ -248,9 +288,12 @@
 		color: var(--color-text-muted);
 		cursor: default;
 	}
-	/* No keyboard on a finger: the hints are noise there (and a sheet shows none). */
-	.sheet-list kbd {
-		display: none;
+	/* A finger alone has no keyboard: the hints are noise there. With a mouse or a hardware keyboard
+	   about (any fine pointer), the sheet shows them as the popover does. */
+	@media not (any-pointer: fine) {
+		.sheet-list kbd {
+			display: none;
+		}
 	}
 	kbd {
 		color: var(--color-text-muted);

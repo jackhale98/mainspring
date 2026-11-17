@@ -49,10 +49,12 @@
 	/* Motion: 150 to 200 ms for panels and sheets; off when the user asks for less motion */
 	--motion-fast: 150ms;
 	--motion-base: 200ms;
-	/* A sheet slides in and out (ms, unitless: Sheet.svelte reads them for what script starts; the
-	   minifier writes 340ms as .34s). Zero with reduced motion. */
-	--sheet-ms: 340;
-	--sheet-out-ms: 240;
+	/* A sheet slides in, or glides to another height, in 200 ms and out in 180 (ADR-0009 #7: 150 to
+	   200). Unitless ms, so that Sheet.svelte and the Calendar's slide-up.ts read the same numbers
+	   for what script starts (a minifier writes 200ms as .2s, which a script cannot read as ms).
+	   Zero with reduced motion. */
+	--sheet-ms: 200;
+	--sheet-out-ms: 180;
 	--ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
 
 	/* Shape (ADR-0009): panels 16, controls 10, pills and chips fully round, phone sheets 22. */

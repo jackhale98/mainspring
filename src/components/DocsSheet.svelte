@@ -5,24 +5,12 @@
 	the same `docsAtCursor` the keyboard command shows as a tooltip.
 -->
 <script lang="ts">
-	import type { EditorSelection } from '@codemirror/state';
-	import { untrack } from 'svelte';
 	import type { AppState } from '../lib/state/app.svelte';
-	import { restoreEditor } from '../lib/state/docs-return';
 	import { editorStrings, strings } from '../lib/strings';
 	import Sheet from './Sheet.svelte';
 
 	let { app }: { app: AppState } = $props();
 	const doc = $derived(app.docsContent);
-
-	// A finger's Docs button does not take the focus: the editor still has it (and the keyboard) when
-	// the sheet opens, and has it again, at the same cursor, when the sheet has gone. Read before the
-	// sheet (a child) opens, which is when the keyboard goes.
-	let back: EditorSelection | null = null;
-	$effect.pre(() => {
-		if (app.docsOpen)
-			back = untrack(() => (app.editor?.hasFocus ? app.editor.state.selection : null));
-	});
 </script>
 
 <Sheet
@@ -30,10 +18,6 @@
 	side="bottom"
 	title={strings.editor.docsTitle}
 	onclose={() => (app.docsOpen = false)}
-	onleft={() => {
-		restoreEditor(app.editor, back);
-		back = null;
-	}}
 >
 	{#if doc}
 		<h3 class="heading">{doc.title}</h3>
