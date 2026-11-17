@@ -1,8 +1,11 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	One month of the Calendar (phase-3.md 9.5, 10): a real DOM grid, `role="grid"`, with the days as
-	`gridcell` elements in 6 rows of 7 (42 cells), so every month has one height and the list can
-	place the ones in view (calendar/window.ts). A day shows its number and, by what is on it:
+	One month of the Calendar (phase-3.md 9.5, 10, 22): a real DOM grid, `role="grid"`, with the days
+	as `gridcell` elements in rows of 7. A tablet or a phone has 6 rows of a fixed height (42 cells),
+	so every month is as tall as the next; a desktop's month fills the view (`fill`): it has the rows
+	its weeks need (4 to 6) and shares the height between them, so a day is tall and shows as many
+	chips as fit (calendar/room.ts), then "+N more", a button that opens the day's details.
+	A day shows its number and, by what is on it:
 
 	- the global holidays, with their name from the plan's text (`ProjectInfo.leaves` has none);
 	- the selected person's leaves, by type, hatched, with a dashed edge when no text item names
@@ -17,6 +20,9 @@
 
 	The cell with the tab stop (`tabDay`) is the only one in the tab order of the whole calendar;
 	the keys and the pointer are the parent's (Calendar.svelte), which finds a day by `data-day`.
+
+	Over 400 lines on purpose: the cell's markup and its styles for the three layouts (fill, fixed
+	rows, narrow marks) are one unit that only makes sense together; the rules are in lib/calendar.
 -->
 <script lang="ts">
 	import {
@@ -26,6 +32,7 @@
 		monthTitle,
 		weekdayName,
 	} from '../../lib/calendar/describe';
+	import { CHIP_GAP, CHIP_H, MORE_H, NUM_H, chipsShown } from '../../lib/calendar/room';
 	import type { DayFacts } from '../../lib/calendar/facts';
 	import {
 		dateOfCell,
@@ -44,30 +51,63 @@
 		/** The day with the tab stop. */
 		tabDay: number | null;
 		today: number | null;
-		/** Where the block sits in a list (px from the top); null: in flow. */
-		top?: number | null;
+		/** The month fills the view (a desktop): the rows share its height and show what fits. */
+		fill?: boolean;
 		/** A milestone was tapped. */
 		onmilestone: (task: string) => void;
+		/** "+N more" was pressed on a day: open its details. */
+		onmore: (day: number) => void;
 	}
-	let { grid, month, facts, selected, tabDay, today, top = null, onmilestone }: Props = $props();
+	let {
+		grid,
+		month,
+		facts,
+		selected,
+		tabDay,
+		today,
+		fill = false,
+		onmilestone,
+		onmore,
+	}: Props = $props();
 
 	const title = $derived(monthTitle(month.year, month.month));
 	const headId = $derived(`cal-month-${month.year}-${month.month}`);
 	const heads = $derived(weekdayOrder(grid.weekStartsMonday));
-	const rows = [0, 1, 2, 3, 4, 5];
+	// A month that fills the view has the rows its weeks need; the others keep 6 (one height).
+	const rows = $derived(
+		Array.from({ length: fill ? Math.ceil((month.lead + month.length) / 7) : 6 }, (_, r) => r),
+	);
+	// A week row's height decides how many chips a day shows. It is the grid's height less the
+	// weekday row's, over the rows this month has, so a change from 6 rows to 5 is right in the same
+	// frame (a row measured on its own would be the old month's for one). Both are read on a resize,
+	// never in a scroll or a drag. Until they are, the chips are not drawn.
+	let gridH = $state(0);
+	let dowH = $state(0);
+	const rowH = $derived(rows.length > 0 ? (gridH - dowH) / rows.length : 0);
+	const measured = $derived(!fill || gridH > 0);
 	const cols = [0, 1, 2, 3, 4, 5, 6];
 </script>
 
 <section
 	class="month"
-	class:listed={top !== null}
-	style:top={top === null ? null : `${top}px`}
+	class:fill
+	class:measuring={!measured}
+	style:--cal-num-h="{NUM_H}px"
+	style:--cal-chip-h="{CHIP_H}px"
+	style:--cal-chip-gap="{CHIP_GAP}px"
+	style:--cal-more-h="{MORE_H}px"
 	data-testid="cal-month"
 	data-month="{month.year}-{month.month}"
 >
 	<h3 class="title" id={headId}>{title}</h3>
-	<div class="grid" role="grid" aria-labelledby={headId} aria-multiselectable="true">
-		<div class="row dow" role="row">
+	<div
+		class="grid"
+		role="grid"
+		aria-labelledby={headId}
+		aria-multiselectable="true"
+		bind:clientHeight={gridH}
+	>
+		<div class="row dow" role="row" bind:offsetHeight={dowH}>
 			{#each heads as w (w)}
 				<div class="head" role="columnheader" aria-label={weekdayName(w, true)}>
 					{weekdayName(w)}
@@ -96,6 +136,7 @@
 							{@const day = grid.days[i]}
 							{@const f = facts(i)}
 							{@const chips = dayChips(f)}
+							{@const shown = fill ? chipsShown(chips.length, rowH) : Math.min(chips.length, MAX)}
 							{@const isSel = selected !== null && i >= selected[0] && i <= selected[1]}
 							{#if day}
 								<div
@@ -117,7 +158,7 @@
 								>
 									<span class="num">{date}</span>
 									<span class="chips">
-										{#each chips.slice(0, MAX) as chip, k (k)}
+										{#each chips.slice(0, shown) as chip, k (k)}
 											{#if chip.kind === 'milestone' && chip.task}
 												<button
 													type="button"
@@ -137,11 +178,20 @@
 												</span>
 											{/if}
 										{/each}
-										{#if chips.length > MAX}
-											<span class="more">+{chips.length - MAX}</span>
+										{#if chips.length > shown}
+											<button
+												type="button"
+												class="more"
+												tabindex="-1"
+												data-more={i}
+												data-testid="cal-more"
+												onclick={() => onmore(i)}
+											>
+												{C.more(chips.length - shown)}
+											</button>
 										{/if}
 									</span>
-									<span class="sr-only">, {dayExtra(day, f)}</span>
+									<span class="sr-only">, {dayExtra(day, f, undefined, shown)}</span>
 									<span class="marks" aria-hidden="true">
 										{#each chips.slice(0, 3) as chip, k (k)}
 											<i class="mark {chip.kind}" class:textonly={chip.textOnly}></i>
@@ -166,10 +216,51 @@
 		padding-inline: var(--gutter);
 		position: relative;
 	}
-	/* In the list a block is placed by its index (window.ts). */
-	.month.listed {
+	/* The month that fills the view: the grid takes the height, the weeks share it. The toolbar has
+	   the month's title, so the heading stays for the grid's name only. */
+	.month.fill {
+		display: flex;
+		flex-direction: column;
+		block-size: 100%;
+		padding-block: var(--space-1);
+	}
+	.month.fill .title {
 		position: absolute;
-		inset-inline: 0;
+		inline-size: 1px;
+		block-size: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+	.month.fill .grid {
+		flex: 1 1 0;
+		min-block-size: 0;
+	}
+	/* Not drawn until the grid is measured: no frame with the wrong chips. */
+	.month.measuring .chips {
+		visibility: hidden;
+	}
+	/* The day number, the chips and the button have the heights lib/calendar/room.ts counts with. */
+	.month.fill .num {
+		flex: none;
+		block-size: var(--cal-num-h);
+		line-height: var(--cal-num-h);
+	}
+	.month.fill .chips {
+		gap: var(--cal-chip-gap);
+	}
+	.month.fill .chip {
+		box-sizing: border-box;
+		flex: none;
+		block-size: var(--cal-chip-h);
+	}
+	.month.fill .more {
+		flex: none;
+		block-size: var(--cal-more-h);
+	}
+	.month.fill .row:not(.dow) {
+		block-size: auto;
+		flex: 1 1 0;
+		min-block-size: 0;
 	}
 	.title {
 		display: flex;
@@ -332,10 +423,27 @@
 		background: var(--color-gantt-milestone);
 		outline: 1px solid var(--color-gantt-bar-outline);
 	}
+	/* "+N more": a button in the cell that opens the day's details. */
 	.more {
-		padding-inline: 4px;
+		align-self: flex-start;
+		padding: 0 4px;
+		border: 0;
+		border-radius: 4px;
+		background: transparent;
 		color: var(--color-gantt-text-muted);
+		font: inherit;
 		font-size: 11px;
+		font-weight: 600;
+		line-height: 15px;
+		cursor: pointer;
+	}
+	.more:hover {
+		background: var(--color-row-selected);
+		color: var(--color-gantt-text);
+	}
+	.more:focus-visible {
+		outline: 3px solid var(--color-focus);
+		outline-offset: 1px;
 	}
 	.marks {
 		display: none;
