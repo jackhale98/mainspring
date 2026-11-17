@@ -175,10 +175,12 @@ jobs:
     strategy:
       fail-fast: false
       # One runner per device, two for the iPhone (WebKit runs about three times slower), so no
-      # runner holds all the WebKit tests.
+      # runner holds all the WebKit tests. Desktop has two as well since Phase 3's views (one runner
+      # took 38 minutes); the frame-rate gate and JS sizes run on its first shard only.
       matrix:
         include:
-          - { project: desktop, shard: 1/1, browsers: chromium }
+          - { project: desktop, shard: 1/2, browsers: chromium }
+          - { project: desktop, shard: 2/2, browsers: chromium }
           - { project: pixel-7, shard: 1/1, browsers: chromium }
           - { project: iphone-14, shard: 1/2, browsers: webkit }
           - { project: iphone-14, shard: 2/2, browsers: webkit }
@@ -216,7 +218,7 @@ jobs:
       # the rest, one worker, and waits (up to two minutes) for the runner's load to settle: other
       # workers' tests made it fail on noise. The 5% / 50 ms budget itself is unchanged.
       - name: Gantt frame-rate gate
-        if: matrix.project == 'desktop' && !cancelled()
+        if: matrix.project == 'desktop' && matrix.shard == '1/2' && !cancelled()
         run: npm run test:e2e -- --project=desktop --workers=1 tests/e2e/gantt-perf.spec.ts
         env:
           PERF_MAX_LOAD: '2.5'
@@ -227,13 +229,13 @@ jobs:
       # It serves dist itself, as Pages does, and loads two pages to Engine Ready: about a minute, on the
       # desktop runner only (the iPhone runners are the slow ones).
       - name: JS sizes
-        if: matrix.project == 'desktop' && !cancelled()
+        if: matrix.project == 'desktop' && matrix.shard == '1/2' && !cancelled()
         run: node scripts/js-sizes.mjs --serve --out test-results/js-sizes.json
       # The timings the Gantt specs record (gesture frame cost, analysis time), per device.
       - uses: actions/upload-artifact@v4
         if: always() && matrix.project != 'iphone-14'
         with:
-          name: gantt-timings-${{ matrix.project }}
+          name: gantt-timings-${{ matrix.project }}-${{ strategy.job-index }}
           path: |
             test-results/gantt-*.json
             test-results/js-sizes.json
