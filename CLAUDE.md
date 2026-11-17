@@ -31,7 +31,8 @@ only source of truth.
 - TypeScript strict; no `any` in `src/lib`.
 - Every module in `src/lib` has unit tests beside it.
 - No file over 400 lines without a reason in its header.
-- User-facing copy lives in one strings file.
+- User-facing copy lives in `src/lib/strings*.ts`: `strings.ts` for what the first load shows, and one
+  strings module per lazily loaded view, so a view's copy loads with it (user, 2026-11-17).
 - Commits follow Conventional Commits.
 - Dates in views are plain integers (minutes since project start); use `Intl` for display only.
 
