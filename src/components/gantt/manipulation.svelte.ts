@@ -10,7 +10,8 @@
  * - `handles`: the selected bar's handles, with those the edit API would refuse hidden after one
  *   idle dry run each (7.3).
  * - `pendingGhosts`, `pendingKeys`: the bars the dispatcher holds as preview or pending.
- * - `people`, `booked`, `paletteView`: the palette (R6). `rowActions`: the row menu (R5).
+ * - `people`, `booked`, `paletteView`, `assignMode`, `assigning`, `recentPeople`: the people picker
+ *   (R6; polish 17). `rowActions`: the row menu (R5).
  * - `focusKey`/`focusRow`, `selectedLinkIndex`: what the canvas rings and highlights.
  *
  * Nothing here changes the plan: every edit goes out through `interactions.actor`.
@@ -40,6 +41,7 @@ import { gestureStrings } from '../../lib/strings';
 import type { AddMode } from '../../lib/gantt/add-task';
 import type { ZoneOffsets } from '../../lib/tjp/values/civil';
 import { addTaskFlow, headerAfter } from './add-task-flow';
+import { AssignMode } from './assign-mode.svelte';
 import { ChipDrag } from './chip-drag.svelte';
 import { GanttGestures } from './gestures.svelte';
 import { GanttInteractions, resourceOrder } from './interactions.svelte';
@@ -89,6 +91,8 @@ export class Manipulation {
 	readonly gestures: GanttGestures;
 	readonly rowDrag: RowDrag;
 	readonly chips: ChipDrag;
+	/** Assign mode and the recently used people (the toolbar's Assign control). */
+	readonly assignMode = new AssignMode();
 
 	readonly #h: ManipulationHost;
 	#refined = $state.raw<{ base: HandleSet; set: HandleSet } | null>(null);
@@ -99,6 +103,8 @@ export class Manipulation {
 	readonly #handles: HandleSet | null;
 	readonly #people: Person[];
 	readonly #booked: ReadonlySet<string>;
+	readonly #assigning: Person | null;
+	readonly #recent: Person[];
 	readonly #palette: { row: number | null; ok: boolean; label: GestureLabel | null } | null;
 	readonly #pending: Ghost[];
 	readonly #pendingKeys: ReadonlySet<string>;
@@ -168,6 +174,8 @@ export class Manipulation {
 		this.gestures = new GanttGestures({
 			actor: this.interactions.actor,
 			links,
+			assigning: () => this.#assigning !== null,
+			assignTap: (row) => this.assignTo(row),
 			model: () => h.model(),
 			layout: () => h.layout(),
 			origin: () => h.plotCell()?.getBoundingClientRect() ?? { left: 0, top: 0 },
@@ -216,6 +224,27 @@ export class Manipulation {
 			return assignable(app.index).map((r, i) => ({ ...r, index: order.get(r.id) ?? i }));
 		});
 		this.#booked = $derived(new Set(this.#row?.allocated ?? []));
+		// A person who leaves the plan (a text edit) drops out of the mode and the recent list.
+		this.#assigning = $derived(this.#people.find((p) => p.id === this.assignMode.person) ?? null);
+		this.#recent = $derived(
+			this.assignMode.recent.flatMap((id) => this.#people.find((p) => p.id === id) ?? []),
+		);
+		// Assign mode ends when it cannot go on, so that nothing brings it back unasked:
+		// - its person left the plan (a text edit, a delete; an undo does not revive it);
+		$effect(() => {
+			if (app.index && this.assignMode.person !== null && this.#assigning === null) {
+				this.assignMode.end();
+			}
+		});
+		// - link mode began, by the key, the menu or a drag from the dot (one mode at a time);
+		$effect(() => {
+			if (this.interactions.links.active) untrack(() => this.assignMode.end());
+		});
+		// - another plan opened (the recent people belong to the plan they were used in).
+		$effect(() => {
+			void app.workspace;
+			untrack(() => this.assignMode.reset());
+		});
 		this.chips = new ChipDrag({
 			rowAt: (x, y) => {
 				// Only a bar that is on screen: not one under the palette, the header or a sheet.
@@ -228,7 +257,9 @@ export class Manipulation {
 			},
 			drop: (chip, row) => {
 				const p = this.#people[chip];
-				if (p) void this.interactions.assign(row, p.id);
+				if (!p) return;
+				this.assignMode.use(p.id);
+				void this.interactions.assign(row, p.id);
 			},
 			announce: (t) => h.announce(t),
 		});
@@ -356,10 +387,46 @@ export class Manipulation {
 		);
 	}
 
-	/** Books a person on the selected task, or releases them (the palette's key path). */
-	book(p: Person): void {
+	get assigning(): Person | null {
+		return this.#assigning;
+	}
+
+	/** The people used last, newest first (small chips beside the Assign button). */
+	get recentPeople(): readonly Person[] {
+		return this.#recent;
+	}
+
+	/** A click on a person in the list: assign mode, so that each click on a bar books them. */
+	pick(p: Person): void {
+		this.interactions.links.cancel();
+		this.assignMode.begin(p.id);
+		this.#h.announce(gestureStrings.palette.assigningLive(p.name));
+	}
+
+	/**
+	 * Enter on a person in the list: with a task selected, books them on it (the keyboard's way
+	 * to do what a drag does; assign mode is left as it is), else starts assign mode as a click
+	 * does. A person already on the task is said so, never released from here.
+	 */
+	pickByKey(p: Person): void {
 		const r = this.#row;
-		if (r?.id) void this.interactions.book(r.id, p.id, p.name, this.#booked.has(p.id));
+		if (!r?.id) return this.pick(p);
+		this.assignMode.use(p.id);
+		if (this.#booked.has(p.id)) this.#h.announce(gestureStrings.palette.already(p.name, r.name));
+		else void this.interactions.book(r.id, p.id, p.name);
+	}
+
+	/** A click on a bar while assign mode is on: books the person there. False when it is off. */
+	assignTo(row: number): boolean {
+		const p = this.#assigning;
+		if (!p || this.interactions.links.active) return false;
+		void this.interactions.assign(row, p.id);
+		return true;
+	}
+
+	/** Done, or Escape: leaves assign mode. */
+	endAssign(): void {
+		if (this.assignMode.end()) this.#h.announce(gestureStrings.palette.ended);
 	}
 
 	/** The visible chart in viewport px: minus the task column, the header and what covers it. */
@@ -443,6 +510,10 @@ export class Manipulation {
 		const links = this.interactions.links;
 		if (e.key === 'Escape' && links.active && links.state?.via !== 'key') {
 			links.cancel();
+			return;
+		}
+		if (e.key === 'Escape' && this.#assigning !== null && !e.defaultPrevented) {
+			this.endAssign();
 			return;
 		}
 		const app = this.#h.app;
