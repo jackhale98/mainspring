@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The Calendar's pointer wiring (phase-3.md 7.1 W3 and W4, 7.2; src/lib/gesture/README.md): DOM
- * pointer events on the month list become `GestureInput`s for the shared gesture machine
+ * pointer events on the month become `GestureInput`s for the shared gesture machine
  * (src/lib/gesture/, unchanged), and its outputs become a tap, a lifted day, a run of days being
  * dragged over and one drop. The machine owns every rule (slop, the 350 ms long-press, Escape,
  * the lost-release checks); this translates the DOM into it and acts on what comes out. The days
  * are real elements, so what is under a pointer is asked of the document (`elementFromPoint`) on
- * a press and a move, and in each frame of an edge auto-scroll (the list moves under a still
- * pointer, so the day under it changes). The list's box is read once per drag, not per frame; no
- * layout is read while the list is only scrolled.
+ * a press and a move, and in each frame of an edge auto-scroll (a month that scrolls, a tablet's or
+ * a phone's, moves under a still pointer, so the day under it changes). The box is read once per
+ * drag, not per frame; no layout is read while it is only scrolled. The month that fills a
+ * desktop's view does not scroll, so a drag that leaves it at the top or bottom edge simply keeps
+ * the run it had: Shift and the arrows or Shift and a click go on into the next month.
  *
  * - A target is a day, as one number (`GestureTarget` `bar`, `row` is the day's index).
  * - **Mouse and pen:** a press and a release on one day is a tap; a press that moves 3 px is a
@@ -19,7 +21,7 @@
  *   and a drag then covers a run of days (Paint and Erase apply it at the drop, Select selects
  *   it). Letting go of a lift without moving is the mode's action on that one day.
  * - The drag is a **preview** (`drag`): nothing is dispatched until the drop, and the drop is the
- *   host's (it plans one intent). Edge auto-scroll while dragging scrolls the list (a desktop).
+ *   host's (it plans one intent). Edge auto-scroll while dragging scrolls a month that scrolls.
  *
  * Nothing here changes the plan.
  */
@@ -88,7 +90,7 @@ export class CalendarGestures {
 	#liftedAt = -1;
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#raf = 0;
-	/** The list's visible box in viewport px for the drag in flight, or null when it cannot scroll. */
+	/** The scroller's visible box in viewport px for the drag in flight, or null when it cannot scroll. */
 	#box: { top: number; bottom: number } | null = null;
 	#lastFrame = 0;
 
@@ -100,7 +102,7 @@ export class CalendarGestures {
 		);
 	}
 
-	/** Listens on the month list; returns the function that stops. */
+	/** Listens on the month's scroller; returns the function that stops. */
 	attach(el: HTMLElement): () => void {
 		this.#el = el;
 		const on = <K extends keyof HTMLElementEventMap>(
@@ -109,8 +111,8 @@ export class CalendarGestures {
 			opts?: AddEventListenerOptions,
 		): void => el.addEventListener(type, fn as EventListener, opts);
 		on('pointerdown', (e) => {
-			// A milestone's own button is a button, not a day.
-			if ((e.target as Element | null)?.closest('[data-milestone]')) return;
+			// A milestone's or a "+N more" button is a button, not a day.
+			if ((e.target as Element | null)?.closest('[data-milestone], [data-more]')) return;
 			this.#feed(this.#input('down', e));
 		});
 		on('pointermove', (e) => {
@@ -156,7 +158,7 @@ export class CalendarGestures {
 		};
 	}
 
-	/** A user scroll of the list: a press before its long-press is a scroll. */
+	/** A user scroll of the month: a press before its long-press is a scroll. */
 	scrolled(): void {
 		if (this.#machine.state === 'pressed') this.#feed({ type: 'scroll', t: performance.now() });
 	}
@@ -321,10 +323,10 @@ export class CalendarGestures {
 		this.#box = null;
 	}
 
-	/** Edge auto-scroll of the list while dragging, against the list's visible box. */
+	/** Edge auto-scroll of the month while dragging, against its visible box. */
 	#pump(): void {
 		// The list's box, once per drag (before the frame guard: a frame of the last drag may still
-		// be pending): a list that fits has nothing to scroll.
+		// be pending): a month that fits (the one that fills the view) has nothing to scroll.
 		const list = this.#h.scroller();
 		if (list && list.scrollHeight > list.clientHeight) {
 			const r = list.getBoundingClientRect();

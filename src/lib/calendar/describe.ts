@@ -85,17 +85,23 @@ export const MAX_CHIPS = 2;
 
 /**
  * What a day cell says besides its number and the chips it shows, as screen-reader text that
- * follows them: the full date, the chips beyond `MAX_CHIPS`, a leave no text item names, and
+ * follows them: the full date, the chips beyond the `shown` ones (`MAX_CHIPS` unless the cell
+ * has room for more: the month that fills the view), a leave no text item names, and
  * whether the day is a non-working day. The cell's accessible name is its content (the number,
  * the chips, then this), so it always begins with the text on screen (WCAG 2.5.3) and nothing is
  * told by colour or a pattern alone (1.4.1).
  */
-export function dayExtra(d: CalendarDay, f: DayFacts, locale?: string): string {
+export function dayExtra(
+	d: CalendarDay,
+	f: DayFacts,
+	locale?: string,
+	shown: number = MAX_CHIPS,
+): string {
 	const parts: string[] = [dateLabel(d, locale)];
 	const chips = dayChips(f);
 	// A holiday's chip shows its name; the word says what kind of day it is.
 	if (f.holidays.some((e) => e.type === 'holiday')) parts.push(C.holiday(null));
-	for (const c of chips.slice(MAX_CHIPS)) {
+	for (const c of chips.slice(shown)) {
 		parts.push(c.kind === 'milestone' ? C.milestone(c.text) : c.text);
 	}
 	if (chips.some((c) => c.textOnly)) parts.push(C.textOnly);

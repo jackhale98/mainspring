@@ -1,9 +1,11 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	The Calendar view (phase-3.md 9.5, 7.1 W3 to W5, 10; T16): holidays, a person's leaves, non-working
-	days and milestones by month, and leave painting. A desktop (the view is 1000 px wide or more) shows
-	the months as a vertical list, a block of 6 rows each, of which only the ones in view are in the
-	DOM (lib/calendar/window.ts); a tablet and a phone show one month with buttons for the next.
+	The Calendar view (phase-3.md 9.5, 7.1 W3 to W5, 10, 22; T16): holidays, a person's leaves,
+	non-working days and milestones by month, and leave painting. One month is in the DOM at a time.
+	A desktop (the view is 1000 px wide and 440 px tall or more) fills the view with it: the weeks
+	share the height, so a day is tall and shows as many chips as fit, then "+N more"; Previous,
+	Next, Today, Page Up and Page Down and a wheel gesture change the month. A tablet and a phone
+	show the month at a fixed row height, with the same buttons.
 
 	The calendar never changes the schedule or the text. It reads the newest good result and the
 	symbol index (lib/calendar/facts.ts) and sends intents: a stroke of Paint or Erase (a drag, or a
@@ -16,13 +18,12 @@
 	  (a click and a second tap open the details), a drag covers a run of days, a touch long-press
 	  lifts a day first. Paint and Erase apply the drop.
 	- Keyboard: the grid pattern on days (lib/calendar/nav.ts). Selection follows focus; Shift with
-	  the arrows extends it. L opens the type picker (Enter adds that leave), Delete clears the leave
+	  the arrows extends it, also past the month's edge: the next month is shown and it goes on. L opens the type picker (Enter adds that leave), Delete clears the leave
 	  on the selected days, Enter opens the details, Escape closes the picker or the details.
 	- Selection is the app's (`app.selection`, kind `days`), so a person's details can follow it.
 
-	Over 400 lines on purpose: this one component owns the scroll container, the selection, the
-	focus and the dispatch, which only work together (as Workload.svelte does); the rules are in
-	lib/calendar.
+	Over 400 lines on purpose: this one component owns the month, the selection, the focus and the
+	dispatch, which only work together (as Workload.svelte does); the rules are in lib/calendar.
 -->
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
@@ -42,7 +43,7 @@
 	import type { LeavePaint, PaintScope } from '../../lib/calendar/paint';
 	import type { PaintItem } from '../../lib/calendar/paint-items';
 	import { runIntent, runStroke } from '../../lib/calendar/run';
-	import { monthWindow, offsetOfMonth, visibleMonths } from '../../lib/calendar/window';
+	import { createWheelPager, wheelPx } from '../../lib/calendar/wheel';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
@@ -71,13 +72,13 @@
 	let scroller: HTMLDivElement | undefined = $state();
 	let details: DayDetails | undefined = $state();
 	let rootW = $state(0);
-	let listH = $state(0);
-	let monthH = $state(0);
+	let rootH = $state(0);
 	let sheetH = $state(0);
-	let scrollTop = $state(0);
 	let detailsOpen = $state(false);
 	let picker = $state.raw<{ lo: number; hi: number } | null>(null);
 	let note = $state('');
+	/** A pointer press is in this task: the focus it causes is not a keyboard's. */
+	let pressing = false;
 	let now = $state(Date.now());
 	onMount(() => {
 		const clock = setInterval(() => (now = Date.now()), 60_000);
@@ -103,7 +104,9 @@
 					(cal.scope as { resource: string }).resource),
 	);
 
-	const listMode = $derived(!phone && rootW >= 1000);
+	// A desktop's month fills the view; a view too short for rows with room for chips (a landscape
+	// tablet) keeps the fixed rows and scrolls.
+	const fill = $derived(!phone && rootW >= 1000 && rootH >= 440);
 	const nMonths = $derived(grid.months.length);
 	const todayDay = $derived.by(() => {
 		if (!project) return null;
@@ -111,12 +114,8 @@
 		return d < 0 ? null : d;
 	});
 
-	// The month in view: the one shown (single), or the one at the top of the list.
-	const topMonth = $derived(
-		listMode
-			? visibleMonths(scrollTop, listH, monthH, nMonths)[0]
-			: Math.max(0, Math.min(nMonths - 1, cal.month)),
-	);
+	// The month in view.
+	const topMonth = $derived(Math.max(0, Math.min(nMonths - 1, cal.month)));
 	const shownTitle = $derived.by(() => {
 		const m = grid.months[topMonth];
 		return m ? monthTitle(m.year, m.month) : '';
@@ -140,18 +139,11 @@
 		if (n === 0) return null;
 		const want = cal.focus ?? selected?.[0] ?? null;
 		if (want !== null && want < n) {
-			// Single month: the tab stop must be in the month on screen.
-			if (listMode || grid.monthOf(want) === topMonth) return want;
+			// The tab stop must be in the month on screen.
+			if (grid.monthOf(want) === topMonth) return want;
 		}
 		return firstOfMonth(topMonth);
 	});
-
-	/** Mounted blocks: the ones in view and a margin, and the one with the tab stop. */
-	const mounted = $derived(
-		listMode
-			? monthWindow(scrollTop, listH, monthH, nMonths, 1, [grid.monthOf(tabDay ?? -1)])
-			: [topMonth],
-	);
 
 	function select(lo: number, hi: number): void {
 		const a = grid.days[lo];
@@ -242,6 +234,15 @@
 		await runIntent(edits, plan.intent, plan.label, confirm);
 	}
 
+	/** "+N more" on a day: select it and open its details, with the focus there (as Enter does). */
+	function openMore(day: number): void {
+		cal.focus = day;
+		cal.anchor = day;
+		select(day, day);
+		detailsOpen = true;
+		void tick().then(() => details?.focus());
+	}
+
 	function openMilestone(task: string): void {
 		app.selection.selectTask(task, 'visual');
 		announce(C.selectedTask(result?.tasks.find((t) => t.id === task)?.name ?? task));
@@ -250,33 +251,13 @@
 	// --- Focus and moving between months
 	async function focusDay(i: number): Promise<void> {
 		cal.focus = i;
-		const m = grid.monthOf(i);
-		if (!listMode) cal.month = m;
-		else revealMonth(m);
+		cal.month = grid.monthOf(i);
 		await tick();
 		root?.querySelector<HTMLElement>(`[data-day="${i}"]`)?.focus({ preventScroll: true });
 	}
 
-	/** Scrolls the list so that month block `m` is wholly in view. */
-	function revealMonth(m: number): void {
-		if (!scroller || m < 0) return;
-		const top = offsetOfMonth(m, monthH);
-		let to = scroller.scrollTop;
-		if (top < to) to = top;
-		else if (top + monthH > to + listH) to = top + monthH - listH;
-		if (to !== scroller.scrollTop) {
-			scroller.scrollTop = to;
-			scrollTop = scroller.scrollTop;
-		}
-	}
-
 	function goMonth(m: number): void {
-		const to = Math.max(0, Math.min(nMonths - 1, m));
-		if (!listMode) cal.month = to;
-		else if (scroller) {
-			scroller.scrollTop = offsetOfMonth(to, monthH);
-			scrollTop = scroller.scrollTop;
-		}
+		cal.month = Math.max(0, Math.min(nMonths - 1, m));
 	}
 	function goToday(): void {
 		if (todayDay !== null) goMonth(grid.monthOf(todayDay));
@@ -325,7 +306,7 @@
 	// --- Keyboard
 	function onkey(e: KeyboardEvent): void {
 		const cell = (e.target as Element).closest<HTMLElement>('[data-day]');
-		if (!cell || (e.target as Element).closest('[data-milestone]')) return;
+		if (!cell || (e.target as Element).closest('[data-milestone], [data-more]')) return;
 		const day = Number(cell.dataset['day']);
 		const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
 		const target = selected ?? ([day, day] as const);
@@ -384,8 +365,7 @@
 		if (sel?.kind === 'days') app.selection.selectDays(scope, sel.from, sel.to);
 	}
 
-	// A new plan: forget what is open and where the list was. (The state outlives the view.)
-	let placedFor: 'list' | 'month' | null = null;
+	// A new plan: forget what is open and the month it was on. (The state outlives the view.)
 	$effect(() => {
 		const id = app.sampleId;
 		untrack(() => {
@@ -400,8 +380,6 @@
 			cal.focus = null;
 			cal.anchor = null;
 			cal.month = -1;
-			cal.scrollTop = 0;
-			placedFor = null;
 		});
 	});
 
@@ -419,23 +397,10 @@
 		});
 	});
 
-	// Where the list starts: the month of today, or the first, until the user has moved; and again
-	// when the layout changes between the list and one month.
+	// The month to start on: today's, or the first, until the user has moved.
 	$effect(() => {
-		if (nMonths === 0) return;
-		const layout = listMode ? 'list' : 'month';
-		if (placedFor === layout) return;
-		if (listMode && (!scroller || monthH <= 0)) return;
-		placedFor = layout;
-		untrack(() => {
-			if (cal.month < 0 || cal.month >= nMonths) {
-				cal.month = todayDay !== null ? grid.monthOf(todayDay) : 0;
-			}
-			if (listMode && scroller) {
-				scroller.scrollTop = cal.scrollTop > 0 ? cal.scrollTop : offsetOfMonth(cal.month, monthH);
-				scrollTop = scroller.scrollTop;
-			}
-		});
+		if (nMonths === 0 || (cal.month >= 0 && cal.month < nMonths)) return;
+		untrack(() => (cal.month = todayDay !== null ? grid.monthOf(todayDay) : 0));
 	});
 
 	// The details sheet covers the foot: bring the selected day above it (WCAG 2.4.11).
@@ -449,13 +414,37 @@
 	});
 
 	function onscroll(): void {
-		if (!scroller) return;
-		scrollTop = scroller.scrollTop;
-		cal.scrollTop = scrollTop;
-		// In a list the month at the top is the month in view; one month has nothing to follow.
-		if (listMode) cal.month = visibleMonths(scrollTop, listH, monthH, nMonths)[0];
 		gestures.scrolled();
 	}
+
+	// A wheel or a trackpad swipe over the month that fills the view turns the month, once per
+	// gesture (lib/calendar/wheel.ts). Nothing scrolls there, so the event is the page's to ignore.
+	const pager = createWheelPager();
+	$effect(() => {
+		const el = scroller;
+		if (!el || !fill) return;
+		const onwheel = (e: WheelEvent): void => {
+			if (e.ctrlKey || e.metaKey || gestures.drag || Math.abs(e.deltaX) > Math.abs(e.deltaY))
+				return;
+			const step = pager.push(wheelPx(e.deltaY, e.deltaMode), e.timeStamp);
+			if (step === 0) return;
+			const was = topMonth;
+			const held = document.activeElement?.closest<HTMLElement>('[data-day]');
+			goMonth(was + step);
+			// Focus in the grid goes with the month, to the same date, as Page Up and Page Down do.
+			if (held && el.contains(held) && topMonth !== was) {
+				const to = moveDay(
+					grid,
+					Number(held.dataset['day']),
+					{ key: step < 0 ? 'PageUp' : 'PageDown', ctrlKey: false, metaKey: false, altKey: false },
+					null,
+				);
+				if (to !== null) void focusDay(to);
+			}
+		};
+		el.addEventListener('wheel', onwheel, { passive: true });
+		return () => el.removeEventListener('wheel', onwheel);
+	});
 
 	onMount(() => (scroller ? gestures.attach(scroller) : () => undefined));
 	onMount(() => () => gestures.dispose());
@@ -477,10 +466,10 @@
 	aria-label={C.region}
 	data-testid="calendar"
 	data-mode={cal.mode}
-	data-layout={listMode ? 'list' : 'month'}
+	bind:clientHeight={rootH}
+	data-layout={fill ? 'fill' : 'month'}
 	style:--sheet-h="{detailed ? sheetH : 0}px"
 >
-	<span class="probes" aria-hidden="true"><i bind:clientHeight={monthH}></i></span>
 	{#if !phone}
 		<CalendarBar
 			placement="top"
@@ -504,14 +493,19 @@
 		<div
 			class="scroller"
 			bind:this={scroller}
-			bind:clientHeight={listH}
 			{onscroll}
 			onkeydown={onkey}
+			onpointerdowncapture={() => {
+				// The press focuses its day in this same task, before the gesture says what it was.
+				pressing = true;
+				setTimeout(() => (pressing = false), 0);
+			}}
 			onfocusin={(e) => {
 				const d = (e.target as Element).closest<HTMLElement>('[data-day]')?.dataset['day'];
 				if (d === undefined) return;
-				// Focus that did not come from our own keys starts a new selection run.
-				if (cal.focus !== Number(d)) cal.anchor = Number(d);
+				// Focus that did not come from our own keys starts a new selection run. A press's focus
+				// does not: the click or the drag that follows sets the anchor (a Shift-click extends it).
+				if (cal.focus !== Number(d) && !pressing) cal.anchor = Number(d);
 				cal.focus = Number(d);
 			}}
 			role="presentation"
@@ -521,24 +515,6 @@
 				<p class="scheduling" role="status" data-testid="cal-scheduling">
 					<Mark size={44} busy />{C.scheduling}
 				</p>
-			{:else if listMode}
-				<div class="space" style:block-size="{nMonths * monthH}px">
-					{#each mounted as i (i)}
-						{@const m = grid.months[i]}
-						{#if m}
-							<MonthView
-								{grid}
-								month={m}
-								{facts}
-								{selected}
-								{tabDay}
-								today={todayDay}
-								top={i * monthH}
-								onmilestone={openMilestone}
-							/>
-						{/if}
-					{/each}
-				</div>
 			{:else}
 				{@const m = grid.months[topMonth]}
 				{#if m}
@@ -549,7 +525,9 @@
 						{selected}
 						{tabDay}
 						today={todayDay}
+						{fill}
 						onmilestone={openMilestone}
+						onmore={openMore}
 					/>
 				{/if}
 			{/if}
@@ -640,7 +618,7 @@
 		min-block-size: 0;
 		display: flex;
 	}
-	/* The one scroll container: the list scrolls, never chaining to the page. */
+	/* The month's box. A month with fixed rows (a tablet, a phone) scrolls in it, never chaining to the page. */
 	.scroller {
 		position: relative;
 		flex: 1 1 0;
@@ -660,22 +638,12 @@
 	.calendar[data-mode='erase'] .scroller {
 		cursor: cell;
 	}
-	.calendar.dimmed .space,
+	/* The month that fills the view has nothing to scroll: its weeks share the height. */
+	.calendar[data-layout='fill'] .scroller {
+		overflow: hidden;
+	}
 	.calendar.dimmed .scroller > :global(.month) {
 		opacity: var(--gantt-dim-opacity);
-	}
-	.space {
-		position: relative;
-	}
-	.probes {
-		position: absolute;
-		visibility: hidden;
-		pointer-events: none;
-	}
-	.probes i {
-		display: block;
-		inline-size: 0;
-		block-size: var(--cal-month-h);
 	}
 	.scheduling {
 		display: flex;

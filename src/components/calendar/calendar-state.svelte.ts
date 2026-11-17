@@ -20,14 +20,12 @@ export class CalendarState {
 	mode = $state<CalendarMode>('select');
 	scope = $state.raw<PaintScope>({ kind: 'global' });
 	leaveType = $state<LeaveType>('holiday');
-	/** The month at the top of the list (a desktop) or shown (a tablet, a phone): a block index; -1 until the view has chosen where to start. */
+	/** The month shown: a block index; -1 until the view has chosen where to start. */
 	month = $state(-1);
 	/** The day with the keyboard's tab stop, an index into the frame's days. */
 	focus = $state<number | null>(null);
 	/** Where a Shift-extended selection began. */
 	anchor = $state<number | null>(null);
-	/** The scroll offset of the month list, to come back to. */
-	scrollTop = 0;
 	/** The selected person the view last looked at: only a change of it moves the scope. */
 	seenPerson: string | null = null;
 	/** The plan these were chosen for: another plan starts again. */

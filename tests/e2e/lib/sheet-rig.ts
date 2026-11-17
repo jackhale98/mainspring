@@ -66,6 +66,55 @@ export const record = (page: Page, selector: string): Promise<void> =>
 			}
 			w.__raf = requestAnimationFrame(tick);
 		};
+		// Frame sampling can miss a whole 200 ms animation where few frames are painted (headless
+		// WebKit on a CI runner), so animations and the closing mark are also caught as they start:
+		// a script `animate()` on the element, a CSS animation's `animationstart`, and the
+		// `data-closing` attribute through a MutationObserver.
+		const note = (el: Element): void => {
+			for (const a of el.getAnimations()) {
+				const fx = a.effect;
+				if (!(fx instanceof KeyframeEffect)) continue;
+				for (const k of fx.getKeyframes())
+					for (const p of Object.keys(k))
+						if (!skip.has(p) && !w.__props.includes(p)) w.__props.push(p);
+			}
+		};
+		const hooks = window as unknown as {
+			__sheetHooks?: { sel: string; off: () => void };
+		};
+		hooks.__sheetHooks?.off();
+		const proto = Element.prototype;
+		const animate = proto.animate;
+		proto.animate = function (this: Element, ...args: Parameters<Element['animate']>) {
+			const anim = animate.apply(this, args);
+			if (this === document.querySelector(sel)) note(this);
+			return anim;
+		};
+		const started = (e: Event): void => {
+			if (e.target instanceof Element && e.target === document.querySelector(sel)) note(e.target);
+		};
+		document.addEventListener('animationstart', started, true);
+		const watch = new MutationObserver(() => {
+			const el = document.querySelector(sel);
+			if (el instanceof HTMLDialogElement && el.open && el.hasAttribute('data-closing')) {
+				if (!w.__closing) w.__titles.push(el.querySelector('h2')?.textContent ?? '');
+				w.__closing = true;
+				if (w.__closeAt < 0) w.__closeAt = w.__rec.length;
+			}
+		});
+		watch.observe(document.body, {
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['data-closing'],
+		});
+		hooks.__sheetHooks = {
+			sel,
+			off: () => {
+				proto.animate = animate;
+				document.removeEventListener('animationstart', started, true);
+				watch.disconnect();
+			},
+		};
 		tick();
 	}, selector);
 
@@ -74,6 +123,7 @@ export const stopRecording = (page: Page): Promise<number[]> =>
 	page.evaluate(() => {
 		const w = window as unknown as Rec;
 		cancelAnimationFrame(w.__raf);
+		(window as unknown as { __sheetHooks?: { off: () => void } }).__sheetHooks?.off();
 		return w.__rec.filter((v): v is number => v !== null);
 	});
 
