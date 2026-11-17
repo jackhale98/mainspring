@@ -284,7 +284,7 @@ export interface ExplainContext { result: ScheduleResult; scenario: string; inde
 
 Rules (T10; checked against hand-computed fixtures):
 
-1. `bound` uses Phase 2's `earliestUnder` and `latestEnd` over the resolved edges, the frame, and a written `start` or `minstart` (or `end` or `maxend` for ALAP).
+1. `bound` uses Phase 2's `earliestUnder` and `latestEnd` over the resolved edges, the frame, and a written `start` or `minstart` (or `end` or `maxend` for ALAP). **Amended 2026-11-16 (main session, T10):** `minstart` and `maxend` are not part of `bound`. TaskJuggler never schedules by them (its docs: "The value is not used during scheduling"; `postScheduleCheck` only warns), so counting them would claim waits the engine never made (rule 5). They stay in H3 and H4.
    - If `at` equals `bound` and the binding item is a dependency, the cause is `dependency`.
    - If the binding item is the frame, the cause is `frame`.
    - If it is a written date, the cause is `constraint`.

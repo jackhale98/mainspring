@@ -217,4 +217,43 @@ describe('replaceAllocation', () => {
 		const plan = HEAD + 'macro who [ana]\ntask t "T" {\n  effort 1d\n  allocate ${who}\n}\n';
 		expect(run(plan, addA('t', 'bo'))).toMatchObject({ status: 'refused' });
 	});
+
+	it('refuses to remove or replace past a macro-written item, keeps not-present for a typo', () => {
+		const only = HEAD + 'macro who [cy]\ntask t "T" {\n  effort 1d\n  allocate ${who}\n}\n';
+		const mixed = HEAD + 'macro who [cy]\ntask t "T" {\n  effort 1d\n  allocate ana, ${who}\n}\n';
+		const s = setup(mixed);
+		const item = s.index.allocations.find((a) => a.task === 't' && a.resource === null);
+		expect(item).toBeDefined();
+		const refusal = {
+			status: 'refused',
+			reason: 'text-only',
+			textOnly: 'macro-call',
+			at: [item?.item],
+		};
+		for (const plan of [only, mixed]) {
+			expect(run(plan, remA('t', 'cy'))).toMatchObject({
+				status: 'refused',
+				reason: 'text-only',
+				textOnly: 'macro-call',
+			});
+			expect(
+				run(plan, { type: 'replaceAllocation', task: 't', from: 'cy', to: 'bo' }),
+			).toMatchObject({ status: 'refused', reason: 'text-only', textOnly: 'macro-call' });
+		}
+		expect(run(mixed, remA('t', 'cy'))).toEqual(refusal);
+		// The plain item shares the statement with the macro call, so the statement is text-only.
+		expect(
+			run(mixed, { type: 'replaceAllocation', task: 't', from: 'ana', to: 'bo' }),
+		).toMatchObject({
+			status: 'refused',
+			reason: 'text-only',
+		});
+		// A typo is not a macro: nothing to remove.
+		const typo = HEAD + 'task t "T" {\n  effort 1d\n  allocate ana, nobody\n}\n';
+		expect(run(typo, remA('t', 'cy'))).toEqual({ status: 'noop', reason: 'not-present' });
+		expect(run(typo, { type: 'replaceAllocation', task: 't', from: 'cy', to: 'bo' })).toEqual({
+			status: 'noop',
+			reason: 'not-present',
+		});
+	});
 });

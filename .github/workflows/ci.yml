@@ -210,6 +210,16 @@ jobs:
       # Spread over four runners by device. The Text mode timings (text-mode-perf.spec.ts) run
       # nightly instead (nightly.yml, perf job).
       - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
+        env:
+          E2E_SKIP_GANTT_PERF: ${{ matrix.project == 'desktop' && '1' || '' }}
+      # The Gantt frame-rate gate (gantt-perf.spec.ts) measures dropped frames, so it runs alone after
+      # the rest, one worker, and waits (up to two minutes) for the runner's load to settle: other
+      # workers' tests made it fail on noise. The 5% / 50 ms budget itself is unchanged.
+      - name: Gantt frame-rate gate
+        if: matrix.project == 'desktop' && !cancelled()
+        run: npm run test:e2e -- --project=desktop --workers=1 tests/e2e/gantt-perf.spec.ts
+        env:
+          PERF_MAX_LOAD: '2.5'
       # JS budget (phase-2 11.3, 13.4, 18.11; amended 2026-11-16), on the build this job already has:
       # a Visual-first load at most 310,000 bytes gzip and a Text-first load at most 420,000 (fail),
       # the total of dist/_astro under a 600,000 guard, named lazy chunks under their caps, and a

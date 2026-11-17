@@ -10,7 +10,9 @@
  * through that insertion, so the macro-built tasks keep their ids. Every case reports its status
  * (edit, noop or refused); the table in the gate lists them. Phase 3 (T8) adds `clearLeave` (Fedora+res)
  * and `gapToTask` (Fedora, on one of its `{gaplength}` items). Polish item 15 adds `renameTask`
- * with an id (scale-1000, on a leaf nothing names).
+ * with an id (scale-1000, on a leaf nothing names). Phase 3 (T12) adds the People drop paths on
+ * the fedora-res golden: a rebalance drop and a leave stroke (`peopleCases`). Over 400 lines on
+ * purpose (CLAUDE.md): every case shares the plan builders and the status helper here.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,6 +36,9 @@ import {
 } from '../../src/lib/tjp/index';
 import { golden } from '../../src/lib/tjp/index/testing';
 import { createWorkspace, type WorkspaceSnapshot } from '../../src/lib/workspace/workspace';
+import { checkRebalance } from '../../src/lib/workload/rebalance-check';
+import { planLeavePaint, type LeavePaint } from '../../src/lib/calendar/paint';
+import { bucketAxis } from '../../src/lib/workload/axis';
 import { ROOT } from '../grammar/corpus';
 
 /** Timed runs per case, after three warm-ups (the audit used 8, too few for a p90). */
@@ -41,7 +46,7 @@ export const INTENT_RUNS = Number(process.env['INTENT_TIMING_RUNS'] ?? 30);
 
 export interface TimingCase {
 	readonly name: string;
-	readonly plan: 'Fedora' | 'Fedora+res' | 'scale-1000';
+	readonly plan: 'Fedora' | 'Fedora+res' | 'scale-1000' | 'fedora-res';
 	/**
 	 * A run on a fresh workspace and index (built here, outside the timing), so no cache of an
 	 * earlier run helps: every edit in the app starts from a new snapshot. Returns the status.
@@ -327,5 +332,75 @@ export function fedoraCases(): TimingCase[] {
 		}),
 		ganttCase('gantt progress (R9)', fed, ctx, { type: 'progress', task: sized.id, percent: 50 }),
 	);
+	cases.push(...peopleCases(zones));
 	return cases;
+}
+
+/**
+ * Phase 3 (T12): the People drop paths on the fedora-res golden, as the app runs them: a rebalance
+ * drop (`checkRebalance`: planRebalance, then the dry run of `replaceAllocation`) of a task from
+ * desk03 to desk04, and a leave stroke (`planLeavePaint`, then `applyIntent`): a 3-day annual
+ * leave for qa01.
+ */
+function peopleCases(zones: ZoneOffsets): TimingCase[] {
+	const id = 'fedora-res';
+	const file = path.join(ROOT, 'engine/golden/expected', `${id}.json`);
+	const r = (JSON.parse(fs.readFileSync(file, 'utf8')) as { result: ScheduleResult }).result;
+	const project = r.project;
+	if (!project) throw new Error('fedora-res has no project');
+	const snap = golden(id).snapshot();
+	const p = planOf(
+		textsOf(snap),
+		snap.entry,
+		hintsFromResult(r, (_f, l) => l),
+		zones,
+	);
+	const booked = new Set(r.bookings.filter((b) => b.resource === 'desk03').map((b) => b.task));
+	const site = p.index.allocations.find(
+		(a) => a.resource === 'desk03' && a.task !== null && booked.has(a.task),
+	);
+	if (!site?.task) throw new Error('fedora-res shape');
+	const task = site.task;
+	const ctx = (index: SymbolIndex): ActionContext => ({
+		index,
+		result: r,
+		analysis: null,
+		wt: workingTimeOf(project, zones),
+		zones,
+		move: { kind: 'start' },
+	});
+	// Monday 9 to Wednesday 11 September 2013, whole local days (America/New_York).
+	const days = bucketAxis(project, zones, 'day');
+	const mon = days.indexOf((Date.parse('2013-09-09T12:00:00Z') - Date.parse(project.start)) / 6e4);
+	const stroke: LeavePaint = {
+		type: 'paint',
+		scope: { kind: 'resource', resource: 'qa01' },
+		from: days.bounds[mon] as number,
+		to: days.bounds[mon + 3] as number,
+		leave: 'annual',
+	};
+	return [
+		{
+			name: 'rebalance reassign (W1)',
+			plan: 'fedora-res',
+			prepare: () => {
+				const f = p.fresh();
+				const c = ctx(f.index);
+				const a = { type: 'reassign', task, from: 'desk03', to: 'desk04' } as const;
+				return () => statusOf(checkRebalance(a, c, f.snap));
+			},
+		},
+		{
+			name: 'leave paint (W3)',
+			plan: 'fedora-res',
+			prepare: () => {
+				const f = p.fresh();
+				return () => {
+					const planned = planLeavePaint(stroke, { index: f.index, result: r, zones });
+					if (planned.status !== 'intent') return `planned ${planned.status}`;
+					return statusOf(applyIntent(f.snap, f.index, planned.intent));
+				};
+			},
+		},
+	];
 }
