@@ -282,10 +282,11 @@
 	}
 
 	/** Scrolls so that a cell is the plot's top left (the end-to-end gate walks the grid this way). */
+	/** Centres a cell in the plot, clear of the drag's edge auto-scroll bands. */
 	function scrollToCell(c: Cell): void {
 		if (!scroller) return;
-		scroller.scrollLeft = layout.colLeft(c.col);
-		scroller.scrollTop = layout.rowTop(c.row);
+		scroller.scrollLeft = Math.max(0, layout.colLeft(c.col) - (viewW - layout.colWidth) / 2);
+		scroller.scrollTop = Math.max(0, layout.rowTop(c.row) - (viewH - heat.rowHeight) / 2);
 		scrollLeft = scroller.scrollLeft;
 		scrollTop = scroller.scrollTop;
 	}
