@@ -14,10 +14,14 @@
  *   holiday leave; the edit API keeps the name).
  * - An item the index could not read (written with a macro, invalid) or cannot resolve here (a
  *   zone or resolution set by a macro) is left out: the edit API refuses on it when it matters.
+ * - `coveredBy` answers whether a paint would change nothing: TaskJuggler keeps the leave of the
+ *   higher precedence where two overlap (`leaveRank`), so days already under a leave of the same
+ *   or a stronger type stay as they are (T12 review).
  */
 import type { Minutes } from '../../engine/protocol';
 import type { LeaveSite, ResourceId, SourceRange, SymbolIndex } from '../tjp/index';
 import { resolveInterval, type Interval, type LeaveType } from '../tjp/values';
+import { LEAVE_TYPES } from '../tjp/values/leave';
 
 export interface PaintItem {
 	readonly site: LeaveSite;
@@ -89,4 +93,37 @@ export function inheritedItems(
 		p = index.resources.get(p)?.parent ?? null;
 	}
 	return out;
+}
+
+/**
+ * TaskJuggler's leave precedence (`LeaveList::Types` order, ResourceScenario#initScoreboard keeps
+ * the larger index where leaves overlap): project < annual < special < sick < unpaid < holiday <
+ * unemployed.
+ */
+export const leaveRank = (t: LeaveType): number => LEAVE_TYPES.indexOf(t);
+
+/**
+ * The item of the highest precedence among `items` of `type` or a stronger one, when together
+ * they cover every minute of `[from, to)`; else null (a paint of `type` there changes nothing).
+ */
+export function coveredBy(
+	items: readonly PaintItem[],
+	type: LeaveType,
+	from: Minutes,
+	to: Minutes,
+): PaintItem | null {
+	const strong = items
+		.filter((i) => leaveRank(i.type) >= leaveRank(type) && i.to > from && i.from < to)
+		.sort((a, b) => a.from - b.from);
+	let reach = from;
+	for (const i of strong) {
+		if (i.from > reach) return null;
+		reach = Math.max(reach, i.to);
+		if (reach >= to) break;
+	}
+	if (reach < to) return null;
+	return strong.reduce<PaintItem | null>(
+		(best, i) => (best === null || leaveRank(i.type) > leaveRank(best.type) ? i : best),
+		null,
+	);
 }

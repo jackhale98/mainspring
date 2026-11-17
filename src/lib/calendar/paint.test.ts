@@ -4,17 +4,16 @@
 // text after an add or a merge, Everyone and a person, a vacation, and a paint across a DST change.
 // Erase strokes (W4) and the refusals are in paint-erase.test.ts.
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { Planned } from '../gantt/intents';
 import { project } from '../schedule/testing';
 import { workloadPlan } from '../workload/rebalance-testing';
-import type { LeavePaint, PaintScope, PlanLeavePaintFn } from './paint';
-import { defaultLeaveType, planLeavePaint } from './paint';
+import type { LeavePaint, PaintPlanned, PaintScope, PlanLeavePaintFn } from './paint';
+import { defaultLeaveType, leavePaintMessage, planLeavePaint } from './paint';
 import { after, ctxOf, DAY, day, onePerson, paint, person } from './paint-testing';
 
 describe('leave-paint types (6.6)', () => {
 	it('fixes the signature', () => {
 		expectTypeOf(planLeavePaint).toEqualTypeOf<PlanLeavePaintFn>();
-		expectTypeOf<PlanLeavePaintFn>().returns.toEqualTypeOf<Planned>();
+		expectTypeOf<PlanLeavePaintFn>().returns.toEqualTypeOf<PaintPlanned>();
 		expectTypeOf<LeavePaint['scope']>().toEqualTypeOf<PaintScope>();
 	});
 
@@ -97,13 +96,90 @@ describe('paint (W3)', () => {
 		);
 	});
 
-	it('inside a leave of its type, leaves the text alone (noop already-set)', () => {
+	it('refuses a paint under a leave of its type: leave-covered (T12 review)', () => {
 		const planned = planLeavePaint(
 			paint(person('p2'), day(3), day(4), 'annual', 'Holiday'),
 			ctxOf(p),
 		);
-		expect(planned).toMatchObject({ intent: { type: 'updateLeave' } });
-		expect(after(p, planned)).toEqual({ status: 'noop', reason: 'already-set' });
+		expect(planned).toMatchObject({
+			status: 'not-possible',
+			reason: 'leave-covered',
+			covering: 'annual',
+		});
+		if (planned.status !== 'not-possible') throw new Error('refused');
+		expect(p.text('plan.tjp').slice(planned.at[0]!.from, planned.at[0]!.to)).toBe(
+			'annual "Holiday" 2026-01-08 - 2026-01-10',
+		);
+		expect(leavePaintMessage(planned)).toBe(
+			'Annual leave already covers those days. Erase it first.',
+		);
+		// Any name is covered the same way.
+		for (const name of [undefined, 'Other']) {
+			expect(
+				planLeavePaint(paint(person('p2'), day(3), day(5), 'annual', name), ctxOf(p)),
+			).toMatchObject({ reason: 'leave-covered' });
+		}
+	});
+
+	it('follows the precedence: a stronger type over a weaker one is added', () => {
+		// P4's `sick "Flu" 2026-01-15 - 2026-01-17`: annual and special under it are covered.
+		for (const t of ['annual', 'special', 'sick'] as const) {
+			expect(planLeavePaint(paint(person('p4'), day(10), day(12), t), ctxOf(p))).toMatchObject({
+				reason: 'leave-covered',
+				covering: 'sick',
+			});
+		}
+		for (const t of ['unpaid', 'holiday', 'unemployed'] as const) {
+			expect(planLeavePaint(paint(person('p4'), day(10), day(12), t), ctxOf(p))).toMatchObject({
+				intent: { type: 'addLeave' },
+			});
+		}
+		// The global holiday (the 12th) is inherited: a person's annual there is covered.
+		const under = planLeavePaint(paint(person('p1'), day(7), day(8), 'annual'), ctxOf(p));
+		expect(under).toMatchObject({ reason: 'leave-covered', covering: 'holiday' });
+		if (under.status !== 'not-possible') throw new Error('refused');
+		expect(leavePaintMessage(under)).toBe('Holiday already covers those days. Erase it first.');
+		// Partly covered: the rest of the days change, so the paint is added.
+		expect(planLeavePaint(paint(person('p1'), day(7), day(9), 'annual'), ctxOf(p))).toMatchObject({
+			intent: { type: 'addLeave' },
+		});
+	});
+
+	it('refuses a global paint over another global leave (two make off hours)', () => {
+		for (const stroke of [
+			paint({ kind: 'global' }, day(7), day(8), 'holiday', 'Other'),
+			paint({ kind: 'global' }, day(6), day(9), 'unemployed'),
+			paint({ kind: 'global' }, day(20), day(22), 'holiday'),
+		]) {
+			expect(planLeavePaint(stroke, ctxOf(p))).toMatchObject({ reason: 'leave-covered' });
+		}
+		// The item it merges with is not another leave: one item is rewritten.
+		expect(
+			planLeavePaint(
+				paint({ kind: 'global' }, day(20), day(22), 'holiday', 'Company closure'),
+				ctxOf(p),
+			),
+		).toMatchObject({ intent: { type: 'updateLeave', to: { start: '2026-01-25' } } });
+		// Touching is not overlapping: the vacation still merges.
+		expect(
+			planLeavePaint(
+				paint({ kind: 'global' }, day(22), day(23), 'holiday', 'Company closure'),
+				ctxOf(p),
+			),
+		).toMatchObject({ intent: { type: 'updateLeave' } });
+	});
+
+	it('snaps an off-midnight stroke out to whole local days (T12 review)', () => {
+		const planned = planLeavePaint(
+			paint(person('p1'), day(14) + 120, day(15) + 600, 'sick'),
+			ctxOf(p),
+		);
+		expect(planned).toMatchObject({
+			intent: { leave: { start: '2026-01-19', end: '2026-01-21' } },
+		});
+		expect(planLeavePaint(paint(person('p1'), day(14), day(15), 'sick'), ctxOf(p))).toMatchObject({
+			intent: { leave: { start: '2026-01-19', end: '2026-01-20' } },
+		});
 	});
 
 	it('does not merge across names or types: another item', () => {
@@ -145,9 +221,9 @@ describe('paint (W3)', () => {
 		expect(after(q, earlier)).toBe(
 			q.text('plan.tjp').replace('2026-01-08 +2d', '2026-01-06 - 2026-01-10'),
 		);
-		const inside = planLeavePaint(paint(person('dev'), day(3), day(4), 'annual'), ctxOf(q));
-		expect(inside).toMatchObject({ intent: { to: { start: '2026-01-08', end: '+2d' } } });
-		expect(after(q, inside)).toEqual({ status: 'noop', reason: 'already-set' });
+		expect(planLeavePaint(paint(person('dev'), day(3), day(4), 'annual'), ctxOf(q))).toMatchObject({
+			reason: 'leave-covered',
+		});
 	});
 });
 
@@ -183,6 +259,20 @@ describe('days in the plan zone', () => {
 		expect(planLeavePaint(paint(person('bo'), sat, tue, 'sick'), ctxOf(p))).toMatchObject({
 			intent: { leave: { start: '2026-10-24', end: '2026-10-27' } },
 		});
+	});
+
+	it('snaps raw minutes to local midnights in the zone, never a date with a time', () => {
+		// The frame starts 01:00 local, so whole UTC days are off the local midnights.
+		const p = workloadPlan('dst-weeks');
+		const planned = planLeavePaint(paint(person('ada'), 4 * DAY, 8 * DAY, 'annual'), ctxOf(p));
+		expect(planned).toMatchObject({
+			intent: { leave: { start: '2026-03-27', end: '2026-04-01' } },
+		});
+		const erase = planLeavePaint(
+			{ type: 'erase', scope: person('ada'), from: 4 * DAY + 30, to: 5 * DAY },
+			ctxOf(p),
+		);
+		expect(erase).toMatchObject({ intent: { start: '2026-03-27', end: '2026-03-29' } });
 	});
 
 	it('labels the days with the last day painted', () => {

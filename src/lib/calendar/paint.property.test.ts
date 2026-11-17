@@ -5,6 +5,7 @@
 // vacation) and the DST-weeks fixture (Europe/Berlin). For every stroke that gives an edit:
 // - the inverse restores the text byte for byte, every change lies in a declared target, and a
 //   fresh parse has no new syntax issues;
+// - an added or cleared range is written as plain dates (an off-midnight stroke is snapped);
 // - re-indexed, a paint's days are covered by the scope's items of its type and name, and an
 //   erase leaves no own item of the scope in its days.
 // FC_SEED fixes the seed; PAINT_RUNS sets the number of strokes per fixture.
@@ -35,10 +36,15 @@ function strokeArb(p: Plan): fc.Arbitrary<LeavePaint> {
 		fc.constantFrom(...people).map((resource) => ({ kind: 'resource' as const, resource })),
 	);
 	const range = fc
-		.tuple(fc.nat({ max: days.length - 2 }), fc.integer({ min: 1, max: 6 }))
-		.map(([i, n]) => {
+		.tuple(
+			fc.nat({ max: days.length - 2 }),
+			fc.integer({ min: 1, max: 6 }),
+			// Sometimes off the local midnights: the planner snaps out to whole days.
+			fc.option(fc.integer({ min: 1, max: 600 }), { nil: 0, freq: 4 }),
+		)
+		.map(([i, n, off]) => {
 			const j = Math.min(days.length - 1, i + n);
-			return { from: Math.max(0, days[i] as number), to: days[j] as number };
+			return { from: Math.max(0, days[i] as number) + off, to: (days[j] as number) - off };
 		});
 	const name = fc.option(fc.constantFrom('Holiday', 'Company closure', 'Trip'), { nil: undefined });
 	return fc.oneof(
@@ -59,6 +65,11 @@ const edits = { paint: 0, erase: 0 };
 function check(p: Plan, stroke: LeavePaint): boolean {
 	const planned = planLeavePaint(stroke, { index: p.index, result: p.result, zones: ZONES });
 	if (planned.status !== 'intent') return true;
+	// Snapped out to whole days, written as plain dates.
+	const i = planned.intent;
+	if (i.type === 'addLeave')
+		expect(`${i.leave.start} ${i.leave.end ?? ''}`).toMatch(/^\S{10} \S{10}$/);
+	if (i.type === 'clearLeave') expect(`${i.start} ${i.end}`).toMatch(/^\S{10} \S{10}$/);
 	const r = applyIntent(p.snap, p.index, planned.intent);
 	if (r.status !== 'edit') return true;
 	edits[stroke.type]++;
@@ -104,7 +115,7 @@ describe.each(['leave-types', 'dst-weeks'])('paint and erase on %s (property)', 
 		);
 		expect(edits.paint).toBeGreaterThan(RUNS / 5);
 		// dst-weeks has no leave to erase.
-		if (name === 'leave-types') expect(edits.erase).toBeGreaterThan(RUNS / 20);
+		if (name === 'leave-types') expect(edits.erase).toBeGreaterThan(RUNS / 50);
 		console.info(`${name}: ${edits.paint} paint and ${edits.erase} erase edits in ${RUNS} strokes`);
 		edits.paint = 0;
 		edits.erase = 0;

@@ -48,6 +48,14 @@ const errorIds = (r: ScheduleResult): string[] =>
 		.map((m) => `${m.level}:${m.id}`)
 		.sort();
 
+/** Schedules edited files of `p`; it must schedule with no new error. */
+function schedule(p: Plan, files: Record<string, string>): ScheduleResult {
+	const r = engine.schedule({ files, entry: p.snap.entry, revision: ++revision, options: {} });
+	expect(r.ok).toBe(true);
+	expect(errorIds(r)).toEqual(errorIds(p.result));
+	return r;
+}
+
 /** The stroke planned, applied and scheduled; the load model before and after, by day. */
 function apply(p: Plan, stroke: LeavePaint): { before: LoadModel; after: LoadModel; text: string } {
 	const planned = planLeavePaint(stroke, { index: p.index, result: p.result, zones: ZONES });
@@ -152,6 +160,89 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 			expect(cell(m.after, 'ada', (days[7] as number) + 1, 'leave')).toBe(H8);
 			expect(cell(m.after, 'ada', (days[8] as number) + 1, 'leave')).toBe(0);
 			expect(cell(m.after, 'ada', (days[8] as number) + 1, 'available')).toBe(H8);
+		});
+
+		// T12 review: what the planner refuses as covered changes nothing on the engine (shown by
+		// forcing the same addLeave past the planner), and what it allows changes the leave type.
+		it('a paint under the same or a stronger type is refused, and would have changed nothing', () => {
+			const p = workloadPlan('leave-types');
+			const cases: Array<[LeavePaint, string, string]> = [
+				// p2's own annual "Holiday" on the 8th and 9th.
+				[paint(person('p2'), 3 * DAY, 5 * DAY, 'annual'), 'p2', '2026-01-08'],
+				// p4's sick "Flu" on the 15th and 16th, painted with a weaker type.
+				[paint(person('p4'), 10 * DAY, 12 * DAY, 'special'), 'p4', '2026-01-15'],
+				// The inherited global holiday on the 12th.
+				[paint(person('p1'), 7 * DAY, 8 * DAY, 'unpaid'), 'p1', '2026-01-12'],
+			];
+			for (const [stroke, who, date] of cases) {
+				const planned = planLeavePaint(stroke, { index: p.index, result: p.result, zones: ZONES });
+				expect(planned).toMatchObject({ status: 'not-possible', reason: 'leave-covered' });
+				if (stroke.type !== 'paint') throw new Error('paint');
+				const forced = applyIntent(p.snap, p.index, {
+					type: 'addLeave',
+					scope: { kind: 'resource', resource: who },
+					leave: { type: stroke.leave, start: date, end: `+${(stroke.to - stroke.from) / DAY}d` },
+				});
+				if (forced.status !== 'edit') throw new Error(forced.status);
+				const r = schedule(p, filesAfter(p.snap, forced.edit.changes));
+				const leavesOf = (x: ScheduleResult) =>
+					x.resources.find((res) => res.id === who)?.scenarios['plan']?.leaves;
+				expect(leavesOf(r)).toEqual(leavesOf(p.result));
+			}
+		});
+
+		it('a global paint over another global leave is refused; forced, the day is off hours', () => {
+			const p = workloadPlan('leave-types');
+			const stroke = paint({ kind: 'global' }, 7 * DAY, 8 * DAY, 'holiday', 'Other');
+			expect(
+				planLeavePaint(stroke, { index: p.index, result: p.result, zones: ZONES }),
+			).toMatchObject({
+				reason: 'leave-covered',
+				covering: 'holiday',
+			});
+			const forced = applyIntent(p.snap, p.index, {
+				type: 'addLeave',
+				scope: { kind: 'global' },
+				leave: { type: 'holiday', name: 'Other', start: '2026-01-12', end: '2026-01-13' },
+			});
+			if (forced.status !== 'edit') throw new Error(forced.status);
+			const r = schedule(p, filesAfter(p.snap, forced.edit.changes));
+			const next = planFrom(filesAfter(p.snap, forced.edit.changes), p.snap.entry, r);
+			const before = loadOf(p.result, p.index, 'day');
+			const after = loadOf(r, next.index, 'day');
+			// The day leaves the leave list without coming back as working time: off hours.
+			const leave = (m: LoadModel) => cell(m, 'p2', 7 * DAY + 1, 'leave');
+			expect(leave(before)).toBe(H8);
+			expect(cell(after, 'p2', 7 * DAY + 1, 'available')).toBe(0);
+			expect(
+				r.resources
+					.find((x) => x.id === 'p2')
+					?.scenarios['plan']?.leaves.find((l) => l.type === 'holiday')
+					?.intervals.some(([s, e]) => s < 8 * DAY && e > 7 * DAY),
+			).toBe(false);
+		});
+
+		it('a stronger type over a weaker one is added, and the engine shows the stronger type', () => {
+			const p = workloadPlan('leave-types');
+			// sick over p2's annual "Holiday" on the 8th and 9th.
+			const planned = planLeavePaint(paint(person('p2'), 3 * DAY, 5 * DAY, 'sick'), {
+				index: p.index,
+				result: p.result,
+				zones: ZONES,
+			});
+			expect(planned).toMatchObject({ intent: { type: 'addLeave' } });
+			if (planned.status !== 'intent') throw new Error('intent');
+			const r0 = applyIntent(p.snap, p.index, planned.intent);
+			if (r0.status !== 'edit') throw new Error(r0.status);
+			const r = schedule(p, filesAfter(p.snap, r0.edit.changes));
+			const typed = (x: ScheduleResult, t: string) =>
+				x.resources
+					.find((res) => res.id === 'p2')
+					?.scenarios['plan']?.leaves.find((l) => l.type === t)
+					?.intervals.filter(([s, e]) => s < 5 * DAY && e > 3 * DAY) ?? [];
+			expect(typed(p.result, 'annual').length).toBe(2);
+			expect(typed(r, 'annual')).toEqual([]);
+			expect(typed(r, 'sick')).toEqual(typed(p.result, 'annual'));
 		});
 
 		it('fedora-res: a 3-day annual leave for the part-timer Quality 01', () => {
