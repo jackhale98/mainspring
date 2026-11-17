@@ -56,6 +56,8 @@ export const calendarStrings = {
 	next: 'Next month',
 	months: 'Months',
 	outside: 'Outside the plan',
+	/** A day with more on it than its cell shows: the button opens the day's details. */
+	more: (count: number) => `+${count} more`,
 	/** The mode and type as they are announced: "Paint: Annual leave". */
 	painting: (mode: string, type: string) => `${mode}: ${type}`,
 	nonWorking: 'Non-working day',

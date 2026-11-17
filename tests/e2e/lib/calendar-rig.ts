@@ -2,7 +2,8 @@
 /**
  * A rig for the Calendar specs (phase-3.md 13.2): opens a plan in the Calendar view (the desktop's
  * view switcher, or the phone's People tab and its Calendar segment), finds days by their date,
- * moves to a month with the toolbar, drags over days with a mouse or a finger (a long-press, then
+ * moves to a month with the toolbar (a desktop shows one month that fills the view, as a phone
+ * does, so a day outside it is not in the DOM), drags over days with a mouse or a finger (a long-press, then
  * a move, through the DevTools protocol), reads the entry file's text, and presses Undo.
  */
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
@@ -173,4 +174,31 @@ export async function caughtUp(page: Page): Promise<void> {
 		timeout: READY_TIMEOUT_MS,
 	});
 	await page.waitForTimeout(250);
+}
+
+/** A person with five leaves of five types on one day (Sam, Monday 14 Dec 2026): a day with a crowd. */
+export const SAM_DAY = '2026-12-14';
+export const SAM_TEXT =
+	'\nresource sam "Sam" {\n  leaves annual 2026-12-14, sick 2026-12-14, special 2026-12-14, unpaid 2026-12-14, unemployed 2026-12-14\n}\n';
+
+/**
+ * Appends `snippet` to the plan's text (in Text mode), then comes back to the Calendar. The plan
+ * must have been opened with `openCalendar(page, info, { mode: 'text' })`.
+ */
+export async function appendText(page: Page, info: TestInfo, snippet: string): Promise<void> {
+	const phone = isTouch(info);
+	if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
+	const editor = page.getByRole('textbox', { name: /^Editor for / });
+	await editor.click();
+	await page.keyboard.press('Control+End');
+	await page.keyboard.insertText(snippet);
+	await caughtUp(page);
+	if (phone) {
+		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();
+		await page.getByRole('tab', { name: 'Calendar' }).tap();
+	} else {
+		await page.getByRole('button', { name: 'Visual', exact: true }).click();
+		await page.getByRole('radio', { name: 'Calendar' }).first().click();
+	}
+	await expect(page.getByTestId('cal-day').first()).toBeVisible({ timeout: 60_000 });
 }

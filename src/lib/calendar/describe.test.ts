@@ -79,6 +79,17 @@ describe('a day’s chips and extra text', () => {
 		expect(extra('p2', '2026-01-12')).toBe('Mon, Jan 12, 2026, Holiday');
 	});
 
+	it('names the chips beyond the ones the cell shows (a taller cell shows more)', () => {
+		const i = day('2026-01-12');
+		const f = factsOf('p2')(i);
+		const d = grid.days[i]!;
+		const names = dayChips(f).map((c) => c.text);
+		expect(names).toEqual(['Founders day']);
+		// One chip, shown: nothing more to say. Shown none (a cell with no room): it is named.
+		expect(dayExtra(d, f, L, 1)).toBe('Mon, Jan 12, 2026, Holiday');
+		expect(dayExtra(d, f, L, 0)).toBe('Mon, Jan 12, 2026, Holiday, Founders day');
+	});
+
 	it('writes a range of days, or one', () => {
 		expect(rangeLabel(grid, day('2026-01-08'), day('2026-01-09'), L)).toBe(
 			'Thu, Jan 8, 2026 to Fri, Jan 9, 2026',
