@@ -96,7 +96,7 @@
 		</section>
 		<section aria-labelledby="{d.id}-links">
 			<h3 id="{d.id}-links">{S.section.links}</h3>
-			<DependencyList {waitsFor} {followedBy} />
+			<DependencyList task={d.id} {waitsFor} {followedBy} />
 		</section>
 	{/if}
 

@@ -814,6 +814,11 @@ export const inspectorStrings = {
 		removeLink: 'Remove',
 		missing: 'This link is no longer in the plan.',
 		openTask: (name: string) => `Open ${name}`,
+		/** The Add buttons of "Waits for" and "Followed by" (the picker's own copy is strings-depends.ts). */
+		add: 'Add',
+		addWaitsFor: 'Add a task this one waits for',
+		addFollowedBy: 'Add a task that follows this one',
+		pickerFailed: 'The task list could not be loaded. Try again.',
 	},
 	/** Edit labels, for the toast and the undo entry. */
 	label: {
