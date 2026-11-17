@@ -365,6 +365,58 @@ export const ganttActionStrings = {
 } as const;
 
 /**
+ * Rebalancing from the heatmap and the lanes (src/lib/workload/rebalance.ts, phase-3.md 6.6, 7.1
+ * W1 and W2, 18.9): the label of a move to another person, and why a move is not possible. A move
+ * to another week is a Gantt move, labelled by `ganttActionStrings`.
+ */
+export const rebalanceStrings = {
+	label: {
+		reassign: (task: string, from: string, to: string) => `Moved ${task} from ${from} to ${to}`,
+		/** `to` already works on the task, so the edit only takes `from` off it. */
+		already: (to: string, task: string, from: string) =>
+			`${to} already works on ${task}; ${from} removed`,
+	},
+	notPossible: {
+		'via-group': (group: string) =>
+			`Booked through ${group}. Change the task's people in its details.`,
+		'not-a-person': 'Work moves to a person, not to a group.',
+		'not-booked': 'This person does not work on this task.',
+		'same-place': 'The task is already there.',
+		/** The target bucket of a week move has no working day (`unit` is the zoom's bucket). */
+		'no-working-day': (unit: 'day' | 'week' | 'month') =>
+			unit === 'day' ? 'No working time on that day.' : `No working days in that ${unit}.`,
+	},
+	/** "Move which task?" (18.9): a drop on a cell with several movable tasks. */
+	which: 'Move which task?',
+} as const;
+
+/**
+ * Leave painting on the calendar (src/lib/calendar/paint.ts, phase-3.md 6.6, 7.1 W3 and W4): the
+ * label of each edit, for its toast and its undo entry. `days` is a display range from `Intl`.
+ */
+export const leavePaintStrings = {
+	type: {
+		project: 'Project leave',
+		holiday: 'Holiday',
+		annual: 'Annual leave',
+		special: 'Special leave',
+		sick: 'Sick leave',
+		unpaid: 'Unpaid leave',
+		unemployed: 'Unemployed',
+	},
+	everyone: 'Everyone',
+	/** "A to B", or one day. */
+	days: (from: string, to: string) => (from === to ? from : `${from} to ${to}`),
+	label: {
+		add: (type: string, who: string, days: string) => `${type} for ${who}: ${days}`,
+		merge: (type: string, who: string, days: string) => `${type} for ${who} now ${days}`,
+		erase: (who: string, days: string) => `Leave cleared for ${who}: ${days}`,
+	},
+	/** A paint that would change nothing: `type` is the covering leave's name from `type`. */
+	covered: (type: string) => `${type} already covers those days. Erase it first.`,
+} as const;
+
+/**
  * Edit toasts (state/edits.svelte.ts, components/app/Toasts.svelte; phase-2.md 6.8, 9.4, 11.2):
  * one per visual edit, with Undo while it is the newest undo step.
  */
