@@ -302,11 +302,15 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		const page = await context.newPage();
 		await open(page);
 		await expect(page.getByRole('tablist', { name: 'Panels' })).toHaveCount(0);
-		await viewRadio(page, 'Resources').tap();
+		// A tablet's toolbar is under 1050 px: the switcher is the menu button there.
+		await expect(viewMenu(page)).toBeVisible();
+		await viewMenu(page).selectOption({ label: 'Resources' });
 		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'resources', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		const small = (await smallTargets(page)).filter((t) => t.what.includes('radio'));
+		const small = (await smallTargets(page)).filter(
+			(t) => t.what.includes('radio') || t.what.includes('select'),
+		);
 		expect(small).toEqual([]);
 		await context.close();
 	});
