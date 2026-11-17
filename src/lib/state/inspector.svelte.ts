@@ -16,6 +16,7 @@
  * - `pick` is a request to open a task's dependency picker (polish item 11, depends-picker.ts has
  *   the contract): `AppState.openDependencyPicker` sets it, the open details' "Waits for" or
  *   "Followed by" section takes it (and clears it) when it is the task's own.
+ * - `why` is the same for a task's "Why here?" (T18): the Schedule block scrolls to it and focuses it.
  * - `projectOpen` and `source` are the project sheet and the show-source sheet.
  * - `sheetHeight` is the open sheet's height in px, which the chart keeps clear of (WCAG 2.4.11).
  */
@@ -60,6 +61,12 @@ export class InspectorState {
 
 	/** A request for a task's dependency picker; `serial` is the selection it was made for. */
 	pick = $state.raw<{ task: TaskId; role: PickRole; serial: number } | null>(null);
+	/**
+	 * A request to show a task's "Why here?" (a health finding's fix): the details' Schedule block
+	 * takes it, scrolls to the section and moves the focus there. `serial` is the selection it was
+	 * made for, so a request the selection has left is ignored.
+	 */
+	why = $state.raw<{ task: TaskId; serial: number } | null>(null);
 
 	/** The app's selection, whose link half `link` is (a plan of its own when used alone). */
 	readonly selection: SelectionState;
@@ -114,6 +121,14 @@ export class InspectorState {
 		this.pick = { task, role, serial };
 	}
 
+	/** Opens the details and asks them to show `task`'s "Why here?" (see `why`). */
+	askWhy(task: TaskId, serial: number): void {
+		this.sheet = true;
+		this.collapsed = false;
+		this.explicit = true;
+		this.why = { task, serial };
+	}
+
 	/**
 	 * Add task (+): open the details and focus the name with its text selected, ready to type
 	 * (phase-3.md 9.8). The name is the first field of a task's details.
@@ -164,5 +179,6 @@ export class InspectorState {
 		this.projectOpen = false;
 		this.source = null;
 		this.pick = null;
+		this.why = null;
 	}
 }

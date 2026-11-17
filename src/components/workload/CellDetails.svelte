@@ -23,12 +23,20 @@
 -->
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import type { ScheduleResult } from '../../engine/protocol';
+	import type { AppState } from '../../lib/state/app.svelte';
 	import { workloadStrings as W } from '../../lib/strings-workload';
+	import type { SymbolIndex } from '../../lib/tjp/index';
 	import { hoursNumber, type CellDetails, type DetailTask } from '../../lib/workload/heat-cell';
 	import type { HeatUnit } from '../../lib/workload/heat-prefs';
+	import LazyMount from '../app/LazyMount.svelte';
 	import Icon from '../Icon.svelte';
 
 	interface Props {
+		/** For "Why here?" (the explainer under a task): the app, and the result and text it reads. */
+		app: AppState;
+		result: ScheduleResult | null;
+		index: SymbolIndex | null;
 		details: CellDetails;
 		unit: HeatUnit;
 		/** The people a task can move to (leaf rows), and the periods around the cell's column. */
@@ -45,6 +53,9 @@
 		note: string;
 	}
 	let {
+		app,
+		result,
+		index,
 		details,
 		unit,
 		people,
@@ -59,6 +70,13 @@
 
 	const i = $derived(details.info);
 	const D = W.details;
+	/** The tasks whose "Why here?" is open. */
+	let whyOpen = $state.raw<ReadonlySet<string>>(new Set());
+	function toggleWhy(task: string): void {
+		const next = new Set(whyOpen);
+		if (!next.delete(task)) next.add(task);
+		whyOpen = next;
+	}
 	let heading: HTMLHeadingElement | undefined = $state();
 
 	onMount(() => {
@@ -211,11 +229,34 @@
 											</select>
 										</label>
 									{/if}
+									<button
+										type="button"
+										class="show"
+										aria-expanded={whyOpen.has(t.task)}
+										aria-label={D.whyFor(t.name)}
+										data-testid="why-toggle"
+										onclick={() => toggleWhy(t.task)}>{D.whyHere}</button
+									>
 									<button type="button" class="show" onclick={() => onshow(t)}
 										>{D.showInGantt}</button
 									>
 								</span>
 							</div>
+							{#if whyOpen.has(t.task)}
+								<div class="why" data-testid="cell-why">
+									<LazyMount
+										when
+										load={() => import('../health/WhyHere.svelte')}
+										props={{
+											app,
+											task: t.task,
+											result,
+											index,
+											ontask: (id: string) => void app.showInGantt(id, null),
+										}}
+									/>
+								</div>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -366,6 +407,11 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		background: var(--color-surface-sunken);
+	}
+	.why {
+		margin-block-start: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		border-inline-start: 3px solid var(--color-border-strong);
 	}
 	.top {
 		display: flex;

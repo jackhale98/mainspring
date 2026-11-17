@@ -158,11 +158,11 @@
 >
 	{#if heatmapSeen && shown === 'content' && heatmap.module}
 		{@const Workload = heatmap.module.default}
-		<Workload {app} {phone} active={content === 'workload'} setBar={heatBar} {showGantt} />
+		<Workload {app} {phone} active={content === 'workload'} setBar={heatBar} />
 	{/if}
 	{#if lanesSeen && shown === 'content' && lanes.module}
 		{@const Resources = lanes.module.default}
-		<Resources {app} {phone} active={content === 'resources'} setBar={laneBar} {showGantt} />
+		<Resources {app} {phone} active={content === 'resources'} setBar={laneBar} />
 	{/if}
 	{#if awaited && !awaited.module}
 		{#if awaited.failed}

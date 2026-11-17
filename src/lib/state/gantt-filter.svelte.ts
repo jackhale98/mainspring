@@ -2,7 +2,9 @@
 /**
  * The Gantt's filter state (phase-3.md "Amendments from T19"): which person and which flag the chart shows.
  * One per open plan, owned by `AppState` so that any view can set it ("Show in Gantt" in the
- * workload views, T18: `app.ganttFilter.showPerson(id)`, then switch the view to the Gantt). A view
+ * workload views, T18: `app.showInGantt(task, person)` calls `showPerson` when the filter would show the task,
+ * selects the task and switches the view to the Gantt; a view that only needs the filter calls
+ * `app.ganttFilter.showPerson(id)` itself). A view
  * state only: it never edits the text.
  *
  * - Session only: it resets when another plan is opened and is not stored. A filter hides work,

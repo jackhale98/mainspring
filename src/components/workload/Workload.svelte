@@ -23,7 +23,7 @@
 	and selection, and they only work together (as Gantt.svelte does); the logic is in lib/workload.
 -->
 <script lang="ts">
-	import { flushSync, onMount, untrack, type Snippet } from 'svelte';
+	import { flushSync, onMount, tick, untrack, type Snippet } from 'svelte';
 	import { GanttEnv } from '../gantt/gantt-env.svelte';
 	import { ctrlWheel } from '../gantt/ctrl-wheel';
 	import { OVERSCAN_ROWS, OVERSCAN_X, paintWindow, type PaintWindow } from '../../lib/gantt/layout';
@@ -62,10 +62,8 @@
 		active: boolean;
 		/** Puts this view's toolbar in the People bar (a desktop and a tablet). */
 		setBar: (bar: Snippet | null) => void;
-		/** Goes to the Gantt (the details' "Show in Gantt"). */
-		showGantt: () => void;
 	}
-	let { app, phone, active, setBar, showGantt }: Props = $props();
+	let { app, phone, active, setBar }: Props = $props();
 
 	const loads = new HeatState();
 	const env = new GanttEnv();
@@ -363,6 +361,40 @@
 		detailsOpen = true;
 	}
 
+	// A request to show a person at a time (the health panel's "Open in Workload", a "Why here?"
+	// link to a person's cell; AppState.peopleGoto): taken once the heatmap is on screen with a
+	// model. The person's group is opened when it is closed, the cell is selected with its details
+	// open, and it is scrolled to the middle of the plot.
+	$effect(() => {
+		const g = app.peopleGoto;
+		if (!g || !active || !model || !labels) return;
+		untrack(() => {
+			const row = rowOf.get(g.resource);
+			if (row === undefined) {
+				// Hidden in a closed group: open it, and the model's rebuild brings the request back here.
+				const byId = new Map((result?.resources ?? []).map((r) => [r.id, r]));
+				for (
+					let at = byId.get(g.resource)?.parent ?? null;
+					at !== null;
+					at = byId.get(at)?.parent ?? null
+				) {
+					if (prefs.collapsed.includes(at)) {
+						loads.toggleGroup(at);
+						return;
+					}
+				}
+				app.peopleGoto = null;
+				return;
+			}
+			app.peopleGoto = null;
+			const col = model.axis.indexOf(g.at);
+			if (col < 0) return;
+			const c = { row, col };
+			openDetails(c);
+			void tick().then(() => scrollToCell(c));
+		});
+	});
+
 	function tap(c: Cell | null, touch: boolean): void {
 		if (!c) return;
 		const again = selected?.row === c.row && selected.col === c.col;
@@ -439,9 +471,10 @@
 		if (model) await rebalance.nudge(model, selected, t, axis, step);
 	}
 
+	/** Filters the chart to the person of the cell (a group's cell: no person), selects the task, shows the Gantt. */
 	function showInGantt(t: DetailTask): void {
-		app.selection.selectTask(t.task, 'visual');
-		showGantt();
+		const row = selected && model ? model.rows[selected.row] : null;
+		void app.showInGantt(t.task, row && !row.group ? row.id : null);
 	}
 
 	function visibleBox(): Box {
@@ -626,6 +659,9 @@
 		{#if details}
 			<div class="sheet" bind:clientHeight={sheetH}>
 				<CellDetails
+					{app}
+					result={loads.built?.result ?? null}
+					index={loads.built?.index ?? null}
 					{details}
 					unit={prefs.unit}
 					{people}

@@ -22,8 +22,10 @@
 	import { focusRow, keepRowClear } from '../../lib/inspector/focus';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import type { LayoutKind } from '../../lib/state/layout.svelte';
-	import { inspectorStrings as S } from '../../lib/strings';
+	import { inspectorStrings as S, strings } from '../../lib/strings';
 	import type { ResourceId, SourceRange } from '../../lib/tjp/index';
+	import HealthHost from '../health/HealthHost.svelte';
+	import HealthTabs from '../health/HealthTabs.svelte';
 	import Icon from '../Icon.svelte';
 	import Sheet from '../Sheet.svelte';
 	import { setInspector } from './context';
@@ -64,6 +66,21 @@
 	});
 
 	const desktop = $derived(layout === 'desktop');
+	const health = $derived(app.health);
+	// Plan health is the panel's second tab (phase-3.md 9.2). A request to show it (the Health button,
+	// a tab) opens a collapsed panel, or the drawer where the chart has no room to dock one; a close
+	// the person made is not undone by anything else, so only a new request counts.
+	let seenHealth = untrack(() => app.health.serial);
+	$effect(() => {
+		const n = app.health.serial;
+		if (n === seenHealth) return;
+		seenHealth = n;
+		untrack(() => {
+			if (!desktop || !active) return;
+			if (dock) inspector.collapsed = false;
+			else inspector.sheet = true;
+		});
+	});
 	/** Docked: the panel takes its 320 px. Otherwise a rail, and a drawer when asked for. */
 	const docked = $derived(desktop && dock && !app.inspector.collapsed);
 	/** The drawer over the chart: asked for by a click or Enter, while there is no room to dock. */
@@ -90,6 +107,9 @@
 		const n = inspector.focusNonce;
 		if (n === seen) return;
 		seen = n;
+		// The details are asked to take the focus (Enter on a row, Add task): they have to be the tab that
+		// shows, or the focus would go to a hidden field and be lost (ADR-0013 "name focused").
+		untrack(() => app.health.hide());
 		// A person's details are a lazy chunk (ResourcePanel.svelte): when it is not mounted yet the
 		// first field does not exist, so look for it for a moment (about 2 s of frames) before giving up.
 		let frames = 0;
@@ -137,7 +157,10 @@
 	function onkeydown(e: KeyboardEvent): void {
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
 		e.preventDefault();
-		if (drawer) inspector.hide();
+		if (drawer) {
+			health.hide();
+			inspector.hide();
+		}
 		focusRow(rowKey);
 	}
 
@@ -157,20 +180,34 @@
 
 {#snippet panel()}
 	<header>
-		<h2>{title}</h2>
+		<h2>{health.open ? strings.health.title : title}</h2>
 		<button
 			type="button"
 			class="toggle"
 			aria-expanded="true"
 			title={S.hidePanel}
-			onclick={() => (dock ? (inspector.collapsed = true) : inspector.hide())}
+			onclick={() => {
+				// What hides the panel hides the Health tab in it: the Health button opens it again in one press.
+				health.hide();
+				if (dock) inspector.collapsed = true;
+				else inspector.hide();
+			}}
 		>
 			<Icon name="close" size={16} />
 			<span class="sr-only">{S.hidePanel}</span>
 		</button>
 	</header>
-	<div class="scroll">
-		{@render content()}
+	<HealthTabs {app} panel="inspector-panel" />
+	<div
+		class="scroll"
+		id="inspector-panel"
+		role="tabpanel"
+		aria-labelledby="inspector-panel-tab-{health.open ? 'health' : 'details'}"
+	>
+		<div class="pane" hidden={health.open}>
+			{@render content()}
+		</div>
+		{#if health.open}<HealthHost {app} />{/if}
 	</div>
 {/snippet}
 
@@ -178,7 +215,12 @@
 	{#if docked}
 		<!-- Escape in the panel returns the focus to the row; the aside is not itself interactive. -->
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<aside class="panel" aria-label={S.panel} data-testid="inspector" {onkeydown}>
+		<aside
+			class="panel"
+			aria-label={health.open ? strings.health.title : S.panel}
+			data-testid="inspector"
+			{onkeydown}
+		>
 			{@render panel()}
 		</aside>
 	{:else}
@@ -199,7 +241,7 @@
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<aside
 				class="panel drawer"
-				aria-label={S.panel}
+				aria-label={health.open ? strings.health.title : S.panel}
 				data-testid="inspector"
 				data-drawer
 				{onkeydown}
@@ -208,6 +250,23 @@
 			</aside>
 		{/if}
 	{/if}
+{:else if desktop && health.open}
+	<!-- A view without details (the heatmap, the calendar): the health panel alone, over the chart's edge. -->
+	<aside class="panel health-only" aria-label={strings.health.title} data-testid="health-drawer">
+		<header>
+			<h2>{strings.health.title}</h2>
+			<button
+				type="button"
+				class="toggle"
+				title={strings.health.close}
+				onclick={() => health.hide()}
+			>
+				<Icon name="close" size={16} />
+				<span class="sr-only">{strings.health.close}</span>
+			</button>
+		</header>
+		<div class="scroll"><HealthHost {app} /></div>
+	</aside>
 {:else if !desktop}
 	<Sheet
 		open={active && inspector.sheet}
@@ -257,6 +316,16 @@
 		inset-inline-end: calc(var(--size-rail) + var(--gap-panel));
 		z-index: 10;
 		box-shadow: var(--shadow-dock);
+	}
+	.panel.health-only {
+		position: absolute;
+		inset-block: 0;
+		inset-inline-end: 0;
+		z-index: 10;
+		box-shadow: var(--shadow-dock);
+	}
+	.pane[hidden] {
+		display: none;
 	}
 	.rail {
 		display: flex;

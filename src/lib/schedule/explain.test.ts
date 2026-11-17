@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleResult } from '../../engine/protocol';
 import { booking, resourceResult, withPeople } from '../workload/testing';
-import { explainTask } from './explain';
+import { explainTask } from './explain-task';
 import { goldenContext, inlineContext } from './explain-testing';
 import type { Cause, ExplainContext } from './explain-types';
 import { at, dep, plan } from './testing';

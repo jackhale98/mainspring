@@ -71,10 +71,8 @@
 		active: boolean;
 		/** Puts this view's toolbar in the People bar (a desktop and a tablet). */
 		setBar: (bar: Snippet | null) => void;
-		/** Goes to the Gantt. */
-		showGantt: () => void;
 	}
-	let { app, phone, active, setBar, showGantt }: Props = $props();
+	let { app, phone, active, setBar }: Props = $props();
 
 	// The load state of the lanes: the heatmap's thresholds, unit and open groups, the lanes' zoom.
 	const loads = new HeatState(browserStorage(), {
@@ -471,9 +469,10 @@
 	async function nudge(t: DetailTask, axis: 'person' | 'period', step: -1 | 1): Promise<void> {
 		if (model) await rebalance.nudge(model, selected, t, axis, step);
 	}
+	/** Filters the chart to the person of the cell (a group's cell: no person), selects the task, shows the Gantt. */
 	function showInGantt(t: DetailTask): void {
-		app.selection.selectTask(t.task, 'visual');
-		showGantt();
+		const row = selected && model ? model.rows[selected.row] : null;
+		void app.showInGantt(t.task, row && !row.group ? row.id : null);
 	}
 
 	function visibleBox(): Box {
@@ -742,6 +741,9 @@
 		{#if details}
 			<div class="sheet" bind:clientHeight={sheetH}>
 				<CellDetails
+					{app}
+					result={loads.built?.result ?? null}
+					index={loads.built?.index ?? null}
 					{details}
 					unit={prefs.unit}
 					{people}

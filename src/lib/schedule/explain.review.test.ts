@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import type { ScheduleResult } from '../../engine/protocol';
 import { booking, resourceResult, withPeople } from '../workload/testing';
 import { demandOf } from './demand';
-import { explainTask } from './explain';
+import { explainTask } from './explain-task';
 import { inlineContext } from './explain-testing';
 import { at, plan } from './testing';
 
