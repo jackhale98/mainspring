@@ -201,7 +201,9 @@ jobs:
           key: playwright-${{ matrix.browsers }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Playwright browsers and system dependencies
         # The runner's apt index can be stale, and mirrors occasionally fail, so refresh it
-        # first and retry the whole install a few times.
+        # first and retry the whole install a few times. A hung mirror (23 minutes on
+        # 2026-11-17) fails the step instead of holding the whole run.
+        timeout-minutes: 8
         run: |
           for attempt in 1 2 3; do
             sudo apt-get update -q && npx playwright install --with-deps ${{ matrix.browsers }} && exit 0
