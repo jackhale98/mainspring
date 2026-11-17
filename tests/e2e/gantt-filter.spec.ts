@@ -23,7 +23,7 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 // A step that cannot be done fails in seconds, not at the test's end.
 test.use({ actionTimeout: 15_000 });
 
-// The oracle itself, on the probe plan run through native tj3 (a taskreport with `columns id, flags`):
+// The oracle itself, on the probe plan run through native TaskJuggler (a taskreport with `columns id, flags`):
 // app = early, late, sup; app.a = early; app.b = early, late; c = none in `plan`, `scen` in `delayed`.
 test.describe('the flag oracle', () => {
 	const PROBE = `project p "P" 2026-01-05 +30d {
@@ -103,7 +103,7 @@ function tasksOf(r: ScheduleResult, person: string): Set<string> {
 
 /**
  * The flags each task carries, from the plan text, as TaskJuggler gives them (checked with native
- * tj3 on the probe plan below: a `taskreport` with `columns id, flags`). A parent's flags are
+ * TaskJuggler on the probe plan below: a `taskreport` with `columns id, flags`). A parent's flags are
  * copied into a child once, when the child's header is read, so a child has its own and those its
  * parent had written before the child's `task` keyword; a `flags` after the child, or in a later
  * `supplement`, is not inherited by it. A `scen:flags` counts only for the shown scenario.
