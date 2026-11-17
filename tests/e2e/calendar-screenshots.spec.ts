@@ -52,11 +52,25 @@ test.describe('calendar screenshots', () => {
 		await setType(page, 'Sick leave');
 		await setMode(page, 'paint');
 		await showDay(page, '2026-12-14');
-		await drag(page, info, day(page, '2026-12-14'), day(page, '2026-12-16'));
+		if (!touch) {
+			// Before the drop: the run being painted, still only a selection.
+			await day(page, '2026-12-14').evaluate((el) => el.scrollIntoView({ block: 'center' }));
+			await page.waitForTimeout(150);
+			const a = await day(page, '2026-12-14').boundingBox();
+			const b = await day(page, '2026-12-16').boundingBox();
+			if (!a || !b) throw new Error('no days');
+			await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+			await page.mouse.down();
+			await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
+			await expect(page.getByTestId('cal-line')).toContainText('Paint:');
+			await shoot(page, device, 'paint-drag');
+			await page.mouse.up();
+		} else {
+			await drag(page, info, day(page, '2026-12-14'), day(page, '2026-12-16'));
+		}
 		await expect(day(page, '2026-12-14')).toHaveAccessibleName(/Sick leave/);
 		await caughtUp(page);
 		await setMode(page, 'select');
-		if (!touch) await shoot(page, device, 'painted-selection');
 		await openDetails(page, info, '2026-12-14');
 		await page.waitForTimeout(400);
 		await shoot(page, device, 'details');

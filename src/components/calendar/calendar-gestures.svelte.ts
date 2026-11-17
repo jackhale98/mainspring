@@ -5,8 +5,10 @@
  * (src/lib/gesture/, unchanged), and its outputs become a tap, a lifted day, a run of days being
  * dragged over and one drop. The machine owns every rule (slop, the 350 ms long-press, Escape,
  * the lost-release checks); this translates the DOM into it and acts on what comes out. The days
- * are real elements, so what is under a pointer is asked of the document (`elementFromPoint`)
- * on a press and a move, never in a scroll frame.
+ * are real elements, so what is under a pointer is asked of the document (`elementFromPoint`) on
+ * a press and a move, and in each frame of an edge auto-scroll (the list moves under a still
+ * pointer, so the day under it changes). The list's box is read once per drag, not per frame; no
+ * layout is read while the list is only scrolled.
  *
  * - A target is a day, as one number (`GestureTarget` `bar`, `row` is the day's index).
  * - **Mouse and pen:** a press and a release on one day is a tap; a press that moves 3 px is a
@@ -86,6 +88,8 @@ export class CalendarGestures {
 	#liftedAt = -1;
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#raf = 0;
+	/** The list's visible box in viewport px for the drag in flight, or null when it cannot scroll. */
+	#box: { top: number; bottom: number } | null = null;
 	#lastFrame = 0;
 
 	constructor(host: CalendarHost) {
@@ -314,10 +318,18 @@ export class CalendarGestures {
 		this.#liftedAt = -1;
 		this.drag = null;
 		this.lifted = null;
+		this.#box = null;
 	}
 
 	/** Edge auto-scroll of the list while dragging, against the list's visible box. */
 	#pump(): void {
+		// The list's box, once per drag (before the frame guard: a frame of the last drag may still
+		// be pending): a list that fits has nothing to scroll.
+		const list = this.#h.scroller();
+		if (list && list.scrollHeight > list.clientHeight) {
+			const r = list.getBoundingClientRect();
+			this.#box = { top: r.top, bottom: r.bottom };
+		} else this.#box = null;
 		if (this.#raf !== 0) return;
 		this.#lastFrame = performance.now();
 		const frame = (now: number): void => {
@@ -327,8 +339,8 @@ export class CalendarGestures {
 			this.#lastFrame = now;
 			const p = this.#pointer;
 			const sc = this.#h.scroller();
-			if (p && sc && sc.scrollHeight > sc.clientHeight) {
-				const r = sc.getBoundingClientRect();
+			const r = this.#box;
+			if (p && sc && r) {
 				const v = autoScrollVelocity(p.clientY, r.top, r.bottom);
 				if (v !== 0) {
 					sc.scrollTop += (v * dt) / 1000;

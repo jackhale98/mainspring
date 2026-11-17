@@ -28,6 +28,7 @@
 		item: PaintItem;
 		/** The item's fields now; null when only the text can edit it. */
 		fields: LeaveFields | null;
+		/** The types the item can be changed to (`typesOfItem`): its scope's, and its own kind. */
 		types: readonly LeaveType[];
 		/**
 		 * Commits a change. The answer says why it cannot be written, or whether an edit was applied
@@ -41,15 +42,23 @@
 	const D = C.details;
 	let draft = $state<LeaveFields | null>(null);
 	let error = $state<'empty' | 'dates' | 'range' | null>(null);
-	/** An edit was applied and the text has not been read again: no second edit on a stale item. */
+	/** An edit was sent and the text has not been read again: no second edit on a stale item. */
 	let busy = $state(false);
+	/** Changes made while busy: the latest of each field, sent once the text has been read again. */
+	let queued = $state.raw<Partial<LeaveFields> | null>(null);
 	let wait: ReturnType<typeof setTimeout> | null = null;
 	const settle = (): void => {
 		busy = false;
 		if (wait !== null) clearTimeout(wait);
 		wait = null;
+		const q = queued;
+		queued = null;
+		if (q) void commit(q);
 	};
-	onMount(() => settle);
+	onMount(() => () => {
+		queued = null;
+		if (wait !== null) clearTimeout(wait);
+	});
 	// The draft follows the text: a new item, or the same one after an edit or an undo. It is read
 	// again when the fields change, not each time the owner builds them.
 	const key = $derived(fields ? `${fields.type}|${fields.name}|${fields.start}|${fields.end}` : '');
@@ -65,16 +74,23 @@
 	const title = $derived(C.leave(L.type[item.type], item.name));
 	const fixed = $derived(item.type === 'project');
 
-	/** Writes a field into the draft and commits it. */
+	/**
+	 * Writes a field into the draft and commits it. While an edit waits for the text to be read
+	 * again the change is queued (and shown as waiting), then sent on the new text: it is not lost
+	 * and the item it names is not stale.
+	 */
 	async function commit(patch: Partial<LeaveFields> = {}): Promise<void> {
-		if (!draft || busy) return;
+		if (!draft) return;
 		draft = { ...draft, ...patch };
+		if (busy) {
+			queued = { ...queued, ...patch };
+			return;
+		}
+		busy = true;
 		const r = await oncommit(item, draft);
 		error = r.error ?? null;
-		if (r.applied) {
-			busy = true;
-			wait = setTimeout(settle, 2500);
-		}
+		if (r.applied) wait = setTimeout(settle, 2500);
+		else settle();
 	}
 </script>
 
@@ -90,9 +106,6 @@
 					data-testid="cal-leave-type"
 				>
 					{#each types as t (t)}<option value={t}>{L.type[t]}</option>{/each}
-					{#if !types.includes(item.type as LeaveType)}
-						<option value={item.type} disabled>{L.type[item.type]}</option>
-					{/if}
 				</select>
 			</label>
 			<label>
@@ -131,6 +144,9 @@
 			</label>
 		</div>
 		{#if error}<p class="error" role="alert">{D.errors[error]}</p>{/if}
+		{#if busy && queued}<p class="note" role="status" data-testid="cal-leave-waiting">
+				{D.waiting}
+			</p>{/if}
 		<button
 			type="button"
 			class="remove"

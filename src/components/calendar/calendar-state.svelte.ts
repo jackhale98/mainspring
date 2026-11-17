@@ -28,6 +28,8 @@ export class CalendarState {
 	anchor = $state<number | null>(null);
 	/** The scroll offset of the month list, to come back to. */
 	scrollTop = 0;
+	/** The selected person the view last looked at: only a change of it moves the scope. */
+	seenPerson: string | null = null;
 	/** The plan these were chosen for: another plan starts again. */
 	plan: string | null = null;
 

@@ -212,4 +212,13 @@ describe('types', () => {
 		// P1's project leave is read, not written: it is not offered as a type.
 		expect(typesOfItem(itemOf(p, 'p1', 'Offsite'))).toEqual(typesFor(false));
 	});
+
+	it('lets a person’s own holiday go to annual and back (T16 review)', () => {
+		const q = onePerson('leaves holiday "Day" 2026-01-08');
+		const item = itemOf(q, 'dev', 'Day');
+		expect(typesOfItem(item)).toEqual([...typesFor(false), 'holiday']);
+		// A global annual leave can be put back to annual in the same way.
+		const g = onePerson('', 'leaves annual "Closure" 2026-01-12\n');
+		expect(typesOfItem(itemOf(g, null, 'Closure'))).toEqual(['holiday', 'annual']);
+	});
 });

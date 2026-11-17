@@ -107,6 +107,60 @@ describe('a leave no text item names', () => {
 		expect(of(dayOf(grid, '2026-01-07')).leaves).toEqual([]);
 	});
 
+	it('keeps a macro leave of another type on a day a text item also touches (T16 review)', () => {
+		// A macro's sick leave over the 8th and 9th, and a text annual leave on the 9th: the engine
+		// keeps the stronger (sick) on the 9th, which no text item of that type names.
+		const q = onePerson(
+			'leaves sick ${lv}\n  leaves annual "Trip2" 2026-01-09',
+			'macro lv [2026-01-08 - 2026-01-10]\n',
+		);
+		const sick: Array<[number, number]> = [
+			[3 * DAY + 540, 3 * DAY + 1020],
+			[4 * DAY + 540, 4 * DAY + 1020],
+		];
+		const result = withPeople(
+			resultOf([['t', { start: 540, end: 2460 }]]),
+			[resourceResult('dev', { leaves: [{ type: 'sick', intervals: sick }] })],
+			[],
+		);
+		const both = planFrom({ 'plan.tjp': q.text('plan.tjp') }, 'plan.tjp', result);
+		const { grid, of } = factsOf(both, { kind: 'resource', resource: 'dev' });
+		const eighth = of(dayOf(grid, '2026-01-08'));
+		expect(eighth.leaves.map((e) => [e.type, e.item !== null])).toEqual([['sick', false]]);
+		const ninth = of(dayOf(grid, '2026-01-09'));
+		expect(ninth.leaves.map((e) => [e.type, e.name, e.item !== null])).toEqual([
+			['annual', 'Trip2', true],
+			['sick', null, false],
+		]);
+		expect(ninth.textOnly).toBe(true);
+		expect(ninth.top).toBe('sick');
+	});
+
+	it('keeps a person’s macro leave on a day with a global holiday when it is the stronger type', () => {
+		// The global holiday is on the 12th; a macro's unemployed leave (stronger) is there too.
+		const q = onePerson(
+			'leaves unemployed ${lv}',
+			'leaves holiday "Founders day" 2026-01-12\nmacro lv [2026-01-12]\n',
+		);
+		const result = withPeople(
+			resultOf([['t', { start: 540, end: 2460 }]], {
+				leaves: [{ type: 'holiday', name: null, interval: [7 * DAY, 8 * DAY] }],
+			}),
+			[
+				resourceResult('dev', {
+					leaves: [{ type: 'unemployed', intervals: [[7 * DAY + 540, 7 * DAY + 1020]] }],
+				}),
+			],
+			[],
+		);
+		const p2 = planFrom({ 'plan.tjp': q.text('plan.tjp') }, 'plan.tjp', result);
+		const { grid, of } = factsOf(p2, { kind: 'resource', resource: 'dev' });
+		const f = of(dayOf(grid, '2026-01-12'));
+		expect(f.holidays.map((e) => e.name)).toEqual(['Founders day']);
+		expect(f.leaves.map((e) => [e.type, e.item !== null])).toEqual([['unemployed', false]]);
+		expect(f.textOnly).toBe(true);
+	});
+
 	it('does not add an engine leave where a text item already names the day', () => {
 		const q = onePerson('leaves annual "Trip" 2026-01-08 - 2026-01-10');
 		const result = withPeople(

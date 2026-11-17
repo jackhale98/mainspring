@@ -124,18 +124,26 @@ test('W3 paint, merge; W4 erase: trim and split; Undo and Redo (Everyone)', asyn
 
 	// Erase Tue 8 Dec: the item splits in two.
 	const t3 = await stroke(page, info, 'erase', '2026-12-08', '2026-12-08');
-	expect(t3).toContain('holiday 2026-12-07 - 2026-12-08');
-	expect(t3).toContain('holiday 2026-12-09 - 2026-12-11');
+	expect(t3).toBe(
+		t2.replace(
+			'holiday 2026-12-07 - 2026-12-11',
+			'holiday 2026-12-07 - 2026-12-08, holiday 2026-12-09 - 2026-12-11',
+		),
+	);
 	await expect(day(page, '2026-12-08')).not.toHaveAccessibleName(/Holiday/);
 	await caughtUp(page);
 
 	// Erase Mon 7 Dec: the first item goes; Thu 10 Dec: the second is trimmed.
 	const t4 = await stroke(page, info, 'erase', '2026-12-07', '2026-12-07');
-	expect(t4).not.toContain('2026-12-07 - 2026-12-08');
+	expect(t4).toBe(
+		t3.replace(
+			'holiday 2026-12-07 - 2026-12-08, holiday 2026-12-09 - 2026-12-11',
+			'holiday 2026-12-09 - 2026-12-11',
+		),
+	);
 	await caughtUp(page);
 	const t5 = await stroke(page, info, 'erase', '2026-12-10', '2026-12-10');
-	expect(t5).toContain('holiday 2026-12-09 - 2026-12-10');
-	expect(t5).not.toContain('2026-12-11');
+	expect(t5).toBe(t4.replace('holiday 2026-12-09 - 2026-12-11', 'holiday 2026-12-09 - 2026-12-10'));
 
 	// Undo walks back through every step to the bytes we began with; Redo replays one.
 	for (const before of [t4, t3, t2, t1, t0]) {
@@ -155,7 +163,8 @@ test('W3 and W4 for a person: a leave in their declaration, painted, then change
 	await setType(page, 'Sick leave');
 	const t1 = await stroke(page, info, 'paint', '2026-12-14', '2026-12-16');
 	// Jack had no body: the leave opens one.
-	expect(t1).toMatch(/resource jack "Jack" \{\s*leaves sick 2026-12-14 - 2026-12-17\s*\}/);
+	const JACK = 'resource jack "Jack"';
+	expect(t1).toBe(t0.replace(JACK, `${JACK} {\n    leaves sick 2026-12-14 - 2026-12-17\n  }`));
 	await expect(day(page, '2026-12-14')).toHaveAccessibleName(/Sick leave/);
 	await caughtUp(page);
 
@@ -166,20 +175,21 @@ test('W3 and W4 for a person: a leave in their declaration, painted, then change
 	await expect(card).toContainText('Sick leave');
 	await card.getByTestId('cal-leave-type').selectOption({ label: 'Annual leave' });
 	const t2 = await changed(page, t1);
-	expect(t2).toContain('leaves annual 2026-12-14 - 2026-12-17');
+	expect(t2).toBe(t1.replace('leaves sick 2026-12-14', 'leaves annual 2026-12-14'));
 	await caughtUp(page);
 	await page.getByTestId('cal-leave-name').first().fill('Ski trip');
 	await page.getByTestId('cal-leave-name').first().press('Enter');
 	const t3 = await changed(page, t2);
-	expect(t3).toContain('leaves annual "Ski trip" 2026-12-14 - 2026-12-17');
+	expect(t3).toBe(t2.replace('leaves annual 2026-12-14', 'leaves annual "Ski trip" 2026-12-14'));
 	await caughtUp(page);
 	await page.getByTestId('cal-leave-end').first().fill('2026-12-18');
 	const t4 = await changed(page, t3);
-	expect(t4).toContain('annual "Ski trip" 2026-12-14 - 2026-12-19');
+	expect(t4).toBe(t3.replace('2026-12-14 - 2026-12-17', '2026-12-14 - 2026-12-19'));
 	await caughtUp(page);
 	await page.getByTestId('cal-leave-remove').first().click();
 	const t5 = await changed(page, t4);
-	expect(t5).not.toContain('Ski trip');
+	// The only item goes with its statement; the body it opened stays.
+	expect(t5).toBe(t4.replace('    leaves annual "Ski trip" 2026-12-14 - 2026-12-19\n', ''));
 	await caughtUp(page);
 
 	for (const before of [t4, t3, t2, t1, t0]) {
@@ -261,13 +271,16 @@ test('the keyboard: Shift and the arrows select, L picks a type, Enter paints, D
 	await page.keyboard.press('Enter');
 	const t1 = await changed(page, t0);
 	// The second type of a person's list is "Special leave".
-	expect(t1).toMatch(/resource ana "Ana" \{\s*leaves special 2026-12-02 - 2026-12-05\s*\}/);
+	const ANA = 'resource ana "Ana"';
+	expect(t1).toBe(t0.replace(ANA, `${ANA} {\n    leaves special 2026-12-02 - 2026-12-05\n  }`));
 	await expect(picker).toBeHidden();
 	await expect(day(page, '2026-12-04')).toBeFocused();
 	await caughtUp(page);
 	await page.keyboard.press('Delete');
-	await expect.poll(() => text(page)).not.toBe(t1);
-	expect(await text(page)).not.toContain('leaves special');
+	// The only item goes with its statement; the body stays.
+	await expect
+		.poll(() => text(page))
+		.toBe(t1.replace('    leaves special 2026-12-02 - 2026-12-05\n', ''));
 	await undo(page);
 	await expect.poll(() => text(page)).toBe(t1);
 	await undo(page);
@@ -294,7 +307,12 @@ test('a person declared in an included file: the leave is written there, and Und
 	else await tapDay(page, info, d);
 	await expect.poll(() => textOf(page, 'mainspring-load.tji')).not.toBe(tji0);
 	const tji1 = await textOf(page, 'mainspring-load.tji');
-	expect(tji1).toContain('sick 2013-06-17 - 2013-06-18');
+	expect(tji1).toBe(
+		tji0.replace(
+			'leaves annual "annual leave" 2013-06-10 - 2013-06-14',
+			'leaves annual "annual leave" 2013-06-10 - 2013-06-14, sick 2013-06-17 - 2013-06-18',
+		),
+	);
 	expect(await text(page)).toBe(entry0);
 	await undo(page);
 	await expect.poll(() => textOf(page, 'mainspring-load.tji')).toBe(tji0);

@@ -377,15 +377,6 @@
 		if (cal.focus !== null) void focusDay(cal.focus);
 	}
 
-	// --- Scope: a person selected elsewhere shows their leave; the picker changes it
-	$effect(() => {
-		const p = app.selection.person;
-		untrack(() => {
-			if (p !== null && !(cal.scope.kind === 'resource' && cal.scope.resource === p)) {
-				cal.setScope({ kind: 'resource', resource: p });
-			}
-		});
-	});
 	function setScope(scope: PaintScope): void {
 		cal.setScope(scope);
 		// The days stay selected, now for this scope.
@@ -399,6 +390,9 @@
 		untrack(() => {
 			if (cal.plan === id) return;
 			cal.plan = id;
+			// The people of another plan are not these: start on Everyone.
+			cal.seenPerson = null;
+			cal.setScope({ kind: 'global' });
 			detailsOpen = false;
 			picker = null;
 			note = '';
@@ -407,6 +401,20 @@
 			cal.month = -1;
 			cal.scrollTop = 0;
 			placedFor = null;
+		});
+	});
+
+	// --- Scope: a person selected elsewhere shows their leave; the picker changes it. Only a
+	// selection that changed since the calendar last saw one counts, so coming back to the view
+	// (a remount) keeps the scope the user picked, "Everyone" included.
+	$effect(() => {
+		const p = app.selection.person;
+		untrack(() => {
+			if (p === cal.seenPerson) return;
+			cal.seenPerson = p;
+			if (p !== null && !(cal.scope.kind === 'resource' && cal.scope.resource === p)) {
+				cal.setScope({ kind: 'resource', resource: p });
+			}
 		});
 	});
 

@@ -17,7 +17,7 @@
 	import type { SelectionDetails } from '../../lib/calendar/details';
 	import { leavePhrase } from '../../lib/calendar/describe';
 	import type { LeaveEntry } from '../../lib/calendar/facts';
-	import type { LeaveFields } from '../../lib/calendar/leave-edit';
+	import { typesOfItem, type LeaveFields } from '../../lib/calendar/leave-edit';
 	import type { PaintItem } from '../../lib/calendar/paint-items';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
@@ -117,7 +117,7 @@
 					<LeaveCard
 						item={e.item}
 						fields={fieldsOf(e.item)}
-						types={global ? ['holiday'] : types}
+						types={typesOfItem(e.item)}
 						{oncommit}
 						{onremove}
 					/>

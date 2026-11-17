@@ -7,10 +7,10 @@
  *   leave lists of a resource are nameless), so every leave with a name, a type and a place to
  *   edit is a text item read from the symbol index (paint-items.ts): Everyone's file-level items,
  *   and for a person their own, their parent resources' and the global ones.
- * - **Text-only days.** A day on which the engine shows leave (v3 `ProjectInfo.leaves`, or the
- *   person's `leaves`) but no text item overlaps comes from a shift or a macro. It is listed with
- *   the engine's type, no name and no item, and says "From a shift or macro. Edit as text."
- *   (`textOnly`). The engine's person leaves count only the working time lost, so a leave on a
+ * - **Text-only leave.** For each leave type the engine shows on a day (v3 `ProjectInfo.leaves`, or
+ *   the person's `leaves`) that no text item of that type names on it, the leave comes from a shift
+ *   or a macro. It is listed with the engine's type, no name and no item, and says "From a shift
+ *   or macro. Edit as text." (`textOnly`), also when other text items touch the day (T16 review). The engine's person leaves count only the working time lost, so a leave on a
  *   non-working day is shown from its text item alone.
  * - **Working day.** A day with any slot of working time, or of working time lost to leave: the
  *   person's `workingTime` (null is the project's), their leave slots, or for Everyone and a group
@@ -169,23 +169,23 @@ export function prepareFacts(input: FactsInput): (day: number) => DayFacts {
 			...own.filter((x) => overlaps(x, a, b)).map((x) => entry(x, 'own')),
 			...groups.filter((g) => overlaps(g.item, a, b)).map((g) => entry(g.item, 'group', g.who)),
 		];
-		// What the engine shows with no text item behind it: a shift's or a macro's leave.
-		const named = holidays.length > 0 || leaves.length > 0;
-		if (!named) {
-			const seen = new Set<LeaveType>();
-			for (const l of engineLeaves) {
-				if (!(l.iv[1] > a && l.iv[0] < b) || seen.has(l.type)) continue;
-				seen.add(l.type);
-				const global = scope.kind === 'global';
-				const e: LeaveEntry = {
-					type: l.type,
-					name: null,
-					from: global ? 'global' : 'own',
-					who: null,
-					item: null,
-				};
-				(global ? holidays : leaves).push(e);
-			}
+		// What the engine shows with no text item behind it: a shift's or a macro's leave. It is
+		// found per type: a day can hold a text item of one type and a macro's of another (the engine
+		// keeps the stronger where they overlap), so a type the day's text items do not name is
+		// listed as text only, however many other items touch the day.
+		const named = new Set<LeaveType>([...holidays, ...leaves].map((e) => e.type));
+		for (const l of engineLeaves) {
+			if (!(l.iv[1] > a && l.iv[0] < b) || named.has(l.type)) continue;
+			named.add(l.type);
+			const global = scope.kind === 'global';
+			const e: LeaveEntry = {
+				type: l.type,
+				name: null,
+				from: global ? 'global' : 'own',
+				who: null,
+				item: null,
+			};
+			(global ? holidays : leaves).push(e);
 		}
 		const all = [...holidays, ...leaves];
 		const facts: DayFacts = {

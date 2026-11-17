@@ -480,6 +480,8 @@ export const calendarStrings = {
 		end: 'Last day',
 		remove: 'Remove',
 		removeNamed: (what: string) => `Remove ${what}`,
+		/** A change made while the last one is being read back; it is sent next. */
+		waiting: 'Waiting for the last change, then this one is sent.',
 		/** A project leave is read, not written, by the edit API. */
 		fixed: 'A project leave. Edit as text.',
 		errors: {
