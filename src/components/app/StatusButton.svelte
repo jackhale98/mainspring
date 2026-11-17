@@ -6,7 +6,8 @@
 	(ADR-0012). Its name says the state, the problem counts and the update, and what it opens.
 	Tapping it opens a popover with, in order: the plan's status (state, finish with its change,
 	the problem counts as a button that goes to the next problem, messages without a place, and on
-	a failure the reason with Try again); a prominent New version button when one is out; and the
+	a failure the reason with Try again); the "Plan health: N" row, which opens the full-height
+	Health sheet (phase-3.md 9.1); a prominent New version button when one is out; and the
 	same engine details desktop's EngineInfo shows (EngineDetails). The StatusStrip's hidden
 	"Plan status" group still speaks the runs; this is the visible half and holds the controls.
 -->
@@ -53,6 +54,12 @@
 	function openHistory(): void {
 		popover?.hidePopover();
 		app.historyOpen = true;
+	}
+
+	/** Plan health (phase-3.md 9.1): closes this card and opens the full-height Health sheet. */
+	function openHealth(): void {
+		popover?.hidePopover();
+		app.health.show();
 	}
 
 	/** Goes to the next problem (the Text tab on a phone) and closes this card. */
@@ -138,6 +145,9 @@
 				{`${strings.update.available} · ${strings.update.reload}`}
 			</button>
 		{/if}
+		<button type="button" class="row" onclick={openHealth} data-testid="open-health">
+			<span>{strings.health.cardRow(app.health.count)}</span>
+		</button>
 		<button
 			type="button"
 			class="row"

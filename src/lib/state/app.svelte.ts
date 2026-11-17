@@ -61,10 +61,12 @@ import { createHistory, type HistoryOutcome, type WorkspaceHistory } from '../wo
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import type { PickRole } from '../inspector/depends-picker';
 import { currentRange } from '../inspector/range';
-import type { SourceRange, TaskId } from '../tjp/index';
+import type { Minutes } from '../../engine/protocol';
+import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
 import { nextProblem } from './diagnostics-nav';
 import { EditDispatcher, renamedBy } from './edits.svelte';
 import { GanttFilterState } from './gantt-filter.svelte';
+import { HealthState } from './health.svelte';
 import { HistoryControls } from './history-controls.svelte';
 import { InspectorState } from './inspector.svelte';
 import { bindHistoryKeys } from './history-keys';
@@ -107,6 +109,19 @@ export interface Shell {
 	editorShown(): boolean;
 	/** Brings the editor on screen, then reveals the range in it. */
 	showInText(at: SourceRange): void;
+	/** Shows a chart view: the Gantt, the heatmap or the calendar (a phone: the tab or segment). */
+	showView?(view: 'gantt' | 'workload' | 'calendar'): void;
+}
+
+/**
+ * A request to show a person at a time in the heatmap (the health panel's "Open in Workload", a
+ * "Why here?" link to a person's cell). The heatmap takes it when it is on screen and has a model,
+ * selects the cell and opens its details, and clears it; `serial` tells one request from the next.
+ */
+export interface PeopleGoto {
+	readonly resource: ResourceId;
+	readonly at: Minutes;
+	readonly serial: number;
 }
 
 export interface AppStateOptions {
@@ -180,6 +195,11 @@ export class AppState {
 	readonly inspector = new InspectorState(this.selection);
 	/** The Gantt's filter by person and flag (gantt-filter.svelte.ts); another plan resets it. */
 	readonly ganttFilter = new GanttFilterState();
+	/** Plan health: the report, its settings and whether the panel is open (health.svelte.ts). */
+	readonly health = new HealthState();
+	/** A request to show a person at a time in the heatmap (`PeopleGoto`); null when taken. */
+	peopleGoto = $state.raw<PeopleGoto | null>(null);
+	#gotoSerial = 0;
 	/** Undo and redo for the top bar and the keys (module comment). */
 	readonly history = new HistoryControls((o, quiet) => this.#onHistory(o, quiet));
 
@@ -535,6 +555,45 @@ export class AppState {
 	}
 
 	/**
+	 * Shows `resource` at minute `at` in the Workload view: selects the person, switches the view and
+	 * asks the heatmap to select the cell and open its details (`peopleGoto`).
+	 */
+	openInWorkload(resource: ResourceId, at: Minutes): void {
+		this.selection.selectResource(resource, 'visual');
+		this.shell?.showView?.('workload');
+		this.peopleGoto = { resource, at, serial: ++this.#gotoSerial };
+	}
+
+	/**
+	 * What "Show in Gantt" does for a person's task (the heatmap's and the lanes' details, a health
+	 * finding about a person): filters the chart to the person (gantt-filter.svelte.ts) when the
+	 * filter would show the task, else drops a filter that would hide it; selects the task and shows
+	 * the Gantt. The filter line over the task table names the person. The filter's rule is
+	 * `tasksOfPerson`, a lazy chunk the Gantt fetches for the filter anyway.
+	 */
+	async showInGantt(task: TaskId, person: ResourceId | null): Promise<void> {
+		if (person !== null) {
+			let shows = false;
+			try {
+				const { tasksOfPerson } = await import('../gantt/filter');
+				shows = tasksOfPerson(this.run?.lastGood?.result ?? null, person).has(task);
+			} catch {
+				// The chunk could not be fetched: the task is shown without a filter.
+			}
+			if (shows) this.ganttFilter.showPerson(person);
+			else this.ganttFilter.clear();
+		}
+		this.selection.selectTask(task, 'visual');
+		this.shell?.showView?.('gantt');
+	}
+
+	/** Selects `task`, opens its details and asks them to show its "Why here?" (T18). */
+	showWhy(task: TaskId): void {
+		this.selection.selectTask(task, 'visual');
+		this.inspector.askWhy(task, this.selection.serial);
+	}
+
+	/**
 	 * Selects `task`, opens its details and opens the picker for a predecessor or a successor
 	 * there (polish item 11; the contract is in lib/inspector/depends-picker.ts). For the Health
 	 * panel's "Add predecessor…" and "Add successor…" fixes (`{ kind: 'pick' }`). Returns false,
@@ -747,6 +806,7 @@ export class AppState {
 	dispose(): void {
 		this.#token++;
 		this.#teardown();
+		this.health.dispose();
 		this.#offKeys();
 		this.#offEffects();
 		this.#offClient();

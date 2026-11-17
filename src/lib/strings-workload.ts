@@ -135,6 +135,9 @@ export const workloadStrings = {
 		movePerson: 'Move to person…',
 		moveWeek: 'Move to week…',
 		showInGantt: 'Show in Gantt',
+		/** Opens the explainer under the task (phase-3.md 9.3, 9.7). */
+		whyHere: 'Why here?',
+		whyFor: (task: string): string => `Why here? ${task}`,
 		moveHint: 'Alt and the arrow keys move a task: up and down by person, left and right by week.',
 		group: 'A group sums its members. Open a person to move their tasks.',
 	},

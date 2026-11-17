@@ -1,18 +1,28 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	What the scheduler made of the task (phase-2.md 9.3 "Read-only"): the engine's start and end,
-	the float, what sets the start, and whether it is critical. All of it is read from the schedule
-	the Gantt shows. The float, the critical flag and the driver are display estimates derived from
-	that result (ADR-0007), so they are labelled as such. Nothing here can be edited.
+	What the scheduler made of the task (phase-2.md 9.3 "Read-only"; phase-3.md 9.7): the engine's
+	start and end, the float, and whether it is critical, then "Why here?", which replaces Phase 2's
+	"Held by resources or calendars" line: the causes the explainer reads from the schedule, and
+	what its bar waits for inside. All of it is read from the schedule the Gantt shows. The float and
+	the critical flag are display estimates derived from that result (ADR-0007), so they are
+	labelled as such. Nothing here can be edited.
+
+	"Why here?" is a lazy chunk (health/WhyHere.svelte, with the explainer): a first load fetches
+	nothing of it, and it is fetched when a task's details first show it. A health finding's "Why
+	here?" fix asks for it (`inspector.why`): the section scrolls into view and takes the focus.
 -->
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { floatAmount } from '../../lib/gantt/describe';
 	import type { GanttModel } from '../../lib/gantt/model';
 	import { formatMinutes } from '../../lib/gantt/ticks';
 	import type { TaskDetails } from '../../lib/inspector/task';
 	import { inspectorStrings as S } from '../../lib/strings';
+	import LazyMount from '../app/LazyMount.svelte';
+	import { getInspector } from './context';
 
 	let { d, model }: { d: TaskDetails; model: GanttModel } = $props();
+	const { app } = getInspector();
 
 	const e = $derived(d.engine);
 	const cal = $derived(model.calendar);
@@ -30,15 +40,22 @@
 				? S.engine.floatNone
 				: floatAmount(e.floatMin, model),
 	);
-	const driver = $derived(
-		e.driver === null
-			? S.engine.driverNone
-			: e.driver.kind === 'dependency'
-				? S.engine.driverDependency(e.driverName ?? e.driver.pred)
-				: e.driver.kind === 'frame'
-					? S.engine.driverFrame
-					: S.engine.driverUnexplained,
-	);
+
+	// What the Gantt shows is what is explained: its result, and the index of the text.
+	const view = $derived(app.inspector.view);
+	let heading: HTMLElement | undefined = $state();
+	let failed = $state(false);
+
+	// A "Why here?" asked for by a finding (and not yet taken): scroll to the section, focus it.
+	$effect(() => {
+		const ask = app.inspector.why;
+		if (!ask || ask.task !== d.id || ask.serial !== app.selection.serial || !heading) return;
+		app.inspector.why = null;
+		void tick().then(() => {
+			heading?.scrollIntoView({ block: 'nearest' });
+			heading?.focus();
+		});
+	});
 </script>
 
 {#if !e.scheduled}
@@ -58,14 +75,23 @@
 			<dd>{float ?? S.engine.pending}</dd>
 		</div>
 		<div>
-			<dt>{S.engine.driver} {S.engine.estimate}</dt>
-			<dd>{e.floatMin === null && e.driver === null ? S.engine.pending : driver}</dd>
-		</div>
-		<div>
 			<dt>{S.engine.critical} {S.engine.estimate}</dt>
 			<dd>{e.critical === null ? S.engine.pending : e.critical ? S.engine.yes : S.engine.no}</dd>
 		</div>
 	</dl>
+	<div class="why" data-testid="why-section">
+		<h4 tabindex="-1" bind:this={heading}>{S.engine.why}</h4>
+		{#if failed}
+			<p class="none">{S.engine.whyFailed}</p>
+		{:else}
+			<LazyMount
+				when
+				load={() => import('../health/WhyHere.svelte')}
+				props={{ app, task: d.id, result: view?.result ?? null, index: app.index }}
+				onfail={() => (failed = true)}
+			/>
+		{/if}
+	</div>
 {/if}
 
 <style>
@@ -90,5 +116,20 @@
 		margin: 0;
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
+	}
+	.why {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		margin-block-start: var(--space-3);
+	}
+	h4 {
+		margin: 0;
+		font-size: var(--text-sm);
+		font-weight: 600;
+	}
+	h4:focus-visible {
+		outline: 3px solid var(--color-focus);
+		outline-offset: 2px;
 	}
 </style>

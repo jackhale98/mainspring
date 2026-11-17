@@ -10,6 +10,8 @@
 	opens the History sheet) and the status button (the plan's state as a shape; it opens the status,
 	the History row, the Appearance choice that replaces the theme toggle here, and the engine
 	details, and carries a pip when a new version is out); its tab bar replaces the mode switch.
+	A desktop and a tablet have the Health button (the finding count; phase-3.md 9.1) before the
+	engine pill: a phone's way to plan health is a row in the status button's card.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -18,6 +20,7 @@
 	import type { ViewMode } from '../../lib/state/view-mode';
 	import type { AppUpdates } from '../../lib/state/updates.svelte';
 	import { strings } from '../../lib/strings';
+	import HealthButton from '../health/HealthButton.svelte';
 	import Icon from '../Icon.svelte';
 	import EngineStatus from './EngineStatus.svelte';
 	import LazyMount from './LazyMount.svelte';
@@ -99,6 +102,7 @@
 			<Icon name="sliders" size={17} />
 			<span class="sr-only">{strings.inspector.projectSettings}</span>
 		</button>
+		<HealthButton {app} />
 		<EngineStatus state={app.engine} adaptive />
 		<ThemeToggle {theme} />
 	{/if}

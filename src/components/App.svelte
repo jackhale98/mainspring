@@ -44,6 +44,7 @@
 	import { canAddSubtask, type AddMode } from '../lib/gantt/add-task';
 	import { ganttActionStrings, strings } from '../lib/strings';
 	import LazyMount from './app/LazyMount.svelte';
+	import HealthLive from './health/HealthLive.svelte';
 	import { addTaskFlow, headerAfter } from './gantt/add-task-flow';
 	import Gantt from './gantt/Gantt.svelte';
 	import PeopleSlot from './people/PeopleSlot.svelte';
@@ -88,6 +89,7 @@
 	app.shell = {
 		editorShown: () => showEditor,
 		showInText: (at) => showInText(at),
+		showView: (view) => showView(view),
 	};
 
 	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
@@ -104,6 +106,7 @@
 			Object.assign(planViews.tasks, newOutlineView());
 			Object.assign(planViews.resources, newOutlineView());
 			modes.use(id);
+			app.health.use(id);
 			// A new plan opens on the Gantt, whatever the shared `new` key holds (ADR-0013).
 			people.use(id, id === NEW_PLAN_ID);
 			// A phone starts on the tab of the remembered mode.
@@ -111,6 +114,14 @@
 			// A new plan opens on the Gantt tab: its Add task is how the plan begins (ADR-0013).
 			else if (id === NEW_PLAN_ID) app.phoneTab = 'gantt';
 		});
+	});
+
+	// Plan health reads the newest good result and the index of its text; the report is made in an
+	// idle task and the checks are a chunk of their own (health.svelte.ts).
+	$effect(() => {
+		const result = app.run?.lastGood?.result ?? null;
+		const index = app.index;
+		untrack(() => app.health.offer(result, index));
 	});
 
 	const kind = $derived(layout.kind);
@@ -308,6 +319,23 @@
 		});
 	});
 
+	/**
+	 * A view asked for by another one (a finding's "Open in Workload", "Show in Gantt"): the Gantt,
+	 * the heatmap or the calendar, on the phone's tab and segment or in the chart panel's switcher.
+	 */
+	function showView(view: 'gantt' | 'workload' | 'calendar'): void {
+		if (phone) {
+			if (view === 'gantt') app.phoneTab = 'gantt';
+			else {
+				app.phoneTab = 'people';
+				people.setSegment(view === 'workload' ? 'load' : 'calendar');
+			}
+			return;
+		}
+		if (mode === 'text') modes.set('split');
+		people.setView(view);
+	}
+
 	/** The empty state's "write them in Text": the editor on screen (a phone's Text tab). */
 	function openText(): void {
 		modes.set('text');
@@ -487,6 +515,19 @@
 		>
 			<OutlinePanel {app} showTitle={false} />
 		</Sheet>
+	{/if}
+	<HealthLive {app} />
+	{#if kind !== 'desktop'}
+		<!-- A tablet's bottom sheet and a phone's full-height one (phase-3.md 9.1); a desktop has the tab. -->
+		<LazyMount
+			when={app.health.open}
+			load={() => import('./health/HealthSheet.svelte')}
+			props={{ app, phone }}
+			onfail={() => {
+				app.health.hide();
+				app.edits?.say(strings.health.loadFailed, true);
+			}}
+		/>
 	{/if}
 	<LazyMount when={app.docsOpen} load={() => import('./DocsSheet.svelte')} props={{ app }} />
 	<LazyMount
