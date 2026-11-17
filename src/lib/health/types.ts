@@ -15,8 +15,9 @@
  *   are disabled with the reason.
  * - **Fixes** go through the edit dispatcher (`intent`) or open a place in the UI. A fix never
  *   edits the text by itself.
- * - **Sentences** live in strings-health.ts (`healthStrings`), keyed by check. Settings are UI preferences
- *   per plan (ADR-0008 #3), kept by settings.ts.
+ * - **Sentences** live in strings-health-panel.ts (`healthStrings`), keyed by check; the few words the
+ *   checks write themselves are strings-health.ts. Settings are UI preferences per plan (ADR-0008 #3),
+ *   kept by settings.ts.
  */
 // T2: `Finding.facts` and `Fix.disabled` are the main session's ruling at the T2 review
 // (2026-11-14): 6.4's `Finding` had no data for its sentence, and section 12 disables the fixes of

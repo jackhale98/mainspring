@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
-import { findings, openHealth, openPlan } from './lib/health-rig';
+import { openHealth, openPlan, rowOf } from './lib/health-rig';
 import { openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
 
 const DIR = path.join(process.cwd(), 'docs/phases/screenshots/phase-3');
@@ -60,7 +60,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		await panel.getByTestId('severity-all').click();
 
 		// The gap editor of one finding, scrolled to the top of the panel's viewport.
-		const gap = findings(panel, 'long-gap', WIKI);
+		const gap = await rowOf(panel, 'long-gap', WIKI);
 		await gap.scrollIntoViewIfNeeded();
 		await gap.locator('[data-fix="setDependsGap"]').click();
 		await shot('health-gap-editor');
@@ -183,7 +183,7 @@ test('a finding about a person: Show in Gantt (desktop and phone, light)', async
 	const shot = shooter(page, info, 'light');
 	await openPlan(page, info, 'light');
 	const panel = await openHealth(page, info);
-	const row = findings(panel, 'work-without-people', LICENSE);
+	const row = await rowOf(panel, 'work-without-people', LICENSE);
 	await row.scrollIntoViewIfNeeded();
 	await shot('finding-person');
 	await row.locator('[data-fix="show-in-gantt"]').click();

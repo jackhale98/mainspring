@@ -26,6 +26,7 @@ import {
 	openPlan,
 	panelOf,
 	phoneOf,
+	sizes,
 	storedSettings,
 } from './lib/health-rig';
 
@@ -69,8 +70,18 @@ test.describe('the findings', () => {
 				continue;
 			}
 			await expect(heading(panel, `${H.check[check]}, ${n}`)).toHaveCount(1);
-			await expect(findings(panel, check)).toHaveCount(n);
 		}
+		// Each list says how many findings it has, though it mounts only the rows near the view.
+		await expect
+			.poll(() => sizes(panel))
+			.toEqual(
+				Object.fromEntries(
+					CHECK_IDS.filter((c) => want.counts[c] > 0).map((c) => [c, want.counts[c]]),
+				),
+			);
+		const mounted = await findings(panel, 'work-without-people').count();
+		expect(mounted).toBeGreaterThan(0);
+		expect(mounted).toBeLessThan(want.counts['work-without-people']);
 		// Every finding has a sentence, and a severity word for a screen reader.
 		const first = findings(panel, 'no-predecessor').first();
 		await expect(first).toContainText('Nothing comes before it');
@@ -87,16 +98,30 @@ test.describe('the findings', () => {
 
 		await panel.getByTestId('severity-info').click();
 		await expect(panel.getByTestId('severity-info')).toHaveAttribute('aria-checked', 'true');
-		await expect(panel.getByTestId('finding')).toHaveCount(notes);
 		await expect(panel.getByRole('heading', { level: 3 })).toHaveText([
 			`Hard constraint, ${want.counts['hard-constraint']}`,
 			`Long task, ${want.counts['long-task']}`,
 		]);
+		await expect
+			.poll(async () => Object.values(await sizes(panel)).reduce((a, b) => a + b, 0))
+			.toBe(notes);
 		await panel.getByTestId('severity-warning').click();
-		await expect(panel.getByTestId('finding')).toHaveCount(warnings);
+		await expect
+			.poll(async () => Object.values(await sizes(panel)).reduce((a, b) => a + b, 0))
+			.toBe(warnings);
 		await expect(heading(panel, `Hard constraint, 7`)).toHaveCount(0);
 		await panel.getByTestId('severity-all').click();
-		await expect(panel.getByTestId('finding')).toHaveCount(241);
+		await expect
+			.poll(async () => Object.values(await sizes(panel)).reduce((a, b) => a + b, 0))
+			.toBe(241);
+		// The filter is a radio group with a roving tab stop: the arrows move and choose.
+		await panel.getByTestId('severity-all').focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(panel.getByTestId('severity-warning')).toBeFocused();
+		await expect(panel.getByTestId('severity-warning')).toHaveAttribute('aria-checked', 'true');
+		await expect(panel.getByTestId('severity-all')).toHaveAttribute('tabindex', '-1');
+		await page.keyboard.press('Home');
+		await expect(panel.getByTestId('severity-all')).toHaveAttribute('aria-checked', 'true');
 	});
 });
 
@@ -244,6 +269,58 @@ test.describe('the keyboard path', () => {
 		await page.keyboard.press('Escape');
 		await expect(button).toHaveAttribute('aria-expanded', 'false');
 		await expect(button).toBeFocused();
+	});
+});
+
+test.describe('the details take the focus', () => {
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(phoneOf(info), 'the desktop tab (a phone has a separate sheet)');
+	});
+
+	test('Add task with the Health tab showing leaves it for the details, with the name focused', async ({
+		page,
+	}, info) => {
+		await openPlan(page, info);
+		const panel = await openHealth(page, info);
+		await expect(panel).toBeVisible();
+		await page.getByRole('button', { name: 'Add task' }).first().click();
+		const details = page.getByRole('complementary', { name: 'Details' });
+		await expect(details).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(details.getByLabel('Name', { exact: true })).toBeFocused();
+		await expect(page.getByTestId('health-button')).toHaveAttribute('aria-expanded', 'false');
+	});
+});
+
+test.describe('a windowed list', () => {
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(phoneOf(info), 'a keyboard (desktop)');
+	});
+
+	test('Tab walks on through rows that are mounted as the focus reaches them', async ({
+		page,
+	}, info) => {
+		await openPlan(page, info);
+		const panel = await openHealth(page, info);
+		await panel.locator('[data-group="no-predecessor"] h3').scrollIntoViewIfNeeded();
+		const first = findings(panel, 'no-predecessor').first().locator('button').first();
+		await first.focus();
+		let far = 0;
+		for (let i = 0; i < 90; i++) {
+			await page.keyboard.press('Tab');
+			far = Math.max(
+				far,
+				await page.evaluate(() =>
+					Number(
+						document.activeElement?.closest('li[aria-posinset]')?.getAttribute('aria-posinset') ??
+							0,
+					),
+				),
+			);
+		}
+		// Past the rows that were mounted when it began: the window followed the focus.
+		expect(far).toBeGreaterThan(14);
+		// And the list never mounted the whole group.
+		expect(await findings(panel, 'no-predecessor').count()).toBeLessThan(26);
 	});
 });
 

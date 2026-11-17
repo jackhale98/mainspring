@@ -226,6 +226,9 @@ export const whyStrings = {
 		holiday: 'holiday',
 		unemployed: 'unemployed leave',
 	},
+	/** "64 h" and "2 other tasks". */
+	hours: (h: number): string => `${h} h`,
+	otherTasks: (n: number): string => `${n} other task${n === 1 ? '' : 's'}`,
 	/** The links of a cause. */
 	link: {
 		task: (name: string): string => `Select ${name}`,

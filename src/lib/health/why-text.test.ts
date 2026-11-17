@@ -7,6 +7,9 @@ import { describe, expect, it } from 'vitest';
 import { explainTask } from '../schedule/explain-task';
 import { goldenContext } from '../schedule/explain-testing';
 import type { Placement } from '../schedule/explain-types';
+import { at, plan } from '../schedule/testing';
+import { resourceResult, withPeople } from '../workload/testing';
+import { inlineContext } from '../schedule/explain-testing';
 import { whyText, windowText } from './why-text';
 
 const LOCALE = 'en-GB';
@@ -154,5 +157,56 @@ describe('windowText', () => {
 		expect(windowText([540, 1020], p, LOCALE)).toBe('Mon 5 Jan');
 		// To the end of Friday 9 Jan: the window's last day is Friday, not Saturday.
 		expect(windowText([0, 5 * 1440], p, LOCALE)).toBe('Mon 5 Jan to Fri 9 Jan');
+	});
+});
+
+describe('who a limits statement is written on (the innermost block)', () => {
+	const TEXT = `project p "P" 2026-01-05 - 2026-03-02 {
+}
+resource team "Team" {
+  resource dev "Dev" {
+    limits { dailymax 4h }
+  }
+}
+task a "Outer" {
+  task b "Inner" {
+    limits { dailymax 2h }
+  }
+}
+`;
+	const result = withPeople(
+		plan([
+			['a', { start: at(0, 9), end: at(1, 17) }],
+			['a.b', { start: at(0, 9), end: at(1, 17) }],
+		]),
+		[resourceResult('team', { group: true }), resourceResult('dev', { parent: 'team' })],
+		[],
+	);
+	const ctx = inlineContext(result, TEXT);
+	const site = (needle: string) => {
+		const from = TEXT.indexOf(needle);
+		return { file: 'plan.tjp', from, to: from + needle.length };
+	};
+	const said = (task: string, needle: string): string | undefined => {
+		const p = {
+			task,
+			anchor: 'start' as const,
+			bound: 0,
+			at: 0,
+			causes: [{ kind: 'limit' as const, site: site(needle) }],
+			inside: [],
+		};
+		return whyText(p, ctx, LOCALE).causes[0]?.text;
+	};
+
+	it('a task nested in a task: this task, not its container', () => {
+		expect(said('a.b', 'limits { dailymax 2h }')).toBe(
+			'A “limits” statement on this task may hold it.',
+		);
+		expect(said('a', 'limits { dailymax 2h }')).toBe('A “limits” statement on Inner may hold it.');
+	});
+
+	it('a person nested in a group: the person, not the group', () => {
+		expect(said('a.b', 'limits { dailymax 4h }')).toBe('A “limits” statement on Dev may hold it.');
 	});
 });

@@ -118,9 +118,19 @@
 
 	// Plan health reads the newest good result and the index of its text; the report is made in an
 	// idle task and the checks are a chunk of their own (health.svelte.ts).
+	// The pair is the result and the index of the text it was made from: while the text has moved on
+	// (a key typed, a newer run not back yet) the report stays the last one that matched, so a fix is
+	// never made from a result and an index that disagree.
 	$effect(() => {
-		const result = app.run?.lastGood?.result ?? null;
-		const index = app.index;
+		const run = app.run;
+		const good = run?.lastGood ?? null;
+		if (run === null || good === null) {
+			untrack(() => app.health.offer(null, null));
+			return;
+		}
+		if (run.indexVersion !== good.workspaceVersion) return;
+		const { result } = good;
+		const { index } = run;
 		untrack(() => app.health.offer(result, index));
 	});
 

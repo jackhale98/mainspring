@@ -11,6 +11,10 @@
 	report, "Nothing to check yet." with no tasks, a note that the findings are from the last good
 	schedule while a newer one is made, and "Try again" when the checks could not be loaded.
 	Escape closes the panel (the settings page first) and returns the focus to the Health button.
+
+	Over 400 lines on purpose: the panel is one piece: its states, its filters, the jump buttons, the
+	doors a fix and a row's task button go through, and the keyboard rules share the same state; the
+	rows (FindingRow, FindingGroup), the settings page and the logic (lib/health) are apart.
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
@@ -28,7 +32,7 @@
 	import { strings } from '../../lib/strings';
 	import { healthStrings as H } from '../../lib/strings-health-panel';
 	import Icon from '../Icon.svelte';
-	import FindingRow from './FindingRow.svelte';
+	import FindingGroup from './FindingGroup.svelte';
 	import HealthSettingsForm from './HealthSettingsForm.svelte';
 
 	interface Props {
@@ -115,8 +119,8 @@
 
 	async function selectTask(task: string): Promise<void> {
 		await env.leave('details');
-		app.selection.selectTask(task, 'visual');
-		app.shell?.showView?.('gantt');
+		// The chart shows it: a filter that would hide the task is dropped (app.showInGantt).
+		await app.showInGantt(task, null);
 		// A sheet layout shows what was picked: the details, as a tap on the row does.
 		if (sheet) app.inspector.show();
 	}
@@ -142,6 +146,28 @@
 		}
 		health.hide();
 		if (!sheet) document.querySelector<HTMLElement>('[data-testid="health-button"]')?.focus();
+	}
+
+	/** The radio group's arrows (Left, Up, Right, Down, Home, End) move and choose, as native radios do. */
+	function filterKey(e: KeyboardEvent): void {
+		const order: SeverityFilter[] = ['all', ...shownSeverities];
+		const at = order.indexOf(health.severity);
+		const next =
+			e.key === 'ArrowRight' || e.key === 'ArrowDown'
+				? (at + 1) % order.length
+				: e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+					? (at - 1 + order.length) % order.length
+					: e.key === 'Home'
+						? 0
+						: e.key === 'End'
+							? order.length - 1
+							: -1;
+		if (next < 0 || e.ctrlKey || e.metaKey || e.altKey) return;
+		e.preventDefault();
+		health.severity = order[next] ?? 'all';
+		void tick().then(() =>
+			root?.querySelector<HTMLElement>(`[data-testid="severity-${health.severity}"]`)?.focus(),
+		);
 	}
 
 	const filterLabel = (f: SeverityFilter): string =>
@@ -199,13 +225,15 @@
 				>
 			{/if}
 		{:else if !noTasks && report.findings.length > 0 && text}
-			<div class="filters" role="radiogroup" aria-label={P.severity}>
+			<!-- svelte-ignore a11y_interactive_supports_focus -->
+			<div class="filters" role="radiogroup" aria-label={P.severity} onkeydown={filterKey}>
 				{#each ['all', ...shownSeverities] as f (f)}
 					{@const s = f as SeverityFilter}
 					<button
 						type="button"
 						role="radio"
 						aria-checked={health.severity === s}
+						tabindex={health.severity === s ? 0 : -1}
 						class="chip"
 						data-testid="severity-{s}"
 						onclick={() => (health.severity = s)}
@@ -230,21 +258,15 @@
 			{#each groups as g (g.check)}
 				<section class="group" data-group={g.check} aria-labelledby="{uid}-{g.check}">
 					<h3 id="{uid}-{g.check}" tabindex="-1">{P.group(H.check[g.check], g.findings.length)}</h3>
-					<ul class="findings">
-						{#each g.findings as finding, i (`${g.check}-${i}`)}
-							<FindingRow
-								{finding}
-								{text}
-								{env}
-								{people}
-								current={selected !== null &&
-									finding.subject.kind === 'task' &&
-									finding.subject.id === selected}
-								onselect={selectTask}
-								onshowgantt={showGantt}
-							/>
-						{/each}
-					</ul>
+					<FindingGroup
+						findings={g.findings}
+						{text}
+						{env}
+						{people}
+						{selected}
+						onselect={selectTask}
+						onshowgantt={showGantt}
+					/>
 				</section>
 			{/each}
 		{/if}
@@ -257,7 +279,7 @@
 		flex-direction: column;
 		gap: var(--space-3);
 	}
-	.health.dimmed .findings {
+	.health.dimmed :global(.findings) {
 		opacity: 0.7;
 	}
 	header {
@@ -383,14 +405,6 @@
 		margin: 0;
 		font-size: var(--text-sm);
 		font-weight: 600;
-	}
-	.findings {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		margin: 0;
-		padding: 0;
-		list-style: none;
 	}
 	@media (pointer: coarse) {
 		.chip,

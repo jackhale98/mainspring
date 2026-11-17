@@ -55,7 +55,7 @@ export const CHUNK_CAPS = [
 	// here?" are fetched when first asked for, and not by a first load; `text` is the findings'
 	// sentences (lib/health/text.ts with the panel's copy). Not a People chunk: the Gantt's details
 	// fetch them as well.
-	{ name: 'health', pattern: /^(HealthPanel|HealthSheet|WhyHere|text)\./, cap: 14_200 },
+	{ name: 'health', pattern: /^(HealthPanel|HealthSheet|WhyHere|text)\./, cap: 16_700 },
 	// The checks and the explainer's context (lib/health/compute.ts). A first load fetches them in
 	// an idle task after the first result: the Health button's count is made from them. What they
 	// import (demand, analysis, ...) is counted in the first load.

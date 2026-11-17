@@ -15,6 +15,7 @@ import {
 	changedLines,
 	expected,
 	findings,
+	rowOf,
 	openHealth,
 	openPlan,
 	settled,
@@ -56,7 +57,7 @@ test('every fix kind makes an exact patch that Undo takes back', async ({ page }
 	const fix = (row: Locator, kind: string) => row.locator(`[data-fix="${kind}"]`);
 
 	// --- H3 "Remove start (date)": the date goes, the comment after it stays.
-	const h3 = findings(panel, 'hard-constraint', NAMING);
+	const h3 = await rowOf(panel, 'hard-constraint', NAMING);
 	await expect(h3).toHaveCount(1);
 	await expect(h3).toContainText('Its start is fixed');
 	await expect(fix(h3, 'removeAttr')).toHaveText(/^Remove start \(.*2013\)$/);
@@ -72,6 +73,7 @@ test('every fix kind makes an exact patch that Undo takes back', async ({ page }
 	});
 
 	// --- H5 "Convert gap to task": a waiting task takes the gap, as one edit.
+	await rowOf(panel, 'long-gap', WIKI);
 	const gap = () => findings(panel, 'long-gap', WIKI);
 	await expect(gap()).toHaveCount(1);
 	await expect(gap()).toContainText('Waits 25 working days after Start Feature Submission');
@@ -116,7 +118,7 @@ test('every fix kind makes an exact patch that Undo takes back', async ({ page }
 	await undone(page, info, start);
 
 	// --- H8 "Replace Desktop 01…": the chip's own edit, to a person chosen from the list.
-	const h8 = findings(panel, 'work-without-people', LICENSE);
+	const h8 = await rowOf(panel, 'work-without-people', LICENSE);
 	await expect(h8).toHaveCount(1);
 	await expect(h8).toContainText('Runs without Desktop 01 for 56 hours');
 	const choose = h8.locator('select[data-fix="replace-person"]');
@@ -130,7 +132,7 @@ test('every fix kind makes an exact patch that Undo takes back', async ({ page }
 
 	// --- H1 "Add predecessor…": the details open on the dependency picker; choosing a task is one
 	// `addDepends`; and the way back is the same Undo.
-	const h1 = findings(panel, 'no-predecessor', DESIGN);
+	const h1 = await rowOf(panel, 'no-predecessor', DESIGN);
 	await expect(h1).toHaveCount(1);
 	await fix(h1, 'pick').click();
 	const picker = page.getByTestId('depends-picker');
@@ -155,7 +157,7 @@ test('a fix whose text is written with a macro is disabled, and says why', async
 	await openPlan(page, info);
 	const panel = await openHealth(page, info);
 	// Fedora's root has `start ${start_work}`: the constraint is reported, and cannot be removed here.
-	const root = findings(panel, 'hard-constraint', 'f20');
+	const root = await rowOf(panel, 'hard-constraint', 'f20');
 	await expect(root).toHaveCount(1);
 	await expect(root).toContainText('applies to 273 tasks');
 	await expect(root.locator('[data-fix="removeAttr"]')).toBeDisabled();

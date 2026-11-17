@@ -35,6 +35,13 @@ export default defineConfig({
 					// panel, "Why here?") all use: cut out one by one they cost the first load about 5 KB
 					// gzip. `health-checks` is the chunk the first load fetches in an idle task after the
 					// first result, for the Health button's count: the checks, the demand and what they read.
+					// Careful, as for shared-ui: a group pulls in what its listed modules import, and a module it
+					// holds joins the first load (core-shared is fetched with it, health-checks after the first
+					// result). List a module in core-shared only if the first load already uses it; a module
+					// only a lazy view uses, listed there or imported by a listed one, would join the first load.
+					// Keep a lazy-only module out of both: `core-shared` is in the first load's static graph, and
+					// the first-load sizes in js-sizes.mjs (a Gantt-first load must not fetch a People view chunk)
+					// catch a mistake.
 					codeSplitting: {
 						groups: [
 							{

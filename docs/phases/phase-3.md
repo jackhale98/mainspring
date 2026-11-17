@@ -979,9 +979,9 @@ Where the built T18 settles what 9.1, 9.2, 9.3, 9.7, 10 and the bundle rules (8.
    - The checks, the demand and what they read are one lazy chunk, `health-checks` (a `codeSplitting` group in `astro.config.mjs`, with `lib/health/compute.ts` as its entry). `HealthState` imports it in a `whenIdle` task after the first good result, so nothing before the first paint or the first result waits for it.
    - **Before the first result** a first load holds only the state, the button, the tabs, the live region and a few strings (`strings.health`): +3.2 KB gzip over the branch head without T18 (310,468 to 313,703 Visual-first).
    - **The idle chunk** is 10,649 B. It is not the explainer UI: `explainTask` moved to `schedule/explain-task.ts`, and `placementOf` to `health/why.ts`, which only "Why here?" imports. What stays is what H7 and H8 need to count held and unmet work: `demandOf`, which calls the explainer's `waitOf` (`explain.ts`, `explain-prep.ts`, `explain-window.ts`, `explain-text.ts`), the people's availability, and the checks. `checkPlan` alone cannot give the count: H8 is 77 of the 241 findings, and its input is the demand.
-   - **Measured, gzip:** Visual-first 310,468 to 324,352 (cap 330,000) and Text-first 421,907 to 435,774 (cap 440,000), the idle chunk included. The whole app is 582,656 of 650,000.
+   - **Measured, gzip:** Visual-first 310,468 to 324,654 (cap 330,000) and Text-first 421,907 to 436,076 (cap 440,000; both figures after the review fixes and the merge of the full-view calendar, whose own growth is in them), the idle chunk included. The whole app is 584,572 of 650,000.
    - **A second group, `core-shared`,** keeps the modules that the first load and the lazy health chunks share (the Gantt's analysis, the date and ticks helpers, `tjp/values`, the details' task facts) in one chunk. Cut out one by one by the bundler they cost the first load about 5 KB; the group keeps them as they were.
-   - **Lazy and fetched when first asked for:** the panel group (`HealthPanel`, `HealthSheet`, `WhyHere`, `text`: 11,821 B, cap 14,200). Both new `CHUNK_CAPS` entries are `health` and `health-checks` (10,649 B, cap 13,300).
+   - **Lazy and fetched when first asked for:** the panel group (`HealthPanel`, `HealthSheet`, `WhyHere`, `text`: 13,376 B with the windowed list, cap 16,700). Both new `CHUNK_CAPS` entries are `health` and `health-checks` (10,649 B, cap 13,300).
    - `viewChunkSet` leaves out what `health-checks` and `WhyHere` reach: the heatmap's cell details and the first load both fetch them, so they are not People chunks (test in `tests/scripts/js-sizes.test.ts`).
    - If the headroom matters more than a count in the first seconds, `HealthState`'s `schedule` option takes a later task: nothing else changes.
 4. **Copy (CLAUDE.md strings rule).** `healthStrings` left `strings.ts`.
@@ -1020,6 +1020,21 @@ Where the built T18 settles what 9.1, 9.2, 9.3, 9.7, 10 and the bundle rules (8.
     - The Health tab closes when another plan opens.
 12. **New findings (10).** A visually hidden polite region (`HealthLive`) says "N new problems", once per result, from the keys of the findings (`findingKey`), not for a plan's first report and not for a settings change.
 13. **Measured.** `checkPlan` on fedora-res takes 17.4 ms in the browser (the `mainspring:health-check` measure, which does not include the context and the demand, made once per result). The demand is computed a second time when the heatmap is also open, since `HeatState` keeps its own cache (8 to 21 ms, once per result): sharing it is a small change left for the backlog.
+14. **The findings list is windowed (8.2).** Mounted whole, 402 findings (fedora-res with milestones on) took 905 ms to open on a Pixel 7 emulation at 4x CPU (8,674 nodes, long tasks of 618 and 75 ms). Each check's list is now `FindingGroup`: only the rows near what the scroller shows are mounted, with spacers of the height of the rest (`lib/health/window.ts`: measured heights, the average for rows not measured yet, an overscan of 6 each side). The same open takes 285 ms with 44 rows and 1,917 nodes, the longest task 137 ms (page, sheet and chunk fetch included). Access: rows say `aria-posinset` and `aria-setsize` (the spacers are hidden), the row that has the focus and the 6 after it stay mounted so Tab and Shift+Tab always find a row, the headings and the "jump to a check" buttons are outside the windows, and rows are keyed by `findingKey`, so an open gap editor stays with its finding after a reschedule.
+15. **Review fixes.**
+    - A `limits` cause names the innermost block that holds the statement ("on this task", "on Dev"), not the outermost.
+    - A request for the details' focus (Enter on a row, Add task) shows the Details tab first (`app.health.hide()`).
+    - `app.showInGantt(task, null)` drops an active filter that would hide the task, and the panel's task button and a "Why here?" link to a task use it.
+    - Settings changed before the first report are stored (the checks' chunk is fetched for it), and the settings page reads what is stored when it opens.
+    - The report is made from the result and the index of the text it was made from (`run.indexVersion` equal to `lastGood.workspaceVersion`): while they differ it stays the last one that matched.
+    - Collapsing the panel, or Escape on the drawer, closes the Health tab, so one press of the button opens it again; `aria-haspopup` is only on a tablet's button, and a desktop's has `aria-controls`.
+    - The English in `why-text.ts` is in the strings module, and the lists are joined with `Intl.ListFormat`.
+    - The severity filter has a roving tab stop and arrow keys.
+    - `showGantt` is gone from Workload and Lanes.
+
+**Backlog (found in the T18 review):**
+- H5's "Convert gap to task" makes a 25-day task, which H6 then reports as a long task: the count stays the same and the panel says "1 new problem". Suggest that H6 leaves out the waiting tasks the fix makes (they could carry a flag or a recognisable name, `Wait after <task>`); the change is left for later.
+- "Show in Gantt" selects the task and filters the chart, but does not scroll the chart sideways to its bar: the Gantt's reveal is vertical for the row. A horizontal reveal belongs in the Gantt's own scroll code (`Gantt.svelte`, the selection effect) and is more than a small change there.
 
 **Left (items, not T18's):**
 - iPhone 14 (WebKit) was not run here; the specs skip it, as T14 to T17 do.

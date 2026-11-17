@@ -128,6 +128,32 @@ describe('HealthState with the real checks', () => {
 	});
 });
 
+describe('HealthState settings before the first report', () => {
+	it('a change made before any report is stored, and a panel reads what is stored', async () => {
+		const storage = memory();
+		storage.map.set('mainspring.health.p', '{"longGapDays":9}');
+		const s = new HealthState({ storage, load: async () => compute, schedule: manual().schedule });
+		s.use('p');
+		expect(s.settings).toBeNull();
+		// The settings page opens before a report: it reads what is kept, not the defaults over it.
+		s.ensureSettings();
+		await settle();
+		expect(s.settings?.longGapDays).toBe(9);
+		// A change made while no report exists is kept too.
+		const other = memory();
+		const t = new HealthState({
+			storage: other,
+			load: async () => compute,
+			schedule: manual().schedule,
+		});
+		t.use('q');
+		t.setSettings({ ...defaultHealthSettings(), longTaskDays: 30 });
+		await settle();
+		expect(t.settings?.longTaskDays).toBe(30);
+		expect(JSON.parse(other.map.get('mainspring.health.q') ?? '{}')).toEqual({ longTaskDays: 30 });
+	});
+});
+
 describe('HealthState with scripted reports', () => {
 	const finding = (id: string): Finding => ({
 		check: 'no-predecessor',

@@ -127,9 +127,31 @@ export class HealthState {
 	setSettings(next: HealthSettings): void {
 		this.settings = next;
 		const plan = this.#plan;
-		if (plan !== '')
-			void this.#compute?.then((c) => c.writeHealthSettings(this.#storage, plan, next));
+		// Written by the checks' chunk, fetched now if no report has asked for it yet: a change made
+		// before the first report is kept like any other.
+		if (plan !== '') {
+			void (this.#compute ??= this.#load()).then(
+				(c) => c.writeHealthSettings(this.#storage, plan, next),
+				() => (this.#compute = null),
+			);
+		}
 		if (this.#input) void this.#make(false);
+	}
+
+	/**
+	 * Reads the stored settings of the plan if a panel needs them before any report has (the chunk
+	 * that holds their parser is fetched for it): the settings page then shows what is kept, and not
+	 * the defaults over it.
+	 */
+	ensureSettings(): void {
+		if (this.settings !== null) return;
+		const plan = this.#plan;
+		void (this.#compute ??= this.#load()).then(
+			(c) => {
+				if (this.#plan === plan) this.settings ??= c.readHealthSettings(this.#storage, plan);
+			},
+			() => (this.#compute = null),
+		);
 	}
 
 	/** Tries the chunk again after a failed fetch. */

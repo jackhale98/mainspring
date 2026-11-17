@@ -75,12 +75,19 @@ describe('Show in Gantt for a person', () => {
 		expect(a.selection.current).toMatchObject({ kind: 'task', id: 'b' });
 	});
 
-	it('a task with no person (a group cell) is selected and the filter is left alone', async () => {
+	it('a task with no person (a group cell): a filter that shows it stays, one that hides it goes', async () => {
 		const { a, views } = await open();
 		a.ganttFilter.showPerson('ops');
 		await a.showInGantt('b', null);
 		expect(a.ganttFilter.person).toBe('ops');
 		expect(views).toEqual(['gantt']);
+		// Alpha is Dev's: the filter on Ops would hide it, so it is dropped for the selection to show.
+		await a.showInGantt('a', null);
+		expect(a.ganttFilter.active).toBe(false);
+		expect(a.selection.current).toMatchObject({ kind: 'task', id: 'a' });
+		// No filter: nothing to drop.
+		await a.showInGantt('a', null);
+		expect(a.ganttFilter.active).toBe(false);
 	});
 });
 

@@ -71,8 +71,6 @@
 		active: boolean;
 		/** Puts this view's toolbar in the People bar (a desktop and a tablet). */
 		setBar: (bar: Snippet | null) => void;
-		/** Goes to the Gantt. */
-		showGantt: () => void;
 	}
 	let { app, phone, active, setBar }: Props = $props();
 

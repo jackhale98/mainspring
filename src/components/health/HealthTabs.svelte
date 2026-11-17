@@ -2,7 +2,8 @@
 <!--
 	The right panel's two tabs, Details and Health (phase-3.md 9.2). A tab list with the arrow keys
 	(Left, Right, Home, End move and select), as the ARIA pattern says; the panel under it is the
-	owner's. Health's tab carries the number of findings, which its name speaks too.
+	owner's. Health's tab shows the number of findings as a badge, hidden from assistive
+	technology: the Health button's name and the panel's summary say it in words.
 -->
 <script lang="ts">
 	import { tick } from 'svelte';

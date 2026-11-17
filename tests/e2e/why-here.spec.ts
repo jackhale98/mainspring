@@ -17,7 +17,7 @@ import { whyText } from '../../src/lib/health/why-text';
 import { explainTask } from '../../src/lib/schedule/explain-task';
 import { goldenContext } from '../../src/lib/schedule/explain-testing';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
-import { findings, openHealth, openPlan, selectionOf, TAGS } from './lib/health-rig';
+import { expected, openHealth, openPlan, rowOf, selectionOf, TAGS } from './lib/health-rig';
 import { oracle, openHeatmap, resultOf, shape } from './lib/workload-rig';
 
 test.beforeEach(({ browserName: _b }, info) => {
@@ -136,7 +136,7 @@ test.describe('in the task details', () => {
 	}, info) => {
 		await openPlan(page, info);
 		const panel = await openHealth(page, info);
-		await findings(panel, 'hard-constraint', NAMING).locator('[data-fix="why"]').click();
+		await (await rowOf(panel, 'hard-constraint', NAMING)).locator('[data-fix="why"]').click();
 		const open = details(page, info);
 		await expect(open.getByTestId('why-here')).toBeVisible();
 		await expect(open.getByRole('heading', { name: 'Why here?' })).toBeFocused();
@@ -279,7 +279,7 @@ test.describe('from a finding about a person', () => {
 	test('"Show in Gantt" filters the chart to the person', async ({ page }, info) => {
 		await openPlan(page, info);
 		const panel = await openHealth(page, info);
-		const row = findings(panel, 'work-without-people', LICENSE);
+		const row = await rowOf(panel, 'work-without-people', LICENSE);
 		await expect(row).toContainText('Runs without Desktop 01');
 		await row.locator('[data-fix="show-in-gantt"]').click();
 		await expect(page.getByTestId('filter-note')).toContainText('Desktop 01', {
@@ -290,10 +290,47 @@ test.describe('from a finding about a person', () => {
 		if (isTouch(info)) await expect(panel).toHaveCount(0);
 	});
 
+	test("a finding's task, which the filter would hide, drops the filter and is selected", async ({
+		page,
+	}, info) => {
+		await openPlan(page, info);
+		let panel = await openHealth(page, info);
+		await (
+			await rowOf(panel, 'work-without-people', LICENSE)
+		)
+			.locator('[data-fix="show-in-gantt"]')
+			.click();
+		await expect(page.getByTestId('filter-note')).toContainText('Desktop 01', { timeout: 30_000 });
+		// Another task of the plan, which Desktop 01 is not on (not allocated, not booked, and not the
+		// first candidate of an allocate), found from the golden: its button in the panel.
+		const sc = ctx.scenario;
+		const booked = new Set(
+			ctx.result.bookings
+				.filter((b) => b.resource === 'desk01' && b.scenario === sc)
+				.map((b) => b.task),
+		);
+		const target = expected().findings.find((f) => {
+			if (f.check !== 'no-predecessor' || f.subject.kind !== 'task') return false;
+			const id = f.subject.id;
+			const own = ctx.result.tasks.find((t) => t.id === id)?.scenarios[sc];
+			const asks =
+				own?.allocate.some((a) => a.candidates[0] === 'desk01') ||
+				own?.allocated.includes('desk01');
+			return !booked.has(id) && !asks;
+		});
+		const id = target?.subject.kind === 'task' ? target.subject.id : '';
+		expect(id).not.toBe('');
+		panel = await openHealth(page, info);
+		await (await rowOf(panel, 'no-predecessor', id)).locator('button.task').click();
+		await expect.poll(() => selectionOf(page)).toMatchObject({ kind: 'task', id });
+		// The line over the table is empty: no filter.
+		await expect(page.getByTestId('filter-note')).toHaveText('');
+	});
+
 	test('"Open in Workload" opens the person\'s cell', async ({ page }, info) => {
 		await openPlan(page, info);
 		const panel = await openHealth(page, info);
-		await findings(panel, 'work-without-people', LICENSE).locator('[data-fix="open"]').click();
+		await (await rowOf(panel, 'work-without-people', LICENSE)).locator('[data-fix="open"]').click();
 		const cell = page.getByTestId('cell-details');
 		await expect(cell).toBeVisible({ timeout: 60_000 });
 		await expect(cell.getByRole('heading', { level: 2 })).toContainText('Desktop 01');

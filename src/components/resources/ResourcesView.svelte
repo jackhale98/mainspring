@@ -44,8 +44,6 @@
 		active?: boolean;
 		/** Puts the lanes' toolbar in the People bar (a desktop and a tablet). */
 		setBar?: (bar: Snippet | null) => void;
-		/** Goes to the Gantt. */
-		showGantt?: () => void;
 	}
 	let {
 		app,
@@ -53,7 +51,6 @@
 		team = false,
 		active = true,
 		setBar = () => undefined,
-		showGantt = () => undefined,
 	}: Props = $props();
 
 	const lanes = new LazyModule(() => import('./Lanes.svelte'));
@@ -99,7 +96,7 @@
 		<div class="lanes">
 			{#if lanes.module}
 				{@const Lanes = lanes.module.default}
-				<Lanes {app} {phone} {active} {setBar} {showGantt} />
+				<Lanes {app} {phone} {active} {setBar} />
 			{:else if lanes.failed}
 				<ViewFailed lazy={lanes} dirty={app.dirty} testid="lanes-failed" />
 			{:else}

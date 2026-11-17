@@ -102,7 +102,7 @@
 			<Icon name="sliders" size={17} />
 			<span class="sr-only">{strings.inspector.projectSettings}</span>
 		</button>
-		<HealthButton {app} />
+		<HealthButton {app} layout={layout === 'desktop' ? 'desktop' : 'tablet'} />
 		<EngineStatus state={app.engine} adaptive />
 		<ThemeToggle {theme} />
 	{/if}

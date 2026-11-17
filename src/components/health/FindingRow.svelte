@@ -31,12 +31,17 @@
 		env: FixEnv;
 		/** The people a task can be given to instead (leaf resources). */
 		people: ReadonlyArray<{ readonly id: ResourceId; readonly name: string }>;
+		/** What the list keys the row by, its place in the list and the list's length (windowed: FindingGroup). */
+		itemKey: string;
+		pos: number;
+		size: number;
 		/** The finding's task is the selected one. */
 		current: boolean;
 		onselect: (task: string) => void;
 		onshowgantt: (task: string, person: ResourceId) => void;
 	}
-	let { finding, text, env, people, current, onselect, onshowgantt }: Props = $props();
+	let { finding, text, env, people, itemKey, pos, size, current, onselect, onshowgantt }: Props =
+		$props();
 
 	const P = H.panel;
 	const uid = $props.id();
@@ -118,6 +123,10 @@
 	class="finding"
 	class:current
 	data-testid="finding"
+	data-key={itemKey}
+	data-i={pos}
+	aria-posinset={pos + 1}
+	aria-setsize={size}
 	data-check={finding.check}
 	data-severity={finding.severity}
 	data-task={task ?? undefined}
@@ -202,6 +211,8 @@
 
 <style>
 	.finding {
+		/* The gap below is the row's own (not the list's), so the window can measure it with the row. */
+		margin-block-end: var(--space-2);
 		display: flex;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-2);

@@ -107,6 +107,9 @@
 		const n = inspector.focusNonce;
 		if (n === seen) return;
 		seen = n;
+		// The details are asked to take the focus (Enter on a row, Add task): they have to be the tab that
+		// shows, or the focus would go to a hidden field and be lost (ADR-0013 "name focused").
+		untrack(() => app.health.hide());
 		// A person's details are a lazy chunk (ResourcePanel.svelte): when it is not mounted yet the
 		// first field does not exist, so look for it for a moment (about 2 s of frames) before giving up.
 		let frames = 0;
@@ -154,7 +157,10 @@
 	function onkeydown(e: KeyboardEvent): void {
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
 		e.preventDefault();
-		if (drawer) inspector.hide();
+		if (drawer) {
+			health.hide();
+			inspector.hide();
+		}
 		focusRow(rowKey);
 	}
 
@@ -180,7 +186,12 @@
 			class="toggle"
 			aria-expanded="true"
 			title={S.hidePanel}
-			onclick={() => (dock ? (inspector.collapsed = true) : inspector.hide())}
+			onclick={() => {
+				// What hides the panel hides the Health tab in it: the Health button opens it again in one press.
+				health.hide();
+				if (dock) inspector.collapsed = true;
+				else inspector.hide();
+			}}
 		>
 			<Icon name="close" size={16} />
 			<span class="sr-only">{S.hidePanel}</span>

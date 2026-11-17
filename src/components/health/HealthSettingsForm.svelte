@@ -8,12 +8,15 @@
 	number of days from 1 to 3650 is refused with a sentence and the field keeps what it had.
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { defaultHealthSettings, withCheck, withLinkMilestones } from '../../lib/health/settings';
 	import { CHECK_IDS } from '../../lib/health/types';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { healthStrings as H } from '../../lib/strings-health-panel';
 
 	let { app }: { app: AppState } = $props();
+	// What is kept for the plan, if no report has read it yet.
+	onMount(() => app.health.ensureSettings());
 
 	const S = H.settings;
 	const MIN = 1;

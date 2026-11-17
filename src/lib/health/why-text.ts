@@ -67,15 +67,14 @@ export function windowText(
 }
 
 function hoursText(min: number): string {
-	const h = Math.round((min / 60) * 10) / 10;
-	return `${h} h`;
+	return W.hours(Math.round((min / 60) * 10) / 10);
 }
 
-/** "Build API", "Build API and Test", "Build API, Test and 2 other tasks". */
-function namesText(names: readonly string[], more: number): string {
-	const all = more > 0 ? [...names, `${more} other task${more === 1 ? '' : 's'}`] : [...names];
+/** "Build API", "Build API and Test", "Build API, Test and 2 other tasks" (the joins are the language's). */
+function namesText(names: readonly string[], more: number, locale?: string): string {
+	const all = more > 0 ? [...names, W.otherTasks(more)] : [...names];
 	if (all.length <= 1) return all[0] ?? '';
-	return `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}`;
+	return new Intl.ListFormat(locale ?? 'en', { style: 'long', type: 'conjunction' }).format(all);
 }
 
 export function whyText(p: Placement, ctx: ExplainContext, locale?: string): WhyText {
@@ -140,11 +139,18 @@ export function whyText(p: Placement, ctx: ExplainContext, locale?: string): Why
 	function limitOwner(site: SourceRange): string | null {
 		const inside = (b: SourceRange): boolean =>
 			b.file === site.file && b.from <= site.from && site.to <= b.to;
-		for (const [id, r] of ctx.index.resources) if (inside(r.decl.block)) return personName(c, id);
+		// The innermost block that holds the statement owns it: a parent's block holds its children's.
+		let best: { span: number; name: string } | null = null;
+		const consider = (b: SourceRange, name: string): void => {
+			if (inside(b) && (best === null || b.to - b.from < best.span)) {
+				best = { span: b.to - b.from, name };
+			}
+		};
+		for (const [id, r] of ctx.index.resources) consider(r.decl.block, personName(c, id));
 		for (const [id, t] of ctx.index.tasks) {
-			if (inside(t.decl.block)) return id === p.task ? W.cause.thisTask : taskName(c, id);
+			consider(t.decl.block, id === p.task ? W.cause.thisTask : taskName(c, id));
 		}
-		return null;
+		return (best as { name: string } | null)?.name ?? null;
 	}
 
 	function cause(x: Cause): WhyLine {
@@ -161,6 +167,7 @@ export function whyText(p: Placement, ctx: ExplainContext, locale?: string): Why
 				const names = namesText(
 					named.map((o) => taskName(c, o.task)),
 					x.on.length - named.length,
+					locale,
 				);
 				const minutes = x.on.reduce((n, o) => n + o.minutes, 0);
 				return line(

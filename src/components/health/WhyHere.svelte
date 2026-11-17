@@ -35,7 +35,7 @@
 	function follow(l: WhyLink): void {
 		if (l.kind === 'task') {
 			if (ontask) ontask(l.task);
-			else app.selection.selectTask(l.task, 'visual');
+			else void app.showInGantt(l.task, null);
 		} else if (l.kind === 'person') app.openInWorkload(l.resource, l.at);
 		else if (app.shell) app.shell.showInText(l.at);
 		else app.showRange(l.at);

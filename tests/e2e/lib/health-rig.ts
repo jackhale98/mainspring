@@ -120,3 +120,40 @@ export async function undo(page: Page, info: TestInfo): Promise<void> {
 	if (isTouch(info)) await page.getByTestId('undo').tap();
 	else await page.getByTestId('toast').last().getByRole('button', { name: 'Undo' }).click();
 }
+
+/**
+ * A finding's row, scrolled to until it is mounted: the lists are windowed (FindingGroup), so a row
+ * far down its check is not in the page until the panel has been scrolled to it.
+ */
+export async function rowOf(panel: Locator, check: CheckId, task: string): Promise<Locator> {
+	const row = findings(panel, check, task);
+	const head = panel.locator(`[data-group="${check}"] h3`);
+	await head.scrollIntoViewIfNeeded();
+	for (let i = 0; i < 160; i++) {
+		if ((await row.count()) > 0) {
+			await row.first().scrollIntoViewIfNeeded();
+			return row;
+		}
+		await head.evaluate((h) => {
+			let p = h.parentElement;
+			while (p && !['auto', 'scroll'].includes(getComputedStyle(p).overflowY)) p = p.parentElement;
+			(p ?? document.scrollingElement)?.scrollBy(0, 400);
+		});
+		await panel.page().waitForTimeout(60);
+	}
+	throw new Error(`no row for ${task} in ${check}`);
+}
+
+/** The size each check's list says it has (aria-setsize of its first mounted row), by check. */
+export async function sizes(panel: Locator): Promise<Record<string, number>> {
+	return panel
+		.locator('[data-group]')
+		.evaluateAll((els) =>
+			Object.fromEntries(
+				els.map((el) => [
+					el.getAttribute('data-group') ?? '',
+					Number(el.querySelector('li[aria-setsize]')?.getAttribute('aria-setsize') ?? 0),
+				]),
+			),
+		);
+}

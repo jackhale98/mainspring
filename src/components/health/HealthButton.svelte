@@ -12,7 +12,7 @@
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 
-	let { app }: { app: AppState } = $props();
+	let { app, layout }: { app: AppState; layout: 'desktop' | 'tablet' } = $props();
 
 	const health = $derived(app.health);
 	const count = $derived(health.count);
@@ -27,7 +27,8 @@
 	class:open={health.open}
 	aria-label={name}
 	aria-expanded={health.open}
-	aria-haspopup="dialog"
+	aria-controls={layout === 'desktop' ? 'inspector-panel' : undefined}
+	aria-haspopup={layout === 'desktop' ? undefined : 'dialog'}
 	title={name}
 	data-testid="health-button"
 	data-count={count ?? ''}

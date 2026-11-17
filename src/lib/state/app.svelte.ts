@@ -569,7 +569,9 @@ export class AppState {
 	 * finding about a person): filters the chart to the person (gantt-filter.svelte.ts) when the
 	 * filter would show the task, else drops a filter that would hide it; selects the task and shows
 	 * the Gantt. The filter line over the task table names the person. The filter's rule is
-	 * `tasksOfPerson`, a lazy chunk the Gantt fetches for the filter anyway.
+	 * `tasksOfPerson`, a lazy chunk the Gantt fetches for the filter anyway. With no person (a
+	 * group's cell, a link to a task, a finding's task) an active filter is left alone only when it
+	 * shows the task: a selected task the chart hides is a selection nobody can see.
 	 */
 	async showInGantt(task: TaskId, person: ResourceId | null): Promise<void> {
 		if (person !== null) {
@@ -582,9 +584,41 @@ export class AppState {
 			}
 			if (shows) this.ganttFilter.showPerson(person);
 			else this.ganttFilter.clear();
+		} else if (await this.#filterHides(task)) {
+			this.ganttFilter.clear();
 		}
 		this.selection.selectTask(task, 'visual');
 		this.shell?.showView?.('gantt');
+	}
+
+	/** Whether the Gantt's filter, as it is now, would not show `task` (false: no filter, or unknown). */
+	async #filterHides(task: TaskId): Promise<boolean> {
+		const f = this.ganttFilter;
+		if (!f.active) return false;
+		try {
+			const lib = await import('../gantt/filter');
+			const result = this.run?.lastGood?.result ?? null;
+			const index = this.index;
+			const ws = this.workspace;
+			const flags =
+				f.flag !== null && index && ws
+					? lib.taskFlags(
+							{
+								tasks: index.tasks,
+								references: index.references,
+								includes: ws.snapshot().includes,
+							},
+							result,
+						)
+					: new Map<string, ReadonlySet<string>>();
+			const view = lib.applyFilter(this.outline.tasks, f.value, {
+				flags,
+				ofPerson: f.person === null ? new Set<string>() : lib.tasksOfPerson(result, f.person),
+			});
+			return view !== null && !view.matched.has(`task:${task}`);
+		} catch {
+			return false;
+		}
 	}
 
 	/** Selects `task`, opens its details and asks them to show its "Why here?" (T18). */
