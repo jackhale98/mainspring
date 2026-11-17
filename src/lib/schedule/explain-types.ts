@@ -20,9 +20,11 @@
  * ## Rules (T10; checked against hand-computed fixtures)
  *
  * 1. `bound` uses Phase 2's `earliestUnder` and `latestEnd` over the resolved edges, the frame,
- *    and a written `start` or `minstart` (`end` or `maxend` for ALAP). When `at` equals `bound`,
- *    the binding item is the cause: a dependency is `dependency`, the frame is `frame`, a written
- *    date is `constraint`.
+ *    and a written `start` (`end` for ALAP), on the task or an ancestor. `minstart` and `maxend`
+ *    are not part of it (phase-3.md 6.3 rule 1, amended 2026-11-16): TaskJuggler never schedules
+ *    by them, it only warns after scheduling (H3 and H4 report them). The items that give the
+ *    bound are always listed as causes, whether or not `at` equals `bound`: a dependency is
+ *    `dependency`, a written date `constraint`, and the frame `frame` when nothing else gives it.
  * 2. When `at` is later than `bound`, look at `[bound, at)` for each person in the task's v3
  *    `allocate`; a group candidate counts as its leaf members. Their free time is their working
  *    time minus all their bookings (`PersonAvailability.free`).
@@ -32,8 +34,12 @@
  *      inside a leave read as `off-hours`.
  *    - If a candidate had free time, the cause is `limit` when a `limits` statement is on the task
  *      or on that person in the text, else `unknown`.
+ *    - If the text narrows when the task may book (`shifts` on it or an ancestor, an `allocate`
+ *      body), a window in which any candidate had working time is `unknown`, and nothing is held
+ *      (the T10 review, F1).
  * 3. **Unmet:** for a `length` or `duration` leaf, the parts of `[start, end)` where an `allocate`
- *    candidate had working time but was booked on another task.
+ *    candidate had working time but was booked on another task. None for a task with `limits` or
+ *    `shifts` (own or inherited) or an `allocate` body, nor for a person with `limits` (F3).
  * 4. **Inside:** for an effort leaf, the gaps between its bookings inside `[start, end)`, explained
  *    the same way.
  * 5. The explainer never says "would have started on …". It names what the schedule shows.
@@ -49,7 +55,8 @@ import type { WorkingTime } from './working-time';
 export type Cause =
 	| { kind: 'dependency'; pred: TaskId; via: 'depends' | 'precedes'; gap: boolean }
 	| { kind: 'frame' }
-	| { kind: 'constraint'; attr: 'start' | 'minstart' | 'end' | 'maxend'; inherited: boolean }
+	// T10: `minstart` and `maxend` removed from `attr` (the rule 1 amendment): never a bound.
+	| { kind: 'constraint'; attr: 'start' | 'end'; inherited: boolean }
 	| {
 			kind: 'busy';
 			resource: ResourceId;
@@ -79,12 +86,21 @@ export interface Placement {
 	readonly anchor: 'start' | 'end';
 	/**
 	 * The earliest start (ASAP) or latest end (ALAP) that dependencies, frame and constraints
-	 * allow; null when the result does not give one.
+	 * allow; null when the result or the text does not give one (an entry without a date, a
+	 * written date the explainer cannot read; `causes` then end with `unknown`).
 	 */
 	readonly bound: Minutes | null;
 	/** Where the engine put the anchor; null when the task has no date in the result. */
 	readonly at: Minutes | null;
-	/** Why `at` differs from `bound` (or what binds it when equal), in time order. */
+	/**
+	 * In time order: the items that give the bound (always listed, whether or not `at` equals it),
+	 * and the causes of the wait between `bound` and `at` when they differ. For ASAP the bound's
+	 * items come first, for ALAP last.
+	 *
+	 * For T18: `frame` means only that nothing later (ASAP) or earlier (ALAP) than the project's
+	 * start (end) bounds the task. When `at` is not `bound`, it must not be shown as "starts at the
+	 * project start" (or "ends at the project end"); the wait's causes say why it is later.
+	 */
 	readonly causes: readonly Cause[];
 	/** Gaps inside the bar (effort tasks): busy, leave, off hours. */
 	readonly inside: readonly Cause[];
