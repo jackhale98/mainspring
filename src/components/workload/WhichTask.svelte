@@ -43,7 +43,7 @@
 	}}
 >
 	<p class="title">{rebalanceStrings.which} <span class="ask">{ask}</span></p>
-	<p class="lead">{rebalanceStrings.whichLead}</p>
+	<p class="lead">{W.rebalance.whichLead}</p>
 	<ul>
 		{#each tasks as t (t.task)}
 			<li>
