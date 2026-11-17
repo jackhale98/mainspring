@@ -93,7 +93,7 @@ import {
 import { ganttActionStrings, toastStrings } from '../strings';
 import { afterAndroidKey, type KeyTimers } from '../tjp/cm/android-key';
 import { applyEdit } from '../tjp/edit/apply';
-import type { EditIntent, EditOptions } from '../tjp/edit/types';
+import type { EditIntent, EditOptions, SourceRange } from '../tjp/edit/types';
 import { historyLabel } from '../workspace/history';
 import type { WorkspacePath } from '../workspace/paths';
 import type { RunnerState } from '../workspace/run-types';
@@ -248,6 +248,19 @@ export class EditDispatcher {
 		if (this.#disposed) return;
 		if (sticky) this.#toasts.refused(message, null);
 		else this.#toasts.noop(message);
+	}
+
+	/**
+	 * A refusal a view decided itself (the rebalance planner's, which runs before the edit API): a
+	 * toast that stays, with "Show in text" when the refusal has a place in the text, as a refusal of
+	 * the dispatcher's own has. `version` is the workspace version of the index the range comes
+	 * from (`index.version`), which can lag the text: "Show" reads the range in that text, as an
+	 * outcome's place does (edits-plan.ts).
+	 */
+	refuse(message: string, at: readonly SourceRange[], version: number): void {
+		if (this.#disposed) return;
+		const r = at[0];
+		this.#toasts.refused(message, r ? { ...r, version } : null);
 	}
 
 	/** The plan closes: waiting calls are cancelled, applied edits settle as `dropped`. */

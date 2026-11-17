@@ -150,6 +150,33 @@ describe('apply and settle', () => {
 	});
 });
 
+describe("a view's own refusal", () => {
+	it('is a toast that stays, with the place of the range in the text of the index it came from', () => {
+		h.edits.refuse('Booked through Team.', [{ file: 'plan.tjp', from: 3, to: 9 }], 41);
+		expect(h.edits.toasts).toMatchObject([
+			{
+				status: 'refused',
+				text: 'Booked through Team.',
+				sticky: true,
+				show: { file: 'plan.tjp', from: 3, to: 9, version: 41 },
+			},
+		]);
+		vi.advanceTimersByTime(TOAST_MS * 2);
+		expect(h.edits.toasts).toHaveLength(1);
+	});
+
+	it('has no place to show when the refusal has none', () => {
+		h.edits.refuse('Work moves to a person, not to a group.', [], 41);
+		expect(h.edits.toasts[0]).toMatchObject({ status: 'refused', show: null });
+	});
+
+	it('says nothing once the plan has closed', () => {
+		h.edits.dispose();
+		h.edits.refuse('Too late.', [{ file: 'plan.tjp', from: 0, to: 1 }], 1);
+		expect(h.edits.toasts).toEqual([]);
+	});
+});
+
 describe('undo from the toast', () => {
 	it('undoes like Mod-Z while it is the top entry, and settles a pending edit as undone', async () => {
 		const before = h.text();

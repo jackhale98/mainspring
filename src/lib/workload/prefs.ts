@@ -9,8 +9,8 @@
  *
  * The view and the segment are separate preferences: a phone and a desktop share a plan's key but
  * not a screen, and the segments are not the views (Team is the resource list, which the desktop's
- * Resources view shows beside its lanes). Zoom, unit, thresholds and the collapsed groups join
- * here with the heatmap (T14).
+ * Resources view shows beside its lanes). Zoom, unit, thresholds and the collapsed groups are the
+ * heatmap's, in heat-prefs.ts.
  */
 import type { PeopleSegment, View } from '../state/selection.svelte';
 import { readPref, writePref, type PrefStorage } from '../state/storage';

@@ -119,6 +119,16 @@
 	--gantt-text-only-opacity: 0.25;
 	--gantt-motion: var(--motion-base);
 	--gantt-chip-height: 30px;
+
+	/* Workload heatmap (phase-3.md 9.2): 28 px rows and 56 px week cells on a desktop; a finger gets
+	   44 px rows and cells (below). The name column is frozen; its width is per layout. */
+	--load-row-height: 28px;
+	--load-header-row: 28px;
+	--load-col-day: 32px;
+	--load-col-week: 56px;
+	--load-col-month: 72px;
+	--load-names: 12rem;
+	--load-font-size: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -137,6 +147,10 @@
 		--gantt-handle-dot: 7px;
 		--gantt-handle-grip: 6px;
 		--gantt-knob-size: 8px;
+		--load-row-height: 44px;
+		--load-col-day: 44px;
+		--load-col-week: 44px;
+		--load-col-month: 56px;
 	}
 }
 

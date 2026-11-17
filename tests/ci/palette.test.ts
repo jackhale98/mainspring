@@ -114,6 +114,12 @@ const TEXT: ReadonlyArray<readonly [string, string, number]> = [
 	['color-gantt-bar-ink', 'color-gantt-bar-top', 4.5],
 	['color-gantt-bar-ink', 'color-gantt-bar-bottom', 4.5],
 	['color-gantt-crit-ink', 'color-gantt-crit-wash', 4.5],
+	// The workload heatmap's cell text on each band (T14).
+	['load-spare-ink', 'load-spare', 4.5],
+	['load-full-ink', 'load-full', 4.5],
+	['load-over-ink', 'load-over', 4.5],
+	['load-off-ink', 'load-off', 4.5],
+	['held', 'color-gantt-surface', 4.5],
 	['color-gantt-text-faint', 'color-gantt-surface', 4.5],
 	['color-gantt-text-faint', 'color-gantt-inset', 4.5],
 	['color-gantt-text-muted', 'color-gantt-surface', 4.5],
@@ -165,6 +171,8 @@ const GRAPHICS: ReadonlyArray<readonly [string, string, number]> = [
 	['color-gantt-critical-top', 'color-gantt-surface', 3],
 	['color-gantt-summary', 'color-gantt-surface', 3],
 	['color-gantt-milestone', 'color-gantt-surface', 2.2],
+	// The leave swatch of the legend. Stripes over a cell are drawn in the cell's own ink instead.
+	['leave-hatch', 'color-gantt-surface', 3],
 	// The brand mark's ribbon and brass arcs on the canvas and on a panel (ADR-0009, mark change).
 	['color-mark-band', 'color-bg', 3],
 	['color-mark-band', 'color-surface', 3],
@@ -183,6 +191,11 @@ const DISTINCT: ReadonlyArray<readonly [string, string, string]> = [
 	['color-status-date', 'color-today', 'status date and today'],
 	['color-critical', 'color-focus', 'critical and the focus ring'],
 	['color-gantt-critical-bottom', 'color-gantt-bar-outline', 'critical bar edge and bar outline'],
+	// The heatmap's bands, which also differ in hatch, corner mark and words (WCAG 1.4.1): by
+	// lightness for protan and deutan viewers, so that a hue is never the whole difference.
+	['load-spare', 'load-full', 'spare and full cells'],
+	['load-full', 'load-over', 'full and over cells'],
+	['load-spare', 'load-over', 'spare and over cells'],
 ];
 
 /**
@@ -208,8 +221,17 @@ describe.each([
 
 	it('defines every token the light theme defines (a missing one would fall back to light)', () => {
 		const own = tokensOf(file);
-		const missing = [...base.keys()].filter((k) => k.startsWith('color-') && !own.has(k));
+		const missing = [...base.keys()].filter(
+			(k) => (k.startsWith('color-') || k.startsWith('load-')) && !own.has(k),
+		);
 		expect(missing).toEqual([]);
+	});
+
+	it('has the over cell hatch lines readable under the cell text', () => {
+		// The hatch is drawn over the band; the white-ish line must keep the ink at 4.5:1 on it.
+		const over = colour(t, 'load-over');
+		const line = colour(t, 'load-over-hatch', over);
+		expect(ratio(colour(t, 'load-over-ink'), line)).toBeGreaterThanOrEqual(4.5);
 	});
 
 	it.each(TEXT)('text %s on %s is at least %d:1', (fg, bg, min) => {
