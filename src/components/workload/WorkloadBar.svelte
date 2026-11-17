@@ -13,12 +13,12 @@
 	Gantt's does. It holds no state: the heatmap owns the choices.
 -->
 <script lang="ts">
-	import type { Band } from '../../lib/workload/types';
 	import type { HeatUnit } from '../../lib/workload/heat-prefs';
 	import { workloadStrings as W } from '../../lib/strings';
 	import type { BucketKind, Thresholds } from '../../lib/workload/types';
 	import Icon from '../Icon.svelte';
 	import SegmentTabs from '../people/SegmentTabs.svelte';
+	import BandLegend from './BandLegend.svelte';
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
 
 	type Line = 'on' | 'off' | null;
@@ -66,7 +66,6 @@
 		{ id: 'hours' as const, label: W.unitHours },
 		{ id: 'percent' as const, label: W.unitPercent },
 	];
-	const BANDS: readonly Band[] = ['spare', 'full', 'over', 'off'];
 </script>
 
 <div class="chips" role="group" aria-label={W.toolbar} data-testid="heat-toolbar">
@@ -122,23 +121,22 @@
 </p>
 {#if hover !== ''}<p class="line hover" aria-hidden="true">{hover}</p>{/if}
 
-<ul class="legend" aria-label={W.legend}>
-	{#each BANDS as b (b)}
-		<li><i class="sw {b}"></i>{W.band[b]}</li>
-	{/each}
-	<li><i class="sw leave"></i>{W.legendLeave}</li>
-	{#if lines.merged}
-		<li class:off={lines.today === 'off'}><i class="ln today"></i>{W.legendBoth}</li>
-	{:else}
-		{#if lines.today}<li class:off={lines.today === 'off'}>
-				<i class="ln today"></i>{W.legendToday}
-			</li>{/if}
-		{#if lines.status}<li class:off={lines.status === 'off'}>
-				<i class="ln status"></i>{W.legendStatus}
-			</li>{/if}
-	{/if}
-	{#if dimmed}<li class="stale">{W.lastGood}</li>{/if}
-</ul>
+<div class="legend">
+	<BandLegend />
+	<ul class="lines" aria-label={W.legendLines}>
+		{#if lines.merged}
+			<li class:off={lines.today === 'off'}><i class="ln today"></i>{W.legendBoth}</li>
+		{:else}
+			{#if lines.today}<li class:off={lines.today === 'off'}>
+					<i class="ln today"></i>{W.legendToday}
+				</li>{/if}
+			{#if lines.status}<li class:off={lines.status === 'off'}>
+					<i class="ln status"></i>{W.legendStatus}
+				</li>{/if}
+		{/if}
+		{#if dimmed}<li class="stale">{W.lastGood}</li>{/if}
+	</ul>
+</div>
 
 <style>
 	.chips {
@@ -220,14 +218,15 @@
 	.line:empty {
 		display: none;
 	}
+	/* The legend: the bands, the leave stripes and the lines, in one pill. It needs a wide bar (below);
+	   the thresholds panel has the bands with their rules at any width. */
 	.legend {
 		flex: none;
 		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-1) var(--space-3);
+		align-items: center;
+		gap: var(--space-3);
 		margin: 0 0 0 auto;
 		padding: 6px 12px;
-		list-style: none;
 		border: 1px solid var(--color-gantt-border-strong);
 		border-radius: 999px;
 		background: var(--color-gantt-chip);
@@ -235,49 +234,28 @@
 		font-size: var(--text-xs);
 		pointer-events: none;
 	}
-	.legend li {
+	.lines {
+		display: flex;
+		gap: var(--space-3);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.lines li {
 		display: flex;
 		align-items: center;
 		gap: var(--space-1);
 		white-space: nowrap;
 	}
-	.legend li.off {
+	.lines li.off {
 		font-style: italic;
+	}
+	.lines:not(:has(li)) {
+		display: none;
 	}
 	.stale {
 		color: var(--color-pending);
 		font-weight: 600;
-	}
-	/* Swatches: the band, with its cue besides colour (over is hatched; leave is striped). */
-	.sw {
-		inline-size: 14px;
-		block-size: 12px;
-		border: 1px solid var(--color-gantt-border-strong);
-		border-radius: 3px;
-	}
-	.sw.spare {
-		background: var(--load-spare);
-	}
-	.sw.full {
-		background: var(--load-full);
-	}
-	.sw.off {
-		background: var(--load-off);
-	}
-	.sw.over {
-		border-color: var(--load-over);
-		background: repeating-linear-gradient(
-			135deg,
-			var(--load-over) 0 3px,
-			color-mix(in srgb, var(--load-over), white 35%) 3px 5px
-		);
-	}
-	.sw.leave {
-		background: repeating-linear-gradient(
-			180deg,
-			var(--leave-hatch) 0 1px,
-			var(--load-spare) 1px 3px
-		);
 	}
 	.ln {
 		display: inline-block;
@@ -307,9 +285,14 @@
 			min-block-size: var(--size-tap);
 		}
 	}
-	/* A narrow bar (Split, or the details docked) has no room for the legend's words; the line stays. */
-	@container (max-width: 1099px) {
-		.legend li:not(.stale) {
+	/* A bar under about 1700 px has no room for the legend beside the switcher, the chips and the
+	   cell line, which gets the room; only the "last good schedule" notice, a state the user must
+	   see, stays. */
+	@container (max-width: 1699px) {
+		.legend > :global(ul:not(.lines)) {
+			display: none;
+		}
+		.lines li:not(.stale) {
 			display: none;
 		}
 		.legend:not(:has(.stale)) {

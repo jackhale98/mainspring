@@ -787,8 +787,17 @@ export const workloadStrings = {
 	thresholdsNote: 'A cell is also over when work is held or unmet. Saved with this plan.',
 	thresholdsError: 'Spare must be below over, both between 1 and 500.',
 	legend: 'Legend',
+	/** What puts a cell in a band, beside its swatch in the thresholds panel. */
+	rule: {
+		spare: (below: number) => `below ${below}% of available time`,
+		full: (from: number, to: number) => `${from}% to ${to}%`,
+		over: (above: number) => `above ${above}%, or work is held or unmet`,
+		off: 'nothing available to book',
+		leave: 'working time lost to leave',
+	},
 	band: { off: 'No working time', spare: 'Spare', full: 'Full', over: 'Over' },
 	legendLeave: 'Leave',
+	legendLines: 'Lines',
 	legendToday: 'Today',
 	legendStatus: 'Status date',
 	legendBoth: 'Today (status date)',

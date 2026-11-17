@@ -29,9 +29,28 @@
 
 	const first = $derived(Math.max(0, Math.floor(winX / colWidth) - 1));
 	const last = $derived(Math.ceil((winX + winW) / colWidth) + 1);
-	const groups = $derived(
-		(labels?.major ?? []).filter((g) => g.c1 * colWidth >= winX && g.c0 * colWidth <= winX + winW),
-	);
+	/**
+	 * The groups in the painted window, each with what of its label fits: the name and year, the
+	 * name alone, or nothing (a clipped name would read as noise, and would run into the next
+	 * group's). The width is an estimate of the display serif at the header's size.
+	 */
+	const groups = $derived.by(() => {
+		const out: Array<{ c0: number; c1: number; name: string; year: string; show: boolean }> = [];
+		for (const g of labels?.major ?? []) {
+			if (g.c1 * colWidth < winX || g.c0 * colWidth > winX + winW) continue;
+			const w = (g.c1 - g.c0) * colWidth;
+			const base = g.name.length * 8.5 + 20;
+			const full = base + (g.year === '' ? 0 : 4 * 8.5 + 6);
+			out.push(
+				w >= full
+					? { ...g, show: true }
+					: w >= base
+						? { ...g, year: '', show: true }
+						: { ...g, show: false },
+			);
+		}
+		return out;
+	});
 	const minors = $derived.by(() => {
 		const m = labels?.minor ?? [];
 		const out: Array<{ c: number; text: string }> = [];
@@ -48,9 +67,9 @@
 				style:left="{g.c0 * colWidth}px"
 				style:width="{(g.c1 - g.c0) * colWidth}px"
 			>
-				<span class="label"
-					>{g.name}{#if g.year !== ''}<span class="year"> {g.year}</span>{/if}</span
-				>
+				{#if g.show}<span class="label"
+						>{g.name}{#if g.year !== ''}<span class="year"> {g.year}</span>{/if}</span
+					>{/if}
 			</div>
 		{/each}
 	</div>

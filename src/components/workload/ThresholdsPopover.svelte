@@ -13,6 +13,7 @@
 	import { THRESHOLD_MAX, THRESHOLD_MIN, validThresholds } from '../../lib/workload/heat-prefs';
 	import { DEFAULT_THRESHOLDS, type Thresholds } from '../../lib/workload/types';
 	import { workloadStrings as W } from '../../lib/strings';
+	import BandLegend from './BandLegend.svelte';
 	import Icon from '../Icon.svelte';
 
 	interface Props {
@@ -126,6 +127,7 @@
 			{:else}
 				<p id="heat-thresholds-note" class="note">{W.thresholdsNote}</p>
 			{/if}
+			<BandLegend rules={thresholds} />
 			<button type="button" class="reset" onclick={reset}>{W.thresholdsReset}</button>
 		</div>
 	{/if}

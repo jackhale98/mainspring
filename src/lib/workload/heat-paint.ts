@@ -57,34 +57,43 @@ let scratch = new Uint8Array(0);
 
 const tiles = new Map<string, CanvasPattern | null>();
 const TILE = 6;
+const LEAVE_TILE = 5;
 
 /** A repeating stripe tile, made once per kind, colour and ratio. Null where there is no canvas. */
-function stripes(ctx: Ctx, kind: 'diagonal' | 'level', colour: string, dpr: number) {
+function stripes(ctx: Ctx, kind: 'diagonal' | 'leave', colour: string, dpr: number) {
 	const key = `${kind}|${colour}|${dpr}`;
 	if (tiles.has(key)) return tiles.get(key) ?? null;
 	let p: CanvasPattern | null = null;
 	try {
-		const size = kind === 'diagonal' ? TILE : 3;
+		// Over is "/" lines on a 6 px tile; leave is "\" lines on a 5 px tile at less strength, so
+		// the two never read as one another where a cell has both.
+		const size = kind === 'diagonal' ? TILE : LEAVE_TILE;
 		const c = document.createElement('canvas');
-		c.width = Math.max(1, Math.round((kind === 'diagonal' ? TILE : 4) * dpr));
+		c.width = Math.max(1, Math.round(size * dpr));
 		c.height = Math.max(1, Math.round(size * dpr));
 		const t = c.getContext('2d');
 		if (t) {
 			t.scale(dpr, dpr);
 			t.strokeStyle = colour;
-			t.lineWidth = kind === 'diagonal' ? 1.5 : 1;
+			t.lineWidth = kind === 'diagonal' ? 1.5 : 1.2;
+			if (kind === 'leave') t.globalAlpha = 0.7;
 			t.beginPath();
+			// Seamless 45 degree lines: the main diagonal and the two corners it wraps into.
+			const h = size / 2;
 			if (kind === 'diagonal') {
-				// Seamless 45 degree lines: the main diagonal and the two corners it wraps into.
-				t.moveTo(0, TILE);
-				t.lineTo(TILE, 0);
-				t.moveTo(-TILE / 2, TILE / 2);
-				t.lineTo(TILE / 2, -TILE / 2);
-				t.moveTo(TILE / 2, TILE * 1.5);
-				t.lineTo(TILE * 1.5, TILE / 2);
+				t.moveTo(0, size);
+				t.lineTo(size, 0);
+				t.moveTo(-h, h);
+				t.lineTo(h, -h);
+				t.moveTo(h, size + h);
+				t.lineTo(size + h, h);
 			} else {
-				t.moveTo(0, 1.5);
-				t.lineTo(4, 1.5);
+				t.moveTo(0, 0);
+				t.lineTo(size, size);
+				t.moveTo(-h, h);
+				t.lineTo(h, size + h);
+				t.moveTo(h, -h);
+				t.lineTo(size + h, h);
 			}
 			t.stroke();
 			p = ctx.createPattern(c, 'repeat');
@@ -96,6 +105,13 @@ function stripes(ctx: Ctx, kind: 'diagonal' | 'level', colour: string, dpr: numb
 	}
 	tiles.set(key, p);
 	return p;
+}
+
+/** The height of a cell's leave hatch: all of an off cell, else its share, 6 px to 40 % of the cell. */
+export function leaveHeight(h: number, off: boolean, lost: number, available: number): number {
+	if (lost <= 0) return 0;
+	if (off) return h;
+	return Math.min(h * 0.4, Math.max(6, Math.round((h * lost) / (lost + available))));
 }
 
 export function paintCells(f: CellsFrame): PaintStats {
@@ -139,9 +155,10 @@ export function paintCells(f: CellsFrame): PaintStats {
 			const x = c * w;
 			const lost = leave?.[c] ?? 0;
 			if (lost > 0) {
-				const share = lost / (lost + (available?.[c] ?? 0));
-				const sh = Math.max(4, Math.round(h * share));
-				const p = stripes(ctx, 'level', heat[INK[band] as keyof HeatTheme] as string, dpr);
+				// The working time leave removes, as a hatched block at the foot of the cell: all of an
+				// off cell, else its share of the cell (at least 6 px, at most 40 %).
+				const sh = leaveHeight(h, band === OFF, lost, available?.[c] ?? 0);
+				const p = stripes(ctx, 'leave', heat[INK[band] as keyof HeatTheme] as string, dpr);
 				if (p) {
 					ctx.fillStyle = p;
 					ctx.fillRect(x, y + h - sh, w, sh);
@@ -191,7 +208,7 @@ export function paintCells(f: CellsFrame): PaintStats {
 				weight = wt;
 				ctx.font = `${wt}${heat.fontSize}px ${f.fontSans}`;
 			}
-			const y = layout.rowTop(r) + h / 2 + 0.5;
+			const rowTop = layout.rowTop(r);
 			const base = (r - r0) * n;
 			for (let c = c0; c < c1; c++) {
 				const b = code[base + c - c0] as number;
@@ -205,7 +222,9 @@ export function paintCells(f: CellsFrame): PaintStats {
 					ink = colour;
 					ctx.fillStyle = colour;
 				}
-				ctx.fillText(face, c * w + w / 2, y);
+				// The face sits in the part of the cell that leave does not hatch.
+				const free = h - leaveHeight(h, false, model.leave[r]?.[c] ?? 0, available);
+				ctx.fillText(face, c * w + w / 2, rowTop + free / 2 + 0.5);
 				texts++;
 			}
 		}
