@@ -288,8 +288,13 @@ describe('gesture machine properties', () => {
 			fc.property(seqArb, ([kinds, steps]) => {
 				let lifted = false;
 				for (const f of frames(build(kinds, steps))) {
-					if (lifted) expect(f.out.some((o) => o.type === 'tap')).toBe(false);
-					if (f.out.some((o) => o.type === 'long-press')) lifted = true;
+					// In output order: a lift, then a cancel (a second `down` of the same pointer, its
+					// release lost, cancels the lifted item and starts a fresh press, which may be a tap).
+					for (const o of f.out) {
+						if (o.type === 'tap') expect(lifted).toBe(false);
+						if (o.type === 'long-press') lifted = true;
+						if (o.type === 'drag-cancel') lifted = false;
+					}
 					if (f.after === 'idle') lifted = false;
 				}
 			}),
