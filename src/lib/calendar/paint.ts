@@ -170,8 +170,8 @@ function daysLabel(project: ProjectInfo, from: Minutes, to: Minutes): string {
 	);
 }
 
-/** An item's interval as a `LeaveSpec`'s dates, as written. */
-function writtenSpec(item: PaintItem): { start: string; end?: string } | null {
+/** An item's interval as a `LeaveSpec`'s dates, as written. (T16: exported for leave-edit.ts.) */
+export function writtenSpec(item: PaintItem): { start: string; end?: string } | null {
 	const start = printDate(item.interval.start);
 	if (!start.ok) return null;
 	const end = item.interval.end;

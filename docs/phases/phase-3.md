@@ -884,7 +884,25 @@ Where the built lanes settle what 9.4 and its neighbours leave open. T15 recorde
 - The 600-fills rule (8.1) at day zoom on fragmented lanes (many bars, leave blocks and over strips in one window): `lane-paint.test.ts` checks the budget on a small plan only.
 - Record the lanes' cells paint time (`HeatPlot`'s `onpaint`: fills and script ms per frame) on `scale-1000` and `fedora-res`, at day and week zoom, over a scroll.
 
-## 22. Amendments from T19 (the Gantt filter by person and by flag, 2026-11-17)
+## 22. Amendments from T16 (the Calendar, 2026-11-17)
+
+Where the built Calendar settles what 7.1 (W3 to W5), 9.2, 9.5 and 10 leave open. T16 recorded them; the main session owns the decision.
+
+1. **About 2.5 months per screen, not three (9.2).** A month is a fixed 6 rows of days (40 px, 44 px on a finger) so that every block has one height and the list can place only the ones in view. That is about 2.5 months in 720 to 760 px of view. Legible chips with their names were kept over a third month.
+2. **The list layout starts at a view width of 1000 px (9.1, 9.2).** The choice follows the Calendar's own width, not the screen's, so Split mode beside the editor shows one month, as a tablet does. Below 1000 px the view shows one month with previous, next and Today buttons.
+3. **Buttons, no swipe (9.2).** "Swipe or buttons" is buttons only (WCAG 2.5.7 is met by them), which also avoids a horizontal swipe fighting the long-press and the native scroll.
+4. **The phone's milestone path (9.5).** A phone's day shows marks, not chips, so a milestone is reached through the day: tap, tap again for the details, then "Show in Gantt" (which selects the task). On a desktop a click on the milestone's chip selects the task.
+5. **`project` leaves are read-only (9.5).** They are drawn and listed, but the edit API writes `holiday`, `annual`, `special`, `sick`, `unpaid` and `unemployed` only, so their card says "A project leave. Edit as text."
+6. **A group is read with the project's working time (9.5).** A group has no time of its own in v3 (`workingTime` and `leaves` are empty), so its days are working or not by the project's hours, and its leaves are its own text items.
+7. **The scope picker lists groups too (9.5, 18.6).** A leave on a group is inherited by its members, so Everyone, each group and each person are offered, indented by level.
+8. **Leaves are told per type (ADR-0014 amendment).** On a day, each type the engine shows that no text item of that type names is listed as text only ("From a shift or macro. Edit as text."), also where other text items touch the day (T16 review).
+9. **The Calendar draws its own toolbar** (scope, mode, type, months), in a row above the months, or above the tab bar on a phone. It does not use the People bar's slot.
+
+**Left to T12 and T21 (items, not T16's):**
+- Painting a leave over days with no working time (a weekend, a stretch the person is off) writes a leave that changes nothing in the schedule. `planLeavePaint` has no `no-working-day` refusal on the paint path; only `leave-covered`, `at-limit` and the others. 7.1 and 6.6 mention none for W3. The Calendar paints it as asked and shows the day with the leave; decide whether the planner should refuse or warn, and then pin it in `calendar.spec.ts`.
+- T21: `calendar.spec.ts` pins the exact text of every W3 to W5 outcome (paint, merge, trim, split, remove, type change, name and date edits) with Undo restoring the bytes. The "shared declaration" confirmation is covered by `run.test.ts` only: no bundled sample reads a declaration in more than one place.
+
+## 24. Amendments from T19 (the Gantt filter by person and by flag, 2026-11-17)
 
 Phase 2 deferred the Gantt filters here (18.10, carried in by 19.11). T19 built them as below; the main session owns the decision. The filter is a view state: it never edits the text or the schedule, and nothing in it is a `tjp` intent.
 
@@ -899,6 +917,7 @@ Phase 2 deferred the Gantt filters here (18.10, carried in by 19.11). T19 built 
 9. **The control.** A Filter pill in the toolbar on every layout and every pointer (a finger has no other way in; the Assign picker is mouse only). It opens a lazy panel (`FilterPanel.svelte`): the people picker's own searchable list (`PeopleList.svelte`, now with an embedded mode and no drag), the flags as radio buttons, Clear filter and Done. With a filter on, the pill is the accent colour, names the filter ("Dev 1, flag key"; the icon alone in a chart narrower than 1050 px) and a small × beside it clears it. Under 600 px the panel is a sheet at the foot of the chart, and the search box does not take the focus (a finger would raise the keyboard over the list). A polite status says how many tasks are shown after each change.
 10. **Toolbar room.** The Filter pill is one more chip, and the existing one-row matrix (`gantt-people-picker.spec.ts`) had no spare room for it. Idle, the pill is its icon (it names the filter only while one is on, in a chart over 1050 px); a chart under 900 px has 8 px side padding and 6 px gaps; between 1350 and 1600 px, with recent people shown, Today is its icon; the recent people's chips are at most 6 rem (was 7). Under 600 px the critical-path chip is its icon (it was, under 400 px), and under 480 px the pill has no × beside it (the panel and the empty chart have Clear filter): six 44 px targets fit a 360 px row.
 11. **Budgets.** The first-load JS grew by about 1.0 KB gzip (Visual-first 304,898 to 305,914 of 310,000; Text-first 416,376 to 417,387 of 420,000; no cap raised). The filter's logic, the panel and the people list are lazy chunks: `PeopleList.svelte` moved out of the first load (about 2.1 KB) because the picker now fetches it when first opened, which paid for the pill, the state and the wiring.
+
 
 ## Appendix A: ADR-0013 stub (accepted; see docs/decisions/0013-authoring-on-phones.md)
 

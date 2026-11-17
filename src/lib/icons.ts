@@ -49,6 +49,7 @@ export const ICONS = {
 		'M16 17H8',
 	],
 	chevronDown: ['m6 9 6 6 6-6'],
+	chevronLeft: ['m15 18-6-6 6-6'],
 	chevronRight: ['m9 18 6-6-6-6'],
 	list: ['M21 12h-8', 'M21 6H8', 'M21 18h-8', 'M3 6v4a2 2 0 0 0 2 2h3', 'M3 10v6a2 2 0 0 0 2 2h3'],
 	panel: [rect(3, 3, 18, 18, 2), 'M9 3v18'],
