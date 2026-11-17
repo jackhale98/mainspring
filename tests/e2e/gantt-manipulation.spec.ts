@@ -329,7 +329,7 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await rig.undoTo(before);
 	});
 
-	test('R6 assign a person: drag a chip onto a bar (mouse); the sheet adds one (touch)', async ({
+	test('R6 assign a person: drag one from the Assign list onto a bar (mouse); the sheet adds one (touch)', async ({
 		page,
 	}, info) => {
 		const rig = await Rig.open(page, info);
@@ -338,16 +338,16 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const rev = await rig.revision();
 		if (rig.touch) {
 			await rig.openDetails('design.research');
-			// A finger books people in the details sheet: its people are the palette's twin here.
+			// A finger books people in the details sheet; the toolbar has no Assign control for it.
+			await expect(page.getByTestId('assign-button')).not.toBeVisible();
 			await shoot(page, info, 'people-palette');
 			await page.getByRole('combobox', { name: /Add a person/ }).selectOption({ label: 'Dev 2' });
 		} else {
-			const chip = await page.locator('[data-person="dev2"]').boundingBox();
-			if (!chip) throw new Error('no chip');
-			await rig.drag({ x: chip.x + chip.width / 2, y: chip.y + chip.height / 2 }, b.body, {
+			await rig.openPeople();
+			await shoot(page, info, 'people-palette');
+			await rig.drag(await rig.optionPoint('dev2'), b.body, {
 				pause: async () => {
 					await expect(page.getByTestId('gantt-overlay')).toBeVisible();
-					await shoot(page, info, 'people-palette');
 				},
 			});
 		}
@@ -362,21 +362,28 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await rig.undoTo(before);
 	});
 
-	test('R6 by key: Enter on a person books them on the selected task, and again releases them', async ({
+	test('R6 by key: Enter on a person in the list books them on the selected task', async ({
 		page,
 	}, info) => {
 		test.skip(isTouch(info), 'the keyboard path is checked on desktop');
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
 		await rig.select('design.research');
-		await page.locator('[data-person="dev2"]').focus();
+		await rig.openPeople();
+		await page.keyboard.type('dev 2');
 		await page.keyboard.press('Enter');
 		const booked = before.replace(
 			'    allocate dev1\n    complete 40\n',
 			'    allocate dev1, dev2\n    complete 40\n',
 		);
 		await rig.patched(booked);
-		await expect(page.locator('[data-person="dev2"]')).toHaveAttribute('aria-pressed', 'true');
+		// The list marks who is on the selected task; Enter again on that person changes nothing.
+		await rig.openPeople();
+		await expect(rig.personOption('dev2')).toContainText('on the selected task');
+		await page.keyboard.type('dev 2');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(300);
+		expect(await rig.text()).toBe(booked);
 		await rig.undoTo(before);
 	});
 

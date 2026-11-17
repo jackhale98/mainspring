@@ -256,6 +256,27 @@ export class Rig {
 		return this.touch ? 450 : 0;
 	}
 
+	/** The people picker's search box (the combobox) and the option of one person. */
+	get peopleSearch(): Locator {
+		return this.page.getByRole('combobox', { name: 'Find a person by name or id' });
+	}
+	personOption(id: string): Locator {
+		return this.page.locator(`[role="option"][data-person="${id}"]`);
+	}
+
+	/** Opens the picker's list from the toolbar's Assign button (a mouse's control). */
+	async openPeople(): Promise<void> {
+		await this.page.getByTestId('assign-button').click();
+		await expect(this.peopleSearch).toBeFocused();
+	}
+
+	/** The middle of an option of the open list. */
+	async optionPoint(id: string): Promise<Point> {
+		const box = await this.personOption(id).boundingBox();
+		if (!box) throw new Error(`no option for ${id}`);
+		return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+	}
+
 	/** Selects a task by tapping its bar, and waits for the row to say so. */
 	async select(task: string, key = `task:${task}`): Promise<BarPoints> {
 		const b = await this.bar(task);
