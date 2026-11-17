@@ -56,41 +56,55 @@
 	.band {
 		stroke: var(--color-mark-band);
 	}
-	/* The loader: the ribbon draws in from its free end, holds, then leaves the same way. */
+	/* The loader: the ribbon draws in from its free end, holds, leaves the same way, then rests a
+	   moment before the next turn, so the loop does not jump (user, 2026-11-17). */
 	.busy .band {
 		stroke-dasharray: 100 100;
-		animation: mark-draw 2s infinite;
+		animation: mark-draw 2.8s infinite;
 	}
 	/* The brass arcs wake with the ribbon and dim as it leaves. */
 	.busy .arc {
-		animation: mark-arc 2s infinite;
+		animation: mark-arc 2.8s infinite;
 	}
 	@keyframes mark-draw {
 		0% {
 			stroke-dashoffset: 94;
-			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+			opacity: 0;
 		}
-		42% {
-			stroke-dashoffset: 0;
-		}
-		58% {
-			stroke-dashoffset: 0;
-			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-		}
-		100% {
-			stroke-dashoffset: -94;
-		}
-	}
-	@keyframes mark-arc {
-		0% {
-			opacity: 0.3;
-			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-		}
-		42%,
-		58% {
+		6% {
+			stroke-dashoffset: 94;
 			opacity: 1;
 			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
 		}
+		38% {
+			stroke-dashoffset: 0;
+		}
+		50% {
+			stroke-dashoffset: 0;
+			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+		}
+		82% {
+			stroke-dashoffset: -94;
+			opacity: 1;
+		}
+		88%,
+		100% {
+			stroke-dashoffset: -94;
+			opacity: 0;
+		}
+	}
+	@keyframes mark-arc {
+		0%,
+		6% {
+			opacity: 0.3;
+			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+		}
+		38%,
+		50% {
+			opacity: 1;
+			animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+		}
+		82%,
 		100% {
 			opacity: 0.3;
 		}
