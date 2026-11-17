@@ -18,8 +18,10 @@
 		onchange: (value: string) => Promise<boolean> | boolean;
 		disabled?: boolean;
 		describedby?: string | undefined;
+		/** The accessible name when there is no <label for>. */
+		label?: string | undefined;
 	}
-	let { id, value, options, onchange, disabled = false, describedby }: Props = $props();
+	let { id, value, options, onchange, disabled = false, describedby, label }: Props = $props();
 
 	async function change(e: Event & { currentTarget: HTMLSelectElement }): Promise<void> {
 		const select = e.currentTarget;
@@ -28,7 +30,15 @@
 	}
 </script>
 
-<select {id} class="select" {disabled} {value} aria-describedby={describedby} onchange={change}>
+<select
+	{id}
+	class="select"
+	{disabled}
+	{value}
+	aria-label={label}
+	aria-describedby={describedby}
+	onchange={change}
+>
 	{#each options as o (o.value)}
 		<option value={o.value} selected={o.value === value}>{o.label}</option>
 	{/each}

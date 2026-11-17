@@ -26,6 +26,7 @@ import {
 	dragRow,
 	openPerson,
 	openResources,
+	PLAN,
 	redo,
 	row,
 	rowIds,
@@ -446,4 +447,92 @@ test('the phone: the Team segment is the table alone; a first tap selects, the s
 	await input.press('Enter');
 	await changed(page, before);
 	await expect.poll(() => toast(page)).not.toBe('');
+});
+
+test('a view chunk that cannot be fetched says so: Try again, then Reload the page (two strikes)', async ({
+	page,
+}, info) => {
+	await page.route(/\/ResourcesView[^/]*\.js(\?|$)/, (route) => route.abort());
+	await page.goto(
+		isTouch(info)
+			? `/app?sample=${PLAN}&hooks=edits`
+			: `/app?sample=${PLAN}&mode=visual&view=resources&hooks=edits`,
+	);
+	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+		timeout: READY_TIMEOUT_MS,
+	});
+	if (isTouch(info)) {
+		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();
+		await page.getByRole('tab', { name: 'Team' }).tap();
+	}
+	const failed = page.getByTestId('people-view-failed');
+	await expect(failed).toBeVisible({ timeout: 60_000 });
+	await expect(failed.getByRole('button', { name: 'Try again' })).toBeVisible();
+	// The first strike: another try, which fails too; a browser remembers a failed import, so now a reload.
+	await failed.getByRole('button', { name: 'Try again' }).click();
+	await expect(failed.getByRole('button', { name: 'Reload the page' })).toBeVisible();
+	await page.unroute(/\/ResourcesView[^/]*\.js(\?|$)/);
+	await failed.getByRole('button', { name: 'Reload the page' }).click();
+	// A reload opens the phone on its first tab again.
+	if (isTouch(info)) {
+		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();
+		await page.getByRole('tab', { name: 'Team' }).tap();
+	}
+	await expect(page.getByTestId('resource-row').first()).toBeVisible({ timeout: 60_000 });
+});
+
+test('the person details chunk that cannot be fetched says so, with the same two strikes', async ({
+	page,
+}, info) => {
+	await page.route(/\/ResourcePanel[^/]*\.js(\?|$)/, (route) => route.abort());
+	await openResources(page, info);
+	await selectRow(page, info, 'ana');
+	if (isTouch(info)) await selectRow(page, info, 'ana');
+	const failed = page.getByTestId('person-failed');
+	await expect(failed).toBeVisible({ timeout: 60_000 });
+	await failed.getByRole('button', { name: 'Try again' }).click();
+	await expect(failed.getByRole('button', { name: 'Reload the page' })).toBeVisible();
+	await page.unroute(/\/ResourcePanel[^/]*\.js(\?|$)/);
+	await failed.getByRole('button', { name: 'Reload the page' }).click();
+	// A reload opens the phone on its first tab again.
+	if (isTouch(info)) {
+		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();
+		await page.getByRole('tab', { name: 'Team' }).tap();
+	}
+	await expect(page.getByTestId('resource-row').first()).toBeVisible({ timeout: 60_000 });
+});
+
+test('the details beside the table talk about people when nobody is selected', async ({
+	page,
+}, info) => {
+	test.skip(isTouch(info), 'the right panel (desktop)');
+	await openResources(page, info);
+	const panel = page.getByTestId('inspector');
+	await expect(panel.getByRole('heading', { name: 'Person details' })).toBeVisible();
+	await expect(panel).toContainText('Select a person to see and change their details.');
+});
+
+test('a delete says what went with the person, and the group select is indented with a visible mark', async ({
+	page,
+}, info) => {
+	test.skip(isTouch(info), 'desktop');
+	await openResources(page, info);
+	const d = await openPerson(page, info, 'rev');
+	await expect(d.getByLabel('Group', { exact: true }).locator('option').nth(1)).toHaveText(
+		'Developers',
+	);
+	await add(page, 'person', 'Tess');
+	await caughtUp(page);
+	await row(page, 'tess').focus();
+	await page.keyboard.press('Delete');
+	await expect(page.getByText('Deleted Tess').first()).toBeVisible({ timeout: 20_000 });
+	await caughtUp(page);
+	// Jack has tasks and the group around him: a delete of the group names what went with it.
+	await row(page, 'dev').focus();
+	await page.keyboard.press('Delete');
+	await expect(
+		page.getByText(/conflicts with that change|Removed Developers and/).first(),
+	).toBeVisible({
+		timeout: 20_000,
+	});
 });

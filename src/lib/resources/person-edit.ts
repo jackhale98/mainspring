@@ -15,6 +15,7 @@
 import { resourceStrings as R } from '../strings-resources';
 import type { Edit } from '../inspector/edit';
 import type { EditIntent } from '../tjp/edit/types';
+import type { SymbolIndex } from '../tjp/index';
 import { printStringPreferring } from '../tjp/values';
 import type { PersonDetails } from './person';
 
@@ -104,10 +105,45 @@ export const renameEdit = (id: string, from: string, to: string): Edit => ({
 	label: label(R.label.renamed(from, to)),
 });
 
-export const deleteEdit = (id: string, name: string): Edit => ({
-	intent: { type: 'deleteResource', resource: id },
-	label: label(R.label.deleted(name)),
-});
+/**
+ * What a delete takes with the resource (the edit API removes its members, its `supplement` blocks
+ * and every `allocate`, `responsible` and `managers` item naming the subtree): the members and the
+ * references, counted from the index, for the toast and the undo entry.
+ */
+export function deleteScope(
+	index: SymbolIndex | null,
+	id: string,
+): { members: number; references: number } {
+	if (!index) return { members: 0, references: 0 };
+	const gone = new Set<string>([id]);
+	const walk = (r: string): void => {
+		for (const c of index.resources.get(r)?.children ?? []) {
+			gone.add(c);
+			walk(c);
+		}
+	};
+	walk(id);
+	let references = index.allocations.filter(
+		(a) => a.resource !== null && gone.has(a.resource),
+	).length;
+	for (const r of index.references) {
+		if (r.kind !== 'resource' || r.target === null || !gone.has(r.target)) continue;
+		if (
+			(r.via === 'responsible' || r.via === 'managers') &&
+			!(r.owner !== null && gone.has(r.owner))
+		)
+			references++;
+	}
+	return { members: gone.size - 1, references };
+}
+
+export const deleteEdit = (id: string, name: string, index: SymbolIndex | null = null): Edit => {
+	const { members, references } = deleteScope(index, id);
+	return {
+		intent: { type: 'deleteResource', resource: id },
+		label: label(R.label.deleted(name, members, references)),
+	};
+};
 
 /** Add person or Add group: a new resource under `parent` at `index`, named as given. */
 export function addEdit(

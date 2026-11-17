@@ -29,7 +29,7 @@ import type {
 	TaskId,
 } from '../tjp/index';
 import type { FieldState } from '../inspector/field';
-import { ownSites, siteState, UNSET } from './sites';
+import { ownSites, sameFileBefore, siteState, UNSET, type ReadBefore } from './sites';
 
 export type PersonField = 'efficiency' | 'rate' | 'email';
 
@@ -66,20 +66,28 @@ export interface PersonDetails {
 	readonly bookedMinutes: Minutes;
 }
 
-/** Own site of a keyword, else the nearest parent group's own (display only). */
+/**
+ * Own site of a keyword, else the nearest parent group's own that was read before the resource's
+ * header (display only; the edit API's rule: a statement below the member does not reach it).
+ */
 function readResourceField(
 	index: SymbolIndex,
 	sym: ResourceSymbol,
 	keyword: PersonField,
+	readBefore: ReadBefore,
 ): FieldState {
 	const own = ownSites(index, sym.attrs, keyword).at(-1);
 	if (own) return siteState(own);
 	const seen = new Set<ResourceId>([sym.id]);
+	let child = sym;
 	for (let p = sym.parent; p !== null && !seen.has(p);) {
 		seen.add(p);
 		const up = index.resources.get(p);
 		if (!up) return UNSET;
-		const site = ownSites(index, up.attrs, keyword).at(-1);
+		const header = child.decl.header;
+		const site = ownSites(index, up.attrs, keyword)
+			.filter((s) => readBefore(s.statement, header))
+			.at(-1);
 		if (site) {
 			const s = siteState(site);
 			return s.kind === 'own'
@@ -92,6 +100,7 @@ function readResourceField(
 					}
 				: s;
 		}
+		child = up;
 		p = up.parent;
 	}
 	return UNSET;
@@ -101,18 +110,28 @@ const idsOf = (sites: readonly AttrSite[]): string[] =>
 	sites.flatMap((s) => (s.parsed?.kind === 'idList' ? [...s.parsed.value] : []));
 
 /** The person's own manager ids and what the groups above give, or where text-only blocks it. */
-export function managersOf(index: SymbolIndex, sym: ResourceSymbol): ManagersFact {
+export function managersOf(
+	index: SymbolIndex,
+	sym: ResourceSymbol,
+	readBefore: ReadBefore = sameFileBefore,
+): ManagersFact {
 	const mine = ownSites(index, sym.attrs, 'managers');
 	const blocked = mine.find((s) => s.textOnly || s.parsed?.kind !== 'idList');
 	const inherited: string[] = [];
 	const seen = new Set<ResourceId>([sym.id]);
+	let child = sym;
 	for (let p = sym.parent; p !== null && !seen.has(p);) {
 		seen.add(p);
 		const up = index.resources.get(p);
 		if (!up) break;
-		for (const id of idsOf(ownSites(index, up.attrs, 'managers'))) {
+		// A group's list read after the member's header does not reach the member (props.ts).
+		const header = child.decl.header;
+		for (const id of idsOf(
+			ownSites(index, up.attrs, 'managers').filter((s) => readBefore(s.statement, header)),
+		)) {
 			if (!inherited.includes(id)) inherited.push(id);
 		}
+		child = up;
 		p = up.parent;
 	}
 	const own = idsOf(mine).filter((id) => !inherited.includes(id));
@@ -176,6 +195,7 @@ export function personDetails(
 	index: SymbolIndex,
 	result: ScheduleResult | null,
 	id: ResourceId,
+	readBefore: ReadBefore = sameFileBefore,
 ): PersonDetails | null {
 	const sym = index.resources.get(id);
 	if (!sym) return null;
@@ -188,10 +208,10 @@ export function personDetails(
 		declaration: sym.textOnly ? sym.textOnly.reason : sym.expandedOnly ? 'expanded-only' : null,
 		group: parent ? { id: parent.id, name: parent.name ?? parent.id } : null,
 		isGroup: sym.children.length > 0,
-		efficiency: readResourceField(index, sym, 'efficiency'),
-		rate: readResourceField(index, sym, 'rate'),
-		email: readResourceField(index, sym, 'email'),
-		managers: managersOf(index, sym),
+		efficiency: readResourceField(index, sym, 'efficiency', readBefore),
+		rate: readResourceField(index, sym, 'rate', readBefore),
+		email: readResourceField(index, sym, 'email', readBefore),
+		managers: managersOf(index, sym, readBefore),
 		allocated: isAllocated(index, id),
 		booked,
 		bookedMinutes: booked.reduce((n, t) => n + t.minutes, 0),

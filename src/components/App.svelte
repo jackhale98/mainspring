@@ -138,6 +138,10 @@
 		showGantt || (showPeople && (phone ? people.segment === 'team' : people.view === 'resources')),
 	);
 	const showEditor = $derived(phone ? app.phoneTab === 'text' : mode !== 'visual');
+	// The details beside the people table talk about people when nothing is selected.
+	$effect(() => {
+		app.inspector.peopleView = !showGantt && showDetails;
+	});
 	const split = $derived(!phone && mode === 'split');
 	/** The Gantt is mounted when first shown and then kept, so zoom and scroll survive a switch. */
 	let ganttSeen = $state(false);

@@ -74,7 +74,11 @@
 		!inspector.link && app.selection.current?.kind === 'resource' ? app.selection.current.id : null,
 	);
 	const title = $derived(
-		inspector.link ? S.linkTitle : person !== null ? S.personTitle : S.taskTitle,
+		inspector.link
+			? S.linkTitle
+			: person !== null || (inspector.peopleView && app.selectedTask === null)
+				? S.personTitle
+				: S.taskTitle,
 	);
 	/** The row the focus goes back to: the task's, a link's successor's, or the person's. */
 	const rowKey = $derived(app.selectedRow ?? (person === null ? null : `resource:${person}`));

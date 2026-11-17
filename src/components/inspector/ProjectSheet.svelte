@@ -15,6 +15,7 @@
 	import { projectEdit, type ProjectField } from '../../lib/inspector/edit';
 	import { projectDetails } from '../../lib/inspector/project';
 	import { weekOf } from '../../lib/resources/hours';
+	import { readBeforeOf, sameFileBefore } from '../../lib/resources/sites';
 	import {
 		dailyHoursEdit,
 		dailyHoursStep,
@@ -57,8 +58,17 @@
 	const ok = async (p: Promise<{ status: string }>): Promise<boolean> =>
 		(await p).status === 'applied';
 
-	// The rest of the frame (module comment).
-	const week = $derived(app.index ? weekOf(app.index, { kind: 'project' }) : null);
+	// The rest of the frame (module comment). A project header written with a macro is text only.
+	const frameOff = $derived(app.index?.project?.textOnly ?? null);
+	const week = $derived(
+		app.index
+			? weekOf(
+					app.index,
+					{ kind: 'project' },
+					app.workspace ? readBeforeOf(app.workspace.snapshot().includes) : sameFileBefore,
+				)
+			: null,
+	);
 	const dailyKey = 'project:dailyworkinghours';
 	let lastDaily: Promise<{ status: string }> = Promise.resolve({ status: 'cancelled' });
 	const daily = {
@@ -177,94 +187,103 @@
 		<section class="frame" aria-labelledby="{uid}-hours">
 			<h3 id="{uid}-hours">{F.hoursTitle}</h3>
 			<p class="note">{F.hoursLead}</p>
-			{#if week}
-				<WorkingHoursEditor
-					scope={{ kind: 'project' }}
-					who={details.name ?? P.title}
-					reading={week}
-				/>
+			{#if frameOff}
+				<!-- The project header is written with a macro: nothing here can be written into it. -->
+				<p class="note">{S.textOnly[frameOff.reason]}</p>
+				<button type="button" class="link" onclick={() => showInText(frameOff.at)}>
+					{S.showInText}
+				</button>
 			{/if}
-			<div class="pair">
-				<Field
-					label={F.dailyHours}
-					state={details.dailyHours}
-					hint={F.dailyHoursHint}
-					onshow={showInText}
-				>
-					{#snippet children({ id, disabled, describedby })}
-						<Stepper
-							{id}
-							text={text(details.dailyHours) || '8'}
-							value={dailyValue}
-							format={(n) => String(Math.round(n * 100) / 100)}
-							min={0.25}
-							step={0.5}
-							what={F.dailyHours}
-							{disabled}
-							{describedby}
-							onpress={daily.press}
-							onend={daily.end}
-							oncommit={daily.type}
-						/>
-					{/snippet}
-				</Field>
-				<div class="field">
-					<label class="switch" for="{uid}-week">
-						<input
-							id="{uid}-week"
-							type="checkbox"
-							role="switch"
-							checked={details.weekStartsMonday}
-							aria-describedby="{uid}-week-note"
-							onchange={async (e) => {
-								const box = e.currentTarget;
-								const applied = await ok(actions.edit(weekStartEdit(box.checked)));
-								if (!applied) box.checked = details.weekStartsMonday;
-							}}
-						/>
-						<span>{F.weekStart}</span>
-					</label>
-					<p class="note" id="{uid}-week-note">{F.weekStartHint}</p>
+			<fieldset class="inner" disabled={frameOff !== null}>
+				{#if week}
+					<WorkingHoursEditor
+						scope={{ kind: 'project' }}
+						who={details.name ?? P.title}
+						reading={week}
+					/>
+				{/if}
+				<div class="pair">
+					<Field
+						label={F.dailyHours}
+						state={details.dailyHours}
+						hint={F.dailyHoursHint}
+						onshow={showInText}
+					>
+						{#snippet children({ id, disabled, describedby })}
+							<Stepper
+								{id}
+								text={text(details.dailyHours) || '8'}
+								value={dailyValue}
+								format={(n) => String(Math.round(n * 100) / 100)}
+								min={0.25}
+								step={0.5}
+								what={F.dailyHours}
+								{disabled}
+								{describedby}
+								onpress={daily.press}
+								onend={daily.end}
+								oncommit={daily.type}
+							/>
+						{/snippet}
+					</Field>
+					<div class="field">
+						<label class="switch" for="{uid}-week">
+							<input
+								id="{uid}-week"
+								type="checkbox"
+								role="switch"
+								checked={details.weekStartsMonday}
+								aria-describedby="{uid}-week-note"
+								onchange={async (e) => {
+									const box = e.currentTarget;
+									const applied = await ok(actions.edit(weekStartEdit(box.checked)));
+									if (!applied) box.checked = details.weekStartsMonday;
+								}}
+							/>
+							<span>{F.weekStart}</span>
+						</label>
+						<p class="note" id="{uid}-week-note">{F.weekStartHint}</p>
+					</div>
 				</div>
-			</div>
-			<div class="pair">
-				<Field
-					label={F.timeformat}
-					state={details.timeformat}
-					hint={F.timeformatHint}
-					onshow={showInText}
-				>
-					{#snippet children({ id, disabled, describedby })}
-						<CommitInput
-							{id}
-							value={text(details.timeformat)}
-							{disabled}
-							{describedby}
-							mono
-							placeholder="%Y-%m-%d"
-							oncommit={textSetting('timeformat')}
-						/>
-					{/snippet}
-				</Field>
-				<Field
-					label={F.currency}
-					state={details.currency}
-					hint={F.currencyHint}
-					onshow={showInText}
-				>
-					{#snippet children({ id, disabled, describedby })}
-						<CommitInput
-							{id}
-							value={text(details.currency)}
-							{disabled}
-							{describedby}
-							mono
-							placeholder="EUR"
-							oncommit={textSetting('currency')}
-						/>
-					{/snippet}
-				</Field>
-			</div>
+				<div class="pair">
+					<Field
+						label={F.timeformat}
+						state={details.timeformat}
+						hint={F.timeformatHint}
+						onshow={showInText}
+					>
+						{#snippet children({ id, disabled, describedby })}
+							<CommitInput
+								{id}
+								value={text(details.timeformat)}
+								{disabled}
+								{describedby}
+								mono
+								placeholder="%Y-%m-%d"
+								oncommit={textSetting('timeformat')}
+							/>
+						{/snippet}
+					</Field>
+					<Field
+						label={F.currency}
+						state={details.currency}
+						hint={F.currencyHint}
+						onshow={showInText}
+					>
+						{#snippet children({ id, disabled, describedby })}
+							<CommitInput
+								{id}
+								value={text(details.currency)}
+								{disabled}
+								{describedby}
+								mono
+								placeholder="EUR"
+								oncommit={textSetting('currency')}
+							/>
+						{/snippet}
+					</Field>
+				</div>
+			</fieldset>
 		</section>
 	{/if}
 
@@ -315,6 +334,26 @@
 		margin-block-end: var(--space-4);
 		padding-block-start: var(--space-3);
 		border-block-start: 1px solid var(--color-border);
+	}
+	.inner {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		min-inline-size: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+	.link {
+		align-self: start;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--color-focus);
+		font: inherit;
+		font-size: var(--text-sm);
+		text-decoration: underline;
+		cursor: pointer;
 	}
 	.frame h3 {
 		margin: 0;

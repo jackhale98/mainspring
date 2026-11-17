@@ -9,6 +9,7 @@ import {
 	TEXT_FIRST_CAP,
 	TOTAL_CAP,
 	unmatchedCaps,
+	viewChunkSet,
 	VISUAL_FIRST_CAP,
 } from '../../scripts/js-sizes.mjs';
 
@@ -127,5 +128,41 @@ describe('checkBudgets', () => {
 
 	it('checks only the dist budgets without a browser measurement', () => {
 		expect(checkBudgets({ files: [{ file: 'a.js', gzip: 1 }] })).toEqual([]);
+	});
+});
+
+describe('viewChunkSet', () => {
+	// A shell that imports a view dynamically, a shared module the view and the first load both
+	// use, a module only the views use (no cap names it), and a lazy chunk that is not a view.
+	const sources = {
+		'App.a.js': 'import{x}from"./shared.a.js";import"./strings.a.js";',
+		'shared.a.js': 'export const x=1;',
+		'strings.a.js': 'export const s=1;',
+		'PeopleView.a.js': 'import{x}from"./shared.a.js";const l=()=>import("./Calendar.a.js");',
+		'Calendar.a.js': 'import{c}from"./leave-card.a.js";import{s}from"./strings-calendar.a.js";',
+		'leave-card.a.js': 'import{x}from"./shared.a.js";export const c=1;',
+		'strings-calendar.a.js': 'export const cs=1;',
+		'ResourcePanel.a.js': 'import{c}from"./leave-card.a.js";import("./WorkingHoursEditor.a.js")',
+		'WorkingHoursEditor.a.js': 'export const w=1;',
+		'editor-controller.a.js': 'export const e=1;',
+	};
+	const html = '<script type="module" src="/_astro/App.a.js"></script>';
+
+	it('is what the shell and the person details reach, minus what the first load imports', () => {
+		expect([...viewChunkSet(sources, html)].sort()).toEqual([
+			'Calendar.a.js',
+			'PeopleView.a.js',
+			'ResourcePanel.a.js',
+			'WorkingHoursEditor.a.js',
+			'leave-card.a.js',
+			'strings-calendar.a.js',
+		]);
+	});
+
+	it('leaves a module the first load imports out, even when a view imports it too', () => {
+		const set = viewChunkSet(sources, html);
+		expect(set.has('shared.a.js')).toBe(false);
+		expect(set.has('strings.a.js')).toBe(false);
+		expect(set.has('editor-controller.a.js')).toBe(false);
 	});
 });

@@ -654,6 +654,9 @@ export const inspectorStrings = {
 	linkTitle: 'Link details',
 	/** The details of a selected person (the rest of their copy is strings-resources.ts). */
 	personTitle: 'Person details',
+	/** The details beside the people table with nobody selected, and when their chunk fails. */
+	personEmpty: 'Select a person to see and change their details.',
+	personLoadFailed: 'The person details could not be loaded.',
 	close: 'Close',
 	closeDetails: 'Close details',
 	hidePanel: 'Hide details',

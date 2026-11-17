@@ -9,6 +9,7 @@
 -->
 <script lang="ts">
 	import { personDetails } from '../../lib/resources/person';
+	import { readBeforeOf, sameFileBefore } from '../../lib/resources/sites';
 	import { resourceStrings as R } from '../../lib/strings-resources';
 	import { getInspector } from './context';
 	import ResourceDetails from './ResourceDetails.svelte';
@@ -17,7 +18,18 @@
 	const { app, showCalendar } = getInspector();
 
 	const result = $derived(app.run?.lastGood?.result ?? null);
-	const details = $derived(app.index ? personDetails(app.index, result, id) : null);
+	// The index and the workspace's includes are read together: a statement of a group read after the
+	// member does not reach the member.
+	const details = $derived(
+		app.index
+			? personDetails(
+					app.index,
+					result,
+					id,
+					app.workspace ? readBeforeOf(app.workspace.snapshot().includes) : sameFileBefore,
+				)
+			: null,
+	);
 </script>
 
 {#if details}

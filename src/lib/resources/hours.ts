@@ -24,7 +24,7 @@
  */
 import type { ToastLabel } from '../gantt/intents';
 import { hoursStrings as H } from '../strings-resources';
-import { ownSites } from './sites';
+import { ownSites, sameFileBefore, type ReadBefore } from './sites';
 import type { Scope } from '../tjp/edit/types';
 import type { AttrSite, ResourceId, SourceRange, SymbolIndex, TextOnlyReason } from '../tjp/index';
 import {
@@ -77,30 +77,52 @@ function apply(week: WeekTable, sites: readonly AttrSite[]): Applied {
 
 const same = (a: SourceRange, b: SourceRange): boolean => a.file === b.file;
 
-/** The project's week (module comment). */
-function projectApplied(index: SymbolIndex): Applied {
+/** The project's week (module comment), as read before `before` (a resource's header), if given. */
+function projectApplied(
+	index: SymbolIndex,
+	before: SourceRange | null,
+	readBefore: ReadBefore,
+): Applied {
 	const p = index.project;
 	if (!p) return { week: DEFAULT_WEEK, own: false };
 	const reset = p.attrs
 		.filter((a) => a.keyword === 'timezone' || a.keyword === 'timingresolution')
 		.at(-1);
 	const sites = ownSites(index, p.attrs, 'workinghours').filter(
-		// A statement above the last reset, in the same file, is overwritten by it.
 		(s) =>
-			!(reset && same(s.statement, reset.statement) && s.statement.from < reset.statement.from),
+			// A statement above the last reset, in the same file, is overwritten by it.
+			!(reset && same(s.statement, reset.statement) && s.statement.from < reset.statement.from) &&
+			(before === null || readBefore(s.statement, before)),
 	);
 	return apply(DEFAULT_WEEK, sites);
 }
 
-/** A person's or group's week: the parent's (or the project's), then their own statements. */
-function resourceApplied(index: SymbolIndex, id: ResourceId, seen: Set<ResourceId>): Applied {
+/**
+ * A person's or group's week: the parent's (or the project's) as it stood when they were declared,
+ * then their own statements, which all count (a supplement's too). A parent's statement read after
+ * the resource's header does not reach it, as in TaskJuggler (a resource copies its parent's hours
+ * when it is created), so a `supplement resource team { workinghours ... }` below the members, or a
+ * group's statement written after them, changes the group and not them.
+ */
+function resourceApplied(
+	index: SymbolIndex,
+	id: ResourceId,
+	seen: Set<ResourceId>,
+	before: SourceRange | null,
+	readBefore: ReadBefore,
+): Applied {
 	const sym = index.resources.get(id);
-	if (!sym || seen.has(id)) return projectApplied(index);
+	if (!sym || seen.has(id)) return projectApplied(index, before, readBefore);
 	seen.add(id);
+	const own = ownSites(index, sym.attrs, 'workinghours').filter(
+		(s) => before === null || readBefore(s.statement, before),
+	);
 	const base =
-		sym.parent === null ? projectApplied(index) : resourceApplied(index, sym.parent, seen);
+		sym.parent === null
+			? projectApplied(index, sym.decl.header, readBefore)
+			: resourceApplied(index, sym.parent, seen, sym.decl.header, readBefore);
 	if (isReading(base)) return base;
-	const mine = apply(base.week, ownSites(index, sym.attrs, 'workinghours'));
+	const mine = apply(base.week, own);
 	return isReading(mine) ? mine : { week: mine.week, own: mine.own };
 }
 
@@ -113,12 +135,19 @@ function reading(a: Applied): WeekReading {
 	return { kind: 'week', days, own: a.own };
 }
 
-/** The week of a scope as the text says it. */
-export function weekOf(index: SymbolIndex, scope: Scope): WeekReading {
+/**
+ * The week of a scope as the text says it. `readBefore` is the reading order of the plan
+ * (`readBeforeOf(snapshot.includes)`); without it positions in one file are compared by offset.
+ */
+export function weekOf(
+	index: SymbolIndex,
+	scope: Scope,
+	readBefore: ReadBefore = sameFileBefore,
+): WeekReading {
 	return reading(
 		scope.kind === 'project'
-			? projectApplied(index)
-			: resourceApplied(index, scope.resource, new Set()),
+			? projectApplied(index, null, readBefore)
+			: resourceApplied(index, scope.resource, new Set(), null, readBefore),
 	);
 }
 

@@ -135,7 +135,7 @@ export class ResourceTable {
 		const edits = this.#app.edits;
 		if (!node || node.id === null || !edits) return false;
 		const next = this.#neighbour(key);
-		const e = deleteEdit(node.id, node.name ?? node.id);
+		const e = deleteEdit(node.id, node.name ?? node.id, this.#app.index);
 		const o = await runIntent(edits, e.intent, e.label, this.#confirm);
 		if (o.status !== 'applied') return false;
 		this.focusKey = next;

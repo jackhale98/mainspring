@@ -103,7 +103,14 @@ export const resourceStrings = {
 		managerAdded: (name: string, who: string) => `${who} now manages ${name}`,
 		managerRemoved: (name: string, who: string) => `${who} no longer manages ${name}`,
 		renamed: (from: string, to: string) => `${from} renamed ${to}`,
-		deleted: (name: string) => `Deleted ${name}`,
+		/** What a delete removed with the resource: its members, and the allocations and lists that named it. */
+		deleted: (name: string, members: number, references: number) => {
+			const also = [
+				members > 0 ? (members === 1 ? '1 member' : `${members} members`) : null,
+				references > 0 ? (references === 1 ? '1 reference' : `${references} references`) : null,
+			].filter((x) => x !== null);
+			return also.length === 0 ? `Deleted ${name}` : `Removed ${name} and ${also.join(' and ')}`;
+		},
 		added: (name: string) => `Added ${name}`,
 		groupAdded: (name: string) => `Added group ${name}`,
 		movedInto: (who: string, group: string) => `${who} moved into ${group}`,

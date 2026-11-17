@@ -19,6 +19,7 @@ import { setup, textsAfter } from '../tjp/edit/testing';
 import type { SymbolIndex } from '../tjp/index';
 import { TJ_WEEKDAYS } from '../tjp/values';
 import { changeDay, weekOf } from './hours';
+import { readBeforeOf } from './sites';
 
 const ENGINE = path.join(ROOT, 'public/engine/manifest.json');
 const REQUIRED = process.env['TJP_EDIT_ENGINE'] === '1';
@@ -43,8 +44,12 @@ task t "T" { effort 1d  allocate c }
 `;
 
 /** The frame starts on a Monday at midnight UTC: the expansion of a week table over two weeks. */
-function expand(index: SymbolIndex, id: string): Array<[Minutes, Minutes]> {
-	const w = weekOf(index, { kind: 'resource', resource: id });
+function expand(
+	index: SymbolIndex,
+	id: string,
+	readBefore?: ReturnType<typeof readBeforeOf>,
+): Array<[Minutes, Minutes]> {
+	const w = weekOf(index, { kind: 'resource', resource: id }, readBefore);
 	if (w.kind !== 'week') throw new Error('not a week');
 	const out: Array<[Minutes, Minutes]> = [];
 	for (let day = 0; day < 14; day++) {
@@ -67,7 +72,44 @@ function engineTime(r: ScheduleResult, id: string): Array<[Minutes, Minutes]> {
 	return list.filter(([, e]) => e <= 14 * 1440).map(([s, e]) => [s, e]);
 }
 
+// A supplement of a group below its members, and a statement written in a group after a member: the
+// engine does not give them to the members (a resource copies its parent's hours when it is created).
+const LATE = `project p "P" 2026-03-02 +4w {
+  timezone "UTC"
+  workinghours mon - thu 8:00 - 12:00, 13:00 - 16:00
+  workinghours fri off
+}
+resource team "Team" {
+  resource a "A"
+  resource b "B" { workinghours mon off }
+}
+supplement resource team {
+  workinghours tue off
+}
+resource late "Late" {
+  resource c "C"
+  workinghours wed off
+}
+task t "T" { effort 1d  allocate a }
+`;
+
 describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('working hours on the engine', () => {
+	it('weekOf matches the engine when a group’s statements come after its members', async () => {
+		const engine = await bootNodeEngine({ log: () => {} });
+		const s = setup(LATE);
+		const rb = readBeforeOf(s.snap.includes);
+		const r = engine.schedule({
+			files: { 'plan.tjp': LATE },
+			entry: 'plan.tjp',
+			revision: ++revision,
+		});
+		expect(r.ok).toBe(true);
+		for (const id of ['a', 'b', 'c']) expect(engineTime(r, id)).toEqual(expand(s.index, id, rb));
+		// The group's own statements do change the group's own week (the editor reads it as the text says).
+		const tue = expand(s.index, 'a', rb).some(([s0]) => Math.floor(s0 / 1440) % 7 === 1);
+		expect(tue).toBe(true);
+	}, 120_000);
+
 	it('weekOf matches the engine for the project, a group and its people', async () => {
 		const engine = await bootNodeEngine({ log: () => {} });
 		const s = setup(PLAN);

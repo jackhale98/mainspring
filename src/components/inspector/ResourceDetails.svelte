@@ -26,6 +26,7 @@
 	} from '../../lib/resources/person-edit';
 	import type { PersonDetails } from '../../lib/resources/person';
 	import { groupChoices, planGroupSelect } from '../../lib/resources/regroup';
+	import { readBeforeOf, sameFileBefore } from '../../lib/resources/sites';
 	import { hoursText } from '../../lib/resources/rows';
 	import { inspectorStrings as S } from '../../lib/strings';
 	import { resourceStrings as R } from '../../lib/strings-resources';
@@ -70,7 +71,7 @@
 					{ value: '', label: R.details.groupNone },
 					...groupChoices(index, d.id).map((g) => ({
 						value: g.id,
-						label: `${'  '.repeat(g.level)}${g.name}`,
+						label: `${'– '.repeat(g.level)}${g.name}`,
 					})),
 				]
 			: [{ value: '', label: R.details.groupNone }],
@@ -123,10 +124,18 @@
 		return e === null ? false : ok(actions.edit(e));
 	};
 
-	const week = $derived(index ? weekOf(index, { kind: 'resource', resource: d.id }) : null);
+	const week = $derived(
+		index
+			? weekOf(
+					index,
+					{ kind: 'resource', resource: d.id },
+					app.workspace ? readBeforeOf(app.workspace.snapshot().includes) : sameFileBefore,
+				)
+			: null,
+	);
 
 	async function remove(): Promise<void> {
-		const e = deleteEdit(d.id, d.name);
+		const e = deleteEdit(d.id, d.name, app.index);
 		if (await ok(actions.edit(e))) app.selection.clear();
 	}
 	const locked = $derived(d.declaration !== null);

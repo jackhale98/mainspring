@@ -23,6 +23,7 @@
 	import { strings } from '../../lib/strings';
 	import type { CalendarState } from '../calendar/calendar-state.svelte';
 	import { LazyModule } from './lazy.svelte';
+	import ViewFailed from './ViewFailed.svelte';
 	import NoPeople from './NoPeople.svelte';
 
 	interface Props {
@@ -165,10 +166,7 @@
 	{/if}
 	{#if awaited && !awaited.module}
 		{#if awaited.failed}
-			<div class="message" role="alert" data-testid="people-view-failed">
-				<p>{S.loadFailed}</p>
-				<button type="button" onclick={() => awaited.load()}>{S.retry}</button>
-			</div>
+			<ViewFailed lazy={awaited} dirty={app.dirty} />
 		{:else}
 			<p class="message" role="status" data-testid="people-view-loading">{S.loading}</p>
 		{/if}
@@ -205,19 +203,6 @@
 		padding: var(--space-6) var(--gutter);
 		color: var(--color-text-muted);
 		text-align: center;
-	}
-	.message p {
-		margin: 0 0 var(--space-3);
-	}
-	.message button {
-		min-block-size: var(--size-control);
-		padding-inline: var(--space-6);
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font: inherit;
-		cursor: pointer;
 	}
 	.message:focus-visible {
 		outline: 3px solid var(--color-focus);

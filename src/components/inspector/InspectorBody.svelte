@@ -12,7 +12,7 @@
 	import { resolveLinks } from '../../lib/gantt/links';
 	import { findLink, linksOfTask } from '../../lib/inspector/links';
 	import { taskDetails } from '../../lib/inspector/task';
-	import { inspectorStrings as S } from '../../lib/strings';
+	import { inspectorStrings as S, strings } from '../../lib/strings';
 	import LazyMount from '../app/LazyMount.svelte';
 	import { getInspector } from './context';
 	import LinkDetails from './LinkDetails.svelte';
@@ -66,6 +66,18 @@
 		app.selection.current?.kind === 'resource' ? app.selection.current.id : null,
 	);
 	const sel = $derived(app.inspector.link);
+	let attempt = $state(0);
+	let failures = $state(0);
+	let failed = $state(false);
+	function retry(): void {
+		if (failures >= 2) {
+			if (app.dirty && !globalThis.confirm(strings.update.confirmReload)) return;
+			location.reload();
+			return;
+		}
+		failed = false;
+		attempt++;
+	}
 	const one = $derived(index && sel ? findLink(links, sel.pred, sel.succ, index, project) : null);
 </script>
 
@@ -76,9 +88,29 @@
 		<p class="hint">{S.dependency.missing}</p>
 	{/if}
 {:else if person !== null}
-	<LazyMount when load={() => import('./ResourcePanel.svelte')} props={{ id: person }} />
+	<!-- The person's details are a lazy chunk: a failed fetch says so, and retries (a second failure
+	     reloads the page, as the People views do: a browser remembers a failed import). -->
+	{#key attempt}
+		<LazyMount
+			when
+			load={() => import('./ResourcePanel.svelte')}
+			props={{ id: person }}
+			onfail={() => {
+				failures++;
+				failed = true;
+			}}
+		/>
+	{/key}
+	{#if failed}
+		<div class="failed" role="alert" data-testid="person-failed">
+			<p class="hint">{S.personLoadFailed}</p>
+			<button type="button" class="button" onclick={retry}>
+				{failures >= 2 ? strings.people.reload : strings.people.retry}
+			</button>
+		</div>
+	{/if}
 {:else if app.selectedTask === null}
-	<p class="hint">{S.empty}</p>
+	<p class="hint">{app.inspector.peopleView ? S.personEmpty : S.empty}</p>
 	<button type="button" class="button" onclick={() => (app.inspector.projectOpen = true)}>
 		{S.projectSettings}
 	</button>
@@ -99,6 +131,10 @@
 {/if}
 
 <style>
+	.failed {
+		display: grid;
+		justify-items: start;
+	}
 	.hint {
 		margin: 0 0 var(--space-3);
 		color: var(--color-text-muted);

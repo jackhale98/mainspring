@@ -31,6 +31,7 @@
 	import { resourceStrings as R } from '../../lib/strings-resources';
 	import SplitDivider from '../app/SplitDivider.svelte';
 	import { LazyModule } from '../people/lazy.svelte';
+	import ViewFailed from '../people/ViewFailed.svelte';
 	import ResourceTable from './ResourceTable.svelte';
 
 	interface Props {
@@ -93,10 +94,7 @@
 				{@const Lanes = lanes.module.default}
 				<Lanes {app} {phone} {active} {setBar} {showGantt} />
 			{:else if lanes.failed}
-				<div class="message" role="alert">
-					<p>{strings.people.loadFailed}</p>
-					<button type="button" onclick={() => lanes.load()}>{strings.people.retry}</button>
-				</div>
+				<ViewFailed lazy={lanes} dirty={app.dirty} testid="lanes-failed" />
 			{:else}
 				<p class="message" role="status">{strings.people.loading}</p>
 			{/if}
@@ -128,18 +126,5 @@
 		padding: var(--space-6) var(--gutter);
 		color: var(--color-text-muted);
 		text-align: center;
-	}
-	.message p {
-		margin: 0 0 var(--space-3);
-	}
-	.message button {
-		min-block-size: var(--size-control);
-		padding-inline: var(--space-6);
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font: inherit;
-		cursor: pointer;
 	}
 </style>

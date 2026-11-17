@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { applyIntent } from '../tjp/edit/apply';
 import { setup, textsAfter } from '../tjp/edit/testing';
 import { changeDay, hoursPhrase, pairsOf, parseTime, timeText, weekOf } from './hours';
+import { readBeforeOf } from './sites';
 
 const HEAD = 'project p "P" 2026-03-02 +8w';
 
@@ -74,6 +75,32 @@ describe('weekOf: a person', () => {
 		expect(a).toMatchObject({ kind: 'week', own: true });
 		expect(days(a)['mon']).toBe('10:00 - 12:00');
 		expect(days(a)['fri']).toBe('Off');
+	});
+});
+
+describe('weekOf: what is read after the member does not reach it', () => {
+	const t = `${HEAD} {\n  workinghours mon - thu 8:00 - 16:00\n}\nresource team "Team" {\n  resource a "A"\n  resource b "B"\n}\nsupplement resource team {\n  workinghours tue off\n}\nresource late "Late" {\n  resource c "C"\n  workinghours wed off\n}\n`;
+	const s = setup(t);
+	const rb = readBeforeOf(s.snap.includes);
+
+	it('a supplement of the group below its members changes the group only', () => {
+		for (const read of [undefined, rb]) {
+			expect(days(weekOf(s.index, { kind: 'resource', resource: 'team' }, read))['tue']).toBe(
+				'Off',
+			);
+			expect(days(weekOf(s.index, { kind: 'resource', resource: 'a' }, read))['tue']).toBe(
+				'8:00 - 16:00',
+			);
+			expect(weekOf(s.index, { kind: 'resource', resource: 'a' }, read)).toMatchObject({
+				own: false,
+			});
+		}
+	});
+
+	it('a statement in the group written after a member does not reach that member', () => {
+		const c = days(weekOf(s.index, { kind: 'resource', resource: 'c' }, rb));
+		expect(c['wed']).toBe('8:00 - 16:00');
+		expect(days(weekOf(s.index, { kind: 'resource', resource: 'late' }, rb))['wed']).toBe('Off');
 	});
 });
 

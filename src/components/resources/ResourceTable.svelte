@@ -62,6 +62,16 @@
 			: (t.selectedKey ?? rows[0]?.node.key ?? null),
 	);
 	const selected = $derived(t.selectedKey);
+	// The tab stop is the focused row, but the table mounts only the rows in view above 100 rows: when
+	// that one has scrolled out of the window the selected row, else the first mounted one, takes it,
+	// so Tab always lands in the grid.
+	const tabStop = $derived(
+		shown.some((r) => r.node.key === focused)
+			? focused
+			: shown.some((r) => r.node.key === selected)
+				? selected
+				: (shown[0]?.node.key ?? null),
+	);
 	const selectedRow = $derived(rows.find((r) => r.node.key === selected) ?? null);
 	const name = (key: string): string => t.tree.get(key)?.name ?? t.tree.get(key)?.localId ?? key;
 
@@ -319,7 +329,7 @@
 						class:selected={selected === r.node.key}
 						class:dragged={drag.view?.dragged === r.node.key}
 						role="row"
-						tabindex={focused === r.node.key ? 0 : -1}
+						tabindex={tabStop === r.node.key ? 0 : -1}
 						data-key={r.node.key}
 						data-testid="resource-row"
 						aria-label={describe(r)}

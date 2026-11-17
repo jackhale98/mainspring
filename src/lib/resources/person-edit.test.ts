@@ -139,6 +139,16 @@ describe('rename, delete and add (W7)', () => {
 		expect(after(e)).toBe(TEXT.replace('  resource b "Bob"\n', ''));
 	});
 
+	it('says what a delete takes with the resource: its members and the references to it', () => {
+		expect(deleteEdit('a', 'Ann', s.index).label.text).toBe('Removed Ann and 1 reference');
+		expect(deleteEdit('team', 'Team', s.index).label.text).toBe(
+			'Removed Team and 2 members and 1 reference',
+		);
+		// A manager the lists name: Ann's `managers lead` goes with Lead.
+		expect(deleteEdit('lead', 'Lead', s.index).label.text).toBe('Removed Lead and 1 reference');
+		expect(deleteEdit('spare', 'Spare', s.index).label.text).toBe('Deleted Spare');
+	});
+
 	it('refuses to delete the only person an effort task is allocated to', () => {
 		const r = applyIntent(s.snap, s.index, deleteEdit('a', 'Ann').intent);
 		expect(r).toMatchObject({ status: 'refused', reason: 'conflicting-attribute' });

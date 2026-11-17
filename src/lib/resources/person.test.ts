@@ -101,6 +101,32 @@ describe('personDetails', () => {
 	});
 });
 
+describe('what a group writes after its member does not reach the member', () => {
+	const late = indexOf(`project p "P" 2026-01-05 +8w
+resource team "Team" {
+  resource a "Ann"
+  efficiency 0.5
+  managers boss
+}
+resource boss "Boss"
+supplement resource team {
+  rate 400
+}
+`);
+	it('is shown for the group, and not as inherited on the member', () => {
+		expect(personDetails(late, null, 'team')).toMatchObject({
+			efficiency: { kind: 'own', text: '0.5' },
+			rate: { kind: 'own', text: '400' },
+			managers: { own: ['boss'], inherited: [] },
+		});
+		expect(personDetails(late, null, 'a')).toMatchObject({
+			efficiency: { kind: 'unset' },
+			rate: { kind: 'unset' },
+			managers: { own: [], inherited: [] },
+		});
+	});
+});
+
 describe('managers', () => {
 	it('accumulate: the person’s own, and what every group above gives', () => {
 		expect(managersOf(ix, ix.resources.get('a')!)).toEqual({

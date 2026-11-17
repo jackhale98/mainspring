@@ -25,7 +25,10 @@ export default defineConfig({
 					// small chunks cost the first load about 3 KB gzip against one (phase-3.md 23.1: T17
 					// went from 306.6 to 309.1 / 418.1 to 420.6 KB, over the Text-first cap). One named
 					// group keeps them, and what they import, in a single chunk that the first load
-					// fetches anyway.
+					// fetches anyway. Careful: the group matches the whole of src/lib/gesture/ and pulls in
+					// what its modules import, so a module only a lazy view uses, placed there (or imported by
+					// one of the listed modules), joins the first load. js-sizes.mjs fails a Gantt-first load
+					// that fetches a People view chunk, which catches it.
 					codeSplitting: {
 						groups: [
 							{

@@ -11,8 +11,10 @@
  * lazy and the first load is capped, so the few lines are repeated here.
  */
 import type { FieldState } from '../inspector/field';
-import type { AttrSite, SymbolIndex } from '../tjp/index';
+import type { AttrSite, SourceRange, SymbolIndex } from '../tjp/index';
 import { printNumber, printValue, type TypedValue } from '../tjp/values';
+import { compareParseOrder } from '../workspace/include-order';
+import type { IncludeGraph } from '../workspace/includes';
 
 /** The own sites of `keyword` among `attrs`, in the top scenario, in reading order. */
 export function ownSites(
@@ -52,3 +54,19 @@ export function siteState(site: AttrSite): FieldState {
 }
 
 export const UNSET: FieldState = { kind: 'unset' };
+
+/**
+ * Whether `a` is read before `b` (TaskJuggler's reading order, across included files). A resource
+ * takes what its parent group, and the project, hold when it is declared: a statement read after the
+ * resource's header does not reach it (the edit API's rule, `props.ts` `inheritedSites`).
+ */
+export type ReadBefore = (a: SourceRange, b: SourceRange) => boolean;
+
+/** Without the includes of the plan: positions in one file by offset, other files as before. */
+export const sameFileBefore: ReadBefore = (a, b) => a.file !== b.file || a.from < b.from;
+
+/** Reading order through the includes of a plan (first visit), as the edit API reads it. */
+export const readBeforeOf =
+	(includes: IncludeGraph): ReadBefore =>
+	(a, b) =>
+		compareParseOrder(includes, a, b, 'first') < 0;
