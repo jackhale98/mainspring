@@ -27,6 +27,7 @@ import {
 	record,
 	recorded,
 	ready,
+	moreThanAJump,
 	steps,
 	stopRecording,
 } from './lib/sheet-rig';
@@ -71,6 +72,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 
 	test('going to full height glides on transform; closing slides down before it goes', async ({
 		page,
+		browserName,
 	}, info) => {
 		await page.emulateMedia({ colorScheme: 'dark' });
 		const panel = await openDetails(page);
@@ -83,7 +85,9 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		const grow = await stopRecording(page);
 		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
 		// Pinned at the foot, the top edge travels up from where it was to its new place, in many frames.
-		expect(steps(grow), 'the top edge moved in more than a jump').toBeGreaterThan(3);
+		expect(steps(grow), 'the top edge moved in more than a jump').toBeGreaterThan(
+			moreThanAJump(browserName, 3),
+		);
 		expect(nonIncreasing(despike(grow))).toBe(true);
 		const fullTop = grow.at(-1) ?? 0;
 		expect(fullTop).toBeLessThan((grow[0] ?? 0) - 100);
@@ -94,7 +98,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		await grab.click();
 		await page.waitForTimeout(700);
 		const shrink = await stopRecording(page);
-		expect(steps(shrink)).toBeGreaterThan(3);
+		expect(steps(shrink)).toBeGreaterThan(moreThanAJump(browserName, 3));
 		expect(nonDecreasing(despike(shrink))).toBe(true);
 
 		// Closing: still there, marked, with a transform animation running; then gone.
@@ -107,7 +111,9 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		const seen = await recorded(page);
 		expect(seen.closing, 'the sheet was on screen, marked closing, while it slid away').toBe(true);
 		expect(seen.props).toContain('transform');
-		expect(steps(away), 'it slid down in more than a jump').toBeGreaterThan(2);
+		expect(steps(away), 'it slid down in more than a jump').toBeGreaterThan(
+			moreThanAJump(browserName, 2),
+		);
 		expect(nonDecreasing(despike(away))).toBe(true);
 		await expect
 			.poll(() => page.evaluate((s) => document.querySelector<HTMLDialogElement>(s)?.open, SHEET))
@@ -261,6 +267,7 @@ test.describe('3. the calendar day details slide up and down', () => {
 
 	test('a second tap on a day slides the sheet up on transform; closing slides it down', async ({
 		page,
+		browserName,
 	}, info) => {
 		await page.emulateMedia({ colorScheme: 'dark' });
 		await openCalendar(page, info);
@@ -273,7 +280,9 @@ test.describe('3. the calendar day details slide up and down', () => {
 		await page.waitForTimeout(600);
 		const up = await stopRecording(page);
 		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
-		expect(steps(up), 'it slid up in more than a jump').toBeGreaterThan(3);
+		expect(steps(up), 'it slid up in more than a jump').toBeGreaterThan(
+			moreThanAJump(browserName, 3),
+		);
 		expect(nonIncreasing(up)).toBe(true);
 		await shot(page, 'calendar-sheet', info);
 
@@ -282,7 +291,9 @@ test.describe('3. the calendar day details slide up and down', () => {
 		await expect(page.locator(SHEET)).toHaveCount(1);
 		await page.waitForTimeout(600);
 		const down = await stopRecording(page);
-		expect(steps(down), 'it slid down in more than a jump').toBeGreaterThan(2);
+		expect(steps(down), 'it slid down in more than a jump').toBeGreaterThan(
+			moreThanAJump(browserName, 2),
+		);
 		expect(nonDecreasing(down)).toBe(true);
 		await expect(page.locator(SHEET)).toHaveCount(0);
 	});
