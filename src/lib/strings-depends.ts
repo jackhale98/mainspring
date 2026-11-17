@@ -27,8 +27,15 @@ export const dependsPickerStrings = {
 		ancestor: 'Contains this task',
 		descendant: 'Is inside this task',
 		linked: 'Already linked',
+		inherited: 'Already linked through a container',
+		'macro-in-body': 'A macro in the task writes its links, so only the text can link it',
 		'expanded-only': 'Declared by a macro, so only the text can link it',
 	} satisfies Record<Unavailable, string>,
+	/** Said when every task the search keeps is disabled. */
+	noneChoosable: (n: number) =>
+		n === 1 ? 'That task cannot be chosen.' : `None of these ${n} tasks can be chosen.`,
+	/** Said when the link exists already and nothing was changed. */
+	alreadyLinked: 'Already linked. Choose another task, or press Escape to close the list.',
 	/** Said when a link is refused and the list stays open to choose again. */
 	refused: 'Not linked. Choose another task, or press Escape to close the list.',
 };

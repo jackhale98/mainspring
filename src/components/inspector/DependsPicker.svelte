@@ -19,9 +19,11 @@
 		dependsCandidates,
 		filterCandidates,
 		linkAction,
-		stepEnabled,
+		firstEnabled,
+		stepOption,
 		type Candidate,
 		type PickRole,
+		type Unavailable,
 	} from '../../lib/inspector/depends-picker';
 	import type { GanttAction } from '../../lib/gantt/intents';
 	import type { Outline } from '../../lib/state/outline';
@@ -36,38 +38,51 @@
 		outline: Outline;
 		/** The tasks already linked in this role (they are listed, disabled). */
 		linked: ReadonlySet<TaskId>;
-		/** Sends the `link` action through the dispatcher; resolves whether the link was written. */
-		act: (action: GanttAction) => Promise<boolean>;
+		/** Sends the `link` action through the dispatcher; resolves the outcome's status. */
+		act: (action: GanttAction) => Promise<string>;
+		/**
+		 * The reasons only the text gives (depends-blocks.ts `dependsBlocks`), read when the list
+		 * opens. The owner supplies it: the edit API's modules are in the first load, and a lazy
+		 * chunk that imported them itself would split them into a chunk of their own.
+		 */
+		blocks: () => ((other: TaskId) => Unavailable | null) | undefined;
 		/** Escape, or the link written (`refocus`: the Add button takes the focus back). */
 		onclose: (refocus: boolean) => void;
 	}
-	let { id, open, role, task, outline, linked, act, onclose }: Props = $props();
+	let { id, open, role, task, outline, linked, act, blocks, onclose }: Props = $props();
 
 	/** A long plan lists this many at once; typing narrows the rest. */
 	const LIMIT = 100;
 
 	let query = $state('');
 	let active = $state(-1);
-	let refused = $state(false);
+	/** What the last choice came to, when it did not close the list. */
+	let outcome = $state<'refused' | 'noop' | null>(null);
 	let busy = false;
 	let input: HTMLInputElement | undefined = $state();
 	let list: HTMLUListElement | undefined = $state();
 
-	const all = $derived(open ? dependsCandidates(outline, task, linked) : []);
+	const all = $derived.by(() => {
+		if (!open) return [];
+		return dependsCandidates(outline, task, linked, blocks());
+	});
 	const matches = $derived(filterCandidates(all, query));
 	const shown = $derived(matches.slice(0, LIMIT));
-	/** The active option: the one the arrows chose, else the first that can be chosen. */
-	const current = $derived(
-		active >= 0 && shown[active]?.disabled === null ? active : stepEnabled(shown, -1, 1),
-	);
+	/** The active option: the one the arrows chose (a disabled one too, to read its reason), else the first that can be chosen. */
+	const current = $derived(active >= 0 && shown[active] ? active : firstEnabled(shown));
+	/** Some tasks match, and none of them can be chosen. */
+	const noneChoosable = $derived(matches.length > 0 && firstEnabled(matches) < 0);
 	const optionId = (c: Candidate): string => `${id}-opt-${c.id}`;
 
 	$effect(() => {
 		if (!open) return;
 		query = '';
 		active = -1;
-		refused = false;
-		void tick().then(() => input?.focus());
+		outcome = null;
+		// A finger opens the keyboard with the focus, which would cover the list: it takes the
+		// focus on the first tap on the box instead (a mouse and a keyboard take it at once).
+		if (globalThis.matchMedia?.('(pointer: coarse)').matches !== true)
+			void tick().then(() => input?.focus());
 	});
 	$effect(() => {
 		// Keep the active option in view as the arrows move.
@@ -78,15 +93,16 @@
 		if (c.disabled !== null || busy) return;
 		busy = true;
 		try {
-			if (await act(linkAction(role, task, c.id))) onclose(true);
-			else refused = true;
+			const status = await act(linkAction(role, task, c.id));
+			if (status === 'applied') onclose(true);
+			else outcome = status === 'noop' ? 'noop' : 'refused';
 		} finally {
 			busy = false;
 		}
 	}
 	function onkeydown(e: KeyboardEvent): void {
 		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-			active = stepEnabled(shown, current, e.key === 'ArrowDown' ? 1 : -1);
+			active = stepOption(shown, current, e.key === 'ArrowDown' ? 1 : -1);
 		} else if (e.key === 'Enter') {
 			const c = shown[current];
 			if (c) void choose(c);
@@ -125,7 +141,7 @@
 			placeholder={S.searchPlaceholder}
 			oninput={() => {
 				active = -1;
-				refused = false;
+				outcome = null;
 			}}
 			{onkeydown}
 		/>
@@ -157,9 +173,12 @@
 			{/each}
 		</ul>
 		<p class="status" id="{id}-status" role="status">
-			{#if refused}{S.refused}{:else if matches.length === 0}{S.noMatch(
+			{#if outcome === 'refused'}{S.refused}{:else if outcome === 'noop'}{S.alreadyLinked}{:else if matches.length === 0}{S.noMatch(
 					query.trim(),
-				)}{:else}{S.count(shown.length, matches.length)}{/if}
+				)}{:else if noneChoosable}{S.noneChoosable(matches.length)}{:else}{S.count(
+					shown.length,
+					matches.length,
+				)}{/if}
 		</p>
 	</div>
 {/if}
@@ -191,6 +210,7 @@
 	}
 	[role='listbox'] {
 		display: grid;
+		gap: var(--space-1);
 		max-block-size: min(16rem, 40vh);
 		margin: 0;
 		padding: 0;
@@ -200,9 +220,10 @@
 	[role='option'] {
 		display: grid;
 		align-content: center;
-		gap: 1px;
+		gap: 3px;
 		min-block-size: var(--size-row);
-		padding: 2px var(--space-2);
+		padding: 6px var(--space-2);
+		line-height: 1.3;
 		border-radius: var(--radius-sm);
 		color: var(--color-text);
 		font-size: var(--text-sm);

@@ -11,6 +11,7 @@
 	import { untrack } from 'svelte';
 	import type { GanttAction } from '../../lib/gantt/intents';
 	import type { PickRole } from '../../lib/inspector/depends-picker';
+	import { dependsBlocks } from '../../lib/inspector/depends-blocks';
 	import { gapEdit } from '../../lib/inspector/edit';
 	import type { LinkFact } from '../../lib/inspector/links';
 	import { inspectorStrings as S } from '../../lib/strings';
@@ -40,8 +41,7 @@
 		predecessor: new Set<TaskId>(waitsFor.map((l) => l.pred)),
 		successor: new Set<TaskId>(followedBy.map((l) => l.succ)),
 	});
-	const act = async (a: GanttAction): Promise<boolean> =>
-		(await actions.action(a)).status === 'applied';
+	const act = async (a: GanttAction): Promise<string> => (await actions.action(a)).status;
 	function toggle(role: PickRole): void {
 		failed = false;
 		open = open === role ? null : role;
@@ -149,6 +149,10 @@
 			outline: app.outline,
 			linked: linked[role],
 			act,
+			blocks: () => {
+				const ws = app.workspace?.snapshot();
+				return ws && app.index ? dependsBlocks(ws, app.index, task, role) : undefined;
+			},
 			onclose: (refocus: boolean) => close(role, refocus),
 		}}
 		onfail={() => {

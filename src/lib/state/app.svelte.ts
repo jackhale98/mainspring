@@ -533,11 +533,16 @@ export class AppState {
 	/**
 	 * Selects `task`, opens its details and opens the picker for a predecessor or a successor
 	 * there (polish item 11; the contract is in lib/inspector/depends-picker.ts). For the Health
-	 * panel's "Add predecessor…" and "Add successor…" fixes (`{ kind: 'pick' }`).
+	 * panel's "Add predecessor…" and "Add successor…" fixes (`{ kind: 'pick' }`). Returns false,
+	 * changing nothing, for a task that is unknown or text-only (its details have no links
+	 * section); it does not reveal a row a collapsed container or the filter hides.
 	 */
-	openDependencyPicker(task: TaskId, role: PickRole): void {
+	openDependencyPicker(task: TaskId, role: PickRole): boolean {
+		const sym = this.index?.tasks.get(task);
+		if (!sym || sym.textOnly || sym.expandedOnly) return false;
 		this.selection.selectTask(task, 'visual');
 		this.inspector.askPick(task, role, this.selection.serial);
+		return true;
 	}
 
 	/**

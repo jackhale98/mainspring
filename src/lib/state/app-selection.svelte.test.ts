@@ -140,7 +140,7 @@ describe('text to visual: collapsed containers', () => {
 describe('the dependency picker request (polish item 11)', () => {
 	it('selects the task, opens its details and asks for the role, for the selection it made', async () => {
 		const { app } = await open();
-		app.openDependencyPicker('b', 'predecessor');
+		expect(app.openDependencyPicker('b', 'predecessor')).toBe(true);
 		expect(app.selectedTask).toBe('task:b');
 		expect(app.inspector.sheet).toBe(true);
 		expect(app.inspector.pick).toEqual({
@@ -156,6 +156,17 @@ describe('the dependency picker request (polish item 11)', () => {
 		// Another task selected afterwards makes the request stale: its serial no longer matches.
 		app.selectTask('task:a');
 		expect(app.inspector.pick?.serial).not.toBe(app.selection.serial);
+	});
+
+	it('says false, and selects and asks for nothing, for a task the index does not know', async () => {
+		// The macro sample's task has a macro-built id the index cannot name.
+		const { app } = await open('macro');
+		const before = app.selection.serial;
+		expect(app.openDependencyPicker('nope', 'predecessor')).toBe(false);
+		expect(app.openDependencyPicker('t1', 'successor')).toBe(false);
+		expect(app.selectedTask).toBeNull();
+		expect(app.selection.serial).toBe(before);
+		expect(app.inspector.pick).toBeNull();
 	});
 });
 

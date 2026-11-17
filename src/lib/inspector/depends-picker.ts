@@ -8,7 +8,11 @@
  * The picker is opened for a task and a role through `app.openDependencyPicker(task, role)`
  * (state/app.svelte.ts): it selects the task, opens its details and asks the details' "Waits for"
  * (`role: 'predecessor'`) or "Followed by" (`'successor'`) section to open its picker, which takes
- * the focus. `role` says what the CHOSEN task is to `task`: a predecessor is a task `task` waits
+ * the focus. It returns whether it asked: `false`, with nothing selected and no request made, when
+ * the task is unknown or text-only (declared by a macro or otherwise left to the text: its details
+ * have no links section), so the caller can fall back (show it in the text). It selects with origin
+ * 'visual' and does not reveal a row hidden by a collapsed container or by the Gantt filter: the
+ * caller (T18's "Show in Gantt") owns that. `role` says what the CHOSEN task is to `task`: a predecessor is a task `task` waits
  * for, a successor a task that waits for `task`. Choosing sends the Gantt action
  * `link { pred, succ }` (`linkAction`) through the inspector's dispatcher, exactly as drawing a
  * link on the chart does: `addDepends` is written on the successor, one undo step, the same toast
@@ -24,7 +28,11 @@
  * - `ancestor` / `descendant`: a dependency between a task and its container or one of its
  *   subtasks is `cycle` (TaskJuggler's task_depend_parent and task_depend_child);
  * - `linked`: the two are already linked this way (`already-linked`, a no-op);
- * - `expanded-only`: declared only through a macro expansion (`text-only`).
+ * - `expanded-only`: declared only through a macro expansion (`text-only`);
+ * - `inherited`: the link already reaches the task or the candidate through a container's own
+ *   `depends` or `precedes` (`already-linked`, a no-op; depends-blocks.ts);
+ * - `macro-in-body`: a macro in the body of the task or the candidate may write the list the link
+ *   goes in, so the edit is refused (`macro-in-body`; depends-blocks.ts).
  * A loop that goes through other tasks is found only by the edit API (it needs the whole graph),
  * so it is refused when chosen, with the toast and the place in the text, and nothing changes.
  */
@@ -35,7 +43,8 @@ import type { TaskId } from '../tjp/index';
 export type PickRole = 'predecessor' | 'successor';
 
 /** Why a listed task cannot be picked. */
-export type Unavailable = 'ancestor' | 'descendant' | 'linked' | 'expanded-only';
+export type Unavailable =
+	'ancestor' | 'descendant' | 'linked' | 'inherited' | 'macro-in-body' | 'expanded-only';
 
 export interface Candidate {
 	readonly id: TaskId;
@@ -69,12 +78,14 @@ export function linkAction(
 
 /**
  * The candidates for `task`. `linked` is the ids it already has in this role (the tasks it waits
- * for, or the tasks that wait for it).
+ * for, or the tasks that wait for it). `blocked` gives the reasons only the text can tell
+ * (depends-blocks.ts `dependsBlocks`).
  */
 export function dependsCandidates(
 	outline: Pick<Outline, 'tasks' | 'byKey'>,
 	task: TaskId,
 	linked: ReadonlySet<TaskId>,
+	blocked: (other: TaskId) => Unavailable | null = () => null,
 ): Candidate[] {
 	/** The containers of a node, outermost first. */
 	const chain = (n: OutlineNode): OutlineNode[] => {
@@ -102,7 +113,7 @@ export function dependsCandidates(
 					? 'expanded-only'
 					: linked.has(n.id)
 						? 'linked'
-						: null;
+						: blocked(n.id);
 		const name = label(n);
 		const path = above.map(label).join(' › ');
 		out.push({
@@ -139,17 +150,18 @@ export function filterCandidates(all: readonly Candidate[], query: string): Cand
 	return kept.sort((a, b) => a.rank - b.rank).map((k) => k.c);
 }
 
+/** The first option that can be chosen, or -1. */
+export const firstEnabled = (list: readonly Candidate[]): number =>
+	list.findIndex((c) => c.disabled === null);
+
 /**
- * The index of the next enabled option from `from` in direction `step`, wrapping round; -1 when
- * none is enabled. `from` is -1 when nothing is active yet (Down then finds the first, Up the
- * last), and may be a disabled option.
+ * The option after or before `from` (-1: none yet), wrapping round. The arrows visit disabled
+ * options too, so a screen reader can read their reason; Enter on one does nothing. -1 for an
+ * empty list.
  */
-export function stepEnabled(list: readonly Candidate[], from: number, step: 1 | -1): number {
+export function stepOption(list: readonly Candidate[], from: number, step: 1 | -1): number {
 	const n = list.length;
-	const start = from < 0 && step < 0 ? 0 : from;
-	for (let k = 1; k <= n; k++) {
-		const i = (((start + step * k) % n) + n) % n;
-		if (list[i]?.disabled === null) return i;
-	}
-	return -1;
+	if (n === 0) return -1;
+	if (from < 0) return step > 0 ? 0 : n - 1;
+	return (from + step + n) % n;
 }

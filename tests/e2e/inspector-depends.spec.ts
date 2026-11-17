@@ -80,6 +80,19 @@ const options = (page: Page) => page.getByTestId('depends-picker').getByRole('op
 const optionFor = (page: Page, id: string) =>
 	page.getByTestId('depends-picker').locator(`[role="option"][data-task="${id}"]`);
 
+/**
+ * The list is open. A mouse and a keyboard have the focus in the search box at once; a finger does
+ * not (its keyboard would cover the list), and the first tap on the box takes it.
+ */
+async function expectOpen(page: Page, info: TestInfo, role: 'predecessor' | 'successor') {
+	const search = searchFor(page, role);
+	await expect(search).toBeVisible();
+	if (!phone(info)) return expect(search).toBeFocused();
+	await expect(search).not.toBeFocused();
+	await search.tap();
+	await expect(search).toBeFocused();
+}
+
 const allAnnounced = (page: Page) =>
 	page.locator('[data-testid="toast"], [data-testid="toast-quiet"]');
 const announced = (page: Page) => allAnnounced(page).last();
@@ -114,13 +127,13 @@ test.describe('adding links from the details', () => {
 		await expect(addFollowedBy(panel)).toBeVisible();
 		expect(chunks).toEqual([]);
 		await addWaitsFor(panel).click();
-		await expect(searchFor(page, 'predecessor')).toBeFocused();
+		await expectOpen(page, info, 'predecessor');
 		expect(chunks).toHaveLength(1);
 		// A second press and the other button use the chunk that is there.
 		await addWaitsFor(panel).click();
 		await expect(page.getByTestId('depends-picker')).toHaveCount(0);
 		await addFollowedBy(panel).click();
-		await expect(searchFor(page, 'successor')).toBeFocused();
+		await expectOpen(page, info, 'successor');
 		expect(chunks).toHaveLength(1);
 	});
 
@@ -132,7 +145,7 @@ test.describe('adding links from the details', () => {
 		const panel = await select(page, info, 'Spike');
 		await addWaitsFor(panel).click();
 		const search = searchFor(page, 'predecessor');
-		await expect(search).toBeFocused();
+		await expectOpen(page, info, 'predecessor');
 		// Every other task is listed, with its dotted id and, below the top level, its outline path.
 		await expect(optionFor(page, 'design.research')).toContainText('Research');
 		await expect(optionFor(page, 'design.research')).toContainText('design.research');
@@ -197,7 +210,7 @@ test.describe('adding links from the details', () => {
 		await expect.poll(() => text(page)).toBe(original);
 	});
 
-	test('lists what can only be refused as disabled with its reason, and the arrows skip it', async ({
+	test('lists what can only be refused as disabled with its reason, and the arrows visit it', async ({
 		page,
 	}, info) => {
 		test.skip(phone(info), 'the keyboard path');
@@ -219,11 +232,19 @@ test.describe('adding links from the details', () => {
 		await page.keyboard.press('Enter');
 		expect(await text(page)).toBe(before);
 		await search.fill('');
-		// Sketch is the first task that can be chosen; Up from it wraps past the disabled ones to the end.
+		// Sketch is the first task that can be chosen. The arrows visit the disabled ones too, so a
+		// screen reader reads their reason (Up from Sketch is the container); Enter does nothing there.
 		await expect(search).toHaveAttribute('aria-activedescendant', /opt-design\.sketch$/);
+		await page.keyboard.press('ArrowUp');
+		await expect(search).toHaveAttribute('aria-activedescendant', /opt-design$/);
+		await expect(optionFor(page, 'design')).toHaveAttribute('aria-selected', 'true');
+		await page.keyboard.press('Enter');
+		expect(await text(page)).toBe(before);
+		await expect(page.getByTestId('depends-picker')).toBeVisible();
 		await page.keyboard.press('ArrowUp');
 		const last = (await options(page).last().getAttribute('data-task')) ?? '';
 		await expect(search).toHaveAttribute('aria-activedescendant', new RegExp(`opt-${last}$`));
+		await page.keyboard.press('ArrowDown');
 		await page.keyboard.press('ArrowDown');
 		await expect(search).toHaveAttribute('aria-activedescendant', /opt-design\.sketch$/);
 		await page.keyboard.press('Escape');
@@ -253,12 +274,46 @@ test.describe('adding links from the details', () => {
 		await expect(page.getByTestId('depends-picker').getByRole('status')).toContainText(
 			'Not linked',
 		);
-		await expect(searchFor(page, 'predecessor')).toBeFocused();
-		// Nothing was added to undo.
-		await page.keyboard.press('Escape');
+		// Nothing was added to undo. Escape closes it (a finger presses Add again).
+		if (phone(info)) await addWaitsFor(panel).click();
+		else {
+			await expect(searchFor(page, 'predecessor')).toBeFocused();
+			await page.keyboard.press('Escape');
+		}
 		await expect(page.getByTestId('depends-picker')).toHaveCount(0);
-		await expect(addWaitsFor(panel)).toBeFocused();
+		if (!phone(info)) await expect(addWaitsFor(panel)).toBeFocused();
 		expect(await text(page)).toBe(original);
+	});
+
+	test('a link a container already makes is listed disabled, not offered', async ({
+		page,
+	}, info) => {
+		await open(page);
+		const original = (await text(page)) ?? '';
+		// `task build { depends design.gate … }`: every task in Build waits for the gate, though the
+		// links the details list for Write code leave it out (the build.tji file is the sample's).
+		const panel = await select(page, info, 'Write code');
+		await addWaitsFor(panel).click();
+		await searchFor(page, 'predecessor').fill('gate');
+		await expect(options(page)).toHaveCount(1);
+		const gate = optionFor(page, 'design.gate');
+		await expect(gate).toHaveAttribute('aria-disabled', 'true');
+		await expect(gate).toContainText('Already linked through a container');
+		// Every match is disabled, and the status says so rather than counting a task.
+		await expect(page.getByTestId('depends-picker').getByRole('status')).toContainText(
+			'cannot be chosen',
+		);
+		await gate.click({ force: true });
+		await expect(allAnnounced(page)).toHaveCount(0);
+		expect(await text(page)).toBe(original);
+		// The other end: from the gate, Write code is already a follower (a fresh page: on a phone the
+		// open sheet covers the gate's row).
+		await open(page);
+		const gatePanel = await select(page, info, 'Design gate');
+		await addFollowedBy(gatePanel).click();
+		await searchFor(page, 'successor').fill('write code');
+		await expect(optionFor(page, 'build.code')).toHaveAttribute('aria-disabled', 'true');
+		await expect(optionFor(page, 'build.code')).toContainText('through a container');
 	});
 
 	test('works with the keyboard alone', async ({ page }, info) => {
