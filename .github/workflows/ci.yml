@@ -174,16 +174,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # One runner per device, two for the iPhone (WebKit runs about three times slower), so no
-      # runner holds all the WebKit tests. Desktop has two as well since Phase 3's views (one runner
-      # took 38 minutes); the frame-rate gate and JS sizes run on its first shard only.
+      # Shards sized so no runner takes much over ten minutes (2026-11-17: one Pixel 7 runner took
+      # 22 minutes and set the whole run's time). The frame-rate gates and JS sizes are a job of
+      # their own (gates, below), so they no longer wait for a shard to finish.
       matrix:
         include:
-          - { project: desktop, shard: 1/2, browsers: chromium }
-          - { project: desktop, shard: 2/2, browsers: chromium }
-          - { project: pixel-7, shard: 1/1, browsers: chromium }
-          - { project: iphone-14, shard: 1/2, browsers: webkit }
-          - { project: iphone-14, shard: 2/2, browsers: webkit }
+          - { project: desktop, shard: 1/3, browsers: chromium }
+          - { project: desktop, shard: 2/3, browsers: chromium }
+          - { project: desktop, shard: 3/3, browsers: chromium }
+          - { project: pixel-7, shard: 1/2, browsers: chromium }
+          - { project: pixel-7, shard: 2/2, browsers: chromium }
+          - { project: iphone-14, shard: 1/3, browsers: webkit }
+          - { project: iphone-14, shard: 2/3, browsers: webkit }
+          - { project: iphone-14, shard: 3/3, browsers: webkit }
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -209,36 +212,16 @@ jobs:
       - run: npm run build
         env:
           MAINSPRING_DEV_PAGES: '1'
-      # Spread over four runners by device. The Text mode timings (text-mode-perf.spec.ts) run
-      # nightly instead (nightly.yml, perf job).
+      # The Text mode timings (text-mode-perf.spec.ts) run nightly instead (nightly.yml, perf job).
       - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
         env:
           E2E_SKIP_GANTT_PERF: ${{ matrix.project == 'desktop' && '1' || '' }}
-      # The frame-rate gates (gantt-perf.spec.ts, workload-perf.spec.ts) measure dropped frames, so
-      # they run alone after the rest, one worker; the Gantt's waits (up to two minutes) for the
-      # runner's load to settle. Other workers' tests made both fail on noise. Budgets unchanged.
-      - name: Frame-rate gates
-        if: matrix.project == 'desktop' && matrix.shard == '1/2' && !cancelled()
-        run: npm run test:e2e -- --project=desktop --workers=1 tests/e2e/gantt-perf.spec.ts tests/e2e/workload-perf.spec.ts
-        env:
-          PERF_MAX_LOAD: '2.5'
-      # JS budget (phase-2 11.3, 13.4, 18.11; amended 2026-11-16, raised 2026-11-17), on this build:
-      # a Visual-first load at most 330,000 bytes gzip and a Text-first load at most 440,000 (fail),
-      # the total of dist/_astro under a 650,000 guard, named lazy chunks under their caps, and a
-      # Visual-first load must not fetch the CodeMirror chunk (fails).
-      # It serves dist itself, as Pages does, and loads two pages to Engine Ready: about a minute, on the
-      # desktop runner only (the iPhone runners are the slow ones).
-      - name: JS sizes
-        if: matrix.project == 'desktop' && matrix.shard == '1/2' && !cancelled()
-        run: node scripts/js-sizes.mjs --serve --out test-results/js-sizes.json
       # The timings the Gantt specs record (gesture frame cost, analysis time), per device.
       - uses: actions/upload-artifact@v4
         if: always() && matrix.project != 'iphone-14'
         with:
           name: gantt-timings-${{ matrix.project }}-${{ strategy.job-index }}
-          path: |
-            test-results/gantt-*.json
-            test-results/js-sizes.json
+          path: test-results/gantt-*.json
           if-no-files-found: ignore
           retention-days: 14
       - uses: actions/upload-artifact@v4
@@ -252,6 +235,65 @@ jobs:
         if: failure()
         with:
           name: test-results-${{ matrix.project }}-${{ strategy.job-index }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  gates:
+    name: Frame-rate gates and JS sizes (desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      - run: npm run build
+        env:
+          MAINSPRING_DEV_PAGES: '1'
+      # The frame-rate gates (gantt-perf.spec.ts, workload-perf.spec.ts) measure dropped frames, so
+      # they run alone on this runner, one worker; the Gantt's waits (up to two minutes) for the
+      # load to settle. Other workers' tests made both fail on noise. Budgets unchanged.
+      - name: Frame-rate gates
+        if: ${{ !cancelled() }}
+        run: npm run test:e2e -- --project=desktop --workers=1 tests/e2e/gantt-perf.spec.ts tests/e2e/workload-perf.spec.ts
+        env:
+          PERF_MAX_LOAD: '2.5'
+      # JS budget (phase-2 11.3, 13.4, 18.11; amended 2026-11-16, raised 2026-11-17), on this build:
+      # a Visual-first load at most 330,000 bytes gzip and a Text-first load at most 440,000 (fail),
+      # the total of dist/_astro under a 650,000 guard, named lazy chunks under their caps, and a
+      # Visual-first load must not fetch the CodeMirror chunk (fails).
+      # It serves dist itself, as Pages does, and loads two pages to Engine Ready: about a minute.
+      - name: JS sizes
+        if: ${{ !cancelled() }}
+        run: node scripts/js-sizes.mjs --serve --out test-results/js-sizes.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gantt-timings-gates
+          path: |
+            test-results/gantt-*.json
+            test-results/js-sizes.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-gates
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
