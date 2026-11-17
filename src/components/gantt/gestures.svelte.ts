@@ -66,6 +66,10 @@ import type { LinkMode } from './link-mode.svelte';
 export interface GestureHost {
 	readonly actor: GanttActor;
 	readonly links: LinkMode;
+	/** Assign mode is on (the toolbar's Assign control): the cursor says each bar takes a person. */
+	assigning(): boolean;
+	/** A tap on a bar's row in assign mode books the person there; false when the mode is off. */
+	assignTap(row: number): boolean;
 	model(): GanttModel;
 	layout(): GanttLayout;
 	/** The plot's own box: content x = client x minus its left, content y likewise. */
@@ -346,7 +350,11 @@ export class GanttGestures {
 		const link = hit.kind === 'link' ? hit.link : null;
 		if (link !== this.hoverLink) this.hoverLink = link;
 		const textOnly = hit.kind === 'bar' && model.rows[hit.row]?.textOnly != null;
-		this.cursor = this.#h.links.active ? 'crosshair' : cursorOf(hit, textOnly);
+		this.cursor = this.#h.links.active
+			? 'crosshair'
+			: this.#h.assigning() && hit.kind === 'bar'
+				? 'copy'
+				: cursorOf(hit, textOnly);
 		const links = this.#h.links;
 		if (links.active && links.state?.via === 'tap') {
 			links.point(p.x, p.y);
@@ -435,6 +443,7 @@ export class GanttGestures {
 		const h = this.#h;
 		const links = h.links;
 		if (hit.kind === 'bar') {
+			if (h.assignTap(hit.row)) return;
 			if (links.active && links.state?.via === 'tap') {
 				if (hit.row === links.state.from) links.cancel();
 				else void links.complete(hit.row);

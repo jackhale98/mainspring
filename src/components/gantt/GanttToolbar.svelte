@@ -20,15 +20,16 @@
 	date, so an empty highlight is never unexplained.
 -->
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 	import { ZOOM_ORDER, ZOOM_PRESETS, nearestLevel, type ZoomLevel } from '../../lib/gantt/scale';
 	import type { RowLine } from '../../lib/gantt/describe';
 	import type { LineState } from '../../lib/gantt/model';
 	import type { CriticalChip } from '../../lib/gantt/analysis';
-	import { gestureStrings, strings } from '../../lib/strings';
+	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 	import type { AddMode } from '../../lib/gantt/add-task';
 	import AddTaskMenu from './AddTaskMenu.svelte';
+	import PeoplePicker from './PeoplePicker.svelte';
 	import RowMenu from './RowMenu.svelte';
 	import type { RowAction } from './types';
 
@@ -45,8 +46,8 @@
 		onlevel: (level: ZoomLevel) => void;
 		ontoday: () => void;
 		oncritical: () => void;
-		/** The people palette's toggle (R6): shown for a mouse when the plan has people. */
-		people?: { open: boolean; count: number; ontoggle: () => void } | undefined;
+		/** The people picker's props (R6; polish 17): given for a mouse when the plan has people. */
+		people?: ComponentProps<typeof PeoplePicker> | undefined;
 		/** The Add task (+) control (ADR-0013): first, on every layout. */
 		add?:
 			| {
@@ -103,7 +104,7 @@
 	$effect(() => onpill?.(pillH));
 </script>
 
-<div class="bar">
+<div class="bar" class:assigning={people?.assigning != null}>
 	<div class="chips" role="group" aria-label={strings.gantt.toolbar}>
 		{#if lead}{@render lead()}{/if}
 		{#if add}<AddTaskMenu {...add} />{/if}
@@ -152,18 +153,7 @@
 			<Icon name="route" size={14} /><span class="lbl">{strings.gantt.criticalPath}</span>
 		</button>
 		<span id="critical-why" class="sr-only">{critical.why}</span>
-		{#if people && people.count > 0}
-			<button
-				type="button"
-				class="chip people"
-				aria-pressed={people.open}
-				aria-label={gestureStrings.palette.region}
-				onclick={people.ontoggle}
-				title={people.open ? gestureStrings.palette.hide : gestureStrings.palette.show}
-			>
-				<Icon name="users" size={14} /><span class="lbl">{gestureStrings.palette.region}</span>
-			</button>
-		{/if}
+		{#if people && people.people.length > 0}<PeoplePicker {...people} />{/if}
 		{#if rowActions}
 			<RowMenu {...rowActions} />
 		{/if}
@@ -380,23 +370,11 @@
 		color: var(--color-pending);
 		font-weight: 600;
 	}
-	/* A narrow chart (Split, or a desktop with the details docked, where the view switcher takes the
-	   room) has no room for the word: the icon is the chip. */
-	@container gantt (max-width: 1049px) {
-		.people .lbl {
-			display: none;
-		}
-		.people {
-			padding-inline: 9px;
-		}
-	}
-	/* The palette is for a mouse and a pen; a finger books people in the details sheet. */
+	/* The palette's pieces (the Assign button, the recent chips) answer to the same widths in
+	   `PeoplePicker.svelte`. A finger books people in the details sheet: no picker there. */
 	@media (pointer: coarse) {
 		.chip {
 			min-block-size: var(--size-tap);
-		}
-		.people {
-			display: none;
 		}
 	}
 	/* A narrow chart (Split beside the editor) has no room in the band for the selected task's
@@ -414,6 +392,31 @@
 		}
 		.task.hover {
 			z-index: 7;
+		}
+	}
+	/* The note that stands alone (nothing selected) wraps, so it cannot be squeezed to a column
+	   beside the pill: it waits until assign mode ends. */
+	.bar.assigning .task.wrap {
+		display: none;
+	}
+	/* Assign mode needs the room for its pill: the legend gives way to it (and to the task line). */
+	.bar.assigning .legend li:not(.stale) {
+		display: none;
+	}
+	.bar.assigning .legend:not(:has(.stale)) {
+		display: none;
+	}
+	/* A very narrow chart (Split on a small window): while assigning, the pill that names the
+	   person needs the room, so Today and Critical path are their icons (their aria-labels are
+	   their names) until it ends. */
+	@container gantt (max-width: 699px) {
+		.bar.assigning .today .lbl,
+		.bar.assigning .critical .lbl {
+			display: none;
+		}
+		.bar.assigning .today,
+		.bar.assigning .critical {
+			padding-inline: 9px;
 		}
 	}
 	/* A narrow chart (Split, or a desktop with the details docked, where the view switcher also

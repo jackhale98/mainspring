@@ -511,11 +511,30 @@ export const gestureStrings = {
 	},
 	palette: {
 		region: 'People',
-		show: 'Show people',
-		hide: 'Hide people',
-		hint: 'Drag a person onto a bar to book them on that task. With a task selected, press a person to book or release them.',
-		chip: (name: string) => `${name}: book on the selected task`,
+		/** The toolbar control that opens the searchable list of people (polish item 17). */
+		assign: 'Assign',
+		assignTitle: 'Assign a person to tasks',
+		switchTitle: 'Choose another person to assign',
+		listLabel: 'People',
+		searchLabel: 'Find a person by name or id',
+		searchPlaceholder: 'Find a person',
+		hint: 'Drag a person onto a bar to book them on that task. Click a person to book them on several bars in a row. With a task selected, Enter books the person on it.',
 		none: 'No people in this plan yet.',
+		noMatch: (query: string) => `No one matches "${query}".`,
+		count: (n: number) => (n === 1 ? '1 person' : `${n} people`),
+		/** In a list option: the person is already on the selected task. */
+		onSelected: 'on the selected task',
+		recentRegion: 'Recently assigned',
+		recent: (name: string) => `${name}: drag onto a bar`,
+		/** Assign mode: the pill beside the button, and its way out. */
+		assigning: (name: string) => `Assigning ${name}\u2026`,
+		assigningLive: (name: string) =>
+			`Assigning ${name}. Click bars to book them. Escape or Done ends it.`,
+		done: 'Done',
+		doneLabel: 'Done assigning',
+		ended: 'Stopped assigning.',
+		/** Said when Enter in the list finds the person already on the selected task. */
+		already: (person: string, task: string) => `${person} is already on ${task}.`,
 		/** The label by a dragged chip over a container. */
 		container: 'Not on a summary: pick a subtask',
 		/** The label by a dragged chip, over a bar. */
