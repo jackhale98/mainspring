@@ -23,10 +23,9 @@ import { buildIndex, hintsFromResult } from '../../src/lib/tjp/index';
 import { golden } from '../../src/lib/tjp/index/testing';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { smallTargets } from './lib/targets';
-import { mirrorCells, openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
+import { mirrorCells, openHeatmap, oracle, resultOf, shape, walkGrid } from './lib/workload-rig';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const COMING = /Moving tasks between people and weeks is coming/;
 
 test.beforeEach(({ browserName: _b }, info) => {
 	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T14); iPhone is reported');
@@ -34,13 +33,21 @@ test.beforeEach(({ browserName: _b }, info) => {
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
 type Hook = {
+	tasks(p: string, c: number): Array<{ kind: string; movable: boolean }>;
 	scrollTo(person: string, col: number): boolean;
 	cell(person: string, col: number): { x: number; y: number } | null;
 };
-type Win = { __mainspringWorkload: Hook; __mainspringEdits: { text(): string | null } };
+type Win = {
+	__mainspringWorkload: Hook;
+	__mainspringEdits: { text(path?: string): string | null };
+};
 
+/** The entry file and the generated people file, where fedora-res writes its allocations. */
 const text = (page: Page) =>
-	page.evaluate(() => (window as unknown as Win).__mainspringEdits.text() ?? '');
+	page.evaluate(() => {
+		const e = (window as unknown as Win).__mainspringEdits;
+		return `${e.text() ?? ''}\n--\n${e.text('mainspring-load.tji') ?? ''}`;
+	});
 
 async function tapAt(page: Page, info: TestInfo, at: { x: number; y: number }): Promise<void> {
 	if (isTouch(info)) await page.touchscreen.tap(at.x, at.y);
@@ -60,6 +67,70 @@ async function busyCell(page: Page): Promise<{ person: string; col: number }> {
 		if (col >= 0) return { person, col };
 	}
 	throw new Error('nobody is booked');
+}
+
+/**
+ * Runs a move and says what became of it: the text changed (one undo step: Undo restores the bytes)
+ * or a refusal toast with its sentence is up and the text is as it was.
+ */
+async function moved(page: Page, act: () => Promise<void>): Promise<'applied' | 'refused'> {
+	const before = await text(page);
+	await act();
+	const stuck = async () =>
+		console.log(
+			'no outcome of',
+			act.name,
+			'; live:',
+			await page.getByTestId('heat-live').textContent(),
+			'; which:',
+			await page.getByTestId('which-task').count(),
+			'; toasts:',
+			(await page.getByTestId('toast').allTextContents()).join(' | '),
+		);
+	await expect
+		.poll(
+			async () => {
+				// The first move of a plan asks how to move (ADR-0008 #2): answer with the suggestion.
+				const ask = page.getByTestId('move-question');
+				if (await ask.isVisible()) await ask.locator('button.primary').click();
+				return (await text(page)) !== before || (await page.getByTestId('toast').count()) > 0;
+			},
+			{ timeout: 30_000 },
+		)
+		.toBe(true)
+		.catch(async (e) => {
+			await stuck();
+			throw e;
+		});
+	if ((await text(page)) === before) {
+		console.log('refused:', (await page.getByTestId('toast').allTextContents()).join(' | '));
+		return 'refused';
+	}
+	await page.getByRole('button', { name: 'Undo' }).first().click();
+	await expect.poll(() => text(page)).toBe(before);
+	return 'applied';
+}
+
+/** A booked cell from which a drag may start (a task the text declares and can edit). */
+async function movableCell(page: Page): Promise<{ person: string; col: number }> {
+	// Well down the list and well along the plot, clear of the edges that auto-scroll a drag.
+	const result = await resultOf(page);
+	if (!result) throw new Error('no result');
+	const o = oracle(result);
+	const s = await shape(page);
+	for (const person of (s?.rows ?? []).slice(8, -4)) {
+		if (result.resources.find((r) => r.id === person)?.group) continue;
+		const row = o.booked.get(person) ?? [];
+		for (let col = 8; col < row.length; col++) {
+			if ((row[col] ?? 0) === 0) continue;
+			const tasks = await page.evaluate(
+				([p, c]) => (window as unknown as Win).__mainspringWorkload.tasks(p as string, c as number),
+				[person, col] as const,
+			);
+			if (tasks.some((t) => t.kind === 'booked' && t.movable)) return { person, col };
+		}
+	}
+	throw new Error('no cell has a movable task');
 }
 
 async function pointOf(page: Page, person: string, col: number) {
@@ -203,7 +274,7 @@ test('keyboard: arrows, Home and End, Enter opens the details, Escape closes the
 	await expect(grid).toBeAttached();
 });
 
-test('details: the tasks of a cell with hours and effective effort; the moves answer "coming"', async ({
+test('details: the tasks of a cell with hours and effective effort; the move menus and keys edit or refuse', async ({
 	page,
 }, info) => {
 	await openHeatmap(page, info);
@@ -221,21 +292,25 @@ test('details: the tasks of a cell with hours and effective effort; the moves an
 	await expect(task).toContainText(/\d+(\.\d+)? h/);
 	await expect(task).toContainText(/h effective/);
 
-	// Move to person…, from the menu.
+	// Move to person…, from the menu: T12's planner makes it one edit (undone here) or refuses it.
 	const menu = task.getByRole('combobox').first();
 	const value = await menu.locator('option:not([disabled])').last().getAttribute('value');
-	await menu.selectOption(value ?? '');
-	await expect(details.getByText(COMING)).toBeVisible();
+	const toPerson = await moved(page, () => menu.selectOption(value ?? '').then(() => undefined));
+	console.log('Move to person:', toPerson);
 	// And Move to week….
 	const weeks = task.getByRole('combobox').nth(1);
-	await weeks.selectOption(
-		(await weeks.locator('option:not([disabled])').last().getAttribute('value')) ?? '',
-	);
-	// The keys: Alt and the arrows on the task.
-	await task.focus();
-	await page.keyboard.press('Alt+ArrowDown');
-	await page.keyboard.press('Alt+ArrowRight');
-	await page.waitForTimeout(500);
+	const weekValue = await weeks.locator('option:not([disabled])').last().getAttribute('value');
+	const week = await moved(page, () => weeks.selectOption(weekValue ?? '').then(() => undefined));
+	console.log('Move to week:', week);
+	// The keys: Alt and the arrows on the task, one undo step for a run of presses.
+	const keyed = await moved(page, async () => {
+		await task.focus();
+		await page.keyboard.press('Alt+ArrowDown');
+		await page.keyboard.press('Alt+ArrowDown');
+		await page.keyboard.press('Enter');
+	});
+	console.log('Alt+arrows:', keyed);
+	expect([toPerson, week, keyed]).toContain('applied');
 	expect(await text(page)).toBe(before);
 
 	// Show in Gantt selects the task and goes to the Gantt.
@@ -293,6 +368,41 @@ test('zoom keeps the week in view', async ({ page }, info) => {
 	expect(days.length).toBeGreaterThan(10);
 });
 
+test('held and unmet work (T10) shows in the cells: over, with the reason in the name', async ({
+	page,
+}, info) => {
+	test.skip(isTouch(info), 'desktop: the walk of the grid is long on a phone');
+	await openHeatmap(page, info);
+	// The marks come in their own idle task after the model: poll the grid until a cell has them.
+	let found: { person: string; col: number; name: string } | undefined;
+	await expect
+		.poll(
+			async () => {
+				const cells = await walkGrid(page);
+				found = [...cells.values()].find((c) => c.name.includes('without them'));
+				return found?.name ?? '';
+			},
+			{ timeout: 90_000, intervals: [2000] },
+		)
+		.toMatch(/over.*tasks? runs? without them|over.*run without them/);
+	const cell = found as { person: string; col: number; name: string };
+	expect(cell.name).toMatch(/, over,/);
+	// The details say why: the clause from overCauses.
+	await page.evaluate(
+		([p, c]) => (window as unknown as Win).__mainspringWorkload.scrollTo(p as string, c as number),
+		[cell.person, cell.col] as const,
+	);
+	await page.waitForTimeout(150);
+	const at = await page.evaluate(
+		([p, c]) => (window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
+		[cell.person, cell.col] as const,
+	);
+	await page.mouse.click(at?.x ?? 0, at?.y ?? 0);
+	const details = page.getByTestId('cell-details');
+	await expect(details).toContainText(/tasks? runs? without/);
+	await expect(details.getByText(/^Running without /)).toBeVisible();
+});
+
 test('unit: percent shows percent in the cells and their names', async ({ page }, info) => {
 	await openHeatmap(page, info);
 	await chooseUnit(page, '%');
@@ -307,7 +417,7 @@ test('unit: percent shows percent in the cells and their names', async ({ page }
 test('thresholds: stored per plan, a bad pair refused, bands follow', async ({ page }, info) => {
 	await openHeatmap(page, info);
 	const bands = async () => (await mirrorCells(page)).filter((c) => c.band === 'over').length;
-	expect(await bands()).toBe(0);
+	const before = await bands();
 	await page.getByTestId('heat-thresholds-chip').click();
 	const over = page.getByLabel('Over above', { exact: true });
 	const spare = page.getByLabel('Spare below', { exact: true });
@@ -319,7 +429,7 @@ test('thresholds: stored per plan, a bad pair refused, bands follow', async ({ p
 	await spare.fill('50');
 	await spare.press('Enter');
 	await expect(page.getByRole('alert')).toHaveCount(0);
-	await expect.poll(bands).toBeGreaterThan(0);
+	await expect.poll(bands).toBeGreaterThan(before + 5);
 	const stored = await page.evaluate(() => localStorage.getItem('mainspring.workload.fedora-res'));
 	expect(JSON.parse(stored ?? '{}').thresholds).toEqual({ spareBelow: 50, overAbove: 90 });
 	// It survives a reload, and the other plan has its own.
@@ -357,12 +467,12 @@ test("a group's toggle hides and shows its members", async ({ page }, info) => {
 	await expect(grid).toHaveAttribute('aria-rowcount', '29');
 });
 
-test('rebalance: a mouse drag to another person shows the label and, until T12, changes nothing', async ({
+test('rebalance: a mouse drag to another person or week is one edit that Undo takes back, or a refusal', async ({
 	page,
 }, info) => {
 	test.skip(isTouch(info), 'mouse');
 	await openHeatmap(page, info);
-	const { person, col } = await busyCell(page);
+	const { person, col } = await movableCell(page);
 	const from = await pointOf(page, person, col);
 	const before = await text(page);
 	// Escape cancels a drag.
@@ -372,26 +482,41 @@ test('rebalance: a mouse drag to another person shows the label and, until T12, 
 	await page.keyboard.press('Escape');
 	await page.mouse.up();
 	await expect(page.getByTestId('heat-live')).toContainText('Move cancelled');
-	await page.mouse.move(from.x, from.y);
-	await page.mouse.down();
-	await page.mouse.move(from.x, from.y + 14, { steps: 4 });
-	await page.mouse.move(from.x + 2, from.y + 70, { steps: 6 });
-	// The ghost's label is drawn on the canvas; the drag is axis-locked, so the column stays.
-	await page.mouse.up();
-	// A cell with several tasks asks which one is meant (18.9); a cell with one does not.
-	const which = page.getByTestId('which-task');
-	if (await which.isVisible()) {
-		await expect(which).toContainText('Move which task?');
-		await which.locator('button[data-task]').first().click();
-	}
-	await expect(page.getByText(COMING).last()).toBeVisible();
-	expect(await text(page)).toBe(before);
-	// A drag along the row (another week) asks the same.
-	await page.mouse.move(from.x, from.y);
-	await page.mouse.down();
-	await page.mouse.move(from.x + 14, from.y, { steps: 4 });
-	await page.mouse.move(from.x + 120, from.y + 2, { steps: 6 });
-	await page.mouse.up();
+	// A person drag: the cell with several tasks asks which one is meant (18.9).
+	const result = await resultOf(page);
+	const rows = (await shape(page))?.rows ?? [];
+	const isGroup = (id: string) => !!result?.resources.find((r) => r.id === id)?.group;
+	const other = rows.slice(rows.indexOf(person) + 1).find((id) => !isGroup(id));
+	if (!other) throw new Error('no person below');
+	const drag = (kind: 'person' | 'week') =>
+		async function dragged() {
+			console.log('dragging to', kind);
+			// The edge of the plot scrolls a drag: start from where the cell is now.
+			const from = await pointOf(page, person, col);
+			const to =
+				kind === 'person'
+					? await page.evaluate(
+							([p, c]) =>
+								(window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
+							[other, col] as const,
+						)
+					: { x: from.x + 120, y: from.y };
+			if (!to) throw new Error('no target');
+			await page.mouse.move(from.x, from.y);
+			await page.mouse.down();
+			await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 4 });
+			await page.mouse.move(to.x, to.y, { steps: 6 });
+			await page.mouse.up();
+			const which = page.getByTestId('which-task');
+			if (await which.isVisible()) {
+				await expect(which).toContainText('Move which task?');
+				await which.locator('button[data-task]').first().click();
+			}
+		};
+	const toPerson = await moved(page, drag('person'));
+	const toWeek = await moved(page, drag('week'));
+	console.log('drag to person:', toPerson, '; to week:', toWeek);
+	expect([toPerson, toWeek]).toContain('applied');
 	expect(await text(page)).toBe(before);
 });
 

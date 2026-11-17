@@ -10,9 +10,12 @@
  *   and it costs at most 15 ms) reuse it. Each build is a `performance` measure,
  *   `mainspring:workload-load`, with the row and column counts (recorded, 8.3).
  * - **Dimming costs no rebuild.** `shown(dimmed)` re-wraps the model with `withDimmed`.
- * - **Demand.** `demand` is null until T10 (`demandOf`) merges: held and unmet work are zeros and
- *   no cell is over for them. When it does, it is made in its own idle task after the model and
- *   the model is rebuilt with it; this file is the seam.
+ * - **Demand** (T10's `demandOf`, held and unmet work, 6.3) is made in its own idle task after the
+ *   model is built, once per result and index (cached by the result object; its first call in a
+ *   fresh worker is 8 to 21 ms on fedora-res and cannot be chunked), and the model is then built
+ *   again with the marks: held and unmet work show in the cells and the details, and cells go over
+ *   with the reason. Until then the model has none (zeros). A demand that throws is cached as none
+ *   and reported; the hours do not depend on it.
  * - **One zone host** for the life of the view, the plain Intl one (`createTimeZoneHost`), not the
  *   Gantt's `memoZones`: the axis is kept per host (axis.ts).
  * - **Preferences** are per plan (heat-prefs.ts): the zoom, the unit, the thresholds and the
@@ -20,7 +23,10 @@
  */
 import type { ScheduleResult } from '../../engine/protocol';
 import { createTimeZoneHost } from '../../engine/timezone';
-import { whenIdle } from '../../lib/gantt/analysis';
+import { analysisOf, whenIdle } from '../../lib/gantt/analysis';
+import { demandOf } from '../../lib/schedule/demand';
+import type { DemandMarks } from '../../lib/schedule/explain-types';
+import { workingTimeOf } from '../../lib/schedule/working-time';
 import { report } from '../../lib/report';
 import { finishScenario } from '../../lib/schedule/finish';
 import { browserStorage, type PrefStorage } from '../../lib/state/storage';
@@ -38,6 +44,7 @@ import { buildLoad, withDimmed } from '../../lib/workload/load';
 import type { Availability, BucketKind, LoadModel, Thresholds } from '../../lib/workload/types';
 
 export const LOAD_MEASURE = 'mainspring:workload-load';
+export const DEMAND_MEASURE = 'mainspring:workload-demand';
 
 /** A model with what it was built from. */
 export interface Built {
@@ -48,6 +55,8 @@ export interface Built {
 }
 
 const availabilities = new WeakMap<ScheduleResult, Map<string, Availability>>();
+/** The marks of a result, for the index they were read with (the text can narrow what books). */
+const demands = new WeakMap<ScheduleResult, { index: SymbolIndex; marks: DemandMarks | null }>();
 
 function availabilityFor(result: ScheduleResult, scenario: string): Availability {
 	let byScenario = availabilities.get(result);
@@ -65,6 +74,7 @@ export class HeatState {
 	readonly #storage: PrefStorage | null;
 	#plan = '';
 	#cancel: (() => void) | null = null;
+	#cancelDemand: (() => void) | null = null;
 	#input: { result: ScheduleResult; index: SymbolIndex } | null = null;
 
 	constructor(storage: PrefStorage | null = browserStorage()) {
@@ -91,6 +101,14 @@ export class HeatState {
 		if (cur && cur.result === result && cur.index === index) return;
 		this.#input = { result, index };
 		this.#cancel?.();
+		this.#cancelDemand?.();
+		this.#cancelDemand = null;
+		// With nothing drawn yet there is nothing to keep on screen: build now, not when idle.
+		if (this.built === null) {
+			this.#cancel = null;
+			this.#rebuild();
+			return;
+		}
 		this.#cancel = whenIdle(() => {
 			this.#cancel = null;
 			this.#rebuild();
@@ -132,7 +150,54 @@ export class HeatState {
 
 	dispose(): void {
 		this.#cancel?.();
-		this.#cancel = null;
+		this.#cancelDemand?.();
+		this.#cancel = this.#cancelDemand = null;
+	}
+
+	/** Held and unmet work of the input, once per result and index; schedules it when missing. */
+	#demandFor(i: { result: ScheduleResult; index: SymbolIndex }): DemandMarks | null {
+		const known = demands.get(i.result);
+		if (known && known.index === i.index) return known.marks;
+		if (this.#cancelDemand === null) {
+			this.#cancelDemand = whenIdle(() => {
+				this.#cancelDemand = null;
+				if (this.#input?.result !== i.result || this.#input.index !== i.index) return;
+				demands.set(i.result, { index: i.index, marks: this.#marksOf(i.result, i.index) });
+				this.#rebuild();
+			});
+		}
+		return null;
+	}
+
+	#marksOf(result: ScheduleResult, index: SymbolIndex): DemandMarks | null {
+		const project = result.project;
+		const scenario = finishScenario(result);
+		const analysis = analysisOf(result);
+		if (!project || scenario === null || !analysis) return null;
+		const t0 = performance.now();
+		try {
+			const marks = demandOf({
+				result,
+				scenario,
+				index,
+				analysis,
+				wt: workingTimeOf(project, this.zones),
+				availability: availabilityFor(result, scenario),
+			});
+			try {
+				performance.measure(DEMAND_MEASURE, {
+					start: t0,
+					end: performance.now(),
+					detail: { held: marks.held.size, unmet: marks.unmet.size },
+				});
+			} catch {
+				// A runtime without User Timing Level 3 still gets the marks.
+			}
+			return marks;
+		} catch (error) {
+			report(error);
+			return null;
+		}
 	}
 
 	#save(next: HeatPrefs): void {
@@ -158,7 +223,7 @@ export class HeatState {
 				kind: this.prefs.zoom,
 				collapsed: new Set(this.prefs.collapsed),
 				availability,
-				demand: null,
+				demand: this.#demandFor(i),
 			});
 			this.built = { model, availability, result: i.result, index: i.index };
 			try {

@@ -282,7 +282,8 @@ export class HeatGestures {
 	}
 
 	#feed(input: GestureInput): void {
-		for (const o of this.#machine.send(input)) this.#act(o);
+		const outs = this.#machine.send(input);
+		for (const o of outs) this.#act(o);
 		this.#arm();
 	}
 

@@ -27,6 +27,7 @@
 	import { GanttEnv } from '../gantt/gantt-env.svelte';
 	import { ctrlWheel } from '../gantt/ctrl-wheel';
 	import { OVERSCAN_ROWS, OVERSCAN_X, paintWindow, type PaintWindow } from '../../lib/gantt/layout';
+	import { analysisOf } from '../../lib/gantt/analysis';
 	import { readMovePreference } from '../../lib/gantt/prefs';
 	import { todayOf } from '../../lib/gantt/model';
 	import type { GanttCalendar } from '../../lib/gantt/ticks';
@@ -308,6 +309,7 @@
 	function zoomTo(kind: BucketKind, anchorX = viewW / 2): void {
 		if (kind === prefs.zoom || !scroller || !model) return;
 		const m = model;
+		const hadFocus = !!document.activeElement?.closest('[data-testid="heat-grid"]');
 		const anchorMin = layout.minuteAtX(m.axis, scrollLeft + anchorX);
 		const selMin = selected ? (m.axis.bounds[selected.col] as number) : null;
 		const selId = sel?.id;
@@ -324,6 +326,8 @@
 		scroller.scrollLeft = Math.max(0, (x ?? 0) - anchorX);
 		scrollLeft = scroller.scrollLeft;
 		announce(`${W.zoom}: ${W.level[kind]}`);
+		// The mirror is rebuilt for the new columns: a keyboard user keeps their place.
+		if (hadFocus) focusNonce++;
 	}
 
 	function stepZoom(dir: 1 | -1, clientX: number): void {
@@ -428,7 +432,7 @@
 		return {
 			index,
 			result: built.result,
-			analysis: null,
+			analysis: analysisOf(built.result),
 			wt: workingTimeOf(built.result.project, loads.zones),
 			zones: loads.zones,
 			move: readMovePreference(browserStorage()),
@@ -438,7 +442,10 @@
 		planner: PLANNER,
 		edits: () => app.edits,
 		context,
-		source: () => ({ result: loads.built?.result ?? null, analysis: null }),
+		source: () => {
+			const r = loads.built?.result ?? null;
+			return { result: r, analysis: r ? analysisOf(r) : null };
+		},
 		askMove: (suggested) =>
 			new Promise((resolve) => {
 				answer = resolve;

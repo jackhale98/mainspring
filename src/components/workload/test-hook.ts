@@ -25,6 +25,11 @@ export interface WorkloadHook {
 	reveal(person: string, col: number): boolean;
 	/** Scrolls so that a person's cell is the plot's top left, and rebuilds the ARIA mirror now. */
 	scrollTo(person: string, col: number): boolean;
+	/** A cell's tasks as the model lists them (kind, minutes and whether a drag may start). */
+	tasks(
+		person: string,
+		col: number,
+	): Array<{ task: string; kind: string; minutes: number; movable: boolean }>;
 	/** The newest good result the heatmap draws. */
 	result(): ScheduleResult | null;
 	/** Rows (ids in order), the number of columns, the zoom, and the scroller's box. */
@@ -85,6 +90,11 @@ export function installWorkloadHook(
 			v.scrollToCell({ row, col });
 			v.rebuildMirror();
 			return true;
+		},
+		tasks(person, col) {
+			const v = view();
+			const row = rowOf(v, person);
+			return row < 0 ? [] : (v.model?.cellTasks(row, col) ?? []).map((t) => ({ ...t }));
 		},
 		result: () => view().result,
 		shape() {
