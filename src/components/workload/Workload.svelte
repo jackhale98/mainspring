@@ -275,6 +275,15 @@
 		scrollTop = scroller.scrollTop;
 	}
 
+	/** Scrolls so that a cell is the plot's top left (the end-to-end gate walks the grid this way). */
+	function scrollToCell(c: Cell): void {
+		if (!scroller) return;
+		scroller.scrollLeft = layout.colLeft(c.col);
+		scroller.scrollTop = layout.rowTop(c.row);
+		scrollLeft = scroller.scrollLeft;
+		scrollTop = scroller.scrollTop;
+	}
+
 	function goToday(): boolean {
 		if (!scroller || !model || todayMin === null) return false;
 		const x = layout.xOfMinute(model.axis, todayMin);
@@ -526,6 +535,7 @@
 			scroller,
 			zoom: prefs.zoom,
 			reveal,
+			scrollToCell,
 			rebuildMirror,
 		}));
 		return () => {

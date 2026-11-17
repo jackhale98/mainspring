@@ -23,6 +23,8 @@ export interface WorkloadHook {
 	cell(person: string, col: number): Point | null;
 	/** Scrolls a person's cell into view, and rebuilds the ARIA mirror now. */
 	reveal(person: string, col: number): boolean;
+	/** Scrolls so that a person's cell is the plot's top left, and rebuilds the ARIA mirror now. */
+	scrollTo(person: string, col: number): boolean;
 	/** The newest good result the heatmap draws. */
 	result(): ScheduleResult | null;
 	/** Rows (ids in order), the number of columns, the zoom, and the scroller's box. */
@@ -46,6 +48,7 @@ export interface HookView {
 	readonly scroller: HTMLElement | undefined;
 	readonly zoom: BucketKind;
 	reveal(c: Cell): void;
+	scrollToCell(c: Cell): void;
 	rebuildMirror(): void;
 }
 
@@ -72,6 +75,14 @@ export function installWorkloadHook(
 			const row = rowOf(v, person);
 			if (row < 0 || col < 0 || col >= v.layout.cols) return false;
 			v.reveal({ row, col });
+			v.rebuildMirror();
+			return true;
+		},
+		scrollTo(person, col) {
+			const v = view();
+			const row = rowOf(v, person);
+			if (row < 0 || col < 0 || col >= v.layout.cols) return false;
+			v.scrollToCell({ row, col });
 			v.rebuildMirror();
 			return true;
 		},
