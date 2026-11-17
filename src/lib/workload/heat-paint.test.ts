@@ -2,19 +2,19 @@
 // The heatmap's painters (phase-3.md 8.1) on a recording 2D context: runs of one band are one
 // fill, text is drawn only where cells are wide enough and never in off cells, the fill count
 // stays within the frame budget on a full desktop window, and the overlay draws its lines and
-// rings without a layout read. There is no real canvas in unit tests: patterns are absent, so the
-// hatch and stripe fills are not counted here (the end-to-end screenshots show them).
-import { describe, expect, it } from 'vitest';
+// rings without a layout read. Patterns need a canvas: where a test does not stub one they are
+// absent and the hatch and stripe fills are not counted (the screenshots show them).
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ScheduleResult } from '../../engine/protocol';
 import { createTimeZoneHost } from '../../engine/timezone';
 import { at, plan, weekdays } from '../schedule/testing';
 import { availabilityOf } from './availability';
 import { heatLayout } from './heat-layout';
-import { paintCells, paintOverlay, type OverlayFrame } from './heat-paint';
+import { clearPatternCache, paintCells, paintOverlay, type OverlayFrame } from './heat-paint';
 import { FALLBACK_HEAT_THEME } from './heat-theme';
 import { buildLoad } from './load';
 import { booking, indexOf, resourceResult, withPeople } from './testing';
-import { DEFAULT_THRESHOLDS, type BucketKind } from './types';
+import { DEFAULT_THRESHOLDS, type Band, type BucketKind, type LoadModel } from './types';
 
 interface Call {
 	op: string;
@@ -23,14 +23,14 @@ interface Call {
 }
 
 /** A 2D context that records what is drawn, with the few properties the painters set. */
-function recorder() {
+function recorder(patterns = false) {
 	const calls: Call[] = [];
 	const state = { fillStyle: '' as unknown, font: '', textAlign: '', textBaseline: '' };
 	const ctx = new Proxy(state, {
 		get(target, prop: string) {
 			if (prop in target) return (target as Record<string, unknown>)[prop];
 			if (prop === 'canvas') return { width: 100, height: 100 };
-			if (prop === 'createPattern') return () => null;
+			if (prop === 'createPattern') return () => (patterns ? { setTransform() {} } : null);
 			if (prop === 'measureText') return (t: string) => ({ width: t.length * 6 });
 			return (...args: unknown[]) => {
 				calls.push({ op: prop, args, fill: target.fillStyle });
@@ -72,6 +72,60 @@ function model(kind: BucketKind = 'week') {
 		availability: availabilityOf(r, 'plan'),
 		demand: null,
 	});
+}
+
+/** 40 rows, 52 columns: every row has four runs of 13 columns, the bands rotating from row to row. */
+function budgetModel(): LoadModel {
+	const BANDS: readonly Band[] = ['off', 'spare', 'full', 'over'];
+	const rows = 40;
+	const cols = 52;
+	const grid = (v: number): Int32Array[] =>
+		Array.from({ length: rows }, () => new Int32Array(cols).fill(v));
+	return {
+		revision: 1,
+		scenario: 'plan',
+		axis: {
+			kind: 'day',
+			bounds: Int32Array.from({ length: cols + 1 }, (_, i) => i * 1440),
+			count: cols,
+			indexOf: () => 0,
+		},
+		rows: Array.from({ length: rows }, (_, i) => ({
+			id: `p${i}`,
+			name: `P${i}`,
+			depth: 0,
+			group: false,
+			expanded: null,
+			textOnly: null,
+		})),
+		booked: grid(480),
+		available: grid(480),
+		leave: grid(0),
+		held: grid(0),
+		unmet: grid(0),
+		band: (r, c) => BANDS[(Math.floor(c / 13) + r) % 4] as Band,
+		cellTasks: () => [],
+		dimmed: false,
+	};
+}
+
+function budgetFrame(hatched = false) {
+	const m = budgetModel();
+	const layout = heatLayout(40, 52, { rowHeight: 28, colWidth: 32 });
+	const { ctx } = recorder(hatched);
+	const stats = paintCells({
+		ctx,
+		win: { x: 0, y: 0, w: layout.width, h: layout.height },
+		dpr: 1,
+		layout,
+		model: m,
+		thresholds: DEFAULT_THRESHOLDS,
+		unit: 'hours',
+		heat: FALLBACK_HEAT_THEME,
+		surface: '#fffdf8',
+		fontSans: 'sans-serif',
+	});
+	return { stats, cells: m.rows.length * m.axis.count };
 }
 
 const frameOf = (m: ReturnType<typeof model>, col: number, win?: { w: number; h: number }) => {
@@ -127,10 +181,36 @@ describe('paintCells', () => {
 		expect(stats.texts).toBe(0);
 	});
 
-	it('stays within the fill budget for a full desktop window at day zoom', () => {
-		const m = model('day');
-		const { stats } = frameOf(m, 32, { w: 1700, h: 700 });
+	it('stays within the fill budget for a full desktop window of 40 rows and alternating bands', () => {
+		const { stats, cells } = budgetFrame();
+		// 40 rows x 52 columns = 2,080 cells in four runs a row: runs, not cells, are filled.
+		expect(cells).toBe(2080);
 		expect(stats.fillRects).toBeLessThanOrEqual(600);
+		expect(stats.fillRects).toBeGreaterThan(40 * 4);
+	});
+
+	describe('with a canvas for the hatches', () => {
+		afterEach(() => {
+			vi.unstubAllGlobals();
+			clearPatternCache();
+		});
+
+		it('hatches an over run with one fill, not one per cell', () => {
+			clearPatternCache();
+			const plain = budgetFrame().stats.fillRects;
+			clearPatternCache();
+			const tile = {
+				getContext: () => new Proxy({}, { get: () => () => undefined }),
+				width: 0,
+				height: 0,
+			};
+			vi.stubGlobal('document', { createElement: () => tile });
+			vi.stubGlobal('DOMMatrix', class {});
+			const { stats } = budgetFrame(true);
+			// The pattern fills are the over runs only: a quarter of the 40 x 4 runs.
+			expect(stats.fillRects - plain).toBe(40);
+			expect(stats.fillRects).toBeLessThanOrEqual(600);
+		});
 	});
 
 	it('paints only the cells of the window', () => {

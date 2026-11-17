@@ -845,6 +845,22 @@ The gate also records:
 14. **"Calendar: holidays, leaves and milestones by month"** does not say whose leaves. The spec adds a scope picker (Everyone, or one person).
 15. **Real-device performance.** The plan's budgets assume a mid-range phone. Phase 3 judges phones under emulation, following the Phase 2 waiver (8.5, 18.14).
 
+## 20. Amendments from T14 (the workload heatmap, 2026-11-17)
+
+Where the built heatmap differs from, or settles, what sections 7 to 10 say. T14 recorded them; the main session owns the decision.
+
+1. **The mirror is a `grid` without `aria-level` and `aria-expanded` (10).** axe flags both on a grid row (`aria-conditional-attr`): they belong to a tree grid. A `treegrid` was rejected because it promises expand and collapse keys (Left and Right on a row) that the heatmap does not have, and its cells are navigated by the same arrows. The hierarchy is in the row header's words instead: "Dev 1, in Team" and "Team, group, expanded". The group toggles are the buttons of the name column.
+2. **The details dock from a 760 px container (9.2).** The cell details are in the view (a column of 22 rem beside the plot when the view is at least 760 px wide, else a bottom sheet over its foot), not in the right panel: the inspector is T17's and T18's. A tablet at 900 to 1023 px therefore docks them (the view is wider than 760 px), where 9.2 puts them in a sheet. `app.selection.selectCell` is set with the local selection (6.7), so T17 and T18 can read the cell.
+3. **Two phone long-press rules of the heatmap (7.1, 7.2, 9.2).** A long-press on a cell with a movable task lifts it, and a drag from there is the rebalance (as 7.2). Letting go without moving opens the cell's details. A long-press on a cell with nothing to move opens the details at once. A tap selects and a second tap opens the details (9.2).
+4. **Movement of held and unmet tasks (9.3).** "Move to person…" and Alt+Up and Alt+Down are offered for booked tasks only (the planner refuses the rest as `not-booked`); "Move to week…" is offered for every task of a person's cell, since a waiting task still moves in time.
+5. **Auto-scroll and the first rows.** The drag's edge band (48 px, as the Gantt's) is inside the first row of a scrolled plot, so a one-row drag from the top row fights the scroll. Left as the Gantt has it.
+
+**Left to T22 and T18 (items, not T14's):**
+- T22 (8.4): the scenarios T14's `workload-perf.spec.ts` does not cover: `scale-1000`, pinch through day, week and month, a 3 s rebalance drag with drag script time p95 under 8 ms, a scroll during which a result arrives, and the cells paint stats (`HeatPlot`'s `onpaint`: fills per frame at most 600, script time) recorded over a scroll. The Pixel 7 frame times are recorded, not enforced.
+- T18: "Why here?" in the cell details' task rows (9.3), and "Show in Gantt" setting the person filter once T19 exists.
+- T21: `rebalance.spec.ts` must pin the exact patch of every move and the exact refusals (`via-group`, `not-a-person`, `not-booked`, `same-place`, `no-working-day`, `inherited`, alternatives, `shared-declaration`), with Undo restoring the bytes and Redo the patch. T14's specs show that a drag, the menus and the keys edit and undo, and take the first outcome they get.
+- The "live result equals the committed golden" step of 16.1 is the golden parity job's; `workload-gate.spec.ts` takes the live result as the engine's data.
+
 ## Appendix A: ADR-0013 stub (accepted; see docs/decisions/0013-authoring-on-phones.md)
 
 **ADR-0013: Authoring on phones.** Status: proposed, 2026-11-14; needs the user's approval (out-of-phase scope).

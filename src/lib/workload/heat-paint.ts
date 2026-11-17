@@ -56,6 +56,11 @@ const codeOf = (b: Band): number => BANDS.indexOf(b);
 let scratch = new Uint8Array(0);
 
 const tiles = new Map<string, CanvasPattern | null>();
+
+/** Forgets the stripe tiles (tests that stub a canvas). */
+export function clearPatternCache(): void {
+	tiles.clear();
+}
 const TILE = 6;
 const LEAVE_TILE = 5;
 
@@ -143,13 +148,24 @@ export function paintCells(f: CellsFrame): PaintStats {
 				ctx.fillStyle = heat[FILL[runBand] as keyof HeatTheme] as string;
 				ctx.fillRect(runStart * w, y, (c - runStart) * w, h);
 				fills++;
+				// An over run is hatched with one fill (the pattern is anchored to the content, so the
+				// hatch runs on across the cells of the run).
+				if (runBand === OVER) {
+					const p = stripes(ctx, 'diagonal', heat.overHatch, dpr);
+					if (p) {
+						ctx.fillStyle = p;
+						ctx.fillRect(runStart * w, y, (c - runStart) * w, h);
+						fills++;
+					}
+				}
 			}
 			runBand = band;
 			runStart = c;
 		}
-		// Leave stripes and over hatches, per cell, each a pattern fill.
+		// Leave stripes per cell (a pattern fill each), and the over cells' corner marks.
 		const leave = model.leave[r];
 		const available = model.available[r];
+		let marks = false;
 		for (let c = c0; c < c1; c++) {
 			const band = code[base + c - c0] as number;
 			const x = c * w;
@@ -166,22 +182,21 @@ export function paintCells(f: CellsFrame): PaintStats {
 				}
 			}
 			if (band === OVER) {
-				const p = stripes(ctx, 'diagonal', heat.overHatch, dpr);
-				if (p) {
-					ctx.fillStyle = p;
-					ctx.fillRect(x, y, w, h);
-					fills++;
-				}
-				// The corner mark: a small triangle at the top right.
+				// The corner mark: a small triangle at the top right, all of a row's in one path.
 				const m = Math.min(10, h / 2, w / 2);
-				ctx.fillStyle = heat.overInk;
-				ctx.beginPath();
+				if (!marks) {
+					marks = true;
+					ctx.beginPath();
+				}
 				ctx.moveTo(x + w - m, y);
 				ctx.lineTo(x + w, y);
 				ctx.lineTo(x + w, y + m);
 				ctx.closePath();
-				ctx.fill();
 			}
+		}
+		if (marks) {
+			ctx.fillStyle = heat.overInk;
+			ctx.fill();
 		}
 	}
 	// The hairlines that make cells of a run.

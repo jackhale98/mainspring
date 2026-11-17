@@ -228,6 +228,8 @@
 	function select(c: Cell): void {
 		sel = refOf(c);
 		focusRef = sel;
+		// The shared selection (6.7), so the details of T17 and T18 can follow the cell.
+		if (sel.id !== '') app.selection.selectCell(sel.id, c.col, prefs.zoom);
 	}
 
 	// --- The ARIA mirror: rebuilt when the model changes and 150 ms after a scroll stops.
@@ -458,8 +460,8 @@
 	async function perform(action: RebalanceAction | null): Promise<void> {
 		if (!action) return;
 		const r = await rebalancer.run(action);
+		// A refusal is a toast (with Show in text where it has a place) and the details' note: said once.
 		note = r.status === 'refused' ? r.message : '';
-		if (r.status !== 'sent') announce(r.message);
 	}
 
 	function moveTask(t: DetailTask, to: { row: number } | { col: number }): void {
@@ -661,6 +663,7 @@
 							{selected}
 							focus={focusVisible ? focus : null}
 							{gestures}
+							shown={active}
 						/>
 						{#if mirror}
 							<HeatGrid

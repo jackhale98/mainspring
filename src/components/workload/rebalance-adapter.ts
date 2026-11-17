@@ -50,7 +50,7 @@ export interface RebalanceEdits {
 	setMovePreference(kind: MoveKind | null): void;
 	flush(key?: string): void;
 	/** A refusal of the view's own: a toast that stays, with "Show in text" when it has a place. */
-	refuse(message: string, at: readonly SourceRange[]): void;
+	refuse(message: string, at: readonly SourceRange[], version: number): void;
 }
 
 export interface RebalanceEnv {
@@ -90,7 +90,7 @@ export class Rebalancer {
 		const plan = env.planner(action, ctx);
 		if (plan.status === 'not-possible') {
 			const message = rebalanceMessage(plan, ctx, action);
-			edits.refuse(message, plan.at);
+			edits.refuse(message, plan.at, ctx.index.version);
 			return { status: 'refused', message };
 		}
 		const coalesce = o.coalesceKey === undefined ? {} : { coalesceKey: o.coalesceKey };
@@ -144,11 +144,7 @@ export class Nudges {
 		const target = to === null ? undefined : model.rows[to];
 		// At the end of the list (or on the origin) a press changes nothing: send nothing.
 		if (!target || to === cell.row || to === personAt(model, cell.row, offset - step)) return null;
-		this.#by.set(key, offset);
-		return this.#rebalancer.run(
-			{ type: 'reassign', task, from, to: target.id },
-			{ coalesceKey: key },
-		);
+		return this.#send(key, offset, step, { type: 'reassign', task, from, to: target.id });
 	}
 
 	/** Alt+Left (-1) or Alt+Right (+1): the task one bucket earlier or later. */
@@ -165,8 +161,26 @@ export class Nudges {
 		if (col === cell.col || col === clamp(offset - step)) return null;
 		const action = shiftOf(model, task, cell.col, col);
 		if (!action) return null;
+		return this.#send(key, offset, step, action);
+	}
+
+	/**
+	 * Sends the cumulative ask. The offset counts at once (a second press must not wait for the first
+	 * to be dispatched, which the coalescing holds back), and goes back a step when the ask was
+	 * refused: a refused press is not a press, so the next one asks for the same place again.
+	 */
+	async #send(
+		key: string,
+		offset: number,
+		step: number,
+		action: RebalanceAction,
+	): Promise<RebalanceResult> {
 		this.#by.set(key, offset);
-		return this.#rebalancer.run(action, { coalesceKey: key });
+		const r = await this.#rebalancer.run(action, { coalesceKey: key });
+		const refused =
+			r.status !== 'sent' || r.outcome.status === 'refused' || r.outcome.status === 'noop';
+		if (refused && this.#by.get(key) === offset) this.#by.set(key, offset - step);
+		return r;
 	}
 
 	/** Blur or Enter: dispatches what is held and starts every offset again from zero. */

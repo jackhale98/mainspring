@@ -42,6 +42,8 @@
 		selected: Cell | null;
 		focus: Cell | null;
 		gestures: HeatGestures;
+		/** This view is on screen: a hidden one has no size to paint into (no layout read to find out). */
+		shown: boolean;
 		/** Called after each cells paint, for the tests and the timings (8.1). */
 		onpaint?: ((stats: PaintStats, ms: number) => void) | undefined;
 	}
@@ -58,6 +60,7 @@
 		selected,
 		focus,
 		gestures,
+		shown,
 		onpaint,
 	}: Props = $props();
 
@@ -80,6 +83,7 @@
 		lines: readonly HeatLine[];
 		selected: Cell | null;
 		focus: Cell | null;
+		shown: boolean;
 	}
 	let latest: Latest | null = null;
 	let hover: Cell | null = null;
@@ -97,9 +101,10 @@
 
 	function paint(): void {
 		raf = 0;
-		// A hidden panel has no size to paint into: keep what is dirty for when it is shown (the
-		// resize that comes with showing it makes the effects ask again).
-		if (!overlayEl || !cellsEl || overlayEl.getClientRects().length === 0) return;
+		// A hidden view has no size to paint into: keep what is dirty for when it is shown (the effect
+		// on `shown` asks again). `shown` and the window's size come from the props, so no layout
+		// is read in the paint path (phase-3.md 8.1).
+		if (!overlayEl || !cellsEl || !latest || !latest.shown || latest.win.w <= 0) return;
 		if (cellsDirty) {
 			cellsDirty = false;
 			const f = frame(cellsEl, true);
@@ -177,6 +182,7 @@
 			lines,
 			selected,
 			focus,
+			shown,
 		};
 		void cellsEl;
 		untrack(() => request('cells'));

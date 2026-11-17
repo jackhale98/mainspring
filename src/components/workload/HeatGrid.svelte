@@ -3,7 +3,10 @@
 	The heatmap's ARIA mirror (phase-3.md 8.1, 10): a real `role="grid"` over the canvas, holding the
 	visible window only (heat-mirror.ts: at most 30 rows by 20 columns), with `aria-rowcount` and
 	`aria-colcount` for the whole model and an index on every row and column. Row headers are the
-	people with `aria-level` for members of a group; column headers are the periods in words; each
+	people, each saying its place in the hierarchy in words ("Dev 1, in Team", "Team, group,
+	expanded": a grid row has no `aria-level` or `aria-expanded`, those are a tree grid's, and a tree
+	grid would promise expand and collapse keys this grid does not have); column headers are the
+	periods in words; each
 	cell's name is its sentence ("Dev 1, week of 9 March: 38 of 40 hours, full"). The cells sit
 	exactly over their pixels and are transparent, so a screen magnifier, a touch screen reader and
 	the focus all agree with the picture; they take no pointer events (the canvas has those).

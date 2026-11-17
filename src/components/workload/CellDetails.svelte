@@ -7,8 +7,9 @@
 	read from the schedule and says so.
 
 	Each task has the non-drag ways to rebalance (WCAG 2.5.7): "Move to person…" and "Move to
-	week…" (native selects, which a finger and a screen reader both know), offered for every task
-	of a person's cell (`movable` governs the drag only), and Alt with the arrow keys on the task's
+	week…" (native selects, which a finger and a screen reader both know). A person's cell offers
+	both for each booked task (`movable` governs the drag only) and only the week for a waiting or
+	running-without one: it moves in time, but it is not booked by this person, and Alt with the arrow keys on the task's
 	row (up and down by person, left and right by week), which the parent sends cumulatively
 	(rebalance-adapter.ts). "Show in Gantt" selects the task and goes to the Gantt. A group's cell
 	lists its members' tasks without the move controls: the person's own cell is where a task moves.
@@ -92,6 +93,9 @@
 		}
 		if (!e.altKey || e.ctrlKey || e.metaKey) return;
 		const axis = e.key === 'ArrowUp' || e.key === 'ArrowDown' ? 'person' : 'period';
+		// A waiting task is not booked by this person: it moves in time, never to another person
+		// (the planner would refuse it as `not-booked`).
+		if (axis === 'person' && t.kind !== 'booked') return;
 		if (!e.key.startsWith('Arrow')) return;
 		e.preventDefault();
 		const step = e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1;
@@ -186,15 +190,17 @@
 								</span>
 								<span class="actions">
 									{#if !details.group}
-										<label class="pick">
-											<span class="sr-only">{D.movePerson} {t.name}</span>
-											<select value="" onchange={(e) => choose(e, t, 'person')}>
-												<option value="" disabled>{D.movePerson}</option>
-												{#each people as p (p.row)}
-													<option value={p.row} disabled={p.row === i.row}>{p.name}</option>
-												{/each}
-											</select>
-										</label>
+										{#if t.kind === 'booked'}
+											<label class="pick">
+												<span class="sr-only">{D.movePerson} {t.name}</span>
+												<select value="" onchange={(e) => choose(e, t, 'person')}>
+													<option value="" disabled>{D.movePerson}</option>
+													{#each people as p (p.row)}
+														<option value={p.row} disabled={p.row === i.row}>{p.name}</option>
+													{/each}
+												</select>
+											</label>
+										{/if}
 										<label class="pick">
 											<span class="sr-only">{D.moveWeek} {t.name}</span>
 											<select value="" onchange={(e) => choose(e, t, 'period')}>

@@ -7,6 +7,12 @@
 // `workingTime` slot by slot into local weeks with `Intl`, sharing no code with the view or with
 // src/lib/workload. Groups are compared with the sums of their members. Pass: zero differences in
 // integer minutes. The cell's sentence is checked to say the same hours as its minutes.
+// The rows are checked against the oracle's, not the view's own: the set of rows the view shows
+// equals the set of resources of the result (every person and every group, with the groups
+// expanded, the ones with no bookings included), so a person the view drops cannot pass.
+// "The live result equals the committed golden" (16.1 step 3's parity) is the golden parity job's
+// (`npm run test:golden`, which runs the fedora-res golden through the browser engine); this spec
+// takes the live result as the engine's data and does not compare it with the golden file again.
 // The plan upstream-fedora-20 itself declares no resources: the view says so (zero cells, zero
 // differences, which is stated, not counted as evidence).
 import { expect, test } from '@playwright/test';
@@ -29,10 +35,14 @@ test('fedora-res: every person and week cell equals the hours of the result book
 	const o = oracle(result);
 	expect(s?.cols).toBe(o.weeks);
 
+	// Every resource of the result is a row, and nothing else is.
+	expect(new Set(s?.rows)).toEqual(new Set(result.resources.map((r) => r.id)));
+	expect(new Set(s?.rows)).toEqual(new Set(o.booked.keys()));
+
 	const cells = await walkGrid(page);
 	let differences = 0;
 	const wrong: string[] = [];
-	for (const person of s?.rows ?? []) {
+	for (const person of o.booked.keys()) {
 		for (let c = 0; c < o.weeks; c++) {
 			const cell = cells.get(`${person}|${c}`);
 			const b = o.booked.get(person)?.[c];
@@ -47,7 +57,7 @@ test('fedora-res: every person and week cell equals the hours of the result book
 			}
 		}
 	}
-	const people = s?.rows.length ?? 0;
+	const people = o.booked.size;
 	console.log(
 		`workload gate (${info.project.name}): ${people} rows x ${o.weeks} weeks = ${people * o.weeks} cells compared, ${differences} differences`,
 	);

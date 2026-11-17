@@ -399,6 +399,11 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		expect(chunks).toHaveLength(1);
 	});
 
+	// Playwright's bundled Chromium imports the chunk again on "Try again". Google Chrome (153, what
+	// CHROMIUM_PATH=/usr/bin/google-chrome runs) remembers a failed dynamic import for the life of
+	// the page and never asks the network again, so there the retry ends in "Reload the page", the
+	// documented fallback (PeopleSlot.svelte). Checked on the T13 build and the T14 build alike: the
+	// browser's behaviour, not the app's. Run this spec with the bundled Chromium (CI does).
 	test('a chunk that cannot load shows the alert, and Try again gets it', async ({ page }) => {
 		await open(page);
 		const hold = await holdChunk(page, 'abort');
@@ -411,19 +416,6 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		await expectView(page, 'Workload');
 		await hold.unroute();
 		await alert.getByRole('button', { name: 'Try again' }).click();
-		// Chrome remembers a failed import of this size (the heatmap's imports made the chunk one
-		// that it does): the retry then says "Reload the page", which is the documented fallback.
-		// Either way the view opens once the chunk can be had.
-		const reload = alert.getByRole('button', { name: 'Reload the page' });
-		await expect(page.getByTestId('people-host').or(reload)).toBeVisible({
-			timeout: READY_TIMEOUT_MS,
-		});
-		if (await reload.isVisible()) {
-			await page.reload();
-			await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
-				timeout: READY_TIMEOUT_MS,
-			});
-		}
 		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'workload', {
 			timeout: READY_TIMEOUT_MS,
 		});
@@ -611,18 +603,6 @@ test.describe('the phone People tab', () => {
 		await expect(alert).toBeVisible({ timeout: READY_TIMEOUT_MS });
 		await hold.unroute();
 		await alert.getByRole('button', { name: 'Try again' }).tap();
-		// As on a desktop: Chrome may remember the failed import, and the retry offers a reload.
-		const reload = alert.getByRole('button', { name: 'Reload the page' });
-		await expect(page.getByTestId('people-host').or(reload)).toBeVisible({
-			timeout: READY_TIMEOUT_MS,
-		});
-		if (await reload.isVisible()) {
-			await page.reload();
-			await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
-				timeout: READY_TIMEOUT_MS,
-			});
-			await peopleTab(page).tap();
-		}
 		await expect(page.getByTestId('people-host')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 	});
 

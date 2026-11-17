@@ -253,12 +253,13 @@ export class EditDispatcher {
 	/**
 	 * A refusal a view decided itself (the rebalance planner's, which runs before the edit API): a
 	 * toast that stays, with "Show in text" when the refusal has a place in the text, as a refusal of
-	 * the dispatcher's own has.
+	 * the dispatcher's own has. `version` is the workspace version of the index the range comes
+	 * from (`index.version`), which can lag the text: "Show" reads the range in that text, as an
+	 * outcome's place does (edits-plan.ts).
 	 */
-	refuse(message: string, at: readonly SourceRange[]): void {
+	refuse(message: string, at: readonly SourceRange[], version: number): void {
 		if (this.#disposed) return;
 		const r = at[0];
-		const version = this.#d.workspace.snapshot().version;
 		this.#toasts.refused(message, r ? { ...r, version } : null);
 	}
 

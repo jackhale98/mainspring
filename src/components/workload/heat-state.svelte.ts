@@ -83,12 +83,20 @@ export class HeatState {
 
 	/** Switches to a plan's preferences (call when the open plan changes). */
 	use(plan: string): void {
+		if (plan === this.#plan) return;
 		this.#plan = plan;
 		this.prefs = readHeatPrefs(this.#storage, plan);
-		this.#rebuild();
+		// The plan id changes while the previous plan's result is still the runner's (the new one
+		// loads first): never build that result with the new plan's preferences. The new plan's
+		// result is a new object and is offered when it arrives; until then there is nothing drawn.
+		this.#cancel?.();
+		this.#cancelDemand?.();
+		this.#cancel = this.#cancelDemand = null;
+		this.#input = null;
+		this.built = null;
 	}
 
-	/** The newest good result and the index. Builds in an idle task when either is new. */
+	/** The newest good result and the index. Builds in an idle task (8.3) when either is new. */
 	offer(result: ScheduleResult | null, index: SymbolIndex | null): void {
 		const cur = this.#input;
 		if (result === null || index === null) {
@@ -103,12 +111,6 @@ export class HeatState {
 		this.#cancel?.();
 		this.#cancelDemand?.();
 		this.#cancelDemand = null;
-		// With nothing drawn yet there is nothing to keep on screen: build now, not when idle.
-		if (this.built === null) {
-			this.#cancel = null;
-			this.#rebuild();
-			return;
-		}
 		this.#cancel = whenIdle(() => {
 			this.#cancel = null;
 			this.#rebuild();

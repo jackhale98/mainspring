@@ -199,6 +199,25 @@ describe('rebalance adapter', () => {
 });
 
 describe('Alt+arrow nudges', () => {
+	it('does not advance the offset for a refused press', async () => {
+		const { edits, calls } = fakeEdits();
+		let refuseNext = true;
+		const planner: PlanRebalanceFn = (a, c) =>
+			refuseNext ? { status: 'not-possible', reason: 'not-booked', at: [] } : intentPlanner(a, c);
+		const n = new Nudges(new Rebalancer(env(planner, edits)));
+		const cell = { row: row('dev1'), col: 0 };
+		await n.person(model, 'a', cell, 1);
+		refuseNext = false;
+		await n.person(model, 'a', cell, 1);
+		// The refused press did not count: the second asks for the next person, not the one after.
+		const sent = calls
+			.filter((c) => c.op === 'dispatch')
+			.map((c) => (c.args[0] as { to: string }).to);
+		expect(sent).toEqual(['dev2']);
+		expect(calls[0]).toMatchObject({ op: 'refuse' });
+		expect(calls[0]?.args[2]).toBe(index.version);
+	});
+
 	it('sends the cumulative person offset under one coalesce key', async () => {
 		const { edits, calls } = fakeEdits();
 		const n = new Nudges(new Rebalancer(env(intentPlanner, edits)));

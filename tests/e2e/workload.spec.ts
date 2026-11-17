@@ -525,7 +525,7 @@ test('a long-press on a finger opens the cell details; a tap selects, a second t
 }, info) => {
 	test.skip(!isTouch(info), 'a finger');
 	await openHeatmap(page, info);
-	const { person, col } = await busyCell(page);
+	const { person, col } = await movableCell(page);
 	const at = await pointOf(page, person, col);
 	await page.touchscreen.tap(at.x, at.y);
 	await expect(page.getByTestId('cell-details')).toBeHidden();
