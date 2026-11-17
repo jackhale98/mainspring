@@ -40,18 +40,21 @@ describe('health sentences', () => {
 		);
 	});
 
-	it('H3, with the date in the plan’s zone, the parent, or no date', () => {
+	it('H3, with the date in the plan’s zone, the tasks it binds, or no date', () => {
 		const h3 = (facts: FindingOf<'hard-constraint'>['facts']): string =>
 			say({ ...base, check: 'hard-constraint', subject: task('login'), facts });
-		expect(h3({ attr: 'start', date: 0, from: null })).toBe('Its start is fixed at 5 Jan 2026.');
+		expect(h3({ attr: 'start', date: 0, applies: 1 })).toBe('Its start is fixed at 5 Jan 2026.');
 		// An end at midnight is the last day it allows.
-		expect(h3({ attr: 'end', date: 1440, from: null })).toBe('Its end is fixed at 5 Jan 2026.');
-		expect(h3({ attr: 'minstart', date: 1440, from: 'api' })).toBe(
-			'It may not start before 6 Jan 2026, set on Build API.',
+		expect(h3({ attr: 'end', date: 1440, applies: 1 })).toBe('Its end is fixed at 5 Jan 2026.');
+		expect(h3({ attr: 'start', date: 0, applies: 246 })).toBe(
+			'Its start is fixed at 5 Jan 2026 (applies to 246 tasks).',
 		);
-		expect(h3({ attr: 'maxend', date: null, from: null })).toBe('It must end by a set date.');
-		expect(h3({ attr: 'start', date: null, from: 'api' })).toBe(
-			'Its start is fixed, set on Build API.',
+		expect(h3({ attr: 'minstart', date: 1440, applies: 3 })).toBe(
+			'It may not start before 6 Jan 2026 (applies to 3 tasks).',
+		);
+		expect(h3({ attr: 'maxend', date: null, applies: 1 })).toBe('It must end by a set date.');
+		expect(h3({ attr: 'start', date: null, applies: 2 })).toBe(
+			'Its start is fixed (applies to 2 tasks).',
 		);
 	});
 

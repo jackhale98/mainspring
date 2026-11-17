@@ -34,13 +34,13 @@ export function sentenceOf(f: Finding, c: TextContext): string {
 		case 'no-successor':
 			return S.sentence[f.check];
 		case 'hard-constraint': {
-			const { attr, date, from } = f.facts;
+			const { attr, date, applies } = f.facts;
 			const end = attr === 'end' || attr === 'maxend';
 			const shown =
 				date === null || !c.result.project
 					? null
 					: displayDate(date, c.result.project, { end, locale: c.locale });
-			return S.sentence[f.check](attr, shown, from === null ? null : taskName(c, from));
+			return S.sentence[f.check](attr, shown, applies);
 		}
 		case 'constraint-warning':
 			return S.sentence[f.check](f.facts.limit, f.facts.days);

@@ -13,6 +13,14 @@
  * Fixes: the dependency picker ("Add predecessor…", "Add successor…"), disabled with the task's
  * text-only reason (an `addDepends` on it, or naming it, is refused for the same reason).
  */
+// T11: which tasks and links count (the fedora-res review, 2026-11-17). Leaves and milestones only,
+// as section 12 says ("containers are not checked themselves"), and a link on any ancestor counts
+// for them (TaskJuggler inherits `depends` and `precedes`, and a task naming a container waits for
+// all of it). A container is never flagged, so "a container whose children are all linked" cannot
+// be. That is already the least noisy reading that stays true: on fedora-res every remaining H1
+// and H2 is a leaf that neither it nor any ancestor is linked from (to), checked against the text
+// (health.golden.test.ts, spot checks 3 and 4). Most are Fedora's key-date milestones (22 of 48 and
+// 139 of 200), which section 12 exempts only at the project start and the scenario finish.
 // T11: "at the project start" is read as at or before the project's first working minute, so a
 // kickoff milestone written `start 2026-01-05-09:00` on a Monday 09:00 calendar is exempt as well as
 // one at 00:00. A milestone the engine left without a date is not exempt.

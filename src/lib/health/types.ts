@@ -96,13 +96,14 @@ export interface CheckFacts {
 	'no-predecessor': null;
 	'no-successor': null;
 	/**
-	 * "Remove" shows the date the constraint held: null when the text cannot be read (a macro, a
-	 * zone without data). `from` is the ancestor it is written on, null when it is the task's own.
+	 * On the task that writes it. "Remove" shows the date the constraint held: null when the text
+	 * cannot be read (a macro, a zone without data). `applies`: the tasks it binds, the task itself
+	 * and every descendant that does not write its own ("applies to 246 tasks").
 	 */
 	'hard-constraint': {
 		readonly attr: 'start' | 'end' | 'minstart' | 'maxend';
 		readonly date: Minutes | null;
-		readonly from: TaskId | null;
+		readonly applies: number;
 	};
 	/**
 	 * "Starts 3 days after its latest allowed start": which limit, by how much; the message text,
@@ -147,11 +148,13 @@ export interface CheckFacts {
 // most of the held windows. H8 keeps integer minutes, as the load model does; the sentence prints
 // hours.
 // T11: three additions to the facts. H3's `date` may be null: Fedora writes `start ${start_work}`,
-// which the index cannot read, and a finding must not show a date nobody computed. H3's `from`
-// names the ancestor a constraint is written on: `start` and `end` are not inherited attributes in
-// TaskJuggler (Project.rb), but TaskScenario#earliestStart reads every ancestor's, and the sentence
-// says where it is. H4's and H9's `task` is the task the message names (the sentence names it,
+// which the index cannot read, and a finding must not show a date nobody computed. H4's and H9's `task` is the task the message names (the sentence names it,
 // and H9's "Replace person…" needs it); the message text is TaskJuggler's own.
+// T11: H3 is one finding per written site, on the task that writes it, with `applies` (main-session
+// ruling, 2026-11-17, from the fedora-res review: 380 findings, 246 of them one macro start on the
+// root). It replaces the per-task `from`: `start` and `end` are not inherited attributes in
+// TaskJuggler (Project.rb), but TaskScenario#earliestStart reads every ancestor's, so the site
+// binds its whole subtree, which `applies` counts.
 
 /** One finding of check `C`: `facts` narrows with `check`. */
 export interface FindingOf<C extends CheckId> {

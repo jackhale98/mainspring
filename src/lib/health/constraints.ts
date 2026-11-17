@@ -3,20 +3,24 @@
  * H3 "Hard constraint" and H4 "Constraint warning" (phase-3.md section 12; 6.3 rule 1 as amended
  * 2026-11-16: `minstart` and `maxend` are not part of the explainer's bound, they stay here).
  *
- * - **H3** (info): a `start`, `end`, `minstart` or `maxend` written on the task or an ancestor, in
- *   the shown scenario (gantt/grid.ts's rule: the nearest scenario wins, then the last statement).
- *   One finding per task and attribute, for the nearest site: `minstart` and `maxend` are inherited
- *   attributes, and TaskScenario#earliestStart (#latestEnd) reads every ancestor's `start`
- *   (`end`), the nearest of which the text shows. "Remove" removes it where it is written, and its
- *   label shows the date it held; "Why here?" opens the explainer.
+ * - **H3** (info): a `start`, `end`, `minstart` or `maxend` written on a task, in the shown
+ *   scenario (gantt/grid.ts's rule: the nearest scenario wins, then the last statement). One
+ *   finding per written site, on the task that writes it, leaf or container, with `applies`: the
+ *   tasks it binds, itself and every descendant that does not write its own (`minstart` and
+ *   `maxend` are inherited attributes; TaskScenario#earliestStart (#latestEnd) reads every
+ *   ancestor's `start` (`end`)). Descendants get no H3 finding of their own; their "Why here?"
+ *   shows the constraint (T10). "Remove" removes it, its label showing the date it held; "Why
+ *   here?" opens the explainer on the task that writes it.
  * - **H4** (warning): TaskJuggler's `minstart`, `maxstart`, `minend` and `maxend` warnings in the
  *   shown scenario, one per message, pinned to the line it names (the task's declaration header,
  *   TaskJuggler's `sourceFileInfo`). `days` are working days of the project's calendar between
  *   the task's date and the limit, both read from the message. "Show in text" and "Why here?".
  */
-// T11: H3 counts a `start` or `end` inherited from an ancestor although Fedora writes
-// `start ${start_work}` on its root, so every Fedora leaf has one: section 12 says "own or
-// inherited", and each of them bounds the leaf (TaskScenario#earliestStart). They are info.
+// T11: main-session ruling (2026-11-17), against section 12's "own or inherited": one finding per
+// written site, not one per task that inherits it. Fedora writes `start ${start_work}` on its
+// root, which bound 246 leaves, each with its own finding before. `applies` counts every task the
+// site binds, containers included (they are bound too: #scheduleContainer keeps the date), and a
+// descendant's own statement of the same attribute takes its subtree, as the nearest site wins.
 import type { EngineMessage, Minutes } from '../../engine/protocol';
 import { displayDate } from '../schedule/date-text';
 import { nearestSite } from '../schedule/explain-text';
@@ -24,7 +28,6 @@ import { healthStrings as S } from '../strings';
 import type { AttrSite, TaskId, TextOnlyReason } from '../tjp/index';
 import { resolveDate } from '../tjp/values';
 import {
-	checkedTasks,
 	firstReason,
 	roundDays,
 	selfAndAncestors,
@@ -76,32 +79,39 @@ export function hardConstraints(run: Run): FindingOf<'hard-constraint'>[] {
 		if (mine.size > 0) written.set(owner, mine);
 	}
 	if (written.size === 0) return out;
-	const writtenOn = (owner: TaskId, attr: Attr): Written | null =>
-		written.get(owner)?.get(attr) ?? null;
-	for (const id of checkedTasks(run)) {
+	// The tasks each site binds: every task whose nearest site for the attribute, on itself or an
+	// ancestor, is that one (a descendant that writes its own overrides it for its subtree).
+	const applies = new Map<string, number>();
+	for (const id of run.order) {
 		for (const attr of ATTRS) {
-			for (const owner of selfAndAncestors(run, id)) {
-				const w = writtenOn(owner, attr);
-				if (!w) continue;
-				const { site, date } = w;
-				out.push({
-					check: 'hard-constraint',
-					severity: 'info',
-					subject: { kind: 'task', id },
-					at: site.statement,
-					fixes: [
-						{
-							kind: 'intent',
-							label: w.label,
-							intent: { type: 'removeAttr', task: owner, attr },
-							disabled: w.disabled,
-						},
-						{ kind: 'why', task: id, disabled: null },
-					],
-					facts: { attr, date, from: owner === id ? null : owner },
-				});
-				break;
-			}
+			const owner = selfAndAncestors(run, id).find((a) => written.get(a)?.has(attr));
+			if (owner === undefined) continue;
+			const key = `${attr}\0${owner}`;
+			applies.set(key, (applies.get(key) ?? 0) + 1);
+		}
+	}
+	for (const owner of run.order) {
+		const mine = written.get(owner);
+		if (!mine) continue;
+		for (const attr of ATTRS) {
+			const w = mine.get(attr);
+			if (!w) continue;
+			out.push({
+				check: 'hard-constraint',
+				severity: 'info',
+				subject: { kind: 'task', id: owner },
+				at: w.site.statement,
+				fixes: [
+					{
+						kind: 'intent',
+						label: w.label,
+						intent: { type: 'removeAttr', task: owner, attr },
+						disabled: w.disabled,
+					},
+					{ kind: 'why', task: owner, disabled: null },
+				],
+				facts: { attr, date: w.date, applies: applies.get(`${attr}\0${owner}`) ?? 1 },
+			});
 		}
 	}
 	return out;

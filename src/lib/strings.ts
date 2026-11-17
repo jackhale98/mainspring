@@ -445,11 +445,11 @@ export const healthStrings = {
 	sentence: {
 		'no-predecessor': 'Nothing comes before it, so only the project start sets when it starts.',
 		'no-successor': 'Nothing comes after it, so no other task waits for it to end.',
-		/** `date` is null when the plan writes it with a macro; `from` names the parent it comes from. */
+		/** `date` is null when the plan writes it with a macro; `applies` counts the tasks it binds. */
 		'hard-constraint': (
 			attr: 'start' | 'end' | 'minstart' | 'maxend',
 			date: string | null,
-			from: string | null,
+			applies: number,
 		): string => {
 			const on = date === null ? '' : ` ${date}`;
 			const what = {
@@ -458,7 +458,7 @@ export const healthStrings = {
 				minstart: `It may not start before${date === null ? ' a set date' : on}`,
 				maxend: `It must end by${date === null ? ' a set date' : on}`,
 			}[attr];
-			return from === null ? `${what}.` : `${what}, set on ${from}.`;
+			return applies > 1 ? `${what} (applies to ${applies} tasks).` : `${what}.`;
 		},
 		/** "Starts 3 working days after its latest allowed start." */
 		'constraint-warning': (

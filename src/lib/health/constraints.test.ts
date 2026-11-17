@@ -25,11 +25,11 @@ describe('H3 hard constraint', () => {
 		const f = h3(
 			'task a "A" {\n  start 2026-01-05\n  end 2026-01-07\n  minstart 2026-01-05\n  maxend 2026-01-09\n  maxstart 2026-01-06\n}\n',
 		);
-		expect(f.map((x) => [x.facts.attr, x.facts.date, x.facts.from, x.severity])).toEqual([
-			['start', 0, null, 'info'],
-			['end', 2 * 1440, null, 'info'],
-			['minstart', 0, null, 'info'],
-			['maxend', 4 * 1440, null, 'info'],
+		expect(f.map((x) => [x.facts.attr, x.facts.date, x.facts.applies, x.severity])).toEqual([
+			['start', 0, 1, 'info'],
+			['end', 2 * 1440, 1, 'info'],
+			['minstart', 0, 1, 'info'],
+			['maxend', 4 * 1440, 1, 'info'],
 		]);
 		const p = project();
 		expect(f[0]?.fixes).toEqual([
@@ -47,30 +47,44 @@ describe('H3 hard constraint', () => {
 		});
 	});
 
-	it('reports an ancestor’s as inherited, removed where it is written; the nearest wins', () => {
+	it('reports a site once, on the task that writes it, with the tasks it binds', () => {
 		const tasks: Array<[string, TaskSpec]> = [
 			['g', { start: at(0, 9), end: at(1, 17) }],
 			['g.a', { start: at(0, 9), end: at(1, 17), parent: 'g' }],
 			['g.b', { start: at(0, 9), end: at(1, 17), parent: 'g' }],
+			['g.b.c', { start: at(0, 9), end: at(1, 17), parent: 'g.b' }],
+			['h', { start: at(0, 9), end: at(1, 17) }],
 		];
 		const f = h3(
-			'task g "G" {\n  start 2026-01-05\n  minstart 2026-01-05\n  task a "A" {\n  }\n  task b "B" {\n    minstart 2026-01-06\n  }\n}\n',
+			'task g "G" {\n  start 2026-01-05\n  minstart 2026-01-05\n  task a "A" {\n  }\n  task b "B" {\n    minstart 2026-01-06\n    task c "C" {\n    }\n  }\n}\ntask h "H" {\n}\n',
 			tasks,
 		);
 		expect(
 			f.map((x) => [
 				x.subject.kind === 'task' && x.subject.id,
-				x.facts.attr,
-				x.facts.date,
-				x.facts.from,
-				x.fixes[0]?.kind === 'intent' && x.fixes[0].intent,
+				x.facts,
+				x.fixes.map((y) => (y.kind === 'intent' ? y.intent : y.kind === 'why' ? y.task : null)),
 			]),
 		).toEqual([
-			['g.a', 'start', 0, 'g', { type: 'removeAttr', task: 'g', attr: 'start' }],
-			['g.a', 'minstart', 0, 'g', { type: 'removeAttr', task: 'g', attr: 'minstart' }],
-			['g.b', 'start', 0, 'g', { type: 'removeAttr', task: 'g', attr: 'start' }],
-			['g.b', 'minstart', 1440, null, { type: 'removeAttr', task: 'g.b', attr: 'minstart' }],
+			// G, A, B and C: B's own minstart overrides G's for B and C.
+			[
+				'g',
+				{ attr: 'start', date: 0, applies: 4 },
+				[{ type: 'removeAttr', task: 'g', attr: 'start' }, 'g'],
+			],
+			[
+				'g',
+				{ attr: 'minstart', date: 0, applies: 2 },
+				[{ type: 'removeAttr', task: 'g', attr: 'minstart' }, 'g'],
+			],
+			[
+				'g.b',
+				{ attr: 'minstart', date: 1440, applies: 2 },
+				[{ type: 'removeAttr', task: 'g.b', attr: 'minstart' }, 'g.b'],
+			],
 		]);
+		// At the statement that writes it.
+		expect(f[0]?.at?.file).toBe('plan.tjp');
 	});
 
 	it('reads a scenario-prefixed constraint in its scenario only', () => {
@@ -91,24 +105,24 @@ describe('H3 hard constraint', () => {
 				(f) => f.facts,
 			);
 		expect(run('plan')).toEqual([]);
-		expect(run('alt')).toEqual([{ attr: 'start', date: 1440, from: null }]);
+		expect(run('alt')).toEqual([{ attr: 'start', date: 1440, applies: 1 }]);
 	});
 
 	it('shows no date for a macro-written one, and disables "Remove" as text-only', () => {
 		const f = h3('macro d [2026-01-05]\ntask a "A" {\n  start ${d}\n}\n');
 		expect(f.map((x) => [x.facts, x.fixes.map((y) => y.disabled)])).toEqual([
-			[{ attr: 'start', date: null, from: null }, ['macro-call', null]],
+			[{ attr: 'start', date: null, applies: 1 }, ['macro-call', null]],
 		]);
 		expect(f[0]?.fixes[0]).toMatchObject({ label: 'Remove start' });
 	});
 
-	it('does not check containers', () => {
+	it('reports a container’s own site, and nothing on its children', () => {
 		const tasks: Array<[string, TaskSpec]> = [
 			['g', { start: at(0, 9), end: at(1, 17) }],
 			['g.a', { start: at(0, 9), end: at(1, 17), parent: 'g', depends: [dep('x')] }],
 		];
 		const f = h3('task g "G" {\n  start 2026-01-05\n  task a "A" {\n  }\n}\n', tasks);
-		expect(f.map((x) => x.subject)).toEqual([{ kind: 'task', id: 'g.a' }]);
+		expect(f.map((x) => [x.subject, x.facts.applies])).toEqual([[{ kind: 'task', id: 'g' }, 2]]);
 	});
 });
 

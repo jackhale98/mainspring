@@ -79,7 +79,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('text-only fixes on the eng
 			['work-without-people', 'side', ['macro-call', null]],
 		]);
 		const h3 = c.report.findings.find((f) => f.check === 'hard-constraint');
-		expect(h3?.facts).toEqual({ attr: 'start', date: null, from: null });
+		expect(h3?.facts).toEqual({ attr: 'start', date: null, applies: 1 });
 		const problems: string[] = [];
 		for (const f of c.report.findings) {
 			for (const fix of f.fixes) {

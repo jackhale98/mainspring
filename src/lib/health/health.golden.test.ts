@@ -5,6 +5,8 @@
 // fixtures (18.8), and fedora-res: the counts per check, and two findings checked by hand against
 // the text and the bookings.
 import { describe, expect, it } from 'vitest';
+import { explainTask } from '../schedule/explain';
+import { goldenContext } from '../schedule/explain-testing';
 import { checkPlan } from './report';
 import { goldenInput, goldenReport, only } from './testing';
 import { sentenceOf } from './text';
@@ -27,7 +29,7 @@ const FACTS: Record<CheckId, unknown> = {
 	'no-predecessor': null,
 	'no-successor': null,
 	// "start 2026-01-05": the project start, minute 0.
-	'hard-constraint': { attr: 'start', date: 0, from: null },
+	'hard-constraint': { attr: 'start', date: 0, applies: 1 },
 	// Starts 2026-01-08 09:00, must be before 2026-01-07 00:00: Wednesday is the one working day.
 	'constraint-warning': {
 		limit: 'maxstart',
@@ -201,7 +203,7 @@ describe('fedora-res', () => {
 		expect(r.counts).toEqual({
 			'no-predecessor': 48,
 			'no-successor': 200,
-			'hard-constraint': 380,
+			'hard-constraint': 7,
 			'constraint-warning': 0,
 			'long-gap': 39,
 			'long-task': 10,
@@ -214,23 +216,66 @@ describe('fedora-res', () => {
 			(m) => m.id === 'allocate_no_assigned' && m.scenario === i.analysis.scenario,
 		);
 		expect(r.counts['resource-warning']).toBe(shown.length);
-		// Every H3 is a `start`: most leaves inherit the root's `start ${start_work}` (or a phase's
-		// macro start), a date the index cannot read, so "Remove" is disabled as `macro-call`.
-		const h3 = new Map<string, number>();
+		// One H3 per written `start`, on the task that writes it (main-session ruling, 2026-11-17).
+		// The root's `start ${start_work}` binds 273 tasks: itself, 26 containers and the 246 leaves
+		// that before had a finding each; it is macro-written, so no date and "Remove" is disabled.
+		const h3: Record<string, string> = {};
 		for (const f of r.findings) {
-			if (f.check !== 'hard-constraint') continue;
-			const key = [f.facts.attr, f.facts.from, f.facts.date, f.fixes[0]?.disabled].join(' ');
-			h3.set(key, (h3.get(key) ?? 0) + 1);
+			if (f.check !== 'hard-constraint' || f.subject.kind !== 'task') continue;
+			const { attr, date, applies } = f.facts;
+			h3[f.subject.id] = [attr, date, applies, f.fixes[0]?.disabled].join(' ');
 		}
-		expect(Object.fromEntries(h3)).toEqual({
-			'start f20  macro-call': 246,
-			'start f20.TestingPhase.alpha  macro-call': 107,
-			'start f20.DevelopmentPhase  macro-call': 2,
-			'start f20.elections 211920 ': 18,
-			'start f20.naming 201840 ': 5,
-			'start  21840 ': 1,
-			'start  42000 ': 1,
+		expect(h3).toEqual({
+			f20: 'start  273 macro-call',
+			'f20.PlanningPhase.file_ticket': 'start 21840 1 ',
+			'f20.PlanningPhase.fedora17_eol': 'start 42000 1 ',
+			'f20.DevelopmentPhase': 'start  3 macro-call',
+			'f20.TestingPhase.alpha': 'start  111 macro-call',
+			'f20.naming': 'start 201840 6 ',
+			'f20.elections': 'start 211920 19 ',
 		});
+		const root = r.findings.find((f) => f.check === 'hard-constraint') as Finding;
+		expect(sentenceOf(root, c)).toBe('Its start is fixed (applies to 273 tasks).');
+		// A leaf under the root has no H3 of its own, and its "Why here?" names the constraint.
+		expect(
+			r.findings.some(
+				(f) =>
+					f.check === 'hard-constraint' &&
+					f.subject.kind === 'task' &&
+					f.subject.id === 'f20.first_day',
+			),
+		).toBe(false);
+		const why = explainTask('f20.first_day', goldenContext('fedora-res'));
+		expect(why.causes).toContainEqual({ kind: 'constraint', attr: 'start', inherited: true });
+		// 775 findings before the ruling; 402 after.
+		expect(r.findings.length).toBe(402);
+	});
+
+	it('spot checks 3 and 4: H2 on two tasks nothing waits for', () => {
+		// f-20.tjp: `clean_market_wiki` (PlanningPhase) and `package_supplemental_wallpaper`
+		// (supplement_wallpaper) are named in no `depends` or `precedes`, nor are their containers
+		// or the root; line 1131's `package_supplemental_wallpaper` is another task (under
+		// TestingPhase). Checked here from the raw result, without links.ts: no task's resolved list
+		// names them or an ancestor, and they and their ancestors precede nothing.
+		const sc = i.analysis.scenario;
+		for (const id of [
+			'f20.PlanningPhase.clean_market_wiki',
+			'f20.supplement_wallpaper.package_supplemental_wallpaper',
+		]) {
+			expect(
+				r.findings.some(
+					(f) => f.check === 'no-successor' && f.subject.kind === 'task' && f.subject.id === id,
+				),
+			).toBe(true);
+			const chain = id.split('.').map((_, k, parts) => parts.slice(0, k + 1).join('.'));
+			const named = i.result.tasks.flatMap((t) =>
+				(t.scenarios[sc]?.depends ?? []).filter((d) => chain.includes(d.task)).map(() => t.id),
+			);
+			expect(named).toEqual([]);
+			for (const a of chain) {
+				expect(i.result.tasks.find((t) => t.id === a)?.scenarios[sc]?.precedes).toEqual([]);
+			}
+		}
 	});
 
 	it('spot check 1: H5 on clean_market_wiki, 25 working days after start_features_cal', () => {
