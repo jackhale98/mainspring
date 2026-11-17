@@ -3,8 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { D, link, modelOf, row } from '../testing';
 import { paintBars } from './bars';
 import { NO_OVERLAY, paintOverlay } from './overlay';
-import { FALLBACK_THEME, readTheme } from './theme';
+import { FALLBACK_THEME, readTheme, themeResolved } from './theme';
 import { frameOf } from './testing';
+
+describe('themeResolved', () => {
+	it('is true when the tokens answer, false when every one comes back empty', () => {
+		expect(themeResolved(() => '')).toBe(false);
+		expect(themeResolved(() => '   ')).toBe(false);
+		expect(themeResolved((n) => (n === '--color-gantt-surface' ? '#11151d' : ''))).toBe(false);
+		expect(themeResolved(() => '#11151d')).toBe(true);
+	});
+});
 
 describe('readTheme sizes', () => {
 	it('reads lengths in px and opacities as numbers, and keeps the fallback for junk', () => {

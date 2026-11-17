@@ -14,7 +14,12 @@
 	const { app, showInText } = getInspector();
 
 	const id = $derived(app.inspector.source);
-	const node = $derived(id === null ? null : (app.index?.tasks.get(id) ?? null));
+	/** The task last shown: while the sheet slides away `source` is already null, and the title and text stay. */
+	let held = $state.raw<typeof id>(null);
+	$effect.pre(() => {
+		if (id !== null) held = id;
+	});
+	const node = $derived(held === null ? null : (app.index?.tasks.get(held) ?? null));
 	const block = $derived.by(() => {
 		const ws = app.workspace;
 		return ws && node ? sourceBlock(ws, app.run?.indexVersion, node.decl.block) : null;

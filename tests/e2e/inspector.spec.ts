@@ -66,6 +66,8 @@ async function select(page: Page, info: { project: { name: string } }, name: str
 	}
 	const panel = details(page, info);
 	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue(name);
+	// A sheet slides in (340 ms): measure it where it rests.
+	await panel.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
 	return panel;
 }
 
