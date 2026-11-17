@@ -98,6 +98,7 @@
 		aria-expanded={open}
 		aria-controls="heat-thresholds"
 		aria-haspopup="true"
+		aria-label={W.thresholds}
 		data-testid="heat-thresholds-chip"
 		onclick={toggle}
 	>

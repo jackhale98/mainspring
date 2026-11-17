@@ -13,6 +13,9 @@
 	(rebalance-adapter.ts). "Show in Gantt" selects the task and goes to the Gantt. A group's cell
 	lists its members' tasks without the move controls: the person's own cell is where a task moves.
 
+	Over 400 lines on purpose: about half are the styles of the panel, its facts and its task cards;
+	the script is small.
+
 	On a desktop it is a column beside the plot; narrower it is a bottom sheet over the plot's foot
 	(CSS, by the container), as the Gantt's details are. Escape or Close returns the focus to the
 	cell it came from.

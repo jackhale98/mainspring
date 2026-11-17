@@ -105,7 +105,9 @@
 		type="button"
 		class="chip unit-toggle"
 		data-testid="heat-unit-toggle"
-		aria-label={unit === 'hours' ? W.unitHint.percent : W.unitHint.hours}
+		aria-label="{unit === 'hours' ? W.unitHours : W.unitPercent}: {unit === 'hours'
+			? W.unitHint.percent
+			: W.unitHint.hours}"
 		onclick={() => onunit(unit === 'hours' ? 'percent' : 'hours')}
 	>
 		{unit === 'hours' ? W.unitHours : W.unitPercent}

@@ -21,6 +21,10 @@
  *   is the host's (it may ask "Move which task?").
  * - Edge auto-scroll while dragging, against the visible plot (up to 600 px/s).
  *
+ * Over 400 lines on purpose: one class owns the DOM events, the machine and the drag state they
+ * share (`#session`, `#pointer`, the timers), as the Gantt's gestures class does; the pure rules are
+ * in lib/workload/heat-drag.ts and lib/gesture.
+ *
  * Nothing here changes the plan.
  */
 import { autoScrollVelocity } from '../../lib/gesture/autoscroll';

@@ -13,6 +13,7 @@
 // - a rebalance drag with the mouse changes nothing but says so; a long-press on a finger opens the
 //   details of a cell;
 // - axe passes in light and dark, with the details open, and a finger's targets are 44 px.
+// Over 400 lines on purpose: one spec file for one view, each test a user path.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { createTimeZoneHost } from '../../src/engine/timezone';
@@ -323,9 +324,12 @@ test('thresholds: stored per plan, a bad pair refused, bands follow', async ({ p
 	expect(JSON.parse(stored ?? '{}').thresholds).toEqual({ spareBelow: 50, overAbove: 90 });
 	// It survives a reload, and the other plan has its own.
 	await page.reload();
-	await expect(page.getByTestId('heat-cell').first()).toBeAttached({ timeout: 60_000 });
+	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+		timeout: READY_TIMEOUT_MS,
+	});
 	if (isTouch(info))
 		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();
+	await expect(page.getByTestId('heat-cell').first()).toBeAttached({ timeout: 60_000 });
 	await page.getByTestId('heat-thresholds-chip').click();
 	await expect(page.getByLabel('Over above', { exact: true })).toHaveValue('90');
 	await expect(page.getByLabel('Spare below', { exact: true })).toHaveValue('50');
