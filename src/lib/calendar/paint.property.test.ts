@@ -119,5 +119,6 @@ describe.each(['leave-types', 'dst-weeks'])('paint and erase on %s (property)', 
 		console.info(`${name}: ${edits.paint} paint and ${edits.erase} erase edits in ${RUNS} strokes`);
 		edits.paint = 0;
 		edits.erase = 0;
-	});
+		// 150 strokes each parse and plan the whole plan: about 3 s alone, more on a loaded machine.
+	}, 30_000);
 });
