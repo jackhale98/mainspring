@@ -90,14 +90,26 @@
 		</select>
 		<span class="caret"><Icon name="chevronDown" size={12} /></span>
 	</label>
-	<SegmentTabs
-		items={UNITS}
-		value={unit}
-		onchange={onunit}
-		label={W.unit}
-		prefix="heat-unit-{scope}"
-		kind="radios"
-	/>
+	<span class="unit-radios">
+		<SegmentTabs
+			items={UNITS}
+			value={unit}
+			onchange={onunit}
+			label={W.unit}
+			prefix="heat-unit-{scope}"
+			kind="radios"
+		/>
+	</span>
+	<!-- A phone: one button that switches the unit (two pills do not fit 360 px beside the rest). -->
+	<button
+		type="button"
+		class="chip unit-toggle"
+		data-testid="heat-unit-toggle"
+		aria-label={unit === 'hours' ? W.unitHint.percent : W.unitHint.hours}
+		onclick={() => onunit(unit === 'hours' ? 'percent' : 'hours')}
+	>
+		{unit === 'hours' ? W.unitHours : W.unitPercent}
+	</button>
 	<ThresholdsPopover {thresholds} onchange={onthresholds} />
 	<button
 		type="button"
@@ -195,7 +207,8 @@
 		color: var(--color-gantt-text-muted);
 		pointer-events: none;
 	}
-	.zoom-select {
+	.zoom-select,
+	.unit-toggle {
 		display: none;
 	}
 	.line {
@@ -309,8 +322,14 @@
 	}
 	/* A phone: one compact row; the line floats at the foot of the heatmap (Workload.svelte). */
 	@media (max-width: 599px) {
-		.zoom-radios {
+		.zoom-radios,
+		.unit-radios {
 			display: none;
+		}
+		.unit-toggle {
+			display: inline-flex;
+			justify-content: center;
+			min-inline-size: var(--size-tap);
 		}
 		.zoom-select {
 			display: inline-flex;

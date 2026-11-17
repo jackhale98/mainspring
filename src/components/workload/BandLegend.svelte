@@ -30,15 +30,17 @@
 <ul class="legend" class:rules={rules !== undefined} aria-label={W.legend}>
 	{#each BANDS as b (b)}
 		<li>
-			<i class="sw {b}"></i><span class="name">{W.band[b]}</span>{#if rules}<span class="rule"
-					>{rule(b, rules)}</span
-				>{/if}
+			<i class="sw {b}"></i><span class="text"
+				><span class="name">{W.band[b]}</span>{#if rules}<span class="rule">{rule(b, rules)}</span
+					>{/if}</span
+			>
 		</li>
 	{/each}
 	<li>
-		<i class="sw leave"></i><span class="name">{W.legendLeave}</span>{#if rules}<span class="rule"
-				>{W.rule.leave}</span
-			>{/if}
+		<i class="sw leave"></i><span class="text"
+			><span class="name">{W.legendLeave}</span>{#if rules}<span class="rule">{W.rule.leave}</span
+				>{/if}</span
+		>
 	</li>
 </ul>
 
