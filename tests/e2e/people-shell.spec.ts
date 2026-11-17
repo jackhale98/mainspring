@@ -27,11 +27,11 @@ test.setTimeout(READY_TIMEOUT_MS * 2);
 
 const PLAN = 'upstream-tutorial';
 
-/** What a People view with people shows: the heatmap (Workload) or the lanes (Resources), else the placeholder. */
+/** What a People view with people shows: the heatmap (Workload) or the lanes (Resources), else the resource table (T17). */
 const content = (page: Page) =>
 	page
 		.locator(
-			'[data-testid="people-coming"], [data-testid="calendar"], [data-testid="heat-cell"], [data-testid="workload"], [data-testid="lanes"]',
+			'[data-testid="resource-table"], [data-testid="calendar"], [data-testid="heat-cell"], [data-testid="workload"], [data-testid="lanes"]',
 		)
 		.first();
 
@@ -264,19 +264,20 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		page,
 	}) => {
 		// The Gantt's toolbar is about 940 px wide here: the chips keep their labels and the legend, so
-		// four icons do not fit beside them (ViewSwitcher.svelte has the tiers). A People view has no
-		// details dock and no chips, so its bar is wide enough for the icons.
+		// four icons do not fit beside them (ViewSwitcher.svelte has the tiers). The Calendar has no
+		// details dock and no chips, so its bar is wide enough for the icons (the Resources view docks
+		// the person details since T17, so its bar is the Gantt's width again).
 		await open(page);
 		const menu = viewMenu(page);
 		await expect(menu).toBeVisible();
 		await expect(menu).toHaveValue('gantt');
 		await expect(page.getByRole('radiogroup', { name: 'Views' })).toBeHidden();
-		await menu.selectOption('resources');
-		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'resources', {
+		await menu.selectOption('calendar');
+		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'calendar', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		await expect(viewRadio(page, 'Resources')).toBeChecked();
-		await expect(viewRadio(page, 'Resources')).toBeFocused();
+		await expect(viewRadio(page, 'Calendar')).toBeChecked();
+		await expect(viewRadio(page, 'Calendar')).toBeFocused();
 		// Back to the Gantt by the radios: the Gantt's menu takes the focus.
 		await viewRadio(page, 'Gantt').click();
 		await expect(page.getByTestId('gantt')).toBeVisible();

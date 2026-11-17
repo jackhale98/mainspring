@@ -12,7 +12,7 @@
 	import { tick } from 'svelte';
 	import { THRESHOLD_MAX, THRESHOLD_MIN, validThresholds } from '../../lib/workload/heat-prefs';
 	import { DEFAULT_THRESHOLDS, type Thresholds } from '../../lib/workload/types';
-	import { workloadStrings as W } from '../../lib/strings';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import BandLegend from './BandLegend.svelte';
 	import Icon from '../Icon.svelte';
 

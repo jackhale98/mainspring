@@ -5,7 +5,7 @@
  * (`CalendarDay`), with `Intl` in UTC so that the plan's zone cannot move a date; the viewer's
  * locale is used for the names.
  */
-import { calendarStrings as C, leavePaintStrings as L } from '../strings';
+import { calendarStrings as C, leavePaintStrings as L } from '../strings-calendar';
 import type { LeaveType } from '../tjp/values';
 import type { CalendarDay, CalendarGrid } from './grid';
 import type { DayFacts, LeaveEntry } from './facts';

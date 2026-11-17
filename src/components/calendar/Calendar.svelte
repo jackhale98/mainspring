@@ -44,7 +44,7 @@
 	import { runIntent, runStroke } from '../../lib/calendar/run';
 	import { monthWindow, offsetOfMonth, visibleMonths } from '../../lib/calendar/window';
 	import type { AppState } from '../../lib/state/app.svelte';
-	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
+	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Mark from '../app/Mark.svelte';
 	import CalendarBar from './CalendarBar.svelte';

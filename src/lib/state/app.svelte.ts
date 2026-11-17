@@ -67,6 +67,7 @@ import { HistoryControls } from './history-controls.svelte';
 import { InspectorState } from './inspector.svelte';
 import { bindHistoryKeys } from './history-keys';
 import { buildOutline, EMPTY_OUTLINE, errorCounts, type OutlineNode } from './outline';
+import { resourceAtCursor } from './resource-cursor';
 import {
 	linkPlace,
 	originOf,
@@ -208,6 +209,10 @@ export class AppState {
 
 	/** Intl-backed zone data for the index: zone names and zone-dependent value checks. */
 	readonly #zones = createTimeZoneHost();
+	/** The zone data, for a lazy view that reads dates in the plan's zone (it need not import its own). */
+	get zones(): ReturnType<typeof createTimeZoneHost> {
+		return this.#zones;
+	}
 	#runner: ScheduleRunner | null = null;
 	#editorBundle: typeof import('./editor-bundle') | null = null;
 	#editorLoading: Promise<void> | null = null;
@@ -562,7 +567,13 @@ export class AppState {
 		const ws = this.workspace;
 		if (!run || !ws) return;
 		const id: TaskId | null = taskAtCursor(run, ws, file, pos);
-		if (id === null || !this.selection.selectTask(id, 'text')) return;
+		if (id === null) {
+			// A cursor inside a resource block selects that person (phase-3.md 6.7).
+			const person = resourceAtCursor(run, ws, file, pos);
+			if (person !== null) this.selection.selectResource(person, 'text');
+			return;
+		}
+		if (!this.selection.selectTask(id, 'text')) return;
 		this.#expandAround(id);
 	}
 

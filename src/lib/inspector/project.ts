@@ -2,8 +2,9 @@
 /**
  * What the project sheet shows (phase-2.md 9.3 "Project sheet"): the plan's name, the frame's
  * start and end, the status date and the time zone, read from the symbol index and the text the
- * header is written in, so each field says what the text says. This is the minimum the status
- * date line needs; the rest of the project frame is Phase 3.
+ * header is written in, so each field says what the text says. Phase 3 adds the rest of the
+ * frame (phase-2.md 19.9, phase-3.md 9.6): the working day, the first day of the week, the time
+ * format and the currency. The working hours are lib/resources/hours.ts (shared with a person).
  *
  * The frame's end is written either as a date (`- 2026-06-30`) or as a duration (`+17w`); the
  * field shows it as written, and the edit API keeps the style. Dates are read from the header in
@@ -24,6 +25,15 @@ export interface ProjectDetails {
 	readonly frameAt: FieldState;
 	readonly now: FieldState;
 	readonly timezone: FieldState;
+	/** `dailyworkinghours`, as written. */
+	readonly dailyHours: FieldState;
+	readonly timeformat: FieldState;
+	readonly currency: FieldState;
+	/**
+	 * The week's first day is Monday unless the last of `weekstartsmonday` and `weekstartssunday` is
+	 * the Sunday one (the edit API rewrites that statement through `weekstartsmonday`).
+	 */
+	readonly weekStartsMonday: boolean;
 }
 
 const NOT_THERE: FieldState = { kind: 'unset' };
@@ -73,5 +83,14 @@ export function projectDetails(
 		frameAt: p.interval ? { kind: 'own', text: '', at: p.interval } : NOT_THERE,
 		now: site('now'),
 		timezone: site('timezone'),
+		dailyHours: site('dailyworkinghours'),
+		timeformat: site('timeformat'),
+		currency: site('currency'),
+		weekStartsMonday:
+			p.attrs.findLast(
+				(a) =>
+					(a.keyword === 'weekstartsmonday' || a.keyword === 'weekstartssunday') &&
+					a.scenario === null,
+			)?.keyword !== 'weekstartssunday',
 	};
 }

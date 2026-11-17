@@ -24,12 +24,87 @@ import zlib from 'node:zlib';
 export const TOTAL_CAP = 600_000;
 export const VISUAL_FIRST_CAP = 310_000;
 export const TEXT_FIRST_CAP = 420_000;
-/** Lazy chunks with their own cap, by file name. Add the People chunk here when it lands (60,000). */
+/**
+ * Lazy chunks with their own cap, by file name (Rollup names a chunk after its entry module, and
+ * a chunk two views share after one of its modules). `view: true` marks a People view chunk: none
+ * of them may load with a Gantt-first load (phase-3.md 8.3). A pattern that matches no chunk is a
+ * problem too (the split moved, and the cap guards nothing).
+ *
+ * The People views are one chunk each (phase-3.md 23.1): PeopleView.svelte is only the shell that
+ * imports a view when it first opens; the others are what it imports.
+ */
 export const CHUNK_CAPS = [
 	{ name: 'editor', pattern: /^editor-controller/, cap: 118_000 },
-	// The People views (phase-3.md 8.3): PeopleView.svelte is the lazy chunk's entry.
-	{ name: 'people', pattern: /^PeopleView/, cap: 60_000 },
+	{ name: 'people', pattern: /^PeopleView/, cap: 3_700, view: true },
+	{ name: 'workload', pattern: /^Workload\./, cap: 7_000, view: true },
+	// What the heatmap and the lanes share (the canvas plot, names, header, details, the model).
+	{ name: 'heat', pattern: /^WorkloadBar/, cap: 34_000, view: true },
+	{ name: 'lanes', pattern: /^Lanes\./, cap: 12_200, view: true },
+	{ name: 'calendar', pattern: /^(Calendar\.|calendar-state)/, cap: 16_400, view: true },
+	// The Resources view: the resource table, its drag and the divider's rules (T17).
+	{ name: 'resources', pattern: /^ResourcesView/, cap: 9_400, view: true },
+	// A person's details and the working-hours editor, fetched when a person is selected (T17).
+	{
+		name: 'person',
+		pattern: /^(ResourcePanel|WorkingHoursEditor|person-edit|rows)\./,
+		cap: 15_800,
+		view: true,
+	},
 ];
+
+/** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
+export function unmatchedCaps(files) {
+	return CHUNK_CAPS.filter((c) => !files.some((f) => c.pattern.test(f.file))).map(
+		(c) => `the ${c.name} chunk cap matches no built file (${c.pattern}); did the split move?`,
+	);
+}
+
+/** Whether a built file is one of the capped People view chunks (by name). */
+export const isViewChunk = (file) => CHUNK_CAPS.some((c) => c.view && c.pattern.test(file));
+
+const STATIC_REF = /(?:from|import)\s*["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
+const ANY_REF = /["'`]\.\/([A-Za-z0-9._-]+\.js)["'`]/g;
+const ENTRY_REF = /_astro\/([A-Za-z0-9._-]+\.js)/g;
+
+const refs = (text, re) => [...text.matchAll(re)].map((m) => m[1]);
+
+/**
+ * Every chunk that belongs to the People views, found from the built graph and not from names (a
+ * chunk two views share is named after one of its modules, and a shared module such as the leave
+ * card or a strings module has no cap of its own): what the shell chunk (`PeopleView`) and the person details (`ResourcePanel`) reach by
+ * static or dynamic imports, minus what a first load reaches by static imports from the page's
+ * scripts. A Gantt-first load that fetches one of them has pulled a People view in. `sources` maps
+ * a file name to its text; `html` is the page's HTML.
+ */
+export function viewChunkSet(sources, html) {
+	const firstLoad = new Set();
+	const walk = (start, re, into) => {
+		const todo = [...start];
+		while (todo.length) {
+			const f = todo.pop();
+			if (into.has(f) || !(f in sources)) continue;
+			into.add(f);
+			todo.push(...refs(sources[f], re));
+		}
+	};
+	walk(refs(html, ENTRY_REF), STATIC_REF, firstLoad);
+	const shell = Object.keys(sources).filter((f) => /^(PeopleView|ResourcePanel)/.test(f));
+	const reach = new Set();
+	walk(shell, ANY_REF, reach);
+	return new Set([...reach].filter((f) => !firstLoad.has(f)));
+}
+
+/** The set for a build in `dist/` (the app page's scripts are the first load's entries). */
+export function builtViewChunks(dir = path.join(process.cwd(), 'dist')) {
+	const astro = path.join(dir, '_astro');
+	const sources = Object.fromEntries(
+		fs
+			.readdirSync(astro)
+			.filter((f) => f.endsWith('.js'))
+			.map((f) => [f, fs.readFileSync(path.join(astro, f), 'utf8')]),
+	);
+	return viewChunkSet(sources, fs.readFileSync(path.join(dir, 'app', 'index.html'), 'utf8'));
+}
 
 const gzip = (buf) => zlib.gzipSync(buf, { level: 9 }).length;
 const arg = (name) =>
@@ -48,7 +123,7 @@ export function distScripts(dir) {
 		.sort((a, b) => b.gzip - a.gzip);
 }
 
-async function firstLoad(browser, base, query) {
+async function firstLoad(browser, base, query, viewChunks) {
 	const page = await browser.newPage();
 	const seen = new Map();
 	page.on('response', async (res) => {
@@ -74,7 +149,7 @@ async function firstLoad(browser, base, query) {
 		gzipBytes: list.reduce((n, f) => n + f.gzip, 0),
 		rawBytes: list.reduce((n, f) => n + f.raw, 0),
 		loadsEditorChunk: list.some((f) => f.file.startsWith('editor-controller')),
-		loadsPeopleChunk: list.some((f) => f.file.startsWith('PeopleView')),
+		loadsPeopleChunk: list.some((f) => isViewChunk(f.file) || viewChunks.has(f.file)),
 	};
 }
 
@@ -96,9 +171,11 @@ async function measureLoads() {
 		process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
 	);
 	try {
+		const views = builtViewChunks();
 		return {
-			visualFirst: await firstLoad(browser, base, 'sample=upstream-tutorial&mode=visual'),
-			textFirst: await firstLoad(browser, base, 'sample=upstream-tutorial&mode=text'),
+			viewChunks: [...views].sort(),
+			visualFirst: await firstLoad(browser, base, 'sample=upstream-tutorial&mode=visual', views),
+			textFirst: await firstLoad(browser, base, 'sample=upstream-tutorial&mode=text', views),
 		};
 	} finally {
 		await browser.close();
@@ -163,12 +240,15 @@ async function main() {
 		result.visualFirstCap = VISUAL_FIRST_CAP;
 		result.textFirstCap = TEXT_FIRST_CAP;
 	}
-	const problems = checkBudgets({
-		files,
-		loads: result.visualFirst
-			? { visualFirst: result.visualFirst, textFirst: result.textFirst }
-			: undefined,
-	});
+	const problems = [
+		...unmatchedCaps(files),
+		...checkBudgets({
+			files,
+			loads: result.visualFirst
+				? { visualFirst: result.visualFirst, textFirst: result.textFirst }
+				: undefined,
+		}),
+	];
 	const text = JSON.stringify(result, null, 2) + '\n';
 	const out = arg('--out');
 	if (out) {

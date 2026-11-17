@@ -7,7 +7,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { rebalanceStrings, workloadStrings as W } from '../../lib/strings';
+	import { rebalanceStrings, workloadStrings as W } from '../../lib/strings-workload';
 	import { hoursNumber } from '../../lib/workload/heat-cell';
 
 	interface Props {

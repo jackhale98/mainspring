@@ -14,7 +14,7 @@ import { readMovePreference } from '../../lib/gantt/prefs';
 import { workingTimeOf } from '../../lib/schedule/working-time';
 import type { AppState } from '../../lib/state/app.svelte';
 import { browserStorage } from '../../lib/state/storage';
-import { workloadStrings as W } from '../../lib/strings';
+import { workloadStrings as W } from '../../lib/strings-workload';
 import type { DetailTask } from '../../lib/workload/heat-cell';
 import { shiftOf } from '../../lib/workload/heat-drag';
 import type { Cell } from '../../lib/workload/heat-layout';

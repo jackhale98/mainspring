@@ -11,7 +11,7 @@
 	the toggle is the one control here, a button with the group's name and its state.
 -->
 <script lang="ts">
-	import { workloadStrings as W } from '../../lib/strings';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import type { LoadRow } from '../../lib/workload/types';
 	import Icon from '../Icon.svelte';
 

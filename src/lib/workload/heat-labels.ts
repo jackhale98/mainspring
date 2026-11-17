@@ -10,7 +10,7 @@
  * mirror ask for them without a formatter call.
  */
 import { dayOf, type GanttCalendar } from '../gantt/ticks';
-import { workloadStrings as W } from '../strings';
+import { workloadStrings as W } from '../strings-workload';
 import { civilFromDays } from '../tjp/values/civil';
 import type { BucketAxis, BucketKind } from './types';
 

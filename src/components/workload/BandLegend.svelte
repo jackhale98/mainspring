@@ -7,7 +7,7 @@
 	toolbar's compact legend. Decorative repeat of what the cells say in words: a plain list.
 -->
 <script lang="ts">
-	import { workloadStrings as W } from '../../lib/strings';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import type { Band, Thresholds } from '../../lib/workload/types';
 
 	interface Props {
