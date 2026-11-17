@@ -176,21 +176,70 @@ export async function caughtUp(page: Page): Promise<void> {
 	await page.waitForTimeout(250);
 }
 
-/** A person with five leaves of five types on one day (Sam, Monday 14 Dec 2026): a day with a crowd. */
+/**
+ * Sam has leaves on three days of the poc-sample plan: nine named leaves on Monday 14 Dec 2026 (a
+ * crowd, more than a tall row holds), five of five types on Tuesday 15 Dec, and one on Thanksgiving
+ * (Thursday 26 Nov: with the holiday, two chips).
+ */
 export const SAM_DAY = '2026-12-14';
-export const SAM_TEXT =
-	'\nresource sam "Sam" {\n  leaves annual 2026-12-14, sick 2026-12-14, special 2026-12-14, unpaid 2026-12-14, unemployed 2026-12-14\n}\n';
+export const CROWD = 9;
+export const FIVE_DAY = '2026-12-15';
+export const TWO_DAY = '2026-11-26';
+const named = (type: string, names: string[], date: string): string =>
+	names.map((n) => `${type} "${n}" ${date}`).join(', ');
+export const SAM_TEXT = `
+resource sam "Sam" {
+  leaves ${[
+		named('annual', ['A1', 'A2'], SAM_DAY),
+		named('sick', ['S1', 'S2'], SAM_DAY),
+		named('special', ['P1', 'P2'], SAM_DAY),
+		named('unpaid', ['U1', 'U2'], SAM_DAY),
+		named('unemployed', ['E1'], SAM_DAY),
+		'annual 2026-12-15, sick 2026-12-15, special 2026-12-15, unpaid 2026-12-15, unemployed 2026-12-15',
+		named('annual', ['Trip'], TWO_DAY),
+	].join(',\n         ')}
+}
+`;
+
+/** A plan whose frame holds February 2027, a month of four weeks when weeks start on Monday. */
+export const FEBRUARY_PLAN = `project feb "February" 2027-01-25 +7w {
+  timezone "America/New_York"
+  now 2027-01-25
+}
+resource r "R"
+task t "T" {
+  start 2027-02-01
+  effort 2d
+  allocate r
+}
+`;
+
+/** How far the chips and the "+N more" button of a day reach past its bottom edge, in px. */
+export const reachPast = (cell: Locator): Promise<number> =>
+	cell.evaluate((el) => {
+		const bottom = el.getBoundingClientRect().bottom;
+		let reach = Number.NEGATIVE_INFINITY;
+		for (const c of el.querySelectorAll('.chip, .more')) {
+			reach = Math.max(reach, c.getBoundingClientRect().bottom);
+		}
+		return reach - bottom;
+	});
 
 /**
- * Appends `snippet` to the plan's text (in Text mode), then comes back to the Calendar. The plan
- * must have been opened with `openCalendar(page, info, { mode: 'text' })`.
+ * Appends `snippet` to the plan's text (in Text mode), or replaces all of it, then comes back to
+ * the Calendar. The plan must have been opened with `openCalendar(page, info, { mode: 'text' })`.
  */
-export async function appendText(page: Page, info: TestInfo, snippet: string): Promise<void> {
+export async function appendText(
+	page: Page,
+	info: TestInfo,
+	snippet: string,
+	replace = false,
+): Promise<void> {
 	const phone = isTouch(info);
 	if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
 	const editor = page.getByRole('textbox', { name: /^Editor for / });
 	await editor.click();
-	await page.keyboard.press('Control+End');
+	await page.keyboard.press(replace ? 'Control+A' : 'Control+End');
 	await page.keyboard.insertText(snippet);
 	await caughtUp(page);
 	if (phone) {

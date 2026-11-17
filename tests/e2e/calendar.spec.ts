@@ -12,16 +12,22 @@
 // - the keyboard: Shift and the arrows select, L opens the type picker, Enter paints, Delete erases;
 // - a desktop's month fills the view (1280x720 and 1920x1080); Previous, Next, Page Up and Page Down
 //   change the month and keep the selection, Shift and the arrows go on into the next month, a
-//   crowded day shows what fits and then "+N more", which opens the day's details, and the wheel
-//   turns the month once per gesture;
+//   crowded day shows what fits (all of it inside the day, never a hidden chip that fits) and then
+//   "+N more", which opens the day's details with the focus there, a Shift-click extends across
+//   months, a month of four weeks fills the view, Today shows today's month, and the wheel turns the
+//   month once per gesture, taking the focus with it;
 // - axe passes in light and dark, and a finger's days are 44 px.
 // Over 400 lines on purpose: one spec file for one view, each test a user path.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import {
+	CROWD,
+	FEBRUARY_PLAN,
+	FIVE_DAY,
 	SAM_DAY,
 	SAM_TEXT,
+	TWO_DAY,
 	appendText,
 	caughtUp,
 	changed,
@@ -30,6 +36,7 @@ import {
 	openDetails,
 	openCalendar,
 	redo,
+	reachPast,
 	setMode,
 	setScope,
 	setType,
@@ -395,7 +402,7 @@ test('desktop: with the details docked the month shrinks to fit beside them', as
 	expect(after.months).toBe(1);
 });
 
-test('desktop: Previous, Next and Today change the month and keep the selection', async ({
+test('desktop: Previous and Next change the month and keep the selection', async ({
 	page,
 }, info) => {
 	test.skip(isTouch(info), DESKTOP_ONLY);
@@ -415,7 +422,6 @@ test('desktop: Previous, Next and Today change the month and keep the selection'
 	await expect(day(page, '2026-12-10')).toHaveAttribute('aria-selected', 'true');
 	await page.getByTestId('cal-prev').click();
 	await expect.poll(month).toBe('2026-11');
-	await page.getByRole('button', { name: 'Today' }).click();
 	await expect(page.getByTestId('cal-month')).toHaveCount(1);
 });
 
@@ -466,6 +472,23 @@ test('desktop: Shift and the arrows go on past the edge of the month into the ne
 	await expect(page.getByTestId('cal-line')).not.toContainText('days');
 });
 
+/** A wheel swipe: `n` small events in one task (so none is a gap), the way a trackpad sends them. */
+const swipe = (page: Page, dy: number, n = 40) =>
+	page.getByTestId('cal-scroller').evaluate(
+		(el, [d, count]) => {
+			for (let i = 0; i < (count as number); i++) {
+				el.dispatchEvent(
+					new WheelEvent('wheel', {
+						deltaY: (d as number) / (count as number) + (i < 10 ? 1 : 0),
+						bubbles: true,
+						cancelable: true,
+					}),
+				);
+			}
+		},
+		[dy, n],
+	);
+
 test('desktop: a wheel swipe turns the month once; a pause and another turns it again', async ({
 	page,
 }, info) => {
@@ -473,23 +496,88 @@ test('desktop: a wheel swipe turns the month once; a pause and another turns it 
 	await openCalendar(page, info);
 	const month = () => page.getByTestId('cal-month').getAttribute('data-month');
 	await showDay(page, '2026-12-10');
-	const at = await page.getByTestId('cal-scroller').boundingBox();
-	if (!at) throw new Error('no box');
-	await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
-	// A trackpad swipe: forty small events, 16 ms apart, with a tail.
-	for (let i = 0; i < 40; i++) {
-		await page.mouse.wheel(0, i < 20 ? 8 : 3);
-		await page.waitForTimeout(16);
-	}
+	await swipe(page, 200);
 	await expect.poll(month).toBe('2027-1');
-	await page.waitForTimeout(400);
-	await page.mouse.wheel(0, -120);
+	// Exactly one month for the whole swipe: look again after the inertia would have run.
+	await page.waitForTimeout(500);
+	expect(await month()).toBe('2027-1');
+	// A pause longer than the wheel's stillness (180 ms), then the swipe back.
+	await swipe(page, -200);
 	await expect.poll(month).toBe('2026-12');
-	await page.waitForTimeout(400);
-	// A nudge is not enough.
-	await page.mouse.wheel(0, 15);
-	await page.waitForTimeout(300);
+	await page.waitForTimeout(500);
 	expect(await month()).toBe('2026-12');
+	// A nudge is not enough, and a notch in lines is a full step.
+	await swipe(page, 15, 3);
+	await page.waitForTimeout(500);
+	expect(await month()).toBe('2026-12');
+	await page.getByTestId('cal-scroller').evaluate((el) => {
+		el.dispatchEvent(new WheelEvent('wheel', { deltaY: 3, deltaMode: 1, bubbles: true }));
+	});
+	await expect.poll(month).toBe('2027-1');
+});
+
+test('desktop: the wheel takes the focus in the grid to the same date of the new month', async ({
+	page,
+}, info) => {
+	test.skip(isTouch(info), DESKTOP_ONLY);
+	await openCalendar(page, info);
+	const month = () => page.getByTestId('cal-month').getAttribute('data-month');
+	const d = await showDay(page, '2026-12-09');
+	await d.focus();
+	await swipe(page, 200);
+	await expect.poll(month).toBe('2027-1');
+	await expect(day(page, '2027-01-09')).toBeFocused();
+	// The wheel moves the view and the focus, not the selection.
+	await expect(page.getByTestId('cal-line')).toHaveText('No days selected.');
+});
+
+test('desktop: a Shift-click extends the selection from the anchor, in a month and across months', async ({
+	page,
+}, info) => {
+	test.skip(isTouch(info), DESKTOP_ONLY);
+	await openCalendar(page, info);
+	const month = () => page.getByTestId('cal-month').getAttribute('data-month');
+	await showDay(page, '2026-12-10');
+	await tapDay(page, info, day(page, '2026-12-10'));
+	// In the month: Dec 10 to Dec 12.
+	const box = await day(page, '2026-12-12').boundingBox();
+	if (!box) throw new Error('no box');
+	await page.keyboard.down('Shift');
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+	await page.keyboard.up('Shift');
+	await expect(page.getByTestId('cal-line')).toContainText('(3 days)');
+	await expect(day(page, '2026-12-10')).toHaveAttribute('aria-selected', 'true');
+	await expect(day(page, '2026-12-12')).toHaveAttribute('aria-selected', 'true');
+	// Across months: a plain click on Dec 10, Next, Shift-click Jan 6: Dec 10 to Jan 6 (28 days).
+	await tapDay(page, info, day(page, '2026-12-10'));
+	await page.getByTestId('cal-next').click();
+	await expect.poll(month).toBe('2027-1');
+	const jan = await day(page, '2027-01-06').boundingBox();
+	if (!jan) throw new Error('no box');
+	await page.keyboard.down('Shift');
+	await page.mouse.click(jan.x + jan.width / 2, jan.y + jan.height / 2);
+	await page.keyboard.up('Shift');
+	await expect(page.getByTestId('cal-line')).toContainText('(28 days)');
+	await expect(day(page, '2027-01-01')).toHaveAttribute('aria-selected', 'true');
+	await expect(day(page, '2027-01-06')).toHaveAttribute('aria-selected', 'true');
+	await page.getByTestId('cal-prev').click();
+	await expect(day(page, '2026-12-10')).toHaveAttribute('aria-selected', 'true');
+	await expect(day(page, '2026-12-31')).toHaveAttribute('aria-selected', 'true');
+});
+
+test('desktop: Today shows the month of today, with today marked', async ({ page }, info) => {
+	test.skip(isTouch(info), DESKTOP_ONLY);
+	await page.clock.setFixedTime(new Date('2026-12-15T12:00:00-05:00'));
+	await openCalendar(page, info);
+	const month = () => page.getByTestId('cal-month').getAttribute('data-month');
+	// The view starts on today's month.
+	await expect.poll(month).toBe('2026-12');
+	await expect(day(page, '2026-12-15')).toHaveAttribute('aria-current', 'date');
+	await page.getByTestId('cal-prev').click();
+	await expect.poll(month).toBe('2026-11');
+	await page.getByRole('button', { name: 'Today' }).click();
+	await expect.poll(month).toBe('2026-12');
+	await expect(day(page, '2026-12-15')).toHaveAttribute('aria-current', 'date');
 });
 
 test('desktop: a crowded day shows what fits, then "+N more", which opens the day', async ({
@@ -502,29 +590,57 @@ test('desktop: a crowded day shows what fits, then "+N more", which opens the da
 	const crowd = await showDay(page, SAM_DAY);
 	const chips = crowd.locator('.chip');
 	const more = crowd.getByTestId('cal-more');
-	// At 1280x720 the day has room for three or four lines: some chips and "+N more" for the rest.
+	// At 1280x720 the row has room for three chips: two of the nine and "+7 more".
 	await expect(more).toHaveCount(1);
 	const shown = await chips.count();
 	expect(shown).toBeGreaterThanOrEqual(1);
-	expect(shown).toBeLessThan(5);
-	await expect(more).toHaveText(`+${5 - shown} more`);
+	expect(shown).toBeLessThan(CROWD);
+	await expect(more).toHaveText(`+${CROWD - shown} more`);
+	// What is shown and the button end inside the day.
+	expect(await reachPast(crowd)).toBeLessThanOrEqual(0.5);
 	// Every leave is in the day's name, shown or not (WCAG 1.4.1).
-	for (const t of ['Annual leave', 'Sick leave', 'Special leave', 'Unpaid leave', 'Unemployed']) {
+	for (const t of ['A1', 'A2', 'S1', 'S2', 'P1', 'P2', 'U1', 'U2', 'E1']) {
 		await expect(crowd).toHaveAccessibleName(new RegExp(t));
 	}
-	// A day with a chip or two shows them all and no button.
-	await expect(day(page, '2026-12-15').getByTestId('cal-more')).toHaveCount(0);
-	// The button selects the day and opens its details, in Paint mode too: it paints nothing.
+	// A day with no crowd shows its chips and no button.
+	await expect(day(page, '2026-12-17').getByTestId('cal-more')).toHaveCount(0);
+	// The button selects the day and opens its details, in Paint mode too: it paints nothing. The
+	// focus goes to the details, so Escape closes them and the focus comes back to the day.
 	const t0 = await text(page);
 	await setMode(page, 'paint');
 	await more.click();
 	await expect(page.getByTestId('cal-details')).toBeVisible();
+	await expect(page.getByTestId('cal-details')).toContainText('Dec 14, 2026');
 	await expect(crowd).toHaveAttribute('aria-selected', 'true');
-	await expect(page.getByTestId('cal-leave')).toHaveCount(5);
+	await expect(page.getByTestId('cal-leave')).toHaveCount(CROWD);
+	await expect
+		.poll(() => page.evaluate(() => !!document.activeElement?.closest('.details')))
+		.toBe(true);
 	expect(await text(page)).toBe(t0);
+	await page.keyboard.press('Escape');
+	await expect(page.getByTestId('cal-details')).toBeHidden();
+	await expect(crowd).toBeFocused();
 });
 
-test('desktop: a taller view shows all of the crowded day, with no button', async ({
+test('desktop: on a short row two chips that fit are both shown, with no button', async ({
+	page,
+}, info) => {
+	test.skip(isTouch(info), DESKTOP_ONLY);
+	await openCalendar(page, info, { mode: 'text' });
+	await appendText(page, info, SAM_TEXT);
+	await setScope(page, 'Sam');
+	// November has six weeks: the shortest rows at 1280x720.
+	const two = await showDay(page, TWO_DAY);
+	await expect(two.locator('.chip')).toHaveCount(2);
+	await expect(two.getByTestId('cal-more')).toHaveCount(0);
+	expect(await reachPast(two)).toBeLessThanOrEqual(0.5);
+	// Five chips on a December row (about 80 px): some and the button, inside the day.
+	const five = await showDay(page, FIVE_DAY);
+	await expect(five.getByTestId('cal-more')).toHaveCount(1);
+	expect(await reachPast(five)).toBeLessThanOrEqual(0.5);
+});
+
+test('desktop: a taller view shows more of the crowd, every chip and the button inside the day', async ({
 	page,
 }, info) => {
 	test.skip(isTouch(info), DESKTOP_ONLY);
@@ -532,9 +648,42 @@ test('desktop: a taller view shows all of the crowded day, with no button', asyn
 	await openCalendar(page, info, { mode: 'text' });
 	await appendText(page, info, SAM_TEXT);
 	await setScope(page, 'Sam');
-	const crowd = await showDay(page, SAM_DAY);
-	await expect(crowd.locator('.chip')).toHaveCount(5);
-	await expect(crowd.getByTestId('cal-more')).toHaveCount(0);
+	// Five chips fit whole on a tall row: no button.
+	const five = await showDay(page, FIVE_DAY);
+	await expect(five.locator('.chip')).toHaveCount(5);
+	await expect(five.getByTestId('cal-more')).toHaveCount(0);
+	expect(await reachPast(five)).toBeLessThanOrEqual(0.5);
+	// Nine do not: more than at 720, fewer than nine, and the last line is "+N more".
+	const crowd = day(page, SAM_DAY);
+	const shown = await crowd.locator('.chip').count();
+	expect(shown).toBeGreaterThan(5);
+	expect(shown).toBeLessThan(CROWD);
+	await expect(crowd.getByTestId('cal-more')).toHaveText(`+${CROWD - shown} more`);
+	expect(await reachPast(crowd)).toBeLessThanOrEqual(0.5);
+	// The tall day does not leave a line empty that the next chip would have fitted in: showing one
+	// more chip would not have fitted with the button, and all nine do not fit without it.
+	const row = await crowd.evaluate((el) => el.getBoundingClientRect().height);
+	expect(row).toBeLessThan(21 + CROWD * 18 - 1);
+});
+
+test('desktop: a month of four weeks is as tall as the view, with taller days', async ({
+	page,
+}, info) => {
+	test.skip(isTouch(info), DESKTOP_ONLY);
+	await openCalendar(page, info, { mode: 'text' });
+	await appendText(page, info, FEBRUARY_PLAN, true);
+	const jan = await showDay(page, '2027-01-27');
+	const janH = (await jan.boundingBox())?.height ?? 0;
+	const rows = () => page.locator('[data-testid="cal-month"] .row:not(.dow)').count();
+	expect(await rows()).toBe(5);
+	const feb = await showDay(page, '2027-02-10');
+	await expect.poll(rows).toBe(4);
+	const f = await fit(page);
+	const room = f.root - f.bar - f.line;
+	expect(Math.abs(f.grid - room), `grid ${f.grid}, room ${room}`).toBeLessThanOrEqual(12);
+	expect(f.overflow).toBeLessThanOrEqual(1);
+	// Four rows share the height that five had: the days are taller.
+	await expect.poll(async () => (await feb.boundingBox())?.height ?? 0).toBeGreaterThan(janH + 10);
 });
 
 test('a view too short for tall days keeps the fixed rows', async ({ page }, info) => {

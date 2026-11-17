@@ -77,6 +77,8 @@
 	let detailsOpen = $state(false);
 	let picker = $state.raw<{ lo: number; hi: number } | null>(null);
 	let note = $state('');
+	/** A pointer press is in this task: the focus it causes is not a keyboard's. */
+	let pressing = false;
 	let now = $state(Date.now());
 	onMount(() => {
 		const clock = setInterval(() => (now = Date.now()), 60_000);
@@ -232,12 +234,13 @@
 		await runIntent(edits, plan.intent, plan.label, confirm);
 	}
 
-	/** "+N more" on a day: select it and open its details. */
+	/** "+N more" on a day: select it and open its details, with the focus there (as Enter does). */
 	function openMore(day: number): void {
 		cal.focus = day;
 		cal.anchor = day;
 		select(day, day);
 		detailsOpen = true;
+		void tick().then(() => details?.focus());
 	}
 
 	function openMilestone(task: string): void {
@@ -423,8 +426,21 @@
 		const onwheel = (e: WheelEvent): void => {
 			if (e.ctrlKey || e.metaKey || gestures.drag || Math.abs(e.deltaX) > Math.abs(e.deltaY))
 				return;
-			const step = pager.push(wheelPx(e.deltaY, e.deltaMode, el.clientHeight), e.timeStamp);
-			if (step !== 0) goMonth(topMonth + step);
+			const step = pager.push(wheelPx(e.deltaY, e.deltaMode), e.timeStamp);
+			if (step === 0) return;
+			const was = topMonth;
+			const held = document.activeElement?.closest<HTMLElement>('[data-day]');
+			goMonth(was + step);
+			// Focus in the grid goes with the month, to the same date, as Page Up and Page Down do.
+			if (held && el.contains(held) && topMonth !== was) {
+				const to = moveDay(
+					grid,
+					Number(held.dataset['day']),
+					{ key: step < 0 ? 'PageUp' : 'PageDown', ctrlKey: false, metaKey: false, altKey: false },
+					null,
+				);
+				if (to !== null) void focusDay(to);
+			}
 		};
 		el.addEventListener('wheel', onwheel, { passive: true });
 		return () => el.removeEventListener('wheel', onwheel);
@@ -479,11 +495,17 @@
 			bind:this={scroller}
 			{onscroll}
 			onkeydown={onkey}
+			onpointerdowncapture={() => {
+				// The press focuses its day in this same task, before the gesture says what it was.
+				pressing = true;
+				setTimeout(() => (pressing = false), 0);
+			}}
 			onfocusin={(e) => {
 				const d = (e.target as Element).closest<HTMLElement>('[data-day]')?.dataset['day'];
 				if (d === undefined) return;
-				// Focus that did not come from our own keys starts a new selection run.
-				if (cal.focus !== Number(d)) cal.anchor = Number(d);
+				// Focus that did not come from our own keys starts a new selection run. A press's focus
+				// does not: the click or the drag that follows sets the anchor (a Shift-click extends it).
+				if (cal.focus !== Number(d) && !pressing) cal.anchor = Number(d);
 				cal.focus = Number(d);
 			}}
 			role="presentation"

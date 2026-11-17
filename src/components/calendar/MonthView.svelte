@@ -32,7 +32,7 @@
 		monthTitle,
 		weekdayName,
 	} from '../../lib/calendar/describe';
-	import { chipRoom, chipsShown } from '../../lib/calendar/room';
+	import { CHIP_GAP, CHIP_H, MORE_H, NUM_H, chipsShown } from '../../lib/calendar/room';
 	import type { DayFacts } from '../../lib/calendar/facts';
 	import {
 		dateOfCell,
@@ -77,16 +77,37 @@
 	const rows = $derived(
 		Array.from({ length: fill ? Math.ceil((month.lead + month.length) / 7) : 6 }, (_, r) => r),
 	);
-	// One week row's height decides how many chips a day shows (read on a resize, not in a drag).
-	let rowH = $state(0);
-	const room = $derived(fill ? chipRoom(rowH) : MAX);
+	// A week row's height decides how many chips a day shows. It is the grid's height less the
+	// weekday row's, over the rows this month has, so a change from 6 rows to 5 is right in the same
+	// frame (a row measured on its own would be the old month's for one). Both are read on a resize,
+	// never in a scroll or a drag. Until they are, the chips are not drawn.
+	let gridH = $state(0);
+	let dowH = $state(0);
+	const rowH = $derived(rows.length > 0 ? (gridH - dowH) / rows.length : 0);
+	const measured = $derived(!fill || gridH > 0);
 	const cols = [0, 1, 2, 3, 4, 5, 6];
 </script>
 
-<section class="month" class:fill data-testid="cal-month" data-month="{month.year}-{month.month}">
+<section
+	class="month"
+	class:fill
+	class:measuring={!measured}
+	style:--cal-num-h="{NUM_H}px"
+	style:--cal-chip-h="{CHIP_H}px"
+	style:--cal-chip-gap="{CHIP_GAP}px"
+	style:--cal-more-h="{MORE_H}px"
+	data-testid="cal-month"
+	data-month="{month.year}-{month.month}"
+>
 	<h3 class="title" id={headId}>{title}</h3>
-	<div class="grid" role="grid" aria-labelledby={headId} aria-multiselectable="true">
-		<div class="row dow" role="row">
+	<div
+		class="grid"
+		role="grid"
+		aria-labelledby={headId}
+		aria-multiselectable="true"
+		bind:clientHeight={gridH}
+	>
+		<div class="row dow" role="row" bind:offsetHeight={dowH}>
 			{#each heads as w (w)}
 				<div class="head" role="columnheader" aria-label={weekdayName(w, true)}>
 					{weekdayName(w)}
@@ -97,7 +118,6 @@
 			{@const empty = !cols.some((c) => dateOfCell(month, r * 7 + c) !== null)}
 			<div
 				class="row"
-				bind:clientHeight={rowH}
 				role={empty ? 'presentation' : 'row'}
 				aria-hidden={empty ? 'true' : undefined}
 			>
@@ -116,7 +136,7 @@
 							{@const day = grid.days[i]}
 							{@const f = facts(i)}
 							{@const chips = dayChips(f)}
-							{@const shown = fill ? chipsShown(chips.length, room) : Math.min(chips.length, MAX)}
+							{@const shown = fill ? chipsShown(chips.length, rowH) : Math.min(chips.length, MAX)}
 							{@const isSel = selected !== null && i >= selected[0] && i <= selected[1]}
 							{#if day}
 								<div
@@ -214,6 +234,28 @@
 	.month.fill .grid {
 		flex: 1 1 0;
 		min-block-size: 0;
+	}
+	/* Not drawn until the grid is measured: no frame with the wrong chips. */
+	.month.measuring .chips {
+		visibility: hidden;
+	}
+	/* The day number, the chips and the button have the heights lib/calendar/room.ts counts with. */
+	.month.fill .num {
+		flex: none;
+		block-size: var(--cal-num-h);
+		line-height: var(--cal-num-h);
+	}
+	.month.fill .chips {
+		gap: var(--cal-chip-gap);
+	}
+	.month.fill .chip {
+		box-sizing: border-box;
+		flex: none;
+		block-size: var(--cal-chip-h);
+	}
+	.month.fill .more {
+		flex: none;
+		block-size: var(--cal-more-h);
 	}
 	.month.fill .row:not(.dow) {
 		block-size: auto;
