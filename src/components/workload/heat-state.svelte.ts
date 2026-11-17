@@ -20,6 +20,10 @@
  *   Gantt's `memoZones`: the axis is kept per host (axis.ts).
  * - **Preferences** are per plan (heat-prefs.ts): the zoom, the unit, the thresholds and the
  *   collapsed groups, written as they change.
+ * - **The lanes** (T15, components/resources) use a second instance of this class: the thresholds,
+ *   the unit and the collapsed groups are the heatmap's (one rule for "over", one set of open
+ *   groups), but the zoom is the lanes' own, kept under `zoomKey` so that the two views zoom
+ *   apart. `refresh` re-reads what the other view wrote, when this view is shown again.
  */
 import type { ScheduleResult } from '../../engine/protocol';
 import { createTimeZoneHost } from '../../engine/timezone';
@@ -29,11 +33,13 @@ import type { DemandMarks } from '../../lib/schedule/explain-types';
 import { workingTimeOf } from '../../lib/schedule/working-time';
 import { report } from '../../lib/report';
 import { finishScenario } from '../../lib/schedule/finish';
-import { browserStorage, type PrefStorage } from '../../lib/state/storage';
+import { browserStorage, readPref, writePref, type PrefStorage } from '../../lib/state/storage';
 import type { SymbolIndex } from '../../lib/tjp/index';
 import { availabilityOf } from '../../lib/workload/availability';
 import {
 	DEFAULT_HEAT_PREFS,
+	DEFAULT_HEAT_ZOOM,
+	ZOOMS,
 	readHeatPrefs,
 	validThresholds,
 	writeHeatPrefs,
@@ -66,6 +72,11 @@ function availabilityFor(result: ScheduleResult, scenario: string): Availability
 	return a;
 }
 
+export interface HeatStateOptions {
+	/** Where this view keeps its own zoom, per plan; without it the zoom is in the heatmap's prefs. */
+	readonly zoomKey?: (plan: string) => string;
+}
+
 export class HeatState {
 	prefs = $state.raw<HeatPrefs>(DEFAULT_HEAT_PREFS);
 	built = $state.raw<Built | null>(null);
@@ -77,15 +88,25 @@ export class HeatState {
 	#cancelDemand: (() => void) | null = null;
 	#input: { result: ScheduleResult; index: SymbolIndex } | null = null;
 
-	constructor(storage: PrefStorage | null = browserStorage()) {
+	readonly #zoomKey: ((plan: string) => string) | null;
+
+	constructor(storage: PrefStorage | null = browserStorage(), opts: HeatStateOptions = {}) {
 		this.#storage = storage;
+		this.#zoomKey = opts.zoomKey ?? null;
+	}
+
+	#read(plan: string): HeatPrefs {
+		const prefs = readHeatPrefs(this.#storage, plan);
+		if (!this.#zoomKey) return prefs;
+		const kept = readPref(this.#storage, this.#zoomKey(plan));
+		return { ...prefs, zoom: ZOOMS.find((z) => z === kept) ?? DEFAULT_HEAT_ZOOM };
 	}
 
 	/** Switches to a plan's preferences (call when the open plan changes). */
 	use(plan: string): void {
 		if (plan === this.#plan) return;
 		this.#plan = plan;
-		this.prefs = readHeatPrefs(this.#storage, plan);
+		this.prefs = this.#read(plan);
 		// The plan id changes while the previous plan's result is still the runner's (the new one
 		// loads first): never build that result with the new plan's preferences. The new plan's
 		// result is a new object and is offered when it arrives; until then there is nothing drawn.
@@ -115,6 +136,29 @@ export class HeatState {
 			this.#cancel = null;
 			this.#rebuild();
 		});
+	}
+
+	/**
+	 * Takes up what another view wrote to the shared preferences (thresholds, unit, collapsed
+	 * groups): call when this view is shown again. Rebuilds only when the open groups changed.
+	 */
+	refresh(): void {
+		if (this.#plan === '') return;
+		const next = this.#read(this.#plan);
+		const was = this.prefs;
+		const same = (a: readonly string[], b: readonly string[]): boolean =>
+			a.length === b.length && a.every((x, i) => x === b[i]);
+		if (
+			next.unit === was.unit &&
+			next.zoom === was.zoom &&
+			next.thresholds.spareBelow === was.thresholds.spareBelow &&
+			next.thresholds.overAbove === was.thresholds.overAbove &&
+			same(next.collapsed, was.collapsed)
+		) {
+			return;
+		}
+		this.prefs = next;
+		if (!same(next.collapsed, was.collapsed) || next.zoom !== was.zoom) this.#rebuild();
 	}
 
 	/** The model as drawn: dimmed while the newest outcome is not the result drawn. */
@@ -203,8 +247,17 @@ export class HeatState {
 	}
 
 	#save(next: HeatPrefs): void {
+		const was = this.prefs;
 		this.prefs = next;
-		if (this.#plan !== '') writeHeatPrefs(this.#storage, this.#plan, next);
+		if (this.#plan === '') return;
+		if (this.#zoomKey) {
+			if (next.zoom !== was.zoom) writePref(this.#storage, this.#zoomKey(this.#plan), next.zoom);
+			// The heatmap's zoom stays what the heatmap chose.
+			const theirs = readHeatPrefs(this.#storage, this.#plan).zoom;
+			writeHeatPrefs(this.#storage, this.#plan, { ...next, zoom: theirs });
+			return;
+		}
+		writeHeatPrefs(this.#storage, this.#plan, next);
 	}
 
 	#rebuild(): void {

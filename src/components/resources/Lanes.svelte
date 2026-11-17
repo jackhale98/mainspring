@@ -1,0 +1,901 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!--
+	The Resources lanes (phase-3.md 9.4, 8.1, 10; T15): one lane per person, a group's row above its
+	members with their roll-up as a thin band, and each person's booked tasks drawn as bars (merged
+	per task per day, with the task's name where it fits), leave hatched by type, and a hatched red
+	band under a lane over the periods that are over, by the heatmap's own rule at the lanes' zoom.
+
+	It is the heatmap's shell with another picture (components/workload): one native scroll
+	container with a grid of three cells (the time header, the frozen name column, the plot of two
+	canvases with the ARIA mirror over it), the same load state (`HeatState`, with the lanes' zoom
+	kept apart), the same gestures (`HeatGestures`, aimed at bars instead of cells), the same
+	rebalance host (`RebalanceHost`: the planner, the dry run, the dispatcher) and the same details
+	(`CellDetails`, for the period and person under a bar). The lanes never change the schedule or
+	the text: a bar dragged to another lane is W1 (`reassign`) and along its lane W2 (`shift`),
+	planned by T12's planner and sent to the dispatcher as one undo step with a toast; a text-only
+	task shows the badge and does not drag.
+
+	A click on a bar selects its task (the shared selection, so the Gantt and the text follow) and
+	opens the details of the period; a finger's first tap selects, the second opens them, and a
+	long-press lifts the bar (a drag from there rebalances; letting go opens the details).
+
+	Over 400 lines on purpose: this component owns the scroll container, the zoom, the focus and the
+	selection, and they only work together (as Workload.svelte does); the logic is in lib/lanes and
+	lib/workload.
+-->
+<script lang="ts">
+	import { flushSync, onMount, untrack, type Snippet } from 'svelte';
+	import { ctrlWheel } from '../gantt/ctrl-wheel';
+	import { GanttEnv } from '../gantt/gantt-env.svelte';
+	import type { MoveKind } from '../../lib/gantt/intents';
+	import { OVERSCAN_ROWS, OVERSCAN_X, paintWindow, type PaintWindow } from '../../lib/gantt/layout';
+	import { todayOf } from '../../lib/gantt/model';
+	import type { GanttCalendar } from '../../lib/gantt/ticks';
+	import { barAt, buildLanes, type LaneBar } from '../../lib/lanes/lane-model';
+	import { xOfMinute } from '../../lib/lanes/lane-geom';
+	import { paintLanes, paintLanesOverlay } from '../../lib/lanes/lane-paint';
+	import { laneCellTasks } from '../../lib/lanes/lane-text';
+	import { FALLBACK_LANE_THEME, laneColWidth, laneThemeOf } from '../../lib/lanes/lane-theme';
+	import type { AppState } from '../../lib/state/app.svelte';
+	import { browserStorage } from '../../lib/state/storage';
+	import { lanesStrings as L, workloadStrings as W } from '../../lib/strings';
+	import { cellDetails, cellInfo, cellName, type DetailTask } from '../../lib/workload/heat-cell';
+	import { axisLabels } from '../../lib/workload/heat-labels';
+	import { cellId, heatLayout, type Box, type Cell } from '../../lib/workload/heat-layout';
+	import { buildMirror, mirrorRange, moveFocus, type Mirror } from '../../lib/workload/heat-mirror';
+	import { overlayLook, type HeatLine } from '../../lib/workload/heat-paint';
+	import { ZOOMS } from '../../lib/workload/heat-prefs';
+	import { FALLBACK_HEAT_THEME, heatThemeOf } from '../../lib/workload/heat-theme';
+	import type { BucketKind, CellTask } from '../../lib/workload/types';
+	import LazyMount from '../app/LazyMount.svelte';
+	import Mark from '../app/Mark.svelte';
+	import CellDetails from '../workload/CellDetails.svelte';
+	import HeatGrid from '../workload/HeatGrid.svelte';
+	import HeatHeader from '../workload/HeatHeader.svelte';
+	import { HeatGestures, type PressTarget } from '../workload/heat-gestures.svelte';
+	import type { DrawCells, DrawOverlay } from '../workload/heat-plot-types';
+	import { HeatState } from '../workload/heat-state.svelte';
+	import HeatNames from '../workload/HeatNames.svelte';
+	import HeatPlot from '../workload/HeatPlot.svelte';
+	import { RebalanceHost } from '../workload/rebalance-host.svelte';
+	import WhichTask from '../workload/WhichTask.svelte';
+	import WorkloadBar from '../workload/WorkloadBar.svelte';
+	import { installLanesHook } from './lanes-hook';
+
+	interface Props {
+		app: AppState;
+		/** A phone: the toolbar is a row of the view itself; elsewhere it is the People bar's. */
+		phone: boolean;
+		/** This is the view on screen (it stays mounted while another People view shows). */
+		active: boolean;
+		/** Puts this view's toolbar in the People bar (a desktop and a tablet). */
+		setBar: (bar: Snippet | null) => void;
+		/** Goes to the Gantt. */
+		showGantt: () => void;
+	}
+	let { app, phone, active, setBar, showGantt }: Props = $props();
+
+	// The load state of the lanes: the heatmap's thresholds, unit and open groups, the lanes' zoom.
+	const loads = new HeatState(browserStorage(), {
+		zoomKey: (plan) => `mainspring.lanes.zoom.${plan}`,
+	});
+	const env = new GanttEnv();
+	let root: HTMLDivElement | undefined = $state();
+	let scroller: HTMLDivElement | undefined = $state();
+	let plotCell: HTMLDivElement | undefined = $state();
+	let scrollLeft = $state(0);
+	let scrollTop = $state(0);
+	let scrollerW = $state(0);
+	let scrollerH = $state(0);
+	let namesW = $state(0);
+	let sheetH = $state(0);
+
+	$effect(() => {
+		const id = app.sampleId;
+		untrack(() => loads.use(id));
+	});
+	$effect(() => loads.offer(app.run?.lastGood?.result ?? null, app.index));
+	onMount(() => () => loads.dispose());
+	// Back on screen: take up what the heatmap wrote to the shared preferences (open groups).
+	$effect(() => {
+		if (active) untrack(() => loads.refresh());
+	});
+
+	const dimmed = $derived(app.run?.outdated ?? false);
+	const prefs = $derived(loads.prefs);
+	const result = $derived(loads.built?.result ?? null);
+	const project = $derived(result?.project ?? null);
+	// The lanes' model, made when a new model is built (the runs are made as lanes scroll into view).
+	const lanes = $derived.by(() => {
+		const b = loads.built;
+		const p = b?.result.project;
+		if (!b || !p) return null;
+		return buildLanes({
+			load: b.model,
+			availability: b.availability,
+			result: b.result,
+			project: p,
+			index: b.index,
+			zones: loads.zones,
+		});
+	});
+	const model = $derived(lanes?.load ?? null);
+	const heat = $derived.by(() => {
+		void env.theme;
+		return root ? heatThemeOf(root) : FALLBACK_HEAT_THEME;
+	});
+	const lane = $derived.by(() => {
+		void env.theme;
+		return root ? laneThemeOf(root) : FALLBACK_LANE_THEME;
+	});
+	const cal = $derived<GanttCalendar | null>(
+		project
+			? {
+					startEpoch: Date.parse(project.start) / 1000,
+					env: { zone: project.timezone, zones: loads.zones },
+				}
+			: null,
+	);
+	const labels = $derived(model && cal ? axisLabels(cal, model.axis) : null);
+	const taskNames = $derived(new Map((result?.tasks ?? []).map((t) => [t.id, t.name])));
+
+	const layout = $derived(
+		heatLayout(model?.rows.length ?? 0, model?.axis.count ?? 0, {
+			rowHeight: lane.rowHeight,
+			colWidth: laneColWidth(lane, prefs.zoom),
+		}),
+	);
+	const headerH = $derived(2 * heat.headerRow);
+	const viewW = $derived(Math.max(0, scrollerW - namesW));
+	const viewH = $derived(Math.max(0, scrollerH - headerH));
+
+	let paintWin = $state.raw<PaintWindow>({ x: 0, y: 0, w: 0, h: 0 });
+	$effect(() => {
+		const prev = untrack(() => paintWin);
+		const rows = env.coarse ? 3 : OVERSCAN_ROWS;
+		const next = paintWindow(
+			{ x: scrollLeft, y: scrollTop, w: viewW, h: viewH },
+			{ w: layout.width, h: layout.height },
+			{ overscanX: OVERSCAN_X, overscanY: rows * lane.rowHeight },
+			prev,
+		);
+		if (next !== prev) paintWin = next;
+	});
+	const firstRow = $derived(Math.max(0, Math.floor(scrollTop / lane.rowHeight) - OVERSCAN_ROWS));
+	const lastRow = $derived(
+		Math.min(layout.rows, Math.ceil((scrollTop + viewH) / lane.rowHeight) + OVERSCAN_ROWS),
+	);
+
+	// Today and the status date, as the Gantt's lines are.
+	const todayMin = $derived(todayOf(project, env.nowMs));
+	const statusMin = $derived(
+		project ? Math.round((Date.parse(project.now) - Date.parse(project.start)) / 60_000) : null,
+	);
+	const marks = $derived.by(() => {
+		const out: Array<{ at: number; kind: HeatLine['kind'] }> = [];
+		const merged = todayMin !== null && statusMin !== null && Math.abs(todayMin - statusMin) <= 60;
+		if (merged) out.push({ at: statusMin as number, kind: 'both' });
+		else {
+			if (statusMin !== null) out.push({ at: statusMin, kind: 'status' });
+			if (todayMin !== null) out.push({ at: todayMin, kind: 'today' });
+		}
+		return { list: out, merged };
+	});
+	const lines = $derived.by<HeatLine[]>(() => {
+		if (!model) return [];
+		const out: HeatLine[] = [];
+		for (const m of marks.list) {
+			const x = layout.xOfMinute(model.axis, m.at);
+			if (x !== null) out.push({ x, kind: m.kind });
+		}
+		return out;
+	});
+	const lineState = (at: number | null): 'on' | 'off' | null =>
+		at === null || !model ? null : layout.xOfMinute(model.axis, at) === null ? 'off' : 'on';
+	const todayCol = $derived(todayMin !== null && model ? model.axis.indexOf(todayMin) : -1);
+
+	// --- Selection and focus, by person and column (the period under the bar); the row follows the model.
+	let sel = $state.raw<{ id: string; col: number } | null>(null);
+	let focusRef = $state.raw<{ id: string; col: number } | null>(null);
+	let focusVisible = $state(false);
+	let focusNonce = $state(0);
+	let detailsOpen = $state(false);
+	const rowOf = $derived(new Map((model?.rows ?? []).map((r, i) => [r.id, i])));
+	const cellOf = (r: { id: string; col: number } | null): Cell | null => {
+		const row = r ? rowOf.get(r.id) : undefined;
+		return r && row !== undefined && r.col < layout.cols ? { row, col: r.col } : null;
+	};
+	const selected = $derived(cellOf(sel));
+	const focus = $derived(cellOf(focusRef));
+	const refOf = (c: Cell): { id: string; col: number } => ({
+		id: model?.rows[c.row]?.id ?? '',
+		col: c.col,
+	});
+	/** The task selected in the app (here, the Gantt or the text): its bars show a ring. */
+	const selectedTask = $derived(
+		app.selection.current?.kind === 'task' ? app.selection.current.id : null,
+	);
+
+	const lineOf = (c: Cell | null): string =>
+		c && model && labels
+			? cellName(
+					cellInfo(model, labels, c.row, c.col, prefs.thresholds),
+					prefs.unit,
+					prefs.thresholds,
+				)
+			: '';
+	const selectedLine = $derived(lineOf(selected));
+
+	const details = $derived(
+		detailsOpen && selected && model && labels && loads.built
+			? cellDetails({
+					model,
+					labels,
+					availability: loads.built.availability,
+					thresholds: prefs.thresholds,
+					row: selected.row,
+					col: selected.col,
+					taskName: (id) => taskNames.get(id) ?? id,
+				})
+			: null,
+	);
+	const people = $derived(
+		(model?.rows ?? []).flatMap((r, row) => (r.group ? [] : [{ row, name: r.name }])),
+	);
+	const periods = $derived.by(() => {
+		if (!labels || !selected) return [];
+		const out: Array<{ col: number; text: string }> = [];
+		const lo = Math.max(0, selected.col - 26);
+		const hi = Math.min(layout.cols, selected.col + 27);
+		for (let c = lo; c < hi; c++) out.push({ col: c, text: labels.period[c] ?? '' });
+		return out;
+	});
+
+	function select(c: Cell): void {
+		sel = refOf(c);
+		focusRef = sel;
+		if (sel.id !== '') app.selection.selectCell(sel.id, c.col, prefs.zoom);
+	}
+
+	// --- The ARIA mirror: rebuilt when the model changes and 150 ms after a scroll stops.
+	let mirror = $state.raw<Mirror | null>(null);
+	let mirrorTimer: ReturnType<typeof setTimeout> | null = null;
+	function rebuildMirror(): void {
+		if (!model || !labels || !lanes || viewW <= 0) {
+			mirror = null;
+			return;
+		}
+		const visible = layout.range({ x: scrollLeft, y: scrollTop, w: viewW, h: viewH }, 0, 0);
+		mirror = buildMirror({
+			model,
+			labels,
+			thresholds: prefs.thresholds,
+			unit: 'hours',
+			range: mirrorRange(visible, focus),
+			extra: (row, col) => laneCellTasks(lanes, row, col),
+		});
+	}
+	$effect(() => {
+		void [lanes, labels, prefs.thresholds, layout, viewW, viewH];
+		untrack(rebuildMirror);
+	});
+	onMount(() => () => mirrorTimer && clearTimeout(mirrorTimer));
+
+	function onscroll(): void {
+		if (!scroller) return;
+		scrollLeft = scroller.scrollLeft;
+		scrollTop = scroller.scrollTop;
+		gestures.scrolled();
+		if (mirrorTimer) clearTimeout(mirrorTimer);
+		mirrorTimer = setTimeout(rebuildMirror, 150);
+	}
+
+	/** Scrolls a cell into the visible part of the plot, with a little room. */
+	function reveal(c: Cell): void {
+		if (!scroller) return;
+		const b = layout.box(c);
+		const pad = 4;
+		let left = scroller.scrollLeft;
+		let top = scroller.scrollTop;
+		if (b.x < left) left = b.x - pad;
+		else if (b.x + b.w > left + viewW) left = b.x + b.w - viewW + pad;
+		if (b.y < top) top = b.y - pad;
+		else if (b.y + b.h > top + viewH) top = b.y + b.h - viewH + pad;
+		scroller.scrollLeft = Math.max(0, left);
+		scroller.scrollTop = Math.max(0, top);
+		scrollLeft = scroller.scrollLeft;
+		scrollTop = scroller.scrollTop;
+	}
+
+	/** Scrolls so that a content x is `pad` px from the plot's left (the tests find a bar this way). */
+	function scrollToX(x: number, pad = 40): void {
+		if (!scroller) return;
+		scroller.scrollLeft = Math.max(0, x - pad);
+		scrollLeft = scroller.scrollLeft;
+		untrack(rebuildMirror);
+	}
+
+	function goToday(): boolean {
+		if (!scroller || !model || todayMin === null) return false;
+		const x = layout.xOfMinute(model.axis, todayMin);
+		if (x === null) return false;
+		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		scroller.scrollTo({ left: Math.max(0, x - viewW / 2), behavior: reduce ? 'auto' : 'smooth' });
+		return true;
+	}
+
+	// --- Zoom: day, week, month. The minute under the anchor stays under it.
+	let liveText = $state('');
+	let flip = false;
+	function announce(text: string): void {
+		if (text === '') return;
+		flip = !flip;
+		liveText = flip ? text : `${text}​`;
+	}
+
+	function zoomTo(kind: BucketKind, anchorX = viewW / 2): void {
+		if (kind === prefs.zoom || !scroller || !model) return;
+		const m = model;
+		const hadFocus = !!document.activeElement?.closest('[data-testid="lane-grid"]');
+		const anchorMin = layout.minuteAtX(m.axis, scrollLeft + anchorX);
+		const selMin = selected ? (m.axis.bounds[selected.col] as number) : null;
+		const selId = sel?.id;
+		const focusId = focusRef?.id;
+		const focusMin = focus ? (m.axis.bounds[focus.col] as number) : null;
+		flushSync(() => loads.setZoom(kind));
+		const next = loads.built?.model;
+		if (!next) return;
+		const col = (min: number | null): number => (min === null ? -1 : next.axis.indexOf(min));
+		sel = selId !== undefined && col(selMin) >= 0 ? { id: selId, col: col(selMin) } : null;
+		focusRef =
+			focusId !== undefined && col(focusMin) >= 0 ? { id: focusId, col: col(focusMin) } : null;
+		const x = layout.xOfMinute(next.axis, anchorMin);
+		scroller.scrollLeft = Math.max(0, (x ?? 0) - anchorX);
+		scrollLeft = scroller.scrollLeft;
+		announce(`${W.zoom}: ${W.level[kind]}`);
+		if (hadFocus) {
+			untrack(rebuildMirror);
+			focusNonce++;
+		}
+	}
+
+	function stepZoom(dir: 1 | -1, clientX: number): void {
+		const at = ZOOMS.indexOf(prefs.zoom) - dir;
+		const next = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, at))];
+		if (!next || !scroller) return;
+		zoomTo(next, Math.max(0, clientX - scroller.getBoundingClientRect().left - namesW));
+	}
+
+	let wheelAcc = 0;
+	let wheelAt = 0;
+	function onZoomWheel(e: WheelEvent): void {
+		const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
+		if (e.timeStamp - wheelAt > 300) wheelAcc = 0;
+		wheelAt = e.timeStamp;
+		wheelAcc += e.deltaY * unit;
+		if (Math.abs(wheelAcc) < 60) return;
+		const dir = wheelAcc < 0 ? 1 : -1;
+		wheelAcc = 0;
+		stepZoom(dir, e.clientX);
+	}
+
+	// --- Details, taps and keys
+	function openDetails(c: Cell): void {
+		select(c);
+		detailsOpen = true;
+	}
+
+	function tap(c: Cell | null, touch: boolean, hit?: PressTarget | null): void {
+		if (!c) return;
+		const again = selected?.row === c.row && selected.col === c.col;
+		select(c);
+		const bar = (hit?.ref as { bar: LaneBar } | undefined)?.bar;
+		if (bar) {
+			// The task is the shared selection (the Gantt and the text follow it), after the period.
+			app.selection.selectTask(bar.task, 'visual');
+			if (bar.textOnly) announce(L.textOnlyHint(taskNames.get(bar.task) ?? bar.task));
+		}
+		// A click selects and shows the details; a finger's first tap selects, the second opens them.
+		if (!touch || again || detailsOpen) detailsOpen = true;
+	}
+
+	function closeDetails(): void {
+		const inside = !!document.activeElement?.closest('[data-testid="cell-details"]');
+		detailsOpen = false;
+		nudges.end();
+		if (inside) focusNonce++;
+	}
+
+	function moveTo(next: Cell): void {
+		focusRef = refOf(next);
+		reveal(next);
+		focusNonce++;
+		untrack(rebuildMirror);
+		if (detailsOpen) sel = focusRef;
+	}
+
+	function onkey(e: KeyboardEvent, c: Cell): void {
+		if (!model) return;
+		const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+		if (plain && (e.key === '+' || e.key === '=' || e.key === '-')) {
+			e.preventDefault();
+			stepZoom(
+				e.key === '-' ? -1 : 1,
+				(scroller?.getBoundingClientRect().left ?? 0) + namesW + viewW / 2,
+			);
+			return;
+		}
+		if (plain && (e.key === 'Enter' || e.key === ' ')) {
+			e.preventDefault();
+			openDetails(c);
+			return;
+		}
+		if (e.key === 'Escape' && detailsOpen) {
+			e.stopPropagation();
+			closeDetails();
+			return;
+		}
+		const next = moveFocus(
+			c,
+			{ key: e.key, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, shift: e.shiftKey },
+			{
+				rows: layout.rows,
+				cols: layout.cols,
+				page: Math.max(1, Math.floor(viewH / lane.rowHeight) - 1),
+				today: todayCol >= 0 ? todayCol : null,
+			},
+		);
+		if (!next) return;
+		e.preventDefault();
+		moveTo(next);
+	}
+
+	// --- Rebalance: the heatmap's host (planner, dry run, dispatcher, menus, keys)
+	const rebalance = new RebalanceHost({
+		app,
+		loads,
+		taskNames: () => taskNames,
+		announce: (text) => announce(text),
+	});
+	const nudges = rebalance.nudges;
+
+	function moveTask(t: DetailTask, to: { row: number } | { col: number }): void {
+		if (model) rebalance.moveTask(model, selected, t, to);
+	}
+	async function nudge(t: DetailTask, axis: 'person' | 'period', step: -1 | 1): Promise<void> {
+		if (model) await rebalance.nudge(model, selected, t, axis, step);
+	}
+	function showInGantt(t: DetailTask): void {
+		app.selection.selectTask(t.task, 'visual');
+		showGantt();
+	}
+
+	function visibleBox(): Box {
+		const r = scroller?.getBoundingClientRect();
+		if (!r) return { x: 0, y: 0, w: 0, h: 0 };
+		const sheet = detailsOpen && sheetH > 0 ? sheetH : 0;
+		return {
+			x: r.left + namesW,
+			y: r.top + headerH,
+			w: Math.max(0, r.width - namesW),
+			h: Math.max(0, r.height - headerH - sheet),
+		};
+	}
+
+	/** What a press at a content point hits: the bar there (its one task, if the text lets it move). */
+	function target(x: number, y: number): PressTarget | null {
+		const c = layout.cellAt(x, y);
+		if (!c || !lanes || !model) return null;
+		const cell = { key: cellId(c, layout.cols), cell: c, tasks: [] as CellTask[] };
+		const row = model.rows[c.row];
+		if (!row || row.group) return cell;
+		// A bar is hit over the whole lane height above the over strip (a finger is wider than a bar).
+		const bar = barAt(
+			lanes.runs(c.row),
+			(m) => xOfMinute(layout, model.axis, m),
+			x,
+			lane.minBar,
+			env.coarse ? 6 : 2,
+		);
+		if (!bar) return cell;
+		const task: CellTask = { task: bar.task, minutes: bar.minutes, kind: 'booked', movable: true };
+		return {
+			// A bar is its own target: two bars in one period are two (negative: no cell has one).
+			key: -(1 + c.row * 100_000_000 + bar.from),
+			cell: c,
+			tasks: bar.movable ? [task] : [],
+			ref: { row: c.row, bar },
+		};
+	}
+
+	const gestures = new HeatGestures({
+		target,
+		layout: () => layout,
+		model: () => model,
+		labels: () => labels,
+		origin: () => plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
+		scroller: () => scroller,
+		visible: visibleBox,
+		tap,
+		open: openDetails,
+		check: rebalance.check,
+		drop: rebalance.drop,
+		zoomStep: stepZoom,
+		announce,
+		liftedText: (t) => {
+			const bar = (t.ref as { bar: LaneBar } | undefined)?.bar;
+			const who = model?.rows[t.cell.row]?.name ?? '';
+			return bar ? L.lifted(taskNames.get(bar.task) ?? bar.task, who) : W.rebalance.lifted(who);
+		},
+	});
+
+	const hoverLine = $derived(lineOf(gestures.hover));
+
+	// What HeatPlot paints with (a new function asks for a repaint, as a new model does).
+	const drawCells = $derived<DrawCells | undefined>(
+		lanes
+			? (ctx, win, dpr) =>
+					paintLanes({
+						ctx,
+						win,
+						dpr,
+						layout,
+						lanes,
+						thresholds: prefs.thresholds,
+						heat,
+						lane,
+						theme: env.theme,
+					})
+			: undefined,
+	);
+	const drawOverlay = $derived<DrawOverlay | undefined>(
+		lanes
+			? (ctx, win, dpr, v) =>
+					paintLanesOverlay({
+						ctx,
+						win,
+						dpr,
+						layout,
+						lines: v.lines,
+						selected: v.selected,
+						focus: v.focus,
+						hover: v.hover,
+						lifted: v.lifted,
+						drag: v.drag,
+						...overlayLook(v.theme, v.heat),
+						lanes,
+						lane,
+						hoverBar: (v.hoverTarget?.ref as { row: number; bar: LaneBar } | undefined) ?? null,
+						liftedBar: (v.liftedTarget?.ref as { row: number; bar: LaneBar } | undefined) ?? null,
+						selectedTask,
+					})
+			: undefined,
+	);
+
+	onMount(() => {
+		const stop = root ? env.attach(root) : () => undefined;
+		const hook = installLanesHook(new URLSearchParams(location.search), () => ({
+			lanes,
+			layout,
+			result,
+			lane,
+			origin: plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
+			scroller,
+			zoom: prefs.zoom,
+			thresholds: prefs.thresholds,
+			reveal,
+			scrollToX,
+			rebuildMirror,
+		}));
+		return () => {
+			stop();
+			hook();
+			gestures.dispose();
+		};
+	});
+
+	// The toolbar is the People bar's on a desktop and a tablet, and a row of this view on a phone.
+	$effect(() => {
+		if (!active || phone) return;
+		setBar(toolbar);
+		return () => setBar(null);
+	});
+	// A new plan or a changed frame: forget what is selected.
+	$effect(() => {
+		void app.sampleId;
+		untrack(() => {
+			sel = focusRef = null;
+			detailsOpen = false;
+		});
+	});
+</script>
+
+{#snippet toolbar()}
+	<WorkloadBar
+		variant="lanes"
+		leaveTypes={lanes?.leaveTypes() ?? []}
+		zoom={prefs.zoom}
+		onzoom={(z) => zoomTo(z)}
+		ontoday={goToday}
+		hasToday={todayCol >= 0}
+		{dimmed}
+		hover={hoverLine}
+		selected={selectedLine}
+		lines={{ today: lineState(todayMin), status: lineState(statusMin), merged: marks.merged }}
+		scope={phone ? 'phone' : 'bar'}
+	/>
+{/snippet}
+
+<div
+	class="lanes"
+	bind:this={root}
+	role="region"
+	tabindex="-1"
+	aria-label={L.region}
+	data-testid="lanes"
+	data-zoom={prefs.zoom}
+	hidden={!active}
+>
+	<span class="probes" aria-hidden="true"><i bind:clientWidth={namesW}></i></span>
+	{#if phone}{@render toolbar()}{/if}
+	<div class="main" style:--sheet-h="{sheetH}px">
+		<div
+			class="scroller"
+			bind:this={scroller}
+			bind:clientWidth={scrollerW}
+			bind:clientHeight={scrollerH}
+			{onscroll}
+			use:ctrlWheel={{ handler: onZoomWheel }}
+		>
+			{#if model && lanes}
+				<div
+					class="space"
+					style:grid-template-columns="{namesW}px {layout.width}px"
+					style:grid-template-rows="{headerH}px {layout.height}px"
+					style:--load-names-w="{namesW}px"
+					style:--load-header-row="{heat.headerRow}px"
+				>
+					<div class="head">
+						<HeatHeader
+							{labels}
+							colWidth={layout.colWidth}
+							winX={paintWin.x}
+							winW={paintWin.w}
+							width={layout.width}
+							{lines}
+						/>
+					</div>
+					<div class="names">
+						<HeatNames
+							rows={model.rows}
+							first={firstRow}
+							last={lastRow}
+							rowHeight={lane.rowHeight}
+							headerHeight={headerH}
+							selectedRow={selected?.row ?? null}
+							ontoggle={(id) => loads.toggleGroup(id)}
+						/>
+					</div>
+					<div class="plot" class:dimmed bind:this={plotCell}>
+						<HeatPlot
+							{model}
+							{layout}
+							win={paintWin}
+							thresholds={prefs.thresholds}
+							unit="hours"
+							{heat}
+							theme={env.theme}
+							dpr={env.dpr}
+							{lines}
+							{selected}
+							focus={focusVisible ? focus : null}
+							{gestures}
+							shown={active}
+							{drawCells}
+							{drawOverlay}
+							testid="lane"
+						/>
+						{#if mirror}
+							<HeatGrid
+								kind="lane"
+								{mirror}
+								{layout}
+								{focus}
+								{focusNonce}
+								{onkey}
+								onfocuschange={(inside, c) => {
+									focusVisible =
+										inside && (document.activeElement?.matches(':focus-visible') ?? true);
+									if (c && model) focusRef = refOf(c);
+								}}
+							/>
+						{/if}
+					</div>
+				</div>
+			{:else}
+				<p class="scheduling" role="status" data-testid="lanes-scheduling">
+					<Mark size={44} busy />{W.scheduling}
+				</p>
+			{/if}
+			<div class="inset" aria-hidden="true"></div>
+		</div>
+		{#if details}
+			<div class="sheet" bind:clientHeight={sheetH}>
+				<CellDetails
+					{details}
+					unit="hours"
+					{people}
+					{periods}
+					note={rebalance.note}
+					onclose={closeDetails}
+					onmove={moveTask}
+					onnudge={nudge}
+					onnudgeend={() => nudges.end()}
+					onshow={showInGantt}
+				/>
+			</div>
+		{/if}
+		{#if rebalance.which}
+			<WhichTask
+				ask={rebalance.which.label}
+				tasks={rebalance.which.tasks}
+				onchoose={(task) => rebalance.choose(task)}
+				oncancel={() => rebalance.cancelWhich()}
+			/>
+		{/if}
+	</div>
+	<p class="sr-only" role="status" aria-live="polite" data-testid="lanes-live">{liveText}</p>
+	<LazyMount
+		when={rebalance.moveAsk !== null}
+		load={() => import('../gantt/MovePreferenceDialog.svelte')}
+		props={{
+			ask: rebalance.moveAsk,
+			onanswer: (k: MoveKind | null) => rebalance.answerMove(k),
+		}}
+		onfail={() => rebalance.answerMove(null)}
+	/>
+</div>
+
+<style>
+	.lanes {
+		container: lanes / inline-size;
+		--load-names: 12rem;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		block-size: 100%;
+		min-block-size: 0;
+		background: var(--color-gantt-surface);
+	}
+	.lanes[hidden] {
+		display: none;
+	}
+	.main {
+		position: relative;
+		flex: 1 1 0;
+		min-block-size: 0;
+		display: flex;
+	}
+	/* The one scroll container: pan on the plot, never chaining to the page. */
+	.scroller {
+		position: relative;
+		flex: 1 1 0;
+		min-inline-size: 0;
+		min-block-size: 0;
+		overflow: auto;
+		overscroll-behavior: none;
+		-webkit-overflow-scrolling: touch;
+	}
+	/* As wide as its tracks: a sticky cell only stays in view inside its containing block. */
+	.space {
+		display: grid;
+		position: relative;
+		inline-size: max-content;
+		min-inline-size: 100%;
+	}
+	.head {
+		grid-area: 1 / 2;
+		position: sticky;
+		inset-block-start: 0;
+		z-index: 3;
+		overflow: clip;
+		border-block-end: 1px solid var(--color-gantt-border);
+		background: var(--color-gantt-surface-header);
+	}
+	.names {
+		grid-area: 1 / 1 / 3 / 2;
+		position: sticky;
+		inset-inline-start: 0;
+		z-index: 4;
+		background: var(--color-gantt-surface);
+	}
+	.plot {
+		grid-area: 2 / 2;
+		position: relative;
+		transition: opacity var(--motion-base);
+	}
+	/* A newer schedule is running: the picture dims, with no rebuild. */
+	.plot.dimmed {
+		opacity: var(--gantt-dim-opacity);
+	}
+	.scheduling {
+		position: sticky;
+		inset-inline-start: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-3);
+		margin: 0;
+		padding: var(--space-8) var(--gutter);
+		color: var(--color-gantt-text-muted);
+	}
+	.probes {
+		position: absolute;
+		visibility: hidden;
+		pointer-events: none;
+	}
+	.probes i {
+		display: block;
+		block-size: 0;
+		inline-size: var(--load-names);
+	}
+	.inset {
+		display: none;
+	}
+	.sheet {
+		display: flex;
+		flex-direction: column;
+		min-block-size: 0;
+	}
+	.sheet :global(.details) {
+		flex: 1 1 auto;
+	}
+	/* Wide: the details are a column beside the plot. Narrower: a bottom sheet over its foot. */
+	@container lanes (min-width: 760px) {
+		.sheet {
+			flex: none;
+			inline-size: 22rem;
+		}
+	}
+	@container lanes (max-width: 759px) {
+		.sheet {
+			position: absolute;
+			z-index: 12;
+			inset-inline: 0;
+			inset-block-end: 0;
+			max-block-size: 55%;
+			border-start-start-radius: var(--radius-sheet);
+			border-start-end-radius: var(--radius-sheet);
+			box-shadow: var(--shadow-raised);
+			background: var(--color-surface);
+			overflow: hidden;
+		}
+		.sheet :global(.details) {
+			border-inline-start: 0;
+			max-block-size: 100%;
+		}
+		/* Room to scroll the last lanes above the sheet (WCAG 2.4.11). */
+		.inset {
+			display: block;
+			block-size: var(--sheet-h);
+		}
+	}
+	@media (max-width: 1023px) {
+		.lanes {
+			--load-names: 10rem;
+		}
+	}
+	@media (max-width: 599px) {
+		.lanes {
+			--load-names: 6rem;
+		}
+	}
+	.sr-only {
+		position: absolute;
+		inline-size: 1px;
+		block-size: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>

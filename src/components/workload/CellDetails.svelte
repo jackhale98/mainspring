@@ -63,7 +63,7 @@
 
 	onMount(() => {
 		// The details take the focus when they open from the keyboard; a click leaves it on the plot.
-		if (document.activeElement?.closest('[data-testid="heat-grid"]')) {
+		if (document.activeElement?.closest('[data-testid="heat-grid"], [data-testid="lane-grid"]')) {
 			void tick().then(() => heading?.focus());
 		}
 	});

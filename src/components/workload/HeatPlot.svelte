@@ -9,6 +9,11 @@
 	the cells. Both are aria-hidden: the ARIA mirror (HeatGrid.svelte) is the accessible grid. The
 	pointer events on the overlay are the gestures' (heat-gestures.svelte.ts).
 
+	The Resources lanes (T15) use this component too: they hand it their own painters
+	(`drawCells`, `drawOverlay`) and it keeps everything else, which is most of it: the two layers,
+	the window that moves with the content, the dirty flags and the one frame per change, the
+	pointer events on the overlay. Without them it paints the heatmap.
+
 	No layout reads in the paint path: sizes come from the props (the parent measures with a
 	ResizeObserver through `bind:clientWidth`); a hidden plot has no size to paint into, so a paint
 	that finds it hidden keeps what is dirty for when it is shown.
@@ -20,6 +25,7 @@
 	import type { Box, Cell, HeatLayout } from '../../lib/workload/heat-layout';
 	import {
 		paintCells,
+		overlayLook,
 		paintOverlay,
 		type HeatLine,
 		type PaintStats,
@@ -27,7 +33,9 @@
 	import type { HeatUnit } from '../../lib/workload/heat-prefs';
 	import type { HeatTheme } from '../../lib/workload/heat-theme';
 	import type { LoadModel, Thresholds } from '../../lib/workload/types';
-	import type { HeatGestures } from './heat-gestures.svelte';
+	import type { HeatGestures, PressTarget } from './heat-gestures.svelte';
+
+	import type { DrawCells, DrawOverlay } from './heat-plot-types';
 
 	interface Props {
 		model: LoadModel;
@@ -46,6 +54,11 @@
 		shown: boolean;
 		/** Called after each cells paint, for the tests and the timings (8.1). */
 		onpaint?: ((stats: PaintStats, ms: number) => void) | undefined;
+		/** The lanes' painters; a new function asks for a repaint, as a new model does. */
+		drawCells?: DrawCells | undefined;
+		drawOverlay?: DrawOverlay | undefined;
+		/** The prefix of the canvases' test ids (`heat`, or `lane`: both views can be mounted). */
+		testid?: string;
 	}
 	let {
 		model,
@@ -62,6 +75,9 @@
 		gestures,
 		shown,
 		onpaint,
+		drawCells,
+		drawOverlay,
+		testid = 'heat',
 	}: Props = $props();
 
 	let cellsEl: HTMLCanvasElement | undefined = $state();
@@ -84,11 +100,15 @@
 		selected: Cell | null;
 		focus: Cell | null;
 		shown: boolean;
+		drawCells: DrawCells | undefined;
+		drawOverlay: DrawOverlay | undefined;
 	}
 	let latest: Latest | null = null;
 	let hover: Cell | null = null;
 	let lifted: Cell | null = null;
 	let drag: (typeof gestures)['drag'] = null;
+	let hoverTarget: PressTarget | null = null;
+	let liftedTarget: PressTarget | null = null;
 
 	function frame(el: HTMLCanvasElement, opaque: boolean) {
 		const l = latest;
@@ -111,18 +131,20 @@
 			if (f) {
 				const { l } = f;
 				const t0 = performance.now();
-				const stats = paintCells({
-					ctx: f.ctx,
-					win: l.win,
-					dpr: l.dpr,
-					layout: l.layout,
-					model: l.model,
-					thresholds: l.thresholds,
-					unit: l.unit,
-					heat: l.heat,
-					surface: l.theme.surface,
-					fontSans: l.theme.fontSans,
-				});
+				const stats = l.drawCells
+					? l.drawCells(f.ctx, l.win, l.dpr)
+					: paintCells({
+							ctx: f.ctx,
+							win: l.win,
+							dpr: l.dpr,
+							layout: l.layout,
+							model: l.model,
+							thresholds: l.thresholds,
+							unit: l.unit,
+							heat: l.heat,
+							surface: l.theme.surface,
+							fontSans: l.theme.fontSans,
+						});
 				onpaint?.(stats, performance.now() - t0);
 			}
 			// The overlay shares the window: it moved and resized with the cells.
@@ -131,7 +153,22 @@
 		if (overlayDirty) {
 			overlayDirty = false;
 			const o = frame(overlayEl, false);
-			if (o) {
+			const draw = o?.l.drawOverlay;
+			if (o && draw) {
+				const { l } = o;
+				draw(o.ctx, l.win, l.dpr, {
+					hover,
+					lifted,
+					drag,
+					hoverTarget,
+					liftedTarget,
+					lines: l.lines,
+					selected: l.selected,
+					focus: l.focus,
+					theme: l.theme,
+					heat: l.heat,
+				});
+			} else if (o) {
 				const { l } = o;
 				paintOverlay({
 					ctx: o.ctx,
@@ -144,20 +181,7 @@
 					hover,
 					lifted,
 					drag,
-					colours: {
-						accent: l.theme.accent,
-						accentText: l.theme.accentText,
-						focus: l.theme.focus,
-						today: l.theme.today,
-						status: l.theme.statusDate,
-						blocked: l.theme.critical,
-						text: l.theme.text,
-						surface: l.theme.surface,
-					},
-					markerWidth: l.theme.markerWidth,
-					dash: l.theme.dash,
-					fontSans: l.theme.fontSans,
-					fontSize: l.heat.fontSize,
+					...overlayLook(l.theme, l.heat),
 				});
 			}
 		}
@@ -183,6 +207,8 @@
 			selected,
 			focus,
 			shown,
+			drawCells,
+			drawOverlay,
 		};
 		void cellsEl;
 		untrack(() => request('cells'));
@@ -193,6 +219,8 @@
 		hover = gestures.hover;
 		lifted = gestures.lifted;
 		drag = gestures.drag;
+		hoverTarget = gestures.hoverTarget;
+		liftedTarget = gestures.liftedTarget;
 		untrack(() => request('overlay'));
 	});
 
@@ -213,12 +241,12 @@
 </script>
 
 <div class="layers">
-	<canvas bind:this={cellsEl} aria-hidden="true" data-testid="heat-cells"></canvas>
+	<canvas bind:this={cellsEl} aria-hidden="true" data-testid="{testid}-cells"></canvas>
 	<canvas
 		bind:this={overlayEl}
 		class="overlay"
 		style:cursor={gestures.cursor}
-		data-testid="heat-overlay"
+		data-testid="{testid}-overlay"
 		aria-hidden="true"
 	></canvas>
 </div>
