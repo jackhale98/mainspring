@@ -51,7 +51,7 @@
 	import { sameScope, type CalendarMode, type CalendarState } from './calendar-state.svelte';
 	import { CalendarGestures } from './calendar-gestures.svelte';
 	import DayDetails from './DayDetails.svelte';
-	import type { CommitResult } from './LeaveCard.svelte';
+	import type { CommitResult } from '../../lib/calendar/leave-edit';
 	import MonthView from './MonthView.svelte';
 	import TypePicker from './TypePicker.svelte';
 

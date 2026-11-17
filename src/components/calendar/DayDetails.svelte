@@ -22,7 +22,8 @@
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
-	import LeaveCard, { type CommitResult } from './LeaveCard.svelte';
+	import type { CommitResult } from '../../lib/calendar/leave-edit';
+	import LeaveCard from './LeaveCard.svelte';
 
 	interface Props {
 		details: SelectionDetails;

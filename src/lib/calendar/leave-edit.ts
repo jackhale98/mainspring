@@ -197,3 +197,9 @@ export function planLeaveRemove(
 		},
 	};
 }
+
+/** What a leave card's commit came to: a field error, or whether the edit was applied (W5). */
+export interface CommitResult {
+	readonly error?: 'empty' | 'dates' | 'range';
+	readonly applied?: boolean;
+}

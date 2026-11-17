@@ -14,16 +14,12 @@
 -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import type { LeaveFields } from '../../lib/calendar/leave-edit';
+	import type { CommitResult, LeaveFields } from '../../lib/calendar/leave-edit';
 	import type { PaintItem } from '../../lib/calendar/paint-items';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
 
-	export interface CommitResult {
-		readonly error?: 'empty' | 'dates' | 'range';
-		readonly applied?: boolean;
-	}
 	interface Props {
 		item: PaintItem;
 		/** The item's fields now; null when only the text can edit it. */

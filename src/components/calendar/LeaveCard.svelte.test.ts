@@ -5,10 +5,10 @@
 // rather than dropped (T16 review).
 import { flushSync, mount, tick, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { LeaveFields } from '../../lib/calendar/leave-edit';
+import type { CommitResult, LeaveFields } from '../../lib/calendar/leave-edit';
 import type { PaintItem } from '../../lib/calendar/paint-items';
 import type { LeaveType } from '../../lib/tjp/edit/types';
-import LeaveCard, { type CommitResult } from './LeaveCard.svelte';
+import LeaveCard from './LeaveCard.svelte';
 
 const item = {
 	type: 'annual',
