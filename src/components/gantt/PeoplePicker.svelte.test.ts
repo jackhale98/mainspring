@@ -56,6 +56,12 @@ const button = (t: HTMLElement) =>
 	t.querySelector<HTMLButtonElement>('[data-testid="assign-button"]');
 const search = () => document.querySelector<HTMLInputElement>('input[role="combobox"]');
 const options = () => [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+/** Presses the button and waits for the list, which is its own chunk (fetched when first opened). */
+async function openList(target: HTMLElement): Promise<void> {
+	button(target)?.click();
+	flushSync();
+	await vi.waitFor(() => expect(search()).not.toBeNull());
+}
 function type(text: string): void {
 	const i = search();
 	if (!i) throw new Error('no search box');
@@ -71,12 +77,11 @@ function key(name: string): void {
 }
 
 describe('PeoplePicker', () => {
-	it('is a collapsed button until pressed, then a combobox over a listbox of everyone', () => {
+	it('is a collapsed button until pressed, then a combobox over a listbox of everyone', async () => {
 		const { target } = setup();
 		expect(button(target)?.getAttribute('aria-expanded')).toBe('false');
 		expect(search()).toBeNull();
-		button(target)?.click();
-		flushSync();
+		await openList(target);
 		expect(button(target)?.getAttribute('aria-expanded')).toBe('true');
 		expect(search()?.getAttribute('aria-expanded')).toBe('true');
 		expect(document.querySelector('[role="listbox"]')).not.toBeNull();
@@ -85,10 +90,9 @@ describe('PeoplePicker', () => {
 		expect(options()[2]?.textContent).toContain('on the selected task');
 	});
 
-	it('narrows by name or id as you type, and says when nothing matches', () => {
+	it('narrows by name or id as you type, and says when nothing matches', async () => {
 		const { target } = setup();
-		button(target)?.click();
-		flushSync();
+		await openList(target);
 		type('lopez');
 		expect(options().map((o) => o.dataset['person'])).toEqual(['alopez']);
 		type('BK');
@@ -100,10 +104,9 @@ describe('PeoplePicker', () => {
 		);
 	});
 
-	it('moves with the arrows (wrapping), follows with aria-activedescendant, Enter picks by key', () => {
+	it('moves with the arrows (wrapping), follows with aria-activedescendant, Enter picks by key', async () => {
 		const { target, onpick, onpickkey } = setup();
-		button(target)?.click();
-		flushSync();
+		await openList(target);
 		const active = () => search()?.getAttribute('aria-activedescendant');
 		expect(active()).toBe(options()[0]?.id);
 		key('ArrowDown');
@@ -117,10 +120,9 @@ describe('PeoplePicker', () => {
 		expect(search()).toBeNull();
 	});
 
-	it('a click on a person reports a pick (assign mode), not a key pick', () => {
+	it('a click on a person reports a pick (assign mode), not a key pick', async () => {
 		const { target, onpick, onpickkey } = setup();
-		button(target)?.click();
-		flushSync();
+		await openList(target);
 		options()[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 0, clientY: 0 }));
 		flushSync();
 		expect(onpick).toHaveBeenCalledWith(PEOPLE[1]);
@@ -128,17 +130,16 @@ describe('PeoplePicker', () => {
 		expect(search()).toBeNull();
 	});
 
-	it('Escape closes the list and gives the focus back to the button', () => {
+	it('Escape closes the list and gives the focus back to the button', async () => {
 		const { target } = setup();
 		document.body.focus();
-		button(target)?.click();
-		flushSync();
+		await openList(target);
 		key('Escape');
 		expect(search()).toBeNull();
 		expect(document.activeElement).toBe(button(target));
 	});
 
-	it('in assign mode the button names the person, and Done ends it', () => {
+	it('in assign mode the button names the person, and Done ends it', async () => {
 		const { target, ondone } = setup({ assigning: PEOPLE[1] ?? null });
 		expect(button(target)?.textContent).toContain('Assigning Ana López');
 		const done = [...target.querySelectorAll('button')].find(

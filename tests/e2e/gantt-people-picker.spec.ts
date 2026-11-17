@@ -280,7 +280,7 @@ test.describe('the people picker', () => {
 			max: 64,
 		},
 		'fedora-res': {
-			// The longest name is among the chips (truncated at 7rem): the widest case.
+			// The longest name is among the chips (truncated at 6rem): the widest case.
 			ids: ['desk04', 'qa03', 'server02', 'docs01'],
 			names: ['Documentation 01', 'Server 02', 'Quality 03'],
 			max: 72,

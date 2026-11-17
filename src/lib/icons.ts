@@ -96,6 +96,8 @@ export const ICONS = {
 	/** Lanes: one row per person. */
 	rows: [rect(3, 3, 18, 18, 2), 'M21 9H3', 'M21 15H3'],
 	calendar: [rect(3, 4, 18, 18, 2), 'M16 2v4', 'M8 2v4', 'M3 10h18'],
+	/** The Gantt's filter (a funnel). */
+	filter: ['M22 3H2l8 9.46V19l4 2v-8.54Z'],
 	more: [circle(12, 12, 1), circle(19, 12, 1), circle(5, 12, 1)],
 } as const satisfies Record<string, readonly string[]>;
 

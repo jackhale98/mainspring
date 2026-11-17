@@ -5,6 +5,7 @@ import { buildOutline } from '../state/outline';
 import { buildIndex } from '../tjp/index';
 import { inline } from '../tjp/index/testing';
 import { result } from '../workspace/testing/fake-engine-client';
+import { applyFilter } from './filter';
 import { resolveLinks } from './links';
 import {
 	EMPTY_MODEL,
@@ -300,6 +301,50 @@ describe('buildGanttModel', () => {
 		const tight = result(1, { tasks: TASKS });
 		if (tight.project) tight.project.end = '2026-01-12T00:00:00Z';
 		expect(buildGanttModel(input({}, tight)).endMin).toBe(7 * D);
+	});
+
+	describe('with a filter', () => {
+		const filtered = (over: Partial<ModelInput> = {}) => {
+			const base = input(over);
+			// Only app.api matches: its ancestor app is the context; ui, ship and docs are left out.
+			const filter = applyFilter(
+				base.nodes,
+				{ person: null, flag: 'f' },
+				{ flags: new Map([['app.api', new Set(['f'])]]), ofPerson: new Set() },
+			);
+			return buildGanttModel({ ...base, filter });
+		};
+
+		it('shows the matches and their ancestors, the ancestors as context', () => {
+			const m = filtered();
+			expect(m.rows.map((r) => [r.id, r.context])).toEqual([
+				['app', true],
+				['app.api', false],
+			]);
+			expect(m.rowOf.get('task:app.api')).toBe(1);
+			expect(m.rowOf.has('task:app.ui')).toBe(false);
+			expect(m.rows[0]).toMatchObject({ kind: 'container', expanded: true });
+		});
+
+		it('draws no link to a row the filter left out, and none borrows an ancestor', () => {
+			const all = buildGanttModel(input());
+			expect(all.links.length).toBeGreaterThan(0);
+			// ui > api and api > ship, docs > ship: each has an end on a hidden row.
+			expect(filtered().links).toEqual([]);
+		});
+
+		it('keeps the numbers of the whole outline, and the outline as it was', () => {
+			const all = buildGanttModel(input());
+			const m = filtered();
+			expect(m.rowInfo).toEqual(all.rowInfo);
+			expect(all.rows.every((r) => !r.context)).toBe(true);
+		});
+
+		it('a closed context container hides the match', () => {
+			const m = filtered({ collapsed: new Set(['task:app']) });
+			expect(m.rows.map((r) => r.id)).toEqual(['app']);
+			expect(m.rows[0]).toMatchObject({ expanded: false, context: true });
+		});
 	});
 
 	it('has an empty model for no plan', () => {

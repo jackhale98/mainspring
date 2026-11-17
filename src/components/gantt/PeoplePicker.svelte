@@ -19,7 +19,6 @@
 	import Icon from '../Icon.svelte';
 	import { avatarColour, initials } from './avatar';
 	import type { ChipDrag } from './chip-drag.svelte';
-	import PeopleList from './PeopleList.svelte';
 	import type { Person } from './types';
 
 	interface Props {
@@ -159,16 +158,19 @@
 	{/if}
 
 	{#if open}
-		<PeopleList
-			id="{uid}-panel"
-			{people}
-			{booked}
-			{hasTask}
-			{drag}
-			{alignEnd}
-			onchoose={choose}
-			onclose={close}
-		/>
+		<!-- The list is its own chunk (the filter's panel uses it too): fetched when first opened. -->
+		{#await import('./PeopleList.svelte') then list}
+			<list.default
+				id="{uid}-panel"
+				{people}
+				{booked}
+				{hasTask}
+				{drag}
+				{alignEnd}
+				onchoose={choose}
+				onclose={close}
+			/>
+		{/await}
 	{/if}
 </div>
 
@@ -252,7 +254,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1);
-		max-inline-size: 7rem;
+		max-inline-size: 6rem;
 		block-size: 26px;
 		padding: 2px 3px;
 		border: 1px solid var(--color-gantt-border-strong);

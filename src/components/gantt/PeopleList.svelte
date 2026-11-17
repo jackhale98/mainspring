@@ -7,6 +7,10 @@
 	and dragged out (`chip-drag.svelte.ts`): while it is in the air the list is hidden, so the bars
 	are in view, and the picker closes it when the drop is done. A click that did not move picks
 	the person. The list only reports; it changes nothing.
+
+	The Gantt's filter (FilterPanel.svelte) uses the same list to pick the person to filter by: no
+	`drag` (an option cannot be dragged out), `embedded` (it sits in the filter's panel instead of
+	being a panel itself), and Tab leaves it for the next control of that panel.
 -->
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
@@ -21,17 +25,39 @@
 		id: string;
 		people: readonly Person[];
 		/** The people booked on the selected task (own or inherited), by id. */
-		booked: ReadonlySet<string>;
-		hasTask: boolean;
-		drag: ChipDrag;
+		booked?: ReadonlySet<string>;
+		hasTask?: boolean;
+		/** The drag an option starts; none for a list that only picks (the filter's). */
+		drag?: ChipDrag | null;
 		/** Open towards the left edge of the button, for a button near the right edge of the chart. */
-		alignEnd: boolean;
+		alignEnd?: boolean;
+		/** Part of a bigger panel: no popover of its own, and Tab moves on instead of closing. */
+		embedded?: boolean;
+		/** What a screen reader hears beside a person in `booked` (default: on the selected task). */
+		markLabel?: string;
+		/** Whether the search box takes the focus when the list opens (not on a phone: the keyboard). */
+		focusSearch?: boolean;
+		/** The search box's name (default: find a person by name or id). */
+		searchLabel?: string;
 		/** A person chosen: by a click, or by Enter (`byKey`). */
 		onchoose: (person: Person, byKey: boolean) => void;
 		/** Escape (`refocus`: the button takes the focus back) or Tab. */
 		onclose: (refocus: boolean) => void;
 	}
-	let { id, people, booked, hasTask, drag, alignEnd, onchoose, onclose }: Props = $props();
+	let {
+		id,
+		people,
+		booked = new Set<string>(),
+		hasTask = false,
+		drag = null,
+		alignEnd = false,
+		embedded = false,
+		markLabel,
+		focusSearch = true,
+		searchLabel,
+		onchoose,
+		onclose,
+	}: Props = $props();
 
 	const S = gestureStrings.palette;
 	let query = $state('');
@@ -43,7 +69,9 @@
 	const current = $derived(matches[Math.min(active, matches.length - 1)]);
 	const optionId = (person: string): string => `${id}-opt-${person}`;
 
-	onMount(() => void tick().then(() => input?.focus()));
+	onMount(() => {
+		if (focusSearch) void tick().then(() => input?.focus());
+	});
 
 	function move(by: number): void {
 		const n = matches.length;
@@ -61,8 +89,10 @@
 		} else if (e.key === 'Escape') {
 			e.stopPropagation();
 			return onclose(true);
-		} else if (e.key === 'Tab') return onclose(false);
-		else return;
+		} else if (e.key === 'Tab') {
+			if (embedded) return;
+			return onclose(false);
+		} else return;
 		e.preventDefault();
 	}
 	// A click that is the end of a drag has moved; a real click has not.
@@ -70,7 +100,7 @@
 	const pressed = (e: PointerEvent, index: number): void => {
 		if (e.button !== 0) return;
 		downAt = { x: e.clientX, y: e.clientY };
-		drag.down(e, index);
+		drag?.down(e, index);
 	};
 	const clicked = (e: MouseEvent, p: Person): void => {
 		if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 4) return;
@@ -78,7 +108,14 @@
 	};
 </script>
 
-<div class="panel" class:end={alignEnd} class:flying={drag.dragging} {id} data-testid="people-list">
+<div
+	class="panel"
+	class:end={alignEnd}
+	class:embedded
+	class:flying={drag?.dragging}
+	{id}
+	data-testid="people-list"
+>
 	<input
 		bind:this={input}
 		bind:value={query}
@@ -90,7 +127,7 @@
 		aria-controls="{id}-list"
 		aria-autocomplete="list"
 		aria-activedescendant={current ? optionId(current.person.id) : undefined}
-		aria-label={S.searchLabel}
+		aria-label={searchLabel ?? S.searchLabel}
 		placeholder={S.searchPlaceholder}
 		oninput={() => (active = 0)}
 		{onkeydown}
@@ -103,13 +140,14 @@
 				role="option"
 				aria-selected={current?.person.id === m.person.id}
 				class:active={current?.person.id === m.person.id}
+				class:pick={drag === null}
 				data-person={m.person.id}
 				style:--bg="var(--color-gantt-avatar-{avatarColour(m.person.index)}-bg)"
 				style:--ink="var(--color-gantt-avatar-{avatarColour(m.person.index)}-ink)"
 				onmousedown={(e) => e.preventDefault()}
 				onpointerdown={(e) => pressed(e, m.index)}
 				onpointermove={() => {
-					if (!drag.dragging) active = i;
+					if (!drag?.dragging) active = i;
 				}}
 				onclick={(e) => clicked(e, m.person)}
 			>
@@ -119,7 +157,7 @@
 				{#if hasTask && booked.has(m.person.id)}
 					<span class="mark"
 						><Icon name="check" size={12} stroke={2.4} /><span class="sr-only">
-							{S.onSelected}</span
+							{markLabel ?? S.onSelected}</span
 						></span
 					>
 				{/if}
@@ -145,6 +183,16 @@
 		border-radius: var(--radius-md);
 		background: var(--color-surface);
 		box-shadow: var(--shadow-panel);
+	}
+	/* Inside the filter's panel: that panel is the popover. */
+	.panel.embedded {
+		position: static;
+		inline-size: auto;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
 	}
 	.panel.end {
 		inset-inline-start: auto;
@@ -173,7 +221,7 @@
 	}
 	[role='listbox'] {
 		display: grid;
-		max-block-size: min(16rem, 50vh);
+		max-block-size: var(--people-list-max, min(16rem, 50vh));
 		margin: 0;
 		padding: 0;
 		overflow-y: auto;
@@ -191,6 +239,19 @@
 		cursor: grab;
 		user-select: none;
 		touch-action: none;
+	}
+	/* A list that only picks: no drag, so no grab cursor, and a finger gets a full target. */
+	[role='option'].pick {
+		cursor: pointer;
+		touch-action: manipulation;
+	}
+	@media (pointer: coarse) {
+		[role='option'].pick {
+			min-block-size: var(--size-tap);
+		}
+		input {
+			min-block-size: var(--size-tap);
+		}
 	}
 	[role='option'].active {
 		background: var(--color-gantt-inset);

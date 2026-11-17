@@ -88,7 +88,8 @@
 		/** The row the keyboard focus is on (null: it left the grid), and whether it shows a ring. */
 		onfocusrow?: (key: string | null) => void;
 		/** Dragging a row by its grip (R5). */
-		rowDrag?: RowDrag;
+		/** None while a filter is on: a row's place among hidden siblings cannot be shown (phase-3.md, Amendments from T19). */
+		rowDrag?: RowDrag | undefined;
 		/** Scrolls a row into view (the rows near the viewport are the only ones mounted). */
 		onreveal: (index: number) => Promise<void>;
 		/**
@@ -465,6 +466,7 @@
 					class="row"
 					class:selected={selectedKey === row.key}
 					class:dragging={rowDrag?.view?.dragged === row.key}
+					class:context={row.context}
 					data-key={row.key}
 					aria-rowindex={index + 2}
 					aria-level={n.level}
@@ -623,6 +625,12 @@
 	}
 	.row.dragging {
 		opacity: 0.45;
+	}
+	/* A row shown only because a task under it matches the filter: muted and slanted, so it is
+	   told from a match by more than colour (WCAG 1.4.1). */
+	.row.context .cell.name {
+		color: var(--color-gantt-text-muted);
+		font-style: italic;
 	}
 	/* Selection: a brass wash and a thin blued-steel edge (ADR-0009). */
 	.row.selected {

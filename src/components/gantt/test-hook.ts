@@ -9,6 +9,7 @@
  */
 import { dotCentre, knobCentre } from '../../lib/gantt/handles';
 import type { GanttLayout } from '../../lib/gantt/layout';
+import type { ScheduleResult } from '../../engine/protocol';
 import type { GanttModel } from '../../lib/gantt/model';
 
 export const GANTT_HOOK_KEY = '__mainspringGantt';
@@ -43,10 +44,15 @@ export interface GanttHook {
 	scroller(): { left: number; top: number; right: number; bottom: number } | null;
 	/** Scrolls the chart so that a task's bar is in view, clear of the task column. */
 	reveal(task: string): void;
+	/** The rows the Gantt shows, in order: the filter's oracle compares them with the schedule. */
+	rows(): Array<{ key: string; depth: number; context: boolean; expanded: boolean | null }>;
+	/** The newest good result the Gantt draws. */
+	result(): ScheduleResult | null;
 }
 
 export interface HookView {
 	readonly model: GanttModel;
+	readonly result: ScheduleResult | null;
 	readonly layout: GanttLayout;
 	readonly origin: { readonly left: number; readonly top: number };
 	readonly pxPerDay: number;
@@ -127,6 +133,14 @@ export function installGanttHook(
 			const r = view().scroller?.getBoundingClientRect();
 			return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
 		},
+		rows: () =>
+			view().model.rows.map((r) => ({
+				key: r.key,
+				depth: r.depth,
+				context: r.context,
+				expanded: r.expanded,
+			})),
+		result: () => view().result,
 		reveal(task) {
 			const v = view();
 			const row = v.model.rowOf.get(`task:${task}`);

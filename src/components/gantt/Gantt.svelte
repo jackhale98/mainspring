@@ -33,6 +33,11 @@
 	and down, all by `position: sticky` on the compositor; nothing repaints per scroll event, only
 	when the window leaves its overscan (layout.ts). No scroll chains to the page.
 
+	The filter by person and flag (filter.ts, gantt-filter.svelte.ts; phase-3.md "Amendments from
+	T19") narrows the rows the model is built from to the matches and their ancestors. It is a view
+	state: it keeps its own collapsed set while it is on, switches the row grips off, and clearing it
+	restores the tree as it was left. The Filter pill is in the toolbar (FilterControl.svelte).
+
 	Text to visual (phase-2.md 6.10): when the cursor in the text moves into another task, the app
 	asks the chart to follow (`app.selection.follow`) and it scrolls that row and bar into view
 	(lib/gantt/follow.ts), without taking the focus.
@@ -170,11 +175,39 @@
 			app.run.lastGood.workspaceVersion === app.run.indexVersion &&
 			!app.run.outdated,
 	);
+	// The filter by person and flag (filter.ts, phase-3.md "Amendments from T19"): which rows show, and the
+	// flags and people to choose from. A view state; the text and the schedule are untouched. Its
+	// logic is fetched the first time a filter is on or its panel is open (the first-load JS budget),
+	// so a filter set before then (T18's "Show in Gantt") shows for a moment as the whole tree.
+	// svelte-ignore state_referenced_locally
+	const filter = app.ganttFilter;
+	/** Whether the filter's panel is open: the flags are read from the index only when they are wanted. */
+	let filterOpen = $state(false);
+	let lib = $state.raw<typeof import('../../lib/gantt/filter') | null>(null);
+	$effect(() => {
+		if (lib || !(filter.active || filterOpen)) return;
+		void import('../../lib/gantt/filter').then((m) => (lib = m));
+	});
+	const flagsOf = $derived(
+		lib && app.index && (filter.flag !== null || filterOpen)
+			? lib.taskFlags(app.index)
+			: new Map<string, ReadonlySet<string>>(),
+	);
+	const flagList = $derived(lib && filterOpen ? lib.flagChoices(app.outline.tasks, flagsOf) : []);
+	const filterView = $derived(
+		lib?.applyFilter(app.outline.tasks, filter.value, {
+			flags: flagsOf,
+			ofPerson:
+				filter.person === null ? new Set<string>() : lib.tasksOfPerson(result, filter.person),
+		}) ?? null,
+	);
 	const model = $derived.by(() => {
 		const scenario = result ? finishScenario(result) : null;
 		return buildGanttModel({
 			nodes: app.outline.tasks,
-			collapsed: app.collapsed,
+			// A filter opens what it finds; the tree as it was left comes back when it is cleared.
+			collapsed: filterView ? filter.collapsed : app.collapsed,
+			filter: filterView,
 			result,
 			dimmed: app.run?.outdated ?? false,
 			links: resolveLinks({
@@ -187,6 +220,22 @@
 			zones,
 		});
 	});
+
+	// The filter changed: the selected row stays in view if it still shows, else the chart goes to the top.
+	let filterSig: string | null = null;
+	$effect(() => {
+		const sig = `${filter.person}\n${filter.flag}`;
+		const before = filterSig;
+		filterSig = sig;
+		if (before === null || before === sig) return;
+		untrack(() => void settleAfterFilter());
+	});
+	async function settleAfterFilter(): Promise<void> {
+		await tick();
+		const i = model.rowOf.get(app.selectedRow ?? '');
+		if (i !== undefined) await revealRow(i);
+		else if (scroller) scrollTop = scroller.scrollTop = 0;
+	}
 
 	// The inspector reads what is drawn: the model, the result and its analysis as one pair.
 	$effect(() => {
@@ -358,6 +407,7 @@
 	onMount(() =>
 		installGanttHook(new URLSearchParams(location.search), () => ({
 			model,
+			result,
 			layout,
 			origin: plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
 			pxPerDay,
@@ -557,6 +607,17 @@
 			canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
 			onadd: (mode) => m.addTask(mode),
 		}}
+		filter={{
+			people: m.people,
+			flags: flagList,
+			person: filter.person,
+			flag: filter.flag,
+			matches: filterView?.matched.size ?? null,
+			onopen: (open) => (filterOpen = open),
+			onperson: (id) => filter.setPerson(id),
+			onflag: (f) => filter.setFlag(f),
+			onclear: () => filter.clear(),
+		}}
 		rowActions={m.rowActions}
 		lead={toolbarLead}
 		onpill={(h) => (pillH = h)}
@@ -580,6 +641,11 @@
 	{#if model.rows.length === 0}
 		{#if app.emptyPlan}
 			<EmptyState {app} onadd={() => m.addTask('after')} {ontext} />
+		{:else if filterView}
+			<div class="empty filtered" data-testid="filter-empty">
+				<p>{strings.gantt.filter.empty}</p>
+				<button type="button" onclick={() => filter.clear()}>{strings.gantt.filter.clear}</button>
+			</div>
 		{:else}
 			<p class="empty">{app.phase === 'ready' ? strings.gantt.noTasks : strings.topBar.loading}</p>
 		{/if}
@@ -639,8 +705,8 @@
 							m.focusKey = k;
 							interactions.focusMoved(k);
 						}}
-						rowDrag={m.rowDrag}
-						ontoggle={(k) => app.toggleNode(k)}
+						rowDrag={filterView ? undefined : m.rowDrag}
+						ontoggle={(k) => (filterView ? filter.toggle(k) : app.toggleNode(k))}
 						onselect={(k) => selectKey(k)}
 						onopen={() => app.inspector.focus()}
 						onreveal={revealRow}
@@ -761,6 +827,34 @@
 		margin: 0;
 		padding: var(--space-6) var(--gutter);
 		color: var(--color-gantt-text-muted);
+	}
+	/* Nothing matches the filter: the message, and the way out. */
+	.empty.filtered {
+		display: grid;
+		justify-items: start;
+		gap: var(--space-3);
+	}
+	.empty.filtered p {
+		margin: 0;
+	}
+	.empty.filtered button {
+		min-block-size: 32px;
+		padding-inline: var(--space-4);
+		border: 1px solid var(--color-gantt-border-strong);
+		border-radius: 999px;
+		background: var(--color-gantt-chip);
+		color: var(--color-gantt-text);
+		font: inherit;
+		cursor: pointer;
+	}
+	.empty.filtered button:focus-visible {
+		outline: 2px solid var(--color-gantt-accent);
+		outline-offset: 2px;
+	}
+	@media (pointer: coarse) {
+		.empty.filtered button {
+			min-block-size: var(--size-tap);
+		}
 	}
 	/* The one scroll container: pan on the chart, never chaining to the page. */
 	.scroller {
