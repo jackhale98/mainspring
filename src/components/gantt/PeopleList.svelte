@@ -37,6 +37,8 @@
 		markLabel?: string;
 		/** Whether the search box takes the focus when the list opens (not on a phone: the keyboard). */
 		focusSearch?: boolean;
+		/** The person to start on (the filter's: the one chosen); the list scrolls to them. */
+		initial?: string | null;
 		/** The search box's name (default: find a person by name or id). */
 		searchLabel?: string;
 		/** A person chosen: by a click, or by Enter (`byKey`). */
@@ -54,6 +56,7 @@
 		embedded = false,
 		markLabel,
 		focusSearch = true,
+		initial = null,
 		searchLabel,
 		onchoose,
 		onclose,
@@ -61,7 +64,14 @@
 
 	const S = gestureStrings.palette;
 	let query = $state('');
-	let active = $state(0);
+	// The list starts on `initial` when it opens; the plan's people changing under it is not followed.
+	// svelte-ignore state_referenced_locally
+	let active = $state(
+		Math.max(
+			0,
+			people.findIndex((p) => p.id === initial),
+		),
+	);
 	let input: HTMLInputElement | undefined = $state();
 	let list: HTMLUListElement | undefined = $state();
 
@@ -71,6 +81,11 @@
 
 	onMount(() => {
 		if (focusSearch) void tick().then(() => input?.focus());
+		if (initial !== null) {
+			void tick().then(() =>
+				list?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }),
+			);
+		}
 	});
 
 	function move(by: number): void {

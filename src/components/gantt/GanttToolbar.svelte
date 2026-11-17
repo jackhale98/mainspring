@@ -142,6 +142,7 @@
 			onclick={ontoday}
 			disabled={!hasMarker}
 			aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
+			title={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
 		>
 			<Icon name="today" size={14} /><span class="lbl">{strings.gantt.today}</span>
 		</button>
@@ -427,14 +428,20 @@
 			gap: 6px;
 		}
 	}
-	/* Between 1350 and 1600 px the recent people (their avatars) and the filter pill share the band
-	   with the selected task's line: Today is its icon there (its aria-label is the name). */
-	@container gantt (min-width: 1350px) and (max-width: 1599px) {
+	/* From 1350 px, with recent people shown, they and the filter pill (and its clear button, with a
+	   filter on) share the band with the selected task's line: Today is its icon (its aria-label and
+	   title are the name), and from 1350 to 1600 px, where the people are avatars, the gaps are 5 px. */
+	@container gantt (min-width: 1350px) {
 		.bar:has(:global(.recent)) .today .lbl {
 			display: none;
 		}
 		.bar:has(:global(.recent)) .today {
 			padding-inline: 9px;
+		}
+	}
+	@container gantt (min-width: 1350px) and (max-width: 1599px) {
+		.bar:has(:global(.recent)) .chips {
+			gap: 5px;
 		}
 	}
 	/* The note that stands alone (nothing selected) wraps, so it cannot be squeezed to a column

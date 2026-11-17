@@ -14,19 +14,25 @@
  *   by name: the task asks for them even if nothing is booked yet (a task held up or run without
  *   them). An alternative that was not used, and a group the person belongs to, do not count
  *   unless the person was booked.
- * - A task carries a flag when it, or any ancestor, lists it in `flags` (TaskJuggler inherits
- *   `flags` down the tree). Flags come from the symbol index (the text): the engine's result does
- *   not carry them. A task declared by a macro (no id) matches nothing.
+ * - A task carries a flag as TaskJuggler gives it (see `taskFlags`): its own, and its parent's as
+ *   they were when the task was created. Flags come from the symbol index (the text): the
+ *   engine's result does not carry them. A task declared by a macro (no id) matches nothing.
+ * - Only a booking counts for a milestone and the person filter: TaskJuggler ignores the
+ *   `allocate` a milestone inherits (TaskScenario.rb:583).
  */
 import type { ScheduleResult } from '../../engine/protocol';
 import type { OutlineNode } from '../state/outline';
 import type { ReferenceSite, SourceRange, TaskId, TaskSymbol } from '../tjp/index';
+import { compareParseOrder } from '../workspace/include-order';
+import type { IncludeGraph } from '../workspace/workspace';
 import type { GanttFilter } from './filter-model';
 
-/** The part of the symbol index the flags are read from. */
+/** The part of the symbol index, and the include order, the flags are read from. */
 export interface FlagSource {
 	readonly tasks: ReadonlyMap<TaskId, TaskSymbol>;
 	readonly references: readonly ReferenceSite[];
+	/** For the reading order across includes (a site is read before a child's header or not). */
+	readonly includes: IncludeGraph;
 }
 
 const NONE: ReadonlySet<string> = new Set();
@@ -34,11 +40,35 @@ const NONE: ReadonlySet<string> = new Set();
 const within = (r: SourceRange, outer: SourceRange): boolean =>
 	r.file === outer.file && outer.from <= r.from && r.to <= outer.to;
 
+/** The shown scenario and its parents: the scenarios whose `flags` apply in the chart. */
+function scenarioChain(result: ScheduleResult | null): ReadonlySet<string> {
+	const all = result?.project?.scenarios ?? [];
+	const out = new Set<string>();
+	for (let s = all.find((x) => x.active); s; s = all.find((x) => x.id === s?.parent)) {
+		if (out.has(s.id)) break;
+		out.add(s.id);
+	}
+	return out;
+}
+
 /**
- * The flags every task carries (its own and its ancestors'), by task id. A task without any is
- * not in the map. The names are as written when the flag is not declared.
+ * The flags every task carries in the shown scenario, by task id; a task without any is not in the
+ * map. The names are as written when the flag is not declared. TaskJuggler copies a parent's flags
+ * into a child once, when the child's header is read (`inheritAttributes`), and `flags` is
+ * scenario-specific, so, as `task-attrs-checks.ts` does for edits:
+ * - a task's flags at creation are its parent's flags at the parent's creation, plus the parent's
+ *   own `flags` read before this task's header (a `flags` after the child, or in a later
+ *   `supplement`, is not inherited by it);
+ * - its flags are those plus all of its own `flags`;
+ * - only a statement with no scenario prefix, or one of the shown scenario or its parents, counts.
+ * `purge flags` is not recorded by the index, so a purge is not applied (a task that purges
+ * inherited flags still shows with them).
  */
-export function taskFlags(src: FlagSource): ReadonlyMap<TaskId, ReadonlySet<string>> {
+export function taskFlags(
+	src: FlagSource,
+	result: ScheduleResult | null,
+): ReadonlyMap<TaskId, ReadonlySet<string>> {
+	const chain = scenarioChain(result);
 	const byOwner = new Map<string, ReferenceSite[]>();
 	for (const r of src.references) {
 		if (r.kind !== 'flag' || r.via !== 'flags' || r.owner === null) continue;
@@ -46,23 +76,41 @@ export function taskFlags(src: FlagSource): ReadonlyMap<TaskId, ReadonlySet<stri
 		if (list) list.push(r);
 		else byOwner.set(r.owner, [r]);
 	}
-	const out = new Map<TaskId, ReadonlySet<string>>();
-	const of = (id: TaskId, depth: number): ReadonlySet<string> => {
-		const known = out.get(id);
+	/** Each of a task's own `flags` statements that apply, with the names it gives. */
+	const ownOf = (sym: TaskSymbol): Array<{ at: SourceRange; ids: string[] }> =>
+		sym.attrs
+			.filter((a) => a.keyword === 'flags' && (a.scenario === null || chain.has(a.scenario)))
+			.map((a) => ({
+				at: a.statement,
+				// A resource can share the task's id: only references inside this statement count.
+				ids: (byOwner.get(sym.id) ?? [])
+					.filter((r) => within(r.at, a.statement))
+					.map((r) => r.target ?? r.written),
+			}));
+	const created = new Map<TaskId, ReadonlySet<string>>();
+	const atCreation = (sym: TaskSymbol, depth: number): ReadonlySet<string> => {
+		const known = created.get(sym.id);
 		if (known) return known;
-		const sym = src.tasks.get(id);
-		if (!sym || depth > 1000) return NONE;
-		// A resource can share the task's id: only statements of this task's own `flags` count.
-		const sites = sym.attrs.filter((a) => a.keyword === 'flags').map((a) => a.statement);
-		const own = (byOwner.get(id) ?? []).filter((r) => sites.some((s) => within(r.at, s)));
-		const inherited = sym.parent === null ? NONE : of(sym.parent, depth + 1);
-		if (own.length === 0 && inherited.size === 0) return NONE;
-		const all = new Set(inherited);
-		for (const r of own) all.add(r.target ?? r.written);
-		out.set(id, all);
-		return all;
+		const parent = sym.parent === null ? undefined : src.tasks.get(sym.parent);
+		let set = NONE;
+		if (parent && depth < 1000) {
+			const all = new Set(atCreation(parent, depth + 1));
+			for (const o of ownOf(parent)) {
+				if (compareParseOrder(src.includes, o.at, sym.decl.header, 'first') < 0) {
+					for (const id of o.ids) all.add(id);
+				}
+			}
+			set = all;
+		}
+		created.set(sym.id, set);
+		return set;
 	};
-	for (const id of src.tasks.keys()) of(id, 0);
+	const out = new Map<TaskId, ReadonlySet<string>>();
+	for (const sym of src.tasks.values()) {
+		const all = new Set(atCreation(sym, 0));
+		for (const o of ownOf(sym)) for (const id of o.ids) all.add(id);
+		if (all.size > 0) out.set(sym.id, all);
+	}
 	return out;
 }
 
@@ -74,9 +122,9 @@ export function tasksOfPerson(result: ScheduleResult | null, person: string): Re
 	if (!result || scenario === null) return out;
 	for (const t of result.tasks) {
 		const s = t.scenarios[scenario];
-		if (s?.allocated.includes(person) || s?.allocate.some((a) => a.candidates[0] === person)) {
-			out.add(t.id);
-		}
+		// A milestone ignores the `allocate` it inherits (TaskScenario.rb:583): only a booking counts.
+		const asked = !t.milestone && s?.allocate.some((a) => a.candidates[0] === person);
+		if (s?.allocated.includes(person) || asked) out.add(t.id);
 	}
 	for (const b of result.bookings) {
 		if (b.scenario === scenario && b.resource === person) out.add(b.task);

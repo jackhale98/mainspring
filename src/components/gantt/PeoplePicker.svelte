@@ -45,6 +45,9 @@
 	const S = gestureStrings.palette;
 	const uid = $props.id();
 	let open = $state(false);
+	/** Counts the tries to fetch the list: Retry asks again. */
+	let attempt = $state(0);
+	const load = (_try: number) => import('./PeopleList.svelte');
 	let alignEnd = $state(false);
 	let root: HTMLDivElement | undefined = $state();
 	let button: HTMLButtonElement | undefined = $state();
@@ -159,7 +162,7 @@
 
 	{#if open}
 		<!-- The list is its own chunk (the filter's panel uses it too): fetched when first opened. -->
-		{#await import('./PeopleList.svelte') then list}
+		{#await load(attempt) then list}
 			<list.default
 				id="{uid}-panel"
 				{people}
@@ -170,6 +173,11 @@
 				onchoose={choose}
 				onclose={close}
 			/>
+		{:catch}
+			<div class="failed" role="alert">
+				{S.loadFailed}
+				<button type="button" onclick={() => attempt++}>{S.retry}</button>
+			</div>
 		{/await}
 	{/if}
 </div>
@@ -238,6 +246,34 @@
 	}
 	/* The recent people: small chips to drag again. They need room that the legend and the task
 	   line would otherwise have: hidden in a chart under 1350 px, only the avatars under 1600. */
+	/* The list could not be fetched: a small panel where it would be, with Retry. */
+	.failed {
+		position: absolute;
+		inset-block-start: calc(100% + 6px);
+		inset-inline-start: 0;
+		z-index: 30;
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border: 1px solid var(--color-gantt-border-strong);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-panel);
+		color: var(--color-text);
+		font-size: var(--text-sm);
+		white-space: nowrap;
+	}
+	.failed button {
+		min-block-size: 32px;
+		padding-inline: var(--space-3);
+		border: 1px solid var(--color-gantt-border-strong);
+		border-radius: 999px;
+		background: var(--color-gantt-chip);
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
 	.recent {
 		display: none;
 		gap: var(--space-1);

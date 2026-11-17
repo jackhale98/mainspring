@@ -30,10 +30,19 @@ task docs "Docs" { effort 1d allocate ana { alternative ben } }
 task misc "Misc" { flags ghost }
 `;
 
+function flagsOf(files: Record<string, string>, result: ScheduleResult | null) {
+	const snap = inline(files).snapshot();
+	const index = buildIndex(snap);
+	return taskFlags(
+		{ tasks: index.tasks, references: index.references, includes: snap.includes },
+		result,
+	);
+}
+
 function setup() {
 	const index = buildIndex(inline({ 'plan.tjp': PLAN }).snapshot());
 	const nodes = buildOutline(index).tasks;
-	const flags = taskFlags(index);
+	const flags = flagsOf({ 'plan.tjp': PLAN }, result(1));
 	return { index, nodes, flags };
 }
 
@@ -101,6 +110,60 @@ describe('taskFlags', () => {
 	});
 });
 
+// TaskJuggler copies a parent's flags into a child once, when the child's header is read, and
+// `flags` is scenario-specific. This plan was run through native tj3 (taskreport csv, `columns id,
+// flags`, and `hidetask ~flag` per flag; the wasm engine runs no reports, so no engine-backed test
+// can ask): app = early, late, sup; app.a = early; app.b = early, late; c = nothing in `plan`, and
+// `scen` in `delayed`.
+describe('taskFlags follows TaskJuggler', () => {
+	const PROBE = `project p "P" 2026-01-05 +30d {
+  scenario plan "Plan" { scenario delayed "Delayed" }
+}
+flags early, late, sup, scen
+task app "App" {
+  flags early
+  task a "A" { effort 1d }
+  flags late
+  task b "B" { effort 1d }
+}
+supplement task app { flags sup }
+task c "C" { delayed:flags scen effort 1d }
+`;
+	const shown = (active: 'plan' | 'delayed'): ScheduleResult => {
+		const r = result(1);
+		if (r.project) {
+			r.project.scenarios = [
+				{ id: 'plan', name: 'Plan', parent: null, active: active === 'plan' },
+				{ id: 'delayed', name: 'Delayed', parent: 'plan', active: active === 'delayed' },
+			];
+		}
+		return r;
+	};
+	const of = (f: ReturnType<typeof flagsOf>, id: string): string[] => [...(f.get(id) ?? [])].sort();
+
+	it('gives a child the parent flags read before its header, not after, and not a supplement', () => {
+		const f = flagsOf({ 'plan.tjp': PROBE }, shown('plan'));
+		expect(of(f, 'app')).toEqual(['early', 'late', 'sup']);
+		expect(of(f, 'app.a')).toEqual(['early']);
+		expect(of(f, 'app.b')).toEqual(['early', 'late']);
+	});
+	it('counts a scenario-prefixed flag only in that scenario (and a child of it)', () => {
+		expect(of(flagsOf({ 'plan.tjp': PROBE }, shown('plan')), 'c')).toEqual([]);
+		expect(of(flagsOf({ 'plan.tjp': PROBE }, shown('delayed')), 'c')).toEqual(['scen']);
+	});
+	it('reads in include order: a supplement after an include is not inherited by its tasks', () => {
+		const plan = `project p "P" 2026-01-05 +30d
+flags early, late
+include "app.tji"
+supplement task app { flags late }
+`;
+		const app = 'task app "App" {\n  flags early\n  task a "A" { effort 1d }\n}\n';
+		const f = flagsOf({ 'plan.tjp': plan, 'app.tji': app }, result(1));
+		expect(of(f, 'app')).toEqual(['early', 'late']);
+		expect(of(f, 'app.a')).toEqual(['early']);
+	});
+});
+
 describe('tasksOfPerson', () => {
 	const of = (person: string, bookings: BookingResult[] = []): string[] =>
 		[...tasksOfPerson(resultOf(bookings), person)].sort();
@@ -108,6 +171,18 @@ describe('tasksOfPerson', () => {
 	it('counts a booked task, and one that asks for the person by name', () => {
 		expect(of('ana')).toEqual(['app.build.web', 'app.design', 'docs']);
 		expect(of('ben')).toEqual(['app.build.api', 'app.build.web']);
+	});
+	it('counts only a booking for a milestone: it ignores the allocate it inherits', () => {
+		const r = resultOf();
+		const ship = r.tasks.find((t) => t.id === 'app.ship');
+		if (!ship) throw new Error('no ship');
+		ship.milestone = true;
+		const s = ship.scenarios['plan'];
+		if (!s) throw new Error('no scenario');
+		s.allocate = [{ candidates: ['ana'] }];
+		expect(tasksOfPerson(r, 'ana').has('app.ship')).toBe(false);
+		r.bookings = [booking('ana', 'app.ship')];
+		expect(tasksOfPerson(r, 'ana').has('app.ship')).toBe(true);
 	});
 	it('does not count an alternative that was not used', () => {
 		expect(of('ben')).not.toContain('docs');

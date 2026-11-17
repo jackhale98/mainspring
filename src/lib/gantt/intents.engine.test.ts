@@ -363,6 +363,8 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('Gantt actions schedule', (
 		};
 		const move = (task: string, days: number): GanttAction => ({ type: 'move', task, days });
 
+		// This case schedules the fixture and two more plans, about 2 s alone: over the 5 s default when
+		// the machine is shared, so it has a longer timeout (no assertion below is changed).
 		it('H1: a task placed in non-working time moves from the day it works', () => {
 			// sketch starts Fri 6 March 17:00 (after research and its gap): it works from Monday.
 			expect(workStart(run(fx, move('design.sketch', 1), 'start'), 'design.sketch')).toBe(
@@ -389,7 +391,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('Gantt actions schedule', (
 			expect(workStart(run(e, move('b', 1), 'start'), 'b')).toBe(day('2026-03-06'));
 			expect(workStart(run(e, move('b', 2), 'start'), 'b')).toBe(day('2026-03-09'));
 			expect(refusal(e, move('b', -1), 'start')).toBe('at-limit');
-		}, 60_000); // about 2 s alone (the first engine runs of the file), over the 5 s default on a shared machine
+		}, 60_000);
 
 		it('H1: the ALAP mirror moves the end from the day it works', () => {
 			// Ends Mon 16 March 09:00, so its last working day is Friday 13.

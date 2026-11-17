@@ -112,6 +112,7 @@
 				searchLabel={P.personSearch}
 				embedded={true}
 				focusSearch={!coarse}
+				initial={person}
 				onchoose={(p) => onperson(person === p.id ? null : p.id)}
 				{onclose}
 			/>

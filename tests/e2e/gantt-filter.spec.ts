@@ -2,13 +2,17 @@
 // The Gantt's filter by person and by flag (phase-3.md T19, "Amendments from T19"; 13.2 `gantt-filter.spec.ts`).
 // On the Fedora plan with a people pool (fedora-res: 24 people, flags on a few hundred tasks):
 // - the rows the filter shows equal an oracle written here from the schedule result (a person's
-//   booked and named tasks) and from the plan text (flags, inherited down the tree), with the
+//   booked and named tasks) and from the plan text (flags, as TaskJuggler inherits them), with the
 //   ancestors of a match as context rows;
 // - a person and a flag together intersect; a filter nothing matches says so and has a way out;
 // - clearing restores the whole tree with its collapsed rows and its selection, and nothing in the
 //   text or the schedule ever changed;
 // - the keyboard path, axe in light and dark, the toolbar on one row, and 44 px targets on a phone.
 // Desktop and Pixel 7 (Chromium).
+// Over 400 lines on purpose: the oracle (about 150 lines: the result's person rule, and TaskJuggler's
+// flag inheritance read from the text) is the point of the spec and must sit beside the cases that
+// use it, so that it reads as independent of src/lib/gantt/filter.ts; the rest is one case per
+// behaviour of the filter, each needing the same plan open.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { ScheduleResult } from '../../src/engine/protocol';
@@ -18,6 +22,34 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 // A step that cannot be done fails in seconds, not at the test's end.
 test.use({ actionTimeout: 15_000 });
+
+// The oracle itself, on the probe plan run through native tj3 (a taskreport with `columns id, flags`):
+// app = early, late, sup; app.a = early; app.b = early, late; c = none in `plan`, `scen` in `delayed`.
+test.describe('the flag oracle', () => {
+	const PROBE = `project p "P" 2026-01-05 +30d {
+  scenario plan "Plan" { scenario delayed "Delayed" }
+}
+flags early, late, sup, scen
+task app "App" {
+  flags early
+  task a "A" { effort 1d }
+  flags late
+  task b "B" { effort 1d }
+}
+supplement task app { flags sup }
+task c "C" { delayed:flags scen effort 1d }
+`;
+	const sorted = (m: Map<string, Set<string>>, id: string): string[] =>
+		[...flagsOfTask(m, id)].sort();
+	test('a flag after a child, a supplement and a scenario flag follow TaskJuggler', () => {
+		const f = flagsOfText(PROBE);
+		expect(sorted(f, 'app')).toEqual(['early', 'late', 'sup']);
+		expect(sorted(f, 'app.a')).toEqual(['early']);
+		expect(sorted(f, 'app.b')).toEqual(['early', 'late']);
+		expect(sorted(f, 'c')).toEqual([]);
+		expect(sorted(flagsOfText(PROBE, 'delayed'), 'c')).toEqual(['scen']);
+	});
+});
 
 test.beforeEach(({ browserName: _b }, info) => {
 	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7');
@@ -58,9 +90,9 @@ function tasksOf(r: ScheduleResult, person: string): Set<string> {
 	const out = new Set<string>();
 	for (const t of r.tasks) {
 		const s = t.scenarios[sc];
-		if (s?.allocated.includes(person) || s?.allocate.some((a) => a.candidates[0] === person)) {
-			out.add(t.id);
-		}
+		// A milestone ignores the `allocate` it inherits (TaskScenario.rb:583): only a booking counts.
+		const asked = !t.milestone && s?.allocate.some((a) => a.candidates[0] === person);
+		if (s?.allocated.includes(person) || asked) out.add(t.id);
 	}
 	for (const b of r.bookings) {
 		if (b.scenario === sc && b.resource === person && b.intervals.length > 0) out.add(b.task);
@@ -69,15 +101,25 @@ function tasksOf(r: ScheduleResult, person: string): Set<string> {
 	return new Set([...out].filter((id) => leaves.has(id)));
 }
 
-/** The flags written on each task of f-20.tjp, by full id (a task's own `flags` statements). */
-function flagsOfText(text: string): Map<string, Set<string>> {
+/**
+ * The flags each task carries, from the plan text, as TaskJuggler gives them (checked with native
+ * tj3 on the probe plan below: a `taskreport` with `columns id, flags`). A parent's flags are
+ * copied into a child once, when the child's header is read, so a child has its own and those its
+ * parent had written before the child's `task` keyword; a `flags` after the child, or in a later
+ * `supplement`, is not inherited by it. A `scen:flags` counts only for the shown scenario.
+ * `purge flags` is not handled (Fedora has none).
+ */
+function flagsOfText(text: string, shown = 'plan'): Map<string, Set<string>> {
 	// The root's id is a macro (`${content}${major}`, defined in the same file as `f` and `20`).
 	const source = text.replaceAll('${content}${major}', 'f20');
 	const tokens =
 		source
 			.match(/"(?:\\.|[^"\\])*"|\/\*[\s\S]*?\*\/|#[^\n]*|\{|\}|,|[^\s{},"#]+/g)
 			?.filter((t) => !t.startsWith('#') && !t.startsWith('/*')) ?? [];
-	const own = new Map<string, Set<string>>();
+	/** A task's `flags` statements: where (the token index) and the names. */
+	const own = new Map<string, Array<{ at: number; flags: string[] }>>();
+	const header = new Map<string, number>();
+	const parentOf = new Map<string, string | null>();
 	const stack: Array<string | null> = [];
 	let pending: string | null = null;
 	const taskId = (): string | null => {
@@ -94,8 +136,15 @@ function flagsOfText(text: string): Map<string, Set<string>> {
 			const after = tokens[i + 2] as string;
 			const brace = after?.startsWith('"') ? tokens[i + 3] : after;
 			if (brace === '{') {
-				const parent = taskId();
-				pending = parent === null ? id : `${parent}.${id}`;
+				if (tokens[i - 1] === 'supplement') {
+					// A supplement adds to a task declared earlier, under its full id.
+					pending = id;
+				} else {
+					const parent = taskId();
+					pending = parent === null ? id : `${parent}.${id}`;
+					header.set(pending, i);
+					parentOf.set(pending, parent);
+				}
 				i++;
 			}
 		} else if (t === '{') {
@@ -103,27 +152,43 @@ function flagsOfText(text: string): Map<string, Set<string>> {
 			pending = null;
 		} else if (t === '}') {
 			stack.pop();
-		} else if (t === 'flags' && stack.length > 0 && stack[stack.length - 1] !== null) {
+		} else if (/^(?:\w+:)?flags$/.test(t) && stack.length > 0 && stack[stack.length - 1] !== null) {
+			const scenario = t.includes(':') ? t.slice(0, t.indexOf(':')) : null;
 			const id = stack[stack.length - 1] as string;
-			const set = own.get(id) ?? new Set<string>();
+			const names: string[] = [];
 			for (let j = i + 1; j < tokens.length; j += 2) {
-				set.add(tokens[j] as string);
+				names.push(tokens[j] as string);
 				if (tokens[j + 1] !== ',') break;
 			}
-			own.set(id, set);
+			if (scenario === null || scenario === shown) {
+				own.set(id, [...(own.get(id) ?? []), { at: i, flags: names }]);
+			}
 		}
 	}
-	return own;
-}
-/** A task carries the flags written on it and on every ancestor (the path's prefixes). */
-function carried(own: Map<string, Set<string>>, id: string): Set<string> {
-	const parts = id.split('.');
-	const all = new Set<string>();
-	for (let n = 1; n <= parts.length; n++) {
-		for (const f of own.get(parts.slice(0, n).join('.')) ?? []) all.add(f);
+	const created = new Map<string, Set<string>>();
+	const atCreation = (id: string): Set<string> => {
+		const known = created.get(id);
+		if (known) return known;
+		const parent = parentOf.get(id) ?? null;
+		const set = new Set<string>(parent === null ? [] : atCreation(parent));
+		if (parent !== null) {
+			for (const o of own.get(parent) ?? []) {
+				if (o.at < (header.get(id) ?? 0)) for (const f of o.flags) set.add(f);
+			}
+		}
+		created.set(id, set);
+		return set;
+	};
+	const all = new Map<string, Set<string>>();
+	for (const id of header.keys()) {
+		const set = new Set(atCreation(id));
+		for (const o of own.get(id) ?? []) for (const f of o.flags) set.add(f);
+		all.set(id, set);
 	}
 	return all;
 }
+const flagsOfTask = (flags: Map<string, Set<string>>, id: string): Set<string> =>
+	flags.get(id) ?? new Set();
 const tasksWith = (
 	r: ScheduleResult,
 	flags: Map<string, Set<string>>,
@@ -131,7 +196,7 @@ const tasksWith = (
 ): Set<string> => {
 	const leaves = leavesOf(r);
 	return new Set(
-		r.tasks.filter((t) => leaves.has(t.id) && carried(flags, t.id).has(flag)).map((t) => t.id),
+		r.tasks.filter((t) => leaves.has(t.id) && flagsOfTask(flags, t.id).has(flag)).map((t) => t.id),
 	);
 };
 
@@ -240,11 +305,23 @@ test.describe('filter by person', () => {
 		const rows = await viewRows(page);
 		expect(rows.length).toBeLessThan(all.length);
 		expect(rows.some((x) => x.context)).toBe(true);
-		// The toolbar says so, in words, and the live status counts the tasks shown.
+		// The toolbar names the filter, and the line over the task table (the live region) says which
+		// it is and how many tasks it shows, so a filtered chart is never unlabelled.
 		await expect(button(page)).toHaveAccessibleName(`Filter: ${person.name}`);
-		await expect(page.getByTestId('filter-live')).toHaveText(
-			person.tasks.size === 1 ? '1 task shown' : `${person.tasks.size} tasks shown`,
+		await expect(button(page)).toHaveAttribute('title', `Filter: ${person.name}`);
+		const note = page.getByTestId('filter-note');
+		await expect(note).toHaveText(
+			`${person.name} \u00b7 ${person.tasks.size === 1 ? '1 task' : `${person.tasks.size} tasks`}`,
 		);
+		await expect(note).toBeVisible();
+		await expect(note).toHaveAttribute('role', 'status');
+		// It sits in the empty band of the table's header, over the column titles.
+		const noteBox = await note.boundingBox();
+		const head = await page.locator('[data-col-head="name"]').boundingBox();
+		if (!noteBox || !head) throw new Error('no boxes');
+		// (the column title cells run the header's whole height, their words at the foot).
+		expect(noteBox.y).toBeGreaterThanOrEqual(head.y);
+		expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(head.y + head.height * 0.7);
 		// A row kept only for context says so to a screen reader; a match does not.
 		const ctx = rows.find((x) => x.context);
 		const hit = rows.find((x) => !x.context);
@@ -350,7 +427,9 @@ test.describe('both together, and nothing', () => {
 		await chooseFlag(page, pick.flag);
 		await closePanel(page);
 		await expectRows(page, r, pick.both, `${pick.id} and ${pick.flag}`);
-		await expect(button(page)).toHaveAccessibleName(`Filter: ${pick.name}, flag ${pick.flag}`);
+		await expect(button(page)).toHaveAccessibleName(
+			`Filter: ${pick.name} \u00b7 flag ${pick.flag}`,
+		);
 		// Taking the flag off leaves the person; the person off leaves nothing.
 		await openPanel(page);
 		await panel(page).getByRole('radio', { name: 'Any flag' }).check();
@@ -470,6 +549,68 @@ test.describe('the cleared state', () => {
 	});
 });
 
+test.describe('a filter whose code cannot be fetched', () => {
+	test('says so, over the table and on the pill, and Retry brings the filter back', async ({
+		page,
+	}, info) => {
+		test.skip(isTouch(info), 'one device is enough: the same code runs');
+		await page.route('**/_astro/filter.*.js', (route) => route.abort());
+		await open(page, info);
+		const r = await resultOf(page);
+		const all = (await viewRows(page)).length;
+		const person = aPerson(r);
+		await openPanel(page);
+		await choosePerson(page, person.id, person.name);
+		await closePanel(page);
+		const note = page.getByTestId('filter-note');
+		await expect(note).toHaveText(`Filter ${person.name} could not load`);
+		await expect(button(page)).toHaveAccessibleName(
+			`Filter: ${person.name}, could not load. Press to retry`,
+		);
+		// Nothing is claimed: the whole tree shows, and the note says why.
+		expect((await viewRows(page)).length).toBe(all);
+		await page.unroute('**/_astro/filter.*.js');
+		await page.getByRole('button', { name: 'Retry', exact: true }).click();
+		await expect(note).toHaveText(
+			`${person.name} \u00b7 ${person.tasks.size === 1 ? '1 task' : `${person.tasks.size} tasks`}`,
+		);
+		await expectRows(page, r, person.tasks, 'after Retry');
+	});
+
+	test('the people list says so, and Retry opens it', async ({ page }, info) => {
+		test.skip(isTouch(info), 'the picker is a mouse control');
+		await page.route('**/_astro/PeopleList.*.js', (route) => route.abort());
+		await open(page, info);
+		await page.getByTestId('assign-button').click();
+		await expect(page.getByRole('alert')).toContainText('The list could not be loaded.');
+		await page.unroute('**/_astro/PeopleList.*.js');
+		await page.getByRole('alert').getByRole('button', { name: 'Retry', exact: true }).click();
+		await expect(page.getByRole('combobox', { name: 'Find a person by name or id' })).toBeVisible();
+	});
+});
+
+test.describe('the panel opens on the person chosen', () => {
+	test('the active option is the chosen person, scrolled into view', async ({ page }, info) => {
+		test.skip(isTouch(info), 'a mouse and a keyboard');
+		await open(page, info);
+		const r = await resultOf(page);
+		// A person far down the list of 24, so that opening on them needs the scroll.
+		const people = r.resources.filter((x) => !x.group);
+		const last = people[people.length - 1];
+		if (!last) throw new Error('no people');
+		await openPanel(page);
+		await choosePerson(page, last.id, last.name);
+		await closePanel(page);
+		await openPanel(page);
+		const option = panel(page).locator(`[role="option"][data-person="${last.id}"]`);
+		await expect(option).toHaveAttribute('aria-selected', 'true');
+		await expect(option).toBeInViewport();
+		await expect(
+			page.getByRole('combobox', { name: 'Find a person to filter by' }),
+		).toHaveAttribute('aria-activedescendant', (await option.getAttribute('id')) ?? '');
+	});
+});
+
 test.describe('the keyboard', () => {
 	test('opens, searches, picks a person and a flag, and Escape returns to the button', async ({
 		page,
@@ -479,7 +620,7 @@ test.describe('the keyboard', () => {
 		const r = await resultOf(page);
 		const flags = flagsOfText(await rig.text());
 		const person = aPerson(r);
-		const withFlag = [...person.tasks].flatMap((t) => [...carried(flags, t)]);
+		const withFlag = [...person.tasks].flatMap((t) => [...flagsOfTask(flags, t)]);
 		const flag = withFlag[0];
 		if (flag === undefined) throw new Error('the person has no flagged task');
 
@@ -504,7 +645,7 @@ test.describe('the keyboard', () => {
 		const steps = names.indexOf(flag);
 		expect(steps).toBeGreaterThan(0);
 		for (let i = 0; i < steps; i++) await page.keyboard.press('ArrowDown');
-		await expect(button(page)).toHaveAccessibleName(`Filter: ${person.name}, flag ${flag}`);
+		await expect(button(page)).toHaveAccessibleName(`Filter: ${person.name} \u00b7 flag ${flag}`);
 		await expectRows(
 			page,
 			r,
