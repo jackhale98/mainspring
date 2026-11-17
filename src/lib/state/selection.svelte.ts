@@ -40,8 +40,8 @@
  * - A selected person stays selected when the index no longer has it (an undo of Add person): the
  *   source mark goes, and comes back with the person (a redo). The views say "no longer in the
  *   plan", as the details do for a task.
- * - The cursor does not select a person yet: `resourceAtCursor` comes with the person details
- *   (T17), the first place a selected person is shown.
+ * - A cursor inside a `resource` block selects that person, from the text (`resourceAtCursor`,
+ *   resource-cursor.ts, T17).
  * View, zoom, unit (hours or percent), thresholds and the collapsed groups are UI preferences per
  * plan (ADR-0008 #3; workload/prefs.ts).
  */

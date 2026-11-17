@@ -789,6 +789,8 @@ export const inspectorStrings = {
 	panel: 'Details',
 	taskTitle: 'Task details',
 	linkTitle: 'Link details',
+	/** The details of a selected person (the rest of their copy is strings-resources.ts). */
+	personTitle: 'Person details',
 	close: 'Close',
 	closeDetails: 'Close details',
 	hidePanel: 'Hide details',
@@ -1265,13 +1267,6 @@ export const strings = {
 			/** The name the new person starts with; the details rename it. */
 			newPerson: 'New person',
 			label: (name: string) => `Added ${name}`,
-		},
-		/** What a view not built yet shows (replaced by T14 to T17). */
-		coming: {
-			workload: 'The workload heatmap is coming.',
-			resources: 'The resource lanes and table are coming.',
-			calendar: 'The calendar of holidays and leaves is coming.',
-			team: 'The team list is coming.',
 		},
 	},
 	/** "New plan…" (ADR-0013): the chooser's entries and the sheet that makes the plan. */
