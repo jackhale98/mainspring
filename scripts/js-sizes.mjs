@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// JS sizes of the built app (phase-2.md 11.3, 13.4, 18.11; budget amended by the user 2026-11-16).
+// JS sizes of the built app (phase-2.md 11.3, 13.4, 18.11; budget amended by the user 2026-11-16,
+// raised by the user 2026-11-17).
 // The budgets are on what a first load fetches, where the user waits, plus a loose guard on the
 // whole app and caps on named lazy chunks:
 //
-//   1. the JS a first load fetches in Visual mode (310,000 bytes gzip) and in Text mode (420,000),
+//   1. the JS a first load fetches in Visual mode (330,000 bytes gzip) and in Text mode (440,000),
 //      measured in a browser against a preview: enforced (exit 1). The code-split CodeMirror chunk
 //      is fetched in Text and Split, never in Visual: enforced too;
-//   2. the total gzip of every script in dist/_astro: a guard of 600,000 bytes against accidents,
+//   2. the total gzip of every script in dist/_astro: a guard of 650,000 bytes against accidents,
 //      enforced;
 //   3. each named lazy chunk (CHUNK_CAPS, matched by file name): its own cap, enforced.
 //
@@ -21,9 +22,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-export const TOTAL_CAP = 600_000;
-export const VISUAL_FIRST_CAP = 310_000;
-export const TEXT_FIRST_CAP = 420_000;
+export const TOTAL_CAP = 650_000;
+export const VISUAL_FIRST_CAP = 330_000;
+export const TEXT_FIRST_CAP = 440_000;
 /**
  * Lazy chunks with their own cap, by file name (Rollup names a chunk after its entry module, and
  * a chunk two views share after one of its modules). `view: true` marks a People view chunk: none
