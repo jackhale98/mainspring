@@ -16,6 +16,8 @@ export default defineConfig({
 		'**/*.test.ts',
 		'**/engine-responsiveness.spec.ts',
 		...(process.env['E2E_PERF'] === '1' ? [] : ['**/text-mode-perf.spec.ts']),
+		// CI runs the Gantt frame-rate gate in a step of its own, alone on the runner (ci.yml).
+		...(process.env['E2E_SKIP_GANTT_PERF'] === '1' ? ['**/gantt-perf.spec.ts'] : []),
 	],
 	fullyParallel: true,
 	forbidOnly: !!process.env['CI'],
