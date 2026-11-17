@@ -200,6 +200,8 @@
 		align-items: center;
 		gap: var(--space-1);
 		min-block-size: var(--size-control);
+		/* The label is the checkbox's target: 44 px across as well as down (phase-3 10). */
+		min-inline-size: var(--size-control);
 		font-size: var(--text-sm);
 	}
 	.off input {
