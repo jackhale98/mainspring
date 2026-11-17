@@ -19,7 +19,7 @@ import { bootNodeEngine } from '../../../engine/golden/run-wasm.mjs';
 import { ROOT } from '../../../tests/grammar/corpus';
 import type { ScheduleResult } from '../../engine/protocol';
 import { demandOf } from './demand';
-import { explainTask } from './explain';
+import { explainTask } from './explain-task';
 import { firstSlotOracle, inlineContext, partitionProblems, windowed } from './explain-testing';
 import type { ExplainContext } from './explain-types';
 import { at } from './testing';

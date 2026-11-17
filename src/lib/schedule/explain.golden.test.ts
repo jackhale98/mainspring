@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { loadCorpus } from '../../../tests/golden/corpus';
 import type { ScheduleResult } from '../../engine/protocol';
 import { demandOf } from './demand';
-import { explainTask } from './explain';
+import { explainTask } from './explain-task';
 import { firstSlotOracle, goldenContext, partitionProblems, windowed } from './explain-testing';
 
 const corpus = loadCorpus().filter(

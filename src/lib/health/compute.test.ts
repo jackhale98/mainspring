@@ -4,11 +4,12 @@
 // once per result and index, a result with nothing to check gives no context, and a placement is
 // the explainer's own.
 import { describe, expect, it } from 'vitest';
-import { explainTask } from '../schedule/explain';
+import { explainTask } from '../schedule/explain-task';
 import { goldenContext, goldenResult } from '../schedule/explain-testing';
 import { golden } from '../tjp/index/testing';
 import { buildIndex, hintsFromResult } from '../tjp/index';
-import { contextFor, computeHealth, placementOf } from './compute';
+import { contextFor, computeHealth } from './compute';
+import { placementOf } from './why';
 import { withLinkMilestones } from './settings';
 import { DEFAULT_HEALTH_SETTINGS } from './types';
 

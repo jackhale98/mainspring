@@ -59,7 +59,7 @@ export const CHUNK_CAPS = [
 	// The checks and the explainer's context (lib/health/compute.ts). A first load fetches them in
 	// an idle task after the first result: the Health button's count is made from them. What they
 	// import (demand, analysis, ...) is counted in the first load.
-	{ name: 'health-checks', pattern: /^compute\./, cap: 5_600 },
+	{ name: 'health-checks', pattern: /^(compute|health-checks)\./, cap: 13_300 },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
@@ -108,7 +108,7 @@ export function viewChunkSet(sources, html) {
 	walk(shell, ANY_REF, reach);
 	const shared = new Set();
 	walk(
-		Object.keys(sources).filter((f) => /^(compute|WhyHere)\./.test(f)),
+		Object.keys(sources).filter((f) => /^(compute|health-checks|WhyHere)\./.test(f)),
 		ANY_REF,
 		shared,
 	);

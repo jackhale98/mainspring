@@ -4,7 +4,7 @@
 // finish, "says less when unsure", and the frame cause that never claims a start at the project
 // start. Expectations are the sentences for the hand-checked causes of explain.test.ts.
 import { describe, expect, it } from 'vitest';
-import { explainTask } from '../schedule/explain';
+import { explainTask } from '../schedule/explain-task';
 import { goldenContext } from '../schedule/explain-testing';
 import type { Placement } from '../schedule/explain-types';
 import { whyText, windowText } from './why-text';

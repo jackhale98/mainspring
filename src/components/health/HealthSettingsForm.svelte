@@ -19,7 +19,7 @@
 	const MIN = 1;
 	const MAX = 3650;
 	const uid = $props.id();
-	const settings = $derived(app.health.settings);
+	const settings = $derived(app.health.settings ?? defaultHealthSettings());
 	let gap = $state('');
 	let task = $state('');
 	let invalid = $state<'gap' | 'task' | null>(null);

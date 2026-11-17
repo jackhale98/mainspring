@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ScheduleResult } from '../../engine/protocol';
 import { goldenContext } from '../schedule/explain-testing';
 import * as compute from '../health/compute';
-import { withLinkMilestones } from '../health/settings';
+import { defaultHealthSettings, withLinkMilestones } from '../health/settings';
 import type { Finding, HealthReport } from '../health/types';
 import { HealthState } from './health.svelte';
 import type { PrefStorage } from './storage';
@@ -85,17 +85,24 @@ describe('HealthState with the real checks', () => {
 		idle.run();
 		await settle();
 		const before = s.report?.counts;
-		s.setSettings(withLinkMilestones(s.settings, true));
+		s.setSettings(withLinkMilestones(s.settings ?? defaultHealthSettings(), true));
 		await settle();
 		expect(storage.map.get('mainspring.health.fedora-res')).toBe('{"linkMilestones":true}');
 		expect(s.report?.counts['no-predecessor']).toBeGreaterThan(before?.['no-predecessor'] ?? 0);
 		expect(s.report?.counts['no-successor']).toBeGreaterThan(before?.['no-successor'] ?? 0);
 		// Another plan has its own; coming back reads this one again.
 		s.use('other');
-		expect(s.settings.linkMilestones).toBe(false);
+		expect(s.settings).toBeNull();
 		expect(s.report).toBeNull();
+		s.offer(result, index);
+		idle.run();
+		await settle();
+		expect(s.settings?.linkMilestones).toBe(false);
 		s.use('fedora-res');
-		expect(s.settings.linkMilestones).toBe(true);
+		s.offer(result, index);
+		idle.run();
+		await settle();
+		expect(s.settings?.linkMilestones).toBe(true);
 	});
 
 	it('a check turned off has no findings and no count', async () => {
@@ -110,9 +117,10 @@ describe('HealthState with the real checks', () => {
 		s.offer(result, index);
 		idle.run();
 		await settle();
+		const now = s.settings ?? defaultHealthSettings();
 		s.setSettings({
-			...s.settings,
-			enabled: { ...s.settings.enabled, 'no-predecessor': false, 'no-successor': false },
+			...now,
+			enabled: { ...now.enabled, 'no-predecessor': false, 'no-successor': false },
 		});
 		await settle();
 		expect(s.report?.counts['no-predecessor']).toBe(0);
@@ -136,6 +144,9 @@ describe('HealthState with scripted reports', () => {
 	});
 	const fake = (reports: HealthReport[]) => ({
 		computeHealth: vi.fn(() => reports.shift() ?? null),
+		newFindings: compute.newFindings,
+		readHealthSettings: compute.readHealthSettings,
+		writeHealthSettings: compute.writeHealthSettings,
 	});
 	const resultOf = (revision: number): ScheduleResult => ({ ...fedora().result, revision });
 
@@ -199,7 +210,7 @@ describe('HealthState with scripted reports', () => {
 		s.offer(resultOf(1), fedora().index);
 		idle.run();
 		await settle();
-		s.setSettings({ ...s.settings, longGapDays: 9 });
+		s.setSettings({ ...(s.settings ?? defaultHealthSettings()), longGapDays: 9 });
 		await settle();
 		expect(s.count).toBe(2);
 		expect(s.announcement).toBe('');

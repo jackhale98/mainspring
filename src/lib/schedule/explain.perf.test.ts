@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import { availabilityOf } from '../workload/availability';
 import { demandOf } from './demand';
-import { explainTask } from './explain';
+import { explainTask } from './explain-task';
 import { goldenContext } from './explain-testing';
 
 const PLANS = ['fedora-res', 'syn-20-scale-1000', 'gantt-500'];

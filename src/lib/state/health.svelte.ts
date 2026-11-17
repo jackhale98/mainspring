@@ -10,8 +10,8 @@
  *   (`whenIdle`, after the Gantt's analysis, as the heatmap's model is), once per result and index;
  *   until then `count` is null and the button says only its name. A chunk that cannot be fetched
  *   leaves `status` at `failed` (the panel offers "Try again"); the plan is not affected.
- * - **Settings are UI preferences per plan** (settings.ts, ADR-0008 #3), read when a plan opens
- *   and written as they change. A change makes a new report at once from the same result.
+ * - **Settings are UI preferences per plan** (settings.ts, ADR-0008 #3), read by the checks' chunk
+ *   before the first report of a plan and written as they change. A change makes a new report at once from the same result.
  * - **New findings** after a reschedule are announced once per result, as a count ("2 new
  *   problems", WCAG 4.1.3): not for the first report of a plan, and not for a settings change.
  * - **The panel** is `open` on every layout (the right panel's Health tab on a desktop, a bottom
@@ -23,15 +23,17 @@
 import type { ScheduleResult } from '../../engine/protocol';
 import { whenIdle, type Scheduler } from '../gantt/analysis';
 import type { Detent } from '../inspector/detent';
-import { newFindings, type SeverityFilter } from '../health/panel-model';
-import { readHealthSettings, writeHealthSettings } from '../health/settings';
-import { DEFAULT_HEALTH_SETTINGS, type HealthReport, type HealthSettings } from '../health/types';
+import type { SeverityFilter } from '../health/panel-model';
+import type { HealthReport, HealthSettings } from '../health/types';
 import { strings } from '../strings';
 import type { SymbolIndex } from '../tjp/index';
 import { browserStorage, type PrefStorage } from './storage';
 
 /** The lazy half: `lib/health/compute.ts`. */
-type Compute = Pick<typeof import('../health/compute'), 'computeHealth'>;
+type Compute = Pick<
+	typeof import('../health/compute'),
+	'computeHealth' | 'newFindings' | 'readHealthSettings' | 'writeHealthSettings'
+>;
 
 export type HealthStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
@@ -53,7 +55,8 @@ export class HealthState {
 	/** The sheet's height in px while it is open (the toasts clear it), and how tall it is asked to be. */
 	sheetHeight = $state(0);
 	detent = $state<Detent>('half');
-	settings = $state.raw<HealthSettings>(DEFAULT_HEALTH_SETTINGS);
+	/** The plan's settings; null until the checks' chunk has read them (a panel shows the defaults). */
+	settings = $state.raw<HealthSettings | null>(null);
 	report = $state.raw<HealthReport | null>(null);
 	/** What the report was made from: the names and dates of its sentences are read from it. */
 	basis = $state.raw<{ result: ScheduleResult; index: SymbolIndex } | null>(null);
@@ -93,7 +96,7 @@ export class HealthState {
 		this.basis = null;
 		this.status = 'idle';
 		this.announcement = '';
-		this.settings = readHealthSettings(this.#storage, plan);
+		this.settings = null;
 		this.severity = 'all';
 		this.settingsOpen = false;
 		this.open = false;
@@ -123,7 +126,9 @@ export class HealthState {
 	/** Takes new settings (stored for the plan) and makes the report again at once. */
 	setSettings(next: HealthSettings): void {
 		this.settings = next;
-		if (this.#plan !== '') writeHealthSettings(this.#storage, this.#plan, next);
+		const plan = this.#plan;
+		if (plan !== '')
+			void this.#compute?.then((c) => c.writeHealthSettings(this.#storage, plan, next));
 		if (this.#input) void this.#make(false);
 	}
 
@@ -169,6 +174,8 @@ export class HealthState {
 		}
 		// A newer result, another plan or a closed plan: that one makes its own report.
 		if (this.#disposed || this.#input !== input) return;
+		// The settings are read from the chunk that holds their parser: a first load has none of it.
+		this.settings ??= compute.readHealthSettings(this.#storage, this.#plan);
 		const report = compute.computeHealth(input.result, input.index, this.settings);
 		if (report === null) {
 			this.status = this.report === null ? 'idle' : 'ready';
@@ -179,7 +186,7 @@ export class HealthState {
 		this.basis = input;
 		this.status = 'ready';
 		if (announce && was !== null && was.revision !== report.revision) {
-			const n = newFindings(was, report);
+			const n = compute.newFindings(was, report);
 			if (n > 0) this.#say(strings.health.newProblems(n));
 		}
 	}

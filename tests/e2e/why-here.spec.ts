@@ -14,7 +14,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { whyText } from '../../src/lib/health/why-text';
-import { explainTask } from '../../src/lib/schedule/explain';
+import { explainTask } from '../../src/lib/schedule/explain-task';
 import { goldenContext } from '../../src/lib/schedule/explain-testing';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { findings, openHealth, openPlan, selectionOf, TAGS } from './lib/health-rig';

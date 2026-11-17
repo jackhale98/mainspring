@@ -13,7 +13,7 @@
 	Escape closes the panel (the settings page first) and returns the focus to the Health button.
 -->
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import { InspectorActions } from '../../lib/inspector/actions';
 	import { assignable } from '../../lib/inspector/task';
 	import {
@@ -62,16 +62,25 @@
 	let root: HTMLElement | undefined = $state();
 	let summary: HTMLElement | undefined = $state();
 
-	// Opened from the keyboard (the button or the tab has the focus ring): the focus moves in.
-	onMount(() => {
+	// Opened from the keyboard (the Health button has the focus ring): the focus moves in, on each
+	// request to show the panel (a tab keeps its own focus, as the tab pattern says). A sheet is a dialog that opens a moment after the request, so the
+	// focus waits two frames for it.
+	$effect(() => {
+		void health.serial;
 		const a = document.activeElement;
-		if (
+		if (!(
 			a instanceof HTMLElement &&
-			a.closest('[data-testid="health-button"], [role="tab"]') &&
+			a.closest('[data-testid="health-button"]') &&
 			a.matches(':focus-visible')
-		) {
-			summary?.focus();
-		}
+		))
+			return;
+		let cancelled = false;
+		requestAnimationFrame(() =>
+			requestAnimationFrame(() => {
+				if (!cancelled && health.open) summary?.focus();
+			}),
+		);
+		return () => (cancelled = true);
 	});
 
 	// --- What a fix does, through the app's doors (run-fix.ts)

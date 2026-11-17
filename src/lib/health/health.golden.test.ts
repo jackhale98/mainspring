@@ -5,7 +5,7 @@
 // fixtures (18.8), and fedora-res: the counts per check, and two findings checked by hand against
 // the text and the bookings.
 import { describe, expect, it } from 'vitest';
-import { explainTask } from '../schedule/explain';
+import { explainTask } from '../schedule/explain-task';
 import { goldenContext } from '../schedule/explain-testing';
 import { checkPlan } from './report';
 import { goldenInput, goldenReport, only } from './testing';

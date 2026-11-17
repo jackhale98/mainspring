@@ -292,6 +292,37 @@ test.describe('the phone path', () => {
 	});
 });
 
+test.describe('the tablet sheet', () => {
+	test.beforeEach(({ browserName: _b }, info) => {
+		test.skip(phoneOf(info), 'the desktop project, resized to a tablet');
+	});
+
+	test('opens from the Health button and gives the focus back to it when it closes', async ({
+		page,
+	}, info) => {
+		await page.setViewportSize({ width: 820, height: 1180 });
+		await openPlan(page, info);
+		const button = page.getByTestId('health-button');
+		await expect(button).toHaveAttribute('data-count', '241', { timeout: READY_TIMEOUT_MS });
+		await button.focus();
+		await page.keyboard.press('Enter');
+		const sheet = page.getByRole('dialog', { name: 'Plan health' });
+		await expect(sheet).toBeVisible();
+		await expect(sheet.getByTestId('health-summary')).toBeFocused();
+		// Not modal: the top bar is still there, and the button says the sheet is open.
+		await expect(button).toHaveAttribute('aria-expanded', 'true');
+		await sheet.getByRole('button', { name: 'Close plan health' }).click();
+		await expect(sheet).toHaveCount(0);
+		await expect(button).toBeFocused();
+		await expect(button).toHaveAttribute('aria-expanded', 'false');
+		// And again, from the button.
+		await button.click();
+		await expect(sheet).toBeVisible();
+		await button.click();
+		await expect(sheet).toHaveCount(0);
+	});
+});
+
 test.describe('accessibility', () => {
 	for (const scheme of ['light', 'dark'] as const) {
 		test(`axe finds nothing in ${scheme}: the list and the settings`, async ({ page }, info) => {

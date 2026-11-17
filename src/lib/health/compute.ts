@@ -2,8 +2,10 @@
 /**
  * What the health panel and "Why here?" need from one result (phase-3.md 6.3, 6.4, 8.3): the
  * explainer's context, the demand marks, the health report, and one task's placement. This is the
- * lazy half of plan health: nothing here is imported by a first load (`state/health.svelte.ts`
- * imports it when the first result has settled). Display data (ADR-0007): the report and the
+ * lazy half of plan health: a first load imports it in an idle task after the first result
+ * (`state/health.svelte.ts`), so it holds the checks and the demand only: the explainer's
+ * `explainTask` is why.ts, which the "Why here?" UI imports, and the panel's grouping is
+ * panel-model.ts. Display data (ADR-0007): the report and the
  * placements are read from the result and the text, never sent to the engine.
  *
  * - **One context per result and index.** The explainer reads the text through the index, which
@@ -20,13 +22,14 @@ import { createTimeZoneHost } from '../../engine/timezone';
 import { analysisOf } from '../gantt/analysis';
 import { report } from '../report';
 import { demandOf } from '../schedule/demand';
-import type { DemandMarks, ExplainContext, Placement } from '../schedule/explain-types';
-import { explainTask } from '../schedule/explain';
+import type { DemandMarks, ExplainContext } from '../schedule/explain-types';
 import { finishScenario } from '../schedule/finish';
 import { workingTimeOf } from '../schedule/working-time';
-import type { SymbolIndex, TaskId } from '../tjp/index';
+import type { SymbolIndex } from '../tjp/index';
 import { availabilityOf } from '../workload/availability';
+import { newFindings } from './panel-model';
 import { checkPlan } from './report';
+import { readHealthSettings, writeHealthSettings } from './settings';
 import type { HealthReport, HealthSettings } from './types';
 
 export const HEALTH_MEASURE = 'mainspring:health-check';
@@ -107,17 +110,4 @@ export function computeHealth(
 	}
 }
 
-/** One task's placement (why it starts or ends where it does), or null when it cannot be told. */
-export function placementOf(
-	result: ScheduleResult,
-	index: SymbolIndex,
-	task: TaskId,
-): { placement: Placement; ctx: ExplainContext } | null {
-	try {
-		const ctx = contextFor(result, index);
-		return ctx ? { placement: explainTask(task, ctx), ctx } : null;
-	} catch (error) {
-		report(error);
-		return null;
-	}
-}
+export { newFindings, readHealthSettings, writeHealthSettings };

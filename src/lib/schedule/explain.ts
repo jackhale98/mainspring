@@ -52,10 +52,10 @@
 // true. Nothing is held either way.
 import type { DependencyResult, Minutes, TaskScenarioResult } from '../../engine/protocol';
 import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
-import { overlaps, subtract } from '../workload/intervals';
+import { overlaps } from '../workload/intervals';
 import type { PersonAvailability } from '../workload/types';
 import { earliestUnder } from './critical';
-import { prepOf, type Prep } from './explain-prep';
+import type { Prep } from './explain-prep';
 import {
 	narrowsBooking,
 	personLimitSite,
@@ -64,7 +64,7 @@ import {
 	taskLimitSites,
 	writtenDates,
 } from './explain-text';
-import type { Cause, ExplainContext, ExplainTaskFn, Placement } from './explain-types';
+import type { Cause, ExplainContext } from './explain-types';
 import { hadFree, windowCauses } from './explain-window';
 import { latestUnder } from './float';
 import type { Edge } from './graph';
@@ -250,57 +250,3 @@ export function waitOf(id: TaskId, s: TaskScenarioResult, ctx: ExplainContext, p
 	}
 	return { bound, window: [lo, hi], causes: read.causes, held: [...held] };
 }
-
-/** The gaps inside an effort leaf's bar and what they show (rule 4). */
-export function insideOf(
-	id: TaskId,
-	s: TaskScenarioResult,
-	ctx: ExplainContext,
-	prep: Prep,
-): Cause[] {
-	const out: Cause[] = [];
-	if (s.start === null || s.end === null) return out;
-	const seen = new Set<string>();
-	const narrowed = narrowsBooking(ctx.index, id);
-	for (const [a, b] of subtract([[s.start, s.end]], prep.booked(id))) {
-		const { causes, free } = readWindow(id, s, a, b, ctx, prep, narrowed);
-		if (free || causes[0]?.kind === 'unknown') {
-			for (const c of causes) {
-				const key = c.kind === 'limit' ? `${c.site.file}:${c.site.from}` : c.kind;
-				if (!seen.has(key)) out.push(c);
-				seen.add(key);
-			}
-			continue;
-		}
-		for (const c of causes) if (c.kind !== 'off-hours' || c.resource !== null) out.push(c);
-	}
-	return out;
-}
-
-export const explainTask: ExplainTaskFn = (id, ctx): Placement => {
-	const prep = prepOf(ctx);
-	const s = prep.scenarioOf(id);
-	const anchor = s?.direction === 'alap' ? 'end' : 'start';
-	const at = s ? (anchor === 'end' ? s.end : s.start) : null;
-	if (!s || !s.scheduled || at === null) {
-		return { task: id, anchor, bound: null, at: null, causes: [], inside: [] };
-	}
-	const wait = waitOf(id, s, ctx, prep);
-	const bound = wait.bound.causes;
-	const causes =
-		wait.window === null && wait.causes[0]?.kind === 'unknown'
-			? wait.causes
-			: anchor === 'start'
-				? [...bound, ...wait.causes]
-				: [...wait.causes, ...bound];
-	const chain = scenarioChainOf(ctx.result.project, ctx.scenario);
-	const effortLeaf = !prep.containers.has(id) && sizeKindOf(ctx.index, id, chain) === 'effort';
-	return {
-		task: id,
-		anchor,
-		bound: wait.bound.bound,
-		at,
-		causes,
-		inside: effortLeaf ? insideOf(id, s, ctx, prep) : [],
-	};
-};
