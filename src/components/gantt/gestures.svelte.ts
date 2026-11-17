@@ -66,6 +66,10 @@ import type { LinkMode } from './link-mode.svelte';
 export interface GestureHost {
 	readonly actor: GanttActor;
 	readonly links: LinkMode;
+	/** Assign mode is on (the toolbar's Assign control): the cursor says each bar takes a person. */
+	assigning(): boolean;
+	/** A tap on a bar's row in assign mode books the person there; false when the mode is off. */
+	assignTap(row: number): boolean;
 	model(): GanttModel;
 	layout(): GanttLayout;
 	/** The plot's own box: content x = client x minus its left, content y likewise. */
@@ -141,6 +145,8 @@ export class GanttGestures {
 	#snappers: { wt: WorkingTime; day: DragSnapper; alap: DragSnapper } | null = null;
 	#alap = false;
 	#linking = false;
+	/** The pointer that pressed a bar in assign mode: its release on a bar books the person. */
+	#assignPress: number | null = null;
 	#preflight: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(host: GestureHost) {
@@ -210,7 +216,10 @@ export class GanttGestures {
 		on('pointerdown', (e) => this.#pointerdown(e));
 		on('pointermove', (e) => this.#pointermove(e));
 		on('pointerup', (e) => this.#pointerup(e));
-		on('pointercancel', (e) => this.#feed(this.#input('cancel', e)));
+		on('pointercancel', (e) => {
+			if (this.#assignPress === e.pointerId) this.#assignPress = null;
+			else this.#feed(this.#input('cancel', e));
+		});
 		on('lostpointercapture', () => {
 			if (this.#ctl.state === 'dragging') this.#feed({ type: 'reset' });
 		});
@@ -307,10 +316,25 @@ export class GanttGestures {
 	}
 
 	#pointerdown(e: PointerEvent): void {
+		// Assign mode: a press on a bar is for the person, so no move or resize begins (a wobble of
+		// the hand while clicking must not drag the bar). Its release books them.
+		if (this.#h.assigning() && e.pointerType !== 'touch' && e.button === 0) {
+			const p = this.#point(e.clientX, e.clientY);
+			if (this.#hit(p.x, p.y).kind === 'bar') {
+				this.#assignPress = e.pointerId;
+				try {
+					this.#el?.setPointerCapture(e.pointerId);
+				} catch {
+					// The pointer is gone: the release never comes, and the press is dropped with it.
+				}
+				return;
+			}
+		}
 		this.#feed(this.#input('down', e));
 	}
 
 	#pointermove(e: PointerEvent): void {
+		if (this.#assignPress === e.pointerId) return this.#hover(e);
 		const idle = this.#ctl.state === 'idle';
 		if (idle && e.pointerType !== 'touch') {
 			this.#hover(e);
@@ -321,6 +345,18 @@ export class GanttGestures {
 	}
 
 	#pointerup(e: PointerEvent): void {
+		if (this.#assignPress === e.pointerId) {
+			this.#assignPress = null;
+			try {
+				if (this.#el?.hasPointerCapture(e.pointerId)) this.#el.releasePointerCapture(e.pointerId);
+			} catch {
+				// Already released.
+			}
+			const p = this.#point(e.clientX, e.clientY);
+			const hit = this.#hit(p.x, p.y);
+			if (hit.kind === 'bar') this.#h.assignTap(hit.row);
+			return;
+		}
 		this.#feed(this.#input('up', e));
 	}
 
@@ -346,7 +382,11 @@ export class GanttGestures {
 		const link = hit.kind === 'link' ? hit.link : null;
 		if (link !== this.hoverLink) this.hoverLink = link;
 		const textOnly = hit.kind === 'bar' && model.rows[hit.row]?.textOnly != null;
-		this.cursor = this.#h.links.active ? 'crosshair' : cursorOf(hit, textOnly);
+		this.cursor = this.#h.links.active
+			? 'crosshair'
+			: this.#h.assigning() && hit.kind === 'bar'
+				? 'copy'
+				: cursorOf(hit, textOnly);
 		const links = this.#h.links;
 		if (links.active && links.state?.via === 'tap') {
 			links.point(p.x, p.y);
@@ -435,6 +475,7 @@ export class GanttGestures {
 		const h = this.#h;
 		const links = h.links;
 		if (hit.kind === 'bar') {
+			if (h.assignTap(hit.row)) return;
 			if (links.active && links.state?.via === 'tap') {
 				if (hit.row === links.state.from) links.cancel();
 				else void links.complete(hit.row);

@@ -148,11 +148,10 @@ test.describe('the edges of the gestures', () => {
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
 		const design = await rig.bar('design');
-		const chip = await page.locator('[data-person="dev3"]').boundingBox();
-		if (!chip) throw new Error('no chip');
+		await rig.openPeople();
 		// Near the start of the summary bar, which is wider than the chart.
 		const onDesign = { x: design.box.x + 24, y: design.box.y + design.box.h / 2 };
-		await rig.drag({ x: chip.x + chip.width / 2, y: chip.y + chip.height / 2 }, onDesign, {
+		await rig.drag(await rig.optionPoint('dev3'), onDesign, {
 			pause: async () => {
 				await expect(page.getByTestId('gantt-overlay')).toBeVisible();
 				if (process.env['SCREENSHOTS'] === '1') {
@@ -166,7 +165,8 @@ test.describe('the edges of the gestures', () => {
 		expect(await rig.text()).toBe(before);
 		// The key path: a container selected, Enter on a person.
 		await rig.row('task:design').locator('.label').click();
-		await page.locator('[data-person="dev3"]').focus();
+		await rig.openPeople();
+		await page.keyboard.type('dev 3');
 		await page.keyboard.press('Enter');
 		await expect(rig.toast.last()).toContainText(CONTAINER_MESSAGE);
 		expect(await rig.text()).toBe(before);
@@ -188,12 +188,8 @@ test.describe('the edges of the gestures', () => {
 		if (!scroller) throw new Error('no chart');
 		// The bar's own place is above the first visible row: inside the header's band.
 		expect(b.box.y).toBeLessThan(scroller.y + 64);
-		const chip = await page.locator('[data-person="dev3"]').boundingBox();
-		if (!chip) throw new Error('no chip');
-		await rig.drag(
-			{ x: chip.x + chip.width / 2, y: chip.y + chip.height / 2 },
-			{ x: b.box.x + 10, y: b.box.y + 6 },
-		);
+		await rig.openPeople();
+		await rig.drag(await rig.optionPoint('dev3'), { x: b.box.x + 10, y: b.box.y + 6 });
 		await page.waitForTimeout(800);
 		expect(await rig.text()).toBe(before);
 	});

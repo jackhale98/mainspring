@@ -3,7 +3,7 @@
 // - axe in light and dark, on desktop and the Pixel 7, in every state of the audit scope: Text,
 //   Split and Visual; the treegrid; the details panel, drawer and sheet; the project and source
 //   sheets; the phone's status popover; the row menu; the shortcuts dialog; the move question;
-//   link mode; the people palette; the toasts.
+//   link mode; the people picker (list, no match, assign mode); the toasts.
 // - 44 px targets on a coarse pointer (10.3): every interactive element of those states, measured.
 // - reduced motion, forced colours, and the accessible names read from the a11y tree.
 // - the keyboard walkthrough of 10.2: focus order, the visible ring, no trap, Escape returns.
@@ -125,16 +125,22 @@ test.describe('axe', () => {
 			await page.keyboard.press('Escape');
 			await expect(page.getByTestId('link-banner')).not.toBeVisible();
 
-			// The people palette (a mouse's: a finger books people in the details sheet).
+			// The people picker (a mouse's: a finger books people in the details sheet).
 			if (!rig.touch) {
-				// The palette is open by default; the chip shows and hides it.
-				const palette = page.getByTestId('people-palette');
-				if (!(await palette.isVisible()))
-					await page.getByRole('button', { name: 'People', exact: true }).click();
-				await expect(palette).toBeVisible();
-				await axe(page, `people palette (${scheme})`);
-				await page.getByRole('button', { name: 'People', exact: true }).click();
-				await expect(palette).not.toBeVisible();
+				await rig.openPeople();
+				await expect(page.getByTestId('people-list')).toBeVisible();
+				await axe(page, `people list (${scheme})`);
+				// No match, then assign mode: the list's empty state and the toolbar's pill are audited too.
+				await page.keyboard.type('zz');
+				await axe(page, `people list, no match (${scheme})`);
+				await page.keyboard.press('Escape');
+				await expect(page.getByTestId('people-list')).not.toBeVisible();
+				await rig.openPeople();
+				await rig.personOption('dev2').click();
+				await page.getByTestId('assign-mode').waitFor();
+				await axe(page, `assign mode (${scheme})`);
+				await page.getByRole('button', { name: 'Done assigning' }).click();
+				await expect(page.getByTestId('assign-mode')).not.toBeVisible();
 			}
 
 			// The move question: a first move of a bar asks where to write it.
