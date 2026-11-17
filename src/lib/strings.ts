@@ -579,6 +579,9 @@ export const gestureStrings = {
 		hint: 'Drag a person onto a bar to book them on that task. Click a person to book them on several bars in a row. With a task selected, Enter books the person on it.',
 		none: 'No people in this plan yet.',
 		noMatch: (query: string) => `No one matches "${query}".`,
+		/** The list is its own chunk; it could not be fetched. */
+		loadFailed: 'The list could not be loaded.',
+		retry: 'Retry',
 		count: (n: number) => (n === 1 ? '1 person' : `${n} people`),
 		/** In a list option: the person is already on the selected task. */
 		onSelected: 'on the selected task',
@@ -1130,6 +1133,33 @@ export const strings = {
 		/** The task's line with its estimate note, e.g. "Code: 3 Mar to 9 Mar 2026. On the critical path (estimate)". */
 		withNote: (line: string, note: string) => `${line}. ${note}`,
 		unscheduledRow: (name: string) => `${name}: not scheduled yet`,
+		/** The filter by person and flag (phase-3.md "Amendments from T19"; src/components/gantt/FilterControl.svelte). */
+		filter: {
+			/** The toolbar button. The panel's own copy is in strings-filter.ts. */
+			label: 'Filter',
+			title: 'Show only the tasks of one person, or with one flag',
+			/** The button's name while a filter is on, e.g. "Filter: Dev 1 · flag key". */
+			on: (summary: string) => `Filter: ${summary}`,
+			summary: (person: string | null, flag: string | null) =>
+				[person, flag === null ? null : `flag ${flag}`].filter((p) => p !== null).join(' \u00b7 '),
+			clear: 'Clear filter',
+			/** The count in the panel: how many tasks the filter shows. */
+			shown: (n: number) => (n === 1 ? '1 task shown' : `${n} tasks shown`),
+			/** The line over the task table while a filter is on (and its live region), e.g. "Dev 1 · flag key · 5 tasks". */
+			note: (summary: string, n: number | null) =>
+				n === null
+					? summary
+					: `${summary} \u00b7 ${n === 0 ? 'no tasks' : n === 1 ? '1 task' : `${n} tasks`}`,
+			/** The filter's code could not be fetched: the chart shows the whole tree, and says so. */
+			failed: (summary: string) => `Filter ${summary} could not load`,
+			failedOn: (summary: string) => `Filter: ${summary}, could not load. Press to retry`,
+			retry: 'Retry',
+			none: 'No task matches the filter',
+			/** The chart when nothing matches. */
+			empty: 'No task matches this filter.',
+			/** A row's name for a screen reader when it is shown only for the tasks under it. */
+			contextRow: (line: string) => `${line}. Shown because a task under it matches the filter`,
+		},
 	},
 	/** The Gantt's task list, a treegrid (src/components/gantt/OutlineGrid.svelte, phase-2.md 10.1). */
 	grid: {

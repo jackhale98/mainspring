@@ -20,6 +20,11 @@
  * dependency is never silently lost; links that land on one pair of rows are one line that keeps
  * every site.
  *
+ * A filter (filter.ts) keeps only some rows: the matches and their ancestors, which are drawn as
+ * context (`GanttRow.context`). Links with an end on a row the filter left out are not drawn, and
+ * a collapsed container still stands for its hidden children as before. The # column is the whole
+ * outline's, so a row keeps its number under a filter.
+ *
  * The task table's # and link columns read `rowInfo`, built here from the same `links` and the whole
  * outline (not the visible rows), so a number never depends on what is collapsed.
  */
@@ -34,6 +39,7 @@ import { visibleRows, type OutlineNode, type OutlineReason } from '../state/outl
 import type { DependencySite, TaskId } from '../tjp/index';
 import type { ZoneOffsets } from '../tjp/values';
 import { finishScenario } from '../schedule/finish';
+import type { FilterView } from './filter';
 import { rowInfoOf, type RowInfo } from './row-links';
 import { MIN_PER_DAY } from './scale';
 import type { GanttCalendar } from './ticks';
@@ -102,6 +108,8 @@ export interface GanttRow {
 	readonly floatMin: number | null;
 	readonly lateEnd: Minutes | null;
 	readonly textOnly: OutlineReason | null;
+	/** Shown only because a task under it matches the filter (filter.ts): drawn muted. */
+	readonly context: boolean;
 }
 
 export interface GanttLink {
@@ -154,6 +162,8 @@ export interface ModelInput {
 	dimmed: boolean;
 	links: readonly RawLink[];
 	analysis: GanttAnalysis | null;
+	/** The filter's rows (`applyFilter`), or null to show the whole outline. */
+	filter?: FilterView | null;
 	zones?: ZoneOffsets;
 	locale?: string;
 }
@@ -240,7 +250,8 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 		});
 	}
 
-	const visible = visibleRows(i.nodes, i.collapsed);
+	const filter = i.filter ?? null;
+	const visible = visibleRows(filter ? filter.nodes : i.nodes, i.collapsed);
 	const rowOf = new Map<string, number>();
 	const rows: GanttRow[] = visible.map((r, index) => {
 		const n = r.node;
@@ -269,6 +280,7 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 			floatMin: id === null ? null : (analysis?.floatMin.get(id) ?? null),
 			lateEnd: id === null ? null : (analysis?.lateEnd.get(id) ?? null),
 			textOnly: n.textOnly,
+			context: filter !== null && !filter.matched.has(n.key),
 		};
 	});
 
@@ -277,6 +289,8 @@ export function buildGanttModel(i: ModelInput): GanttModel {
 	/** The row of a task, or of its nearest visible ancestor when it is collapsed away. */
 	const rowFor = (id: TaskId): number | null => {
 		let key: string | null = taskKey(id);
+		// A task the filter left out has no row, and does not borrow its ancestor's.
+		if (filter && !filter.keep.has(key)) return null;
 		while (key !== null) {
 			const row = rowOf.get(key);
 			if (row !== undefined) return row;

@@ -64,6 +64,7 @@ import { currentRange } from '../inspector/range';
 import type { SourceRange, TaskId } from '../tjp/index';
 import { nextProblem } from './diagnostics-nav';
 import { EditDispatcher, renamedBy } from './edits.svelte';
+import { GanttFilterState } from './gantt-filter.svelte';
 import { HistoryControls } from './history-controls.svelte';
 import { InspectorState } from './inspector.svelte';
 import { bindHistoryKeys } from './history-keys';
@@ -177,6 +178,8 @@ export class AppState {
 	edits = $state.raw<EditDispatcher | null>(null);
 	/** What the inspector shows and where (inspector.svelte.ts); the Gantt publishes its view here. */
 	readonly inspector = new InspectorState(this.selection);
+	/** The Gantt's filter by person and flag (gantt-filter.svelte.ts); another plan resets it. */
+	readonly ganttFilter = new GanttFilterState();
 	/** Undo and redo for the top bar and the keys (module comment). */
 	readonly history = new HistoryControls((o, quiet) => this.#onHistory(o, quiet));
 
@@ -357,6 +360,7 @@ export class AppState {
 		];
 		this.dirty = false;
 		this.collapsed = new Set();
+		this.ganttFilter.clear();
 		this.selection.clear();
 		this.sourceMark = null;
 		this.inspector.reset();

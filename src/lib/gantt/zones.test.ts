@@ -36,7 +36,9 @@ describe('memoZones', () => {
 				expect(memo.offset(zone, t)).toBe(c.host.offset(zone, t));
 			}
 		}
-	});
+		// Four zones over a year in half-hour steps: about 2 s alone, past the 5 s default when the
+		// machine is shared, so it gets a longer timeout (the loop is not shortened).
+	}, 60_000);
 
 	it('asks the host once per bucket, and not at all for a repeat', () => {
 		const c = counted();

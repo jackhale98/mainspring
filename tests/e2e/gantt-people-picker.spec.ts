@@ -280,7 +280,7 @@ test.describe('the people picker', () => {
 			max: 64,
 		},
 		'fedora-res': {
-			// The longest name is among the chips (truncated at 7rem): the widest case.
+			// The longest name is among the chips (truncated at 6rem): the widest case.
 			ids: ['desk04', 'qa03', 'server02', 'docs01'],
 			names: ['Documentation 01', 'Server 02', 'Quality 03'],
 			max: 72,
@@ -326,6 +326,35 @@ test.describe('the people picker', () => {
 				await rig.openPeople();
 				await rig.personOption(plan.ids[0]).click();
 				await fitsOneRow(page, `${label}, assigning`, plan.max);
+				await page.getByRole('button', { name: 'Done assigning' }).click();
+				// The filter pill names the filter, one more thing in the band: with a person filter on
+				// (the first person used: they have tasks) and a task selected, the row still fits.
+				const worker = await page.evaluate(() => {
+					const r = (
+						window as unknown as {
+							__mainspringGantt: {
+								result(): {
+									tasks: Array<{ scenarios: Record<string, { allocated: string[] }> }>;
+									resources: Array<{ id: string; name: string }>;
+									project: { scenarios: Array<{ id: string; active: boolean }> };
+								};
+							};
+						}
+					).__mainspringGantt.result();
+					const sc = r.project.scenarios.find((x) => x.active)?.id ?? '';
+					const n = (id: string): number =>
+						r.tasks.filter((t) => t.scenarios[sc]?.allocated.includes(id)).length;
+					return r.resources.find((x) => n(x.id) >= 2)?.name ?? '';
+				});
+				expect(worker, 'a person with tasks').not.toBe('');
+				await page.getByTestId('filter-button').click();
+				await page.getByRole('combobox', { name: 'Find a person to filter by' }).fill(worker);
+				await page.keyboard.press('Enter');
+				await page.getByTestId('filter-panel').getByRole('button', { name: 'Done' }).click();
+				await expect(page.getByTestId('filter-button')).toHaveAccessibleName(/^Filter: /);
+				await fitsOneRow(page, `${label}, filtered`, plan.max);
+				await page.locator('[role="row"][data-key]').first().locator('.label').click();
+				await fitsOneRow(page, `${label}, filtered, a task selected`, plan.max);
 			});
 		}
 	}

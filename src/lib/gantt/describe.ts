@@ -61,5 +61,9 @@ export function describeRowParts(model: GanttModel, index: number | null): RowLi
 /** The whole line, note included: what a screen reader hears. */
 export function describeRow(model: GanttModel, index: number | null): string {
 	const { text, note } = describeRowParts(model, index);
-	return note === null ? text : strings.gantt.withNote(text, note);
+	const line = note === null ? text : strings.gantt.withNote(text, note);
+	// A row kept only as the filter's context says so, since its muted look is no one's cue but the eye's.
+	return index !== null && model.rows[index]?.context
+		? strings.gantt.filter.contextRow(line)
+		: line;
 }

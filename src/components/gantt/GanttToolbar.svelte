@@ -12,6 +12,9 @@
 	says why in text a screen reader reads, and it is ruby when on (the critical path's colour). The selected task's line is a polite live region
 	with the people on it; the hovered one is shown but not announced. The task line is a pill that
 	floats over the chart and exists only while there is a task, so it never moves the chart.
+	The Filter pill (FilterControl.svelte: by person and by flag, phase-3.md "Amendments from T19") is
+	one more chip after the people picker, for every pointer; on a phone it is what makes the
+	critical-path chip an icon up to 599 px, so that six 44 px controls fit the row.
 	Over 400 lines on purpose: about two thirds are the styles of the chips, pills and the phone
 	layout; the script is small.
 	Critical path and float are estimates (phase-2.md 6.2.1): the chip describes itself so, a
@@ -29,6 +32,7 @@
 	import Icon from '../Icon.svelte';
 	import type { AddMode } from '../../lib/gantt/add-task';
 	import AddTaskMenu from './AddTaskMenu.svelte';
+	import FilterControl from './FilterControl.svelte';
 	import PeoplePicker from './PeoplePicker.svelte';
 	import RowMenu from './RowMenu.svelte';
 	import type { RowAction } from './types';
@@ -48,6 +52,8 @@
 		oncritical: () => void;
 		/** The people picker's props (R6; polish 17): given for a mouse when the plan has people. */
 		people?: ComponentProps<typeof PeoplePicker> | undefined;
+		/** The filter by person and flag (phase-3.md "Amendments from T19"): on every layout, for every pointer. */
+		filter?: ComponentProps<typeof FilterControl> | undefined;
 		/** The Add task (+) control (ADR-0013): first, on every layout. */
 		add?:
 			| {
@@ -80,6 +86,7 @@
 		ontoday,
 		oncritical,
 		people,
+		filter,
 		add,
 		rowActions,
 		onpill,
@@ -135,6 +142,7 @@
 			onclick={ontoday}
 			disabled={!hasMarker}
 			aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
+			title={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
 		>
 			<Icon name="today" size={14} /><span class="lbl">{strings.gantt.today}</span>
 		</button>
@@ -154,6 +162,7 @@
 		</button>
 		<span id="critical-why" class="sr-only">{critical.why}</span>
 		{#if people && people.people.length > 0}<PeoplePicker {...people} />{/if}
+		{#if filter}<FilterControl {...filter} />{/if}
 		{#if rowActions}
 			<RowMenu {...rowActions} />
 		{/if}
@@ -409,6 +418,32 @@
 			z-index: 7;
 		}
 	}
+	/* A narrow chart has the room of its chips and no more: the band's side padding is the
+	   little that can go (the filter pill is one more chip). */
+	@container gantt (max-width: 899px) {
+		.bar {
+			padding-inline: var(--space-2);
+		}
+		.chips {
+			gap: 6px;
+		}
+	}
+	/* From 1350 px, with recent people shown, they and the filter pill (and its clear button, with a
+	   filter on) share the band with the selected task's line: Today is its icon (its aria-label and
+	   title are the name), and from 1350 to 1600 px, where the people are avatars, the gaps are 5 px. */
+	@container gantt (min-width: 1350px) {
+		.bar:has(:global(.recent)) .today .lbl {
+			display: none;
+		}
+		.bar:has(:global(.recent)) .today {
+			padding-inline: 9px;
+		}
+	}
+	@container gantt (min-width: 1350px) and (max-width: 1599px) {
+		.bar:has(:global(.recent)) .chips {
+			gap: 5px;
+		}
+	}
 	/* The note that stands alone (nothing selected) wraps, so it cannot be squeezed to a column
 	   beside the pill: it waits until assign mode ends. */
 	.bar.assigning .task.wrap {
@@ -457,9 +492,9 @@
 	}
 	/* A phone: the chips are one compact row above the chart; nothing floats over it but the
 	   task line, which has no room to spare and shows only with a task. */
-	@media (max-width: 399px) {
-		/* 360 px: the critical path is its icon (its aria-label is the name) so that Zoom, Today,
-		   Add task, the critical path and the row menu fit 44 px apiece without a clip. */
+	@media (max-width: 599px) {
+		/* Zoom, Today, Add task, the critical path, the filter and the row menu fit 44 px apiece
+		   without a clip (the critical path is its icon: its aria-label is the name). */
 		.critical .lbl {
 			display: none;
 		}
@@ -467,6 +502,12 @@
 			padding-inline: 0;
 			justify-content: center;
 			min-inline-size: var(--size-tap);
+		}
+	}
+	/* 360 px: the six controls need the gaps tightened, and the zoom select a little less. */
+	@media (max-width: 399px) {
+		.chips {
+			gap: var(--space-1);
 		}
 	}
 	@media (max-width: 599px) {
@@ -491,6 +532,11 @@
 		select {
 			max-inline-size: 5.5rem;
 			text-overflow: ellipsis;
+		}
+		@media (max-width: 399px) {
+			select {
+				max-inline-size: 4.75rem;
+			}
 		}
 		.today {
 			padding-inline: 0;
