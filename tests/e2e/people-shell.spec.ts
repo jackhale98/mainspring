@@ -27,6 +27,12 @@ test.setTimeout(READY_TIMEOUT_MS * 2);
 
 const PLAN = 'upstream-tutorial';
 
+/** What a People view with people shows: the heatmap's cells (Workload), else the placeholder. */
+const content = (page: Page) =>
+	page
+		.locator('[data-testid="people-coming"], [data-testid="heat-cell"], [data-testid="workload"]')
+		.first();
+
 async function ready(page: Page): Promise<void> {
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,
@@ -151,7 +157,7 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		await expect(host).toHaveAttribute('data-content', 'workload', { timeout: READY_TIMEOUT_MS });
 		await expect(page.getByTestId('gantt')).toBeHidden();
 		await expect(viewRadio(page, 'Workload')).toBeFocused();
-		await expect(page.getByTestId('people-coming')).toHaveText('The workload heatmap is coming.');
+		await expect(page.getByTestId('heat-cell').first()).toBeAttached({ timeout: READY_TIMEOUT_MS });
 
 		// Arrow keys move and choose; the focus follows. Roving tabindex: one tab stop.
 		await page.keyboard.press('ArrowRight');
@@ -371,7 +377,9 @@ test.describe('the view switcher (desktop and tablet)', () => {
 			.toEqual({ kind: 'resource', id: 'new_person', origin: 'visual' });
 		// The state goes with the first person; the focus is not dropped on the page.
 		await expect(none).toHaveCount(0);
-		await expect(page.getByTestId('people-coming')).toBeFocused();
+		await expect(
+			page.locator('[data-testid="heat-cell"]:focus, [data-testid="workload"]:focus'),
+		).toBeFocused();
 		await expect(page.getByTestId('toast').filter({ hasText: 'Added New person' })).toBeVisible();
 	});
 
@@ -403,6 +411,19 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		await expectView(page, 'Workload');
 		await hold.unroute();
 		await alert.getByRole('button', { name: 'Try again' }).click();
+		// Chrome remembers a failed import of this size (the heatmap's imports made the chunk one
+		// that it does): the retry then says "Reload the page", which is the documented fallback.
+		// Either way the view opens once the chunk can be had.
+		const reload = alert.getByRole('button', { name: 'Reload the page' });
+		await expect(page.getByTestId('people-host').or(reload)).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
+		if (await reload.isVisible()) {
+			await page.reload();
+			await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+				timeout: READY_TIMEOUT_MS,
+			});
+		}
 		await expect(page.getByTestId('people-host')).toHaveAttribute('data-content', 'workload', {
 			timeout: READY_TIMEOUT_MS,
 		});
@@ -422,7 +443,7 @@ test.describe('the view switcher (desktop and tablet)', () => {
 			await expect(page.getByTestId('people-loading')).toBeVisible();
 			await axe(page, `loading (${scheme})`);
 			held.release();
-			await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+			await expect(content(page)).toBeVisible({ timeout: READY_TIMEOUT_MS });
 			await held.unroute();
 			await axe(page, `Workload (${scheme})`);
 			await chooseView(page, 'Calendar');
@@ -521,7 +542,7 @@ test.describe('the phone People tab', () => {
 			const page = await context.newPage();
 			await open(page);
 			await peopleTab(page).tap();
-			await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+			await expect(content(page)).toBeVisible({ timeout: READY_TIMEOUT_MS });
 			for (const seg of ['Load', 'Lanes', 'Calendar', 'Team']) {
 				await segmentTab(page, seg).tap();
 				const fits = await page.evaluate(() => {
@@ -562,7 +583,7 @@ test.describe('the phone People tab', () => {
 		await expect.poll(() => text(page)).toContain('resource new_person "New person"');
 		await expect.poll(() => selection(page)).toMatchObject({ kind: 'resource', id: 'new_person' });
 		await expect(none).toHaveCount(0);
-		await expect(page.getByTestId('people-coming')).toBeVisible();
+		await expect(content(page)).toBeVisible();
 	});
 
 	test('the Gantt-first load does not fetch the People chunk; the People tab does', async ({
@@ -590,6 +611,18 @@ test.describe('the phone People tab', () => {
 		await expect(alert).toBeVisible({ timeout: READY_TIMEOUT_MS });
 		await hold.unroute();
 		await alert.getByRole('button', { name: 'Try again' }).tap();
+		// As on a desktop: Chrome may remember the failed import, and the retry offers a reload.
+		const reload = alert.getByRole('button', { name: 'Reload the page' });
+		await expect(page.getByTestId('people-host').or(reload)).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
+		if (await reload.isVisible()) {
+			await page.reload();
+			await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+				timeout: READY_TIMEOUT_MS,
+			});
+			await peopleTab(page).tap();
+		}
 		await expect(page.getByTestId('people-host')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 	});
 
@@ -604,7 +637,7 @@ test.describe('the phone People tab', () => {
 			await expect(page.getByTestId('people-loading')).toBeVisible();
 			await axe(page, `loading (${scheme})`);
 			held.release();
-			await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+			await expect(content(page)).toBeVisible({ timeout: READY_TIMEOUT_MS });
 			await held.unroute();
 			await axe(page, `Load (${scheme})`);
 			expect(await smallTargets(page)).toEqual([]);

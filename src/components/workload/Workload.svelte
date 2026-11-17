@@ -579,6 +579,7 @@
 	class="workload"
 	bind:this={root}
 	role="region"
+	tabindex="-1"
 	aria-label={W.region}
 	data-testid="workload"
 	data-zoom={prefs.zoom}

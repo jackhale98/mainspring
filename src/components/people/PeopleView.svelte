@@ -57,6 +57,8 @@
 				const cell = host?.querySelector<HTMLElement>('[data-testid="heat-cell"][tabindex="0"]');
 				if (cell) cell.focus({ preventScroll: true });
 				else if (frames++ < 120) requestAnimationFrame(look);
+				// No schedule to read yet (a plan with a person and no task): the view itself.
+				else host?.querySelector<HTMLElement>('[data-testid="workload"]')?.focus();
 			};
 			focusContent = false;
 			look();
