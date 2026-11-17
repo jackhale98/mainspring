@@ -16,7 +16,7 @@
 	import { placementOf } from '../../lib/health/compute';
 	import { whyText, type WhyLink } from '../../lib/health/why-text';
 	import type { AppState } from '../../lib/state/app.svelte';
-	import { whyStrings as W } from '../../lib/strings-health';
+	import { whyStrings as W } from '../../lib/strings-health-panel';
 	import type { SymbolIndex, TaskId } from '../../lib/tjp/index';
 
 	interface Props {

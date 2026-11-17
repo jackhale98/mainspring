@@ -21,7 +21,7 @@ import type { Minutes } from '../../engine/protocol';
 import type { GanttAction } from '../gantt/intents';
 import type { Edit } from '../inspector/edit';
 import type { DispatchOutcome } from '../state/edits.svelte';
-import { healthStrings } from '../strings-health';
+import { healthStrings } from '../strings-health-panel';
 import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
 import type { Finding, Fix } from './types';
 

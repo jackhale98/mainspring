@@ -24,7 +24,7 @@
 import type { EngineMessage, Minutes } from '../../engine/protocol';
 import { displayDate } from '../schedule/date-text';
 import { nearestSite } from '../schedule/explain-text';
-import { healthStrings as S } from '../strings-health';
+import { healthCheckStrings as S } from '../strings-health';
 import type { AttrSite, TaskId, TextOnlyReason } from '../tjp/index';
 import { resolveDate } from '../tjp/values';
 import {

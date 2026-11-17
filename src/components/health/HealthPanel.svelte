@@ -26,7 +26,7 @@
 	import type { TextContext } from '../../lib/health/text';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
-	import { healthStrings as H } from '../../lib/strings-health';
+	import { healthStrings as H } from '../../lib/strings-health-panel';
 	import Icon from '../Icon.svelte';
 	import FindingRow from './FindingRow.svelte';
 	import HealthSettingsForm from './HealthSettingsForm.svelte';

@@ -250,9 +250,14 @@
 	 * (the toasts are above the sheet in z-order), where Undo stays reachable.
 	 */
 	const toastRoom = $derived(
-		app.inspector.sheetHeight > 0 && app.inspector.detent !== 'full'
-			? Math.max(toastBottom ?? 0, app.inspector.sheetHeight)
-			: toastBottom,
+		Math.max(
+			toastBottom ?? 0,
+			app.inspector.sheetHeight > 0 && app.inspector.detent !== 'full'
+				? app.inspector.sheetHeight
+				: 0,
+			// The health sheet (a tablet's) clears the toasts in the same way.
+			app.health.sheetHeight > 0 && app.health.detent !== 'full' ? app.health.sheetHeight : 0,
+		),
 	);
 
 	function onkeydown(event: KeyboardEvent): void {

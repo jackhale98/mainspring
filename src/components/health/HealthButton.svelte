@@ -78,4 +78,26 @@
 	.count.zero {
 		color: var(--color-text-muted);
 	}
+	/* A narrow top bar (a container query of the bar, not the window) has no room for the number
+	   beside the icon: it becomes a badge on the button's corner, so the buttons keep their space. */
+	@container topbar (max-width: 899px) {
+		.health-button {
+			padding-inline: 0;
+		}
+		.count {
+			position: absolute;
+			inset-block-start: -7px;
+			inset-inline-end: -6px;
+			min-inline-size: 1.4em;
+			padding: 2px 5px;
+			border-radius: var(--radius-pill);
+			background: var(--color-accent);
+			color: var(--color-accent-text);
+			text-align: center;
+		}
+		.count.zero {
+			background: var(--color-badge-bg);
+			color: var(--color-badge-text);
+		}
+	}
 </style>

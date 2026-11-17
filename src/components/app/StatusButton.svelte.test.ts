@@ -47,6 +47,7 @@ function setup(status: StatusView | null, update: 'available' | 'current' | 'unk
 		retry,
 		history,
 		historyOpen: false,
+		health: { count: 12 as number | null, show: vi.fn() },
 	});
 	const theme = $state({ pref: 'system', set: vi.fn() });
 	const updates = $state({
@@ -197,6 +198,24 @@ describe('the popover', () => {
 			expect(text).toContain(part);
 		}
 		expect(text.indexOf('Scheduled')).toBeLessThan(text.indexOf('Scheduler total'));
+	});
+});
+
+describe('the popover on a phone: plan health', () => {
+	it('has a "Plan health: N" row that closes the card and opens the sheet', () => {
+		const { target, app } = setup(view());
+		const hide = vi.fn();
+		HTMLElement.prototype.hidePopover = hide;
+		const row = target.querySelector<HTMLButtonElement>('[data-testid="open-health"]');
+		expect(row?.textContent).toContain('Plan health: 12');
+		row?.click();
+		expect(hide).toHaveBeenCalled();
+		expect(app.health.show).toHaveBeenCalledTimes(1);
+		// Before the first report it is only the name.
+		app.health.count = null;
+		flushSync();
+		expect(row?.textContent).toContain('Plan health');
+		expect(row?.textContent).not.toContain(':');
 	});
 });
 

@@ -15,12 +15,14 @@
  * - **New findings** after a reschedule are announced once per result, as a count ("2 new
  *   problems", WCAG 4.1.3): not for the first report of a plan, and not for a settings change.
  * - **The panel** is `open` on every layout (the right panel's Health tab on a desktop, a bottom
- *   sheet on a tablet, a full-height sheet on a phone); `serial` counts requests to show it, so a
+ *   sheet on a tablet, a full-height one on a phone, which stops below the top bar so that Undo
+ *   stays in reach); `serial` counts requests to show it, so a
  *   collapsed right panel can open itself without undoing a close the person made.
  * - It reads the plan and the result; it never edits either.
  */
 import type { ScheduleResult } from '../../engine/protocol';
 import { whenIdle, type Scheduler } from '../gantt/analysis';
+import type { Detent } from '../inspector/detent';
 import { newFindings, type SeverityFilter } from '../health/panel-model';
 import { readHealthSettings, writeHealthSettings } from '../health/settings';
 import { DEFAULT_HEALTH_SETTINGS, type HealthReport, type HealthSettings } from '../health/types';
@@ -48,6 +50,9 @@ export class HealthState {
 	/** The settings page is shown instead of the findings. */
 	settingsOpen = $state(false);
 	severity = $state<SeverityFilter>('all');
+	/** The sheet's height in px while it is open (the toasts clear it), and how tall it is asked to be. */
+	sheetHeight = $state(0);
+	detent = $state<Detent>('half');
 	settings = $state.raw<HealthSettings>(DEFAULT_HEALTH_SETTINGS);
 	report = $state.raw<HealthReport | null>(null);
 	/** What the report was made from: the names and dates of its sentences are read from it. */
@@ -136,6 +141,7 @@ export class HealthState {
 	hide(): void {
 		this.open = false;
 		this.settingsOpen = false;
+		this.sheetHeight = 0;
 	}
 
 	toggle(): void {

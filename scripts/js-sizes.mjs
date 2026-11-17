@@ -51,6 +51,15 @@ export const CHUNK_CAPS = [
 		cap: 15_800,
 		view: true,
 	},
+	// Plan health (T18, phase-3.md 9.7). The panel (findings, fixes, settings, the sheet) and "Why
+	// here?" are fetched when first asked for, and not by a first load; `text` is the findings'
+	// sentences (lib/health/text.ts with the panel's copy). Not a People chunk: the Gantt's details
+	// fetch them as well.
+	{ name: 'health', pattern: /^(HealthPanel|HealthSheet|WhyHere|text)\./, cap: 14_200 },
+	// The checks and the explainer's context (lib/health/compute.ts). A first load fetches them in
+	// an idle task after the first result: the Health button's count is made from them. What they
+	// import (demand, analysis, ...) is counted in the first load.
+	{ name: 'health-checks', pattern: /^compute\./, cap: 5_600 },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
@@ -74,8 +83,13 @@ const refs = (text, re) => [...text.matchAll(re)].map((m) => m[1]);
  * chunk two views share is named after one of its modules, and a shared module such as the leave
  * card or a strings module has no cap of its own): what the shell chunk (`PeopleView`) and the person details (`ResourcePanel`) reach by
  * static or dynamic imports, minus what a first load reaches by static imports from the page's
- * scripts. A Gantt-first load that fetches one of them has pulled a People view in. `sources` maps
- * a file name to its text; `html` is the page's HTML.
+ * scripts, and minus what plan health shares with them. A Gantt-first load that fetches one of
+ * them has pulled a People view in. `sources` maps a file name to its text; `html` is the page's
+ * HTML.
+ *
+ * Plan health is shared: the heatmap's "Why here?" (`WhyHere`) and the Health button's count
+ * (`compute`, which the first load fetches in an idle task) are reached from the People views and
+ * from code a Gantt-first load runs, so what they reach is not a People chunk (phase-3.md 25).
  */
 export function viewChunkSet(sources, html) {
 	const firstLoad = new Set();
@@ -92,7 +106,13 @@ export function viewChunkSet(sources, html) {
 	const shell = Object.keys(sources).filter((f) => /^(PeopleView|ResourcePanel)/.test(f));
 	const reach = new Set();
 	walk(shell, ANY_REF, reach);
-	return new Set([...reach].filter((f) => !firstLoad.has(f)));
+	const shared = new Set();
+	walk(
+		Object.keys(sources).filter((f) => /^(compute|WhyHere)\./.test(f)),
+		ANY_REF,
+		shared,
+	);
+	return new Set([...reach].filter((f) => !firstLoad.has(f) && !shared.has(f)));
 }
 
 /** The set for a build in `dist/` (the app page's scripts are the first load's entries). */

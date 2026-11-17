@@ -18,7 +18,7 @@ import type { Minutes, ProjectInfo, TaskScenarioResult } from '../../engine/prot
 import { displayDate } from '../schedule/date-text';
 import { scenarioChainOf, writtenDates } from '../schedule/explain-text';
 import type { Cause, CauseKind, ExplainContext, Placement } from '../schedule/explain-types';
-import { whyStrings as W } from '../strings-health';
+import { whyStrings as W } from '../strings-health-panel';
 import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
 import { personName, taskName, type TextContext } from './text';
 

@@ -82,6 +82,24 @@ describe('checkBudgets', () => {
 		}
 	});
 
+	it('caps the health panel and the checks, and neither is a People chunk', () => {
+		const cap = (name: string) => CHUNK_CAPS.find((c) => c.name === name);
+		const one = (file: string, gzip: number) => [{ file, gzip }];
+		for (const [name, file] of [
+			['health', 'HealthPanel.abc.js'],
+			['health', 'WhyHere.abc.js'],
+			['health-checks', 'compute.abc.js'],
+		] as const) {
+			const c = cap(name);
+			expect(c?.view).toBeUndefined();
+			expect(checkBudgets({ files: one(file, c?.cap ?? 0) })).toEqual([]);
+			expect(checkBudgets({ files: one(file, (c?.cap ?? 0) + 1) }).join('\n')).toMatch(
+				new RegExp(`${name} chunk`),
+			);
+			expect(isViewChunk(file)).toBe(false);
+		}
+	});
+
 	it('finds the chunk caps that match no built file', () => {
 		const names = (files: string[]) => unmatchedCaps(files.map((file) => ({ file, gzip: 1 })));
 		expect(names(['editor-controller.a.js'])).toHaveLength(CHUNK_CAPS.length - 1);
@@ -95,6 +113,8 @@ describe('checkBudgets', () => {
 				'Calendar.a.js',
 				'ResourcesView.a.js',
 				'ResourcePanel.a.js',
+				'HealthPanel.a.js',
+				'compute.a.js',
 			]),
 		).toEqual([]);
 	});
@@ -157,6 +177,25 @@ describe('viewChunkSet', () => {
 			'leave-card.a.js',
 			'strings-calendar.a.js',
 		]);
+	});
+
+	it('leaves out what plan health shares: the checks the first load fetches, and Why here?', () => {
+		// The heatmap's cell details fetch WhyHere, which imports the checks' context; the first load
+		// fetches the same context (the Health button's count) with a dynamic import of its own.
+		const withHealth = {
+			...sources,
+			'App.a.js': `${sources['App.a.js']}const h=()=>import("./compute.a.js");`,
+			'compute.a.js': 'import{d}from"./demand.a.js";export const c=1;',
+			'demand.a.js': 'export const d=1;',
+			'WhyHere.a.js': 'import{c}from"./compute.a.js";import{t}from"./text.a.js";',
+			'text.a.js': 'export const t=1;',
+			'Calendar.a.js': `${sources['Calendar.a.js']}import("./WhyHere.a.js");`,
+		};
+		const set = viewChunkSet(withHealth, html);
+		for (const f of ['compute.a.js', 'demand.a.js', 'WhyHere.a.js', 'text.a.js'])
+			expect(set.has(f)).toBe(false);
+		// What only the views use is still theirs.
+		expect(set.has('Calendar.a.js')).toBe(true);
 	});
 
 	it('leaves a module the first load imports out, even when a view imports it too', () => {

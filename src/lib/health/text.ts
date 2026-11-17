@@ -7,7 +7,7 @@
  */
 import type { ScheduleResult } from '../../engine/protocol';
 import { displayDate } from '../schedule/date-text';
-import { healthStrings as S } from '../strings-health';
+import { healthStrings as S } from '../strings-health-panel';
 import type { ResourceId, SymbolIndex, TaskId } from '../tjp/index';
 import type { Finding, Fix } from './types';
 

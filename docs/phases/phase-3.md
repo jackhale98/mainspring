@@ -950,6 +950,68 @@ Phase 2 deferred the Gantt filters here (18.10, carried in by 19.11). T19 built 
 11. **Budgets.** The first-load JS grew by about 1.0 KB gzip (Visual-first 304,898 to 305,914 of 310,000; Text-first 416,376 to 417,387 of 420,000; no cap raised). The filter's logic, the panel and the people list are lazy chunks: `PeopleList.svelte` moved out of the first load (about 2.1 KB) because the picker now fetches it when first opened, which paid for the pill, the state and the wiring.
 
 
+## 25. Amendments from T18 (the health panel, the phone path, "Why here?", 2026-11-17)
+
+Where the built T18 settles what 9.1, 9.2, 9.3, 9.7, 10 and the bundle rules (8.3) leave open. T18 recorded them; the main session owns the decision.
+
+1. **Where plan health lives (9.1, 9.2).**
+   - **Desktop and tablet:** a Health button (the pulse icon and the finding count, "Plan health: 241 problems") in the top bar, before the engine pill.
+   - **Phone:** a "Plan health: N" row in the status button's card.
+   - **Desktop panel:** the right panel gets a tab strip under its header, Details and Health (a real tab list, arrows, Home and End). The header title follows the tab, and the aside is named "Plan health" while that tab shows.
+   - **Collapsed panel or drawer:** a request to show health (`HealthState.show`, which counts requests in `serial`) opens a collapsed panel, or the drawer where the chart has no room to dock it.
+   - **A narrow top bar** (a container query under 900 px) shows the number as a badge on the button's corner: beside the icon it pushed the project button's neighbours into an axe target-size failure at 700 px (`people-shell.spec.ts`).
+   - **Views without details:** in the Workload and Calendar views the panel is a health-only drawer over the chart's right edge (the details are not there).
+2. **The sheets are not modal (9.2, 18.10).** Both are `Sheet` with `modal={false}`, as the details sheet is: a tablet's at half height (draggable to full), a phone's at full height. Full height stops below the top bar, so a phone's Undo and Redo stay in reach after a fix, and the toasts clear a tablet's sheet (`health.sheetHeight`). A modal sheet would have put Undo behind a backdrop.
+3. **The count is made in the first load, in an idle task (8.3).**
+   - The checks, the explainer's context and the demand are one lazy chunk (`lib/health/compute.ts`) that `HealthState` imports after the first good result, in a `whenIdle` task.
+   - The first load still holds only the state, the button, the tabs, the live region and four strings (`strings.health`).
+   - Measured, gzip: Visual-first 308,372 to 326,197 (cap 330,000) and Text-first 419,818 to 437,637 (cap 440,000); the whole app 583,828 of 650,000. The growth, about 17.8 KB, is `compute` (4.4 KB), `demand` with the explainer (5.4 KB), what they bring out of larger chunks, and the re-chunking.
+   - Lazy and fetched when first asked for: the panel group (`HealthPanel`, `HealthSheet`, `WhyHere`, `text`: 11,351 B, cap 14,200) and `compute` (4,408 B, cap 5,600), both new `CHUNK_CAPS` entries (`health`, `health-checks`).
+   - `viewChunkSet` leaves out what `compute` and `WhyHere` reach: the heatmap's cell details and the first load both fetch them, so they are not People chunks (test in `tests/scripts/js-sizes.test.ts`).
+   - If the headroom (3.8 and 2.4 KB) matters more than a count in the first seconds, `HealthState`'s `schedule` option takes a later task: nothing else changes.
+4. **Copy (CLAUDE.md strings rule).** `healthStrings` left `strings.ts`.
+   - `strings-health.ts` holds the few words the checks write (fix labels, the waiting task's name), because the checks run in a first load.
+   - `strings-health-panel.ts` holds the panel, the findings' sentences and "Why here?" (`whyStrings`).
+   - `strings.ts` keeps `health` (the button, the tabs, the card row, "2 new problems", the load failure), and the Driver strings of the Schedule block are gone.
+5. **"Why here?" replaces the whole "What sets the start" row (9.7),** not only its "Held by resources or calendars" value: its dependency and frame cases are the first lines of the new list. The Schedule block has a "Why here?" heading with the lazy `WhyHere`. `TaskDetails.engine.driver` is still read by `lib/inspector/task.ts` and its tests but no longer drawn.
+6. **What the sentences say (9.7), `lib/health/why-text.ts`.**
+   - A dependency: "Waits for Design (ends Tue 3 Mar)", with ", then a gap" when it has one. ALAP: "Has to be done before Gamma starts (Mon 13 Apr), allowing a gap".
+   - The date of a finish is the last day worked, as the Schedule block shows it: a milestone shows its own day, not the day before.
+   - The frame says only that the project start (or end) is the limit: never "starts at the project start" (explain-types.ts note for T18).
+   - A written date shows the date and says "on this task", or "on Fedora 20, which contains this task" (no date when a macro writes it), with a "Show in text" link.
+   - A `limits` cause names its owner by finding the site in the index (a person, this task, or another task), else says nothing of whom.
+   - "Dev 1 is booked on Build API and Test, Wed 4 Mar to Fri 13 Mar (64 h)" names at most three tasks and counts the rest.
+   - A window's last day is the day of the minute before its end.
+   - Links go to the task, to the person's heatmap cell (`app.openInWorkload`) and to the text.
+   - `unknown` is "The schedule does not show why." with no link, and the UI adds nothing to it.
+7. **"Why here?" in the heatmap's cell details (9.3)** is an inline toggle under the task row (`aria-expanded`), with the same lazy `WhyHere`, over the result the heatmap draws. It is not a separate view, so it works on every layout. A link to a task there is "Show in Gantt" without a person.
+8. **"Show in Gantt" (20, 24 item 8) is `app.showInGantt(task, person)`,** used by the heatmap and the lanes.
+   - It sets the person filter when the filter would show the task (`tasksOfPerson`, the filter's own rule), else drops a filter that would hide it, then selects the task and shows the Gantt.
+   - A group's cell has no person, so it selects without a filter.
+   - The rule exists because a held task of a group allocation would otherwise be selected and hidden.
+   - The Gantt view comes from `app.shell.showView`, which App wires for the phone's tabs and segments and the desktop's switcher (a desktop in Text mode goes to Split). `showView` is optional on `Shell` so the shell stubs of existing tests are unchanged.
+9. **Findings about a person (H7, H8) get "Show in Gantt"** as a UI button, not a T11 fix kind. "Open in Workload" is `app.openInWorkload(resource, at)`: it selects the person, shows the heatmap and files `app.peopleGoto`, which the heatmap takes when on screen with a model (it opens a closed group, selects the week's cell, opens its details and centres it). "Open in Calendar" (no check uses it yet) selects the person and shows the Calendar, whose scope follows. The date is not scrolled to.
+10. **Fixes (12).**
+    - `intent` fixes are one `dispatch` with the fix's label (one undo step, the dispatcher's refusals).
+    - "Edit gap" carries the current gap in its intent, so the panel opens a field for the new one; empty removes the gap, and a value the edit API refuses (`invalid-value`) comes back as its toast with the text unchanged. A value equal to the current one is the API's `noop`.
+    - "Replace Dev…" is the chip's native select and the Gantt action `replace-person`.
+    - H1 and H2 call `app.openDependencyPicker` after the panel has left for the details; a false answer says so in a toast.
+    - A disabled fix is a disabled button, and the editor's sentence for the reason is shown once under the row (`inspectorStrings.textOnly`).
+    - "Why here?" asks the details for the section (`inspector.why`, for that selection): scroll and focus.
+11. **Settings (9.2).**
+    - Thresholds are whole days from 1 to 3650 (the library accepts fractions from 0): the field and its steppers refuse anything else with a sentence.
+    - Each check has a checkbox, "Check milestones for predecessors and successors" (`linkMilestones`) sits under No successor, and Reset restores the defaults.
+    - Everything is stored per plan under `mainspring.health.<plan>`, only what differs from the defaults, never in the text.
+    - The Health tab closes when another plan opens.
+12. **New findings (10).** A visually hidden polite region (`HealthLive`) says "N new problems", once per result, from the keys of the findings (`findingKey`), not for a plan's first report and not for a settings change.
+13. **Measured.** `checkPlan` on fedora-res takes 17.4 ms in the browser (the `mainspring:health-check` measure, which does not include the context and the demand, made once per result). The demand is computed a second time when the heatmap is also open, since `HeatState` keeps its own cache (8 to 21 ms, once per result): sharing it is a small change left for the backlog.
+
+**Left (items, not T18's):**
+- iPhone 14 (WebKit) was not run here; the specs skip it, as T14 to T17 do.
+- The Calendar's "Open in Calendar" does not scroll to the date.
+- A finding's task row (a tap) selects the task and, on a sheet layout, closes the panel and opens the details sheet; a desktop keeps the Health tab and rings the task in the chart.
+
+
 ## Appendix A: ADR-0013 stub (accepted; see docs/decisions/0013-authoring-on-phones.md)
 
 **ADR-0013: Authoring on phones.** Status: proposed, 2026-11-14; needs the user's approval (out-of-phase scope).

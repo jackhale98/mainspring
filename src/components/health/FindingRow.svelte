@@ -21,7 +21,7 @@
 	} from '../../lib/health/text';
 	import type { Finding, Fix } from '../../lib/health/types';
 	import { inspectorStrings } from '../../lib/strings';
-	import { healthStrings as H } from '../../lib/strings-health';
+	import { healthStrings as H } from '../../lib/strings-health-panel';
 	import type { ResourceId } from '../../lib/tjp/index';
 	import StatusGlyph from '../app/StatusGlyph.svelte';
 

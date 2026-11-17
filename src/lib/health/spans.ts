@@ -23,7 +23,7 @@
 // statement-level macro call); its fixes are disabled as `macro-call`, and `at` is the task.
 import type { DependencyResult } from '../../engine/protocol';
 import { nearestSite } from '../schedule/explain-text';
-import { healthStrings as S } from '../strings-health';
+import { healthCheckStrings as S } from '../strings-health';
 import type { DependencySite, TaskId } from '../tjp/index';
 import {
 	checkedTasks,
