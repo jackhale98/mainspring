@@ -201,8 +201,8 @@ describe('fedora-res', () => {
 
 	it('has these counts per check', () => {
 		expect(r.counts).toEqual({
-			'no-predecessor': 48,
-			'no-successor': 200,
+			'no-predecessor': 26,
+			'no-successor': 61,
 			'hard-constraint': 7,
 			'constraint-warning': 0,
 			'long-gap': 39,
@@ -247,8 +247,8 @@ describe('fedora-res', () => {
 		).toBe(false);
 		const why = explainTask('f20.first_day', goldenContext('fedora-res'));
 		expect(why.causes).toContainEqual({ kind: 'constraint', attr: 'start', inherited: true });
-		// 775 findings before the ruling; 402 after.
-		expect(r.findings.length).toBe(402);
+		// 775 findings before the H3 ruling, 402 after it, 241 with milestones out of H1/H2 (default).
+		expect(r.findings.length).toBe(241);
 	});
 
 	it('spot checks 3 and 4: H2 on two tasks nothing waits for', () => {

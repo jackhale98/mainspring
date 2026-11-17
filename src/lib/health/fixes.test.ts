@@ -53,9 +53,10 @@ describe('fixes are disabled as the edit API refuses them', () => {
 			}
 			expect(problems).toEqual([]);
 			if (id === 'fedora-res') {
-				// 394 distinct fixes; the disabled ones are "Remove start" on the three macro-written
-				// starts (`f20`, `f20.DevelopmentPhase`, `f20.TestingPhase.alpha`).
-				expect(probed).toBeGreaterThan(300);
+				// 233 distinct fixes with the default settings (milestones out of H1/H2); the disabled ones
+				// are "Remove start" on the three macro-written starts (`f20`, `f20.DevelopmentPhase`,
+				// `f20.TestingPhase.alpha`).
+				expect(probed).toBeGreaterThan(200);
 				expect(disabled).toBe(3);
 			}
 		},

@@ -13,6 +13,8 @@
  * Fixes: the dependency picker ("Add predecessor…", "Add successor…"), disabled with the task's
  * text-only reason (an `addDepends` on it, or naming it, is refused for the same reason).
  */
+// Milestones are left out of H1 and H2 unless the plan's `linkMilestones` setting is on (user,
+// 2026-11-17: key dates are often unlinked on purpose).
 // T11: which tasks and links count (the fedora-res review, 2026-11-17). Leaves and milestones only,
 // as section 12 says ("containers are not checked themselves"), and a link on any ancestor counts
 // for them (TaskJuggler inherits `depends` and `precedes`, and a task naming a container waits for
@@ -58,6 +60,7 @@ export function noPredecessor(run: Run): FindingOf<'no-predecessor'>[] {
 			(a) => preceded.has(a) || (run.scenarioOf(a)?.depends.length ?? 0) > 0,
 		);
 		if (has) continue;
+		if (run.milestones.has(id) && !run.settings.linkMilestones) continue;
 		if (run.milestones.has(id) && s.start !== null && s.start <= firstWork) continue;
 		out.push({
 			check: 'no-predecessor',
@@ -81,6 +84,7 @@ export function noSuccessor(run: Run, finish: number | null): FindingOf<'no-succ
 			(a) => dependedOn.has(a) || (run.scenarioOf(a)?.precedes.length ?? 0) > 0,
 		);
 		if (has) continue;
+		if (run.milestones.has(id) && !run.settings.linkMilestones) continue;
 		if (run.milestones.has(id) && s.end !== null && finish !== null && s.end >= finish) continue;
 		out.push({
 			check: 'no-successor',

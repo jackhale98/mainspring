@@ -20,8 +20,13 @@ function textOf(tasks: ReadonlyArray<readonly [string, TaskSpec]>, extra = ''): 
 	return `project p "P" 2026-01-05 - 2026-03-02 {\n}\n${extra}${kids(undefined)}`;
 }
 
-function found(check: 'no-predecessor' | 'no-successor', tasks: Array<[string, TaskSpec]>) {
-	const r = checkPlan(inlineInput(plan(tasks), textOf(tasks), only(check)));
+function found(
+	check: 'no-predecessor' | 'no-successor',
+	tasks: Array<[string, TaskSpec]>,
+	linkMilestones = true,
+) {
+	const settings = { ...only(check), linkMilestones };
+	const r = checkPlan(inlineInput(plan(tasks), textOf(tasks), settings));
 	return r.findings.map((f) => (f.subject.kind === 'task' ? f.subject.id : '?'));
 }
 
@@ -60,7 +65,19 @@ describe('H1 no predecessor', () => {
 		expect(found('no-predecessor', tasks(0, false))).toEqual(['kick']);
 	});
 
-	it('does not check containers, and checks milestones', () => {
+	it('leaves milestones out by default (key dates are unlinked on purpose), in with the setting', () => {
+		const tasks: Array<[string, TaskSpec]> = [
+			['a', { start: at(0, 9), end: at(1, 17) }],
+			['m', { start: at(3, 9), end: at(3, 9), milestone: true }],
+		];
+		expect(found('no-predecessor', tasks, false)).toEqual(['a']);
+		expect(found('no-successor', tasks, false)).toEqual(['a']);
+		expect(found('no-predecessor', tasks, true)).toEqual(['a', 'm']);
+		// m ends last: with the setting on it is still the finish milestone, exempt from H2.
+		expect(found('no-successor', tasks, true)).toEqual(['a']);
+	});
+
+	it('does not check containers, and checks milestones with the setting on', () => {
 		expect(
 			found('no-predecessor', [
 				['g', { start: at(0, 9), end: at(1, 17) }],

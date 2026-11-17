@@ -174,16 +174,22 @@ export interface HealthSettings {
 	longGapDays: number;
 	/** H6: a leaf whose engine span has more working days than this. */
 	longTaskDays: number;
+	/**
+	 * H1 and H2 on milestones. Off by default: plans leave key-date milestones ("Beta Release")
+	 * unlinked on purpose (user, 2026-11-17); a plan can turn it on.
+	 */
+	linkMilestones: boolean;
 	/** Checks turned off per plan are false. */
 	enabled: Readonly<Record<CheckId, boolean>>;
 }
 
 // T2: 6.4 and 18.8 give the two thresholds (5, 20) and say checks "can be turned off per plan".
 // Read as: every check is on by default.
-/** 18.8: long gap 5 working days, long task 20 working days, every check on. */
+/** 18.8: long gap 5 working days, long task 20 working days, every check on; milestones out of H1/H2. */
 export const DEFAULT_HEALTH_SETTINGS: Readonly<HealthSettings> = Object.freeze({
 	longGapDays: 5,
 	longTaskDays: 20,
+	linkMilestones: false,
 	enabled: Object.freeze({
 		'no-predecessor': true,
 		'no-successor': true,

@@ -45,6 +45,8 @@ export function parseHealthSettings(raw: string | null): HealthSettings {
 	return {
 		longGapDays: days(o['longGapDays']) ?? d.longGapDays,
 		longTaskDays: days(o['longTaskDays']) ?? d.longTaskDays,
+		linkMilestones:
+			typeof o['linkMilestones'] === 'boolean' ? o['linkMilestones'] : d.linkMilestones,
 		enabled,
 	};
 }
@@ -55,12 +57,14 @@ export function serializeHealthSettings(s: HealthSettings): string {
 	const out: {
 		longGapDays?: number;
 		longTaskDays?: number;
+		linkMilestones?: boolean;
 		enabled?: Partial<Record<CheckId, boolean>>;
 	} = {};
 	if (s.longGapDays !== d.longGapDays && days(s.longGapDays) !== null)
 		out.longGapDays = s.longGapDays;
 	if (s.longTaskDays !== d.longTaskDays && days(s.longTaskDays) !== null)
 		out.longTaskDays = s.longTaskDays;
+	if (s.linkMilestones !== d.linkMilestones) out.linkMilestones = s.linkMilestones;
 	const enabled: Partial<Record<CheckId, boolean>> = {};
 	for (const c of CHECK_IDS) if (s.enabled[c] !== d.enabled[c]) enabled[c] = s.enabled[c];
 	if (Object.keys(enabled).length > 0) out.enabled = enabled;
@@ -82,6 +86,11 @@ export function writeHealthSettings(
 /** The settings with one check turned on or off. */
 export function withCheck(s: HealthSettings, check: CheckId, on: boolean): HealthSettings {
 	return { ...s, enabled: { ...s.enabled, [check]: on } };
+}
+
+/** The settings with milestones in or out of H1 and H2. */
+export function withLinkMilestones(s: HealthSettings, on: boolean): HealthSettings {
+	return { ...s, linkMilestones: on };
 }
 
 /** The defaults, as a fresh object (for "Reset to defaults"). */
