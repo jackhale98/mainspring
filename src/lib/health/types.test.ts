@@ -4,6 +4,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { TextOnlyReason } from '../tjp/index';
 import {
+	CHECK_IDS,
 	DEFAULT_HEALTH_SETTINGS,
 	type CheckFacts,
 	type CheckId,
@@ -33,6 +34,8 @@ describe('health types (6.4)', () => {
 		expectTypeOf<(typeof CHECKS)[number]>().toEqualTypeOf<CheckId>();
 		expectTypeOf<keyof CheckFacts>().toEqualTypeOf<CheckId>();
 		expectTypeOf<Finding['check']>().toEqualTypeOf<CheckId>();
+		expect(CHECK_IDS).toEqual(CHECKS);
+		expect(Object.isFrozen(CHECK_IDS)).toBe(true);
 	});
 
 	it('defaults to a 5-day long gap and a 20-day long task, every check on (18.8)', () => {
