@@ -216,6 +216,13 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		await page.goto('/app?sample=syn-18-structure-include-macro&mode=text');
 		await ready(page);
 		await page.locator('.cm-line', { hasText: /^project / }).click({ position: { x: 4, y: 4 } });
+		const cursor = (): Promise<string> =>
+			page.evaluate(() => {
+				const sel = getSelection();
+				return `${sel?.anchorNode?.textContent ?? ''}@${sel?.anchorOffset ?? -1}`;
+			});
+		const cursorBefore = await cursor();
+		expect(cursorBefore).toContain('project');
 		// A keyboard: the visual viewport is 300 px shorter than the page, which a fixed sheet ignores.
 		await page.evaluate(() => {
 			const vv = Object.assign(new EventTarget(), {
@@ -257,6 +264,17 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		expect(nonIncreasing(tops)).toBe(true);
 		expect((await recorded(page)).props).not.toContain('top');
 		await shot(page, 'docs', info);
+
+		// Closed again, the editor has the focus and the cursor back exactly where it was.
+		await page
+			.getByRole('dialog', { name: 'Documentation' })
+			.getByRole('button', { name: 'Close' })
+			.tap();
+		await expect(page.getByRole('dialog', { name: 'Documentation' })).toBeHidden();
+		await expect
+			.poll(() => page.evaluate(() => document.activeElement?.closest('.cm-editor') !== null))
+			.toBe(true);
+		expect(await cursor()).toBe(cursorBefore);
 	});
 
 	test('without a keyboard it opens at once and only moves up', async ({ page }) => {

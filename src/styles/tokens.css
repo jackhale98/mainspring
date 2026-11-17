@@ -49,8 +49,10 @@
 	/* Motion: 150 to 200 ms for panels and sheets; off when the user asks for less motion */
 	--motion-fast: 150ms;
 	--motion-base: 200ms;
-	/* A sheet slides in (sheet-motion.ts has the same numbers for what script animates). */
-	--motion-sheet: 340ms;
+	/* A sheet slides in and out (ms, unitless: Sheet.svelte reads them for what script starts; the
+	   minifier writes 340ms as .34s). Zero with reduced motion. */
+	--sheet-ms: 340;
+	--sheet-out-ms: 240;
 	--ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
 
 	/* Shape (ADR-0009): panels 16, controls 10, pills and chips fully round, phone sheets 22. */
@@ -159,7 +161,8 @@
 	:root {
 		--motion-fast: 0ms;
 		--motion-base: 0ms;
-		--motion-sheet: 0ms;
+		--sheet-ms: 0;
+		--sheet-out-ms: 0;
 	}
 }
 

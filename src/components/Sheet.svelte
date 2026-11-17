@@ -21,10 +21,12 @@
 	With `top: auto` instead, Safari on iPhone placed the sheet off screen and only the backdrop
 	showed. It is `position: fixed` so that it does the same when it is not modal.
 
-	Motion (lib/ui/sheet-motion.ts, transform and opacity only, none with reduced motion): it slides
-	in with CSS; every way of closing (the button, Escape, the backdrop, a drag down, the `open`
-	prop) first slides it away with `requestClose` and closes the dialog when that ends, keeping the
-	content on screen meanwhile (`data-closing`); a change of height glides from the old top edge.
+	Motion (the CSS tokens --sheet-ms, --sheet-out-ms and --ease-sheet; transform and opacity
+	only, the browser does the easing, none with reduced motion): it slides in with CSS; every way of
+	closing (the button, Escape, the backdrop, a drag down, the `open` prop) first slides it away with
+	`requestClose` (CSS on `[data-closing]`, then a timer closes the dialog and calls `onleft`),
+	keeping the content on screen meanwhile; a change of height glides from the old top edge with one
+	Web Animations call. A modal sheet opened over a touch keyboard waits for it to go (ui/keyboard.ts).
 
 	This file is over 400 lines because the placements (drawer, modal and non-modal bottom sheet)
 	share one dialog and their styles are one cascade; splitting them would hide that.
@@ -53,9 +55,8 @@
 		type Detent,
 	} from '../lib/inspector/detent';
 	import { inspectorStrings as I, strings } from '../lib/strings';
-	import { keyboardIsUp, settleKeyboard } from '../lib/ui/keyboard';
-	import { glideFrom, reducedMotion, slideAway } from '../lib/ui/sheet-motion';
-	import { untrack } from 'svelte';
+	import { whenKeyboardGone } from '../lib/ui/keyboard';
+	import { tick, untrack } from 'svelte';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -68,6 +69,12 @@
 		detent?: Detent | undefined;
 		focusOnOpen?: boolean;
 		onclose: () => void;
+		/**
+		 * The sheet has just closed, as the tail of its slide away (not for a sheet that was shown
+		 * and hidden by its `open` prop alone): where the focus goes back to, in the same task that
+		 * closed it, so that a touch keyboard can come up again.
+		 */
+		onleft?: () => void;
 		ondetent?: (d: Detent) => void;
 		/** The distance from the viewport's bottom to the sheet's top, in px (0 when closed). */
 		onheight?: (px: number) => void;
@@ -86,6 +93,7 @@
 		detent,
 		focusOnOpen = true,
 		onclose,
+		onleft,
 		ondetent,
 		onheight,
 		onreturn,
@@ -105,40 +113,36 @@
 	let byProp = false;
 	/** It is sliding away: still on screen, with its content, until the slide ends. */
 	let closing = $state(false);
-	let exit: Animation[] = [];
+	let exitTimer: ReturnType<typeof setTimeout> | undefined;
 
-	/** Slides the sheet away, then closes the dialog (at once with reduced motion). */
+	/** A motion token of the sheet's CSS, in ms (unitless): 0 when the person asks for less motion. */
+	const ms = (el: Element, token: string): number =>
+		parseFloat(getComputedStyle(el).getPropertyValue(token)) || 0;
+
+	/**
+	 * Slides the sheet away, then closes the dialog (at once with reduced motion). The slide is CSS
+	 * (`[data-closing]`); a timer ends it, which in WebKit keeps the person's tap as the reason for
+	 * what `onleft` does next (raising the keyboard again).
+	 */
 	function requestClose(): void {
 		const el = dialog;
 		if (!el || !el.open || closing) return;
-		const panel = side === 'bottom' && modal ? el.querySelector('.inner') : el;
-		if (!panel || reducedMotion()) {
-			el.close();
-			return;
-		}
+		const leave = (): void => {
+			// Asked to open again while a prop-made close slid away: it stays.
+			if (byProp && open) closing = byProp = false;
+			else {
+				el.close();
+				onleft?.();
+			}
+		};
+		const t = ms(el, '--sheet-out-ms');
+		if (!t) return leave();
 		closing = true;
-		exit = slideAway(panel, el, side);
-		const first = exit[0];
-		void first?.finished.then(
-			() => {
-				if (closing) el.close();
-			},
-			() => undefined,
-		);
-	}
-
-	/** The sheet was asked to open again while it was sliding away. */
-	function stopExit(): void {
-		for (const a of exit) a.cancel();
-		exit = [];
-		closing = false;
-		byProp = false;
+		exitTimer = setTimeout(leave, t);
 	}
 
 	$effect(() => {
 		if (!dialog) return;
-		// Asked to open again while a prop-made close slides away; a close the person made is theirs.
-		if (open && untrack(() => closing && byProp)) untrack(stopExit);
 		if (open && !dialog.open) {
 			opener = document.activeElement;
 			openedPressed = pressed;
@@ -146,12 +150,9 @@
 				// Opened over a touch keyboard, a sheet would appear above it, part way up the screen, and
 				// drop when the keyboard goes: let it go first, then open at the final place.
 				const el = dialog;
-				if (!keyboardIsUp()) el.showModal();
-				else {
-					void settleKeyboard().then(() => {
-						if (untrack(() => open) && !el.open) el.showModal();
-					});
-				}
+				whenKeyboardGone(() => {
+					if (open && !el.open) el.showModal();
+				});
 			} else {
 				dialog.show();
 				// A tap on a task must not move the focus (a touch keyboard would open).
@@ -164,37 +165,24 @@
 	});
 
 	// A bottom sheet that changes height (the grabber, a drag let go, a peek) glides: its box is at the
-	// new height at once and only `transform` moves, so nothing is laid out while it travels.
-	let seenDetent: Detent | undefined = untrack(() => detent);
-	let glide = false;
-	let lastHeight = 0;
-	$effect(() => {
-		const d = detent;
-		untrack(() => {
-			if (d !== seenDetent) {
-				seenDetent = d;
-				glide = true;
-			}
-		});
-	});
-	$effect(() => {
+	// new height at once and only `transform` moves, so nothing is laid out while it travels. The
+	// height before is read by this effect, which runs before the DOM changes, the one after in `tick`.
+	$effect.pre(() => {
+		void detent;
 		const el = dialog;
-		// Not a dependency: the effect must not start over (and measure the new height as the old one)
-		// when the height it is watching for changes.
-		if (!el || !open || side !== 'bottom' || !untrack(() => detent)) return;
-		glide = false;
-		lastHeight = el.offsetHeight;
-		const ro = new ResizeObserver(() => {
-			const h = el.offsetHeight;
-			const before = lastHeight;
-			lastHeight = h;
-			// While a finger drags it the height follows the finger; the glide is for what comes after.
-			if (!glide || el.hasAttribute('data-dragging') || before === 0 || h === before) return;
-			glide = false;
-			glideFrom(el, h - before);
-		});
-		ro.observe(el);
-		return () => ro.disconnect();
+		// While a finger drags it the height follows the finger: the glide is for what comes after.
+		const was = el && dragPx === null ? el.offsetHeight : 0;
+		const duration = el ? ms(el, '--sheet-ms') : 0;
+		if (el && was && duration) {
+			void tick().then(() => {
+				const dy = el.offsetHeight - was;
+				// The curve of --ease-sheet (tokens.css); the browser does the easing.
+				el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], {
+					duration,
+					easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
+				});
+			});
+		}
 	});
 
 	// The sheet's height, for what has to stay clear of it (the chart's selected row).
@@ -240,8 +228,7 @@
 	}
 
 	function closed(): void {
-		for (const a of exit) a.cancel();
-		exit = [];
+		clearTimeout(exitTimer);
 		closing = false;
 		dragPx = null;
 		// Focus goes back where the owner says (the selected row), else to what was focused before
@@ -271,7 +258,6 @@
 		const dy = e.clientY - drag.y0;
 		drag = null;
 		const next = Math.abs(dy) <= TAP_SLOP ? toggled(detent) : detentAfterDrag(detent, dy);
-		glide = true;
 		// Closing keeps the dragged height while it slides away (closed() lets go of it).
 		if (next === 'close') requestClose();
 		else {
@@ -282,7 +268,6 @@
 	function cancel(): void {
 		drag = null;
 		dragPx = null;
-		glide = true;
 	}
 	/** The press itself is handled by the pointer events; this is the keyboard's Enter and Space. */
 	function press(e: MouseEvent): void {
@@ -362,7 +347,7 @@
 	}
 	.sheet::backdrop {
 		background: var(--color-overlay);
-		animation: fade-in var(--motion-sheet) ease-out;
+		animation: fade-in calc(var(--sheet-ms) * 1ms) ease-out;
 	}
 	/* The drawer floats like a panel: inset from the edges, rounded on the open side. */
 	.sheet[data-side='start'] {
@@ -371,7 +356,7 @@
 		block-size: calc(100dvh - 2 * var(--gap-panel));
 		border: 0;
 		border-radius: var(--radius-panel);
-		animation: slide-start var(--motion-sheet) var(--ease-sheet);
+		animation: slide-start calc(var(--sheet-ms) * 1ms) var(--ease-sheet);
 	}
 	/* Pinned to the bottom the way the browser centres a dialog: inset 0, fit-content height, and
 	   an auto top margin. With top: auto instead, Safari on iPhone placed the sheet off screen and
@@ -385,7 +370,7 @@
 		max-block-size: 80dvh;
 		border-block-end: 0;
 		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-		animation: slide-bottom var(--motion-sheet) var(--ease-sheet);
+		animation: slide-bottom calc(var(--sheet-ms) * 1ms) var(--ease-sheet);
 	}
 	/* Not modal: above the chart and the tab bar, below the toasts (which clear it). */
 	.sheet[data-side='bottom'][data-modal='false'] {
@@ -428,7 +413,7 @@
 		background: var(--color-surface);
 		box-shadow: var(--shadow-raised);
 		padding-block-end: env(safe-area-inset-bottom);
-		animation: slide-bottom var(--motion-sheet) var(--ease-sheet);
+		animation: slide-bottom calc(var(--sheet-ms) * 1ms) var(--ease-sheet);
 	}
 	/* On a phone the sheet ends above the floating tab bar (the margin, not a padding, so that the
 	   top stays auto and the sheet keeps the iPhone placement above). The heights below are shares
@@ -561,6 +546,36 @@
 	}
 	@keyframes fade-in {
 		from {
+			opacity: 0;
+		}
+	}
+	/* Going: the same moves backwards, on transform and opacity only. Heavier selectors than the
+	   ones that place the sheet, so that they win (also over a drag's `animation: none`). */
+	.sheet[data-closing]::backdrop {
+		animation: fade-out calc(var(--sheet-out-ms) * 1ms) ease-in forwards;
+	}
+	.sheet[data-side='bottom'][data-closing],
+	.sheet[data-side='bottom'][data-modal='true'][data-closing] .inner {
+		animation: leave-bottom calc(var(--sheet-out-ms) * 1ms) ease-in forwards;
+	}
+	.sheet[data-side='bottom'][data-modal='true'][data-closing] {
+		animation: none;
+	}
+	.sheet[data-side='start'][data-closing] {
+		animation: leave-start calc(var(--sheet-out-ms) * 1ms) ease-in forwards;
+	}
+	@keyframes leave-bottom {
+		to {
+			transform: translateY(calc(100% + var(--rest, 0px)));
+		}
+	}
+	@keyframes leave-start {
+		to {
+			transform: translateX(calc(-100% - var(--gap-panel)));
+		}
+	}
+	@keyframes fade-out {
+		to {
 			opacity: 0;
 		}
 	}

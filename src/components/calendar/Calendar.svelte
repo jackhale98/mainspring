@@ -54,7 +54,7 @@
 	import type { CommitResult } from '../../lib/calendar/leave-edit';
 	import MonthView from './MonthView.svelte';
 	import TypePicker from './TypePicker.svelte';
-	import { slideUp } from '../../lib/ui/sheet-motion';
+	import { slideUp } from '../../lib/ui/slide-up';
 
 	interface Props {
 		app: AppState;
