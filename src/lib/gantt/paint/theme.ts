@@ -180,8 +180,26 @@ export function readTheme(get: (name: string) => string): Theme {
 	return build(get);
 }
 
+/**
+ * Whether a getter has the app's tokens at all. An element with no layout (inside a `display: none`
+ * panel) may answer every custom property with an empty string (WebKit has done), and a theme read
+ * then is the light fallback in full: a dark chart painted white. A theme read from such an answer
+ * must be thrown away, not kept.
+ */
+export function themeResolved(get: (name: string) => string): boolean {
+	return get(COLOURS.surface[0]).trim() !== '' && get(COLOURS.text[0]).trim() !== '';
+}
+
 /** The theme of an element's computed style. */
 export function themeOf(el: Element): Theme {
 	const style = getComputedStyle(el);
 	return readTheme((name) => style.getPropertyValue(name));
+}
+
+/** The theme of an element, or null when it has none to read now (hidden, tokens not resolved). */
+export function themeIfShown(el: Element): Theme | null {
+	if (el.getClientRects().length === 0) return null;
+	const style = getComputedStyle(el);
+	const get = (name: string): string => style.getPropertyValue(name);
+	return themeResolved(get) ? readTheme(get) : null;
 }

@@ -54,6 +54,7 @@
 	import type { CommitResult } from '../../lib/calendar/leave-edit';
 	import MonthView from './MonthView.svelte';
 	import TypePicker from './TypePicker.svelte';
+	import { slideUp } from '../../lib/ui/slide-up';
 
 	interface Props {
 		app: AppState;
@@ -555,7 +556,12 @@
 			<div class="inset" aria-hidden="true"></div>
 		</div>
 		{#if detailed}
-			<div class="sheet" bind:clientHeight={sheetH}>
+			<div
+				class="sheet"
+				bind:clientHeight={sheetH}
+				in:slideUp={{ enabled: rootW < 760 }}
+				out:slideUp={{ enabled: rootW < 760 }}
+			>
 				<DayDetails
 					bind:this={details}
 					details={detailed}

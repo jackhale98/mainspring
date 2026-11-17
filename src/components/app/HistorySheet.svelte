@@ -19,9 +19,16 @@
 	const S = historyStrings.sheet;
 	const uid = $props.id();
 	/** Read when the sheet opens (its first read after `open` turns true), with the time then. */
-	const list = $derived(
-		app.historyOpen ? { items: app.history.items(), now: Date.now() } : { items: [], now: 0 },
-	);
+	const live = $derived(app.historyOpen ? { items: app.history.items(), now: Date.now() } : null);
+	/**
+	 * What the sheet showed when it was last open: it goes on showing that while it slides away (an
+	 * accepted rewind empties the history, and the sliding sheet must not say "nothing to undo").
+	 */
+	let held = $state.raw({ items: [] as ReturnType<typeof app.history.items>, now: 0 });
+	$effect.pre(() => {
+		if (live) held = live;
+	});
+	const list = $derived(live ?? held);
 	/** The line asked about: it and every newer one are undone if the person confirms. */
 	let chosen = $state<number | null>(null);
 	let confirm: HTMLDialogElement | undefined = $state();
