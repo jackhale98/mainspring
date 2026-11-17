@@ -105,9 +105,9 @@ describe('mirror model', () => {
 			[2, 4],
 			[3, 5],
 		]);
-		expect(m.rows.map((r) => [r.id, r.ariaRowIndex, r.level])).toEqual([
-			['dev1', 3, 2],
-			['dev2', 4, 2],
+		expect(m.rows.map((r) => [r.id, r.ariaRowIndex, r.level, r.parent])).toEqual([
+			['dev1', 3, 2, 'Team'],
+			['dev2', 4, 2, 'Team'],
 		]);
 		expect(m.rows[0]?.cells.map((c) => c.ariaColIndex)).toEqual([4, 5]);
 	});
@@ -122,7 +122,7 @@ describe('mirror model', () => {
 			range: { r0: 0, r1: 4, c0: 0, c1: 1 },
 		});
 		const [team, dev1, , solo] = m.rows;
-		expect(team).toMatchObject({ group: true, expanded: true, level: 1 });
+		expect(team).toMatchObject({ group: true, expanded: true, level: 1, parent: null });
 		expect(dev1?.cells[0]).toMatchObject({
 			name: 'Dev 1, week of 5 January: 12 of 40 hours, spare',
 			face: '12h',

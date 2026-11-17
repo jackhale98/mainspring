@@ -825,6 +825,12 @@ export const workloadStrings = {
 		overBooked: 'booked above available time',
 		overThreshold: (pct: number, limit: number) => `${pct}% is above ${limit}%`,
 	},
+	/** A grid row has no level or state of its own: the row header says them. */
+	rowHeader: {
+		member: (name: string, group: string) => `${name}, in ${group}`,
+		group: (name: string, expanded: boolean) =>
+			`${name}, group, ${expanded ? 'expanded' : 'collapsed'}`,
+	},
 	nav: { hint: 'Arrow keys move between cells. Enter opens the details. T goes to today.' },
 	details: {
 		region: 'Cell details',

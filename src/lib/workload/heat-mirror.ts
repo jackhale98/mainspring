@@ -5,6 +5,8 @@
  * only, at most `MIRROR_ROWS` x `MIRROR_COLS` cells, and says how many rows and columns the whole
  * model has (`aria-rowcount`, `aria-colcount`) and where each row and column stands in it
  * (`aria-rowindex`, `aria-colindex`), so the window is a view of a bigger grid and not the grid.
+ * A grid row has no `aria-level` or `aria-expanded` (those are a tree grid's), so the row header
+ * says the hierarchy in words: "Dev 1, in Team", "Team, group, expanded".
  * Row 1 is the column headers and column 1 the row headers (the people), so a data cell is at row
  * `row + 2` and column `col + 2`.
  *
@@ -42,8 +44,10 @@ export interface MirrorRow {
 	readonly row: number;
 	readonly id: string;
 	readonly name: string;
-	/** `aria-level`: 1 for a root, deeper for members of a group. */
+	/** 1 for a root, deeper for members of a group (a grid row has no `aria-level`, so the row header says it). */
 	readonly level: number;
+	/** The name of the group the row is a member of, or null for a root. */
+	readonly parent: string | null;
 	readonly group: boolean;
 	readonly expanded: boolean | null;
 	readonly ariaRowIndex: number;
@@ -89,6 +93,16 @@ export interface MirrorInput {
 	readonly range: CellRange;
 }
 
+/** The nearest row above that is one level up: the group a row belongs to. */
+function parentOf(model: LoadModel, r: number): string | null {
+	const depth = model.rows[r]?.depth ?? 0;
+	for (let i = r - 1; depth > 0 && i >= 0; i--) {
+		const row = model.rows[i];
+		if (row && row.depth === depth - 1) return row.name;
+	}
+	return null;
+}
+
 export function buildMirror(i: MirrorInput): Mirror {
 	const { model, labels, range } = i;
 	const columns: MirrorColumn[] = [];
@@ -118,6 +132,7 @@ export function buildMirror(i: MirrorInput): Mirror {
 			id: row.id,
 			name: row.name,
 			level: row.depth + 1,
+			parent: parentOf(model, r),
 			group: row.group,
 			expanded: row.expanded,
 			ariaRowIndex: r + 2,

@@ -100,12 +100,16 @@
 			role="row"
 			class="mrow"
 			aria-rowindex={r.ariaRowIndex}
-			aria-level={r.level}
-			aria-expanded={r.group ? r.expanded === true : undefined}
 			style:top="{layout.rowTop(r.row)}px"
 			style:height="{layout.rowHeight}px"
 		>
-			<div role="rowheader" aria-colindex="1" class="rhead">{r.name}</div>
+			<div role="rowheader" aria-colindex="1" class="rhead">
+				{r.group
+					? W.rowHeader.group(r.name, r.expanded === true)
+					: r.parent === null
+						? r.name
+						: W.rowHeader.member(r.name, r.parent)}
+			</div>
 			{#each r.cells as c (c.col)}
 				<div
 					role="gridcell"

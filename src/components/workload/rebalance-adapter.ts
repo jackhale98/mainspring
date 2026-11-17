@@ -28,7 +28,7 @@ import type { EditIntent } from '../../lib/tjp/edit/types';
 import type { PlanRebalanceFn, RebalanceAction } from '../../lib/workload/rebalance';
 import type { ResourceId, TaskId } from '../../lib/tjp/index';
 import type { Cell } from '../../lib/workload/heat-layout';
-import { personAt } from '../../lib/workload/heat-drag';
+import { personAt, shiftOf } from '../../lib/workload/heat-drag';
 import type { LoadModel } from '../../lib/workload/types';
 
 /** T12's `planRebalance`, once it merges: `import { planRebalance } from '...rebalance'`. */
@@ -170,15 +170,7 @@ export class Nudges {
 		const col = clamp(offset);
 		if (col === cell.col || col === clamp(offset - step)) return null;
 		this.#by.set(key, offset);
-		return this.#rebalancer.run(
-			{
-				type: 'shift',
-				task,
-				fromBucket: model.axis.bounds[cell.col] as number,
-				toBucket: model.axis.bounds[col] as number,
-			},
-			{ coalesceKey: key },
-		);
+		return this.#rebalancer.run(shiftOf(model, task, cell.col, col), { coalesceKey: key });
 	}
 
 	/** Blur or Enter: dispatches what is held and starts every offset again from zero. */

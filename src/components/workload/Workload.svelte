@@ -36,6 +36,7 @@
 	import { browserStorage } from '../../lib/state/storage';
 	import { workloadStrings as W } from '../../lib/strings';
 	import { cellDetails, cellInfo, cellName, type DetailTask } from '../../lib/workload/heat-cell';
+	import { shiftOf } from '../../lib/workload/heat-drag';
 	import { axisLabels } from '../../lib/workload/heat-labels';
 	import { heatLayout, type Box, type Cell } from '../../lib/workload/heat-layout';
 	import { buildMirror, mirrorRange, moveFocus, type Mirror } from '../../lib/workload/heat-mirror';
@@ -461,12 +462,7 @@
 				void perform({ type: 'reassign', task: t.task, from: from.id, to: target.id });
 			return;
 		}
-		void perform({
-			type: 'shift',
-			task: t.task,
-			fromBucket: model.axis.bounds[selected.col] as number,
-			toBucket: model.axis.bounds[to.col] as number,
-		});
+		void perform(shiftOf(model, t.task, selected.col, to.col));
 	}
 
 	async function nudge(t: DetailTask, axis: 'person' | 'period', step: -1 | 1): Promise<void> {

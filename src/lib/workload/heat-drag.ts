@@ -59,6 +59,29 @@ export interface DragPlan {
 	readonly label: string;
 }
 
+/**
+ * The W2 ask for moving `task` from one bucket to another, the one place it is built (a drop, the
+ * details' "Move to week…" and the Alt+arrow keys all come here). Both are bucket starts from the
+ * axis bounds.
+ */
+// T12: its review adds a required `toBucketEnd` (the next bound after `toBucket`, the end of the
+// target bucket) to `RebalanceAction`, and a refusal for a bucket with no working day ("No working
+// days in that week."). At merge, add `toBucketEnd: model.axis.bounds[toCol + 1] as number` here
+// and the new refusal's sentence to `workloadStrings.rebalance.refusal`.
+export function shiftOf(
+	model: LoadModel,
+	task: TaskId,
+	fromCol: number,
+	toCol: number,
+): RebalanceAction {
+	return {
+		type: 'shift',
+		task,
+		fromBucket: model.axis.bounds[fromCol] as number,
+		toBucket: model.axis.bounds[toCol] as number,
+	};
+}
+
 /** What dropping `task` from `from` on `to` asks for, and what to say about it. */
 export function dragPlan(
 	model: LoadModel,
@@ -86,12 +109,7 @@ export function dragPlan(
 	const label = W.rebalance.toPeriod(labels.period[to.col] ?? '');
 	if (task === null) return { action: null, ok: true, label };
 	return {
-		action: {
-			type: 'shift',
-			task,
-			fromBucket: model.axis.bounds[from.col] as number,
-			toBucket: model.axis.bounds[to.col] as number,
-		},
+		action: shiftOf(model, task, from.col, to.col),
 		ok: true,
 		label,
 	};
