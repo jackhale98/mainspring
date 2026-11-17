@@ -105,7 +105,7 @@ test.describe('people shell screenshots', () => {
 		await light(page, 't13-view-switcher-gantt-tablet-820-light.png');
 		await page.setViewportSize({ width: 1280, height: 720 });
 		await page.goto(`/app?sample=upstream-tutorial&mode=split&view=calendar`);
-		await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(page.getByTestId('calendar')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 		await light(page, 't13-view-switcher-split-1280-light.png');
 	});
 

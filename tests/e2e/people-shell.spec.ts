@@ -31,7 +31,7 @@ const PLAN = 'upstream-tutorial';
 const content = (page: Page) =>
 	page
 		.locator(
-			'[data-testid="people-coming"], [data-testid="heat-cell"], [data-testid="workload"], [data-testid="lanes"]',
+			'[data-testid="people-coming"], [data-testid="calendar"], [data-testid="heat-cell"], [data-testid="workload"], [data-testid="lanes"]',
 		)
 		.first();
 
@@ -368,7 +368,7 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		await chooseView(page, 'Resources');
 		await expect(none).toBeVisible();
 		await chooseView(page, 'Calendar');
-		await expect(page.getByTestId('people-coming')).toBeVisible();
+		await expect(page.getByTestId('calendar')).toBeVisible();
 		await expect(none).toHaveCount(0);
 		await chooseView(page, 'Workload');
 

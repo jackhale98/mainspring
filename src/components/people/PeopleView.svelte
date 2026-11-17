@@ -7,10 +7,11 @@
 	For each content (`workload`, `resources`, `calendar`, `team`) it shows the "No people" state
 	when the plan declares no resource (lib/people/empty.ts), else the content: the workload heatmap
 	(T14, components/workload) and the Resources lanes (T15, components/resources), which stay
-	mounted once seen so that their scroll, zoom and selection survive a switch to another view, and
-	for the rest a short placeholder that T16 (calendar) and T17 (resource table, which the desktop
-	puts beside the lanes) replace. After Add person the keyboard focus goes to the content, where
-	the button was.
+	mounted once seen so that their scroll, zoom and selection survive a switch to another view, the
+	calendar (T16, components/calendar), which needs no people (Everyone's holidays), draws its own
+	toolbar and keeps its month and mode in a state made here, and for the rest a short placeholder
+	that T17 (resource table, which the desktop puts beside the lanes) replaces. After Add person the
+	keyboard focus goes to the content, where the button was.
 -->
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
@@ -18,6 +19,8 @@
 	import type { PeopleContent } from '../../lib/people/shell';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { strings } from '../../lib/strings';
+	import Calendar from '../calendar/Calendar.svelte';
+	import { CalendarState } from '../calendar/calendar-state.svelte';
 	import Workload from '../workload/Workload.svelte';
 	import Lanes from '../resources/Lanes.svelte';
 	import NoPeople from './NoPeople.svelte';
@@ -42,6 +45,8 @@
 	let coming: HTMLElement | undefined = $state();
 	let host: HTMLDivElement | undefined = $state();
 	let focusContent = $state(false);
+	/** The calendar's month, mode and focus, kept while another view shows. */
+	const calendar = new CalendarState();
 	/** The heatmap and the lanes are mounted when first shown and then kept (scroll and zoom survive). */
 	let heatmapSeen = $state(false);
 	let lanesSeen = $state(false);
@@ -100,7 +105,7 @@
 
 <div
 	class="host"
-	class:flush={drawn}
+	class:flush={drawn || content === 'calendar'}
 	bind:this={host}
 	data-testid="people-host"
 	data-content={content}
@@ -116,6 +121,8 @@
 		<p class="message" role="status">{strings.topBar.loading}</p>
 	{:else if shown === 'none'}
 		<NoPeople {app} ondone={() => (focusContent = true)} />
+	{:else if content === 'calendar'}
+		<Calendar {app} {phone} state={calendar} {showGantt} />
 	{:else if content !== 'workload' && content !== 'resources'}
 		<p class="message" data-testid="people-coming" tabindex="-1" bind:this={coming}>
 			{S.coming[content]}

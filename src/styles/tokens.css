@@ -130,6 +130,14 @@
 	--load-names: 12rem;
 	--load-font-size: 12px;
 
+	/* Calendar (phase-3.md 9.2, 9.5): a month block is a title, the weekday row and 6 rows of days,
+	   so every block has one height (calendar/grid.ts). A finger gets 44 px days (below). */
+	--cal-row: 40px;
+	--cal-title: 36px;
+	--cal-dow: 24px;
+	--cal-gap: 12px;
+	--cal-month-h: calc(var(--cal-title) + var(--cal-dow) + 6 * var(--cal-row) + var(--cal-gap));
+
 	/* Resources lanes (phase-3.md 9.2, 9.4; src/lib/lanes/lane-theme.ts reads these): 40 px lanes
 	   (the Phase 2 row, the exemption of section 10), 22 px bars, a column per bucket as wide as the
 	   Gantt's zoom presets (a day 56 px, a week 16 px a day). A finger gets narrower columns. */
@@ -164,6 +172,7 @@
 		--load-col-day: 44px;
 		--load-col-week: 44px;
 		--load-col-month: 56px;
+		--cal-row: var(--size-tap);
 		--lane-col-day: 48px;
 		--lane-col-week: 96px;
 		--lane-col-month: 96px;
