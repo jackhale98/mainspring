@@ -25,6 +25,7 @@ import type { Minutes, Revision, ScheduleResult } from '../../engine/protocol';
 import type { DrivingAnalysis } from '../schedule/critical';
 import type { DemandMarks } from '../schedule/explain-types';
 import type { WorkingTime } from '../schedule/working-time';
+import type { Availability } from '../workload/types';
 import type { EditIntent } from '../tjp/edit/types';
 import type { ResourceId, SourceRange, SymbolIndex, TaskId, TextOnlyReason } from '../tjp/index';
 
@@ -38,6 +39,19 @@ export type CheckId =
 	| 'held-by-people'
 	| 'work-without-people'
 	| 'resource-warning';
+
+/** H1 to H9 in section 12's order (the order findings and settings come in). */
+export const CHECK_IDS: readonly CheckId[] = Object.freeze([
+	'no-predecessor',
+	'no-successor',
+	'hard-constraint',
+	'constraint-warning',
+	'long-gap',
+	'long-task',
+	'held-by-people',
+	'work-without-people',
+	'resource-warning',
+] satisfies CheckId[]);
 
 /** What a finding is about. `message` is an index into `ScheduleResult.messages` (H4, H9). */
 export type Subject =
@@ -81,16 +95,25 @@ export type ResourceWarningId =
 export interface CheckFacts {
 	'no-predecessor': null;
 	'no-successor': null;
-	/** "Remove" shows the date the constraint held. */
+	/**
+	 * On the task that writes it. "Remove" shows the date the constraint held: null when the text
+	 * cannot be read (a macro, a zone without data). `applies`: the tasks it binds, the task itself
+	 * and every descendant that does not write its own ("applies to 246 tasks").
+	 */
 	'hard-constraint': {
 		readonly attr: 'start' | 'end' | 'minstart' | 'maxend';
-		readonly date: Minutes;
+		readonly date: Minutes | null;
+		readonly applies: number;
 	};
-	/** "Starts 3 days after its latest allowed start": which limit, by how much; the message text. */
+	/**
+	 * "Starts 3 days after its latest allowed start": which limit, by how much; the message text,
+	 * and the task it names (null when the result has no such task).
+	 */
 	'constraint-warning': {
 		readonly limit: 'minstart' | 'maxstart' | 'minend' | 'maxend';
 		readonly days: number;
 		readonly text: string;
+		readonly task: TaskId | null;
 	};
 	/** Working days for `gaplength`; calendar days at the gap's own rate for `gapduration`. */
 	'long-gap': { readonly gap: 'gaplength' | 'gapduration'; readonly days: number };
@@ -116,12 +139,22 @@ export interface CheckFacts {
 		readonly message: ResourceWarningId;
 		readonly text: string;
 		readonly tasks: readonly TaskId[];
+		/** The task the message is about (null when the result has no such task). */
+		readonly task: TaskId | null;
 	};
 }
 // T2: readings within the ruling. H4's `days` are working days, as H6 and H7 count them. H7 and
 // H8 make one finding per task and person; H7's `on` is the task the person was booked on for
 // most of the held windows. H8 keeps integer minutes, as the load model does; the sentence prints
 // hours.
+// T11: three additions to the facts. H3's `date` may be null: Fedora writes `start ${start_work}`,
+// which the index cannot read, and a finding must not show a date nobody computed. H4's and H9's `task` is the task the message names (the sentence names it,
+// and H9's "Replace person…" needs it); the message text is TaskJuggler's own.
+// T11: H3 is one finding per written site, on the task that writes it, with `applies` (main-session
+// ruling, 2026-11-17, from the fedora-res review: 380 findings, 246 of them one macro start on the
+// root). It replaces the per-task `from`: `start` and `end` are not inherited attributes in
+// TaskJuggler (Project.rb), but TaskScenario#earliestStart reads every ancestor's, so the site
+// binds its whole subtree, which `applies` counts.
 
 /** One finding of check `C`: `facts` narrows with `check`. */
 export interface FindingOf<C extends CheckId> {
@@ -179,6 +212,8 @@ export interface HealthInput {
 	demand: DemandMarks;
 	wt: WorkingTime;
 	settings: HealthSettings;
+	/** The people's availability in the analysis's scenario; built from `result` when absent. */
+	availability?: Availability;
 }
 
 /** T11's `checkPlan` has this type (`export const checkPlan: CheckPlanFn`). */
