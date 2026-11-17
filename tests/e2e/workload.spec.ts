@@ -340,6 +340,8 @@ test('zoom: the toolbar, + and -, and Ctrl+wheel step day, week and month', asyn
 	await page.locator('[data-testid="heat-cell"][tabindex="0"]').focus();
 	await page.keyboard.press('-');
 	await expect(root).toHaveAttribute('data-zoom', 'month');
+	// The focus stays in the grid across the zoom (the mirror is rebuilt for the new columns).
+	await expect(page.locator('[data-testid="heat-cell"]:focus')).toBeAttached();
 	await page.keyboard.press('+');
 	await expect(root).toHaveAttribute('data-zoom', 'week');
 	// Ctrl+wheel over the plot: forward zooms out, back zooms in.

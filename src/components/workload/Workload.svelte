@@ -329,7 +329,10 @@
 		scrollLeft = scroller.scrollLeft;
 		announce(`${W.zoom}: ${W.level[kind]}`);
 		// The mirror is rebuilt for the new columns: a keyboard user keeps their place.
-		if (hadFocus) focusNonce++;
+		if (hadFocus) {
+			untrack(rebuildMirror);
+			focusNonce++;
+		}
 	}
 
 	function stepZoom(dir: 1 | -1, clientX: number): void {
