@@ -68,4 +68,19 @@ describe('InspectorState', () => {
 		s.reset();
 		expect(s).toMatchObject({ link: null, projectOpen: false, source: null, sheet: false });
 	});
+
+	it('askPick opens the details without moving the focus, holds the request, and reset drops it', () => {
+		const s = new InspectorState();
+		s.collapsed = true;
+		s.askPick('a', 'successor', 3);
+		expect(s).toMatchObject({
+			sheet: true,
+			collapsed: false,
+			explicit: true,
+			focusNonce: 0,
+			pick: { task: 'a', role: 'successor', serial: 3 },
+		});
+		s.reset();
+		expect(s.pick).toBeNull();
+	});
 });

@@ -137,6 +137,28 @@ describe('text to visual: collapsed containers', () => {
 	});
 });
 
+describe('the dependency picker request (polish item 11)', () => {
+	it('selects the task, opens its details and asks for the role, for the selection it made', async () => {
+		const { app } = await open();
+		app.openDependencyPicker('b', 'predecessor');
+		expect(app.selectedTask).toBe('task:b');
+		expect(app.inspector.sheet).toBe(true);
+		expect(app.inspector.pick).toEqual({
+			task: 'b',
+			role: 'predecessor',
+			serial: app.selection.serial,
+		});
+		// Asking again for the task that is selected keeps its selection (and so its serial).
+		const serial = app.selection.serial;
+		app.openDependencyPicker('b', 'successor');
+		expect(app.selection.serial).toBe(serial);
+		expect(app.inspector.pick).toMatchObject({ role: 'successor', serial });
+		// Another task selected afterwards makes the request stale: its serial no longer matches.
+		app.selectTask('task:a');
+		expect(app.inspector.pick?.serial).not.toBe(app.selection.serial);
+	});
+});
+
 describe('visual to text', () => {
 	it('marks the block of a selected task, scrolling once, and moves the highlight with a fresh index', async () => {
 		const { app, client } = await open();
