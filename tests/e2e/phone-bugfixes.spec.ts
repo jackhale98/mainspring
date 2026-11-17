@@ -28,16 +28,40 @@ const shot = async (page: Page, name: string, info: TestInfo): Promise<void> => 
 	await page.screenshot({ path: path.join(DIR, `bugfix-${name}-${device(info)}${TAG}.png`) });
 };
 
-type Rec = { __rec: (number | null)[]; __raf: number };
-/** Records the top edge of the first element matching `selector` on every frame, from now on. */
+type Rec = {
+	__rec: (number | null)[];
+	__raf: number;
+	__props: string[];
+	__closing: boolean;
+};
+/**
+ * Records, on every frame from now on, the top edge of the first element matching `selector`, the
+ * properties its animations change, and whether it was a dialog marked as closing while still open.
+ * (A frame loop, not a check after an action: under load an action returns after a slide has ended.)
+ */
 const record = (page: Page, selector: string): Promise<void> =>
 	page.evaluate((sel) => {
 		const w = window as unknown as Rec;
 		w.__rec = [];
+		w.__props = [];
+		w.__closing = false;
+		const skip = new Set(['offset', 'easing', 'composite', 'computedOffset']);
 		const tick = (): void => {
 			const el = document.querySelector(sel);
 			const shown = el !== null && el.getClientRects().length > 0;
 			w.__rec.push(shown ? Math.round(el.getBoundingClientRect().top * 10) / 10 : null);
+			if (shown) {
+				for (const a of el.getAnimations()) {
+					const fx = a.effect;
+					if (!(fx instanceof KeyframeEffect)) continue;
+					for (const k of fx.getKeyframes())
+						for (const p of Object.keys(k))
+							if (!skip.has(p) && !w.__props.includes(p)) w.__props.push(p);
+				}
+				if (el instanceof HTMLDialogElement && el.open && el.hasAttribute('data-closing')) {
+					w.__closing = true;
+				}
+			}
 			w.__raf = requestAnimationFrame(tick);
 		};
 		tick();
@@ -47,6 +71,12 @@ const stopRecording = (page: Page): Promise<number[]> =>
 		const w = window as unknown as Rec;
 		cancelAnimationFrame(w.__raf);
 		return w.__rec.filter((v): v is number => v !== null);
+	});
+/** What the recording saw: the properties animated (only `transform` may move a sheet), and a closing dialog. */
+const recorded = (page: Page): Promise<{ props: string[]; closing: boolean }> =>
+	page.evaluate(() => {
+		const w = window as unknown as Rec;
+		return { props: w.__props, closing: w.__closing };
 	});
 
 /** How many different places the edge was seen at: a jump is 2, a slide is many. */
@@ -66,23 +96,6 @@ const nonDecreasing = (t: number[]): boolean =>
 	t.every((v, i) => i === 0 || v >= (t[i - 1] ?? 0) - 1);
 const nonIncreasing = (t: number[]): boolean =>
 	t.every((v, i) => i === 0 || v <= (t[i - 1] ?? 0) + 1);
-
-/** The properties an element's running animations change: only these may be `transform` or `opacity`. */
-const animatedProperties = (page: Page, selector: string): Promise<string[]> =>
-	page.evaluate((sel) => {
-		const el = document.querySelector(sel);
-		if (!el) return [];
-		const props = new Set<string>();
-		const skip = new Set(['offset', 'easing', 'composite', 'computedOffset']);
-		for (const a of el.getAnimations()) {
-			const fx = a.effect;
-			if (fx instanceof KeyframeEffect) {
-				for (const k of fx.getKeyframes())
-					for (const p of Object.keys(k)) if (!skip.has(p)) props.add(p);
-			}
-		}
-		return [...props];
-	}, selector);
 
 async function ready(page: Page): Promise<void> {
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
@@ -127,11 +140,9 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 
 		await record(page, SHEET);
 		await grab.click();
-		await expect
-			.poll(() => animatedProperties(page, SHEET), { message: 'only transform moves' })
-			.toEqual(['transform']);
 		await page.waitForTimeout(700);
 		const grow = await stopRecording(page);
+		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
 		// Pinned at the foot, the top edge travels up from where it was to its new place, in many frames.
 		expect(steps(grow), 'the top edge moved in more than a jump').toBeGreaterThan(4);
 		expect(nonIncreasing(despike(grow))).toBe(true);
@@ -150,19 +161,13 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		// Closing: still there, marked, with a transform animation running; then gone.
 		await record(page, SHEET);
 		await panel.getByRole('button', { name: 'Close' }).click();
-		const state = await page.evaluate((sel) => {
-			const el = document.querySelector<HTMLDialogElement>(sel);
-			return { open: el?.open, closing: el?.hasAttribute('data-closing') };
-		}, SHEET);
-		expect(state, 'the sheet is on screen while it slides away').toEqual({
-			open: true,
-			closing: true,
-		});
-		await expect.poll(() => animatedProperties(page, SHEET)).toContain('transform');
 		await page.waitForTimeout(150);
 		await shot(page, 'details-closing', info);
 		await page.waitForTimeout(550);
 		const away = await stopRecording(page);
+		const seen = await recorded(page);
+		expect(seen.closing, 'the sheet was on screen, marked closing, while it slid away').toBe(true);
+		expect(seen.props).toContain('transform');
 		expect(steps(away), 'it slid down in more than a jump').toBeGreaterThan(3);
 		expect(nonDecreasing(despike(away))).toBe(true);
 		await expect
@@ -174,13 +179,11 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		const panel = await openDetails(page);
 		// A key goes to the focus, which the sheet leaves on the row until the person goes in.
 		await panel.getByRole('button', { name: /Details height/ }).focus();
+		await record(page, SHEET);
 		await page.keyboard.press('Escape');
-		const state = await page.evaluate((sel) => {
-			const el = document.querySelector<HTMLDialogElement>(sel);
-			return { open: el?.open, closing: el?.hasAttribute('data-closing') };
-		}, SHEET);
-		expect(state, 'still on screen while it slides away').toEqual({ open: true, closing: true });
 		await expect(panel).toBeHidden();
+		await stopRecording(page);
+		expect((await recorded(page)).closing, 'it slid away first').toBe(true);
 		await page
 			.locator('[role="treegrid"] [role="row"][data-key]')
 			.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Research' }) })
@@ -252,9 +255,7 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		// Never above its final place, and it came up from below it.
 		expect(Math.min(...tops)).toBeGreaterThanOrEqual(finalTop - 1);
 		expect(nonIncreasing(tops)).toBe(true);
-		expect(await animatedProperties(page, 'dialog.sheet[data-modal="true"] .inner')).not.toContain(
-			'top',
-		);
+		expect((await recorded(page)).props).not.toContain('top');
 		await shot(page, 'docs', info);
 	});
 
@@ -290,11 +291,9 @@ test.describe('3. the calendar day details slide up and down', () => {
 		await record(page, SHEET);
 		await tapDay(page, info, d);
 		await expect(page.getByTestId('cal-details')).toBeVisible();
-		await expect
-			.poll(() => animatedProperties(page, SHEET), { message: 'only transform moves' })
-			.toEqual(['transform']);
 		await page.waitForTimeout(600);
 		const up = await stopRecording(page);
+		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
 		expect(steps(up), 'it slid up in more than a jump').toBeGreaterThan(4);
 		expect(nonIncreasing(up)).toBe(true);
 		await shot(page, 'calendar-sheet', info);
