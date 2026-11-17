@@ -113,24 +113,14 @@
 	}
 	/*
 	 * The tiers follow what fits beside the Gantt's chips (GanttToolbar), by the width of the
-	 * toolbar (the nearest container), as the chips themselves narrow:
+	 * toolbar (the nearest container):
 	 *   1380 px and up   the names and icons (SegmentTabs);
 	 *   1050 to 1379     icons, the name of the chosen view;
-	 *   900 to 1049      one menu button: the chips still have their labels and the legend of the
-	 *                    today and status lines, which take the room four icons would (a desktop at
-	 *                    1280 with the details docked is here);
-	 *   560 to 899       icons again: the chips are compact there (no legend, no People label);
-	 *   under 560        one menu button (Split beside the editor, a small tablet).
+	 *   under 1050       one menu button. Four icons there push the chips under the details drawer
+	 *                    in Split, and leave the selected task's line no room (a desktop at 1280
+	 *                    with the details docked, Split beside the editor, a tablet).
 	 */
-	@container (min-width: 900px) and (max-width: 1049px) {
-		.full {
-			display: none;
-		}
-		.compact {
-			display: inline-flex;
-		}
-	}
-	@container (max-width: 559px) {
+	@container (max-width: 1049px) {
 		.full {
 			display: none;
 		}
@@ -178,5 +168,19 @@
 		display: grid;
 		color: var(--color-text-muted);
 		pointer-events: none;
+	}
+	/* Under 900 px (Split beside the editor) the button is the view's icon and the caret only, so
+	   the Gantt's chips stay clear of the details drawer. The select still covers the whole button
+	   and keeps its name; the chosen view's name is the icon there. */
+	@container (max-width: 899px) {
+		.compact {
+			padding-inline: 10px 24px;
+		}
+		.compact select {
+			position: absolute;
+			inset: 0;
+			inline-size: 100%;
+			opacity: 0;
+		}
 	}
 </style>

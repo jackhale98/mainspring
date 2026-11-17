@@ -399,9 +399,27 @@
 			display: none;
 		}
 	}
-	/* A narrow chart (Split) has no room for the legend lines: only the "last good schedule"
-	   notice stays, since that one is a state the user must see. */
+	/* A narrow chart (Split beside the editor) has no room in the band for the selected task's
+	   line beside the chips and the view switcher: it floats over the foot of the chart, as on a
+	   phone, so it is never cut to a letter and nothing in the band moves. */
 	@container gantt (max-width: 899px) {
+		.task {
+			position: absolute;
+			z-index: 6;
+			inset-inline-start: var(--space-2);
+			inset-block-end: var(--space-2);
+			max-inline-size: calc(100% - 2 * var(--space-2));
+			box-shadow: var(--gantt-chip-shadow);
+			backdrop-filter: blur(6px);
+		}
+		.task.hover {
+			z-index: 7;
+		}
+	}
+	/* A narrow chart (Split, or a desktop with the details docked, where the view switcher also
+	   takes room) has no room for the legend lines: the selected task's line needs it more. Only
+	   the "last good schedule" notice stays, since that one is a state the user must see. */
+	@container gantt (max-width: 1049px) {
 		.legend li:not(.stale) {
 			display: none;
 		}
