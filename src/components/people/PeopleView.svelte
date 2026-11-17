@@ -7,15 +7,16 @@
 
 	For each content (`workload`, `resources`, `calendar`, `team`) it shows the "No people" state
 	when the plan declares no resource (lib/people/empty.ts), else the content: the workload heatmap
-	(T14, components/workload) and the Resources lanes (T15, components/resources), which stay
-	mounted once seen so that their scroll, zoom and selection survive a switch to another view, the
-	calendar (T16, components/calendar), which needs no people (Everyone's holidays), draws its own
-	toolbar and keeps its month and mode in a state made here, and for the rest a short placeholder
-	that T17 (resource table, which the desktop puts beside the lanes) replaces. After Add person the
-	keyboard focus goes to the content, where the button was.
+	(T14, components/workload) and the Resources view (T15 and T17: the table beside the lanes,
+	components/resources), which stay mounted once seen so that their scroll, zoom and selection
+	survive a switch to another view; the calendar (T16, components/calendar), which needs no people
+	(Everyone's holidays), draws its own toolbar and keeps its month and mode in a state made here; and
+	the phone's Team segment, the table alone (T17). While a view's chunk is on its way it says so, and
+	a chunk that cannot be fetched says so with "Try again". After Add person the keyboard focus goes
+	to the content, where the button was.
 -->
 <script lang="ts">
-	import { tick, type Snippet } from 'svelte';
+	import type { Snippet } from 'svelte';
 	import { peopleState } from '../../lib/people/empty';
 	import type { PeopleContent } from '../../lib/people/shell';
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -41,12 +42,13 @@
 			resources: app.outline.resources.length,
 		}),
 	);
-	let coming: HTMLElement | undefined = $state();
 	let host: HTMLDivElement | undefined = $state();
 	let focusContent = $state(false);
 	// Each view is a chunk of its own, fetched when it first opens (phase-3.md 8.3, 23.1).
 	const heatmap = new LazyModule(() => import('../workload/Workload.svelte'));
-	const lanes = new LazyModule(() => import('../resources/Lanes.svelte'));
+	// The Resources view is the table beside the lanes, the phone's Lanes segment the lanes alone and
+	// its Team segment the table alone: one component (ResourcesView), which fetches the lanes itself.
+	const lanes = new LazyModule(() => import('../resources/ResourcesView.svelte'));
 	const calendarView = new LazyModule(async () => ({
 		...(await import('../calendar/Calendar.svelte')),
 		...(await import('../calendar/calendar-state.svelte')),
@@ -73,6 +75,9 @@
 	$effect(() => {
 		if (content === 'calendar' && shown === 'content') calendarView.load();
 	});
+	$effect(() => {
+		if (content === 'team' && shown === 'content') lanes.load();
+	});
 	/** The lazy module whose view is on screen now, for the loading and failure message. */
 	const awaited = $derived(
 		shown !== 'content'
@@ -83,7 +88,7 @@
 					? lanes
 					: content === 'calendar'
 						? calendarView
-						: null,
+						: lanes,
 	);
 	/** Whose toolbar is in the People bar: a view takes its own out only when it is still the one. */
 	let barOwner: PeopleContent | null = null;
@@ -128,15 +133,23 @@
 			look();
 			return;
 		}
-		if (!coming) return;
-		focusContent = false;
-		void tick().then(() => coming?.focus());
+		// The Team segment: the table's row with the tab stop (the new person's, once the outline has it).
+		if (content === 'team') {
+			let frames = 0;
+			const look = (): void => {
+				const row = host?.querySelector<HTMLElement>('[data-testid="resource-row"][tabindex="0"]');
+				if (row) row.focus({ preventScroll: true });
+				else if (frames++ < 120) requestAnimationFrame(look);
+			};
+			focusContent = false;
+			look();
+		}
 	});
 </script>
 
 <div
 	class="host"
-	class:flush={drawn || content === 'calendar'}
+	class:flush={drawn || content === 'calendar' || content === 'team'}
 	bind:this={host}
 	data-testid="people-host"
 	data-content={content}
@@ -147,8 +160,8 @@
 		<Workload {app} {phone} active={content === 'workload'} setBar={heatBar} {showGantt} />
 	{/if}
 	{#if lanesSeen && shown === 'content' && lanes.module}
-		{@const Lanes = lanes.module.default}
-		<Lanes {app} {phone} active={content === 'resources'} setBar={laneBar} {showGantt} />
+		{@const Resources = lanes.module.default}
+		<Resources {app} {phone} active={content === 'resources'} setBar={laneBar} {showGantt} />
 	{/if}
 	{#if awaited && !awaited.module}
 		{#if awaited.failed}
@@ -166,10 +179,9 @@
 	{:else if content === 'calendar' && calendarView.module && calendar}
 		{@const Calendar = calendarView.module.default}
 		<Calendar {app} {phone} state={calendar} {showGantt} />
-	{:else if content !== 'workload' && content !== 'resources'}
-		<p class="message" data-testid="people-coming" tabindex="-1" bind:this={coming}>
-			{S.coming[content]}
-		</p>
+	{:else if content === 'team' && lanes.module}
+		{@const Team = lanes.module.default}
+		<Team {app} {phone} team />
 	{/if}
 </div>
 

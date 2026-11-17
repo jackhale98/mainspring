@@ -71,6 +71,8 @@ describe('checkBudgets', () => {
 			['heat', 'WorkloadBar.abc.js'],
 			['lanes', 'Lanes.abc.js'],
 			['calendar', 'Calendar.abc.js'],
+			['resources', 'ResourcesView.abc.js'],
+			['person', 'ResourcePanel.abc.js'],
 		] as const) {
 			expect(checkBudgets({ files: one(file, cap(name)) })).toEqual([]);
 			expect(checkBudgets({ files: one(file, cap(name) + 1) }).join('\n')).toMatch(
@@ -90,6 +92,8 @@ describe('checkBudgets', () => {
 				'WorkloadBar.a.js',
 				'Lanes.a.js',
 				'Calendar.a.js',
+				'ResourcesView.a.js',
+				'ResourcePanel.a.js',
 			]),
 		).toEqual([]);
 	});
@@ -100,7 +104,8 @@ describe('checkBudgets', () => {
 			'Workload.a.js',
 			'WorkloadBar.a.js',
 			'Lanes.a.js',
-			'Calendar.a.js',
+			'ResourcesView.a.js',
+			'WorkingHoursEditor.a.js',
 		])
 			expect(isViewChunk(f)).toBe(true);
 		expect(isViewChunk('App.a.js')).toBe(false);

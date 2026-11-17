@@ -7,7 +7,7 @@
 import { getContext, setContext } from 'svelte';
 import type { InspectorActions } from '../../lib/inspector/actions';
 import type { AppState } from '../../lib/state/app.svelte';
-import type { SourceRange, TaskId } from '../../lib/tjp/index';
+import type { ResourceId, SourceRange, TaskId } from '../../lib/tjp/index';
 
 export interface InspectorContext {
 	readonly app: AppState;
@@ -18,6 +18,8 @@ export interface InspectorContext {
 	openTask(id: TaskId): void;
 	/** Opens the link between two tasks in the link inspector. */
 	openLink(pred: TaskId, succ: TaskId): void;
+	/** Opens the Calendar scoped to a person (their details' "Add leave"); absent where it cannot. */
+	showCalendar?(resource: ResourceId): void;
 }
 
 const KEY = Symbol('inspector');

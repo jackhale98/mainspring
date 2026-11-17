@@ -27,11 +27,11 @@ test.setTimeout(READY_TIMEOUT_MS * 2);
 
 const PLAN = 'upstream-tutorial';
 
-/** What a People view with people shows: the heatmap (Workload) or the lanes (Resources), else the placeholder. */
+/** What a People view with people shows: the heatmap (Workload) or the lanes (Resources), else the resource table (T17). */
 const content = (page: Page) =>
 	page
 		.locator(
-			'[data-testid="people-coming"], [data-testid="calendar"], [data-testid="heat-cell"], [data-testid="workload"], [data-testid="lanes"]',
+			'[data-testid="resource-table"], [data-testid="calendar"], [data-testid="heat-cell"], [data-testid="workload"], [data-testid="lanes"]',
 		)
 		.first();
 

@@ -27,8 +27,11 @@ export const TEXT_FIRST_CAP = 420_000;
 /**
  * Lazy chunks with their own cap, by file name (Rollup names a chunk after its entry module, and
  * a chunk two views share after one of its modules). `view: true` marks a People view chunk: none
- * of them may load with a Gantt-first load (phase-3.md 8.3). The People views are one chunk each
- * (phase-3.md 23.1): PeopleView.svelte is only the shell that imports a view when it first opens.
+ * of them may load with a Gantt-first load (phase-3.md 8.3). A pattern that matches no chunk is a
+ * problem too (the split moved, and the cap guards nothing).
+ *
+ * The People views are one chunk each (phase-3.md 23.1): PeopleView.svelte is only the shell that
+ * imports a view when it first opens; the others are what it imports.
  */
 export const CHUNK_CAPS = [
 	{ name: 'editor', pattern: /^editor-controller/, cap: 118_000 },
@@ -37,10 +40,14 @@ export const CHUNK_CAPS = [
 	// What the heatmap and the lanes share (the canvas plot, names, header, details, the model).
 	{ name: 'heat', pattern: /^WorkloadBar/, cap: 34_000, view: true },
 	{ name: 'lanes', pattern: /^Lanes\./, cap: 12_200, view: true },
+	{ name: 'calendar', pattern: /^(Calendar\.|calendar-state)/, cap: 16_400, view: true },
+	// The Resources view: the resource table, its drag and the divider's rules (T17).
+	{ name: 'resources', pattern: /^ResourcesView/, cap: 9_400, view: true },
+	// A person's details and the working-hours editor, fetched when a person is selected (T17).
 	{
-		name: 'calendar',
-		pattern: /^(Calendar\.|calendar-state)/,
-		cap: 16_400,
+		name: 'person',
+		pattern: /^(ResourcePanel|WorkingHoursEditor|person-edit|rows)\./,
+		cap: 15_800,
 		view: true,
 	},
 ];
@@ -92,10 +99,7 @@ async function firstLoad(browser, base, query) {
 	});
 	await page.waitForTimeout(1500);
 	await page.close();
-	const list = [...seen].map(([url, v]) => ({
-		file: path.basename(new URL(url).pathname),
-		...v,
-	}));
+	const list = [...seen].map(([url, v]) => ({ file: path.basename(new URL(url).pathname), ...v }));
 	return {
 		files: list.sort((a, b) => b.gzip - a.gzip),
 		gzipBytes: list.reduce((n, f) => n + f.gzip, 0),
@@ -113,10 +117,7 @@ async function measureLoads() {
 		// The built site served in this process as Pages serves it (scripts/serve-pages.mjs), at the
 		// root: nothing to start and nothing to stop that could outlive the script.
 		const { createPagesServer } = await import('./serve-pages.mjs');
-		server = createPagesServer({
-			dir: path.join(process.cwd(), 'dist'),
-			base: '/',
-		});
+		server = createPagesServer({ dir: path.join(process.cwd(), 'dist'), base: '/' });
 		await new Promise((resolve) =>
 			server.listen(Number(process.env.PORT ?? 4399), 'localhost', resolve),
 		);

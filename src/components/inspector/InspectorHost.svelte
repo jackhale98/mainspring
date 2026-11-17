@@ -23,7 +23,7 @@
 	import type { AppState } from '../../lib/state/app.svelte';
 	import type { LayoutKind } from '../../lib/state/layout.svelte';
 	import { inspectorStrings as S } from '../../lib/strings';
-	import type { SourceRange } from '../../lib/tjp/index';
+	import type { ResourceId, SourceRange } from '../../lib/tjp/index';
 	import Icon from '../Icon.svelte';
 	import Sheet from '../Sheet.svelte';
 	import { setInspector } from './context';
@@ -42,8 +42,10 @@
 		active: boolean;
 		/** Shows a range in the text: the shell switches the mode, then reveals it. */
 		onshowtext: (at: SourceRange) => void;
+		/** Opens the Calendar with a person (their details' "Add leave"): the shell's. */
+		onshowcalendar?: (resource: ResourceId) => void;
 	}
-	let { app, layout, dock, measured = true, active, onshowtext }: Props = $props();
+	let { app, layout, dock, measured = true, active, onshowtext, onshowcalendar }: Props = $props();
 
 	// The app is one object for the life of the shell; the closures read it live.
 	// svelte-ignore state_referenced_locally
@@ -58,6 +60,7 @@
 		showInText: (at) => onshowtext(at),
 		openTask: (id) => app.selectTask(`task:${id}`),
 		openLink: (pred, succ) => app.inspector.showLink(pred, succ),
+		showCalendar: (resource) => onshowcalendar?.(resource),
 	});
 
 	const desktop = $derived(layout === 'desktop');
@@ -66,7 +69,15 @@
 	/** The drawer over the chart: asked for by a click or Enter, while there is no room to dock. */
 	const drawer = $derived(desktop && !dock && app.inspector.sheet);
 	const inspector = $derived(app.inspector);
-	const title = $derived(inspector.link ? S.linkTitle : S.taskTitle);
+	/** A person is selected (and no link): the details are theirs, and a row of the people table has the focus. */
+	const person = $derived(
+		!inspector.link && app.selection.current?.kind === 'resource' ? app.selection.current.id : null,
+	);
+	const title = $derived(
+		inspector.link ? S.linkTitle : person !== null ? S.personTitle : S.taskTitle,
+	);
+	/** The row the focus goes back to: the task's, a link's successor's, or the person's. */
+	const rowKey = $derived(app.selectedRow ?? (person === null ? null : `resource:${person}`));
 	let body: HTMLElement | undefined = $state();
 
 	// Enter on a row: the focus goes to the first field once the details are on screen.
@@ -75,23 +86,29 @@
 		const n = inspector.focusNonce;
 		if (n === seen) return;
 		seen = n;
-		void tick().then(() =>
-			requestAnimationFrame(() => {
-				const first = body?.querySelector<HTMLElement>(
-					'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
-				);
-				first?.focus();
-				// A new task's name: selected, so typing replaces "New task".
-				if (inspector.selectOnFocus && first instanceof HTMLInputElement) first.select();
-				inspector.selectOnFocus = false;
-			}),
-		);
+		// A person's details are a lazy chunk (ResourcePanel.svelte): when it is not mounted yet the
+		// first field does not exist, so look for it for a moment (about 2 s of frames) before giving up.
+		let frames = 0;
+		const focusFirst = (): void => {
+			const first = body?.querySelector<HTMLElement>(
+				'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+			);
+			if (!first && frames++ < 120) {
+				requestAnimationFrame(focusFirst);
+				return;
+			}
+			first?.focus();
+			// A new task's name: selected, so typing replaces "New task".
+			if (inspector.selectOnFocus && first instanceof HTMLInputElement) first.select();
+			inspector.selectOnFocus = false;
+		};
+		void tick().then(() => requestAnimationFrame(focusFirst));
 	});
 
 	// The selected row stays above the sheet (WCAG 2.4.11), as the sheet opens, grows or the
 	// selection changes.
 	$effect(() => {
-		const key = app.selectedRow;
+		const key = rowKey;
 		const h = inspector.sheetHeight;
 		if (!desktop && h > 0) void tick().then(() => keepRowClear(key, h));
 	});
@@ -117,7 +134,7 @@
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
 		e.preventDefault();
 		if (drawer) inspector.hide();
-		focusRow(app.selectedRow);
+		focusRow(rowKey);
 	}
 
 	/** The rail's toggle: dock the panel again, or open and close the drawer. */
@@ -198,7 +215,7 @@
 		focusOnOpen={false}
 		ondetent={(d) => (inspector.detent = d)}
 		onheight={(h) => (inspector.sheetHeight = h)}
-		onreturn={() => focusRow(app.selectedRow)}
+		onreturn={() => focusRow(rowKey)}
 		onclose={() => inspector.hide()}
 	>
 		{#snippet actions()}

@@ -130,6 +130,13 @@
 	const showGantt = $derived(showChart && (phone || people.view === 'gantt'));
 	/** A People view is on screen: the phone's People tab, or a view of the switcher. */
 	const showPeople = $derived(phone ? app.phoneTab === 'people' : showChart && !showGantt);
+	/**
+	 * The details are on screen with the Gantt, and with the people table (the Resources view, the
+	 * phone's Team segment), where they are the selected person's (phase-3.md 9.1, 9.6).
+	 */
+	const showDetails = $derived(
+		showGantt || (showPeople && (phone ? people.segment === 'team' : people.view === 'resources')),
+	);
 	const showEditor = $derived(phone ? app.phoneTab === 'text' : mode !== 'visual');
 	const split = $derived(!phone && mode === 'split');
 	/** The Gantt is mounted when first shown and then kept, so zoom and scroll survive a switch. */
@@ -449,8 +456,9 @@
 			layout={kind}
 			{dock}
 			measured={workW > 0}
-			active={showGantt}
+			active={showDetails}
 			onshowtext={showInText}
+			onshowcalendar={() => (phone ? people.setSegment('calendar') : people.setView('calendar'))}
 		/>
 	</div>
 	{#if phone}

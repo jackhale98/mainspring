@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
 	What the inspector shows now (phase-2.md 9.3): the link that is selected, else the task that is
-	selected, else a hint to select one. Everything is read from the index and from the schedule the
+	selected, else the person that is selected (a lazy chunk: ResourcePanel.svelte), else a hint to select one. Everything is read from the index and from the schedule the
 	Gantt shows (`app.inspector.view`), so the details never disagree with the chart. A task or link
 	that has gone from the plan (an undo removed it) says so. The task's details mount once per
 	selected task (`selection.serial`), not per id, so naming a new task, which can set its id
@@ -13,6 +13,7 @@
 	import { findLink, linksOfTask } from '../../lib/inspector/links';
 	import { taskDetails } from '../../lib/inspector/task';
 	import { inspectorStrings as S } from '../../lib/strings';
+	import LazyMount from '../app/LazyMount.svelte';
 	import { getInspector } from './context';
 	import LinkDetails from './LinkDetails.svelte';
 	import TaskDetails from './TaskDetails.svelte';
@@ -60,6 +61,10 @@
 			: null,
 	);
 	const lists = $derived(index && details ? linksOfTask(links, details.id, index, project) : null);
+	/** The selected person: their details are a chunk of their own (ResourcePanel.svelte). */
+	const person = $derived(
+		app.selection.current?.kind === 'resource' ? app.selection.current.id : null,
+	);
 	const sel = $derived(app.inspector.link);
 	const one = $derived(index && sel ? findLink(links, sel.pred, sel.succ, index, project) : null);
 </script>
@@ -70,6 +75,8 @@
 	{:else}
 		<p class="hint">{S.dependency.missing}</p>
 	{/if}
+{:else if person !== null}
+	<LazyMount when load={() => import('./ResourcePanel.svelte')} props={{ id: person }} />
 {:else if app.selectedTask === null}
 	<p class="hint">{S.empty}</p>
 	<button type="button" class="button" onclick={() => (app.inspector.projectOpen = true)}>
