@@ -142,3 +142,62 @@ describe('HeatState', () => {
 		expect(s.shown(false)).toBeNull();
 	});
 });
+
+describe('HeatState as the lanes use it (a zoom of its own)', () => {
+	const lanes = (store: PrefStorage) =>
+		new HeatState(store, { zoomKey: (plan) => `mainspring.lanes.zoom.${plan}` });
+
+	it("keeps its zoom under its own key and leaves the heatmap's zoom alone", async () => {
+		const store = memory();
+		const heat = new HeatState(store);
+		heat.use('one');
+		heat.setZoom('month');
+		const s = lanes(store);
+		s.use('one');
+		// The lanes start on the week, whatever the heatmap shows.
+		expect(s.prefs.zoom).toBe('week');
+		s.offer(result(), index);
+		await idle();
+		s.setZoom('day');
+		expect(s.built?.model.axis.kind).toBe('day');
+		expect(store.map.get('mainspring.lanes.zoom.one')).toBe('day');
+		expect(JSON.parse(store.map.get('mainspring.workload.one') ?? '{}').zoom).toBe('month');
+		// Another change of the lanes (an open group) does not move the heatmap's zoom either.
+		s.toggleGroup('team');
+		expect(JSON.parse(store.map.get('mainspring.workload.one') ?? '{}')).toMatchObject({
+			zoom: 'month',
+			collapsed: ['team'],
+		});
+		// A new instance reads the lanes' zoom back.
+		const again = lanes(store);
+		again.use('one');
+		expect(again.prefs.zoom).toBe('day');
+		s.dispose();
+	});
+
+	it("takes up the other view's thresholds and open groups when shown again, rebuilding for groups", async () => {
+		const store = memory();
+		const s = lanes(store);
+		s.use('one');
+		s.offer(result(), index);
+		await idle();
+		expect(s.built?.model.rows.map((r) => r.id)).toEqual(['team', 'dev1', 'solo']);
+		const heat = new HeatState(store);
+		heat.use('one');
+		heat.toggleGroup('team');
+		heat.setThresholds({ spareBelow: 40, overAbove: 70 });
+		s.refresh();
+		expect(s.prefs.thresholds).toEqual({ spareBelow: 40, overAbove: 70 });
+		expect(s.built?.model.rows.map((r) => r.id)).toEqual(['team', 'solo']);
+		// Nothing new: nothing rebuilt.
+		const built = s.built;
+		s.refresh();
+		expect(s.built).toBe(built);
+		s.dispose();
+	});
+
+	it('refreshes nothing before a plan is open', () => {
+		const s = lanes(memory());
+		expect(() => s.refresh()).not.toThrow();
+	});
+});

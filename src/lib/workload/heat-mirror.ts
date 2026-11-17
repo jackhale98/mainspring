@@ -91,6 +91,8 @@ export interface MirrorInput {
 	readonly thresholds: Thresholds;
 	readonly unit: HeatUnit;
 	readonly range: CellRange;
+	/** More words for a cell's name (the lanes name the tasks booked in it), after its sentence. */
+	readonly extra?: ((row: number, col: number) => string) | undefined;
 }
 
 /** The nearest row above that is one level up: the group a row belongs to. */
@@ -116,10 +118,14 @@ export function buildMirror(i: MirrorInput): Mirror {
 		const cells: MirrorCell[] = [];
 		for (let c = range.c0; c < range.c1; c++) {
 			const info = cellInfo(model, labels, r, c, i.thresholds);
+			const more = i.extra?.(r, c) ?? '';
 			cells.push({
 				row: r,
 				col: c,
-				name: cellName(info, i.unit, i.thresholds),
+				name:
+					more === ''
+						? cellName(info, i.unit, i.thresholds)
+						: `${cellName(info, i.unit, i.thresholds)}, ${more}`,
 				face: cellFace(info, i.unit),
 				band: info.band,
 				booked: info.booked,

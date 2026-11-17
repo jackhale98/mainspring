@@ -129,6 +129,19 @@
 	--load-col-month: 72px;
 	--load-names: 12rem;
 	--load-font-size: 12px;
+
+	/* Resources lanes (phase-3.md 9.2, 9.4; src/lib/lanes/lane-theme.ts reads these): 40 px lanes
+	   (the Phase 2 row, the exemption of section 10), 22 px bars, a column per bucket as wide as the
+	   Gantt's zoom presets (a day 56 px, a week 16 px a day). A finger gets narrower columns. */
+	--lane-row-height: 40px;
+	--lane-bar-height: 22px;
+	--lane-bar-radius: 5px;
+	--lane-over-height: 6px;
+	--lane-group-height: 10px;
+	--lane-min-bar: 4px;
+	--lane-col-day: 56px;
+	--lane-col-week: 112px;
+	--lane-col-month: 120px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -151,6 +164,9 @@
 		--load-col-day: 44px;
 		--load-col-week: 44px;
 		--load-col-month: 56px;
+		--lane-col-day: 48px;
+		--lane-col-week: 96px;
+		--lane-col-month: 96px;
 	}
 }
 

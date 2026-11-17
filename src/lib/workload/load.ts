@@ -177,7 +177,7 @@ function cellTasksOf(core: Core, row: number, col: number): readonly CellTask[] 
 // T9: the planner (T12) gives the drop's refusals (`via-group`, `inherited`, alternatives); a
 // task the index does not name, or names as text-only or expanded-only, does not drag at all, as
 // in the lanes (9.4, "Text-only tasks show the badge and do not drag").
-function movableTask(index: SymbolIndex, task: TaskId): boolean {
+export function movableTask(index: SymbolIndex, task: TaskId): boolean {
 	const sym = index.tasks.get(task);
 	return sym !== undefined && sym.textOnly === null && !sym.expandedOnly;
 }
