@@ -13,6 +13,9 @@
  * - `link` is the selected link (its two tasks). It is the link half of the app's `Selection`
  *   (selection.svelte.ts): a selected task and a selected link exclude each other, so selecting a
  *   task clears it.
+ * - `pick` is a request to open a task's dependency picker (polish item 11, depends-picker.ts has
+ *   the contract): `AppState.openDependencyPicker` sets it, the open details' "Waits for" or
+ *   "Followed by" section takes it (and clears it) when it is the task's own.
  * - `projectOpen` and `source` are the project sheet and the show-source sheet.
  * - `sheetHeight` is the open sheet's height in px, which the chart keeps clear of (WCAG 2.4.11).
  */
@@ -21,6 +24,7 @@ import type { GanttModel } from '../gantt/model';
 import type { DrivingAnalysis } from '../schedule/critical';
 import type { TaskId } from '../tjp/index';
 import type { Detent } from '../inspector/detent';
+import type { PickRole } from '../inspector/depends-picker';
 import { SelectionState, type LinkSelection } from './selection.svelte';
 
 export type { LinkSelection };
@@ -53,6 +57,9 @@ export class InspectorState {
 	explicit = $state(false);
 	/** The next focus move into the details also selects the text of the field it lands on. */
 	selectOnFocus = $state(false);
+
+	/** A request for a task's dependency picker; `serial` is the selection it was made for. */
+	pick = $state.raw<{ task: TaskId; role: PickRole; serial: number } | null>(null);
 
 	/** The app's selection, whose link half `link` is (a plan of its own when used alone). */
 	readonly selection: SelectionState;
@@ -93,6 +100,18 @@ export class InspectorState {
 		this.collapsed = false;
 		this.explicit = true;
 		this.focusNonce++;
+	}
+
+	/**
+	 * Opens the details and asks them for `task`'s dependency picker (`pick`), without moving the
+	 * focus into them: the picker takes it when it opens. `serial` is `selection.serial` of the
+	 * selected `task`, so a request that the selection has left is ignored.
+	 */
+	askPick(task: TaskId, role: PickRole, serial: number): void {
+		this.sheet = true;
+		this.collapsed = false;
+		this.explicit = true;
+		this.pick = { task, role, serial };
 	}
 
 	/**
@@ -144,5 +163,6 @@ export class InspectorState {
 		this.clearLink();
 		this.projectOpen = false;
 		this.source = null;
+		this.pick = null;
 	}
 }
