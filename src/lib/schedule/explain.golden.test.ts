@@ -10,14 +10,16 @@
 // - every task's windowed causes tile the wait for each person it asked for, busy causes cover only
 //   slots booked elsewhere or off hours, leave and off-hours causes no working slot, and the busy
 //   minutes are the person's booked minutes there;
-// - inside causes lie inside the bar and never overlap its bookings.
+// - inside causes lie inside the bar and never overlap its bookings;
+// - an ASAP effort leaf the explainer puts on its bound starts in the first slot its people work at
+//   or after its dependencies and written dates, computed without the explainer (the review, F4).
 // Then fedora-res: the counts, and two tasks checked by hand against the text and the bookings.
 import { describe, expect, it } from 'vitest';
 import { loadCorpus } from '../../../tests/golden/corpus';
 import type { ScheduleResult } from '../../engine/protocol';
 import { demandOf } from './demand';
 import { explainTask } from './explain';
-import { goldenContext, partitionProblems, windowed } from './explain-testing';
+import { firstSlotOracle, goldenContext, partitionProblems, windowed } from './explain-testing';
 
 const corpus = loadCorpus().filter(
 	({ golden: g }) => g.result.project !== null && g.result.resources.length > 0,
@@ -71,6 +73,8 @@ interface Row {
 	held: number;
 	unmet: number;
 	causes: number;
+	/** Effort leaves on their bound, checked against the independent first slot. */
+	onBound: number;
 }
 const rows: Row[] = [];
 
@@ -133,10 +137,22 @@ describe('demand and causes against the bookings of every golden with resources'
 			}
 
 			let causes = 0;
+			let onBound = 0;
 			for (const t of r.tasks) {
 				const s = t.scenarios[sc];
 				const pl = explainTask(t.id, ctx);
 				causes += pl.causes.length + pl.inside.length;
+				// F4: "on its bound" must be true without the code's own bound: such an effort leaf
+				// starts in the first slot its people work at or after its dependencies and dates.
+				if (pl.anchor === 'start' && pl.at !== null && pl.bound !== null) {
+					if (pl.at <= pl.bound && pl.bound - pl.at < S.res) {
+						const first = firstSlotOracle(ctx, t.id);
+						if (first !== null) {
+							onBound++;
+							if (first !== pl.at) say(`${t.id}: on its bound at ${pl.at}, but free from ${first}`);
+						}
+					}
+				}
 				if (!s || pl.at === null || pl.bound === null) continue;
 				const people = [...new Set(s.allocate.flatMap((i) => i.candidates.flatMap(S.leaves)))];
 				const [lo, hi] = pl.anchor === 'start' ? [pl.bound, pl.at] : [pl.at, pl.bound];
@@ -179,6 +195,7 @@ describe('demand and causes against the bookings of every golden with resources'
 				held: count(demand.held),
 				unmet: count(demand.unmet),
 				causes,
+				onBound,
 			});
 		}, 60_000);
 	}
@@ -187,9 +204,11 @@ describe('demand and causes against the bookings of every golden with resources'
 		const sum = (f: (x: Row) => number) => rows.reduce((n, x) => n + f(x), 0);
 		expect(sum((x) => x.held)).toBeGreaterThan(20);
 		expect(sum((x) => x.unmet)).toBeGreaterThan(20);
+		expect(sum((x) => x.onBound)).toBeGreaterThan(50);
 		for (const x of rows) {
 			console.info(
-				`${x.id}: ${x.tasks} tasks, held ${x.held}, unmet ${x.unmet}, ${x.causes} causes`,
+				`${x.id}: ${x.tasks} tasks, held ${x.held}, unmet ${x.unmet}, ${x.causes} causes, ` +
+					`${x.onBound} on their bound checked`,
 			);
 		}
 	});

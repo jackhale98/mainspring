@@ -2,10 +2,14 @@
 // Explainer and demand timings (phase-3.md 6.3, 8.3): recorded, not enforced. Targets on desktop:
 // `explainTask` at most 5 ms for one task, on demand; `demandOf` at most 25 ms for the whole plan,
 // in an idle task, on fedora-res and syn-20-scale-1000. The index, the driving analysis and the
-// availability are built beforehand, as the app has them. Cold: a new `Availability` for each run,
-// so the result-wide tables (explain-prep.ts) are built inside the timed call, as on the first
-// call after a result arrives. This prints the median and the slowest of the runs (the first few
-// left out) and asserts only a sanity bound ten times the target.
+// availability are built beforehand, as the app has them. Cold: a new result object for each run,
+// so the result-wide tables (explain-prep.ts, cached per result) are built inside the timed call,
+// as on the first call after a result arrives. This prints the median and the slowest of the runs
+// (the first few left out) and asserts only a sanity bound ten times the target.
+// Cold-first-call (the review, F7): the very first `explainTask` and `demandOf` in this worker, on
+// fedora-res, before any other explainer code ran (module code not yet optimised), reported and
+// not enforced. The app pays it once per session; T14 runs demandOf in one idle task after the
+// load model and keeps it per result, so the first "Why here?" usually finds the code warm.
 import { describe, expect, it } from 'vitest';
 import { availabilityOf } from '../workload/availability';
 import { demandOf } from './demand';
@@ -27,11 +31,34 @@ const stats = (xs: number[], skip = SKIP) => {
 const ms = (v: { median: number; p90: number; max: number }): string =>
 	`median ${v.median.toFixed(2)}, p90 ${v.p90.toFixed(2)}, max ${v.max.toFixed(2)} ms`;
 
+describe('the first calls in a fresh worker (cold-first-call, reported only)', () => {
+	it('times the first explainTask, then the first demandOf, on fedora-res', () => {
+		const ctx = goldenContext('fedora-res');
+		const id = 'f20.supplement_wallpaper.supplement_license_review';
+		const t0 = performance.now();
+		explainTask(id, ctx);
+		const t1 = performance.now();
+		const result = { ...ctx.result };
+		const other = { ...ctx, result, availability: availabilityOf(result, ctx.scenario) };
+		const t2 = performance.now();
+		demandOf(other);
+		const t3 = performance.now();
+		console.info(
+			`cold-first-call fedora-res: explainTask ${(t1 - t0).toFixed(2)} ms (tables included), ` +
+				`then demandOf ${(t3 - t2).toFixed(2)} ms (its own tables), reported, not enforced`,
+		);
+		expect(t1 - t0).toBeGreaterThan(0);
+	});
+});
+
 describe.each(PLANS)('explainer and demand timings on %s', (id) => {
 	it('explains one task and computes the demand within the recorded targets', () => {
 		const ctx = goldenContext(id);
 		const ids = ctx.result.tasks.map((t) => t.id);
-		const fresh = () => ({ ...ctx, availability: availabilityOf(ctx.result, ctx.scenario) });
+		const fresh = () => {
+			const result = { ...ctx.result };
+			return { ...ctx, result, availability: availabilityOf(result, ctx.scenario) };
+		};
 
 		// Demand, cold (tables built in the call) and warm.
 		const cold: number[] = [];
