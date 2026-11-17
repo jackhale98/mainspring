@@ -94,6 +94,15 @@ export const recorded = (page: Page): Promise<Recording> =>
 export const steps = (tops: number[]): number => new Set(tops.map((t) => Math.round(t))).size;
 
 /**
+ * The fewest distinct edge positions that count as a slide rather than a jump. Headless WebKit on a
+ * CI runner paints few frames during a 200 ms animation (one or two samples), so there the count
+ * cannot tell a slide from a jump; the transform-only check on the element's animations (`props`)
+ * is what shows the slide ran. Chromium samples every frame.
+ */
+export const moreThanAJump = (browser: string, chromium: number): number =>
+	browser === 'webkit' ? 0 : chromium;
+
+/**
  * Drops a frame that was sampled between a layout change and the browser's resize notification,
  * which starts the glide before anything is painted: a lone spike at the start of a slide.
  */

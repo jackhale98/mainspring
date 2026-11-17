@@ -95,7 +95,10 @@ test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async 
 	);
 });
 
-test('closing while it slides in goes on from where it is', async ({ page }) => {
+test('closing while it slides in goes on from where it is', async ({ page, browserName }) => {
+	// Catching the slide 70 ms in needs a frame-accurate loop; headless WebKit on CI paints too few
+	// frames for it, and the page-side wait never sees the moment. Chromium covers the logic.
+	test.skip(browserName === 'webkit', 'frame-accurate timing');
 	const panel = await openDetails(page);
 	await panel.getByRole('button', { name: 'Close' }).click();
 	await expect(panel).toBeHidden();
@@ -170,7 +173,14 @@ test('the source sheet keeps its title while it slides away', async ({ page }) =
 	for (const t of seen.titles) expect(t).toBe('Source of Research');
 });
 
-test('the History sheet keeps its list while it slides away after a rewind', async ({ page }) => {
+test('the History sheet keeps its list while it slides away after a rewind', async ({
+	page,
+	browserName,
+}) => {
+	test.skip(
+		browserName !== 'chromium',
+		'holds Undo with CDP touch events, which only Chromium has',
+	);
 	await page.goto('/app?sample=gantt-manipulation&mode=visual&hooks=edits');
 	await ready(page);
 	await expect(page.getByTestId('gantt-overlay')).toBeVisible();
