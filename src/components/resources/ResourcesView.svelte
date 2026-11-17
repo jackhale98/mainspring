@@ -70,7 +70,14 @@
 	});
 </script>
 
-<div class="resources" class:phone class:team bind:this={container} data-testid="resources-view">
+<div
+	class="resources"
+	class:phone
+	class:team
+	bind:this={container}
+	hidden={!active}
+	data-testid="resources-view"
+>
 	{#if team}
 		<div class="whole" data-testid="team-view"><ResourceTable {app} phone /></div>
 	{:else}
@@ -109,6 +116,11 @@
 		min-block-size: 0;
 		min-inline-size: 0;
 		background: var(--color-gantt-surface);
+	}
+	/* Not the view on screen (the Lanes segment's copy, kept mounted, while the Team segment shows):
+	   it takes no room in the People area, or the table after it would start part way down. */
+	.resources[hidden] {
+		display: none;
 	}
 	.table {
 		flex: 0 0 auto;
