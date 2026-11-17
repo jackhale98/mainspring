@@ -85,8 +85,8 @@ describe('axis lock (7.2)', () => {
 });
 
 describe('one drop, one action (18.9)', () => {
-	const origin = { resource: 'm1', bucket: 0 };
-	const target = { resource: 'm3', bucket: 10080 };
+	const origin = { resource: 'm1', bucket: 0, bucketEnd: 10080 };
+	const target = { resource: 'm3', bucket: 10080, bucketEnd: 20160 };
 
 	it('a person drop keeps the bucket; a week drop keeps the person', () => {
 		expect(dropAction('t', origin, target, 'person')).toEqual({
@@ -100,6 +100,7 @@ describe('one drop, one action (18.9)', () => {
 			task: 't',
 			fromBucket: 0,
 			toBucket: 10080,
+			toBucketEnd: 20160,
 		});
 		expect(dropAction('t', origin, target, null)).toBeNull();
 	});
@@ -118,8 +119,8 @@ describe('one drop, one action (18.9)', () => {
 					const axis = follow(path);
 					const a = dropAction(
 						'work.t1',
-						{ resource: from, bucket: 0 },
-						{ resource: to, bucket: weeks * 10080 },
+						{ resource: from, bucket: 0, bucketEnd: 10080 },
+						{ resource: to, bucket: weeks * 10080, bucketEnd: (weeks + 1) * 10080 },
 						axis,
 					);
 					if (axis === null) return a === null;

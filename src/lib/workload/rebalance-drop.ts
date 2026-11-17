@@ -44,10 +44,12 @@ export function lockAxis(
 	return current ?? (ay > ax ? 'person' : 'week');
 }
 
-/** A heatmap or lane cell: the row's person and the bucket's start (`BucketAxis.bounds`). */
+/** A heatmap or lane cell: the row's person and the bucket's bounds (`BucketAxis.bounds`). */
 export interface RebalanceCell {
 	readonly resource: ResourceId;
 	readonly bucket: Minutes;
+	/** The bucket's end: the next bound. */
+	readonly bucketEnd: Minutes;
 }
 
 /** The one action a drop of `task` from `origin` on `target` asks for, or null (module comment). */
@@ -60,7 +62,13 @@ export function dropAction(
 	if (axis === 'person')
 		return { type: 'reassign', task, from: origin.resource, to: target.resource };
 	if (axis === 'week') {
-		return { type: 'shift', task, fromBucket: origin.bucket, toBucket: target.bucket };
+		return {
+			type: 'shift',
+			task,
+			fromBucket: origin.bucket,
+			toBucket: target.bucket,
+			toBucketEnd: target.bucketEnd,
+		};
 	}
 	return null;
 }

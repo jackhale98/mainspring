@@ -382,6 +382,9 @@ export const rebalanceStrings = {
 		'not-a-person': 'Work moves to a person, not to a group.',
 		'not-booked': 'This person does not work on this task.',
 		'same-place': 'The task is already there.',
+		/** The target bucket of a week move has no working day (`unit` is the zoom's bucket). */
+		'no-working-day': (unit: 'day' | 'week' | 'month') =>
+			unit === 'day' ? 'No working time on that day.' : `No working days in that ${unit}.`,
 	},
 	/** "Move which task?" (18.9): a drop on a cell with several movable tasks. */
 	which: 'Move which task?',
@@ -393,6 +396,7 @@ export const rebalanceStrings = {
  */
 export const leavePaintStrings = {
 	type: {
+		project: 'Project leave',
 		holiday: 'Holiday',
 		annual: 'Annual leave',
 		special: 'Special leave',
@@ -408,6 +412,8 @@ export const leavePaintStrings = {
 		merge: (type: string, who: string, days: string) => `${type} for ${who} now ${days}`,
 		erase: (who: string, days: string) => `Leave cleared for ${who}: ${days}`,
 	},
+	/** A paint that would change nothing: `type` is the covering leave's name from `type`. */
+	covered: (type: string) => `${type} already covers those days. Erase it first.`,
 } as const;
 
 /**

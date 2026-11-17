@@ -107,6 +107,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 				task: 'work.t1',
 				fromBucket: 0,
 				toBucket: WEEK,
+				toBucketEnd: 2 * WEEK,
 			});
 			expect(out.intent).toMatchObject({ type: 'setAttr', attr: 'start', value: '2026-01-12' });
 			expect(bookedTasks(before, 'm1', 540)).toEqual(['work.t1']);
@@ -125,6 +126,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 				task: 'work.t4',
 				fromBucket: WEEK,
 				toBucket: 2 * WEEK,
+				toBucketEnd: 3 * WEEK,
 			});
 			expect(out.intent).toMatchObject({ type: 'setAttr', attr: 'end', value: '2026-01-24' });
 			expect(bookedTasks(after, 'lead', WEEK + 540)).toEqual([]);
@@ -132,7 +134,13 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 			// For a gap preference too, an ALAP task writes its end.
 			expect(
 				planRebalance(
-					{ type: 'shift', task: 'work.t4', fromBucket: WEEK, toBucket: 2 * WEEK },
+					{
+						type: 'shift',
+						task: 'work.t4',
+						fromBucket: WEEK,
+						toBucket: 2 * WEEK,
+						toBucketEnd: 3 * WEEK,
+					},
 					p.at({ move: { kind: 'gap' } }),
 				),
 			).toMatchObject({ status: 'action' });
@@ -146,6 +154,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 				task: 'spring',
 				fromBucket: weeks[0] as number,
 				toBucket: weeks[1] as number,
+				toBucketEnd: weeks[2] as number,
 			});
 			const first = (weeks[0] as number) + 3 * 1440;
 			expect(cell(before, 'ada', first)).toBeGreaterThan(0);
@@ -224,7 +233,13 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 									from: people[fi % people.length] as string,
 									to: people[ri % people.length] as string,
 								}
-							: { type: 'shift', task, fromBucket: WEEK, toBucket: WEEK + weeks * WEEK };
+							: {
+									type: 'shift',
+									task,
+									fromBucket: WEEK,
+									toBucket: WEEK + weeks * WEEK,
+									toBucketEnd: 2 * WEEK + weeks * WEEK,
+								};
 						const out = checkRebalance(a, p.at(), p.snap);
 						if (out.status !== 'edit') return true;
 						edits++;
@@ -238,7 +253,7 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))(
 			// The Gantt's own check of the same move agrees with the planner's dry run.
 			const p = plans[0] as Plan;
 			const plan = planRebalance(
-				{ type: 'shift', task: 'work.t2', fromBucket: 0, toBucket: WEEK },
+				{ type: 'shift', task: 'work.t2', fromBucket: 0, toBucket: WEEK, toBucketEnd: 2 * WEEK },
 				p.at(),
 			);
 			if (plan.status !== 'action') throw new Error('action');

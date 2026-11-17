@@ -19,7 +19,8 @@
  *   - The edit API's `inherited`, `unsupported-form` (alternatives) and `text-only` come through
  *     unchanged, from the dispatcher's dry run.
  * - **`shift`** becomes Phase 2's `move` action. `days` is the signed number of working days
- *   (project working time) between the two buckets' starts. The dispatcher plans it with
+ *   (project working time) between the two buckets' starts (T12: counted from the task, landing
+ *   inside the target bucket; see below). The dispatcher plans it with
  *   `planAction`, so the move preference (start, gap, or end for ALAP), the clamps and the
  *   one-time constraint warning apply as in R2.
  * - No preview recomputes load: the drop shows a pending ghost until the engine answers (5.2).
@@ -46,14 +47,16 @@
 // the shown result nor asked for by it. A held or unmet task is asked for, so it is not refused.
 // `shift` is never `not-booked`: a held or unmet task has no booking in the cell and still moves
 // in time; one with no dates is `planAction`'s `not-scheduled`.
-// T12: `days`, read as working days counted from the task, not from the bucket starts: the task's
-// working day (its snapped start, or for ALAP the day of its snapped end, as R2 anchors a move)
-// moved by the bucket offset, to the first working day at or after that day. It equals the count
-// between the bucket starts when the two buckets have the same working days before the task's
-// day, and keeps the task's weekday when a holiday is in either bucket (the bucket count would
-// put a Wednesday task on Tuesday after a Monday holiday in its own week). Without the task's
-// dates the bucket starts are counted, as 6.6 says; `planAction` then refuses `not-scheduled`.
-// A shift of zero working days (two buckets with no working day between them) is `same-place`.
+// T12 (review ruling, 2026-11-17): the work lands inside the target bucket. The task's anchor
+// (ASAP: its first working minute at or after the origin bucket's start, so a long task dragged
+// by a later cell moves that part; ALAP: the last working minute of its end, as R2 anchors an
+// ALAP move) is moved by the bucket offset. When that day is a working day inside
+// [toBucket, toBucketEnd) it is the target, which keeps the task's weekday; otherwise the nearest
+// working day inside the bucket, forward first, then backward. `days` is the signed number of
+// working days from the anchor's day to the target day, so R2's `shiftDays` lands the anchor on
+// it exactly. A bucket with no working day is `no-working-day`. Without the task's dates the
+// origin bucket's start is the anchor; `planAction` then refuses `not-scheduled`. A target day
+// that is the anchor's own day is `same-place`.
 import type { Minutes } from '../../engine/protocol';
 import type { ActionContext, GanttAction, ToastLabel } from '../gantt/intents';
 import { scenarioOf } from '../gantt/intents-facts';
@@ -65,12 +68,18 @@ import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
 export type RebalanceAction =
 	/** W1: to another person. */
 	| { type: 'reassign'; task: TaskId; from: ResourceId; to: ResourceId }
-	/** W2: to another week. Both are bucket starts, as `BucketAxis.bounds` holds them. */
-	| { type: 'shift'; task: TaskId; fromBucket: Minutes; toBucket: Minutes };
+	/**
+	 * W2: to another week (or day, or month). `fromBucket` and `toBucket` are bucket starts, as
+	 * `BucketAxis.bounds` holds them; `toBucketEnd` is the target bucket's end, the next bound.
+	 */
+	// T12 (review): `toBucketEnd` added, so the planner keeps the work inside the target bucket.
+	| { type: 'shift'; task: TaskId; fromBucket: Minutes; toBucket: Minutes; toBucketEnd: Minutes };
 
 // T2: `not-booked` and `same-place` have no sentence in 6.6. Read as: the task has no booking for
 // `from` (or in `fromBucket`), and a drop back on its own cell.
-export type RebalanceRefusal = 'via-group' | 'not-a-person' | 'not-booked' | 'same-place';
+// T12 (review): `no-working-day`, the target bucket has no working day of the project.
+export type RebalanceRefusal =
+	'via-group' | 'not-a-person' | 'not-booked' | 'same-place' | 'no-working-day';
 
 /** What `planRebalance` gives back (6.6 writes the union inline; T2 names it). */
 export type RebalancePlan =
@@ -233,22 +242,49 @@ export function workingDaysBetween(wt: WorkingTime, from: Minutes, to: Minutes):
 	return n;
 }
 
-/** The `days` of a shift (module comment, T12). */
+/** The working day's start of a working day inside [from, to) at or after `m`, or null. */
+function forwardIn(wt: WorkingTime, m: Minutes, from: Minutes, to: Minutes): Minutes | null {
+	const d = wt.dayStart(Math.max(m, from));
+	return d >= from && d < to && wt.isWorking(d) ? d : null;
+}
+
+/** The start of the last working day inside [from, to) that begins before `m`, or null. */
+function backwardIn(wt: WorkingTime, m: Minutes, from: Minutes, to: Minutes): Minutes | null {
+	const e = wt.dayEnd(Math.min(m, to));
+	if (!(e > from) || !wt.isWorking(e - 1)) return null;
+	const d = wt.dayStart(e - 1);
+	return d >= from && d < to ? d : null;
+}
+
+/**
+ * The target day of a shift and the signed working days to it from the anchor's day (module
+ * comment, T12), or null when the target bucket has no working day.
+ */
+export function shiftTarget(
+	a: Extract<RebalanceAction, { type: 'shift' }>,
+	wt: WorkingTime,
+	ctx: Pick<ActionContext, 'result'>,
+): { day: Minutes; days: number } | null {
+	const s = scenarioOf(ctx.result, a.task);
+	let anchor: Minutes;
+	if (!s || s.start === null || s.end === null) anchor = wt.snap(a.fromBucket, 'start');
+	else if (s.direction === 'alap') anchor = wt.snap(s.end, 'end') - 1;
+	else anchor = wt.snap(Math.max(s.start, a.fromBucket), 'start');
+	const want = anchor + (a.toBucket - a.fromBucket);
+	const day =
+		forwardIn(wt, want, a.toBucket, a.toBucketEnd) ??
+		backwardIn(wt, want, a.toBucket, a.toBucketEnd);
+	return day === null ? null : { day, days: workingDaysBetween(wt, anchor, day) };
+}
+
+/** The `days` of a shift, or null for a bucket with no working day (module comment, T12). */
 export function shiftDaysOf(
 	a: Extract<RebalanceAction, { type: 'shift' }>,
 	ctx: ActionContext,
-): number {
-	const delta = a.toBucket - a.fromBucket;
+): number | null {
 	const wt = ctx.wt;
-	if (!wt) return Math.round(delta / 1440);
-	const s = scenarioOf(ctx.result, a.task);
-	if (!s || s.start === null || s.end === null) {
-		return workingDaysBetween(wt, a.fromBucket, a.toBucket);
-	}
-	// The minute the task's working day is read at: its first working minute, or for ALAP the
-	// last working minute before its end (an end instant belongs to the day before it).
-	const at = s.direction === 'alap' ? wt.snap(s.end, 'end') - 1 : wt.snap(s.start, 'start');
-	return workingDaysBetween(wt, at, at + delta);
+	if (!wt) return Math.round((a.toBucket - a.fromBucket) / 1440);
+	return shiftTarget(a, wt, ctx)?.days ?? null;
 }
 
 function planShift(
@@ -257,6 +293,7 @@ function planShift(
 ): RebalancePlan {
 	if (a.fromBucket === a.toBucket) return refuse('same-place', []);
 	const days = shiftDaysOf(a, ctx);
+	if (days === null) return refuse('no-working-day', []);
 	if (days === 0) return refuse('same-place', []);
 	return { status: 'action', action: { type: 'move', task: a.task, days } };
 }

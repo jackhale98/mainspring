@@ -199,3 +199,73 @@ export function inlinePlan(): Plan {
 	r = withTask(r, 'late', { allocate: [{ candidates: ['c'] }] });
 	return planFrom({ 'plan.tjp': INLINE_TEXT }, 'plan.tjp', r);
 }
+
+/**
+ * The review's week-move repros (T12 review, 2026-11-17), one person per task so nothing levels:
+ * holidays on Wednesday 21 and Friday 23 January and the whole week of 2 February; `fri` on a
+ * Friday, `alap` ending Friday 30 January, `off` in the week before the week off, `jan29` near a
+ * month end, `mon` on a Monday, `long` over two weeks.
+ */
+export const REPRO_TEXT = `project p "P" 2026-01-05 - 2026-03-02 {
+}
+leaves holiday "Mid" 2026-01-21
+leaves holiday "Fri" 2026-01-23
+leaves holiday "Week off" 2026-02-02 - 2026-02-07
+resource a "A"
+resource b "B"
+resource c "C"
+resource d "D"
+resource e "E"
+resource f "F"
+task fri "Fri" {
+  start 2026-01-16
+  effort 1d
+  allocate a
+}
+task alap "Alap" {
+  end 2026-01-31
+  scheduling alap
+  effort 2d
+  allocate b
+}
+task off "Off" {
+  start 2026-01-28
+  effort 1d
+  allocate c
+}
+task jan29 "Jan29" {
+  start 2026-01-29
+  effort 1d
+  allocate d
+}
+task mon "Mon" {
+  start 2026-01-12
+  effort 1d
+  allocate e
+}
+task long "Long" {
+  start 2026-01-05
+  effort 10d
+  allocate f
+}
+`;
+
+/** `REPRO_TEXT` with a hand-made result (the dates TaskJuggler gives it; engine-checked). */
+export function reproPlan(): Plan {
+	const off = new Set([16, 18, 28, 29, 30, 31, 32]);
+	const workingTime = Array.from({ length: 56 }, (_, d) => d)
+		.filter((d) => d % 7 < 5 && !off.has(d))
+		.map((d) => [at(d, 9), at(d, 17)] as [number, number]);
+	const r = resultOf(
+		[
+			['fri', { start: at(11, 9), end: at(11, 17) }],
+			['alap', { start: at(24, 9), end: at(25, 17), alap: true }],
+			['off', { start: at(23, 9), end: at(23, 17) }],
+			['jan29', { start: at(24, 9), end: at(24, 17) }],
+			['mon', { start: at(7, 9), end: at(7, 17) }],
+			['long', { start: at(0, 9), end: at(11, 17) }],
+		],
+		{ workingTime },
+	);
+	return planFrom({ 'plan.tjp': REPRO_TEXT }, 'plan.tjp', r);
+}

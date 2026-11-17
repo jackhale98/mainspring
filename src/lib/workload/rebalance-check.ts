@@ -32,14 +32,31 @@ export type RebalanceOutcome =
 	| Exclude<ActionOutcome, { status: 'refused' }>
 	| (Omit<Refused, 'reason'> & { readonly reason: Refused['reason'] | RebalanceRefusal });
 
-/** The sentence for one of the planner's refusals. */
+/** The zoom a bucket length belongs to (a day is 23 to 25 hours, a week 167 to 169). */
+export function bucketUnit(length: number): 'day' | 'week' | 'month' {
+	return length <= 25 * 60 ? 'day' : length <= 7 * 1440 + 60 ? 'week' : 'month';
+}
+
+/** The sentence for one of the planner's refusals; `a` names the target bucket's zoom. */
 export function rebalanceMessage(
 	plan: Extract<RebalancePlan, { status: 'not-possible' }>,
 	ctx: Pick<ActionContext, 'index'>,
+	a?: RebalanceAction,
 ): string {
-	if (plan.reason !== 'via-group') return S.notPossible[plan.reason];
-	const g = plan.group;
-	return S.notPossible['via-group'](g === undefined ? '' : (ctx.index.resources.get(g)?.name ?? g));
+	switch (plan.reason) {
+		case 'via-group': {
+			const g = plan.group;
+			return S.notPossible['via-group'](
+				g === undefined ? '' : (ctx.index.resources.get(g)?.name ?? g),
+			);
+		}
+		case 'no-working-day':
+			return S.notPossible['no-working-day'](
+				a?.type === 'shift' ? bucketUnit(a.toBucketEnd - a.toBucket) : 'week',
+			);
+		default:
+			return S.notPossible[plan.reason];
+	}
 }
 
 /**
@@ -59,7 +76,7 @@ export function checkRebalance(
 			intent: null,
 			reason: plan.reason,
 			at: plan.at,
-			message: rebalanceMessage(plan, ctx),
+			message: rebalanceMessage(plan, ctx, a),
 		};
 	}
 	if (plan.status === 'action') return checkAction(plan.action, ctx, ws, opts);

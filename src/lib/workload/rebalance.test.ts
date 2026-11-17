@@ -28,7 +28,7 @@ describe('rebalance types (6.6)', () => {
 		expectTypeOf<PlanRebalanceFn>().parameters.toEqualTypeOf<[RebalanceAction, ActionContext]>();
 		expectTypeOf<PlanRebalanceFn>().returns.toEqualTypeOf<RebalancePlan>();
 		expectTypeOf<RebalanceRefusal>().toEqualTypeOf<
-			'via-group' | 'not-a-person' | 'not-booked' | 'same-place'
+			'via-group' | 'not-a-person' | 'not-booked' | 'same-place' | 'no-working-day'
 		>();
 	});
 });
@@ -200,6 +200,22 @@ describe('reassign (W1)', () => {
 			status: 'refused',
 			reason: 'text-only',
 			textOnly: 'expanded-only',
+		});
+	});
+
+	it('refuses a person named only through a macro-written allocation: text-only', () => {
+		// The engine booked c through `allocate ${who}`: the edit cannot see c in the text.
+		const text = INLINE_TEXT.replace(
+			'task late "Late" {',
+			'macro who [c]\ntask late "Late" {',
+		).replace('  allocate c\n}', '  allocate ${who}\n}');
+		const p = planFrom({ 'plan.tjp': text }, 'plan.tjp', inlinePlan().result);
+		const a: RebalanceAction = { type: 'reassign', task: 'late', from: 'c', to: 'a' };
+		expect(planRebalance(a, p.at()).status).toBe('intent');
+		expect(checkRebalance(a, p.at(), p.snap)).toMatchObject({
+			status: 'refused',
+			reason: 'text-only',
+			textOnly: 'macro-call',
 		});
 	});
 

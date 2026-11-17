@@ -7,7 +7,8 @@
 // - a refusal of `via-group` names a group the task allocates; `not-a-person` points at a group;
 // - an edit is local (every change in a declared target), its inverse restores the bytes, and a
 //   fresh parse has no new syntax issues;
-// - after a reassign edit, the task's own text no longer allocates `from` and allocates `to`.
+// - after a reassign edit, the task's own text no longer allocates `from` and allocates `to`;
+// - a week move's target day is a working day inside the target bucket.
 // FC_SEED fixes the seed; REBALANCE_RUNS sets the number of drops per fixture.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
@@ -15,7 +16,7 @@ import { syntaxIssues } from '../tjp/tree';
 import { buildIndex } from '../tjp/index';
 import { createWorkspace } from '../workspace/workspace';
 import { bucketAxis } from './axis';
-import { isGroup, planRebalance, type RebalanceAction } from './rebalance';
+import { isGroup, planRebalance, shiftTarget, type RebalanceAction } from './rebalance';
 import { checkRebalance } from './rebalance-check';
 import { workloadPlan, ZONES, type Plan } from './rebalance-testing';
 
@@ -26,7 +27,8 @@ const FIXTURES = ['groups', 'group-allocation', 'alternatives', 'held-effort', '
 function dropArb(p: Plan): fc.Arbitrary<RebalanceAction> {
 	const project = p.result.project;
 	if (!project) throw new Error('no project');
-	const weeks = [...bucketAxis(project, ZONES, 'week').bounds].slice(0, -1);
+	const bounds = [...bucketAxis(project, ZONES, 'week').bounds];
+	const weeks = bounds.slice(0, -1).map((b, i) => [b, bounds[i + 1] as number] as const);
 	const tasks = [...p.index.tasks.keys()];
 	const rows = [...p.index.resources.keys(), 'nobody'];
 	return fc.oneof(
@@ -36,12 +38,15 @@ function dropArb(p: Plan): fc.Arbitrary<RebalanceAction> {
 			from: fc.constantFrom(...rows),
 			to: fc.constantFrom(...rows),
 		}),
-		fc.record({
-			type: fc.constant('shift' as const),
-			task: fc.constantFrom(...tasks),
-			fromBucket: fc.constantFrom(...weeks),
-			toBucket: fc.constantFrom(...weeks),
-		}),
+		fc
+			.tuple(fc.constantFrom(...tasks), fc.constantFrom(...weeks), fc.constantFrom(...weeks))
+			.map(([task, [from], [to, end]]) => ({
+				type: 'shift' as const,
+				task,
+				fromBucket: from,
+				toBucket: to,
+				toBucketEnd: end,
+			})),
 	);
 }
 
@@ -60,6 +65,13 @@ function check(p: Plan, a: RebalanceAction): boolean {
 	}
 	if (plan.status === 'intent') expect(a.type).toBe('reassign');
 	if (plan.status === 'action') expect(a.type).toBe('shift');
+	// A week move's target day is a working day inside the target bucket (T12 review).
+	if (plan.status === 'action' && a.type === 'shift' && ctx.wt) {
+		const t = shiftTarget(a, ctx.wt, ctx);
+		expect(
+			t !== null && t.day >= a.toBucket && t.day < a.toBucketEnd && ctx.wt.isWorking(t.day),
+		).toBe(true);
+	}
 	const out = checkRebalance(a, ctx, p.snap);
 	if (out.status !== 'edit') {
 		counts.refused++;
