@@ -420,6 +420,7 @@
 									ontablecommit={() => modes.saveTable()}
 									ontext={showEditor ? undefined : openText}
 									toolbarLead={phone ? undefined : ganttSwitcher}
+									active={showGantt}
 								/>
 							</div>
 						{/if}

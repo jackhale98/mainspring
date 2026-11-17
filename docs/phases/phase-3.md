@@ -863,6 +863,27 @@ Where the built heatmap differs from, or settles, what sections 7 to 10 say. T14
 - T21: `rebalance.spec.ts` must pin the exact patch of every move and the exact refusals (`via-group`, `not-a-person`, `not-booked`, `same-place`, `no-working-day`, `inherited`, alternatives, `shared-declaration`), with Undo restoring the bytes and Redo the patch. T14's specs show that a drag, the menus and the keys edit and undo, and take the first outcome they get.
 - The "live result equals the committed golden" step of 16.1 is the golden parity job's; `workload-gate.spec.ts` takes the live result as the engine's data.
 
+## 21. Amendments from T15 (the Resources lanes, 2026-11-17)
+
+Where the built lanes settle what 9.4 and its neighbours leave open. T15 recorded them; the main session owns the decision.
+
+1. **The lanes' columns are the heatmap's buckets (9.2, 9.4).** 9.2 says "sharing the Gantt's zoom presets", 9.4 says "at the lanes' zoom bucket". The lanes use the heatmap's `BucketAxis` columns (Day, Week, Month, a zoom kept apart from the heatmap's under its own key) at the Gantt presets' widths (56 px a day column, 112 px a week, 120 px a month; 48, 96 and 96 on a finger), and a minute is placed inside its column in proportion. So "over at the lanes' zoom bucket" is the column under the strip, the layout, header, hit tests and drag code are the heatmap's, and there is no quarter zoom.
+2. **"Merged per task per day" (9.4).** A task's booking runs are joined into one bar when the gap holds no booking of another task, so a bar never lies over someone else's time (no stacking). Inside a local day the gap is always joined. Across days it is joined only over time the person neither works nor takes leave (a night, a weekend), so a task that runs Monday to Friday is one bar, and a free working day, a day of leave or another task between two days splits it.
+3. **Leave hatched by type (9.4).** Each leave type has its own pattern (annual "\", holiday "/", sick "x", special dots, unpaid lines across, project lines down, unemployed a coarse "\"), all in `--leave-hatch`; a type is also named in each period's accessible name and the legend lists the plan's types. A week of leave is one block (slots are joined over non-working gaps). The working time lost where two global leaves overlap is drawn as `holiday`: the engine gives it no type.
+4. **A group's row (9.4)** shows its roll-up as a 10 px band in the band colours (the heatmap's, hatched when over), centred in its row. Rows are 40 px everywhere, the Phase 2 exemption (10).
+5. **The tap on a bar (9.2, 7.2).** A click, or a phone's second tap, opens the heatmap's period details (`CellDetails`) for the person and the bucket under the bar, not a task sheet: the task inspector is T17 and T18's. They carry the non-drag alternatives of W1 and W2 (menus, Alt+arrows). The tap also selects the task in the shared selection, so the Gantt and the text follow, and the bars of the selected task are ringed. A long-press lifts a movable bar; letting go without moving, or a long-press on a text-only bar or on empty lane, opens the details.
+6. **The lanes' ARIA mirror (10).** The resource table (T17) is not built, so the lanes carry their own `role="grid"`, the heatmap's (`HeatGrid`): each person's period names its tasks and their hours ("works on Login 24 h, Report 14 h (text only)") after the heatmap's sentence. The canvas is `aria-hidden`.
+7. **Shared preferences.** The over rule, the unit and the open groups are the heatmap's (one set of thresholds, one set of open groups): the lanes have no thresholds control and take up what the heatmap wrote when they are shown again (`HeatState.refresh`). The legend (wide bars only, as the heatmap's) lists a booked bar, the text-only badge, the over strip, the plan's leave types and the roll-up.
+8. **The desktop's Resources view** is the lanes alone until T17 adds the table beside them; the phone's Lanes segment is the same view.
+9. **"Show in text" in Visual mode** reveals the place only where the editor is on screen: it is the dispatcher's existing reveal, and the lanes use it unchanged.
+10. **Time lost to overlapping global leaves** is "leave" for the merge rule of item 2 as well as for the hatch: a bar never joins across it or lies over it (`LanesModel` adds `overlapLeaveOf` to the hours a bar must not cross).
+11. **Work outside frames (8.3).** A view that is not on screen builds no load model; the demand of a result is made once for both views; the bars and leave of the rows in the window are made when a model is built and as rows come into view (`LanesModel.warm`), not in a paint frame.
+12. **Selecting a task** asks the overlay for a repaint only (`HeatPlot` `overlayKey`), not the cells.
+
+**Left to T22 (items, not T15's):**
+- The 600-fills rule (8.1) at day zoom on fragmented lanes (many bars, leave blocks and over strips in one window): `lane-paint.test.ts` checks the budget on a small plan only.
+- Record the lanes' cells paint time (`HeatPlot`'s `onpaint`: fills and script ms per frame) on `scale-1000` and `fedora-res`, at day and week zoom, over a scroll.
+
 ## Appendix A: ADR-0013 stub (accepted; see docs/decisions/0013-authoring-on-phones.md)
 
 **ADR-0013: Authoring on phones.** Status: proposed, 2026-11-14; needs the user's approval (out-of-phase scope).

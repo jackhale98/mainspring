@@ -17,6 +17,7 @@
  * frame needs is in the frame object.
  */
 import { begin, roundedRect, snap, textWidth } from '../gantt/paint/canvas';
+import type { Theme } from '../gantt/paint/theme';
 import { cellFace } from './heat-cell';
 import type { Box, Cell, HeatLayout } from './heat-layout';
 import type { HeatUnit } from './heat-prefs';
@@ -65,7 +66,7 @@ const TILE = 6;
 const LEAVE_TILE = 5;
 
 /** A repeating stripe tile, made once per kind, colour and ratio. Null where there is no canvas. */
-function stripes(ctx: Ctx, kind: 'diagonal' | 'leave', colour: string, dpr: number) {
+export function stripes(ctx: Ctx, kind: 'diagonal' | 'leave', colour: string, dpr: number) {
 	const key = `${kind}|${colour}|${dpr}`;
 	if (tiles.has(key)) return tiles.get(key) ?? null;
 	let p: CanvasPattern | null = null;
@@ -286,6 +287,29 @@ export interface OverlayFrame {
 	readonly dash: number;
 	readonly fontSans: string;
 	readonly fontSize: number;
+}
+
+/** The look of the overlay, from the themes: what the heatmap's and the lanes' overlays share. */
+export function overlayLook(
+	theme: Theme,
+	heat: HeatTheme,
+): Pick<OverlayFrame, 'colours' | 'markerWidth' | 'dash' | 'fontSans' | 'fontSize'> {
+	return {
+		colours: {
+			accent: theme.accent,
+			accentText: theme.accentText,
+			focus: theme.focus,
+			today: theme.today,
+			status: theme.statusDate,
+			blocked: theme.critical,
+			text: theme.text,
+			surface: theme.surface,
+		},
+		markerWidth: theme.markerWidth,
+		dash: theme.dash,
+		fontSans: theme.fontSans,
+		fontSize: heat.fontSize,
+	};
 }
 
 function ring(ctx: Ctx, b: Box, width: number, colour: string): void {

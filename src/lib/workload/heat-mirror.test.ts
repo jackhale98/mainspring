@@ -205,3 +205,22 @@ describe('keyboard', () => {
 		expect(moveFocus(from, { key: 'ArrowUp' }, { ...d, rows: 0 })).toBeNull();
 	});
 });
+
+describe('mirror extra words', () => {
+	it("adds a view's words after a cell's sentence, and nothing where it has none", () => {
+		const { model, labels } = fixture();
+		const m = buildMirror({
+			model,
+			labels,
+			thresholds: DEFAULT_THRESHOLDS,
+			unit: 'hours',
+			range: { r0: 1, r1: 3, c0: 0, c1: 1 },
+			extra: (row) => (row === 1 ? 'works on A 12 h' : ''),
+		});
+		const [dev1, dev2] = m.rows;
+		expect(dev1?.cells[0]?.name).toBe(
+			'Dev 1, week of 5 January: 12 of 40 hours, spare, works on A 12 h',
+		);
+		expect(dev2?.cells[0]?.name).not.toContain('works on');
+	});
+});

@@ -73,7 +73,11 @@ export class ChipDrag {
 		const up = send('up');
 		const cancel = send('cancel');
 		const escape = (ev: KeyboardEvent): void => {
-			if (ev.key === 'Escape') this.#send({ type: 'escape' });
+			if (ev.key !== 'Escape') return;
+			// The drag's own Escape: it must not also end assign mode (a window key handler).
+			ev.preventDefault();
+			ev.stopPropagation();
+			this.#send({ type: 'escape' });
 		};
 		window.addEventListener('pointermove', move);
 		window.addEventListener('pointerup', up);

@@ -27,26 +27,18 @@
 	import { GanttEnv } from '../gantt/gantt-env.svelte';
 	import { ctrlWheel } from '../gantt/ctrl-wheel';
 	import { OVERSCAN_ROWS, OVERSCAN_X, paintWindow, type PaintWindow } from '../../lib/gantt/layout';
-	import { analysisOf } from '../../lib/gantt/analysis';
-	import { readMovePreference } from '../../lib/gantt/prefs';
 	import { todayOf } from '../../lib/gantt/model';
 	import type { GanttCalendar } from '../../lib/gantt/ticks';
-	import type { ActionContext, MoveKind } from '../../lib/gantt/intents';
-	import { workingTimeOf } from '../../lib/schedule/working-time';
+	import type { MoveKind } from '../../lib/gantt/intents';
 	import type { AppState } from '../../lib/state/app.svelte';
-	import { browserStorage } from '../../lib/state/storage';
 	import { workloadStrings as W } from '../../lib/strings';
 	import { cellDetails, cellInfo, cellName, type DetailTask } from '../../lib/workload/heat-cell';
-	import { shiftOf } from '../../lib/workload/heat-drag';
 	import { axisLabels } from '../../lib/workload/heat-labels';
 	import { heatLayout, type Box, type Cell } from '../../lib/workload/heat-layout';
 	import { buildMirror, mirrorRange, moveFocus, type Mirror } from '../../lib/workload/heat-mirror';
 	import type { HeatLine } from '../../lib/workload/heat-paint';
 	import { ZOOMS } from '../../lib/workload/heat-prefs';
 	import { FALLBACK_HEAT_THEME, colWidthOf, heatThemeOf } from '../../lib/workload/heat-theme';
-	import type { RebalanceAction } from '../../lib/workload/rebalance';
-	import { checkRebalance } from '../../lib/workload/rebalance-check';
-	import { dropTask } from '../../lib/workload/rebalance-drop';
 	import type { BucketKind } from '../../lib/workload/types';
 	import LazyMount from '../app/LazyMount.svelte';
 	import Mark from '../app/Mark.svelte';
@@ -57,7 +49,7 @@
 	import HeatPlot from './HeatPlot.svelte';
 	import { HeatGestures } from './heat-gestures.svelte';
 	import { HeatState } from './heat-state.svelte';
-	import { Nudges, PLANNER, Rebalancer } from './rebalance-adapter';
+	import { RebalanceHost } from './rebalance-host.svelte';
 	import { installWorkloadHook } from './test-hook';
 	import WhichTask from './WhichTask.svelte';
 	import WorkloadBar from './WorkloadBar.svelte';
@@ -93,8 +85,17 @@
 		const id = app.sampleId;
 		untrack(() => loads.use(id));
 	});
-	$effect(() => loads.offer(app.run?.lastGood?.result ?? null, app.index));
+	// A view that is not on screen builds nothing: it takes the newest result when it is shown again.
+	$effect(() => {
+		const result = app.run?.lastGood?.result ?? null;
+		const index = app.index;
+		if (active) loads.offer(result, index);
+	});
 	onMount(() => () => loads.dispose());
+	// Back on screen: take up what the lanes wrote to the shared preferences (the open groups).
+	$effect(() => {
+		if (active) untrack(() => loads.refresh());
+	});
 
 	const dimmed = $derived(app.run?.outdated ?? false);
 	const model = $derived(loads.shown(dimmed));
@@ -282,10 +283,11 @@
 	}
 
 	/** Scrolls so that a cell is the plot's top left (the end-to-end gate walks the grid this way). */
+	/** Centres a cell in the plot, clear of the drag's edge auto-scroll bands. */
 	function scrollToCell(c: Cell): void {
 		if (!scroller) return;
-		scroller.scrollLeft = layout.colLeft(c.col);
-		scroller.scrollTop = layout.rowTop(c.row);
+		scroller.scrollLeft = Math.max(0, layout.colLeft(c.col) - (viewW - layout.colWidth) / 2);
+		scroller.scrollTop = Math.max(0, layout.rowTop(c.row) - (viewH - heat.rowHeight) / 2);
 		scrollLeft = scroller.scrollLeft;
 		scrollTop = scroller.scrollTop;
 	}
@@ -420,72 +422,21 @@
 		moveTo(next);
 	}
 
-	// --- Rebalance: drops, the details' menus and the Alt+arrow keys (rebalance-adapter.ts)
-	let note = $state('');
-	let moveAsk = $state.raw<{ suggested: MoveKind } | null>(null);
-	let answer: ((k: MoveKind | null) => void) | null = null;
-	let which = $state.raw<{
-		label: string;
-		tasks: Array<{ task: string; name: string; minutes: number }>;
-		plan: (t: { task: string } | null) => { action: RebalanceAction | null };
-	} | null>(null);
-
-	function context(): ActionContext | null {
-		const built = loads.built;
-		const index = app.index;
-		if (!built?.result.project || !index) return null;
-		return {
-			index,
-			result: built.result,
-			analysis: analysisOf(built.result),
-			wt: workingTimeOf(built.result.project, loads.zones),
-			zones: loads.zones,
-			move: readMovePreference(browserStorage()),
-		};
-	}
-	const rebalancer = new Rebalancer({
-		planner: PLANNER,
-		edits: () => app.edits,
-		context,
-		source: () => {
-			const r = loads.built?.result ?? null;
-			return { result: r, analysis: r ? analysisOf(r) : null };
-		},
-		askMove: (suggested) =>
-			new Promise((resolve) => {
-				answer = resolve;
-				moveAsk = { suggested };
-			}),
-		confirm: (m) => globalThis.confirm(m),
+	// --- Rebalance: drops, the details' menus and the Alt+arrow keys (rebalance-host.svelte.ts)
+	const rebalance = new RebalanceHost({
+		app,
+		loads,
+		taskNames: () => taskNames,
+		announce: (text) => announce(text),
 	});
-	const nudges = new Nudges(rebalancer);
-
-	async function perform(action: RebalanceAction | null): Promise<void> {
-		if (!action) return;
-		const r = await rebalancer.run(action);
-		// A refusal is a toast (with Show in text where it has a place) and the details' note: said once.
-		note = r.status === 'refused' ? r.message : '';
-	}
+	const nudges = rebalance.nudges;
 
 	function moveTask(t: DetailTask, to: { row: number } | { col: number }): void {
-		if (!model || !selected) return;
-		const from = model.rows[selected.row];
-		if ('row' in to) {
-			const target = model.rows[to.row];
-			if (from && target)
-				void perform({ type: 'reassign', task: t.task, from: from.id, to: target.id });
-			return;
-		}
-		void perform(shiftOf(model, t.task, selected.col, to.col));
+		if (model) rebalance.moveTask(model, selected, t, to);
 	}
 
 	async function nudge(t: DetailTask, axis: 'person' | 'period', step: -1 | 1): Promise<void> {
-		if (!model || !selected) return;
-		const r =
-			axis === 'person'
-				? await nudges.person(model, t.task, selected, step)
-				: await nudges.period(model, t.task, selected, step);
-		if (r && r.status === 'refused') note = r.message;
+		if (model) await rebalance.nudge(model, selected, t, axis, step);
 	}
 
 	function showInGantt(t: DetailTask): void {
@@ -505,6 +456,12 @@
 		};
 	}
 
+	// A new model: the gestures forget the targets they looked up.
+	$effect(() => {
+		void model;
+		untrack(() => gestures.reset());
+	});
+
 	const gestures = new HeatGestures({
 		layout: () => layout,
 		model: () => model,
@@ -514,33 +471,8 @@
 		visible: visibleBox,
 		tap,
 		open: openDetails,
-		check: (action) => {
-			// Planned and dry-run on the snapshot the index was built from (null while the text is ahead).
-			const snap = app.workspace?.snapshot();
-			const ctx = context();
-			if (!snap || !ctx || ctx.index.version !== snap.version) return null;
-			const o = checkRebalance(action, ctx, snap);
-			return o.status === 'refused'
-				? { ok: false, message: o.message }
-				: { ok: true, message: null };
-		},
-		drop: (d) => {
-			const pick = dropTask(d.tasks);
-			if (pick.kind === 'none') return;
-			if (pick.kind === 'one') {
-				void perform(d.plan(d.tasks.find((t) => t.task === pick.task) ?? null).action);
-				return;
-			}
-			which = {
-				label: d.plan(null).label,
-				tasks: d.tasks.map((t) => ({
-					task: t.task,
-					name: taskNames.get(t.task) ?? t.task,
-					minutes: t.minutes,
-				})),
-				plan: (t) => d.plan(d.tasks.find((x) => x.task === t?.task) ?? null),
-			};
-		},
+		check: rebalance.check,
+		drop: rebalance.drop,
 		zoomStep: stepZoom,
 		announce,
 	});
@@ -698,7 +630,7 @@
 					unit={prefs.unit}
 					{people}
 					{periods}
-					{note}
+					note={rebalance.note}
 					onclose={closeDetails}
 					onmove={moveTask}
 					onnudge={nudge}
@@ -707,38 +639,24 @@
 				/>
 			</div>
 		{/if}
-		{#if which}
+		{#if rebalance.which}
 			<WhichTask
-				ask={which.label}
-				tasks={which.tasks}
-				onchoose={(task) => {
-					const p = which?.plan({ task });
-					which = null;
-					void perform(p?.action ?? null);
-				}}
-				oncancel={() => {
-					which = null;
-					announce(W.rebalance.cancelled);
-				}}
+				ask={rebalance.which.label}
+				tasks={rebalance.which.tasks}
+				onchoose={(task) => rebalance.choose(task)}
+				oncancel={() => rebalance.cancelWhich()}
 			/>
 		{/if}
 	</div>
 	<p class="sr-only" role="status" aria-live="polite" data-testid="heat-live">{liveText}</p>
 	<LazyMount
-		when={moveAsk !== null}
+		when={rebalance.moveAsk !== null}
 		load={() => import('../gantt/MovePreferenceDialog.svelte')}
 		props={{
-			ask: moveAsk,
-			onanswer: (k: MoveKind | null) => {
-				moveAsk = null;
-				answer?.(k);
-				answer = null;
-			},
+			ask: rebalance.moveAsk,
+			onanswer: (k: MoveKind | null) => rebalance.answerMove(k),
 		}}
-		onfail={() => {
-			moveAsk = null;
-			answer?.(null);
-		}}
+		onfail={() => rebalance.answerMove(null)}
 	/>
 </div>
 

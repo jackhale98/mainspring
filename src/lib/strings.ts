@@ -690,7 +690,6 @@ export const gestureStrings = {
 		rowOpens: 'Opens when held here',
 		/** Said when a person is booked from the palette by key. */
 		assigned: (person: string, task: string) => `${person} booked on ${task}.`,
-		released: (person: string, task: string) => `${person} released from ${task}.`,
 	},
 	link: {
 		banner: (name: string) => `Linking from ${name}: choose the task that comes after it.`,
@@ -705,11 +704,30 @@ export const gestureStrings = {
 	},
 	palette: {
 		region: 'People',
-		show: 'Show people',
-		hide: 'Hide people',
-		hint: 'Drag a person onto a bar to book them on that task. With a task selected, press a person to book or release them.',
-		chip: (name: string) => `${name}: book on the selected task`,
+		/** The toolbar control that opens the searchable list of people (polish item 17). */
+		assign: 'Assign',
+		assignTitle: 'Assign a person to tasks',
+		switchTitle: 'Choose another person to assign',
+		listLabel: 'People',
+		searchLabel: 'Find a person by name or id',
+		searchPlaceholder: 'Find a person',
+		hint: 'Drag a person onto a bar to book them on that task. Click a person to book them on several bars in a row. With a task selected, Enter books the person on it.',
 		none: 'No people in this plan yet.',
+		noMatch: (query: string) => `No one matches "${query}".`,
+		count: (n: number) => (n === 1 ? '1 person' : `${n} people`),
+		/** In a list option: the person is already on the selected task. */
+		onSelected: 'on the selected task',
+		recentRegion: 'Recently assigned',
+		recent: (name: string) => `${name}: drag onto a bar`,
+		/** Assign mode: the pill beside the button, and its way out. */
+		assigning: (name: string) => `Assigning ${name}\u2026`,
+		assigningLive: (name: string) =>
+			`Assigning ${name}. Click bars to book them. Escape or Done ends it.`,
+		done: 'Done',
+		doneLabel: 'Done assigning',
+		ended: 'Stopped assigning.',
+		/** Said when Enter in the list finds the person already on the selected task. */
+		already: (person: string, task: string) => `${person} is already on ${task}.`,
 		/** The label by a dragged chip over a container. */
 		container: 'Not on a summary: pick a subtask',
 		/** The label by a dragged chip, over a bar. */
@@ -1127,6 +1145,41 @@ export const workloadStrings = {
 	},
 } as const;
 
+/**
+ * The Resources lanes (src/components/resources, phase-3.md 9.4, 10, 7.1 W1 and W2): one lane per
+ * person with the booked tasks as bars, leave hatched by type and an "over" band under the lane.
+ * The lane's picture is aria-hidden; its ARIA mirror says each person's tasks per period in words.
+ * The controls, the cell details and the rebalance messages are the heatmap's (`workloadStrings`).
+ */
+export const lanesStrings = {
+	region: 'Resources',
+	/** The ARIA mirror of the canvas (a grid). */
+	grid: 'Resource lanes by person and period',
+	toolbar: 'Resource lane controls',
+	/** The legend's entries. */
+	legend: {
+		label: 'Legend',
+		bar: 'Booked task',
+		textOnly: 'Text only: edit it in the text',
+		over: 'Over',
+		leave: 'Leave',
+		group: 'Group roll-up',
+	},
+	/** The badge on a bar whose task the editor cannot move. */
+	badge: 'T',
+	/** "Login page 24 h" in a period's accessible name. */
+	assigned: (tasks: string) => `works on ${tasks}`,
+	more: (n: number) => ` and ${n} more`,
+	task: (name: string, hours: string, textOnly: boolean) =>
+		`${name} ${hours} h${textOnly ? ' (text only)' : ''}`,
+	/** The lifted bar, announced when a long-press lifts it. */
+	lifted: (task: string, who: string) =>
+		`${task} lifted from ${who}. Drag to a person or a period.`,
+	/** A press on a bar whose task cannot be moved. */
+	textOnlyHint: (task: string) =>
+		`${task} is declared where it cannot be edited. Edit it in the text.`,
+} as const;
+
 export const strings = {
 	appName: 'Mainspring',
 	tagline: 'TaskJuggler plans, scheduled in your browser.',
@@ -1533,6 +1586,7 @@ export const strings = {
 	refusal: refusalStrings,
 	history: historyStrings,
 	workload: workloadStrings,
+	lanes: lanesStrings,
 } as const;
 
 /**

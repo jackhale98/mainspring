@@ -42,13 +42,7 @@ import { dragPlan, movableTasks, targetOf, type DragPlan } from '../../lib/workl
 import type { RebalanceAction } from '../../lib/workload/rebalance';
 import { lockAxis, type RebalanceAxis } from '../../lib/workload/rebalance-drop';
 import type { AxisLabels } from '../../lib/workload/heat-labels';
-import {
-	cellId,
-	cellOfId,
-	type Box,
-	type Cell,
-	type HeatLayout,
-} from '../../lib/workload/heat-layout';
+import { cellId, type Box, type Cell, type HeatLayout } from '../../lib/workload/heat-layout';
 import type { DragMark } from '../../lib/workload/heat-paint';
 import type { CellTask, LoadModel } from '../../lib/workload/types';
 
@@ -56,7 +50,28 @@ import type { CellTask, LoadModel } from '../../lib/workload/types';
 export const PINCH_STEP = 1.5;
 const SLOP = { mouse: 3, pen: 4, touch: 8 } as const;
 
+/**
+ * What a press hits: the cell it is in, and the tasks a drag from it moves. The heatmap's target is
+ * a cell (every movable task in it, `key` the cell's number); a lane's is a bar (its one task, or
+ * none for a text-only bar or empty lane space, `key` the bar's own number, so two bars in one
+ * period are two targets). `ref` is the host's own (the lanes' bar), handed back with a tap.
+ */
+export interface PressTarget {
+	/** One number per target: the machine's tap bookkeeping and its hit are by it. */
+	readonly key: number;
+	readonly cell: Cell;
+	readonly tasks: readonly CellTask[];
+	readonly ref?: unknown;
+}
+
 export interface HeatHost {
+	/**
+	 * What is under a content point, when it is not just the cell (the lanes: a bar). Without it the
+	 * target is the cell and every movable task it holds (the heatmap).
+	 */
+	target?(x: number, y: number): PressTarget | null;
+	/** What announces a lifted target (the lanes name the bar's task); default: the person's. */
+	liftedText?(target: PressTarget): string;
 	layout(): HeatLayout;
 	model(): LoadModel | null;
 	labels(): AxisLabels | null;
@@ -65,8 +80,8 @@ export interface HeatHost {
 	scroller(): HTMLElement | undefined;
 	/** The visible plot in viewport px, minus what a sheet covers. */
 	visible(): Box;
-	/** A click or tap on a cell (null: outside the grid); `touch` for a finger. */
-	tap(cell: Cell | null, touch: boolean): void;
+	/** A click or tap on a cell (null: outside the grid); `touch` for a finger; the target it hit. */
+	tap(cell: Cell | null, touch: boolean, hit?: PressTarget | null): void;
 	/** Opens the cell's details (a long-press that did not drag, or a cell with nothing to move). */
 	open(cell: Cell): void;
 	/**
@@ -95,6 +110,8 @@ interface Pointer {
 }
 
 interface Session {
+	/** The origin's target key: a press that is dragging hits nothing new (the origin's tasks stand). */
+	readonly key: number;
 	readonly from: Cell;
 	readonly tasks: readonly CellTask[];
 	readonly x0: number;
@@ -118,6 +135,10 @@ const mods = (e: PointerEvent): Modifiers => ({
 export class HeatGestures {
 	/** The cell under a mouse, for the outline and the cell line. */
 	hover = $state.raw<Cell | null>(null);
+	/** What the mouse is on (the lanes outline the bar). */
+	hoverTarget = $state.raw<PressTarget | null>(null);
+	/** What is lifted: the target of a long-press, or of the drag in flight. */
+	liftedTarget = $state.raw<PressTarget | null>(null);
 	/** The lifted cell (a long-press, or the drag in flight). */
 	lifted = $state.raw<Cell | null>(null);
 	drag = $state.raw<DragMark | null>(null);
@@ -134,6 +155,8 @@ export class HeatGestures {
 	#pinchFrom = 0;
 	/** The press lifted a cell (touch) and has not moved: letting go opens its details. */
 	#liftedAt: Cell | null = null;
+	/** The targets the pointer hit lately, by key: a machine hit carries only its number. */
+	readonly #known = new Map<number, PressTarget>();
 
 	constructor(host: HeatHost) {
 		this.#h = host;
@@ -146,14 +169,16 @@ export class HeatGestures {
 		);
 	}
 
+	#pressed(hit: GestureTarget): PressTarget | null {
+		return hit.kind === 'bar' ? (this.#known.get(hit.row) ?? null) : null;
+	}
+
 	#cell(hit: GestureTarget): Cell | null {
-		return hit.kind === 'bar' ? cellOfId(hit.row, this.#h.layout().cols) : null;
+		return this.#pressed(hit)?.cell ?? null;
 	}
 
 	#tasksOf(hit: GestureTarget): readonly CellTask[] {
-		const cell = this.#cell(hit);
-		const model = this.#h.model();
-		return cell && model ? movableTasks(model, cell) : [];
+		return this.#pressed(hit)?.tasks ?? [];
 	}
 
 	/** Listens on the overlay canvas; returns the function that stops. */
@@ -209,6 +234,17 @@ export class HeatGestures {
 		};
 	}
 
+	/**
+	 * A new result or model: the targets looked up so far are forgotten (a hit carries a number, and
+	 * what it stood for may be gone). Not while a press or a drag holds one.
+	 */
+	reset(): void {
+		if (this.#machine.state !== 'idle') return;
+		this.#known.clear();
+		this.hover = null;
+		this.hoverTarget = null;
+	}
+
 	/** A user scroll of the plot: a press before its long-press is a pan. */
 	scrolled(): void {
 		if (this.#machine.state === 'pressed') this.#feed({ type: 'scroll', t: performance.now() });
@@ -227,9 +263,22 @@ export class HeatGestures {
 	}
 
 	#hit(x: number, y: number): GestureTarget {
+		// A drag in flight moves over targets the machine does not need: no lookup per move.
+		if (this.#session) return { kind: 'bar', row: this.#session.key };
+		const t = this.#resolve(x, y);
+		if (!t) return { kind: 'empty', row: null, at: 0 };
+		this.#known.set(t.key, t);
+		return { kind: 'bar', row: t.key };
+	}
+
+	#resolve(x: number, y: number): PressTarget | null {
+		if (this.#h.target) return this.#h.target(x, y);
 		const l = this.#h.layout();
 		const c = l.cellAt(x, y);
-		return c ? { kind: 'bar', row: cellId(c, l.cols) } : { kind: 'empty', row: null, at: 0 };
+		const model = this.#h.model();
+		return c
+			? { key: cellId(c, l.cols), cell: c, tasks: model ? movableTasks(model, c) : [] }
+			: null;
 	}
 
 	#input(type: 'down' | 'move' | 'up' | 'cancel', e: PointerEvent): GestureInput {
@@ -269,8 +318,12 @@ export class HeatGestures {
 
 	#hover(e: PointerEvent): void {
 		const p = this.#point(e.clientX, e.clientY);
+		// The machine is idle (the caller checks), so nothing holds a hit from before: forget them.
+		if (this.#known.size > 64) this.#known.clear();
 		const hit = this.#hit(p.x, p.y);
 		const cell = this.#cell(hit);
+		const target = this.#pressed(hit);
+		if (target?.key !== this.hoverTarget?.key) this.hoverTarget = target;
 		if (cell?.row !== this.hover?.row || cell?.col !== this.hover?.col) this.hover = cell;
 		this.cursor = hit.kind === 'bar' && this.#tasksOf(hit).length > 0 ? 'grab' : 'default';
 	}
@@ -278,6 +331,7 @@ export class HeatGestures {
 	#leave(): void {
 		if (this.#machine.state !== 'idle') return;
 		this.hover = null;
+		this.hoverTarget = null;
 		this.cursor = 'default';
 	}
 
@@ -319,7 +373,11 @@ export class HeatGestures {
 				}
 				return;
 			case 'tap':
-				return this.#h.tap(this.#cell(o.hit), this.#pointer?.kind === 'touch');
+				return this.#h.tap(
+					this.#cell(o.hit),
+					this.#pointer?.kind === 'touch',
+					this.#pressed(o.hit),
+				);
 			case 'long-press':
 				return this.#longPress(o.hit);
 			case 'drag-start':
@@ -353,9 +411,12 @@ export class HeatGestures {
 		}
 		this.lifted = cell;
 		this.#liftedAt = cell;
-		const model = this.#h.model();
-		const name = model?.rows[cell.row]?.name ?? '';
-		this.#h.announce(W.rebalance.lifted(name));
+		const target = this.#pressed(hit);
+		this.liftedTarget = target;
+		const name = this.#h.model()?.rows[cell.row]?.name ?? '';
+		this.#h.announce(
+			target && this.#h.liftedText ? this.#h.liftedText(target) : W.rebalance.lifted(name),
+		);
 	}
 
 	#start(hit: GestureTarget, x: number, y: number): void {
@@ -365,6 +426,7 @@ export class HeatGestures {
 		if (tasks.length === 0) return;
 		this.#liftedAt = null;
 		this.#session = {
+			key: this.#pressed(hit)?.key ?? 0,
 			from: cell,
 			tasks,
 			x0: x,
@@ -377,6 +439,7 @@ export class HeatGestures {
 			timer: null,
 		};
 		this.lifted = cell;
+		this.liftedTarget = this.#pressed(hit);
 		this.cursor = 'grabbing';
 		this.#pump();
 	}
@@ -463,6 +526,7 @@ export class HeatGestures {
 		this.#liftedAt = null;
 		this.drag = null;
 		this.lifted = null;
+		this.liftedTarget = null;
 		this.cursor = 'default';
 	}
 

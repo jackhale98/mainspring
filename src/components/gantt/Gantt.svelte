@@ -16,7 +16,7 @@
 	The direct manipulation of phase-2.md 7.1 (T16) is wired here and lives beside it: the pointer
 	events on the chart are `gestures.svelte.ts`, the keys, the link and progress modes and the
 	row commands are `interactions.svelte.ts`, a row dragged by its grip is `row-drag.svelte.ts`,
-	a person dragged from the palette is `chip-drag.svelte.ts`. Each ends in one action sent to the
+	a person dragged from the people picker is `chip-drag.svelte.ts` (assign mode: `assign-mode.svelte.ts`). Each ends in one action sent to the
 	edit dispatcher (`app.edits`); the chart only draws previews and the pending bars it holds.
 
 	The task list is the treegrid (OutlineGrid.svelte, phase-2.md 10.1). It sits in a pane of its
@@ -100,7 +100,6 @@
 	import { installGanttHook } from './test-hook';
 	import type { MoveKind } from '../../lib/gantt/intents';
 	import LazyMount from '../app/LazyMount.svelte';
-	import PeoplePalette from './PeoplePalette.svelte';
 	import { ZoomPreview } from './zoom-preview';
 	import { GanttAnalysis } from './gantt-analysis.svelte';
 	import { GanttEnv } from './gantt-env.svelte';
@@ -125,6 +124,8 @@
 		ontext?: (() => void) | undefined;
 		/** The leading group of the toolbar's row: the view switcher (people/ViewSwitcher.svelte). */
 		toolbarLead?: Snippet | undefined;
+		/** Whether the Gantt is the view on screen: a hidden one (Text, a People view) ends assign mode. */
+		active?: boolean;
 	}
 	let {
 		app,
@@ -134,6 +135,7 @@
 		ontablecommit,
 		ontext,
 		toolbarLead,
+		active = true,
 	}: Props = $props();
 
 	const zones = memoZones(createTimeZoneHost());
@@ -154,7 +156,6 @@
 	/** The plot's grid cell: content x = client x minus its left (the gestures' origin). */
 	let plotCell: HTMLDivElement | undefined = $state();
 	let grid: OutlineGrid | undefined = $state();
-	let paletteOpen = $state(true);
 	/** The task pill's height while it shows (a phone floats it over the chart's foot). */
 	let pillH = $state(0);
 	const critical = new GanttAnalysis();
@@ -348,6 +349,10 @@
 		hover: (r) => (hoverRow = r),
 	});
 	const interactions = m.interactions;
+	// Assign mode is for the chart on screen: Text or a People view hides it, and the mode ends.
+	$effect(() => {
+		if (!active) m.assignMode.end();
+	});
 	const links = interactions.links;
 
 	onMount(() =>
@@ -536,7 +541,17 @@
 		oncritical={() => critical.toggle()}
 		people={env.coarse
 			? undefined
-			: { open: paletteOpen, count: m.people.length, ontoggle: () => (paletteOpen = !paletteOpen) }}
+			: {
+					people: m.people,
+					booked: m.booked,
+					hasTask: m.hasTask,
+					drag: m.chips,
+					recent: m.recentPeople,
+					assigning: m.assigning,
+					onpick: (p) => m.pick(p),
+					onpickkey: (p) => m.pickByKey(p),
+					ondone: () => m.endAssign(),
+				}}
 		add={{
 			hasSelection: app.selectedTask !== null,
 			canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
@@ -562,16 +577,6 @@
 			</div>
 		{/if}
 	</div>
-	{#if paletteOpen && !env.coarse && !phone && m.people.length > 0}
-		<PeoplePalette
-			people={m.people}
-			booked={m.booked}
-			hasTask={m.hasTask}
-			drag={m.chips}
-			onbook={(p) => m.book(p)}
-		/>
-	{/if}
-
 	{#if model.rows.length === 0}
 		{#if app.emptyPlan}
 			<EmptyState {app} onadd={() => m.addTask('after')} {ontext} />

@@ -11,6 +11,9 @@
 	exactly over their pixels and are transparent, so a screen magnifier, a touch screen reader and
 	the focus all agree with the picture; they take no pointer events (the canvas has those).
 
+	The lanes (T15) use it too, with their own label and test ids (`kind="lane"`): both views can be
+	mounted at once.
+
 	Roving focus: one cell has tabindex 0 (the focus cell, or the first of the window); the arrow
 	keys, Home, End, PageUp, PageDown and T move it (the parent decides where, heat-mirror.ts
 	`moveFocus`); Enter and Space open the cell's details. The 3 px focus ring is drawn on the
@@ -21,7 +24,7 @@
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { workloadStrings as W } from '../../lib/strings';
+	import { lanesStrings, workloadStrings as W } from '../../lib/strings';
 	import type { Cell, HeatLayout } from '../../lib/workload/heat-layout';
 	import type { Mirror } from '../../lib/workload/heat-mirror';
 
@@ -35,8 +38,10 @@
 		onkey: (e: KeyboardEvent, cell: Cell) => void;
 		/** The grid took or lost the keyboard focus. */
 		onfocuschange: (inside: boolean, cell: Cell | null) => void;
+		/** Which view this mirrors: its label and the prefix of its test ids. */
+		kind?: 'heat' | 'lane';
 	}
-	let { mirror, layout, focus, focusNonce, onkey, onfocuschange }: Props = $props();
+	let { mirror, layout, focus, focusNonce, onkey, onfocuschange, kind = 'heat' }: Props = $props();
 
 	let root: HTMLDivElement | undefined = $state();
 
@@ -76,11 +81,11 @@
 	bind:this={root}
 	class="grid"
 	role="grid"
-	aria-label={W.grid}
+	aria-label={kind === 'heat' ? W.grid : lanesStrings.grid}
 	aria-rowcount={mirror.ariaRowCount}
 	aria-colcount={mirror.ariaColCount}
 	aria-readonly="true"
-	data-testid="heat-grid"
+	data-testid="{kind}-grid"
 	onkeydown={(e) => {
 		const c = cellOf(e.target);
 		if (c) onkey(e, c);
@@ -119,7 +124,7 @@
 					class="cell"
 					aria-colindex={c.ariaColIndex}
 					tabindex={active && active.row === c.row && active.col === c.col ? 0 : -1}
-					data-testid="heat-cell"
+					data-testid="{kind}-cell"
 					data-row={c.row}
 					data-col={c.col}
 					data-person={r.id}

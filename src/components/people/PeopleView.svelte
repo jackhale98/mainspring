@@ -6,11 +6,12 @@
 
 	For each content (`workload`, `resources`, `calendar`, `team`) it shows the "No people" state
 	when the plan declares no resource (lib/people/empty.ts), else the content: the workload heatmap
-	(T14, components/workload), which stays mounted once seen so that its scroll, zoom and selection
-	survive a switch to another view, the calendar (T16, components/calendar), which needs no people
-	(Everyone's holidays) and keeps its month and mode in a state made here, and for the rest a short
-	placeholder that T15 (lanes) and T17 (resource table) replace. After Add person the keyboard focus goes to the
-	content, where the button was.
+	(T14, components/workload) and the Resources lanes (T15, components/resources), which stay
+	mounted once seen so that their scroll, zoom and selection survive a switch to another view, the
+	calendar (T16, components/calendar), which needs no people (Everyone's holidays), draws its own
+	toolbar and keeps its month and mode in a state made here, and for the rest a short placeholder
+	that T17 (resource table, which the desktop puts beside the lanes) replaces. After Add person the
+	keyboard focus goes to the content, where the button was.
 -->
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
@@ -21,6 +22,7 @@
 	import Calendar from '../calendar/Calendar.svelte';
 	import { CalendarState } from '../calendar/calendar-state.svelte';
 	import Workload from '../workload/Workload.svelte';
+	import Lanes from '../resources/Lanes.svelte';
 	import NoPeople from './NoPeople.svelte';
 
 	interface Props {
@@ -45,25 +47,51 @@
 	let focusContent = $state(false);
 	/** The calendar's month, mode and focus, kept while another view shows. */
 	const calendar = new CalendarState();
-	/** The heatmap is mounted when first shown and then kept (its scroll and zoom survive a switch). */
+	/** The heatmap and the lanes are mounted when first shown and then kept (scroll and zoom survive). */
 	let heatmapSeen = $state(false);
+	let lanesSeen = $state(false);
 	$effect(() => {
 		if (content === 'workload' && shown === 'content') heatmapSeen = true;
+		if (content === 'resources' && shown === 'content') lanesSeen = true;
 	});
+	/** Whose toolbar is in the People bar: a view takes its own out only when it is still the one. */
+	let barOwner: PeopleContent | null = null;
+	const barFor = (who: PeopleContent) => (bar: Snippet | null) => {
+		if (bar) {
+			barOwner = who;
+			setBar(bar);
+		} else if (barOwner === who) {
+			barOwner = null;
+			setBar(null);
+		}
+	};
+	const heatBar = barFor('workload');
+	const laneBar = barFor('resources');
+	/** A content drawn on the canvas, which fills the area itself. */
+	const drawn = $derived(
+		(content === 'workload' && heatmapSeen) || (content === 'resources' && lanesSeen),
+	);
 
 	// The button that was pressed leaves with the state: the focus goes to what replaces it, once
 	// the index has the new person (a keyboard user is not dropped on the page). The heatmap's is
 	// its first cell, which exists once the schedule has been read into rows.
 	$effect(() => {
 		if (!focusContent || shown !== 'content') return;
-		if (content === 'workload') {
+		if (content === 'workload' || content === 'resources') {
+			const kind = content === 'workload' ? 'heat' : 'lane';
 			let frames = 0;
 			const look = (): void => {
-				const cell = host?.querySelector<HTMLElement>('[data-testid="heat-cell"][tabindex="0"]');
+				const cell = host?.querySelector<HTMLElement>(`[data-testid="${kind}-cell"][tabindex="0"]`);
 				if (cell) cell.focus({ preventScroll: true });
 				else if (frames++ < 120) requestAnimationFrame(look);
 				// No schedule to read yet (a plan with a person and no task): the view itself.
-				else host?.querySelector<HTMLElement>('[data-testid="workload"]')?.focus();
+				else {
+					host
+						?.querySelector<HTMLElement>(
+							`[data-testid="${content === 'workload' ? 'workload' : 'lanes'}"]`,
+						)
+						?.focus();
+				}
 			};
 			focusContent = false;
 			look();
@@ -77,14 +105,17 @@
 
 <div
 	class="host"
-	class:flush={(heatmapSeen && content === 'workload') || content === 'calendar'}
+	class:flush={drawn || content === 'calendar'}
 	bind:this={host}
 	data-testid="people-host"
 	data-content={content}
 	data-state={shown}
 >
 	{#if heatmapSeen && shown === 'content'}
-		<Workload {app} {phone} active={content === 'workload'} {setBar} {showGantt} />
+		<Workload {app} {phone} active={content === 'workload'} setBar={heatBar} {showGantt} />
+	{/if}
+	{#if lanesSeen && shown === 'content'}
+		<Lanes {app} {phone} active={content === 'resources'} setBar={laneBar} {showGantt} />
 	{/if}
 	{#if shown === 'loading'}
 		<p class="message" role="status">{strings.topBar.loading}</p>
@@ -92,7 +123,7 @@
 		<NoPeople {app} ondone={() => (focusContent = true)} />
 	{:else if content === 'calendar'}
 		<Calendar {app} {phone} state={calendar} {showGantt} />
-	{:else if content !== 'workload'}
+	{:else if content !== 'workload' && content !== 'resources'}
 		<p class="message" data-testid="people-coming" tabindex="-1" bind:this={coming}>
 			{S.coming[content]}
 		</p>
@@ -109,7 +140,7 @@
 		overflow: auto;
 		background: var(--color-gantt-surface);
 	}
-	/* The heatmap fills the area itself (it scrolls inside), so the host does not centre or scroll. */
+	/* The heatmap and the lanes fill the area themselves (they scroll inside), so the host does not centre or scroll. */
 	.host.flush {
 		justify-content: stretch;
 		overflow: hidden;

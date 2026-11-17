@@ -8,27 +8,37 @@
 	polite live region), in the words of its accessible name; on a phone it floats at the foot of
 	the heatmap, as the Gantt's task line does.
 
+	The Resources lanes (T15) use the same bar with `variant="lanes"`: the zoom, Today and the line,
+	without the unit and the thresholds (the lanes draw no numbers, and the thresholds are the
+	heatmap's: one rule for "over"), and their own legend (LanesLegend.svelte).
+
 	The legend says what each band looks like, with its cue besides colour (over is hatched and has
 	a corner mark), and shows the today and status-date lines when they are on the chart, as the
 	Gantt's does. It holds no state: the heatmap owns the choices.
 -->
 <script lang="ts">
+	import type { EngineLeaveType } from '../../engine/protocol';
 	import type { HeatUnit } from '../../lib/workload/heat-prefs';
-	import { workloadStrings as W } from '../../lib/strings';
+	import { lanesStrings as L, workloadStrings as W } from '../../lib/strings';
 	import type { BucketKind, Thresholds } from '../../lib/workload/types';
 	import Icon from '../Icon.svelte';
 	import SegmentTabs from '../people/SegmentTabs.svelte';
+	import LanesLegend from '../resources/LanesLegend.svelte';
 	import BandLegend from './BandLegend.svelte';
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
 
 	type Line = 'on' | 'off' | null;
 	interface Props {
+		/** The heatmap's bar (unit, thresholds and the bands' legend) or the lanes' (zoom and Today). */
+		variant?: 'heat' | 'lanes';
+		/** The leave types the lanes' legend shows. */
+		leaveTypes?: readonly EngineLeaveType[];
 		zoom: BucketKind;
-		unit: HeatUnit;
-		thresholds: Thresholds;
+		unit?: HeatUnit;
+		thresholds?: Thresholds;
 		onzoom: (z: BucketKind) => void;
-		onunit: (u: HeatUnit) => void;
-		onthresholds: (t: Thresholds) => boolean;
+		onunit?: (u: HeatUnit) => void;
+		onthresholds?: (t: Thresholds) => boolean;
 		ontoday: () => void;
 		/** Whether Today has a column to go to. */
 		hasToday: boolean;
@@ -42,12 +52,14 @@
 		scope: string;
 	}
 	let {
+		variant = 'heat',
+		leaveTypes = [],
 		zoom,
-		unit,
-		thresholds,
+		unit = 'hours',
+		thresholds = { spareBelow: 80, overAbove: 100 },
 		onzoom,
-		onunit,
-		onthresholds,
+		onunit = () => undefined,
+		onthresholds = () => false,
 		ontoday,
 		hasToday,
 		dimmed,
@@ -62,20 +74,28 @@
 		{ id: 'week' as const, label: W.level.week },
 		{ id: 'month' as const, label: W.level.month },
 	];
+	const heat = $derived(variant === 'heat');
+	/** Test ids and element ids differ between the two views, which can both be mounted. */
+	const id = $derived(heat ? 'heat' : 'lanes');
 	const UNITS = [
 		{ id: 'hours' as const, label: W.unitHours },
 		{ id: 'percent' as const, label: W.unitPercent },
 	];
 </script>
 
-<div class="chips" role="group" aria-label={W.toolbar} data-testid="heat-toolbar">
+<div
+	class="chips"
+	role="group"
+	aria-label={heat ? W.toolbar : L.toolbar}
+	data-testid="{id}-toolbar"
+>
 	<span class="zoom-radios">
 		<SegmentTabs
 			items={ZOOMS}
 			value={zoom}
 			onchange={onzoom}
 			label={W.zoom}
-			prefix="heat-zoom-{scope}"
+			prefix="{id}-zoom-{scope}"
 			kind="radios"
 		/>
 	</span>
@@ -90,29 +110,31 @@
 		</select>
 		<span class="caret"><Icon name="chevronDown" size={12} /></span>
 	</label>
-	<span class="unit-radios">
-		<SegmentTabs
-			items={UNITS}
-			value={unit}
-			onchange={onunit}
-			label={W.unit}
-			prefix="heat-unit-{scope}"
-			kind="radios"
-		/>
-	</span>
-	<!-- A phone: one button that switches the unit (two pills do not fit 360 px beside the rest). -->
-	<button
-		type="button"
-		class="chip unit-toggle"
-		data-testid="heat-unit-toggle"
-		aria-label="{unit === 'hours' ? W.unitHours : W.unitPercent}: {unit === 'hours'
-			? W.unitHint.percent
-			: W.unitHint.hours}"
-		onclick={() => onunit(unit === 'hours' ? 'percent' : 'hours')}
-	>
-		{unit === 'hours' ? W.unitHours : W.unitPercent}
-	</button>
-	<ThresholdsPopover {thresholds} onchange={onthresholds} />
+	{#if heat}
+		<span class="unit-radios">
+			<SegmentTabs
+				items={UNITS}
+				value={unit}
+				onchange={onunit}
+				label={W.unit}
+				prefix="heat-unit-{scope}"
+				kind="radios"
+			/>
+		</span>
+		<!-- A phone: one button that switches the unit (two pills do not fit 360 px beside the rest). -->
+		<button
+			type="button"
+			class="chip unit-toggle"
+			data-testid="heat-unit-toggle"
+			aria-label="{unit === 'hours' ? W.unitHours : W.unitPercent}: {unit === 'hours'
+				? W.unitHint.percent
+				: W.unitHint.hours}"
+			onclick={() => onunit(unit === 'hours' ? 'percent' : 'hours')}
+		>
+			{unit === 'hours' ? W.unitHours : W.unitPercent}
+		</button>
+		<ThresholdsPopover {thresholds} onchange={onthresholds} />
+	{/if}
 	<button
 		type="button"
 		class="chip today"
@@ -129,14 +151,14 @@
 	class="line"
 	class:sr-only={selected === '' || hover !== ''}
 	role="status"
-	data-testid="heat-line"
+	data-testid="{id}-line"
 >
 	{selected}
 </p>
 {#if hover !== ''}<p class="line hover" aria-hidden="true">{hover}</p>{/if}
 
 <div class="legend">
-	<BandLegend />
+	{#if heat}<BandLegend />{:else}<LanesLegend types={leaveTypes} />{/if}
 	<ul class="lines" aria-label={W.legendLines}>
 		{#if lines.merged}
 			<li class:off={lines.today === 'off'}><i class="ln today"></i>{W.legendBoth}</li>

@@ -13,7 +13,7 @@
  *   until it ends; both announce themselves and each change in the Gantt's live region.
  * - **Rows** (R5): reorder, indent and outdent through `stepTarget`; rename (R8, F2); add after,
  *   delete (extra); today (R10).
- * - **People** (R6): `book` toggles a person on a task, the palette's key path.
+ * - **People** (R6): `book` books a person on a task (Enter in the picker), `assign` is a drop or an assign-mode click.
  * Over 400 lines on purpose: the commands share one set of modes (link, progress, rename) and one
  * burst table, and each reads the others' state; the key maps and the row maths are in lib/gantt.
  * The menu in the toolbar calls `perform`, the same commands for a mouse or a finger that cannot
@@ -415,23 +415,12 @@ export class GanttInteractions {
 		if (r?.id) await this.actor.run({ type: 'delete', task: r.id });
 	}
 
-	/** Books a person on a task, or releases them when they are already booked (R6). */
-	async book(
-		task: string,
-		person: string,
-		name: string,
-		booked: boolean,
-	): Promise<DispatchOutcome> {
-		const o = await this.actor.run({
-			type: booked ? 'unassign' : 'assign',
-			task,
-			resource: person,
-		});
+	/** Books a person on a task (R6: Enter on a person in the picker's list). */
+	async book(task: string, person: string, name: string): Promise<DispatchOutcome> {
+		const o = await this.actor.run({ type: 'assign', task, resource: person });
 		if (o.status === 'applied') {
 			const t = this.#h.model().rows.find((r) => r.id === task)?.name ?? task;
-			this.#h.announce(
-				booked ? gestureStrings.live.released(name, t) : gestureStrings.live.assigned(name, t),
-			);
+			this.#h.announce(gestureStrings.live.assigned(name, t));
 		}
 		return o;
 	}
