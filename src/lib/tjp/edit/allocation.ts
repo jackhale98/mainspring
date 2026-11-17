@@ -16,6 +16,9 @@
  *   child task (TaskJuggler's `checkContainer`, lists.ts). Removed items take one comma; a list
  *   left empty goes with its line. `replaceAllocation` rewrites the id token in place (or drops
  *   the item when the new resource is already allocated).
+ * - `removeAllocation` and `replaceAllocation` of a resource no own item names are refused
+ *   `text-only` when an own item is written with a macro call (it may name it), else noop
+ *   `not-present` (T12 review).
  * - Resource references: TaskJuggler reads a plain id and prepends the file's `resourceprefix`
  *   (rule_resourceId), and needs the resource declared before the allocation in reading order;
  *   a resource missing, declared later, or not writable under the prefix is refused
@@ -45,6 +48,7 @@ import {
 	type EditOp,
 	type IntentOf,
 	type IntentPlan,
+	type Noop,
 	type Refused,
 } from './types';
 
@@ -257,6 +261,20 @@ function reshape(
 const allocated = (own: Own, r: string): boolean =>
 	own.inherited.has(r) || own.items.some((a) => a.resource === r);
 
+/**
+ * Before a `not-present` answer: an own item written with a macro call (`allocate a, ${who}`) may
+ * name the resource, so the edit cannot tell and is refused (`text-only`) at that item. A plain
+ * id that names no resource (a typo) keeps `not-present`.
+ */
+function notPresent(own: Own): Refused | Noop {
+	const hidden = own.items.find(
+		(a) => a.resource === null && (a.textOnly?.reason === 'macro-call' || /\$[{(]/.test(a.written)),
+	);
+	return hidden
+		? refused('text-only', [hidden.item], { textOnly: 'macro-call' })
+		: noop('not-present');
+}
+
 function inheritedRefusal(own: Own): Refused {
 	return refused('inherited', [own.task.decl.header]);
 }
@@ -288,7 +306,7 @@ export function removeAllocationPlan(
 	if ('status' in own) return own;
 	if (own.inherited.has(intent.resource)) return inheritedRefusal(own);
 	const remove = own.items.filter((a) => a.resource === intent.resource);
-	if (remove.length === 0) return noop('not-present');
+	if (remove.length === 0) return notPresent(own);
 	return reshape(ctx, own, remove, []);
 }
 
@@ -302,7 +320,7 @@ export function replaceAllocationPlan(
 	if (intent.from === intent.to) return noop('already-set');
 	if (own.inherited.has(intent.from)) return inheritedRefusal(own);
 	const items = own.items.filter((a) => a.resource === intent.from);
-	if (items.length === 0) return noop('not-present');
+	if (items.length === 0) return notPresent(own);
 	if (allocated(own, intent.to)) return reshape(ctx, own, items, []);
 	const ops: EditOp[] = [];
 	for (const a of items) {
