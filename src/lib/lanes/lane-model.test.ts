@@ -41,6 +41,19 @@ describe('LanesModel', () => {
 		expect(lanes.runs(row)).toBe(lanes.runs(row));
 	});
 
+	it('warms the rows of a window, so that a painter only reads', () => {
+		const fresh = lanesOf();
+		const a = rowOf(fresh, 'a');
+		// Rows past the model's end are ignored; a negative start is clamped.
+		fresh.warm(-3, 99);
+		const runs = fresh.runs(a);
+		const leaves = fresh.leaves(rowOf(fresh, 'c'));
+		expect(fresh.runs(a)).toBe(runs);
+		expect(fresh.leaves(rowOf(fresh, 'c'))).toBe(leaves);
+		expect(runs.length).toBeGreaterThan(0);
+		expect(leaves.length).toBeGreaterThan(0);
+	});
+
 	it('lets a drag start from a task the text declares, and from no other', () => {
 		for (const r of lanes.runs(rowOf(lanes, 'c'))) {
 			expect(r.movable).toBe(true);

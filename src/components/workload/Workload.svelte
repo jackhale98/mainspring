@@ -85,7 +85,12 @@
 		const id = app.sampleId;
 		untrack(() => loads.use(id));
 	});
-	$effect(() => loads.offer(app.run?.lastGood?.result ?? null, app.index));
+	// A view that is not on screen builds nothing: it takes the newest result when it is shown again.
+	$effect(() => {
+		const result = app.run?.lastGood?.result ?? null;
+		const index = app.index;
+		if (active) loads.offer(result, index);
+	});
 	onMount(() => () => loads.dispose());
 	// Back on screen: take up what the lanes wrote to the shared preferences (the open groups).
 	$effect(() => {
@@ -450,6 +455,12 @@
 			h: Math.max(0, r.height - headerH - sheet),
 		};
 	}
+
+	// A new model: the gestures forget the targets they looked up.
+	$effect(() => {
+		void model;
+		untrack(() => gestures.reset());
+	});
 
 	const gestures = new HeatGestures({
 		layout: () => layout,

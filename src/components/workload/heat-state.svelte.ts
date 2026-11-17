@@ -208,7 +208,12 @@ export class HeatState {
 			this.#cancelDemand = whenIdle(() => {
 				this.#cancelDemand = null;
 				if (this.#input?.result !== i.result || this.#input.index !== i.index) return;
-				demands.set(i.result, { index: i.index, marks: this.#marksOf(i.result, i.index) });
+				// The other view of the same result (the lanes and the heatmap each have a state) may have
+				// made them meanwhile: they are made once per result and index.
+				const made = demands.get(i.result);
+				if (!made || made.index !== i.index) {
+					demands.set(i.result, { index: i.index, marks: this.#marksOf(i.result, i.index) });
+				}
 				this.#rebuild();
 			});
 		}

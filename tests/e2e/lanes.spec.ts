@@ -30,6 +30,61 @@ type Pair = [number, number];
 const overlaps = (set: Pair[], a: number, b: number): boolean =>
 	set.some(([s, e]) => s < b && a < e);
 
+interface Expected {
+	task: string;
+	from: number;
+	to: number;
+	minutes: number;
+}
+
+/**
+ * The bars a person's lane must show (phase-3.md 21.2), from the raw booking intervals, written here
+ * and sharing nothing with src/lib/lanes. A task's consecutive booking intervals are one bar when
+ * the gap between them holds no other task's booking, and either the gap stays within one local
+ * day (`dayKey`, from `Intl` in the project zone), or it holds no working time and no leave of the
+ * person. Returns the bars, and how many joins crossed a day and how many splits were forced by
+ * working time or leave (so the spec can show that it exercised both).
+ */
+function expectedBars(
+	tasks: Map<string, Pair[]>,
+	hours: Pair[],
+	dayKey: (minute: number) => string,
+): { bars: Expected[]; joinedAcrossDays: number; splitByHours: number; splitByOther: number } {
+	const all = [...tasks.values()].flat().sort((a, b) => a[0] - b[0]);
+	const bars: Expected[] = [];
+	let joinedAcrossDays = 0;
+	let splitByHours = 0;
+	let splitByOther = 0;
+	for (const [task, list] of tasks) {
+		const intervals = [...list].sort((a, b) => a[0] - b[0]);
+		let cur: Expected | null = null;
+		for (const [s, e] of intervals) {
+			if (cur) {
+				const other = overlaps(all, cur.to, s);
+				const sameDay = dayKey(cur.to) === dayKey(s);
+				const free = overlaps(hours, cur.to, s);
+				if (!other && (sameDay || !free)) {
+					if (!sameDay) joinedAcrossDays++;
+					cur.to = e;
+					cur.minutes += e - s;
+					continue;
+				}
+				if (other) splitByOther++;
+				else splitByHours++;
+				bars.push(cur);
+			}
+			cur = { task, from: s, to: e, minutes: e - s };
+		}
+		if (cur) bars.push(cur);
+	}
+	return {
+		bars: bars.sort((a, b) => a.from - b.from || a.to - b.to),
+		joinedAcrossDays,
+		splitByHours,
+		splitByOther,
+	};
+}
+
 function scenarioOf(r: ScheduleResult): string {
 	const s = r.project?.scenarios.find((x) => x.active)?.id;
 	if (!s) throw new Error('no active scenario');
@@ -53,6 +108,31 @@ test('fedora-res: every person lane equals the bookings and leave of the result'
 	let barsSeen = 0;
 	let slotsChecked = 0;
 	let leavesChecked = 0;
+	// The merge rule's oracle: local days from `Intl` in the project zone. fedora-res has no two
+	// global leaves that overlap (the lost time of the overlap is the unit tests' fixture), so a
+	// person's hours are their working time and their own leave.
+	const gl = result.project.leaves.map((l) => l.interval).sort((a, b) => a[0] - b[0]);
+	for (let i = 1; i < gl.length; i++) {
+		expect(gl[i]?.[0], 'fedora-res: global leaves do not overlap').toBeGreaterThanOrEqual(
+			gl[i - 1]?.[1] ?? 0,
+		);
+	}
+	const startMs = Date.parse(result.project.start);
+	const dayFmt = new Intl.DateTimeFormat('en-CA', {
+		timeZone: result.project.timezone ?? 'UTC',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	});
+	const days = new Map<number, string>();
+	const dayKey = (m: number): string => {
+		let k = days.get(m);
+		if (k === undefined) days.set(m, (k = dayFmt.format(new Date(startMs + m * 60_000))));
+		return k;
+	};
+	let joinedAcrossDays = 0;
+	let splitByHours = 0;
+	let splitByOther = 0;
 	for (const res of result.resources) {
 		const bars = await rig.bars(res.id);
 		if (res.group) {
@@ -89,6 +169,22 @@ test('fedora-res: every person lane equals the bookings and leave of the result'
 			}
 		}
 		barsSeen += bars.length;
+		// The merge rule: the bars are exactly what the rule gives from the raw booking runs, not
+		// only a partition of the same minutes (a lane that never merged, or merged across a free
+		// working day or a day of leave, would fail here).
+		const rs0 = res.scenarios[sc];
+		const hours = [
+			...((rs0?.workingTime ?? result.project.workingTime) as Pair[]),
+			...(rs0?.leaves ?? []).flatMap((l) => l.intervals as Pair[]),
+		].sort((a, b) => a[0] - b[0]);
+		const want = expectedBars(tasks, hours, dayKey);
+		expect(
+			bars.map((b) => ({ task: b.task, from: b.from, to: b.to, minutes: b.minutes })),
+			`${res.id}: the bars follow the merge rule`,
+		).toEqual(want.bars);
+		joinedAcrossDays += want.joinedAcrossDays;
+		splitByHours += want.splitByHours;
+		splitByOther += want.splitByOther;
 		// A lane has no stacking: bars are ordered and never overlap.
 		for (let i = 1; i < bars.length; i++) {
 			expect(bars[i]?.from, `${res.id}: bars overlap`).toBeGreaterThanOrEqual(bars[i - 1]?.to ?? 0);
@@ -119,6 +215,12 @@ test('fedora-res: every person lane equals the bookings and leave of the result'
 	console.log(
 		`lanes oracle (${info.project.name}): ${people} people, ${barsSeen} bars, ${slotsChecked} booking runs and ${leavesChecked} leave runs checked, 0 differences`,
 	);
+	console.log(
+		`merge rule (${info.project.name}): ${joinedAcrossDays} joins across days, ${splitByHours} splits at working time or leave, ${splitByOther} splits at another task`,
+	);
+	// The oracle exercised each branch of the rule on this plan.
+	expect(joinedAcrossDays).toBeGreaterThan(5);
+	expect(splitByHours).toBeGreaterThan(5);
 	expect(people).toBe(24);
 	expect(barsSeen).toBeGreaterThan(150);
 	expect(leavesChecked).toBeGreaterThan(20);

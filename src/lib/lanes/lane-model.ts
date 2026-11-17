@@ -15,7 +15,8 @@
  *   as the heatmap's hatch does, the working time lost where two global leaves overlap (shown as
  *   `holiday`: the engine gives that time no type).
  * - Runs and leave are made on first ask, per person, and kept with the model: a lane that never
- *   scrolls into view costs nothing.
+ *   scrolls into view costs nothing. The view warms the rows of its window (`warm`) when a model is
+ *   built and as rows come into view, outside the paint frame.
  */
 import type { EngineLeaveType } from '../../engine/protocol';
 import type { ResourceId, SymbolIndex, TaskId } from '../tjp/index';
@@ -24,7 +25,13 @@ import { allLeave, globalLeaveOverlaps, overlapLeaveOf } from '../workload/avail
 import { bucketAxis } from '../workload/axis';
 import { movableTask } from '../workload/load';
 import { union } from '../workload/intervals';
-import type { Availability, BucketAxis, LoadModel, PersonAvailability } from '../workload/types';
+import type {
+	Availability,
+	BucketAxis,
+	IntervalSet,
+	LoadModel,
+	PersonAvailability,
+} from '../workload/types';
 import type { ProjectInfo, ScheduleResult } from '../../engine/protocol';
 import { laneRuns, leaveRuns, type LaneRun, type LeaveRun } from './lane-runs';
 
@@ -59,6 +66,7 @@ export class LanesModel {
 	readonly #overlaps;
 	readonly #runs = new Map<ResourceId, readonly LaneBar[]>();
 	readonly #leaves = new Map<ResourceId, readonly LaneLeave[]>();
+	readonly #lostOf = new Map<ResourceId, IntervalSet>();
 	#types: readonly EngineLeaveType[] | null = null;
 	readonly #names: ReadonlyMap<TaskId, string>;
 
@@ -75,6 +83,20 @@ export class LanesModel {
 		return r && !r.group ? this.#i.availability.people.get(r.id) : undefined;
 	}
 
+	/**
+	 * The working time a person loses where two global leaves overlap (drawn as `holiday`, see
+	 * `leaves`), once per person: the engine puts it in neither `working` nor `leave`.
+	 */
+	#lost(id: ResourceId, p: PersonAvailability): IntervalSet {
+		if (this.#overlaps.length === 0) return [];
+		let lost = this.#lostOf.get(id);
+		if (!lost) {
+			lost = overlapLeaveOf(this.#i.project, this.#i.zones, p, this.#overlaps);
+			this.#lostOf.set(id, lost);
+		}
+		return lost;
+	}
+
 	/** The bars of a lane, by start; none for a group's row or a person the result does not know. */
 	runs(row: number): readonly LaneBar[] {
 		const r = this.load.rows[row];
@@ -82,15 +104,15 @@ export class LanesModel {
 		if (!r || !p) return [];
 		let list = this.#runs.get(r.id);
 		if (!list) {
-			const hours = union(p.working, allLeave(p));
+			// What a bar must not run across: working time, leave, and the time lost to overlapping
+			// global leaves (which the lane draws as a holiday block).
+			const hours = union(union(p.working, allLeave(p)), this.#lost(r.id, p));
 			const index = this.#i.index;
-			list = laneRuns(p.tasks, p.booked, hours, this.#days.bounds).map((run) => {
-				return {
-					...run,
-					movable: movableTask(index, run.task),
-					textOnly: this.isTextOnly(run.task),
-				};
-			});
+			list = laneRuns(p.tasks, p.booked, hours, this.#days.bounds).map((run) => ({
+				...run,
+				movable: movableTask(index, run.task),
+				textOnly: this.isTextOnly(run.task),
+			}));
 			this.#runs.set(r.id, list);
 		}
 		return list;
@@ -108,14 +130,24 @@ export class LanesModel {
 				const runs = leaveRuns(l.intervals, p.working);
 				if (runs.length > 0) out.push({ type: l.type, runs });
 			}
-			if (this.#overlaps.length > 0) {
-				const lost = overlapLeaveOf(this.#i.project, this.#i.zones, p, this.#overlaps);
-				const runs = leaveRuns(lost, p.working);
-				if (runs.length > 0) out.push({ type: 'holiday', runs });
-			}
+			const lost = this.#lost(r.id, p);
+			if (lost.length > 0) out.push({ type: 'holiday', runs: leaveRuns(lost, p.working) });
 			this.#leaves.set(r.id, (list = out));
 		}
 		return list;
+	}
+
+	/**
+	 * Makes the bars and leave of the rows [first, last) now, so that a painter, which asks for them
+	 * in a frame, only reads (phase-3.md 8.1, 8.3). The view calls it when a model is built and when
+	 * rows come into its window, outside the paint.
+	 */
+	warm(first: number, last: number): void {
+		const to = Math.min(last, this.load.rows.length);
+		for (let r = Math.max(0, first); r < to; r++) {
+			this.runs(r);
+			this.leaves(r);
+		}
 	}
 
 	/** The leave types any person has, in `EngineLeaveType` order (the legend's swatches). */

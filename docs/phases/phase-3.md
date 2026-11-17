@@ -876,6 +876,13 @@ Where the built lanes settle what 9.4 and its neighbours leave open. T15 recorde
 7. **Shared preferences.** The over rule, the unit and the open groups are the heatmap's (one set of thresholds, one set of open groups): the lanes have no thresholds control and take up what the heatmap wrote when they are shown again (`HeatState.refresh`). The legend (wide bars only, as the heatmap's) lists a booked bar, the text-only badge, the over strip, the plan's leave types and the roll-up.
 8. **The desktop's Resources view** is the lanes alone until T17 adds the table beside them; the phone's Lanes segment is the same view.
 9. **"Show in text" in Visual mode** reveals the place only where the editor is on screen: it is the dispatcher's existing reveal, and the lanes use it unchanged.
+10. **Time lost to overlapping global leaves** is "leave" for the merge rule of item 2 as well as for the hatch: a bar never joins across it or lies over it (`LanesModel` adds `overlapLeaveOf` to the hours a bar must not cross).
+11. **Work outside frames (8.3).** A view that is not on screen builds no load model; the demand of a result is made once for both views; the bars and leave of the rows in the window are made when a model is built and as rows come into view (`LanesModel.warm`), not in a paint frame.
+12. **Selecting a task** asks the overlay for a repaint only (`HeatPlot` `overlayKey`), not the cells.
+
+**Left to T22 (items, not T15's):**
+- The 600-fills rule (8.1) at day zoom on fragmented lanes (many bars, leave blocks and over strips in one window): `lane-paint.test.ts` checks the budget on a small plan only.
+- Record the lanes' cells paint time (`HeatPlot`'s `onpaint`: fills and script ms per frame) on `scale-1000` and `fedora-res`, at day and week zoom, over a scroll.
 
 ## Appendix A: ADR-0013 stub (accepted; see docs/decisions/0013-authoring-on-phones.md)
 

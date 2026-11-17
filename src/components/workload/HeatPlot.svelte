@@ -57,6 +57,8 @@
 		/** The lanes' painters; a new function asks for a repaint, as a new model does. */
 		drawCells?: DrawCells | undefined;
 		drawOverlay?: DrawOverlay | undefined;
+		/** A value whose change asks for the overlay alone (the lanes' selected task). */
+		overlayKey?: unknown;
 		/** The prefix of the canvases' test ids (`heat`, or `lane`: both views can be mounted). */
 		testid?: string;
 	}
@@ -78,6 +80,7 @@
 		drawCells,
 		drawOverlay,
 		testid = 'heat',
+		overlayKey = undefined,
 	}: Props = $props();
 
 	let cellsEl: HTMLCanvasElement | undefined = $state();
@@ -226,7 +229,7 @@
 
 	// The overlay's own inputs.
 	$effect(() => {
-		void [lines, selected, focus];
+		void [lines, selected, focus, overlayKey];
 		untrack(() => request('overlay'));
 	});
 

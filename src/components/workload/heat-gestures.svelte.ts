@@ -110,6 +110,8 @@ interface Pointer {
 }
 
 interface Session {
+	/** The origin's target key: a press that is dragging hits nothing new (the origin's tasks stand). */
+	readonly key: number;
 	readonly from: Cell;
 	readonly tasks: readonly CellTask[];
 	readonly x0: number;
@@ -232,6 +234,17 @@ export class HeatGestures {
 		};
 	}
 
+	/**
+	 * A new result or model: the targets looked up so far are forgotten (a hit carries a number, and
+	 * what it stood for may be gone). Not while a press or a drag holds one.
+	 */
+	reset(): void {
+		if (this.#machine.state !== 'idle') return;
+		this.#known.clear();
+		this.hover = null;
+		this.hoverTarget = null;
+	}
+
 	/** A user scroll of the plot: a press before its long-press is a pan. */
 	scrolled(): void {
 		if (this.#machine.state === 'pressed') this.#feed({ type: 'scroll', t: performance.now() });
@@ -250,6 +263,8 @@ export class HeatGestures {
 	}
 
 	#hit(x: number, y: number): GestureTarget {
+		// A drag in flight moves over targets the machine does not need: no lookup per move.
+		if (this.#session) return { kind: 'bar', row: this.#session.key };
 		const t = this.#resolve(x, y);
 		if (!t) return { kind: 'empty', row: null, at: 0 };
 		this.#known.set(t.key, t);
@@ -411,6 +426,7 @@ export class HeatGestures {
 		if (tasks.length === 0) return;
 		this.#liftedAt = null;
 		this.#session = {
+			key: this.#pressed(hit)?.key ?? 0,
 			from: cell,
 			tasks,
 			x0: x,

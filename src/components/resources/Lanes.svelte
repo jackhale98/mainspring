@@ -94,7 +94,12 @@
 		const id = app.sampleId;
 		untrack(() => loads.use(id));
 	});
-	$effect(() => loads.offer(app.run?.lastGood?.result ?? null, app.index));
+	// A view that is not on screen builds nothing: it takes the newest result when it is shown again.
+	$effect(() => {
+		const result = app.run?.lastGood?.result ?? null;
+		const index = app.index;
+		if (active) loads.offer(result, index);
+	});
 	onMount(() => () => loads.dispose());
 	// Back on screen: take up what the heatmap wrote to the shared preferences (open groups).
 	$effect(() => {
@@ -270,13 +275,13 @@
 			model,
 			labels,
 			thresholds: prefs.thresholds,
-			unit: 'hours',
+			unit: prefs.unit,
 			range: mirrorRange(visible, focus),
 			extra: (row, col) => laneCellTasks(lanes, row, col),
 		});
 	}
 	$effect(() => {
-		void [lanes, labels, prefs.thresholds, layout, viewW, viewH];
+		void [lanes, labels, prefs.thresholds, prefs.unit, layout, viewW, viewH];
 		untrack(rebuildMirror);
 	});
 	onMount(() => () => mirrorTimer && clearTimeout(mirrorTimer));
@@ -508,6 +513,19 @@
 		};
 	}
 
+	// A new model: the gestures forget the targets they looked up.
+	$effect(() => {
+		void lanes;
+		untrack(() => gestures.reset());
+	});
+	// The bars and leave of the rows in the window are made now, outside the paint (8.1, 8.3).
+	$effect(() => {
+		const l = lanes;
+		const a = firstRow;
+		const z = lastRow;
+		if (l) untrack(() => l.warm(a, z));
+	});
+
 	const gestures = new HeatGestures({
 		target,
 		layout: () => layout,
@@ -694,6 +712,7 @@
 							{drawCells}
 							{drawOverlay}
 							testid="lane"
+							overlayKey={selectedTask}
 						/>
 						{#if mirror}
 							<HeatGrid
@@ -723,7 +742,7 @@
 			<div class="sheet" bind:clientHeight={sheetH}>
 				<CellDetails
 					{details}
-					unit="hours"
+					unit={prefs.unit}
 					{people}
 					{periods}
 					note={rebalance.note}
