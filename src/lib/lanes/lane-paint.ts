@@ -18,7 +18,7 @@
  */
 import { begin, roundedRect, textWidth } from '../gantt/paint/canvas';
 import type { Theme } from '../gantt/paint/theme';
-import { lanesStrings as L } from '../strings';
+import { lanesStrings as L } from '../strings-lanes';
 import type { Box, HeatLayout } from '../workload/heat-layout';
 import { paintOverlay, stripes, type OverlayFrame, type PaintStats } from '../workload/heat-paint';
 import type { HeatTheme } from '../workload/heat-theme';

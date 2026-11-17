@@ -24,7 +24,8 @@
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { lanesStrings, workloadStrings as W } from '../../lib/strings';
+	import { lanesStrings } from '../../lib/strings-lanes';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import type { Cell, HeatLayout } from '../../lib/workload/heat-layout';
 	import type { Mirror } from '../../lib/workload/heat-mirror';
 

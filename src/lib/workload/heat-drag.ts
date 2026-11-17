@@ -19,7 +19,7 @@
  *   one (`WhichTask`). One task needs no question.
  */
 import type { TaskId } from '../tjp/index';
-import { workloadStrings as W } from '../strings';
+import { workloadStrings as W } from '../strings-workload';
 import type { RebalanceAction } from './rebalance';
 import { dropAction, type RebalanceAxis, type RebalanceCell } from './rebalance-drop';
 import type { AxisLabels } from './heat-labels';

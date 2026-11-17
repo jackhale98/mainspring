@@ -23,7 +23,7 @@
 -->
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { workloadStrings as W } from '../../lib/strings';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import { hoursNumber, type CellDetails, type DetailTask } from '../../lib/workload/heat-cell';
 	import type { HeatUnit } from '../../lib/workload/heat-prefs';
 	import Icon from '../Icon.svelte';

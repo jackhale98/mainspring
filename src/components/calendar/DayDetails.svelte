@@ -19,7 +19,7 @@
 	import type { LeaveEntry } from '../../lib/calendar/facts';
 	import { typesOfItem, type LeaveFields } from '../../lib/calendar/leave-edit';
 	import type { PaintItem } from '../../lib/calendar/paint-items';
-	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
+	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
 	import type { CommitResult } from '../../lib/calendar/leave-edit';

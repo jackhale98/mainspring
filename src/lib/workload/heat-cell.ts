@@ -10,7 +10,7 @@
  * (`overCauses`: booked above available, held or unmet work, or the threshold).
  */
 import type { ResourceId, TaskId } from '../tjp/index';
-import { workloadStrings as W } from '../strings';
+import { workloadStrings as W } from '../strings-workload';
 import { overCauses, percentOf, type OverCause } from './bands';
 import type { AxisLabels } from './heat-labels';
 import type { HeatUnit } from './heat-prefs';

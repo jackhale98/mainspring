@@ -13,7 +13,7 @@
 <script lang="ts">
 	import { typesFor } from '../../lib/calendar/leave-edit';
 	import type { PaintScope } from '../../lib/calendar/paint';
-	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
+	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
 	import type { CalendarMode } from './calendar-state.svelte';

@@ -58,7 +58,7 @@
 import type { Minutes, ProjectInfo, ScheduleResult } from '../../engine/protocol';
 import { refusalMessage, type Planned } from '../gantt/intents';
 import { dateText, displayDate } from '../schedule/date-text';
-import { leavePaintStrings as S } from '../strings';
+import { leavePaintStrings as S } from '../strings-calendar';
 import type { EditIntent, LeaveSpec, LeaveType } from '../tjp/edit/types';
 import type { ResourceId, SourceRange, SymbolIndex } from '../tjp/index';
 import {

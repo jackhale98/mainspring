@@ -23,7 +23,8 @@ import {
 } from './paint';
 import type { ToastLabel } from '../gantt/intents';
 import type { DispatchOptions, DispatchOutcome } from '../state/edits.svelte';
-import { calendarStrings as C, inspectorStrings } from '../strings';
+import { inspectorStrings } from '../strings';
+import { calendarStrings as C } from '../strings-calendar';
 import type { EditIntent } from '../tjp/edit/types';
 import type { SourceRange } from '../tjp/index';
 

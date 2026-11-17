@@ -33,7 +33,7 @@
 		type CalendarGrid,
 		type MonthBlock,
 	} from '../../lib/calendar/grid';
-	import { calendarStrings as C } from '../../lib/strings';
+	import { calendarStrings as C } from '../../lib/strings-calendar';
 
 	interface Props {
 		grid: CalendarGrid;

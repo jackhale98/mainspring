@@ -19,7 +19,7 @@
 	} from '../../lib/calendar/leave-edit';
 	import { scopeItems, type PaintItem } from '../../lib/calendar/paint-items';
 	import { runIntent } from '../../lib/calendar/run';
-	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
+	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import { resourceStrings as R } from '../../lib/strings-resources';
 	import type { ResourceId } from '../../lib/tjp/index';
 	import LeaveCard from '../calendar/LeaveCard.svelte';
