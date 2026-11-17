@@ -10,6 +10,7 @@ import { ROOT } from '../../../tests/grammar/corpus';
 import type { ScheduleResult } from '../../engine/protocol';
 import { createTimeZoneHost } from '../../engine/timezone';
 import { buildIndex, hintsFromResult, type SymbolIndex } from '../tjp/index';
+import { resolveDate } from '../tjp/values';
 import { golden, inline } from '../tjp/index/testing';
 import type { ZoneOffsets } from '../tjp/values/civil';
 import { availabilityOf } from '../workload/availability';
@@ -114,4 +115,83 @@ export function partitionProblems(
 		if (t !== to) out.push(`${p}: the causes end at ${t}, expected ${to}`);
 	}
 	return out;
+}
+
+/**
+ * The independent check of a bound (the T10 review, F4), for an ASAP effort leaf that asks for
+ * people: from the raw result and the text alone (no explain*.ts code), the slot TaskJuggler
+ * starts such a task in when nothing holds it. L is the latest of each `depends` entry's date
+ * (TaskScenario#earliestStart: the predecessor's end or start, then `gaplength` walked slot by slot
+ * over the project's working time, or `gapduration` in calendar time, whichever is later) and each
+ * `start` written on the task or an ancestor; the slot is the first one at or after the slot that
+ * holds L (dateToIdx truncates) in which one of the task's people works. Null when the task is not
+ * such a leaf, or when a predecessor has no date or a written date cannot be read.
+ */
+export function firstSlotOracle(ctx: ExplainContext, id: string): number | null {
+	const r = ctx.result;
+	const p = r.project;
+	const t = r.tasks.find((x) => x.id === id);
+	const s = t?.scenarios[ctx.scenario];
+	if (!p || !t || !s || s.direction !== 'asap' || s.allocate.length === 0 || t.milestone) {
+		return null;
+	}
+	if (r.tasks.some((x) => x.parent === id)) return null;
+	const chain: string[] = [];
+	for (let sc: string | null = ctx.scenario; sc !== null && !chain.includes(sc);) {
+		chain.push(sc);
+		const at: string = sc;
+		sc = p.scenarios.find((x) => x.id === at)?.parent ?? null;
+	}
+	const applies = (sc: string | null) => sc === null || chain.includes(sc);
+	const size = (ctx.index.tasks.get(id)?.attrs ?? []).filter(
+		(a) => ['effort', 'length', 'duration'].includes(a.keyword) && applies(a.scenario),
+	);
+	if (size.length === 0 || size.some((a) => a.keyword !== 'effort')) return null;
+
+	const res = p.timingResolutionMin;
+	const end = (Date.parse(p.end) - Date.parse(p.start)) / 60_000;
+	const slots = (pairs: ReadonlyArray<readonly [number, number]>) => {
+		const set = new Set<number>();
+		for (const [a, b] of pairs) for (let m = a; m < b; m += res) set.add(m);
+		return set;
+	};
+	const working = slots(p.workingTime);
+	let bound = 0;
+	for (const d of s.depends) {
+		const o = r.tasks.find((x) => x.id === d.task)?.scenarios[ctx.scenario];
+		const x = o ? (d.onEnd ? o.end : o.start) : null;
+		if (x === null || x === undefined) return null;
+		let date = x;
+		for (let gap = d.gapLengthMin / res; gap > 0 && date < end; date += res) {
+			if (working.has(date)) gap--;
+		}
+		bound = Math.max(bound, date > x + d.gapDurationMin ? date : x + d.gapDurationMin);
+	}
+	const startEpoch = Date.parse(p.start) / 1000;
+	for (let at: string | null = id; at !== null; at = ctx.index.tasks.get(at)?.parent ?? null) {
+		for (const a of ctx.index.tasks.get(at)?.attrs ?? []) {
+			if (a.keyword !== 'start' || !applies(a.scenario)) continue;
+			if (a.textOnly || a.parsed?.kind !== 'date') return null;
+			const where = ctx.index.contextAt(a.statement.file, a.statement.from);
+			const v = resolveDate(a.parsed.value, where);
+			if (!v.ok) return null;
+			bound = Math.max(bound, (v.value - startEpoch) / 60);
+		}
+	}
+
+	const leavesOf = (rid: string): string[] => {
+		const x = r.resources.find((y) => y.id === rid);
+		if (!x) return [];
+		if (!x.group) return [rid];
+		return r.resources.filter((y) => y.parent === rid).flatMap((y) => leavesOf(y.id));
+	};
+	const people = new Set(s.allocate.flatMap((item) => item.candidates.flatMap(leavesOf)));
+	const sets = [...people].map((pid) => {
+		const rs = r.resources.find((y) => y.id === pid)?.scenarios[ctx.scenario];
+		return slots(rs?.workingTime ?? p.workingTime);
+	});
+	for (let m = Math.floor(bound / res) * res; m < end; m += res) {
+		if (sets.some((set) => set.has(m))) return m;
+	}
+	return null;
 }

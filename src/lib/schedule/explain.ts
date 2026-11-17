@@ -15,7 +15,10 @@
  * - **The wait** (rule 2) is [bound, at) for ASAP and [at, bound) for ALAP. Without free time for
  *   any person the task asked for (groups as their members), it is split into `busy`, `leave` and
  *   `off-hours` causes that partition it (explain-window.ts). With free time, a `limits` statement
- *   on the task, an ancestor or that person "may" hold it (`limit`), else `unknown`.
+ *   on the task, an ancestor or that person "may" hold it (`limit`), else `unknown`. When the text
+ *   narrows when the task may book (`shifts`, an `allocate` body: explain-text.ts
+ *   `narrowsBooking`), a wait in which any of its people had working time is `unknown`, and nobody
+ *   is held: the engine data does not show what the narrowing excluded.
  * - **Inside** (rule 4): for an effort leaf, each gap between its bookings inside [start, end),
  *   explained the same way, without the project calendar's off hours: a night or a weekend is not
  *   a gap in the bar's working time, and a gap that is only those has no cause. A person's own off
@@ -25,7 +28,7 @@
  *   then the bound's.
  * - **Cost.** One task: its dependencies, its people's interval sets clipped to the window by
  *   binary search, and the index's sites for the task. The result-wide tables are built once per
- *   `Availability` (explain-prep.ts).
+ *   result (explain-prep.ts).
  */
 // T10: rule 1 gives the bound's item as the cause "when `at` equals `bound`". The bound's items are
 // listed whenever there is a bound, before the wait (9.7: "Waits for Design (ends Tue 3 Mar)."
@@ -41,13 +44,20 @@
 // (Mon 00:00 to the first working slot) gets the project's off hours there, not `unknown`.
 // T10: `inside` leaves out the project calendar's off hours (rule 4: "gaps between its bookings";
 // a night is not a gap in the bar's working time), so the partition property is for `causes`.
+// T10: from the review (F1): with task `shifts` (own or inherited, any scenario) or an `allocate`
+// body, a busy stretch or a free hour may lie outside what the task could book, so the wait (and
+// each gap inside) is `unknown` once a person had working time in it. A wait where every person
+// was off or on leave is still explained by their calendars: a shift only narrows when a task may
+// book, never widens a person's working time (TaskScenario#bookResources), so those causes stay
+// true. Nothing is held either way.
 import type { DependencyResult, Minutes, TaskScenarioResult } from '../../engine/protocol';
 import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
-import { subtract } from '../workload/intervals';
+import { overlaps, subtract } from '../workload/intervals';
 import type { PersonAvailability } from '../workload/types';
 import { earliestUnder } from './critical';
 import { prepOf, type Prep } from './explain-prep';
 import {
+	narrowsBooking,
 	personLimitSite,
 	scenarioChainOf,
 	sizeKindOf,
@@ -65,7 +75,6 @@ const FRAME: Cause = { kind: 'frame' };
 /** The person data of the leaf people a task asked for, in `allocate` order, groups expanded. */
 export function peopleOf(
 	s: TaskScenarioResult,
-	ctx: ExplainContext,
 	prep: Prep,
 ): Array<{ id: ResourceId; person: PersonAvailability }> {
 	const out: Array<{ id: ResourceId; person: PersonAvailability }> = [];
@@ -73,7 +82,7 @@ export function peopleOf(
 	for (const item of s.allocate) {
 		for (const c of item.candidates) {
 			for (const id of prep.leavesOf(c)) {
-				const person = ctx.availability.people.get(id);
+				const person = prep.availability.people.get(id);
 				if (person && !seen.has(id)) {
 					seen.add(id);
 					out.push({ id, person });
@@ -103,14 +112,18 @@ interface Bound {
 
 /**
  * The date TaskJuggler holds for a `start` (ASAP) or `end` (ALAP) the index cannot read (a macro):
- * the anchor of the task it is written on, except on an effort leaf, whose anchor moves to its
- * first (last) booking.
+ * the anchor of the task it is written on, when that anchor shows the date: a container, a length,
+ * duration or milestone leaf, or a leaf without people. An effort leaf's anchor moves to its first
+ * (last) booking, and a leaf whose size the index cannot see but which asks for people may be one:
+ * null (`unknown`).
  */
 // T10: Fedora writes `start ${start_work}` on its root task, which every task inherits, so without
 // this every Fedora task would be `unknown`. A written date fixes the anchor of a task that has it:
 // TaskScenario#propagateDateToDep does not move a set date, and #scheduleContainer keeps a
 // container's written start when its children start at or after it (they do: #earliestStart bounds
 // them by it). An effort leaf books from the date on, so its anchor does not show the date.
+// T10: from the review (F2): a macro-written size may be `effort`; trusting that task's anchor
+// claimed `constraint` and hid a real wait for a busy person.
 function heldDate(
 	task: TaskId,
 	s: TaskScenarioResult | null,
@@ -119,9 +132,15 @@ function heldDate(
 	prep: Prep,
 ): Minutes | null {
 	if (!s) return null;
-	const leaf = !prep.containers.has(task);
-	const chain = scenarioChainOf(ctx.result.project, ctx.scenario);
-	if (leaf && sizeKindOf(ctx.index, task, chain) === 'effort') return null;
+	if (!prep.containers.has(task)) {
+		const size = sizeKindOf(ctx.index, task, scenarioChainOf(ctx.result.project, ctx.scenario));
+		const shows =
+			size === 'length' ||
+			size === 'duration' ||
+			prep.tasks.get(task)?.milestone === true ||
+			(size === null && s.allocate.length === 0);
+		if (!shows) return null;
+	}
 	return alap ? s.end : s.start;
 }
 
@@ -176,9 +195,13 @@ export function readWindow(
 	to: Minutes,
 	ctx: ExplainContext,
 	prep: Prep,
+	narrowed: boolean,
 ): { causes: Cause[]; free: boolean } {
-	const people = peopleOf(s, ctx, prep);
+	const people = peopleOf(s, prep);
 	if (people.length === 0) return { causes: [calendarOr(from, to, ctx)], free: false };
+	if (narrowed && people.some((p) => overlaps(p.person.working, from, to))) {
+		return { causes: [UNKNOWN], free: false };
+	}
 	const free = people.filter((p) => hadFree(p.person, prep.own(p.id, id), from, to));
 	if (free.length === 0) return { causes: windowCauses(id, people, from, to, prep), free: false };
 	const chain = scenarioChainOf(ctx.result.project, ctx.scenario);
@@ -219,9 +242,10 @@ export function waitOf(id: TaskId, s: TaskScenarioResult, ctx: ExplainContext, p
 	}
 	if (prep.containers.has(id))
 		return { bound, window: [lo, hi], causes: [calendarOr(lo, hi, ctx)], held: [] };
-	const read = readWindow(id, s, lo, hi, ctx, prep);
+	const narrowed = narrowsBooking(ctx.index, id);
+	const read = readWindow(id, s, lo, hi, ctx, prep, narrowed);
 	const held = new Set<ResourceId>();
-	for (const c of read.causes) {
+	for (const c of narrowed ? [] : read.causes) {
 		if ((c.kind === 'busy' || c.kind === 'leave') && c.resource !== null) held.add(c.resource);
 	}
 	return { bound, window: [lo, hi], causes: read.causes, held: [...held] };
@@ -237,8 +261,9 @@ export function insideOf(
 	const out: Cause[] = [];
 	if (s.start === null || s.end === null) return out;
 	const seen = new Set<string>();
+	const narrowed = narrowsBooking(ctx.index, id);
 	for (const [a, b] of subtract([[s.start, s.end]], prep.booked(id))) {
-		const { causes, free } = readWindow(id, s, a, b, ctx, prep);
+		const { causes, free } = readWindow(id, s, a, b, ctx, prep, narrowed);
 		if (free || causes[0]?.kind === 'unknown') {
 			for (const c of causes) {
 				const key = c.kind === 'limit' ? `${c.site.file}:${c.site.from}` : c.kind;

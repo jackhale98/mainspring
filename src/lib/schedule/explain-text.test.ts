@@ -5,9 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { buildIndex } from '../tjp/index';
 import { inline } from '../tjp/index/testing';
 import {
+	narrowsBooking,
+	personHasLimits,
 	personLimitSite,
 	scenarioChainOf,
 	sizeKindOf,
+	taskHasLimits,
 	taskLimitSites,
 	writtenDates,
 } from './explain-text';
@@ -131,5 +134,80 @@ describe('limits', () => {
 		expect(ann).toEqual(team);
 		expect(bo).not.toEqual(team);
 		expect(personLimitSite(idx, 'nobody', ['plan'])).toBeNull();
+	});
+	it('finds limits in any scenario, on the property or above it', () => {
+		const scoped = index(`project p "P" 2026-01-05 - 2026-03-02 {
+  scenario plan "Plan" {
+    scenario late "Late"
+  }
+}
+resource r "R" {
+  late:limits { dailymax 2h }
+}
+resource q "Q"
+task t "T" {
+  late:limits { dailymax 2h }
+  task u "U" {
+    length 1d
+  }
+}
+task v "V" {
+  length 1d
+}
+`);
+		expect(taskHasLimits(scoped, 't.u')).toBe(true);
+		expect(taskHasLimits(scoped, 'v')).toBe(false);
+		expect(personHasLimits(scoped, 'r')).toBe(true);
+		expect(personHasLimits(scoped, 'q')).toBe(false);
+		expect(taskHasLimits(idx, 'outer.l')).toBe(true);
+		expect(personHasLimits(idx, 'ann')).toBe(true);
+	});
+});
+
+describe('narrowsBooking (the review, F1)', () => {
+	const idx = index(`project p "P" 2026-01-05 - 2026-03-02 {
+  scenario plan "Plan" {
+    scenario late "Late"
+  }
+}
+shift aft "Afternoon" {
+  workinghours mon - fri 13:00 - 17:00
+}
+resource r "R"
+resource s "S"
+task own "Own" {
+  effort 1d
+  allocate r
+  shifts aft
+}
+task g "G" {
+  late:shifts aft
+  task in "In" {
+    effort 1d
+    allocate r
+  }
+}
+task body "Body" {
+  effort 1d
+  allocate r { alternative s }
+}
+task h "H" {
+  allocate r { shifts aft }
+  task kid "Kid" {
+    effort 1d
+  }
+}
+task plain "Plain" {
+  effort 1d
+  allocate r
+}
+`);
+	it('sees task shifts, own or inherited in any scenario, and allocation bodies', () => {
+		expect(narrowsBooking(idx, 'own')).toBe(true);
+		expect(narrowsBooking(idx, 'g.in')).toBe(true);
+		expect(narrowsBooking(idx, 'body')).toBe(true);
+		expect(narrowsBooking(idx, 'h.kid')).toBe(true);
+		expect(narrowsBooking(idx, 'plain')).toBe(false);
+		expect(narrowsBooking(idx, 'nope')).toBe(false);
 	});
 });

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The result-wide tables of the explainer (explain-prep.ts): global leaves as the scoreboard
-// paints them, the interval clip, group expansion, merged task bookings and the cache.
-import { describe, expect, it } from 'vitest';
+// paints them, the interval clip, group expansion, merged task bookings, the cache and the rebuild
+// of an availability of another result.
+import { describe, expect, it, vi } from 'vitest';
+import { availabilityOf } from '../workload/availability';
 import { clip, globalTypeAt, paintGlobalLeaves, prepOf } from './explain-prep';
 import { goldenContext } from './explain-testing';
 import { project } from './testing';
@@ -109,11 +111,31 @@ describe('prepOf', () => {
 		expect(prep.containers.has('work.triage')).toBe(false);
 	});
 
-	it('is made once per availability, and again for another result', () => {
+	it('is made once per result and scenario, and again for another result', () => {
 		const ctx = goldenContext('workload-held-effort');
 		expect(prepOf(ctx)).toBe(prepOf({ ...ctx }));
+		expect(prepOf(ctx).availability).toBe(ctx.availability);
 		const other = { ...ctx, result: { ...ctx.result } };
 		expect(prepOf(other)).not.toBe(prepOf(ctx));
 		expect(prepOf(other).result).toBe(other.result);
+	});
+
+	it('rebuilds an availability of another revision, and warns in development (F5)', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const ctx = goldenContext('workload-held-effort');
+			const result = { ...ctx.result, revision: 2 };
+			const stale = availabilityOf({ ...result, bookings: [], revision: 1 }, ctx.scenario);
+			const prep = prepOf({ ...ctx, result, availability: stale });
+			expect(prep.availability).not.toBe(stale);
+			expect(prep.availability.revision).toBe(2);
+			// The rebuilt one has dev's bookings; the stale one had none.
+			expect(prep.availability.people.get('dev')?.booked.length).toBeGreaterThan(0);
+			expect(import.meta.env.DEV).toBe(true);
+			expect(warn).toHaveBeenCalledTimes(1);
+			expect(String(warn.mock.calls[0]?.[0])).toContain('revision 1 (plan) for result 2');
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });

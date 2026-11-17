@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * What the explainer and demand read from one result (explain.ts, demand.ts), made once per
- * `Availability` (one result, one scenario) and shared by every `explainTask` call on it: tasks by
+ * What the explainer and demand read from one result (explain.ts, demand.ts), made once per result
+ * and scenario and shared by every `explainTask` call on it: the people's availability, tasks by
  * id, which tasks are containers, each task's bookings per person and merged over its people, the
  * leaf people of each resource, and the global leaves as TaskJuggler's resource scoreboard holds
  * them. All of it is engine data, read as is (ADR-0007, ADR-0014 #4); nothing here schedules.
  */
+// T10: from the review (F5): an `availability` of another revision or scenario than the context's
+// result (a caller bug: the contract makes it once per result) is not trusted. It is rebuilt from
+// the result, with a console warning in development builds, as buildLoad does (T9).
 import type {
 	EngineLeaveType,
 	Minutes,
@@ -15,7 +18,7 @@ import type {
 	TaskScenarioResult,
 } from '../../engine/protocol';
 import type { ResourceId, TaskId } from '../tjp/index';
-import { globalLeaveOverlaps } from '../workload/availability';
+import { availabilityOf, globalLeaveOverlaps } from '../workload/availability';
 import { frameEndOf } from '../workload/axis';
 import { mergePairs } from '../workload/intervals';
 import type { Availability, IntervalSet } from '../workload/types';
@@ -31,6 +34,8 @@ export interface GlobalPiece {
 export interface Prep {
 	readonly result: ScheduleResult;
 	readonly scenario: string;
+	/** The people's time: the context's, or rebuilt from the result when it is of another one. */
+	readonly availability: Availability;
 	readonly frameEnd: Minutes;
 	/** `ProjectInfo.start` in epoch seconds, for written dates. */
 	readonly startEpoch: number;
@@ -53,14 +58,26 @@ export interface Prep {
 }
 
 const NONE: IntervalSet = [];
-const cache = new WeakMap<Availability, Prep>();
+const cache = new WeakMap<ScheduleResult, Map<string, Prep>>();
 
-/** The prep of a context, made once per `Availability` and reused while the result is the same. */
+/** The prep of a context, made once per result and scenario. */
 export function prepOf(ctx: ExplainContext): Prep {
-	const hit = cache.get(ctx.availability);
-	if (hit && hit.result === ctx.result && hit.scenario === ctx.scenario) return hit;
-	const prep = buildPrep(ctx.result, ctx.scenario, ctx.availability);
-	cache.set(ctx.availability, prep);
+	let byScenario = cache.get(ctx.result);
+	const hit = byScenario?.get(ctx.scenario);
+	if (hit) return hit;
+	let avail = ctx.availability;
+	if (avail.revision !== ctx.result.revision || avail.scenario !== ctx.scenario) {
+		if (import.meta.env.DEV) {
+			console.warn(
+				`explain: availability of revision ${avail.revision} (${avail.scenario}) for result ` +
+					`${ctx.result.revision} (${ctx.scenario}); rebuilt from the result`,
+			);
+		}
+		avail = availabilityOf(ctx.result, ctx.scenario);
+	}
+	const prep = buildPrep(ctx.result, ctx.scenario, avail);
+	if (!byScenario) cache.set(ctx.result, (byScenario = new Map()));
+	byScenario.set(ctx.scenario, prep);
 	return prep;
 }
 
@@ -124,6 +141,7 @@ function buildPrep(result: ScheduleResult, scenario: string, avail: Availability
 	return {
 		result,
 		scenario,
+		availability: avail,
 		frameEnd: p ? frameEndOf(p) : 0,
 		startEpoch: p ? Date.parse(p.start) / 1000 : 0,
 		resolution: p?.timingResolutionMin ?? 60,

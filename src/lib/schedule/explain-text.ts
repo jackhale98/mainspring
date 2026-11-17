@@ -158,3 +158,60 @@ export function personLimitSite(
 	}
 	return null;
 }
+
+/** Whether `keyword` is written on the property or an ancestor, in any scenario. */
+function writtenUp(
+	get: (id: string) => { attrs: readonly AttrSite[]; parent: string | null } | undefined,
+	id: string,
+	keyword: string,
+): boolean {
+	for (let at: string | null = id; at !== null;) {
+		const sym = get(at);
+		if (!sym) return false;
+		if (sym.attrs.some((a) => a.keyword === keyword)) return true;
+		at = sym.parent;
+	}
+	return false;
+}
+
+/**
+ * Whether the text narrows when the task may book its people, beyond what the engine data shows:
+ * `shifts` on the task or an ancestor (inherited), or an `allocate` item with a body (`{ … }`,
+ * whose `shifts`, `mandatory`, `persistent` or `select` the result does not carry), on the task or
+ * an ancestor, in any scenario. Such a task can wait through time its people had free or booked
+ * elsewhere for reasons the explainer cannot see (TaskScenario#bookResources: `@shifts.onShift?`,
+ * `allocation.onShift?`).
+ */
+// T10: from the review (F1). The index keeps an allocation body opaque, so a body of alternatives
+// alone is treated like one with `shifts`: saying less, as the review ruled for task shifts.
+export function narrowsBooking(index: SymbolIndex, id: TaskId): boolean {
+	if (writtenUp((t) => index.tasks.get(t), id, 'shifts')) return true;
+	const bodies = withBodies(index);
+	if (bodies.size === 0) return false;
+	for (let at: TaskId | null = id; at !== null; at = index.tasks.get(at)?.parent ?? null) {
+		if (bodies.has(at)) return true;
+	}
+	return false;
+}
+
+const bodiesCache = new WeakMap<SymbolIndex, ReadonlySet<TaskId>>();
+/** The tasks that write an `allocate` item with a body, once per index. */
+function withBodies(index: SymbolIndex): ReadonlySet<TaskId> {
+	let set = bodiesCache.get(index);
+	if (!set) {
+		const out = new Set<TaskId>();
+		for (const a of index.allocations) if (a.task !== null && a.body !== null) out.add(a.task);
+		bodiesCache.set(index, (set = out));
+	}
+	return set;
+}
+
+/** Whether a `limits` statement is on the task or an ancestor, in any scenario. */
+export function taskHasLimits(index: SymbolIndex, id: TaskId): boolean {
+	return writtenUp((t) => index.tasks.get(t), id, 'limits');
+}
+
+/** Whether a `limits` statement is on the person or a group above them, in any scenario. */
+export function personHasLimits(index: SymbolIndex, id: ResourceId): boolean {
+	return writtenUp((r) => index.resources.get(r), id, 'limits');
+}
