@@ -38,7 +38,8 @@
 	import { FALLBACK_LANE_THEME, laneColWidth, laneThemeOf } from '../../lib/lanes/lane-theme';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { browserStorage } from '../../lib/state/storage';
-	import { lanesStrings as L, workloadStrings as W } from '../../lib/strings';
+	import { lanesStrings as L } from '../../lib/strings-lanes';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import { cellDetails, cellInfo, cellName, type DetailTask } from '../../lib/workload/heat-cell';
 	import { axisLabels } from '../../lib/workload/heat-labels';
 	import { cellId, heatLayout, type Box, type Cell } from '../../lib/workload/heat-layout';

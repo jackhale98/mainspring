@@ -8,7 +8,7 @@
 -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings';
+	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 
 	interface Props {

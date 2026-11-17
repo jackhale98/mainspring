@@ -21,7 +21,7 @@
 import type { Minutes, ProjectInfo } from '../../engine/protocol';
 import type { ToastLabel } from '../gantt/intents';
 import { dateText, displayDate } from '../schedule/date-text';
-import { calendarStrings as C, leavePaintStrings as L } from '../strings';
+import { calendarStrings as C, leavePaintStrings as L } from '../strings-calendar';
 import type { EditIntent, LeaveSpec, LeaveType as EditLeaveType } from '../tjp/edit/types';
 import type { SymbolIndex } from '../tjp/index';
 import {

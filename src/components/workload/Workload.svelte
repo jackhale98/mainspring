@@ -31,7 +31,7 @@
 	import type { GanttCalendar } from '../../lib/gantt/ticks';
 	import type { MoveKind } from '../../lib/gantt/intents';
 	import type { AppState } from '../../lib/state/app.svelte';
-	import { workloadStrings as W } from '../../lib/strings';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import { cellDetails, cellInfo, cellName, type DetailTask } from '../../lib/workload/heat-cell';
 	import { axisLabels } from '../../lib/workload/heat-labels';
 	import { heatLayout, type Box, type Cell } from '../../lib/workload/heat-layout';

@@ -37,7 +37,7 @@ import type {
 	Modifiers,
 	PointerKind,
 } from '../../lib/gesture/types';
-import { workloadStrings as W } from '../../lib/strings';
+import { workloadStrings as W } from '../../lib/strings-workload';
 import { dragPlan, movableTasks, targetOf, type DragPlan } from '../../lib/workload/heat-drag';
 import type { RebalanceAction } from '../../lib/workload/rebalance';
 import { lockAxis, type RebalanceAxis } from '../../lib/workload/rebalance-drop';

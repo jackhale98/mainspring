@@ -71,7 +71,9 @@ test.describe('people shell screenshots', () => {
 		await open(page);
 		await shoot(page, device, 'view-switcher-gantt');
 		await chooseView(page, 'Workload');
-		await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(page.getByTestId('resource-table').first()).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
 		await shoot(page, device, 'view-switcher-workload');
 		await newPlan(page, false);
 		await chooseView(page, 'Workload');
@@ -85,7 +87,9 @@ test.describe('people shell screenshots', () => {
 		await open(page);
 		await light(page, 't13-view-switcher-gantt-1500-light.png');
 		await chooseView(page, 'Workload');
-		await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(page.getByTestId('resource-table').first()).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
 		await light(page, 't13-view-switcher-workload-1500-light.png');
 	});
 
@@ -97,7 +101,9 @@ test.describe('people shell screenshots', () => {
 		await open(page);
 		await light(page, 't13-view-switcher-gantt-1024-light.png');
 		await chooseView(page, 'Resources');
-		await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(page.getByTestId('resource-table').first()).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
 		await light(page, 't13-view-switcher-resources-1024-light.png');
 		await page.setViewportSize({ width: 820, height: 1000 });
 		await light(page, 't13-view-switcher-tablet-820-light.png');
@@ -114,7 +120,9 @@ test.describe('people shell screenshots', () => {
 		const device = deviceName(info);
 		await open(page);
 		await peopleTab(page).tap();
-		await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+		await expect(page.getByTestId('resource-table').first()).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
 		await shoot(page, device, 'people-tab-load');
 		await page
 			.getByRole('tablist', { name: 'People views' })
@@ -142,7 +150,9 @@ test.describe('people shell screenshots', () => {
 			const page = await context.newPage();
 			await open(page);
 			await peopleTab(page).tap();
-			await expect(page.getByTestId('people-coming')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+			await expect(page.getByTestId('resource-table').first()).toBeVisible({
+				timeout: READY_TIMEOUT_MS,
+			});
 			await page
 				.getByRole('tablist', { name: 'People views' })
 				.getByRole('tab', { name: 'Calendar' })

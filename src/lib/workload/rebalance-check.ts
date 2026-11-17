@@ -16,7 +16,7 @@
  * move), with its own stale re-plan and `shared-declaration` confirmation.
  */
 import { checkAction, type ActionContext, type ActionOutcome } from '../gantt/intents';
-import { rebalanceStrings as S } from '../strings';
+import { rebalanceStrings as S } from '../strings-workload';
 import type { EditOptions } from '../tjp/edit/types';
 import type { WorkspaceSnapshot } from '../workspace/workspace';
 import {

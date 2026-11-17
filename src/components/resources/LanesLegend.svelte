@@ -8,7 +8,8 @@
 -->
 <script lang="ts">
 	import type { EngineLeaveType } from '../../engine/protocol';
-	import { lanesStrings as L, leavePaintStrings } from '../../lib/strings';
+	import { lanesStrings as L } from '../../lib/strings-lanes';
+	import { leavePaintStrings } from '../../lib/strings-calendar';
 	import { HATCH_OF } from '../../lib/lanes/lane-patterns';
 
 	interface Props {

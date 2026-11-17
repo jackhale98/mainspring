@@ -47,6 +47,8 @@ export class InspectorState {
 	/** Asks the size field to take the focus ("Set effort"). */
 	sizeFocus = $state(0);
 	sheetHeight = $state(0);
+	/** The details sit beside the people table (the Resources view, the Team segment): they say "person". */
+	peopleView = $state(false);
 	/** The details were asked for (Enter), not just a click: a desktop in Split opens its sheet. */
 	explicit = $state(false);
 	/** The next focus move into the details also selects the text of the field it lands on. */

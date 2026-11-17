@@ -61,7 +61,7 @@ import type { Minutes } from '../../engine/protocol';
 import type { ActionContext, GanttAction, ToastLabel } from '../gantt/intents';
 import { scenarioOf } from '../gantt/intents-facts';
 import type { WorkingTime } from '../schedule/working-time';
-import { rebalanceStrings as S } from '../strings';
+import { rebalanceStrings as S } from '../strings-workload';
 import type { EditIntent } from '../tjp/edit/types';
 import type { ResourceId, SourceRange, TaskId } from '../tjp/index';
 

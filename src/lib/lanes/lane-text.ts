@@ -6,7 +6,7 @@
  * ("Dev 1, week of 9 March: 38 of 40 hours, full"). A group's row is a roll-up and lists no tasks.
  * Sentences are from the strings file.
  */
-import { lanesStrings as L } from '../strings';
+import { lanesStrings as L } from '../strings-lanes';
 import { hoursNumber } from '../workload/heat-cell';
 import type { LanesModel } from './lane-model';
 

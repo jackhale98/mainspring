@@ -19,7 +19,8 @@
 <script lang="ts">
 	import type { EngineLeaveType } from '../../engine/protocol';
 	import type { HeatUnit } from '../../lib/workload/heat-prefs';
-	import { lanesStrings as L, workloadStrings as W } from '../../lib/strings';
+	import { lanesStrings as L } from '../../lib/strings-lanes';
+	import { workloadStrings as W } from '../../lib/strings-workload';
 	import type { BucketKind, Thresholds } from '../../lib/workload/types';
 	import Icon from '../Icon.svelte';
 	import SegmentTabs from '../people/SegmentTabs.svelte';
