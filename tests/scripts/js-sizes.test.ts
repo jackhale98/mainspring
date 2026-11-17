@@ -4,8 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import {
 	checkBudgets,
+	CHUNK_CAPS,
+	isViewChunk,
 	TEXT_FIRST_CAP,
 	TOTAL_CAP,
+	unmatchedCaps,
 	VISUAL_FIRST_CAP,
 } from '../../scripts/js-sizes.mjs';
 
@@ -54,10 +57,54 @@ describe('checkBudgets', () => {
 		expect(problems.join('\n')).toMatch(/Text-first load did not fetch/);
 	});
 
-	it('caps the People chunk, and fails a Gantt-first load that fetches it', () => {
-		const people = (gzip: number) => [{ file: 'PeopleView.abc.js', gzip }];
-		expect(checkBudgets({ files: people(60_000) })).toEqual([]);
-		expect(checkBudgets({ files: people(60_001) }).join('\n')).toMatch(/people chunk/);
+	it('caps the People shell and each People view chunk', () => {
+		const cap = (name: string) => CHUNK_CAPS.find((c) => c.name === name)?.cap ?? 0;
+		const one = (file: string, gzip: number) => [{ file, gzip }];
+		// The shell is small: the views are imported when they open, so they have caps of their own.
+		expect(cap('people')).toBeLessThan(10_000);
+		expect(checkBudgets({ files: one('PeopleView.abc.js', cap('people')) })).toEqual([]);
+		expect(checkBudgets({ files: one('PeopleView.abc.js', cap('people') + 1) }).join('\n')).toMatch(
+			/people chunk/,
+		);
+		for (const [name, file] of [
+			['workload', 'Workload.abc.js'],
+			['heat', 'WorkloadBar.abc.js'],
+			['lanes', 'Lanes.abc.js'],
+			['calendar', 'Calendar.abc.js'],
+		] as const) {
+			expect(checkBudgets({ files: one(file, cap(name)) })).toEqual([]);
+			expect(checkBudgets({ files: one(file, cap(name) + 1) }).join('\n')).toMatch(
+				new RegExp(`${name} chunk`),
+			);
+		}
+	});
+
+	it('finds the chunk caps that match no built file', () => {
+		const names = (files: string[]) => unmatchedCaps(files.map((file) => ({ file, gzip: 1 })));
+		expect(names(['editor-controller.a.js'])).toHaveLength(CHUNK_CAPS.length - 1);
+		expect(
+			names([
+				'editor-controller.a.js',
+				'PeopleView.a.js',
+				'Workload.a.js',
+				'WorkloadBar.a.js',
+				'Lanes.a.js',
+				'Calendar.a.js',
+			]),
+		).toEqual([]);
+	});
+
+	it('fails a Gantt-first load that fetches a People chunk', () => {
+		for (const f of [
+			'PeopleView.a.js',
+			'Workload.a.js',
+			'WorkloadBar.a.js',
+			'Lanes.a.js',
+			'Calendar.a.js',
+		])
+			expect(isViewChunk(f)).toBe(true);
+		expect(isViewChunk('App.a.js')).toBe(false);
+		expect(isViewChunk('editor-controller.a.js')).toBe(false);
 		const fetched = (v: boolean, t: boolean) => ({
 			visualFirst: { ...load(290_000, false), loadsPeopleChunk: v },
 			textFirst: { ...load(400_000, true), loadsPeopleChunk: t },

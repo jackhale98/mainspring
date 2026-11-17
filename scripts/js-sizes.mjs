@@ -24,12 +24,36 @@ import zlib from 'node:zlib';
 export const TOTAL_CAP = 600_000;
 export const VISUAL_FIRST_CAP = 310_000;
 export const TEXT_FIRST_CAP = 420_000;
-/** Lazy chunks with their own cap, by file name. Add the People chunk here when it lands (60,000). */
+/**
+ * Lazy chunks with their own cap, by file name (Rollup names a chunk after its entry module, and
+ * a chunk two views share after one of its modules). `view: true` marks a People view chunk: none
+ * of them may load with a Gantt-first load (phase-3.md 8.3). The People views are one chunk each
+ * (phase-3.md 23.1): PeopleView.svelte is only the shell that imports a view when it first opens.
+ */
 export const CHUNK_CAPS = [
 	{ name: 'editor', pattern: /^editor-controller/, cap: 118_000 },
-	// The People views (phase-3.md 8.3): PeopleView.svelte is the lazy chunk's entry.
-	{ name: 'people', pattern: /^PeopleView/, cap: 60_000 },
+	{ name: 'people', pattern: /^PeopleView/, cap: 3_700, view: true },
+	{ name: 'workload', pattern: /^Workload\./, cap: 7_000, view: true },
+	// What the heatmap and the lanes share (the canvas plot, names, header, details, the model).
+	{ name: 'heat', pattern: /^WorkloadBar/, cap: 34_000, view: true },
+	{ name: 'lanes', pattern: /^Lanes\./, cap: 12_200, view: true },
+	{
+		name: 'calendar',
+		pattern: /^(Calendar\.|calendar-state)/,
+		cap: 16_400,
+		view: true,
+	},
 ];
+
+/** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
+export function unmatchedCaps(files) {
+	return CHUNK_CAPS.filter((c) => !files.some((f) => c.pattern.test(f.file))).map(
+		(c) => `the ${c.name} chunk cap matches no built file (${c.pattern}); did the split move?`,
+	);
+}
+
+/** Whether a built file is one of the People view chunks. */
+export const isViewChunk = (file) => CHUNK_CAPS.some((c) => c.view && c.pattern.test(file));
 
 const gzip = (buf) => zlib.gzipSync(buf, { level: 9 }).length;
 const arg = (name) =>
@@ -68,13 +92,16 @@ async function firstLoad(browser, base, query) {
 	});
 	await page.waitForTimeout(1500);
 	await page.close();
-	const list = [...seen].map(([url, v]) => ({ file: path.basename(new URL(url).pathname), ...v }));
+	const list = [...seen].map(([url, v]) => ({
+		file: path.basename(new URL(url).pathname),
+		...v,
+	}));
 	return {
 		files: list.sort((a, b) => b.gzip - a.gzip),
 		gzipBytes: list.reduce((n, f) => n + f.gzip, 0),
 		rawBytes: list.reduce((n, f) => n + f.raw, 0),
 		loadsEditorChunk: list.some((f) => f.file.startsWith('editor-controller')),
-		loadsPeopleChunk: list.some((f) => f.file.startsWith('PeopleView')),
+		loadsPeopleChunk: list.some((f) => isViewChunk(f.file)),
 	};
 }
 
@@ -86,7 +113,10 @@ async function measureLoads() {
 		// The built site served in this process as Pages serves it (scripts/serve-pages.mjs), at the
 		// root: nothing to start and nothing to stop that could outlive the script.
 		const { createPagesServer } = await import('./serve-pages.mjs');
-		server = createPagesServer({ dir: path.join(process.cwd(), 'dist'), base: '/' });
+		server = createPagesServer({
+			dir: path.join(process.cwd(), 'dist'),
+			base: '/',
+		});
 		await new Promise((resolve) =>
 			server.listen(Number(process.env.PORT ?? 4399), 'localhost', resolve),
 		);
@@ -163,12 +193,15 @@ async function main() {
 		result.visualFirstCap = VISUAL_FIRST_CAP;
 		result.textFirstCap = TEXT_FIRST_CAP;
 	}
-	const problems = checkBudgets({
-		files,
-		loads: result.visualFirst
-			? { visualFirst: result.visualFirst, textFirst: result.textFirst }
-			: undefined,
-	});
+	const problems = [
+		...unmatchedCaps(files),
+		...checkBudgets({
+			files,
+			loads: result.visualFirst
+				? { visualFirst: result.visualFirst, textFirst: result.textFirst }
+				: undefined,
+		}),
+	];
 	const text = JSON.stringify(result, null, 2) + '\n';
 	const out = arg('--out');
 	if (out) {
