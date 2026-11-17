@@ -95,9 +95,13 @@ test('desktop: scrolling every row and the whole frame, at week and day zoom', a
 				const dx = axis === 'frame' ? m0.w - m0.vw : 0;
 				await scrollTo(page, 0, 0);
 				await page.waitForTimeout(250);
+				// Out and back, four times for the rows (28 rows are only 840 px: a few dozen frames).
+				const laps = axis === 'rows' ? 4 : 1;
 				const m = await measure(page, async () => {
-					await wheel(cdp, at, -dx, -dy);
-					await wheel(cdp, at, dx, dy);
+					for (let lap = 0; lap < laps; lap++) {
+						await wheel(cdp, at, -dx, -dy);
+						await wheel(cdp, at, dx, dy);
+					}
 				});
 				// The scroller went out and came back: the run is worth judging.
 				const end = await metrics(page);
