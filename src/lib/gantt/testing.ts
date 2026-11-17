@@ -36,6 +36,7 @@ export function row(
 		floatMin: null,
 		lateEnd: null,
 		textOnly: null,
+		context: false,
 		...over,
 	};
 }

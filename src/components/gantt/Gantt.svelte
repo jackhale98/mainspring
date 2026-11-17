@@ -33,6 +33,11 @@
 	and down, all by `position: sticky` on the compositor; nothing repaints per scroll event, only
 	when the window leaves its overscan (layout.ts). No scroll chains to the page.
 
+	The filter by person and flag (filter.ts, gantt-filter.svelte.ts; phase-3.md "Amendments from
+	T19") narrows the rows the model is built from to the matches and their ancestors. It is a view
+	state: it keeps its own collapsed set while it is on, switches the row grips off, and clearing it
+	restores the tree as it was left. The Filter pill is in the toolbar (FilterControl.svelte).
+
 	Text to visual (phase-2.md 6.10): when the cursor in the text moves into another task, the app
 	asks the chart to follow (`app.selection.follow`) and it scrolls that row and bar into view
 	(lib/gantt/follow.ts), without taking the focus.
@@ -170,11 +175,51 @@
 			app.run.lastGood.workspaceVersion === app.run.indexVersion &&
 			!app.run.outdated,
 	);
+	// The filter by person and flag (filter.ts, phase-3.md "Amendments from T19"): which rows show, and the
+	// flags and people to choose from. A view state; the text and the schedule are untouched. Its
+	// logic is fetched the first time a filter is on or its panel is open (the first-load JS budget),
+	// so a filter set before then (T18's "Show in Gantt") shows for a moment as the whole tree.
+	// svelte-ignore state_referenced_locally
+	const filter = app.ganttFilter;
+	/** Whether the filter's panel is open: the flags are read from the index only when they are wanted. */
+	let filterOpen = $state(false);
+	let lib = $state.raw<typeof import('../../lib/gantt/filter') | null>(null);
+	/** The filter's code could not be fetched: the chart says so, with Retry, rather than claim a filter. */
+	let libFailed = $state(false);
+	$effect(() => {
+		if (lib || libFailed || !(filter.active || filterOpen)) return;
+		import('../../lib/gantt/filter').then(
+			(m) => (lib = m),
+			() => (libFailed = true),
+		);
+	});
+	const flagsOf = $derived(
+		lib && app.index && app.workspace && (filter.flag !== null || filterOpen)
+			? lib.taskFlags(
+					{
+						tasks: app.index.tasks,
+						references: app.index.references,
+						includes: app.workspace.snapshot().includes,
+					},
+					result,
+				)
+			: new Map<string, ReadonlySet<string>>(),
+	);
+	const flagList = $derived(lib && filterOpen ? lib.flagChoices(app.outline.tasks, flagsOf) : []);
+	const filterView = $derived(
+		lib?.applyFilter(app.outline.tasks, filter.value, {
+			flags: flagsOf,
+			ofPerson:
+				filter.person === null ? new Set<string>() : lib.tasksOfPerson(result, filter.person),
+		}) ?? null,
+	);
 	const model = $derived.by(() => {
 		const scenario = result ? finishScenario(result) : null;
 		return buildGanttModel({
 			nodes: app.outline.tasks,
-			collapsed: app.collapsed,
+			// A filter opens what it finds; the tree as it was left comes back when it is cleared.
+			collapsed: filterView ? filter.collapsed : app.collapsed,
+			filter: filterView,
 			result,
 			dimmed: app.run?.outdated ?? false,
 			links: resolveLinks({
@@ -187,6 +232,22 @@
 			zones,
 		});
 	});
+
+	// The filter changed: the selected row stays in view if it still shows, else the chart goes to the top.
+	let filterSig: string | null = null;
+	$effect(() => {
+		const sig = `${filter.person}\n${filter.flag}`;
+		const before = filterSig;
+		filterSig = sig;
+		if (before === null || before === sig) return;
+		untrack(() => void settleAfterFilter());
+	});
+	async function settleAfterFilter(): Promise<void> {
+		await tick();
+		const i = model.rowOf.get(app.selectedRow ?? '');
+		if (i !== undefined) await revealRow(i);
+		else if (scroller) scrollTop = scroller.scrollTop = 0;
+	}
 
 	// The inspector reads what is drawn: the model, the result and its analysis as one pair.
 	$effect(() => {
@@ -354,10 +415,31 @@
 		if (!active) m.assignMode.end();
 	});
 	const links = interactions.links;
+	/**
+	 * What the filter is, said over the task table while it is on ("Dev 1 \u00b7 flag key \u00b7 5 tasks"),
+	 * and the live region that says it again after each change. Before the filter's code arrives the
+	 * count is unknown; if it never does, this says so and offers Retry.
+	 */
+	const filterSummary = $derived(
+		strings.gantt.filter.summary(
+			filter.person === null
+				? null
+				: (m.people.find((p) => p.id === filter.person)?.name ?? filter.person),
+			filter.flag,
+		),
+	);
+	const filterNote = $derived(
+		!filter.active
+			? ''
+			: libFailed
+				? strings.gantt.filter.failed(filterSummary)
+				: strings.gantt.filter.note(filterSummary, filterView?.matched.size ?? null),
+	);
 
 	onMount(() =>
 		installGanttHook(new URLSearchParams(location.search), () => ({
 			model,
+			result,
 			layout,
 			origin: plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
 			pxPerDay,
@@ -557,6 +639,19 @@
 			canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
 			onadd: (mode) => m.addTask(mode),
 		}}
+		filter={{
+			people: m.people,
+			flags: flagList,
+			person: filter.person,
+			flag: filter.flag,
+			matches: filterView?.matched.size ?? null,
+			failed: libFailed,
+			onretry: () => (libFailed = false),
+			onopen: (open) => (filterOpen = open),
+			onperson: (id) => filter.setPerson(id),
+			onflag: (f) => filter.setFlag(f),
+			onclear: () => filter.clear(),
+		}}
 		rowActions={m.rowActions}
 		lead={toolbarLead}
 		onpill={(h) => (pillH = h)}
@@ -580,6 +675,11 @@
 	{#if model.rows.length === 0}
 		{#if app.emptyPlan}
 			<EmptyState {app} onadd={() => m.addTask('after')} {ontext} />
+		{:else if filterView}
+			<div class="empty filtered" data-testid="filter-empty">
+				<p>{strings.gantt.filter.empty}</p>
+				<button type="button" onclick={() => filter.clear()}>{strings.gantt.filter.clear}</button>
+			</div>
 		{:else}
 			<p class="empty">{app.phase === 'ready' ? strings.gantt.noTasks : strings.topBar.loading}</p>
 		{/if}
@@ -611,6 +711,20 @@
 					/>
 				</div>
 				<div class="names" class:alone={phone}>
+					<!-- Over the empty band of the table's header, level with the year row: a zero-height
+					     sticky anchor, so it stays in view and moves nothing. -->
+					<div class="filter-anchor">
+						<div class="filter-line">
+							<p class="filter-note" role="status" data-testid="filter-note" title={filterNote}>
+								{filterNote}
+							</p>
+							{#if libFailed && filter.active}
+								<button type="button" onclick={() => (libFailed = false)}>
+									{strings.gantt.filter.retry}
+								</button>
+							{/if}
+						</div>
+					</div>
 					<OutlineGrid
 						{model}
 						outline={app.outline.byKey}
@@ -639,8 +753,8 @@
 							m.focusKey = k;
 							interactions.focusMoved(k);
 						}}
-						rowDrag={m.rowDrag}
-						ontoggle={(k) => app.toggleNode(k)}
+						rowDrag={filterView ? undefined : m.rowDrag}
+						ontoggle={(k) => (filterView ? filter.toggle(k) : app.toggleNode(k))}
 						onselect={(k) => selectKey(k)}
 						onopen={() => app.inspector.focus()}
 						onreveal={revealRow}
@@ -762,6 +876,34 @@
 		padding: var(--space-6) var(--gutter);
 		color: var(--color-gantt-text-muted);
 	}
+	/* Nothing matches the filter: the message, and the way out. */
+	.empty.filtered {
+		display: grid;
+		justify-items: start;
+		gap: var(--space-3);
+	}
+	.empty.filtered p {
+		margin: 0;
+	}
+	.empty.filtered button {
+		min-block-size: 32px;
+		padding-inline: var(--space-4);
+		border: 1px solid var(--color-gantt-border-strong);
+		border-radius: 999px;
+		background: var(--color-gantt-chip);
+		color: var(--color-gantt-text);
+		font: inherit;
+		cursor: pointer;
+	}
+	.empty.filtered button:focus-visible {
+		outline: 2px solid var(--color-gantt-accent);
+		outline-offset: 2px;
+	}
+	@media (pointer: coarse) {
+		.empty.filtered button {
+			min-block-size: var(--size-tap);
+		}
+	}
 	/* The one scroll container: pan on the chart, never chaining to the page. */
 	.scroller {
 		position: relative;
@@ -800,6 +942,61 @@
 		inset-inline-start: 0;
 		z-index: 4;
 		background: var(--color-gantt-surface);
+	}
+	/* The filter's line over the table header (see the markup). */
+	.filter-anchor {
+		position: sticky;
+		inset-block-start: 0;
+		z-index: 3;
+		block-size: 0;
+	}
+	.filter-line {
+		position: absolute;
+		inset-block-start: 6px;
+		inset-inline: var(--space-3) var(--space-2);
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		pointer-events: none;
+	}
+	.filter-note {
+		flex: 1 1 auto;
+		min-inline-size: 0;
+		margin: 0;
+		overflow: hidden;
+		color: var(--color-gantt-text-muted);
+		font-size: var(--text-xs);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	/* A phone's name column is narrow: two lines, so that the count is not cut off. */
+	@media (max-width: 599px) {
+		.filter-note {
+			display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+			white-space: normal;
+			line-height: 1.25;
+		}
+	}
+	.filter-line button {
+		flex: none;
+		min-block-size: 24px;
+		padding-inline: var(--space-2);
+		border: 1px solid var(--color-gantt-border-strong);
+		border-radius: 999px;
+		background: var(--color-gantt-chip);
+		color: var(--color-gantt-text);
+		font: inherit;
+		font-size: var(--text-xs);
+		pointer-events: auto;
+		cursor: pointer;
+	}
+	@media (pointer: coarse) {
+		.filter-line button {
+			min-block-size: var(--size-tap);
+		}
 	}
 	/* Without a divider (a phone), the pane has its own edge. */
 	.names.alone {

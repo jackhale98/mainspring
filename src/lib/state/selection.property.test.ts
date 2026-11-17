@@ -64,80 +64,93 @@ function apply(h: Harness, e: Edit): void {
 	h.ws.commit('plan.tjp', state.update({ changes: { from, to } }), 'typing');
 }
 
-describe('cursor to task, over random edits', () => {
-	it('never names a deleted task, and matches a fresh index outside the typed text', () => {
-		fc.assert(
-			fc.property(fc.array(editArb, { minLength: 1, maxLength: 6 }), (edits) => {
-				const h = harness({ entry: 'plan.tjp', files: { 'plan.tjp': PLAN } });
-				try {
-					for (const e of edits) apply(h, e);
-					const lagging = h.runner.state;
-					// The index is of the text before the burst, or of some text between.
-					const fresh = h.runner.ensureIndex();
-					const freshRun = { ...lagging, index: fresh, indexVersion: h.ws.snapshot().version };
-					const typed: Array<[number, number]> = [];
-					h.ws
-						.changesSince(lagging.indexVersion)
-						.get('plan.tjp')
-						?.iterChangedRanges((_a, _b, fromB, toB) => void typed.push([fromB, toB]));
-					const length = h.ws.state('plan.tjp').doc.length;
-					for (let pos = 0; pos <= length; pos++) {
-						const got = taskAtCursor(lagging, h.ws, 'plan.tjp', pos);
-						if (got !== null && !fresh.tasks.has(got)) return false;
-						if (typed.some(([from, to]) => pos >= from && pos <= to)) continue;
-						if (got !== taskAtCursor(freshRun, h.ws, 'plan.tjp', pos)) return false;
-					}
-					for (const id of fresh.tasks.keys()) {
-						const want = sourceOf(freshRun, h.ws, id);
-						const got = sourceOf(lagging, h.ws, id);
-						// A task the lagging index does not have yet has no block; the others agree.
-						if (got === null) {
-							if (lagging.index.tasks.has(id)) return false;
-							continue;
-						}
-						if (want === null || got.from !== want.from || got.to !== want.to) return false;
-					}
-					return true;
-				} finally {
-					h.dispose();
-				}
-			}),
-			{ numRuns: 300 },
-		);
-	});
+// A property test of 300 (or 60) generated runs: about 2 s alone, over the 5 s default when the
+// machine is shared (a parallel run with the engine tests), so it gets a longer timeout. Nothing
+// about what it asserts or how many runs it makes is changed.
+const SLOW = 60_000;
 
-	it('answers a task or null at every position, whatever is typed, with the index never caught up', () => {
-		fc.assert(
-			fc.property(
-				fc.array(fc.record({ at: fc.nat(1000), text: fc.string({ maxLength: 6 }) }), {
-					minLength: 1,
-					maxLength: 8,
-				}),
-				(edits) => {
+describe('cursor to task, over random edits', () => {
+	it(
+		'never names a deleted task, and matches a fresh index outside the typed text',
+		() => {
+			fc.assert(
+				fc.property(fc.array(editArb, { minLength: 1, maxLength: 6 }), (edits) => {
 					const h = harness({ entry: 'plan.tjp', files: { 'plan.tjp': PLAN } });
 					try {
-						for (const e of edits) {
-							const len = h.ws.state('plan.tjp').doc.length;
-							h.type(e.text, e.at % (len + 1));
-						}
-						const run = h.runner.state;
-						const ids = new Set(run.index.tasks.keys());
+						for (const e of edits) apply(h, e);
+						const lagging = h.runner.state;
+						// The index is of the text before the burst, or of some text between.
+						const fresh = h.runner.ensureIndex();
+						const freshRun = { ...lagging, index: fresh, indexVersion: h.ws.snapshot().version };
+						const typed: Array<[number, number]> = [];
+						h.ws
+							.changesSince(lagging.indexVersion)
+							.get('plan.tjp')
+							?.iterChangedRanges((_a, _b, fromB, toB) => void typed.push([fromB, toB]));
 						const length = h.ws.state('plan.tjp').doc.length;
 						for (let pos = 0; pos <= length; pos++) {
-							const id = taskAtCursor(run, h.ws, 'plan.tjp', pos);
-							if (id !== null && !ids.has(id)) return false;
+							const got = taskAtCursor(lagging, h.ws, 'plan.tjp', pos);
+							if (got !== null && !fresh.tasks.has(got)) return false;
+							if (typed.some(([from, to]) => pos >= from && pos <= to)) continue;
+							if (got !== taskAtCursor(freshRun, h.ws, 'plan.tjp', pos)) return false;
 						}
-						for (const id of ids) {
-							const r = sourceOf(run, h.ws, id);
-							if (r && (r.from > r.to || r.to > length)) return false;
+						for (const id of fresh.tasks.keys()) {
+							const want = sourceOf(freshRun, h.ws, id);
+							const got = sourceOf(lagging, h.ws, id);
+							// A task the lagging index does not have yet has no block; the others agree.
+							if (got === null) {
+								if (lagging.index.tasks.has(id)) return false;
+								continue;
+							}
+							if (want === null || got.from !== want.from || got.to !== want.to) return false;
 						}
 						return true;
 					} finally {
 						h.dispose();
 					}
-				},
-			),
-			{ numRuns: 60 },
-		);
-	});
+				}),
+				{ numRuns: 300 },
+			);
+		},
+		SLOW,
+	);
+
+	it(
+		'answers a task or null at every position, whatever is typed, with the index never caught up',
+		() => {
+			fc.assert(
+				fc.property(
+					fc.array(fc.record({ at: fc.nat(1000), text: fc.string({ maxLength: 6 }) }), {
+						minLength: 1,
+						maxLength: 8,
+					}),
+					(edits) => {
+						const h = harness({ entry: 'plan.tjp', files: { 'plan.tjp': PLAN } });
+						try {
+							for (const e of edits) {
+								const len = h.ws.state('plan.tjp').doc.length;
+								h.type(e.text, e.at % (len + 1));
+							}
+							const run = h.runner.state;
+							const ids = new Set(run.index.tasks.keys());
+							const length = h.ws.state('plan.tjp').doc.length;
+							for (let pos = 0; pos <= length; pos++) {
+								const id = taskAtCursor(run, h.ws, 'plan.tjp', pos);
+								if (id !== null && !ids.has(id)) return false;
+							}
+							for (const id of ids) {
+								const r = sourceOf(run, h.ws, id);
+								if (r && (r.from > r.to || r.to > length)) return false;
+							}
+							return true;
+						} finally {
+							h.dispose();
+						}
+					},
+				),
+				{ numRuns: 60 },
+			);
+		},
+		SLOW,
+	);
 });

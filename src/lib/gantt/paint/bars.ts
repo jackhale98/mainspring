@@ -322,7 +322,10 @@ function drawBars(f: PaintFrame, area: Rect): void {
 
 		if (row.kind === 'milestone') drawJewel(f, bar, row.critical);
 		else if (row.kind === 'container') {
+			// A summary kept only as context for a filter (filter.ts) is faded.
+			if (row.context) ctx.globalAlpha = alpha * theme.dimOpacity;
 			drawSummary(ctx, bar, row.critical ? theme.critical : theme.summary, theme);
+			ctx.globalAlpha = alpha;
 		} else if (row.textOnly) drawTextOnly(f, bar, alpha);
 		else drawPill(f, row, bar, row.critical);
 		if (row.critical && row.kind !== 'milestone') drawPost(f, bar);
