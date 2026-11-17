@@ -25,26 +25,11 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (x:
 	const slope = (t: number, a: number, b: number): number =>
 		3 * a * (1 - t) * (1 - t) + 6 * (b - a) * (1 - t) * t + 3 * (1 - b) * t * t;
 	return (x) => {
-		if (x <= 0) return 0;
-		if (x >= 1) return 1;
-		// Newton's method for the t whose x is `x`, bisection when the slope is flat.
+		if (x <= 0 || x >= 1) return Math.max(0, Math.min(1, x));
+		// Newton's method for the t whose x is `x` (a handful of steps suffice for these curves).
 		let t = x;
-		for (let i = 0; i < 8; i++) {
-			const err = at(t, x1, x2) - x;
-			if (Math.abs(err) < 1e-5) return at(t, y1, y2);
-			const d = slope(t, x1, x2);
-			if (Math.abs(d) < 1e-6) break;
-			t -= err / d;
-		}
-		let lo = 0;
-		let hi = 1;
-		t = x;
-		for (let i = 0; i < 24; i++) {
-			if (at(t, x1, x2) < x) lo = t;
-			else hi = t;
-			t = (lo + hi) / 2;
-		}
-		return at(t, y1, y2);
+		for (let i = 0; i < 8; i++) t -= (at(t, x1, x2) - x) / (slope(t, x1, x2) || 1);
+		return at(Math.max(0, Math.min(1, t)), y1, y2);
 	};
 }
 
