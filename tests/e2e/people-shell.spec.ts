@@ -30,7 +30,9 @@ const PLAN = 'upstream-tutorial';
 /** What a People view with people shows: the heatmap's cells (Workload), else the placeholder. */
 const content = (page: Page) =>
 	page
-		.locator('[data-testid="people-coming"], [data-testid="heat-cell"], [data-testid="workload"]')
+		.locator(
+			'[data-testid="people-coming"], [data-testid="calendar"], [data-testid="heat-cell"], [data-testid="workload"]',
+		)
 		.first();
 
 async function ready(page: Page): Promise<void> {
@@ -366,7 +368,7 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		await chooseView(page, 'Resources');
 		await expect(none).toBeVisible();
 		await chooseView(page, 'Calendar');
-		await expect(page.getByTestId('people-coming')).toBeVisible();
+		await expect(page.getByTestId('calendar')).toBeVisible();
 		await expect(none).toHaveCount(0);
 		await chooseView(page, 'Workload');
 

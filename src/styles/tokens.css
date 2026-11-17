@@ -129,6 +129,14 @@
 	--load-col-month: 72px;
 	--load-names: 12rem;
 	--load-font-size: 12px;
+
+	/* Calendar (phase-3.md 9.2, 9.5): a month block is a title, the weekday row and 6 rows of days,
+	   so every block has one height (calendar/grid.ts). A finger gets 44 px days (below). */
+	--cal-row: 40px;
+	--cal-title: 36px;
+	--cal-dow: 24px;
+	--cal-gap: 12px;
+	--cal-month-h: calc(var(--cal-title) + var(--cal-dow) + 6 * var(--cal-row) + var(--cal-gap));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -151,6 +159,7 @@
 		--load-col-day: 44px;
 		--load-col-week: 44px;
 		--load-col-month: 56px;
+		--cal-row: var(--size-tap);
 	}
 }
 
