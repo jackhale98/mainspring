@@ -416,6 +416,115 @@ export const leavePaintStrings = {
 	covered: (type: string) => `${type} already covers those days. Erase it first.`,
 } as const;
 
+/** "1 working day", "2.5 working days". */
+const days = (n: number, unit = 'working day'): string => `${n} ${unit}${n === 1 ? '' : 's'}`;
+/** Minutes as hours, one decimal at most: "24 hours", "1.5 hours". */
+const hours = (min: number): string => {
+	const h = Math.round((min / 60) * 10) / 10;
+	return `${h} hour${h === 1 ? '' : 's'}`;
+};
+
+/**
+ * Plan health (src/lib/health, phase-3.md section 12): each check's name and sentence, the fix
+ * labels, and the settings. A sentence takes the names and display dates the panel resolves
+ * (health/text.ts); TaskJuggler's own message text stays as it is.
+ */
+export const healthStrings = {
+	title: 'Plan health',
+	check: {
+		'no-predecessor': 'No predecessor',
+		'no-successor': 'No successor',
+		'hard-constraint': 'Hard constraint',
+		'constraint-warning': 'Constraint warning',
+		'long-gap': 'Long gap',
+		'long-task': 'Long task',
+		'held-by-people': 'Held by people',
+		'work-without-people': 'Work without its people',
+		'resource-warning': 'Resource warning',
+	},
+	sentence: {
+		'no-predecessor': 'Nothing comes before it, so only the project start sets when it starts.',
+		'no-successor': 'Nothing comes after it, so no other task waits for it to end.',
+		/** `date` is null when the plan writes it with a macro; `from` names the parent it comes from. */
+		'hard-constraint': (
+			attr: 'start' | 'end' | 'minstart' | 'maxend',
+			date: string | null,
+			from: string | null,
+		): string => {
+			const on = date === null ? '' : ` ${date}`;
+			const what = {
+				start: `Its start is fixed${date === null ? '' : ` at${on}`}`,
+				end: `Its end is fixed${date === null ? '' : ` at${on}`}`,
+				minstart: `It may not start before${date === null ? ' a set date' : on}`,
+				maxend: `It must end by${date === null ? ' a set date' : on}`,
+			}[attr];
+			return from === null ? `${what}.` : `${what}, set on ${from}.`;
+		},
+		/** "Starts 3 working days after its latest allowed start." */
+		'constraint-warning': (
+			limit: 'minstart' | 'maxstart' | 'minend' | 'maxend',
+			n: number,
+		): string => {
+			const by = n > 0 ? ` ${days(n)}` : '';
+			return {
+				minstart: `Starts${by} before its earliest allowed start.`,
+				maxstart: `Starts${by} after its latest allowed start.`,
+				minend: `Ends${by} before its earliest allowed end.`,
+				maxend: `Ends${by} after its latest allowed end.`,
+			}[limit];
+		},
+		/** `gapduration` counts calendar days, `gaplength` working days. */
+		'long-gap': (gap: 'gaplength' | 'gapduration', n: number, pred: string): string =>
+			`Waits ${days(n, gap === 'gaplength' ? 'working day' : 'calendar day')} after ${pred}.`,
+		'long-task': (n: number): string =>
+			`Runs for ${days(n)}. A long task hides how far along it is.`,
+		/** "Waits 6 working days for Dev 1 (booked on Build API)." */
+		'held-by-people': (n: number, person: string, on: string | null): string =>
+			`Waits ${days(n)} for ${person} (${on === null ? 'on leave or off work' : `booked on ${on}`}).`,
+		'work-without-people': (person: string, minutes: number): string =>
+			`Runs without ${person} for ${hours(minutes)}, while ${person} works on other tasks.`,
+		'resource-warning': {
+			allocate_no_assigned: (task: string): string =>
+				`${task} asked for people but got none. Without an effort, it books them only when they happen to be free.`,
+			priority_inversion: (task: string, others: readonly string[]): string =>
+				`Tasks with a lower priority took people from ${task}${others.length > 0 ? `: ${others.join(', ')}` : ''}.`,
+			overbooked_effort: (task: string): string =>
+				`The bookings of ${task} add up to more effort than it asks for.`,
+			overbooked_length: (task: string): string =>
+				`The bookings of ${task} run longer than its length.`,
+			overbooked_duration: (task: string): string =>
+				`The bookings of ${task} run longer than its duration.`,
+		},
+	},
+	fix: {
+		addPredecessor: 'Add predecessor…',
+		addSuccessor: 'Add successor…',
+		/** "Remove start (5 Jan 2026)"; without a date when the plan writes it with a macro. */
+		remove: (attr: string, date: string | null): string =>
+			date === null ? `Remove ${attr}` : `Remove ${attr} (${date})`,
+		why: 'Why here?',
+		show: 'Show in text',
+		gapToTask: 'Convert gap to task',
+		editGap: 'Edit gap',
+		replacePerson: 'Replace person…',
+		/** "Replace Dev…": the person the fix replaces. */
+		replace: (person: string): string => `Replace ${person}…`,
+		openWorkload: 'Open in Workload',
+		openCalendar: 'Open in Calendar',
+	},
+	/** The waiting task "Convert gap to task" adds. */
+	gapTaskName: (pred: string): string => `Wait after ${pred}`,
+	/** Shown for a task the message names that the plan no longer has. */
+	unknownTask: 'A task',
+	settings: {
+		longGapDays: 'Long gap: more than this many working days',
+		longTaskDays: 'Long task: more than this many working days',
+		enabled: (check: string): string => `Check for ${check.toLowerCase()}`,
+		reset: 'Reset to defaults',
+	},
+	none: 'No findings.',
+} as const;
+
 /**
  * Edit toasts (state/edits.svelte.ts, components/app/Toasts.svelte; phase-2.md 6.8, 9.4, 11.2):
  * one per visual edit, with Undo while it is the newest undo step.

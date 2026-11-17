@@ -25,6 +25,7 @@ import type { Minutes, Revision, ScheduleResult } from '../../engine/protocol';
 import type { DrivingAnalysis } from '../schedule/critical';
 import type { DemandMarks } from '../schedule/explain-types';
 import type { WorkingTime } from '../schedule/working-time';
+import type { Availability } from '../workload/types';
 import type { EditIntent } from '../tjp/edit/types';
 import type { ResourceId, SourceRange, SymbolIndex, TaskId, TextOnlyReason } from '../tjp/index';
 
@@ -38,6 +39,19 @@ export type CheckId =
 	| 'held-by-people'
 	| 'work-without-people'
 	| 'resource-warning';
+
+/** H1 to H9 in section 12's order (the order findings and settings come in). */
+export const CHECK_IDS: readonly CheckId[] = Object.freeze([
+	'no-predecessor',
+	'no-successor',
+	'hard-constraint',
+	'constraint-warning',
+	'long-gap',
+	'long-task',
+	'held-by-people',
+	'work-without-people',
+	'resource-warning',
+] satisfies CheckId[]);
 
 /** What a finding is about. `message` is an index into `ScheduleResult.messages` (H4, H9). */
 export type Subject =
@@ -81,16 +95,24 @@ export type ResourceWarningId =
 export interface CheckFacts {
 	'no-predecessor': null;
 	'no-successor': null;
-	/** "Remove" shows the date the constraint held. */
+	/**
+	 * "Remove" shows the date the constraint held: null when the text cannot be read (a macro, a
+	 * zone without data). `from` is the ancestor it is written on, null when it is the task's own.
+	 */
 	'hard-constraint': {
 		readonly attr: 'start' | 'end' | 'minstart' | 'maxend';
-		readonly date: Minutes;
+		readonly date: Minutes | null;
+		readonly from: TaskId | null;
 	};
-	/** "Starts 3 days after its latest allowed start": which limit, by how much; the message text. */
+	/**
+	 * "Starts 3 days after its latest allowed start": which limit, by how much; the message text,
+	 * and the task it names (null when the result has no such task).
+	 */
 	'constraint-warning': {
 		readonly limit: 'minstart' | 'maxstart' | 'minend' | 'maxend';
 		readonly days: number;
 		readonly text: string;
+		readonly task: TaskId | null;
 	};
 	/** Working days for `gaplength`; calendar days at the gap's own rate for `gapduration`. */
 	'long-gap': { readonly gap: 'gaplength' | 'gapduration'; readonly days: number };
@@ -116,12 +138,20 @@ export interface CheckFacts {
 		readonly message: ResourceWarningId;
 		readonly text: string;
 		readonly tasks: readonly TaskId[];
+		/** The task the message is about (null when the result has no such task). */
+		readonly task: TaskId | null;
 	};
 }
 // T2: readings within the ruling. H4's `days` are working days, as H6 and H7 count them. H7 and
 // H8 make one finding per task and person; H7's `on` is the task the person was booked on for
 // most of the held windows. H8 keeps integer minutes, as the load model does; the sentence prints
 // hours.
+// T11: three additions to the facts. H3's `date` may be null: Fedora writes `start ${start_work}`,
+// which the index cannot read, and a finding must not show a date nobody computed. H3's `from`
+// names the ancestor a constraint is written on: `start` and `end` are not inherited attributes in
+// TaskJuggler (Project.rb), but TaskScenario#earliestStart reads every ancestor's, and the sentence
+// says where it is. H4's and H9's `task` is the task the message names (the sentence names it,
+// and H9's "Replace person…" needs it); the message text is TaskJuggler's own.
 
 /** One finding of check `C`: `facts` narrows with `check`. */
 export interface FindingOf<C extends CheckId> {
@@ -179,6 +209,8 @@ export interface HealthInput {
 	demand: DemandMarks;
 	wt: WorkingTime;
 	settings: HealthSettings;
+	/** The people's availability in the analysis's scenario; built from `result` when absent. */
+	availability?: Availability;
 }
 
 /** T11's `checkPlan` has this type (`export const checkPlan: CheckPlanFn`). */
