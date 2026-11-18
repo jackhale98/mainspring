@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main  | not yet recorded (set it to the short SHA of the last CI run on `main` that was green)               |
-| Timing trend               | no entries yet: see "Reading the timing trend" below; record the three latest runs here              |
+| Last green commit on main  | `d4150c6d` (branch run 44237567781, 2026-11-18); its run on `main` failed only on a hung iPhone browser install, fixed in `5d2a7624` |
+| Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
 | iPhone 14 skips left       | 37 spec files at 2026-11-18 (ADR-0016 counted 33 by its own method); target: at most 6 allowlisted    |
-| CI wall time               | not yet recorded (target in ADR-0016 section 4; read it from the slowest job of the last green run)   |
+| CI wall time               | about 21 min (run 44237567781, 04:28–04:49 UTC); target 12 min (ADR-0016 section 4)                  |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
