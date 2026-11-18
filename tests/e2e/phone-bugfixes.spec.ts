@@ -205,17 +205,20 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		);
 		await record(page, SHEET);
 		await page.getByRole('button', { name: 'Docs' }).click();
-		await page.waitForTimeout(150);
+		// The editor lets go of the focus (so the keyboard goes) as the press is handled; on a loaded
+		// machine that is later than a fixed wait, so it is waited for, and the sheet is not open yet.
+		await expect
+			.poll(() => page.evaluate(() => document.activeElement?.closest('.cm-editor') !== null), {
+				message: 'the editor let go of the focus, so the keyboard goes',
+				intervals: [20],
+			})
+			.toBe(false);
 		expect(
 			await page.evaluate(
 				() => document.querySelector('dialog.sheet[data-modal="true"][open]') !== null,
 			),
 			'not open over the keyboard',
 		).toBeFalsy();
-		expect(
-			await page.evaluate(() => document.activeElement?.closest('.cm-editor') !== null),
-			'the editor let go of the focus, so the keyboard goes',
-		).toBe(false);
 		// The keyboard is gone.
 		await page.evaluate(() => {
 			const vv = (window as unknown as { __vv: EventTarget & { height: number } }).__vv;
@@ -226,7 +229,9 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		await page.waitForTimeout(600);
 		const tops = await stopRecording(page);
 		const finalTop = tops.at(-1) ?? 0;
-		// Never above its final place, and it came up from below it.
+		// Never above its final place, and it came up from below it. (In WebKit it was: the dialog scrolled
+		// to show the field that showModal() focuses, which is below it while the panel slides in, and
+		// the panel appeared 75 px above the screen's top, then fell back. Sheet.svelte clips it now.)
 		expect(Math.min(...tops)).toBeGreaterThanOrEqual(finalTop - 1);
 		expect(nonIncreasing(tops)).toBe(true);
 		expect((await recorded(page)).props).not.toContain('top');

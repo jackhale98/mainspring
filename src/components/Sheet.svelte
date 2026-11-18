@@ -493,6 +493,12 @@
 		background: transparent;
 		box-shadow: none;
 		animation: none;
+		/* The panel slides in from below this box, so it overflows it for the length of the slide. A
+		   dialog scrolls (UA `overflow: auto`), and WebKit scrolls it to show the field that
+		   showModal() focuses, which is below the box at that moment: the panel appeared part way up,
+		   then fell back when the slide ended. `clip` cannot be scrolled, not even by a focus. */
+		overflow: hidden;
+		overflow: clip;
 	}
 	.sheet[data-side='bottom'][data-modal='true'][open] {
 		display: flex;
