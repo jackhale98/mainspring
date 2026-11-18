@@ -1,0 +1,73 @@
+# Feature: ui-basic - a small Gantt plan for the interface specs (tests/fixtures/ui/README.md)
+# Covers: containers; effort, length and duration leaves; ASAP and ALAP; depends with gaplength,
+# gapduration, onstart and onend; a link into an included file and one back out of it; one and
+# several people; a milestone; progress (complete) around a `now` line so the plan has a critical
+# path and a finished task; flags; a responsible person; a task with start and end; a macro-declared
+# task (text-only); an included file for the people (lib/people.tji) and one for the build tasks.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project uibasic "UI basic" 2026-03-02 - 2026-06-30 {
+  now 2026-03-16-09:00
+}
+
+flags urgent, review
+
+include "lib/people.tji"
+
+task design "Design" {
+  task research "Research" {
+    effort 4d
+    allocate ana
+    complete 100
+    flags review
+  }
+  task sketch "Sketch" {
+    length 4d
+    allocate ben
+    depends !research { gaplength 1d }
+    complete 50
+  }
+  task review "Review" {
+    duration 2d
+    depends !sketch { onstart }
+    flags review
+  }
+  task docs "Write docs" {
+    scheduling alap
+    end 2026-04-03
+    effort 2d
+    allocate ana, ben
+  }
+  task gate "Design gate" {
+    milestone
+    depends !review { onend }
+    depends !docs
+  }
+}
+
+include "lib/build.tji"
+
+task launch "Launch" {
+  start 2026-05-04
+  end 2026-05-08
+  responsible ana
+  flags urgent
+  depends build.tests
+}
+
+task support "Support" {
+  allocate cy
+  task hotfix "Hotfix" {
+    effort 1d
+    depends design.gate { gapduration 3d }
+    flags urgent
+  }
+  task triage "Triage" {
+    effort 3d
+    depends !hotfix
+  }
+}
+
+task ship "Ship" {
+  milestone
+  depends launch, support.triage
+}
