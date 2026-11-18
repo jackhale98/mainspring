@@ -38,7 +38,7 @@ is the time from start to the end of the slowest job (the run's "Total duration"
   `slowSheets` (2 s slides) on every browser; the 200 and 180 ms motion tokens are still checked
   at full speed, since that is not timing-sensitive.
 - **Timing tier** (never blocks): tests tagged `@timing`, run with
-  `playwright test --grep @timing --workers=1 --project=desktop --project=pixel-7`:
+  `playwright test --grep @timing --workers=1 --project=desktop --project=pixel-7` (the `timing` job of `ci.yml` adds `--project=iphone-14`, in the same Playwright container as the e2e shards; only its first-open and gesture-frame runs exist there, the rest is allowlisted):
   - `gantt-perf.spec.ts` (all of it: the desktop caps, first open, the phone profile and the
     touch-listener comparison; the phone profile runs only with `E2E_PERF=1`, that is nightly),
   - `workload-perf.spec.ts` desktop scroll caps and the Pixel 7 swipe frame times,

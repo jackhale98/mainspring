@@ -609,14 +609,14 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 
 	// The comparison of 8.2: the same phone scroll at 4x CPU, three runs each, on a page of its own
 	// with the Gantt's non-passive touchmove listener, and on one with it dropped by an init script.
-	// One test with two pages: the variant is an init script, so each run needs its own page.
-	test('phone scroll with and without the touchmove listener', async ({ page }, info) => {
-		test.skip(!isTouch(info), 'the touch listener comparison is a phone one');
-		for (const without of [false, true]) {
-			const p = without ? await page.context().newPage() : page;
-			await installProbe(p);
+	for (const without of [false, true]) {
+		test(`phone scroll with${without ? 'out' : ''} the touchmove listener`, async ({
+			page,
+		}, info) => {
+			test.skip(!isTouch(info), 'the touch listener comparison is a phone one');
+			await installProbe(page);
 			if (without) {
-				await p.addInitScript(() => {
+				await page.addInitScript(() => {
 					const add = EventTarget.prototype.addEventListener;
 					EventTarget.prototype.addEventListener = function (type, fn, opts) {
 						const passive = typeof opts === 'object' && opts !== null ? opts.passive : undefined;
@@ -625,28 +625,27 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 					};
 				});
 			}
-			const rig = await Rig.open(p, info, 'week', 'visual', 'gantt-500');
+			const rig = await Rig.open(page, info, 'week', 'visual', 'gantt-500');
 			void rig;
-			await p.waitForTimeout(3000);
-			const cdp = await p.context().newCDPSession(p);
+			await page.waitForTimeout(3000);
+			const cdp = await page.context().newCDPSession(page);
 			await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-			const box = await p.locator(SCROLLER).boundingBox();
+			const box = await page.locator(SCROLLER).boundingBox();
 			if (!box) throw new Error('no chart');
 			chartBox = box;
 			const at: Point = { x: box.x + box.width * 0.75, y: box.y + box.height * 0.6 };
-			const picked = await pickInput(p, cdp, true, at);
+			const picked = await pickInput(page, cdp, true, at);
 			const runs: Measure[] = [];
 			for (let i = 0; i < RUNS; i++) {
-				runs.push(await scrollRun(p, cdp, picked.source, at, `listener ${without} #${i + 1}`));
+				runs.push(await scrollRun(page, cdp, picked.source, at, `listener ${without} #${i + 1}`));
 			}
 			record(`touch-listener-${without ? 'without' : 'with'}`, {
-				...(await environment(p, info, 4)),
+				...(await environment(page, info, 4)),
 				input: picked.source,
 				runs,
 				loadAverageAtEnd: loadavg(),
 			});
 			expect(runs).toHaveLength(RUNS);
-			if (without) await p.close();
-		}
-	});
+		});
+	}
 });

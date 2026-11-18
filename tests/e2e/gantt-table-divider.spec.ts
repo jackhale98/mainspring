@@ -539,7 +539,8 @@ test.describe('the table divider', () => {
 	// Pictures for the polish list: the default, and the divider moved both ways.
 	for (const scheme of ['light', 'dark'] as const) {
 		test(`polish-10 pictures (${scheme})`, async ({ page }, info) => {
-			test.skip(!process.env['SCREENSHOTS']);
+			// The pictures are the desktop's and the Pixel 7's; the iPhone has its own (not these file names).
+			test.skip(!process.env['SCREENSHOTS'] || (isTouch(info) && info.project.name !== 'pixel-7'));
 			await page.emulateMedia({ colorScheme: scheme });
 			const shot = (name: string) => page.screenshot({ path: path.join(DIR, name) });
 			if (info.project.name === 'pixel-7') {

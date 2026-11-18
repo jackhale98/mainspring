@@ -90,8 +90,9 @@ export async function openHistoryFromUndo(page: Page): Promise<void> {
 }
 
 /**
- * What the app owns of a one-finger pan, for the browsers where dispatched events cannot start one
- * (WebKit: Playwright has no touch drag there): the effective `touch-action` at the point, on the
+ * A static CSS check of a one-finger pan, for the browsers where dispatched events cannot start one
+ * (WebKit: Playwright has no touch drag there; whether the page also cancels the touch is checked
+ * by `Rig.takePreventedTouchmoves`): the effective `touch-action` at the point, on the
  * element and its ancestors up to the chart's scroller. A value other than `auto` narrows what the
  * browser may do with a finger below it, so every one of them must let one finger pan both ways,
  * and the chart declares that.
@@ -106,6 +107,10 @@ export async function expectBrowserPans(page: Page, at: { x: number; y: number }
 		return out;
 	}, at);
 	const narrowing = chain.filter((a) => a !== 'auto' && a !== 'pan-x pan-y');
-	expect(narrowing, 'nothing under the finger takes the pan from the browser').toEqual([]);
-	expect(chain, 'the chart declares one-finger panning').toContain('pan-x pan-y');
+	expect(narrowing, 'touch-action under the finger leaves a one-finger pan to the browser').toEqual(
+		[],
+	);
+	expect(chain, 'the chart declares one-finger panning in its touch-action').toContain(
+		'pan-x pan-y',
+	);
 }

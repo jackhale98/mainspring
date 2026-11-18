@@ -91,9 +91,15 @@ test.describe('the edges of the gestures', () => {
 		// A pan is the browser's: a real finger scrolls the chart (Chromium, real touch events). Dispatched
 		// events cannot start one (WebKit: Playwright has no touch drag there), so on the iPhone the page
 		// is checked for what the app owns: the browser is left free to pan under the finger.
+		let checkedCss = false;
 		const pans = async (from: [number, number], point: { x: number; y: number }): Promise<void> => {
-			if (rig.dispatched) await expectBrowserPans(page, point);
-			else await expect.poll(async () => (await rig.scrollPos())[0]).toBeGreaterThan(from[0]);
+			if (rig.dispatched) {
+				// The page must not cancel the touch (a non-passive touchmove listener that claims it would
+				// stop the browser from panning), and its CSS leaves the pan to the browser (checked once).
+				expect(await rig.takePreventedTouchmoves(), 'no touchmove was cancelled').toBe(0);
+				if (!checkedCss) await expectBrowserPans(page, point);
+				checkedCss = true;
+			} else await expect.poll(async () => (await rig.scrollPos())[0]).toBeGreaterThan(from[0]);
 		};
 		// An unselected bar, pressed and swiped at once: the chart scrolls, nothing lifts.
 		let bar = await rig.bar('design.sketch');
@@ -258,6 +264,7 @@ test.describe('the edges of the gestures', () => {
 		// Pixel 7 (839 px high) shows 10 of them, the iPhone 14 (664 px) 6, once the top bar, the link
 		// banner, the chart's header and the tab bar have taken their share.
 		const peek = await rowsInReach();
+		expect(peek.sheetHeight).toBeGreaterThan(0);
 		expect(peek.sheetHeight).toBeLessThanOrEqual(120);
 		expect(peek.rows).toBeGreaterThanOrEqual(half.rows + 4);
 		expect(peek.rows).toBeGreaterThanOrEqual(peek.viewport >= 800 ? 8 : 6);

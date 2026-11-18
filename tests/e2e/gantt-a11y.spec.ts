@@ -7,7 +7,7 @@
 // - 44 px targets on a coarse pointer (10.3): every interactive element of those states, measured.
 // - reduced motion, forced colours, and the accessible names read from the a11y tree.
 // - the keyboard walkthrough of 10.2: focus order, the visible ring, no trap, Escape returns.
-// Chromium only (desktop and pixel-7 projects).
+// Runs on desktop, the Pixel 7 and the iPhone 14 (WebKit); the keyboard and desktop-only states skip on the phones.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';

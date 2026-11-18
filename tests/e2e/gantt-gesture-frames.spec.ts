@@ -85,8 +85,16 @@ test.describe('gesture frame cost (recorded)', { tag: '@timing' }, () => {
 		const b = await rig.select('design.research');
 		const to = { x: await rig.x(minute('2026-03-06', 17)), y: b.endEdge.y };
 		await startMeter(page);
-		await rig.drag(b.endEdge, to, { steps: 60 });
-		const name = throttled ? 'drag-touch-4x' : rig.touch ? 'drag-touch-webkit' : 'drag-mouse';
+		// 60 moves over 3 s. The DevTools touch and the mouse take their time; the dispatched events of the
+		// iPhone are instant, so they are paced.
+		await rig.drag(b.endEdge, to, { steps: 60, stepMs: rig.dispatched ? 50 : 0 });
+		const name = throttled
+			? rig.dispatched
+				? 'drag-touch-dispatched-4x'
+				: 'drag-touch-4x'
+			: rig.touch
+				? 'drag-touch-webkit'
+				: 'drag-mouse';
 		record(name, await stopMeter(page));
 	});
 });

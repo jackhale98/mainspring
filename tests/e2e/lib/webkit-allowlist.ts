@@ -35,15 +35,7 @@ export const WEBKIT_ALLOWLIST: readonly WebKitAllowEntry[] = [
 			'frozen header and name column › a touch scroll gesture moves header and bars rigidly (Pixel 7)',
 		reason: 'cdp-touch',
 		detail:
-			"the browser's own touch scroll (compositor pan with a fling); a dispatched event does not scroll, and a wheel or a scripted scrollTo is not what a finger does. The same frozen-header checks run on scripted scrolls in the file's first test, on every project",
-	},
-	{
-		file: 'gantt-frozen.spec.ts',
-		title:
-			'frozen header and name column › a long touch pan to the far right and back keeps the name column and the labels in place (Pixel 7)',
-		reason: 'cdp-touch',
-		detail:
-			'the same native touch pan with momentum, 100 swipes to the far right and back; WebKit has no touch input in Playwright',
+			"the browser's own touch scroll (compositor pan with a fling); a dispatched event does not scroll, and a wheel or a scripted scrollTo is not what a finger does. The frozen-header checks run on WebKit through a scripted scroll (the first test) and a stepped long pan to the far right and back (the long-pan test), without the fling's momentum",
 	},
 	{
 		file: 'gantt-perf.spec.ts',
@@ -54,10 +46,16 @@ export const WEBKIT_ALLOWLIST: readonly WebKitAllowEntry[] = [
 	},
 	{
 		file: 'gantt-perf.spec.ts',
-		title: 'gantt perf (gantt-500) › phone scroll with and without the touchmove listener',
+		title: 'gantt perf (gantt-500) › phone scroll with the touchmove listener',
 		reason: 'chromium-performance-api',
 		detail:
 			'compares native touch scrolls at 4x CPU throttling, both Chromium DevTools only; WebKit has neither CPU throttling nor a touch scroll',
+	},
+	{
+		file: 'gantt-perf.spec.ts',
+		title: 'gantt perf (gantt-500) › phone scroll without the touchmove listener',
+		reason: 'chromium-performance-api',
+		detail: 'the same comparison with the listener dropped by an init script',
 	},
 ];
 

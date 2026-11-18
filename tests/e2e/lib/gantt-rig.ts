@@ -155,7 +155,10 @@ export class Rig {
 		await this.page.evaluate(
 			({ type, points }) => {
 				type Finger = { el: Element; x: number; y: number };
-				const w = window as unknown as { __fingers?: Record<number, Finger> };
+				const w = window as unknown as {
+					__fingers?: Record<number, Finger>;
+					__touchmovesPrevented?: number;
+				};
 				const down = (w.__fingers ??= {});
 				const send = (id: number, name: string, f: Finger, buttons: number): void => {
 					f.el.dispatchEvent(
@@ -186,6 +189,15 @@ export class Rig {
 						f.x = p.x;
 						f.y = p.y;
 						send(id, 'pointermove', f, 1);
+						// A finger on a phone also sends a cancelable touchmove, which a non-passive listener
+						// may cancel to keep the browser from panning: count the ones the page cancels.
+						const init = { bubbles: true, cancelable: true };
+						const move =
+							typeof TouchEvent === 'function'
+								? new TouchEvent('touchmove', init)
+								: new Event('touchmove', init);
+						f.el.dispatchEvent(move);
+						if (move.defaultPrevented) w.__touchmovesPrevented = (w.__touchmovesPrevented ?? 0) + 1;
 					} else if (type === 'touchStart') {
 						const fresh = { el: document.elementFromPoint(p.x, p.y) ?? document.body, ...p };
 						down[id] = fresh;
@@ -197,6 +209,20 @@ export class Rig {
 			},
 			{ type, points },
 		);
+	}
+
+	/**
+	 * How many dispatched `touchmove` events the page cancelled since the last call (a cancelled one
+	 * keeps the browser from panning: only a gesture that owns the touch may do it). Dispatched
+	 * fingers only; real touch events have no such count.
+	 */
+	takePreventedTouchmoves(): Promise<number> {
+		return this.page.evaluate(() => {
+			const w = window as unknown as { __touchmovesPrevented?: number };
+			const n = w.__touchmovesPrevented ?? 0;
+			w.__touchmovesPrevented = 0;
+			return n;
+		});
 	}
 
 	/** Raw touch points (one to two fingers), for the specs that need a gesture of their own. */
@@ -232,7 +258,14 @@ export class Rig {
 	async drag(
 		from: Point,
 		to: Point,
-		o: { hold?: number; steps?: number; via?: Point[]; pause?: () => Promise<void> } = {},
+		o: {
+			hold?: number;
+			steps?: number;
+			/** Milliseconds between two moves (a slow drag); 0 sends them as fast as the browser takes them. */
+			stepMs?: number;
+			via?: Point[];
+			pause?: () => Promise<void>;
+		} = {},
 	): Promise<void> {
 		const steps = o.steps ?? 10;
 		const path = [...(o.via ?? []), to];
@@ -240,6 +273,7 @@ export class Rig {
 			let at = from;
 			for (const next of path) {
 				for (let i = 1; i <= steps; i++) {
+					if (o.stepMs) await this.page.waitForTimeout(o.stepMs);
 					await move({
 						x: at.x + ((next.x - at.x) * i) / steps,
 						y: at.y + ((next.y - at.y) * i) / steps,

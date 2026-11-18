@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { isWebKit } from './lib/finger';
 import { isTouch } from './lib/gantt-rig';
 import { skipOnWebKitIfAllowlisted } from './lib/webkit-allowlist';
 
@@ -357,14 +358,42 @@ test.describe('frozen header and name column', () => {
 		};
 	}
 
-	test('a long touch pan to the far right and back keeps the name column and the labels in place (Pixel 7)', async ({
+	test('a long touch pan to the far right and back keeps the name column and the labels in place (touch)', async ({
 		page,
 	}, info) => {
 		test.skip(!isTouch(info), 'a finger: the phones');
-		skipOnWebKitIfAllowlisted(info);
 		await open(page, 'gantt-500');
-		const cdp = await page.context().newCDPSession(page);
+		const webkit = isWebKit(page);
+		// Chromium: real touch swipes with a fling through the DevTools Input domain. WebKit has no
+		// touch input in Playwright and a dispatched event does not scroll, so there the pan is a
+		// scripted scrollLeft, one step per frame to the far right and back. The invariants that
+		// `assertLongPan` checks (the name column at the scroller's left in every frame, the header
+		// on the bars, every label at its content position, none missing) hold for any scroll
+		// position, so they are checked on the same frames; the fling's momentum is not (the
+		// compositor's own, only a real touch pan reaches it).
+		const stepPan = (): Promise<void> =>
+			page.evaluate(async () => {
+				const scroller = document.querySelector<HTMLElement>('[data-testid="gantt"] .scroller');
+				if (!scroller) throw new Error('no chart');
+				const max = scroller.scrollWidth - scroller.clientWidth;
+				const step = Math.max(40, max / 240);
+				const go = (to: number): Promise<void> =>
+					new Promise((done) => {
+						const tick = (): void => {
+							const d = to - scroller.scrollLeft;
+							if (Math.abs(d) < 1) return done();
+							scroller.scrollLeft += Math.sign(d) * Math.min(Math.abs(d), step);
+							requestAnimationFrame(tick);
+						};
+						tick();
+					});
+				await go(max);
+				await new Promise((r) => setTimeout(r, 500));
+				await go(0);
+			});
+		const cdp = webkit ? null : await page.context().newCDPSession(page);
 		const drag = async (x0: number, x1: number, y: number): Promise<void> => {
+			if (!cdp) throw new Error('no DevTools session');
 			await cdp.send('Input.dispatchTouchEvent', {
 				type: 'touchStart',
 				touchPoints: [{ x: x0, y }],
@@ -378,13 +407,14 @@ test.describe('frozen header and name column', () => {
 			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 		};
 		const frames = await sampleWhile(page, async () => {
+			if (webkit) return stepPan();
 			// Far right: swipes with a fling, past the end (the over-scroll), then all the way back.
 			for (let i = 0; i < 40; i++) await drag(380, 90, 430);
 			await page.waitForTimeout(500);
 			for (let i = 0; i < 60; i++) await drag(90, 380, 430);
 		});
 		assertLongPan(frames);
-		if (process.env['SCREENSHOTS']) {
+		if (process.env['SCREENSHOTS'] && !webkit) {
 			fs.writeFileSync(
 				evidence('header-scroll-pixel7-longpan.json'),
 				JSON.stringify(
