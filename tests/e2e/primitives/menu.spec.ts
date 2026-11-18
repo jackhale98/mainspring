@@ -28,6 +28,19 @@ import {
 /** The popover list that is open (the page holds four menus; one is open at a time). */
 const menu = (page: Page) => page.locator('ul.pop[role="menu"]');
 
+/** The list is beside its button: within ~8 px of the button's bottom (or its top, when flipped), overlapping it across. */
+async function expectBeside(page: Page, testid: string): Promise<void> {
+	const t = await box(page.getByTestId(testid));
+	const m = await box(menu(page));
+	const below = m.y - (t.y + t.height);
+	const above = t.y - (m.y + m.height);
+	const gap = Math.abs(below) < Math.abs(above) ? below : above;
+	expect(gap, `${testid}: the list is beside its button (gap ${gap})`).toBeGreaterThanOrEqual(-1);
+	expect(gap, `${testid}: the list is beside its button (gap ${gap})`).toBeLessThanOrEqual(9);
+	const across = Math.min(m.x + m.width, t.x + t.width) - Math.max(m.x, t.x);
+	expect(across, `${testid}: the list is across from its button`).toBeGreaterThan(0);
+}
+
 async function open(page: Page, testid: string): Promise<void> {
 	const button = page.getByTestId(testid);
 	// Centred: the mock tab bar is fixed at the foot of the screen and would cover a button there.
@@ -118,6 +131,7 @@ test('stays on screen at 360 px: the button at the right edge, and the one low o
 		await open(page, id);
 		const vp = await viewport(page);
 		expectInside(await box(menu(page)), vp, id);
+		await expectBeside(page, id);
 		await page.keyboard.press('Escape');
 		await expect(menu(page)).toHaveCount(0);
 	}
@@ -131,6 +145,7 @@ test('opens above the button when there is no room below', async ({ page }) => {
 	await page.getByTestId('menu-low').click();
 	const m = await box(menu(page));
 	expectInside(m, await viewport(page), 'the low menu');
+	await expectBeside(page, 'menu-low');
 	// Either it fits below the button or it has opened above it; never over the button.
 	expect(m.y + m.height <= trigger.y + 1 || m.y >= trigger.y + trigger.height - 1).toBe(true);
 });
@@ -174,7 +189,7 @@ test('sheet mode: a finger gets a bottom sheet with 44 px items, a mouse gets th
 	}
 });
 
-test('the focus does not move to the first item when the sheet opens with the keyboard path closed', async ({
+test('sheet mode: Escape closes the sheet and the focus goes back to the button', async ({
 	page,
 }, info) => {
 	test.skip(!isTouch(info), 'the sheet is a finger’s');

@@ -46,12 +46,17 @@ async function arrows(page: Page): Promise<Found> {
 				if (cs.appearance === 'none') bad.push(`${name}: no arrow`);
 				continue;
 			}
-			// An inline select's arrow is the chip's (its owner draws the box); the others' is in the select.
-			const sel = (
-				box.dataset['variant'] === 'inline' ? (el.closest('label') ?? el) : el
-			).getBoundingClientRect();
-			if (at.right > sel.right + 1 || at.left < sel.left)
+			// An inline select's arrow is the chip's (its owner draws the box): it must be inside the chip.
+			// The others' is inside the select. Either way the text box (the select less its end
+			// padding) must end before the arrow: the room for it, which a padding shorthand took away.
+			const sel = el.getBoundingClientRect();
+			const outer = box.dataset['variant'] === 'inline' ? (el.closest('label') ?? el) : el;
+			const out = outer.getBoundingClientRect();
+			if (at.right > out.right + 1 || at.left < out.left)
 				bad.push(`${name}: the arrow is outside the select`);
+			const textRight = sel.right - parseFloat(cs.paddingRight);
+			if (textRight > at.left + 1)
+				bad.push(`${name}: no room for the arrow (text ends at ${textRight}, arrow at ${at.left})`);
 			if (cs.appearance !== 'none') bad.push(`${name}: native appearance`);
 		}
 		return { checked, bad };

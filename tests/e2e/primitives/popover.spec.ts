@@ -7,9 +7,11 @@
 //   button that has no room below it;
 // - Escape closes it and the focus returns to the button (WebKit does not focus a pressed button, so
 //   the browser's own return has nowhere to go), a press outside closes it, the button toggles it;
-// - `aria-expanded` follows the card.
+// - `aria-expanded` follows the card; Escape does not reach what is under it;
+// - on a phone the `foot` panel ends above the tab bar and stays on screen; axe finds nothing.
 // Consumers whose specs run on every change here: shell, phone-status, update-check (the engine
 // details and the plan status), workload (the thresholds).
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { box, expectInside, openPrimitives, viewport } from '../lib/primitives-rig';
 
@@ -102,7 +104,56 @@ test('the button toggles the card (a press on it is not a press outside)', async
 	await expect(page.getByTestId('pop-anchor')).toBeHidden();
 });
 
-test('is a named group with no axe violations', async ({ page }) => {
+test('Escape does not reach what is under the card (the Gantt’s own Escape)', async ({ page }) => {
+	await page.evaluate(() => {
+		(window as unknown as { __escapes: number }).__escapes = 0;
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') (window as unknown as { __escapes: number }).__escapes++;
+		});
+	});
+	await page.getByTestId('pop-anchor-button').click();
+	const card = page.getByTestId('pop-anchor');
+	await card.getByLabel('A field').focus();
+	await page.keyboard.press('Escape');
+	await expect(card).toBeHidden();
+	expect(await page.evaluate(() => (window as unknown as { __escapes: number }).__escapes)).toBe(0);
+});
+
+test('on a phone the foot panel clears the tab bar and stays on screen', async ({ page }) => {
+	await page.setViewportSize({ width: 360, height: 640 });
+	await page
+		.getByTestId('pop-foot-button')
+		.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+	await page.getByTestId('pop-foot-button').click();
+	const card = page.getByTestId('pop-foot');
+	await expect(card).toBeVisible();
+	await expect.poll(async () => card.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+	const c = await box(card);
+	const bar = await box(page.getByTestId('mock-tabbar'));
+	expectInside(c, await viewport(page), 'the foot panel');
+	expect(c.y + c.height, 'the panel ends above the tab bar').toBeLessThanOrEqual(bar.y + 1);
+	expect(c.width, 'it spans the screen less its margins').toBeGreaterThan(360 - 24);
+});
+
+test('has no axe violations, centred or anchored, and is a named group', async ({ page }) => {
 	await page.getByTestId('pop-anchor-button').click();
 	await expect(page.getByRole('group', { name: 'Anchored card' })).toBeVisible();
+	await expect
+		.poll(async () => page.getByTestId('pop-anchor').evaluate((el) => getComputedStyle(el).opacity))
+		.toBe('1');
+	const run = async (what: string): Promise<void> => {
+		const r = await new AxeBuilder({ page })
+			.include('[popover]:popover-open')
+			.withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+			.analyze();
+		expect(
+			r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`),
+			what,
+		).toEqual([]);
+	};
+	await run('anchored');
+	await page.keyboard.press('Escape');
+	await page.getByTestId('pop-center-button').click();
+	await expect(page.getByTestId('pop-center')).toBeVisible();
+	await run('centred');
 });
