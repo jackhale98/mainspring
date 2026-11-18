@@ -83,6 +83,7 @@
 		<Icon name={ICON[view]} size={14} />
 		<span class="sr-only">{S.switcher}</span>
 		<select
+			data-own-caret
 			value={view}
 			aria-label={S.switcher}
 			onchange={(e) => {

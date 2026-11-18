@@ -106,7 +106,13 @@
 	</div>
 	<label class="chip select scope">
 		<span class="cap">{C.scope}</span>
-		<select value={scopeValue} onchange={pickScope} aria-label={C.scope} data-testid="cal-scope">
+		<select
+			data-own-caret
+			value={scopeValue}
+			onchange={pickScope}
+			aria-label={C.scope}
+			data-testid="cal-scope"
+		>
 			<option value="">{L.everyone}</option>
 			{#each people as p (p.id)}
 				<option value={p.id}>{'  '.repeat(p.level - 1)}{p.name}</option>
@@ -132,6 +138,7 @@
 	<label class="chip select type">
 		<span class="cap">{C.type}</span>
 		<select
+			data-own-caret
 			value={leaveType}
 			aria-label={C.type}
 			onchange={(e) => ontype(e.currentTarget.value as LeaveType)}
