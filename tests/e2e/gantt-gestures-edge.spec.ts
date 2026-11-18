@@ -85,7 +85,7 @@ test.describe('the edges of the gestures', () => {
 			await rig.touches('touchStart', [b]);
 			if (o.first) await rig.touches('touchMove', [{ x: b.x + o.first, y: b.y }]);
 			// The hold is the input: the long-press timer (350 ms) is on the page's clock and shows
-			// nothing until it fires, so these 0, 250 and 450 ms are how long the finger rests.
+			// nothing until it fires, so these 0, 150 and 450 ms are how long the finger rests.
 			if (o.hold) await page.waitForTimeout(o.hold);
 			for (let i = 1; i <= o.steps; i++) {
 				await rig.touches('touchMove', [{ x: b.x + (o.first ?? 0) - i * 12, y: b.y }]);
@@ -113,10 +113,10 @@ test.describe('the edges of the gestures', () => {
 		await swipe(bar.body, { hold: 0, steps: 10 });
 		await pans(at, bar.body);
 		await expect(ask).not.toBeVisible();
-		// Held for 250 ms, under the timer, then moved: still a pan.
+		// Held for 150 ms, under the timer, then moved: still a pan.
 		bar = await rig.bar('design.sketch');
 		at = await rig.scrollPos();
-		await swipe(bar.body, { hold: 250, steps: 10 });
+		await swipe(bar.body, { hold: 150, steps: 10 });
 		await pans(at, bar.body);
 		await expect(ask).not.toBeVisible();
 		// Moved 12 px (over the 8 px slop) before the timer: a pan, and no lift after the timer.

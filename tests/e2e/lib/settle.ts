@@ -76,10 +76,11 @@ export async function boxStable(target: Locator, n = 4): Promise<void> {
 				let last = '';
 				let same = 0;
 				const tick = (): void => {
+					// A detached element is not still: keep waiting (it may be mounted again), or fail at the cap.
 					const r = el.isConnected ? el.getBoundingClientRect() : null;
-					const key = r ? [r.x, r.y, r.width, r.height].map((v) => v.toFixed(1)).join(',') : 'gone';
-					same = key === last ? same + 1 : 0;
-					last = key;
+					const key = r ? [r.x, r.y, r.width, r.height].map((v) => v.toFixed(1)).join(',') : null;
+					same = key !== null && key === last ? same + 1 : 0;
+					last = key ?? '';
 					if (same >= count) resolve(true);
 					else if (performance.now() - t0 > cap) resolve(false);
 					else requestAnimationFrame(tick);
@@ -123,12 +124,10 @@ export async function panelSettled(panel: Locator, n = 3): Promise<void> {
 }
 
 /** The engine is ready and the plan shows as scheduled: nothing is being computed. */
-export async function engineIdle(page: Page): Promise<void> {
-	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
-		timeout: 120_000,
-	});
+export async function engineIdle(page: Page, timeout = 120_000): Promise<void> {
+	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', { timeout });
 	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
-		timeout: 120_000,
+		timeout,
 	});
 }
 
@@ -177,10 +176,16 @@ export const ganttSettled = (page: Page, n = 4): Promise<string> =>
 /**
  * Positive sync point for a "nothing happens" check: the engine is idle, then `n` frames are drawn
  * after the event, so that anything the event would have started (a re-render, an edit's dispatch,
- * a toast) has had its turn. The negative assertion follows. Timers longer than a few frames
- * (a debounce, a hold) have their own state to wait on: see the callers.
+ * a toast) has had its turn. The negative assertion follows.
+ *
+ * Its limit: right after a drop the status still reads "Scheduled" from before (an edit goes out
+ * after a defer and a paint: edits.svelte.ts, edits-yield.ts), so `engineIdle` may return at once and
+ * only the frames sync. That is enough for an edit sent at once (a drop, a Cancel). It is NOT enough
+ * for a coalesced edit (COALESCE_MS, 300 ms, edits.svelte.ts) or a keyboard nudge burst (1200 ms,
+ * nudge.ts): a test of those needs the state of the edit itself (the text, a toast, the revision).
  */
 export async function quietAfter(page: Page, n = 8): Promise<void> {
-	await engineIdle(page);
+	// Short on purpose: a wrong edit that does not schedule must fail here, not after 120 s.
+	await engineIdle(page, 15_000);
 	await frames(page, n);
 }

@@ -6,6 +6,9 @@ describe('fixed waits in the e2e tests', () => {
 	it('counts page.waitForTimeout calls', () => {
 		expect(fw.countWaits('await page.waitForTimeout(300);\nawait page.waitForTimeout (5)')).toBe(2);
 		expect(fw.countWaits('await expect(x).toBeVisible();')).toBe(0);
+		// A bare setTimeout (a wrapped hold, one in page.evaluate) counts; test.setTimeout does not.
+		expect(fw.countWaits('await new Promise((r) => setTimeout(r, 50));')).toBe(1);
+		expect(fw.countWaits('test.setTimeout(60_000); info.setTimeout(1)')).toBe(0);
 	});
 
 	it('flags a file over its baseline and a new file with any, and asks to lower one under it', () => {

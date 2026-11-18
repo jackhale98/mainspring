@@ -416,7 +416,12 @@ test.describe('frozen header and name column', () => {
 						tick();
 					});
 				await go(true);
-				await new Promise((r) => setTimeout(r, 500));
+				// A rest at the far end: thirty frames drawn (a slow runner draws them later, not fewer).
+				await new Promise<void>((r) => {
+					let n = 30;
+					const t = (): void => (--n > 0 ? void requestAnimationFrame(t) : r());
+					t();
+				});
 				await go(false);
 			});
 		const cdp = webkit ? null : await page.context().newCDPSession(page);

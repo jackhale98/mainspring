@@ -185,6 +185,7 @@ test('a tap that opens it again during its slide away is not lost', async ({ pag
 	await rowOf(page).click();
 	// The slide away runs to its end; a tap that was lost leaves the sheet closed after it.
 	await animationsDone(page);
+	await expect(panel).not.toHaveAttribute('data-closing', '');
 	await expect(panel).toBeVisible();
 	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Research');
 	expect(

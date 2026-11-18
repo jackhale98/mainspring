@@ -132,7 +132,14 @@
 
 <!-- The group's focusout is how a burst ends; it is not itself interactive. -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="stepper" bind:this={root} onfocusout={focusout} role="group" aria-label={what}>
+<div
+	class="stepper"
+	bind:this={root}
+	onfocusout={focusout}
+	role="group"
+	aria-label={what}
+	data-phase={phase}
+>
 	<button
 		type="button"
 		class="step"

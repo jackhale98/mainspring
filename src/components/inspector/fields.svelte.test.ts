@@ -148,14 +148,20 @@ describe('Stepper', () => {
 
 	it('ends the burst after a pause, then follows the plan again once its text changes', async () => {
 		const s = setup();
+		const group = s.t.querySelector('[role="group"]') as HTMLElement;
+		expect(group.dataset['phase']).toBe('idle');
 		s.btn('Increase Effort').click();
+		flushSync();
+		expect(group.dataset['phase']).toBe('active');
 		expect(s.onend).not.toHaveBeenCalled();
 		await vi.advanceTimersByTimeAsync(1300);
 		expect(s.onend).toHaveBeenCalledTimes(1);
+		expect(group.dataset['phase']).toBe('settling');
 		expect(s.input.value).toBe('4d');
 		s.props.text = '4d';
 		s.props.value = 4;
 		flushSync();
+		expect(group.dataset['phase']).toBe('idle');
 		// A new burst starts from the new text.
 		s.btn('Increase Effort').click();
 		expect(s.onpress).toHaveBeenLastCalledWith(1, 4);
