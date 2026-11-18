@@ -88,29 +88,51 @@
 	// In a sheet the picker is the point of the sheet while it is open: it goes to the top of the
 	// sheet's content, where the list can use the rest of it. The owner gives the sheet its full
 	// height as the picker opens, and the list fills in after the chunk, so the content's size
-	// changes while it settles and one scroll can be clamped short. The picker is held at the top
-	// frame by frame for the first 700 ms (or until the person touches the content).
+	// changes while it settles, and WebKit scrolls a focused field into view on its own, late on a
+	// busy phone. No fixed time window covers all of that, so the picker is held at the top by
+	// events: any change of size of the content or the picker, and any scroll the person did not
+	// make, puts it back. The hold ends when the person scrolls the content themselves (a wheel, a
+	// press outside the picker, a finger dragged outside the list; a tap on the search box or a row
+	// is not one) or the picker closes.
 	$effect(() => {
 		const el = root;
 		if (!open || !el) return;
 		const content = el.closest('dialog.sheet')?.querySelector<HTMLElement>('.content');
 		if (!content) return;
-		const until = performance.now() + 700;
 		let frame = 0;
-		const hold = (): void => {
+		const align = (): void => {
+			frame = 0;
 			const off = el.getBoundingClientRect().top - content.getBoundingClientRect().top;
 			if (Math.abs(off) > 1) content.scrollTop += off;
-			if (performance.now() < until) frame = requestAnimationFrame(hold);
 		};
-		const release = (): void => cancelAnimationFrame(frame);
-		content.addEventListener('pointerdown', release, { once: true });
-		content.addEventListener('wheel', release, { once: true, passive: true });
-		hold();
-		return () => {
-			release();
-			content.removeEventListener('pointerdown', release);
+		const soon = (): void => {
+			if (frame === 0) frame = requestAnimationFrame(align);
+		};
+		const sizes = new ResizeObserver(soon);
+		const release = (): void => {
+			sizes.disconnect();
+			cancelAnimationFrame(frame);
+			frame = 0;
+			content.removeEventListener('scroll', soon);
+			content.removeEventListener('pointerdown', pressed);
 			content.removeEventListener('wheel', release);
+			content.removeEventListener('touchmove', dragged);
 		};
+		// A finger that drags anywhere but the list (which scrolls itself) scrolls the content.
+		const dragged = (e: TouchEvent): void => {
+			if (!(e.target instanceof Node) || !list?.contains(e.target)) release();
+		};
+		const pressed = (e: PointerEvent): void => {
+			if (!(e.target instanceof Node) || !el.contains(e.target)) release();
+		};
+		sizes.observe(content);
+		sizes.observe(el);
+		content.addEventListener('scroll', soon, { passive: true });
+		content.addEventListener('pointerdown', pressed);
+		content.addEventListener('wheel', release, { passive: true });
+		content.addEventListener('touchmove', dragged, { passive: true });
+		align();
+		return release;
 	});
 	$effect(() => {
 		// Keep the active option in view as the arrows move.

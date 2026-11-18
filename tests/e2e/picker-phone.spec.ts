@@ -121,6 +121,12 @@ test('the picker: the sheet goes full, the list fills it with 44 px rows, the se
 	await page.waitForTimeout(150);
 	const after = await search.boundingBox();
 	expect(after?.y).toBeCloseTo(before?.y ?? -1, 0);
+	// A scroll the person did not make (WebKit's own scroll to a focused field, late on a busy
+	// phone) does not leave the list below the sheet: the picker comes back to the top.
+	await sheet.locator('.content').evaluate((el) => (el.scrollTop = 0));
+	await expect
+		.poll(async () => (await search.boundingBox())?.y ?? -1, { message: 'the picker is back' })
+		.toBeCloseTo(before?.y ?? -1, 0);
 	await expectBig(page, 'the open picker');
 
 	// Choosing closes it, and the sheet goes back to the height it had.
