@@ -3,6 +3,7 @@
 // Plan tab's outline is not in the page while another tab shows, and comes back where it was; the
 // floating task pill leaves the last row a place to scroll to.
 import { expect, test, type Page } from '@playwright/test';
+import { isTouch } from './lib/gantt-rig';
 
 const READY_TIMEOUT_MS = 120_000;
 
@@ -23,7 +24,7 @@ test.describe('phone polish', () => {
 	test('the hidden Plan tab has no outline mounted, and the tab keeps its scroll', async ({
 		page,
 	}, info) => {
-		test.skip(info.project.name !== 'pixel-7');
+		test.skip(!isTouch(info), 'the phone layout');
 		await open(page, 'gantt-500');
 		const trees = page.locator('#panel-plan [role="tree"]');
 		await expect(trees).toHaveCount(0);
@@ -35,12 +36,18 @@ test.describe('phone polish', () => {
 		await scroller.evaluate((el) => (el.scrollTop = 900));
 		await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(900);
 		// A row in view; selecting it shows its declaration: the phone moves to the Text tab.
-		const selectedKey = await scroller.evaluate((el) => {
-			const top = el.getBoundingClientRect().top;
-			const rows = [...el.querySelectorAll<HTMLElement>('[role="treeitem"]')];
-			return rows.find((r) => r.getBoundingClientRect().top > top + 20)?.dataset['key'] ?? '';
-		});
-		expect(selectedKey).not.toBe('');
+		// The outline draws the rows in view on the scroll event, a frame after the scroll: wait for one.
+		let selectedKey = '';
+		await expect
+			.poll(async () => {
+				selectedKey = await scroller.evaluate((el) => {
+					const top = el.getBoundingClientRect().top;
+					const rows = [...el.querySelectorAll<HTMLElement>('[role="treeitem"]')];
+					return rows.find((r) => r.getBoundingClientRect().top > top + 20)?.dataset['key'] ?? '';
+				});
+				return selectedKey;
+			})
+			.not.toBe('');
 		await tasks.locator(`[data-key="${selectedKey}"]`).click();
 
 		await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
@@ -61,7 +68,7 @@ test.describe('phone polish', () => {
 	test('another plan starts with its own outline, at the top and nothing selected', async ({
 		page,
 	}, info) => {
-		test.skip(info.project.name !== 'pixel-7');
+		test.skip(!isTouch(info), 'the phone layout');
 		await open(page, 'gantt-500');
 		await page.getByRole('tab', { name: 'Plan', exact: true }).click();
 		const scroller = page.getByRole('tree', { name: 'Tasks' }).locator('xpath=..');
@@ -80,7 +87,7 @@ test.describe('phone polish', () => {
 	});
 
 	test('the task pill leaves room to scroll the last row clear of it', async ({ page }, info) => {
-		test.skip(info.project.name !== 'pixel-7');
+		test.skip(!isTouch(info), 'the phone layout');
 		await open(page, 'upstream-fedora-20');
 		const gantt = page.getByTestId('gantt');
 		// Nothing selected: the pill says the whole critical path is before the status date.

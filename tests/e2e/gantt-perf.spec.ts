@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Frame cost of the Gantt on the gantt-500 plan (phase-2.md 8.4; T22). Chromium only: desktop
+// Frame cost of the Gantt on the gantt-500 plan (phase-2.md 8.4; T22). The scroll profile and the
+// listener comparison are Chromium only (their allowlist entries say why); the first open runs on
+// every browser. Desktop
 // without throttling, and the Pixel 7 emulation with 4x CPU throttling (Emulation.
 // setCPUThrottlingRate), after the engine is ready (the boot stall is the known Phase 0 deviation).
 // Scenarios, in one page per profile (the boot of 500 tasks is long): a native vertical scroll
@@ -21,7 +23,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type CDPSession, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
-import { READY_TIMEOUT_MS, Rig, type Point } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, Rig, isTouch, type Point } from './lib/gantt-rig';
+import { skipOnWebKitIfAllowlisted } from './lib/webkit-allowlist';
 import {
 	EXTRA_RUN_PAUSE_MS,
 	MAX_EXTRA_RUNS,
@@ -76,7 +79,9 @@ async function environment(page: Page, info: TestInfo, throttle: number) {
 		device:
 			info.project.name === 'pixel-7'
 				? 'Pixel 7 emulation (412x915, dpr 2.625, touch)'
-				: 'Desktop Chrome',
+				: info.project.name === 'iphone-14'
+					? 'iPhone 14 emulation (WebKit)'
+					: 'Desktop Chrome',
 		cpuThrottle: throttle,
 		browser: `${page.context().browser()?.browserType().name()} ${page.context().browser()?.version()}`,
 		userAgent: await page.evaluate(() => navigator.userAgent),
@@ -338,7 +343,9 @@ async function selectBar(rig: Rig) {
 test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 	test.setTimeout(READY_TIMEOUT_MS * (process.env['PERF_MAX_LOAD'] ? 20 : 10));
 	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'Chromium measures (phase-2.md 8.4)');
+		// The scroll profile and the listener comparison drive Chromium's DevTools (CPU throttling, the
+		// scroll gesture); the allowlist names them. The first open runs on every browser.
+		skipOnWebKitIfAllowlisted(info);
 		// On every push only the desktop profile runs (it has the caps); the throttled phone profile and
 		// the touch-listener comparison take about as long again and run nightly (E2E_PERF=1) or locally.
 		test.skip(
@@ -602,14 +609,14 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 
 	// The comparison of 8.2: the same phone scroll at 4x CPU, three runs each, on a page of its own
 	// with the Gantt's non-passive touchmove listener, and on one with it dropped by an init script.
-	for (const without of [false, true]) {
-		test(`phone scroll with${without ? 'out' : ''} the touchmove listener`, async ({
-			page,
-		}, info) => {
-			test.skip(info.project.name !== 'pixel-7', 'the touch listener comparison is a phone one');
-			await installProbe(page);
+	// One test with two pages: the variant is an init script, so each run needs its own page.
+	test('phone scroll with and without the touchmove listener', async ({ page }, info) => {
+		test.skip(!isTouch(info), 'the touch listener comparison is a phone one');
+		for (const without of [false, true]) {
+			const p = without ? await page.context().newPage() : page;
+			await installProbe(p);
 			if (without) {
-				await page.addInitScript(() => {
+				await p.addInitScript(() => {
 					const add = EventTarget.prototype.addEventListener;
 					EventTarget.prototype.addEventListener = function (type, fn, opts) {
 						const passive = typeof opts === 'object' && opts !== null ? opts.passive : undefined;
@@ -618,27 +625,28 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 					};
 				});
 			}
-			const rig = await Rig.open(page, info, 'week', 'visual', 'gantt-500');
+			const rig = await Rig.open(p, info, 'week', 'visual', 'gantt-500');
 			void rig;
-			await page.waitForTimeout(3000);
-			const cdp = await page.context().newCDPSession(page);
+			await p.waitForTimeout(3000);
+			const cdp = await p.context().newCDPSession(p);
 			await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-			const box = await page.locator(SCROLLER).boundingBox();
+			const box = await p.locator(SCROLLER).boundingBox();
 			if (!box) throw new Error('no chart');
 			chartBox = box;
 			const at: Point = { x: box.x + box.width * 0.75, y: box.y + box.height * 0.6 };
-			const picked = await pickInput(page, cdp, true, at);
+			const picked = await pickInput(p, cdp, true, at);
 			const runs: Measure[] = [];
 			for (let i = 0; i < RUNS; i++) {
-				runs.push(await scrollRun(page, cdp, picked.source, at, `listener ${without} #${i + 1}`));
+				runs.push(await scrollRun(p, cdp, picked.source, at, `listener ${without} #${i + 1}`));
 			}
 			record(`touch-listener-${without ? 'without' : 'with'}`, {
-				...(await environment(page, info, 4)),
+				...(await environment(p, info, 4)),
 				input: picked.source,
 				runs,
 				loadAverageAtEnd: loadavg(),
 			});
 			expect(runs).toHaveLength(RUNS);
-		});
-	}
+			if (without) await p.close();
+		}
+	});
 });

@@ -18,24 +18,10 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Spec file names (paths under tests/e2e) whose WebKit skips a later batch removes. B1 is done.
+ * Spec file names (paths under tests/e2e) whose WebKit skips a later batch removes. B1 and B2 are done.
  * @type {Record<string, string[]>}
  */
 export const PENDING_BATCHES = {
-	// B2: new plan, the Gantt filter, the edge cases of gestures, gantt-a11y, the two timing specs, and
-	// the Gantt specs that run on the Pixel 7 only (frozen columns, phone polish, table divider).
-	B2: [
-		'gantt-frozen.spec.ts',
-		'gantt-phone-polish.spec.ts',
-		'gantt-table-divider.spec.ts',
-		'new-plan.spec.ts',
-		'new-plan-screenshots.spec.ts',
-		'gantt-filter.spec.ts',
-		'gantt-gestures-edge.spec.ts',
-		'gantt-a11y.spec.ts',
-		'gantt-gesture-frames.spec.ts',
-		'gantt-perf.spec.ts',
-	],
 	// B3: People (shell, workload, lanes, calendar, resources, workload-gate).
 	B3: [
 		'people-shell.spec.ts',

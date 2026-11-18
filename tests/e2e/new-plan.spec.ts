@@ -9,9 +9,6 @@ import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 
 test.describe('New plan', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T4); iPhone is reported');
-	});
 
 	const chooser = (page: Page) => page.getByLabel('Sample plan');
 	const sheet = (page: Page) => page.getByRole('dialog', { name: 'New plan' });

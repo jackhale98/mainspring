@@ -53,8 +53,7 @@ task c "C" { delayed:flags scen effort 1d }
 	});
 });
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7');
+test.beforeEach(() => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 });
 

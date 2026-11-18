@@ -141,53 +141,67 @@ export class Rig {
 	}
 
 	async #touch(type: 'touchStart' | 'touchMove' | 'touchEnd', p?: Point): Promise<void> {
-		if (this.dispatched) await this.#pointer(type, p);
-		else await this.touches(type, p ? [p] : []);
+		await this.touches(type, p ? [p] : []);
 	}
 
 	/**
-	 * One finger as a dispatched touch pointer: the press goes to the element under the point, and
-	 * the moves and the release go to the same element (what pointer capture gives a real finger).
+	 * Fingers as dispatched touch pointers (WebKit, where Playwright has no touch input): a finger
+	 * that is new at `touchStart` presses the element under its point, and its moves and its release
+	 * go to that same element (what pointer capture gives a real finger). Like the DevTools call it
+	 * stands in for, `touchStart` and `touchMove` carry the points of every finger that is down, by
+	 * position (finger 1, finger 2), and `touchEnd` lifts them all.
 	 */
-	async #pointer(type: 'touchStart' | 'touchMove' | 'touchEnd', p?: Point): Promise<void> {
+	async #fingers(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Point[]): Promise<void> {
 		await this.page.evaluate(
-			({ type, p }) => {
-				const w = window as unknown as { __finger?: { el: Element; x: number; y: number } };
-				if (type === 'touchStart' && p) {
-					w.__finger = { el: document.elementFromPoint(p.x, p.y) ?? document.body, x: p.x, y: p.y };
+			({ type, points }) => {
+				type Finger = { el: Element; x: number; y: number };
+				const w = window as unknown as { __fingers?: Record<number, Finger> };
+				const down = (w.__fingers ??= {});
+				const send = (id: number, name: string, f: Finger, buttons: number): void => {
+					f.el.dispatchEvent(
+						new PointerEvent(name, {
+							pointerId: 40 + id,
+							pointerType: 'touch',
+							isPrimary: id === 1,
+							clientX: f.x,
+							clientY: f.y,
+							buttons,
+							width: 1,
+							height: 1,
+							bubbles: true,
+							cancelable: true,
+							composed: true,
+						}),
+					);
+				};
+				if (type === 'touchEnd') {
+					for (const [id, f] of Object.entries(down)) send(Number(id), 'pointerup', f, 0);
+					w.__fingers = {};
+					return;
 				}
-				const f = w.__finger;
-				if (!f) throw new Error('no finger is down');
-				if (p) {
-					f.x = p.x;
-					f.y = p.y;
-				}
-				const name = { touchStart: 'pointerdown', touchMove: 'pointermove', touchEnd: 'pointerup' }[
-					type
-				];
-				f.el.dispatchEvent(
-					new PointerEvent(name, {
-						pointerId: 41,
-						pointerType: 'touch',
-						isPrimary: true,
-						clientX: f.x,
-						clientY: f.y,
-						buttons: type === 'touchEnd' ? 0 : 1,
-						width: 1,
-						height: 1,
-						bubbles: true,
-						cancelable: true,
-						composed: true,
-					}),
-				);
-				if (type === 'touchEnd') delete w.__finger;
+				points.forEach((p, i) => {
+					const id = i + 1;
+					const f = down[id];
+					if (f) {
+						f.x = p.x;
+						f.y = p.y;
+						send(id, 'pointermove', f, 1);
+					} else if (type === 'touchStart') {
+						const fresh = { el: document.elementFromPoint(p.x, p.y) ?? document.body, ...p };
+						down[id] = fresh;
+						send(id, 'pointerdown', fresh, 1);
+					} else {
+						throw new Error('no finger is down');
+					}
+				});
 			},
-			{ type, p },
+			{ type, points },
 		);
 	}
 
 	/** Raw touch points (one to two fingers), for the specs that need a gesture of their own. */
 	async touches(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Point[]): Promise<void> {
+		if (this.dispatched) return this.#fingers(type, points);
 		const cdp = await this.#session();
 		await cdp.send('Input.dispatchTouchEvent', {
 			type,

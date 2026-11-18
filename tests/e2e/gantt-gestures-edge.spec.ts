@@ -7,7 +7,8 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { REPO } from '../golden/corpus';
-import { READY_TIMEOUT_MS, Rig, isTouch, minute } from './lib/gantt-rig';
+import { expectBrowserPans } from './lib/finger';
+import { READY_TIMEOUT_MS, Rig, deviceName, isTouch, minute } from './lib/gantt-rig';
 
 const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 const CONTAINER_MESSAGE =
@@ -15,9 +16,6 @@ const CONTAINER_MESSAGE =
 
 test.describe('the edges of the gestures', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T16)');
-	});
 
 	test('Escape in the middle of a drag cancels it: no edit, no toast', async ({ page }, info) => {
 		test.skip(isTouch(info), 'a keyboard and a mouse');
@@ -90,23 +88,30 @@ test.describe('the edges of the gestures', () => {
 			await rig.touches('touchEnd', []);
 			await page.waitForTimeout(500);
 		};
+		// A pan is the browser's: a real finger scrolls the chart (Chromium, real touch events). Dispatched
+		// events cannot start one (WebKit: Playwright has no touch drag there), so on the iPhone the page
+		// is checked for what the app owns: the browser is left free to pan under the finger.
+		const pans = async (from: [number, number], point: { x: number; y: number }): Promise<void> => {
+			if (rig.dispatched) await expectBrowserPans(page, point);
+			else await expect.poll(async () => (await rig.scrollPos())[0]).toBeGreaterThan(from[0]);
+		};
 		// An unselected bar, pressed and swiped at once: the chart scrolls, nothing lifts.
 		let bar = await rig.bar('design.sketch');
 		let at = await rig.scrollPos();
 		await swipe(bar.body, { hold: 0, steps: 10 });
-		await expect.poll(async () => (await rig.scrollPos())[0]).toBeGreaterThan(at[0]);
+		await pans(at, bar.body);
 		await expect(ask).not.toBeVisible();
 		// Held for 250 ms, under the timer, then moved: still a pan.
 		bar = await rig.bar('design.sketch');
 		at = await rig.scrollPos();
 		await swipe(bar.body, { hold: 250, steps: 10 });
-		await expect.poll(async () => (await rig.scrollPos())[0]).toBeGreaterThan(at[0]);
+		await pans(at, bar.body);
 		await expect(ask).not.toBeVisible();
 		// Moved 12 px (over the 8 px slop) before the timer: a pan, and no lift after the timer.
 		bar = await rig.bar('design.sketch');
 		at = await rig.scrollPos();
 		await swipe(bar.body, { first: -12, hold: 450, steps: 8 });
-		await expect.poll(async () => (await rig.scrollPos())[0]).toBeGreaterThan(at[0]);
+		await pans(at, bar.body);
 		await expect(ask).not.toBeVisible();
 		// Moved 6 px (inside the slop), held to 450 ms, then dragged: the bar lifts and moves, and
 		// the move question is asked (nothing is stored yet). Cancel changes nothing.
@@ -230,27 +235,41 @@ test.describe('the edges of the gestures', () => {
 		await rig.openDetails('design.research');
 		const sheet = page.locator('dialog.sheet[data-detent]');
 		await expect(sheet).toHaveAttribute('data-detent', 'half');
+		// Whole rows of the chart between the header and the sheet's top edge.
+		const rowsInReach = (): Promise<{ rows: number; sheetHeight: number; viewport: number }> =>
+			page.evaluate(() => {
+				const s = document.querySelector('[data-testid="gantt"] .scroller') as HTMLElement;
+				const top = s.getBoundingClientRect().top + 70;
+				const box = document.querySelector('dialog.sheet[open]')?.getBoundingClientRect();
+				const sheetTop = box?.top ?? innerHeight;
+				const rows = [...document.querySelectorAll('[role="row"][data-key]')].filter((e) => {
+					const r = e.getBoundingClientRect();
+					return r.top >= top && r.bottom <= sheetTop;
+				}).length;
+				return { rows, sheetHeight: box?.height ?? 0, viewport: innerHeight };
+			});
+		const half = await rowsInReach();
 		const from = await rig.peek('design.research');
 		await rig.tap(from.dot);
 		await expect(sheet).toHaveAttribute('data-detent', 'peek');
 		await page.waitForTimeout(400);
-		// Most of the chart is in reach: more rows than the half sheet leaves.
-		const rows = await page.evaluate(() => {
-			const s = document.querySelector('[data-testid="gantt"] .scroller') as HTMLElement;
-			const top = s.getBoundingClientRect().top + 70;
-			const sheetTop =
-				document.querySelector('dialog.sheet[open]')?.getBoundingClientRect().top ?? innerHeight;
-			return [...document.querySelectorAll('[role="row"][data-key]')].filter((e) => {
-				const r = e.getBoundingClientRect();
-				return r.top >= top && r.bottom <= sheetTop;
-			}).length;
-		});
-		expect(rows).toBeGreaterThanOrEqual(8);
+		// Most of the chart is in reach: more rows than the half sheet leaves. The peek is the grabber
+		// and the header (a fixed height), so the rows it leaves depend on the phone's height: the
+		// Pixel 7 (839 px high) shows 10 of them, the iPhone 14 (664 px) 6, once the top bar, the link
+		// banner, the chart's header and the tab bar have taken their share.
+		const peek = await rowsInReach();
+		expect(peek.sheetHeight).toBeLessThanOrEqual(120);
+		expect(peek.rows).toBeGreaterThanOrEqual(half.rows + 4);
+		expect(peek.rows).toBeGreaterThanOrEqual(peek.viewport >= 800 ? 8 : 6);
 		if (process.env['SCREENSHOTS'] === '1') {
-			await page.screenshot({ path: path.join(SHOTS, 'gesture-link-peek-pixel-7-light.png') });
+			await page.screenshot({
+				path: path.join(SHOTS, `gesture-link-peek-${deviceName(info)}-light.png`),
+			});
 			await page.emulateMedia({ colorScheme: 'dark' });
 			await page.waitForTimeout(250);
-			await page.screenshot({ path: path.join(SHOTS, 'gesture-link-peek-pixel-7-dark.png') });
+			await page.screenshot({
+				path: path.join(SHOTS, `gesture-link-peek-${deviceName(info)}-dark.png`),
+			});
 			await page.emulateMedia({ colorScheme: 'light' });
 		}
 		await page

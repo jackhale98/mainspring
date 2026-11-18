@@ -11,13 +11,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { openHistoryFromUndo } from './lib/finger';
 import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T23)');
-});
 
 async function axe(page: Page, state: string): Promise<void> {
 	// A moment for the transitions of a sheet or a popover to end (contrast is read mid-fade otherwise).
@@ -172,9 +169,8 @@ test.describe('axe', () => {
 			await name.press('Enter');
 			await expect(page.getByTestId('toast-quiet')).toBeVisible();
 			await axe(page, `top bar with Undo and Redo, and the message strip (${scheme})`);
-			// The keyboard way to the History, as the app's own spec uses.
-			await page.getByTestId('undo').focus();
-			await page.keyboard.press('Shift+F10');
+			// The way to the History on this browser (the menu key, or a press and hold on the iPhone).
+			await openHistoryFromUndo(page);
 			await expect(page.getByRole('dialog', { name: 'History' })).toBeVisible();
 			await axe(page, `History sheet (${scheme})`);
 		}
@@ -357,7 +353,7 @@ const EXEMPT: ReadonlyArray<RegExp> = [
 test.describe('target sizes on a coarse pointer', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(!isTouch(info) || info.project.name !== 'pixel-7', 'the Pixel 7 emulation is coarse');
+		test.skip(!isTouch(info), 'a coarse pointer: the phones');
 	});
 
 	test('every interactive element in the Gantt states is at least 44 x 44', async ({
@@ -427,8 +423,7 @@ test.describe('target sizes on a coarse pointer', () => {
 		await expect(message(page, rig)).toBeVisible();
 		await probe('a toast');
 		// The top bar's Undo and Redo and the History sheet.
-		await page.getByTestId('undo').focus();
-		await page.keyboard.press('Shift+F10');
+		await openHistoryFromUndo(page);
 		await expect(page.getByRole('dialog', { name: 'History' })).toBeVisible();
 		await probe('the History sheet');
 		await page.keyboard.press('Escape');

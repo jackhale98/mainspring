@@ -17,6 +17,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { isTouch } from './lib/gantt-rig';
+import { skipOnWebKitIfAllowlisted } from './lib/webkit-allowlist';
 
 const READY_TIMEOUT_MS = 120_000;
 const EVIDENCE = path.join(
@@ -142,11 +144,9 @@ test.describe('frozen header and name column', () => {
 		).toBeLessThanOrEqual(2);
 	});
 
-	test('a touch scroll gesture moves header and bars rigidly (Pixel 7)', async ({
-		page,
-		browserName,
-	}, info) => {
-		test.skip(info.project.name !== 'pixel-7' || browserName !== 'chromium');
+	test('a touch scroll gesture moves header and bars rigidly (Pixel 7)', async ({ page }, info) => {
+		test.skip(!isTouch(info), 'a finger: the phones');
+		skipOnWebKitIfAllowlisted(info);
 		await open(page);
 		await page.evaluate(() => {
 			window.__frames = [];
@@ -359,9 +359,9 @@ test.describe('frozen header and name column', () => {
 
 	test('a long touch pan to the far right and back keeps the name column and the labels in place (Pixel 7)', async ({
 		page,
-		browserName,
 	}, info) => {
-		test.skip(info.project.name !== 'pixel-7' || browserName !== 'chromium');
+		test.skip(!isTouch(info), 'a finger: the phones');
+		skipOnWebKitIfAllowlisted(info);
 		await open(page, 'gantt-500');
 		const cdp = await page.context().newCDPSession(page);
 		const drag = async (x0: number, x1: number, y: number): Promise<void> => {

@@ -14,6 +14,7 @@ import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { isTouch } from './lib/gantt-rig';
 
 const READY_TIMEOUT_MS = 120_000;
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -497,7 +498,7 @@ test.describe('the table divider', () => {
 	});
 
 	test('a phone has the name column alone and no divider', async ({ page }, info) => {
-		test.skip(info.project.name !== 'pixel-7');
+		test.skip(!isTouch(info), 'the phone layout');
 		await open(page);
 		await expect(divider(page)).toHaveCount(0);
 		const first = page.locator('[role="row"][data-key]').first();

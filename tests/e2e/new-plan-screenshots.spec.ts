@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Screenshots of "New plan…" (phase-3.md T4), light and dark, on the desktop (1440 x 860, device
-// scale factor 2) and the Pixel 7 emulation: the plan chooser with "New plan…" and the Samples
+// scale factor 2), the Pixel 7 and the iPhone 14 emulations: the plan chooser with "New plan…" and the Samples
 // group, the New plan sheet, and the empty state right after Create (also the phone's Plan tab); and the sheet on a 360 x 780 phone
 // (light). The chooser is a native <select>, whose popup a screenshot does not capture: for the
 // picture it is shown as a list box (`size`) under the chip, with the same options. Run with
@@ -8,16 +8,13 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
-import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
 test.describe('new plan screenshots', () => {
 	test.skip(!process.env['SCREENSHOTS'], 'set SCREENSHOTS=1 to write docs/phases/screenshots');
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14');
-	});
 
 	const chooser = (page: Page) => page.getByLabel('Sample plan');
 	const sheet = (page: Page) => page.getByRole('dialog', { name: 'New plan' });
@@ -98,7 +95,9 @@ test.describe('new plan screenshots', () => {
 			await page.getByRole('tab', { name: 'Plan', exact: true }).tap();
 			await expect(page.locator('#panel-plan').getByTestId('empty-state')).toBeVisible();
 			await page.waitForTimeout(500);
-			await page.screenshot({ path: path.join(DIR, 'new-plan-empty-plan-tab-pixel-7-light.png') });
+			await page.screenshot({
+				path: path.join(DIR, `new-plan-empty-plan-tab-${device}-light.png`),
+			});
 		}
 	}
 
@@ -111,10 +110,10 @@ test.describe('new plan screenshots', () => {
 		});
 	});
 
-	test.describe('pixel 7', () => {
+	test.describe('phones', () => {
 		test('chooser, sheet, empty state', async ({ page }, info) => {
-			test.skip(info.project.name !== 'pixel-7');
-			await run(page, 'pixel-7', isTouch(info));
+			test.skip(!isTouch(info));
+			await run(page, deviceName(info), true);
 		});
 
 		test.describe('360 x 780', () => {

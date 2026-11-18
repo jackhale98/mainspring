@@ -7,7 +7,7 @@
  * behind. What the app does with them is the same code; what is not tested there is the browser's
  * own touch-to-pointer step. Not an allowlist case (ADR-0016): the gesture is still tested.
  */
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export const isWebKit = (page: Page): boolean =>
 	page.context().browser()?.browserType().name() === 'webkit';
@@ -87,4 +87,25 @@ export async function openHistoryFromUndo(page: Page): Promise<void> {
 	await undo.focus();
 	if (isWebKit(page)) await holdFinger(page, undo);
 	else await page.keyboard.press('Shift+F10');
+}
+
+/**
+ * What the app owns of a one-finger pan, for the browsers where dispatched events cannot start one
+ * (WebKit: Playwright has no touch drag there): the effective `touch-action` at the point, on the
+ * element and its ancestors up to the chart's scroller. A value other than `auto` narrows what the
+ * browser may do with a finger below it, so every one of them must let one finger pan both ways,
+ * and the chart declares that.
+ */
+export async function expectBrowserPans(page: Page, at: { x: number; y: number }): Promise<void> {
+	const chain = await page.evaluate(({ x, y }) => {
+		const out: string[] = [];
+		for (let e = document.elementFromPoint(x, y); e; e = e.parentElement) {
+			out.push(getComputedStyle(e).touchAction);
+			if (e.classList.contains('scroller')) break;
+		}
+		return out;
+	}, at);
+	const narrowing = chain.filter((a) => a !== 'auto' && a !== 'pan-x pan-y');
+	expect(narrowing, 'nothing under the finger takes the pan from the browser').toEqual([]);
+	expect(chain, 'the chart declares one-finger panning').toContain('pan-x pan-y');
 }
