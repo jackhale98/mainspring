@@ -729,6 +729,7 @@ Every task runs in its own worktree. A task's report includes end-to-end evidenc
 | T23 | CI changes (13.3) | `test-writer`; `engine-specialist` reviews golden and fidelity | `.github/workflows/*.yml`, `scripts/js-sizes.mjs` | As suites land |
 | T24 | Gate evidence | Main session; `test-runner` runs suites | `docs/phases/phase-3-gate.md` | All |
 | T25 | Shared UI primitives with owners and contract tests: Sheet, Menu, Select, Toolbar tiers, grid focus, Popover (ADR-0016 #3) | `ui-builder`; `test-writer` for the contract specs | `src/components/ui/**`, `src/lib/ui/**`, `tests/e2e/primitives/**` | ADR-0016 #1 |
+| T26 | Keyword docs from a build-time engine asset, loaded when the editor needs it; the app no longer calls `syntax()` at run time (ADR-0017, approved 2026-11-18) | `engine-specialist` (build step, manifest, loader, wiring); `grammar-specialist` (async hover, completion, docs sheet); `test-writer` | `engine/build-bundle.mjs`, `src/engine/docs-asset.ts`, `src/lib/state/**`, `src/lib/tjp/cm/**`, `src/components/DocsSheet.svelte` | ADR-0016 #4 |
 
 ### 14.1 Waves (at most three tracks at once)
 

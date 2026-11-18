@@ -1,7 +1,7 @@
 # ADR-0017: Keyword docs from a build-time engine asset, not an eager `syntax()` request
 
-Status: Proposed, 2026-11-18. The user chose the direction (stop fetching `syntax()` eagerly) on
-2026-11-18; this ADR goes to them for approval before any code.
+Status: Accepted, 2026-11-18 (approved by the user as written; task T26 of the ADR-0016 hardening
+pass). The user chose the direction (stop fetching `syntax()` eagerly) on 2026-11-18.
 Source: the engine specialist's timings of 2026-11-18 (seconds, median of 3 fresh opens, local box at
 low load); `src/lib/state/app.svelte.ts` 247-296; ADR-0002 #3, #6, #14 and queue rule 7
 (`src/engine/queue.ts`); `docs/phases/phase-1.md` 6.3, 14.12 and the acceptance row at line 736;
@@ -212,8 +212,8 @@ them.
   priority. The loader adds well under 1 KB to the editor chunk (cap 118,000). A committed
   `.ts`/`.json` module was rejected: imported as a module, it would land in `dist/_astro` and count
   against the 650,000 total.
-- **Size is not measured yet.** Measure it before acceptance: boot with `bootNodeEngine`,
-  `JSON.stringify(engine.syntax())`, and record the raw bytes and the gzip -9 bytes here. That is
+- **Size (measured 2026-11-18, before acceptance).** `JSON.stringify(syntax())` of the pinned engine
+  booted with `bootNodeEngine`: 147,430 bytes raw, 29,579 bytes at gzip -9, 254 keywords. That is
   the mobile-data cost for a Text user.
 - **Licensing.** The text is TaskJuggler's own documentation (GPL-2.0-only), shipped beside the
   bundle that already carries it, under the same `NOTICES.txt`. The licence position does not change
