@@ -15,9 +15,6 @@ const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 
 test.describe('an edit that stops the plan scheduling', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T21); iPhone is reported');
-	});
 
 	test('keeps the last good schedule, and Undo and Redo go through it', async ({ page }, info) => {
 		const rig = await Rig.open(page, info);

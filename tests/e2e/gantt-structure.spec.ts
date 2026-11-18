@@ -18,9 +18,6 @@ type Files = { plan: string; tji: string };
 
 test.describe('adding, deleting and the included file', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T21); iPhone is reported');
-	});
 
 	const files = async (rig: Rig): Promise<Files> => ({
 		plan: await rig.text(),

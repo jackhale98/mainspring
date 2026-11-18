@@ -26,7 +26,7 @@ const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 const TAG = process.env['SHOT_TAG'] ? `-${process.env['SHOT_TAG']}` : '';
 const shot = async (page: Page, name: string, info: TestInfo): Promise<void> => {
 	if (!process.env['SCREENSHOTS']) return;
-	const device = info.project.name === 'iphone-14' ? 'iphone14' : 'pixel7';
+	const device = info.project.name.replace('-', '');
 	await page.screenshot({ path: path.join(DIR, `picker-phone-${name}-${device}${TAG}.png`) });
 };
 

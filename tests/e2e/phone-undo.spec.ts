@@ -7,6 +7,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
+import { pressMenuKey } from './lib/gantt-rig';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join('docs', 'phases', 'screenshots', 'phase-2');
@@ -236,7 +237,7 @@ test.describe('undo on a phone', () => {
 		await open(page);
 		await edit3(page);
 		await page.getByTestId('undo').focus();
-		await page.keyboard.press('Shift+F10');
+		await pressMenuKey(page);
 		const sheet = page.getByRole('dialog', { name: 'History' });
 		await expect(sheet).toBeVisible();
 		await page.keyboard.press('Escape');

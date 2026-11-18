@@ -93,9 +93,6 @@ async function settled(page: Page): Promise<void> {
 }
 
 test.describe('the inspector', () => {
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T17)');
-	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	test('opens from a row; the stepper, a rename and a gap edit the text, and undo restores it', async ({
@@ -334,9 +331,6 @@ test.describe('the inspector', () => {
 });
 
 test.describe('the details on a phone and in a narrow Split', () => {
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T17)');
-	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	test('a press after a pause is not ignored: one press, a pause, one press is +2 (M1)', async ({
@@ -488,9 +482,6 @@ test.describe('the details on a phone and in a narrow Split', () => {
 });
 
 test.describe('the inspector is accessible', () => {
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T17)');
-	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	for (const scheme of ['light', 'dark'] as const) {
@@ -528,7 +519,6 @@ test.describe('inspector screenshots', () => {
 
 	for (const scheme of ['light', 'dark'] as const) {
 		test(`inspector, project sheet and source sheet, ${scheme}`, async ({ page }, info) => {
-			test.skip(info.project.name === 'iphone-14');
 			if (!phone(info)) await page.setViewportSize({ width: 1440, height: 860 });
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page);

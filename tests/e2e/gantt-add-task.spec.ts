@@ -6,13 +6,10 @@
 // name typed is a second undo step. The control is a 44 px target on a coarse pointer and has an
 // accessible name. The screenshots are add-task-screenshots.spec.ts.
 import { expect, test, type Page } from '@playwright/test';
-import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, Rig, isTouch, pressMenuKey } from './lib/gantt-rig';
 
 test.describe('Add task (+)', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T3); iPhone is reported');
-	});
 
 	const add = (page: Page) => page.getByTestId('add-task');
 	const nameField = (page: Page) => page.getByRole('textbox', { name: 'Name', exact: true });
@@ -198,7 +195,7 @@ test.describe('Add task (+)', () => {
 test.describe('Add task (+) on the Plan tab', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name !== 'pixel-7', 'the Plan tab is the phone layout (Pixel 7)');
+		test.skip(!isTouch(info), 'the Plan tab is the phone layout');
 	});
 
 	const planAdd = (page: Page) => page.locator('#panel-plan').getByTestId('add-task');
@@ -284,7 +281,7 @@ test.describe('Add task (+) on the Plan tab', () => {
 			)
 			.toBe(true);
 		await page.getByTestId('undo').focus();
-		await page.keyboard.press('Shift+F10');
+		await pressMenuKey(page);
 		const sheet = page.getByRole('dialog', { name: 'History' });
 		await expect(sheet).toBeVisible();
 		const entries = sheet.getByTestId('history-entry');
@@ -343,7 +340,7 @@ test.describe('Add task (+) on the Plan tab', () => {
 test.describe('Add task (+) at 360 px', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name !== 'pixel-7', 'a phone width (Pixel 7)');
+		test.skip(!isTouch(info), 'a phone width');
 	});
 
 	test('every chip, the more button included, is inside the toolbar', async ({ page }, info) => {

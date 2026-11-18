@@ -10,9 +10,6 @@ import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 
 test.describe('one history for typing and visual edits', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T21); iPhone is reported');
-	});
 
 	test('type, then edit on the chart: undo twice, redo twice', async ({ page }, info) => {
 		const rig = await Rig.open(page, info, undefined, 'split');

@@ -67,6 +67,25 @@ async function select(page: Page, info: TestInfo, name: string): Promise<Locator
 
 const addWaitsFor = (panel: Locator) =>
 	panel.getByRole('button', { name: 'Add a task this one waits for' });
+/**
+ * Press Add while the picker is open. On a phone the open picker holds itself at the top of the
+ * sheet, which scrolls Add out of sight; the hold lets go when the person scrolls the sheet (a
+ * wheel, a finger dragged outside the list), so the test makes that scroll as a person does before
+ * it presses: the event the browser sends, then the scroll. Playwright's own scroll into view is
+ * not the person's, and the picker puts it back: in WebKit the press then hit the sheet's header.
+ * (Mobile WebKit has no mouse wheel and no touch drag in Playwright, so both are made in the page.)
+ */
+async function pressAddAgain(page: Page, panel: Locator): Promise<void> {
+	const add = addWaitsFor(panel);
+	if ((page.viewportSize()?.width ?? 1280) < 600) {
+		await panel.locator('.content').evaluate((el) => {
+			el.dispatchEvent(new WheelEvent('wheel', { deltaY: -4000, bubbles: true }));
+			el.querySelector('[data-depends-add="predecessor"]')?.scrollIntoView({ block: 'center' });
+		});
+		await expect(add).toBeInViewport({ ratio: 1 });
+	}
+	await add.click();
+}
 const addFollowedBy = (panel: Locator) =>
 	panel.getByRole('button', { name: 'Add a task that follows this one' });
 const searchFor = (page: Page, role: 'predecessor' | 'successor') =>
@@ -108,9 +127,6 @@ const undo = (page: Page) =>
 		: page.getByTestId('toast').last().getByRole('button', { name: 'Undo' }).click();
 
 test.describe('adding links from the details', () => {
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (polish 11)');
-	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	test('the picker is a lazy chunk: fetched when Add is first pressed, not before', async ({
@@ -130,7 +146,7 @@ test.describe('adding links from the details', () => {
 		await expectOpen(page, info, 'predecessor');
 		expect(chunks).toHaveLength(1);
 		// A second press and the other button use the chunk that is there.
-		await addWaitsFor(panel).click();
+		await pressAddAgain(page, panel);
 		await expect(page.getByTestId('depends-picker')).toHaveCount(0);
 		await addFollowedBy(panel).click();
 		await expectOpen(page, info, 'successor');
@@ -275,7 +291,7 @@ test.describe('adding links from the details', () => {
 			'Not linked',
 		);
 		// Nothing was added to undo. Escape closes it (a finger presses Add again).
-		if (phone(info)) await addWaitsFor(panel).click();
+		if (phone(info)) await pressAddAgain(page, panel);
 		else {
 			await expect(searchFor(page, 'predecessor')).toBeFocused();
 			await page.keyboard.press('Escape');
@@ -370,9 +386,6 @@ test.describe('adding links from the details', () => {
 });
 
 test.describe('the dependency picker is accessible', () => {
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (polish 11)');
-	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	for (const scheme of ['light', 'dark'] as const) {
@@ -398,7 +411,6 @@ test.describe('dependency picker screenshots', () => {
 
 	for (const scheme of ['light', 'dark'] as const) {
 		test(`the picker open and the link added, ${scheme}`, async ({ page }, info) => {
-			test.skip(info.project.name === 'iphone-14');
 			if (!phone(info)) await page.setViewportSize({ width: 1440, height: 860 });
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page);

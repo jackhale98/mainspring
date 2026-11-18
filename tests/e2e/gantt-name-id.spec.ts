@@ -10,15 +10,12 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
-import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, Rig, isTouch, pressMenuKey } from './lib/gantt-rig';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
 test.describe('the id follows the first name', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7');
-	});
 
 	const nameField = (page: Page) => page.getByRole('textbox', { name: 'Name', exact: true });
 
@@ -80,7 +77,7 @@ test.describe('the id follows the first name', () => {
 		const redo = page.getByTestId('redo');
 		if (isTouch(info)) {
 			await undo.focus();
-			await page.keyboard.press('Shift+F10');
+			await pressMenuKey(page);
 			const sheet = page.getByRole('dialog', { name: 'History' });
 			await expect(sheet).toBeVisible();
 			const entries = sheet.getByTestId('history-entry');
