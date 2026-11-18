@@ -20,6 +20,7 @@
 	import type { PaintScope } from '../../lib/calendar/paint';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
+	import { MODE_ICONS } from '../../lib/icons-calendar';
 	import Icon from '../Icon.svelte';
 	import Select from '../ui/Select.svelte';
 	import type { CalendarMode } from './calendar-state.svelte';
@@ -69,10 +70,14 @@
 	}: Props = $props();
 
 	const MODES = [
-		{ id: 'select' as const, label: C.modes.select, icon: 'pointer' as const },
-		{ id: 'paint' as const, label: C.modes.paint, icon: 'brush' as const },
-		{ id: 'erase' as const, label: C.modes.erase, icon: 'eraser' as const },
+		{ id: 'select' as const, label: C.modes.select, icon: MODE_ICONS.pointer },
+		{ id: 'paint' as const, label: C.modes.paint, icon: MODE_ICONS.brush },
+		{ id: 'erase' as const, label: C.modes.erase, icon: MODE_ICONS.eraser },
 	];
+	// WebKit drops `:focus-visible` when an arrow key moves the focus inside a radio group (Tab into it
+	// shows the ring, the first arrow loses it; the same before the compact bar). So the group says
+	// itself that the last input was the keyboard: set by a key, cleared by a press or by leaving.
+	let keyboard = $state(false);
 	const types = $derived(typesFor(scope.kind === 'global'));
 	const scopeValue = $derived(scope.kind === 'global' ? '' : scope.resource);
 
@@ -138,7 +143,20 @@
 			{/each}
 		</Select>
 	</label>
-	<div class="modes" role="radiogroup" aria-label={C.mode} data-narrow="own">
+	<!-- Only notes the keyboard; the radios are the controls and have the tab stops. -->
+	<!-- svelte-ignore a11y_interactive_supports_focus, a11y_no_noninteractive_element_interactions -->
+	<div
+		class="modes"
+		class:keyboard
+		role="radiogroup"
+		aria-label={C.mode}
+		data-narrow="own"
+		onkeydown={() => (keyboard = true)}
+		onpointerdown={() => (keyboard = false)}
+		onfocusout={(e) => {
+			if (!e.currentTarget.contains(e.relatedTarget as Node | null)) keyboard = false;
+		}}
+	>
 		{#each MODES as m (m.id)}
 			<label class:on={mode === m.id} data-narrow="icon-phone">
 				<input
@@ -150,7 +168,7 @@
 					onchange={() => onmode(m.id)}
 					data-testid="cal-mode-{m.id}"
 				/>
-				<span class="ico-stand"><Icon name={m.icon} size={18} /></span>
+				<span class="ico-stand"><Icon paths={m.icon} size={18} /></span>
 				<span class="lbl">{m.label}</span>
 			</label>
 		{/each}
@@ -287,7 +305,8 @@
 		color: var(--color-pill-on-ink);
 		font-weight: 600;
 	}
-	.modes label:has(input:focus-visible) {
+	.modes label:has(input:focus-visible),
+	.modes.keyboard label:has(input:focus) {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}
@@ -318,6 +337,7 @@
 	}
 	/* A pane narrower than 600 px on a wide screen (Split mode beside the editor): three rows, the
 	   months and Today, the mode, then whose and what. A phone's two rows are the block below. */
+	/* 599 px is TIERS.phone (lib/ui/toolbar-tiers.ts), here as a container width. */
 	@container calendar (max-width: 599px) {
 		.bar {
 			gap: var(--space-2);
@@ -371,6 +391,7 @@
 	   the short title come from toolbar.css (data-narrow="icon-phone", .ico-stand, .lbl-short). This
 	   follows the container block above, which still serves a narrow pane on a wide screen.
 	*/
+	/* 599 px is TIERS.phone (lib/ui/toolbar-tiers.ts): a media query cannot read a variable. */
 	@media (max-width: 599px) {
 		.bar {
 			column-gap: var(--space-2);
@@ -389,7 +410,7 @@
 			display: inline-flex;
 			flex: none;
 			gap: 0;
-			padding: 1px;
+			padding: 2px;
 		}
 		.bar .modes label {
 			flex: none;

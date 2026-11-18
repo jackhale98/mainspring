@@ -121,13 +121,33 @@ Pixel 7 and iPhone 14, and are in the CI shards (`scripts/ci/shard-plan.mjs` wal
 holds for the Gantt's chips and for the Workload and Lanes bar. The Calendar's bar has five groups
 (months, Today, person, mode, type) that cannot share 360 px. After the compact pass (user,
 2026-11-18, "Make the controls more compact") it is two rows on a phone (up to 599 px; it was three),
-two rows from 600 to about 1000 px (three at exactly 600 px in a narrow pane on a wide screen, the
-Split layout, which is unchanged), and one row from 1024 px. Row one is the months (previous, "Nov
+two rows from about 615 to 1000 px, and one row from 1024 px. Row one is the months (previous, "Nov
 2026", next) and the mode as three icons (Select, Paint, Erase); row two is Today as an icon, the
 person and the leave type. They use the toolbar's narrow forms (`icon-phone`, plus the `.ico-stand`
-and `.lbl-short` hooks added to `toolbar.css`). Measured at 105 px high (it was 175): the month shows
+and `.lbl-short` hooks added to `toolbar.css`). Measured at 107 px high (it was 175): the month shows
 five full weeks at 390x664 (iPhone 14; four before) and at 360x640 (three before).
 `toolbar.spec.ts` allows exactly that (`calendarRows`) and still fails on any clipped control.
+
+**Three rows still happen** where the Calendar's own width is under 600 px but the viewport is not a
+phone: at every viewport from 600 to about 615 px (in Visual mode at 600 px the Calendar is 584 px
+wide and its bar is 133 px high), and in a Split pane dragged under 600 px. That is the bar from
+before the compact pass, left as it was (the compact form is keyed to the viewport, `icon-phone`;
+tablet and desktop layouts were to stay as they are). The spec allows three rows only at its 600 px
+step. **Follow-up for the user:** a compact Calendar bar in a narrow container, and on 600 dp
+tablets (a container-keyed `icon` form for the mode switch and Today, so that the two-row bar also
+serves 600 to 615 px and a narrow Split pane).
+
+**First-load JS (gzip, `js-sizes.mjs --serve`), before and after the compact Calendar bar.** The three
+mode icons live in the lazy `src/lib/icons-calendar.ts` (passed to `Icon` as `paths`), so the first
+load does not carry them. Measured on the merged tree, with and without the change:
+
+| First load   | Before  | After   | Delta | Cap     | Headroom |
+| ------------ | ------- | ------- | ----- | ------- | -------- |
+| Visual-first | 327,837 | 327,865 | +28   | 330,000 | 2.1 KB   |
+| Text-first   | 439,192 | 439,222 | +30   | 440,000 | 0.8 KB   |
+
+The `calendar` chunk is 13,069 before and 13,089 after (cap 16,400). With the icons in `icons.ts` the
+delta had been +239 and +246 bytes.
 
 **First-load JS (gzip, `js-sizes.mjs --serve`), before and after T25.** Both stay under their caps.
 

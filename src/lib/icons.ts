@@ -104,17 +104,6 @@ export const ICONS = {
 	/** The Gantt's filter (a funnel). */
 	filter: ['M22 3H2l8 9.46V19l4 2v-8.54Z'],
 	more: [circle(12, 12, 1), circle(19, 12, 1), circle(5, 12, 1)],
-	/** The Calendar's modes: Select (a pointer), Paint (a brush), Erase (an eraser). */
-	pointer: ['m4 4 7.07 17 2.51-7.39L21 11.07z'],
-	brush: [
-		'm9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08',
-		'M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z',
-	],
-	eraser: [
-		'm7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21',
-		'M22 21H7',
-		'm5 11 9 9',
-	],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

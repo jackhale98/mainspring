@@ -32,7 +32,7 @@ export function monthTitleShort(year: number, month: number, locale?: string): s
 	return format(locale, { month: 'short', year: 'numeric' }, civil(year, month, 1));
 }
 
-/** A weekday header: "Mon"(`long` for the accessible name: "Monday"). */
+/** A weekday header: "Mon" (`long` for the accessible name: "Monday"). */
 export function weekdayName(weekday: number, long = false, locale?: string): string {
 	// 2023-01-01 was a Sunday.
 	return format(locale, { weekday: long ? 'long' : 'short' }, civil(2023, 1, 1 + weekday));

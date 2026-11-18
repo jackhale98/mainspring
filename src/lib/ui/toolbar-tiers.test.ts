@@ -35,9 +35,11 @@ describe('toolbar.css stand-ins for a label', () => {
 	it('draws a stand-in icon and a short label only where the tiers say', () => {
 		// Hidden by default, shown at the narrow tier (`icon`) and on a phone (`icon`, `icon-phone`).
 		expect(css).toMatch(/\[data-narrow\] \.ico-stand\s*\{\s*display: none/);
-		expect(css).toMatch(/\.lbl-short\s*\{\s*display: none/);
+		expect(css).toMatch(/\[data-narrow\]\[data-narrow\] \.lbl-short\s*\{\s*display: none/);
 		expect(css).toMatch(/\[data-narrow='icon-phone'\]\[data-narrow\]\[data-narrow\] \.ico-stand/);
-		expect(css).toMatch(/\.lbl-long\s*\{\s*display: none/);
+		expect(css).toMatch(/(\[data-narrow\])+ \.lbl-long\s*\{\s*display: none/);
+		// No bare class: a component's own rule (0,2,0) must not beat these.
+		expect(css).not.toMatch(/^\s*\.lbl-(long|short)/m);
 	});
 });
 

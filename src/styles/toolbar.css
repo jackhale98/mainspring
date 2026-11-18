@@ -71,18 +71,20 @@
 
 /*
  * Stand-ins for a label (the Calendar's compact bar, 2026-11-18). Two hooks that need no form of
- * their own:
+ * their own; both are documented beside NARROW_FORMS in lib/ui/toolbar-tiers.ts:
  * - `.ico-stand`: an icon drawn only where the control's label (`.lbl`) is hidden, for a control that
  *   has no icon at a wide width (the Calendar's mode switch: Select, Paint, Erase). It follows the
  *   same tiers as the form around it: `icon` at the narrow tier and on a phone, `icon-phone` on a
  *   phone.
  * - `.lbl-long` and `.lbl-short`: a label with a shorter spelling ("November 2026", "Nov 2026"); the
- *   short one is drawn on a phone.
+ *   short one is drawn on a phone. They sit inside a control or group that declares a narrow form
+ *   (the Calendar's title is in its `fixed` months group), and are written like the rules above so
+ *   that a component's own class rule cannot beat them.
  */
 [data-narrow] .ico-stand {
 	display: none;
 }
-.lbl-short {
+[data-narrow][data-narrow] .lbl-short {
 	display: none;
 }
 @container (max-width: 899px) {
@@ -95,10 +97,10 @@
 	[data-narrow='icon-phone'][data-narrow][data-narrow] .ico-stand {
 		display: inline-flex;
 	}
-	.lbl-long {
+	[data-narrow][data-narrow][data-narrow] .lbl-long {
 		display: none;
 	}
-	.lbl-short {
+	[data-narrow][data-narrow][data-narrow] .lbl-short {
 		display: inline;
 	}
 }
