@@ -89,11 +89,11 @@ test.describe('gantt critical path', () => {
 		await expect(chip(page)).toHaveAttribute('aria-pressed', 'true');
 	});
 
-	test('says so when the whole path ends before the status date (Fedora, no `now`)', async ({
+	test('says so when the whole path ends before the status date (ui-multifile, no `now`)', async ({
 		page,
 	}) => {
-		// Fedora 20 sets no `now`, so the status date is today's clock, after its 2014 finish.
-		await open(page, 'upstream-fedora-20', 'visual');
+		// ui-multifile sets no `now`, so the status date is today's clock, after its mid-2026 finish.
+		await open(page, 'ui-multifile', 'visual');
 		const note = page
 			.getByRole('status')
 			.filter({ hasText: 'Every task on the critical path ends before the status date' });
