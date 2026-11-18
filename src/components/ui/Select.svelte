@@ -80,7 +80,6 @@
 <style>
 	.select {
 		position: relative;
-		display: block;
 		min-inline-size: 0;
 	}
 	select {
@@ -110,10 +109,10 @@
 		pointer-events: none;
 	}
 	/* A full-width field. */
-	[data-variant='field'] {
+	.select[data-variant='field'] {
 		inline-size: 100%;
 	}
-	[data-variant='field'] select {
+	:where([data-variant='field']) select {
 		inline-size: 100%;
 		min-block-size: var(--size-control);
 		padding-block: 0;
@@ -123,22 +122,22 @@
 		background-color: var(--color-surface);
 		font-size: var(--text-md);
 	}
-	[data-variant='field'][data-size='sm'] select {
+	:where([data-variant='field'][data-size='sm']) select {
 		padding-inline-start: var(--space-2);
 		font-size: var(--text-sm);
 	}
-	[data-variant='field'] select[aria-invalid='true'] {
+	:where([data-variant='field']) select[aria-invalid='true'] {
 		border-color: var(--color-ruby);
 	}
-	[data-variant='field'] select:disabled {
+	:where([data-variant='field']) select:disabled {
 		background-color: var(--color-surface-sunken);
 		color: var(--color-text-muted);
 	}
 	/* A pill on its own. */
-	[data-variant='pill'] {
+	.select[data-variant='pill'] {
 		display: inline-block;
 	}
-	[data-variant='pill'] select {
+	:where([data-variant='pill']) select {
 		max-inline-size: 12rem;
 		min-block-size: 32px;
 		padding-block: 0;
@@ -148,36 +147,37 @@
 		background-color: var(--color-surface);
 		font-size: var(--text-xs);
 	}
-	[data-variant='pill'] select:hover:not(:disabled) {
+	:where([data-variant='pill']) select:hover:not(:disabled) {
 		background-color: var(--color-row-hover);
 	}
-	[data-variant='pill'] .caret {
+	:where([data-variant='pill']) .caret {
 		--select-caret-end: 0.8rem;
 		inline-size: 0.35rem;
 		block-size: 0.35rem;
 	}
 	/* Inside a chip of the owner's: the chip is the box, this is its text and arrow. The wrapper
 	   takes no box, so that the select is a child of the chip's flex row. */
-	[data-variant='inline'] {
+	.select[data-variant='inline'] {
 		display: contents;
 	}
-	[data-variant='inline'] select,
-	[data-variant='inline'] select:focus-visible {
+	:where([data-variant='inline']) select {
 		padding: 0;
 		border: 0;
 		background: transparent;
 		color: inherit;
+	}
+	[data-variant='inline'] select:focus-visible {
 		outline: none;
 	}
-	[data-variant='inline'] .caret {
+	:where([data-variant='inline']) .caret {
 		inset-inline-end: var(--select-caret-end, 10px);
 		color: var(--color-gantt-text-muted);
 	}
 	/* The native control, invisible, over its parent. */
-	[data-variant='overlay'] {
+	.select[data-variant='overlay'] {
 		display: contents;
 	}
-	[data-variant='overlay'] select {
+	:where([data-variant='overlay']) select {
 		position: absolute;
 		inset: 0;
 		inline-size: 100%;
@@ -200,7 +200,7 @@
 		select {
 			font-size: max(16px, 1rem);
 		}
-		[data-variant='pill'] select {
+		:where([data-variant='pill']) select {
 			min-block-size: var(--size-tap);
 		}
 	}
