@@ -8,6 +8,7 @@
  * input it performs.
  */
 import { expect, type CDPSession, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { animationsDone, frames, settledValue } from './settle';
 
 export const READY_TIMEOUT_MS = 120_000;
 
@@ -93,7 +94,18 @@ export class Rig {
 	async zoom(level: 'day' | 'week' | 'month' | 'quarter'): Promise<void> {
 		await this.page.getByLabel('Zoom').selectOption(level);
 		await expect(this.page.getByTestId('gantt')).toHaveAttribute('data-zoom', level);
-		await this.page.waitForTimeout(400);
+		await this.layoutSettled();
+	}
+
+	/**
+	 * The chart holds still: where a minute and the scroll position are on the screen is the same for
+	 * a few frames (a zoom, a reveal, a sheet that moves the chart, first paint and fonts).
+	 */
+	async layoutSettled(): Promise<void> {
+		await settledValue(this.page, () => {
+			const g = (window as unknown as Win).__mainspringGantt;
+			return [g.x(0), g.x(1440), JSON.stringify(g.scroller())].join('|');
+		});
 	}
 
 	text(path?: string): Promise<string> {
@@ -112,7 +124,7 @@ export class Rig {
 	/** Scrolls a task into view and says where its bar and handles are. */
 	async bar(task: string): Promise<BarPoints> {
 		await this.page.evaluate((t) => (window as unknown as Win).__mainspringGantt.reveal(t), task);
-		await this.page.waitForTimeout(250);
+		await this.layoutSettled();
 		return this.peek(task);
 	}
 
@@ -280,7 +292,9 @@ export class Rig {
 	async tap(p: Point): Promise<void> {
 		if (this.touch) await this.page.touchscreen.tap(p.x, p.y);
 		else await this.page.mouse.click(p.x, p.y);
-		await this.page.waitForTimeout(150);
+		// What the tap started (a selection, a sheet that slides, a repaint) is drawn.
+		await frames(this.page, 3);
+		await animationsDone(this.page, 0);
 	}
 
 	/**
@@ -306,6 +320,7 @@ export class Rig {
 			let at = from;
 			for (const next of path) {
 				for (let i = 1; i <= steps; i++) {
+					// The finger's speed is the test's input (the long-press and fling logic read the clock).
 					if (o.stepMs) await this.page.waitForTimeout(o.stepMs);
 					await move({
 						x: at.x + ((next.x - at.x) * i) / steps,
@@ -317,16 +332,17 @@ export class Rig {
 		};
 		if (this.touch) {
 			await this.#touch('touchStart', from);
-			await this.page.waitForTimeout(o.hold ?? 0);
+			// A long-press is a time on the clock: the app's timer is the only state, and it shows nothing.
+			if (o.hold) await this.page.waitForTimeout(o.hold);
 			await walk((p) => this.#touch('touchMove', p));
-			await this.page.waitForTimeout(120);
+			await frames(this.page, 3);
 			await o.pause?.();
 			await this.#touch('touchEnd');
 		} else {
 			await this.page.mouse.move(from.x, from.y);
 			await this.page.mouse.down();
 			await walk(async (p) => void (await this.page.mouse.move(p.x, p.y)));
-			await this.page.waitForTimeout(120);
+			await frames(this.page, 3);
 			await o.pause?.();
 			await this.page.mouse.up();
 		}
@@ -363,8 +379,7 @@ export class Rig {
 		const b = await this.bar(task);
 		await this.tap(b.body);
 		await expect(this.row(key)).toHaveAttribute('aria-selected', 'true');
-		// Re-read the bar: selecting shows its handles.
-		await this.page.waitForTimeout(400);
+		// Re-read the bar: selecting shows its handles (`bar` waits for the chart to hold still).
 		return this.bar(task);
 	}
 
@@ -377,8 +392,8 @@ export class Rig {
 		if (!this.touch) return b;
 		await this.tap(b.body);
 		await expect(this.page.getByRole('dialog', { name: /Task details/ })).toBeVisible();
-		// The sheet moves the chart (the selected row is scrolled above it).
-		await this.page.waitForTimeout(400);
+		// The sheet moves the chart (the selected row is scrolled above it): `bar` waits for it to hold still.
+		await animationsDone(this.page, 0);
 		return this.bar(task);
 	}
 
