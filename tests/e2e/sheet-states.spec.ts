@@ -14,6 +14,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import {
+	SPEEDS,
 	settleMs,
 	nonDecreasing,
 	ready,
@@ -56,103 +57,113 @@ async function openDetails(page: Page): Promise<Locator> {
 	return panel;
 }
 
-test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async ({
-	page,
-	browserName,
-}, info) => {
-	await page.emulateMedia({ colorScheme: 'dark' });
-	const panel = await openDetails(page);
-	const grab = panel.getByRole('button', { name: /Details height/ });
-	await slowSheets(page, browserName);
-	await grab.click();
-	// The grow has to be over (and the slow glide needs its late first frame) before the shrink is recorded.
-	await page.waitForTimeout(settleMs(browserName));
-	// Full to half: the top edge comes down; the bottom edge may go below its place, never above it.
-	await record(page, SHEET);
-	await grab.click();
-	await page.waitForTimeout(80);
-	await shot(page, 'details-shrinking', info);
-	await page.waitForTimeout(settleMs(browserName));
-	const tops = await stopRecording(page);
-	const { bottoms } = await recorded(page);
-	const rest = bottoms.at(-1) ?? 0;
-	expect(
-		Math.min(...bottoms),
-		'the bottom edge never rises off the tab bar',
-	).toBeGreaterThanOrEqual(rest - 1);
-	expect(nonDecreasing(tops), 'the top edge only comes down').toBe(true);
-	const bar = await page.locator('.tabbar').boundingBox();
-	expect(rest, 'it ends above the tab bar').toBeLessThanOrEqual((bar?.y ?? 9999) + 1);
+for (const { full, suffix, tag } of SPEEDS)
+	test(
+		`a sheet that shrinks keeps its bottom edge: no gap opens under it${suffix}`,
+		{ tag: [...tag] },
+		async ({ page, browserName }, info) => {
+			test.skip(
+				full && browserName !== 'chromium',
+				'the full-speed copy is a Chromium timing check',
+			);
+			await page.emulateMedia({ colorScheme: 'dark' });
+			const panel = await openDetails(page);
+			const grab = panel.getByRole('button', { name: /Details height/ });
+			await slowSheets(page, full);
+			await grab.click();
+			// The grow has to be over (and the slow glide needs its late first frame) before the shrink is recorded.
+			await page.waitForTimeout(settleMs(full));
+			// Full to half: the top edge comes down; the bottom edge may go below its place, never above it.
+			await record(page, SHEET);
+			await grab.click();
+			await page.waitForTimeout(80);
+			await shot(page, 'details-shrinking', info);
+			await page.waitForTimeout(settleMs(full));
+			const tops = await stopRecording(page);
+			const { bottoms } = await recorded(page);
+			const rest = bottoms.at(-1) ?? 0;
+			expect(
+				Math.min(...bottoms),
+				'the bottom edge never rises off the tab bar',
+			).toBeGreaterThanOrEqual(rest - 1);
+			expect(nonDecreasing(tops), 'the top edge only comes down').toBe(true);
+			const bar = await page.locator('.tabbar').boundingBox();
+			expect(rest, 'it ends above the tab bar').toBeLessThanOrEqual((bar?.y ?? 9999) + 1);
 
-	// The same for a drag from full height, let go lower down: it settles at half and the top edge
-	// comes down from where the finger left it.
-	await grab.click();
-	await page.waitForTimeout(settleMs(browserName));
-	const g = await grab.boundingBox();
-	if (!g) throw new Error('no grabber');
-	const x = g.x + g.width / 2;
-	const y = g.y + g.height / 2;
-	await page.mouse.move(x, y);
-	await page.mouse.down();
-	for (let i = 1; i <= 6; i++) await page.mouse.move(x, y + 12 * i);
-	await record(page, SHEET);
-	await page.mouse.up();
-	await page.waitForTimeout(settleMs(browserName));
-	await stopRecording(page);
-	const dragged = (await recorded(page)).bottoms;
-	const settled = dragged.at(-1) ?? 0;
-	expect(Math.min(...dragged), 'a drag let go leaves no gap either').toBeGreaterThanOrEqual(
-		settled - 1,
+			// The same for a drag from full height, let go lower down: it settles at half and the top edge
+			// comes down from where the finger left it.
+			await grab.click();
+			await page.waitForTimeout(settleMs(full));
+			const g = await grab.boundingBox();
+			if (!g) throw new Error('no grabber');
+			const x = g.x + g.width / 2;
+			const y = g.y + g.height / 2;
+			await page.mouse.move(x, y);
+			await page.mouse.down();
+			for (let i = 1; i <= 6; i++) await page.mouse.move(x, y + 12 * i);
+			await record(page, SHEET);
+			await page.mouse.up();
+			await page.waitForTimeout(settleMs(full));
+			await stopRecording(page);
+			const dragged = (await recorded(page)).bottoms;
+			const settled = dragged.at(-1) ?? 0;
+			expect(Math.min(...dragged), 'a drag let go leaves no gap either').toBeGreaterThanOrEqual(
+				settled - 1,
+			);
+		},
 	);
-});
 
-test('closing while it slides in goes on from where it is', async ({ page, browserName }) => {
-	// Catching the slide 70 ms in needs a frame-accurate loop; headless WebKit on CI paints too few
-	// frames for it, and the page-side wait never sees the moment. Chromium covers the logic.
-	test.skip(browserName === 'webkit', 'frame-accurate timing');
-	const panel = await openDetails(page);
-	await panel.getByRole('button', { name: 'Close' }).click();
-	await expect(panel).toBeHidden();
-	let midSlide = false;
-	for (let attempt = 0; attempt < 4 && !midSlide; attempt++) {
-		await record(page, SHEET);
-		await rowOf(page).click();
-		// 70 ms into the slide in, close it, in the page (a click from here would wait for it to stop).
-		await page.evaluate(
-			() =>
-				new Promise<void>((done) => {
-					const look = (): void => {
-						const el = document.querySelector<HTMLDialogElement>(
-							'dialog.sheet[data-modal="false"]',
-						);
-						const a = el?.getAnimations()[0];
-						if (el?.open && a && Number(a.currentTime) > 70) {
-							el.querySelector<HTMLButtonElement>('button.close')?.click();
-							done();
-						} else requestAnimationFrame(look);
-					};
-					look();
-				}),
-		);
-		await page.waitForTimeout(500);
-		const tops = await stopRecording(page);
-		const seen = await recorded(page);
-		const at = seen.closeAt;
-		const rest = Math.min(...tops);
-		// Was it really mid slide? (Under load the 70 ms can be late: try again.)
-		midSlide = at > 0 && (tops[at - 1] ?? 0) > rest + 30 && (tops[at - 1] ?? 0) < rest + 400;
-		if (!midSlide) {
-			await expect(panel).toBeHidden();
-			continue;
-		}
-		const before = tops[at - 1] ?? 0;
-		// From the frame it began to go, the edge only goes down from where it was.
-		expect(Math.min(...tops.slice(at)), 'no jump up to rest').toBeGreaterThanOrEqual(before - 3);
-		expect(nonDecreasing(tops.slice(at))).toBe(true);
+test(
+	'closing while it slides in goes on from where it is',
+	{ tag: '@timing' },
+	async ({ page, browserName }) => {
+		// Catching the slide 70 ms in needs a frame-accurate loop; headless WebKit on CI paints too few
+		// frames for it, and the page-side wait never sees the moment. Chromium covers the logic.
+		test.skip(browserName === 'webkit', 'frame-accurate timing');
+		const panel = await openDetails(page);
+		await panel.getByRole('button', { name: 'Close' }).click();
 		await expect(panel).toBeHidden();
-	}
-	expect(midSlide, 'the close landed in the slide in at least once').toBe(true);
-});
+		let midSlide = false;
+		for (let attempt = 0; attempt < 4 && !midSlide; attempt++) {
+			await record(page, SHEET);
+			await rowOf(page).click();
+			// 70 ms into the slide in, close it, in the page (a click from here would wait for it to stop).
+			await page.evaluate(
+				() =>
+					new Promise<void>((done) => {
+						const look = (): void => {
+							const el = document.querySelector<HTMLDialogElement>(
+								'dialog.sheet[data-modal="false"]',
+							);
+							const a = el?.getAnimations()[0];
+							if (el?.open && a && Number(a.currentTime) > 70) {
+								el.querySelector<HTMLButtonElement>('button.close')?.click();
+								done();
+							} else requestAnimationFrame(look);
+						};
+						look();
+					}),
+			);
+			await page.waitForTimeout(500);
+			const tops = await stopRecording(page);
+			const seen = await recorded(page);
+			const at = seen.closeAt;
+			const rest = Math.min(...tops);
+			// Was it really mid slide? (Under load the 70 ms can be late: try again.)
+			midSlide = at > 0 && (tops[at - 1] ?? 0) > rest + 30 && (tops[at - 1] ?? 0) < rest + 400;
+			if (!midSlide) {
+				await expect(panel).toBeHidden();
+				continue;
+			}
+			const before = tops[at - 1] ?? 0;
+			// From the frame it began to go, the edge only goes down from where it was.
+			expect(Math.min(...tops.slice(at)), 'no jump up to rest').toBeGreaterThanOrEqual(before - 3);
+			expect(nonDecreasing(tops.slice(at))).toBe(true);
+			await expect(panel).toBeHidden();
+		}
+		expect(midSlide, 'the close landed in the slide in at least once').toBe(true);
+	},
+);
 
 test('a tap that opens it again during its slide away is not lost', async ({ page }) => {
 	const panel = await openDetails(page);

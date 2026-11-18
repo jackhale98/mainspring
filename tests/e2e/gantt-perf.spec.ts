@@ -335,7 +335,7 @@ async function selectBar(rig: Rig) {
 	}
 }
 
-test.describe('gantt perf (gantt-500)', () => {
+test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 	test.setTimeout(READY_TIMEOUT_MS * (process.env['PERF_MAX_LOAD'] ? 20 : 10));
 	test.beforeEach(({ browserName: _b }, info) => {
 		test.skip(info.project.name === 'iphone-14', 'Chromium measures (phase-2.md 8.4)');
