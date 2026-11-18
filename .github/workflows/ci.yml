@@ -216,14 +216,15 @@ jobs:
           - { project: pixel-7, shard: 4/6, browsers: chromium }
           - { project: pixel-7, shard: 5/6, browsers: chromium }
           - { project: pixel-7, shard: 6/6, browsers: chromium }
-          - { project: iphone-14, shard: 1/8, browsers: webkit }
-          - { project: iphone-14, shard: 2/8, browsers: webkit }
-          - { project: iphone-14, shard: 3/8, browsers: webkit }
-          - { project: iphone-14, shard: 4/8, browsers: webkit }
-          - { project: iphone-14, shard: 5/8, browsers: webkit }
-          - { project: iphone-14, shard: 6/8, browsers: webkit }
-          - { project: iphone-14, shard: 7/8, browsers: webkit }
-          - { project: iphone-14, shard: 8/8, browsers: webkit }
+          - { project: iphone-14, shard: 1/9, browsers: webkit }
+          - { project: iphone-14, shard: 2/9, browsers: webkit }
+          - { project: iphone-14, shard: 3/9, browsers: webkit }
+          - { project: iphone-14, shard: 4/9, browsers: webkit }
+          - { project: iphone-14, shard: 5/9, browsers: webkit }
+          - { project: iphone-14, shard: 6/9, browsers: webkit }
+          - { project: iphone-14, shard: 7/9, browsers: webkit }
+          - { project: iphone-14, shard: 8/9, browsers: webkit }
+          - { project: iphone-14, shard: 9/9, browsers: webkit }
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

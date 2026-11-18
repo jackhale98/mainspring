@@ -375,21 +375,32 @@ test.describe('frozen header and name column', () => {
 			page.evaluate(async () => {
 				const scroller = document.querySelector<HTMLElement>('[data-testid="gantt"] .scroller');
 				if (!scroller) throw new Error('no chart');
-				const max = scroller.scrollWidth - scroller.clientWidth;
-				const step = Math.max(40, max / 240);
-				const go = (to: number): Promise<void> =>
+				// The end is read every frame (the chart's width can change under a scroll), and a
+				// step that no longer moves the scroller ends the pan, so the loop always ends; a pan
+				// that stopped short fails assertLongPan's far-right check, not the test timeout.
+				const end = (): number => scroller.scrollWidth - scroller.clientWidth;
+				// Sixty steps each way: a WebKit frame of gantt-500 under the sampler is slow (about 200 ms on
+				// a loaded box), and the invariants do not depend on the step size.
+				const step = Math.max(40, end() / 60);
+				const go = (far: boolean): Promise<void> =>
 					new Promise((done) => {
+						let stuck = 0;
+						let frames = 0;
 						const tick = (): void => {
-							const d = to - scroller.scrollLeft;
-							if (Math.abs(d) < 1) return done();
-							scroller.scrollLeft += Math.sign(d) * Math.min(Math.abs(d), step);
-							requestAnimationFrame(tick);
+							const at = scroller.scrollLeft;
+							const d = (far ? end() : 0) - at;
+							if (Math.abs(d) < 1 || stuck > 5 || frames++ > 3000) return done();
+							scroller.scrollLeft = at + Math.sign(d) * Math.min(Math.abs(d), step);
+							requestAnimationFrame(() => {
+								stuck = Math.abs(scroller.scrollLeft - at) < 0.5 ? stuck + 1 : 0;
+								tick();
+							});
 						};
 						tick();
 					});
-				await go(max);
+				await go(true);
 				await new Promise((r) => setTimeout(r, 500));
-				await go(0);
+				await go(false);
 			});
 		const cdp = webkit ? null : await page.context().newCDPSession(page);
 		const drag = async (x0: number, x1: number, y: number): Promise<void> => {
