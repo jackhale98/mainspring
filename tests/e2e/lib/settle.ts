@@ -53,7 +53,8 @@ export async function settledValue<T>(page: Page, read: () => T, n = 4): Promise
 			}),
 		{ src: read.toString(), count: n, cap: CAP_MS },
 	);
-	if (!r.ok) throw new Error(`the value never held still for ${n} frames: ${JSON.stringify(r.value)}`);
+	if (!r.ok)
+		throw new Error(`the value never held still for ${n} frames: ${JSON.stringify(r.value)}`);
 	return r.value as T;
 }
 
@@ -71,9 +72,7 @@ export async function boxStable(target: Locator, n = 4): Promise<void> {
 				let same = 0;
 				const tick = (): void => {
 					const r = el.isConnected ? el.getBoundingClientRect() : null;
-					const key = r
-						? [r.x, r.y, r.width, r.height].map((v) => v.toFixed(1)).join(',')
-						: 'gone';
+					const key = r ? [r.x, r.y, r.width, r.height].map((v) => v.toFixed(1)).join(',') : 'gone';
 					same = key === last ? same + 1 : 0;
 					last = key;
 					if (same >= count) resolve(true);
@@ -138,6 +137,37 @@ export async function appSettled(page: Page): Promise<void> {
 	await page.evaluate(() => document.fonts.ready.then(() => undefined));
 	await animationsDone(page, 3);
 }
+
+/**
+ * The Gantt and its table hold still: the table pane's and the chart's boxes, both scroll positions
+ * and the table divider's value are the same for `n` frames. A divider drag or key, a scroll, a
+ * font-size or window change, a reload that restores a width: wait for the layout that follows.
+ * Needs no hook, so it works on every `/app` page that shows the Gantt.
+ */
+export const ganttSettled = (page: Page, n = 4): Promise<string> =>
+	settledValue(
+		page,
+		() => {
+			const q = (s: string): Element | null => document.querySelector(s);
+			const box = (e: Element | null): string => {
+				if (!e) return '-';
+				const b = e.getBoundingClientRect();
+				return [b.x, b.y, b.width, b.height].map((v) => v.toFixed(1)).join(',');
+			};
+			const scroller = q('[data-testid="gantt"] .scroller');
+			const body = q('[data-testid="gantt-treegrid"] .body-scroll');
+			return [
+				box(q('[data-testid="gantt"] .names')),
+				box(q('[data-testid="gantt-overlay"]')),
+				scroller?.scrollLeft,
+				scroller?.scrollTop,
+				body?.scrollLeft,
+				body?.scrollTop,
+				q('[role="separator"][aria-valuenow]')?.getAttribute('aria-valuenow'),
+			].join('|');
+		},
+		n,
+	);
 
 /**
  * Positive sync point for a "nothing happens" check: the engine is idle, then `n` frames are drawn

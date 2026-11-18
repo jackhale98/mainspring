@@ -8,6 +8,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { expectBrowserPans } from './lib/finger';
+import { frames, panelSettled, quietAfter } from './lib/settle';
 import { READY_TIMEOUT_MS, Rig, deviceName, isTouch, minute } from './lib/gantt-rig';
 
 const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -26,10 +27,11 @@ test.describe('the edges of the gestures', () => {
 		await rig.drag(b.endEdge, to, {
 			pause: async () => {
 				await page.keyboard.press('Escape');
-				await page.waitForTimeout(150);
+				await frames(page, 3);
 			},
 		});
-		await page.waitForTimeout(800);
+		// "Nothing happens": the engine is idle and frames were drawn after the drop; then the text is checked.
+		await quietAfter(page);
 		expect(await rig.text()).toBe(before);
 		await expect(rig.toast).toHaveCount(0);
 	});
@@ -62,10 +64,11 @@ test.describe('the edges of the gestures', () => {
 			]);
 		}
 		await rig.touches('touchEnd', []);
-		await page.waitForTimeout(1500);
+		// The pinch zooms the chart: that is the positive sync point, then nothing else may have happened.
+		await expect.poll(perDay).toBeGreaterThan(zoom0);
+		await quietAfter(page);
 		expect(await rig.text()).toBe(before);
 		await expect(rig.toast).toHaveCount(0);
-		expect(await perDay()).toBeGreaterThan(zoom0);
 	});
 
 	test('touch rules: a swipe or a quick move pans; a hold of 350 ms then a drag lifts', async ({
@@ -81,12 +84,15 @@ test.describe('the edges of the gestures', () => {
 		): Promise<void> => {
 			await rig.touches('touchStart', [b]);
 			if (o.first) await rig.touches('touchMove', [{ x: b.x + o.first, y: b.y }]);
-			await page.waitForTimeout(o.hold);
+			// The hold is the input: the long-press timer (350 ms) is on the page's clock and shows
+			// nothing until it fires, so these 0, 250 and 450 ms are how long the finger rests.
+			if (o.hold) await page.waitForTimeout(o.hold);
 			for (let i = 1; i <= o.steps; i++) {
 				await rig.touches('touchMove', [{ x: b.x + (o.first ?? 0) - i * 12, y: b.y }]);
 			}
 			await rig.touches('touchEnd', []);
-			await page.waitForTimeout(500);
+			// A pan's fling runs on: the chart is still when its scroll position stops changing.
+			await rig.layoutSettled();
 		};
 		// A pan is the browser's: a real finger scrolls the chart (Chromium, real touch events). Dispatched
 		// events cannot start one (WebKit: Playwright has no touch drag there), so on the iPhone the page
@@ -125,6 +131,7 @@ test.describe('the edges of the gestures', () => {
 		at = await rig.scrollPos();
 		await rig.touches('touchStart', [bar.body]);
 		await rig.touches('touchMove', [{ x: bar.body.x + 6, y: bar.body.y }]);
+		// The finger rests past the 350 ms long-press timer: a time on the page's clock, no state shows it.
 		await page.waitForTimeout(450);
 		for (let i = 1; i <= 8; i++) {
 			await rig.touches('touchMove', [{ x: bar.body.x + 6 + i * 8, y: bar.body.y }]);
@@ -133,7 +140,8 @@ test.describe('the edges of the gestures', () => {
 		await expect(ask).toBeVisible();
 		expect(await rig.scrollPos()).toEqual(at);
 		await ask.getByRole('button', { name: 'Cancel' }).click();
-		await page.waitForTimeout(300);
+		await expect(ask).toBeHidden();
+		await quietAfter(page, 4);
 		expect(await rig.text()).toBe(before);
 	});
 
@@ -142,6 +150,7 @@ test.describe('the edges of the gestures', () => {
 		const rig = await Rig.open(page, info);
 		const b = await rig.bar('build.check_unit');
 		await rig.touches('touchStart', [b.body]);
+		// A long-press is the finger resting past the 350 ms timer: a time on the page's clock.
 		await page.waitForTimeout(500);
 		await rig.touches('touchEnd', []);
 		await expect(
@@ -193,7 +202,7 @@ test.describe('the edges of the gestures', () => {
 		await page.evaluate(() => {
 			(document.querySelector('[data-testid="gantt"] .scroller') as HTMLElement).scrollTop = 70;
 		});
-		await page.waitForTimeout(300);
+		await rig.layoutSettled();
 		const b = await rig.peek('design.research');
 		const scroller = await page.getByTestId('gantt').locator('.scroller').boundingBox();
 		if (!scroller) throw new Error('no chart');
@@ -201,7 +210,7 @@ test.describe('the edges of the gestures', () => {
 		expect(b.box.y).toBeLessThan(scroller.y + 64);
 		await rig.openPeople();
 		await rig.drag(await rig.optionPoint('dev3'), { x: b.box.x + 10, y: b.box.y + 6 });
-		await page.waitForTimeout(800);
+		await quietAfter(page);
 		expect(await rig.text()).toBe(before);
 	});
 
@@ -266,7 +275,7 @@ test.describe('the edges of the gestures', () => {
 				timeout: 10_000,
 			})
 			.toBeLessThanOrEqual(120);
-		await page.waitForTimeout(200);
+		await panelSettled(sheet);
 		// Most of the chart is in reach: more rows than the half sheet leaves. The peek is the grabber
 		// and the header (a fixed height), so the rows it leaves depend on the phone's height: the
 		// Pixel 7 (839 px high) shows 10 of them, the iPhone 14 (664 px) 6, once the top bar, the link
@@ -281,7 +290,7 @@ test.describe('the edges of the gestures', () => {
 				path: path.join(SHOTS, `gesture-link-peek-${deviceName(info)}-light.png`),
 			});
 			await page.emulateMedia({ colorScheme: 'dark' });
-			await page.waitForTimeout(250);
+			await frames(page, 4);
 			await page.screenshot({
 				path: path.join(SHOTS, `gesture-link-peek-${deviceName(info)}-dark.png`),
 			});

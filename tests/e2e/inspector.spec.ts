@@ -9,6 +9,7 @@ import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { animationsDone, appSettled, ganttSettled, panelSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -39,7 +40,8 @@ async function open(page: Page, mode = 'visual'): Promise<void> {
 	await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
 	await expect.poll(() => revision(page)).not.toBeNull();
 	// The dev tools of the Gantt settle (first paint, fonts).
-	await page.waitForTimeout(500);
+	await appSettled(page);
+	await ganttSettled(page);
 }
 
 /** Where the details are: the side panel on a desktop, the bottom sheet elsewhere. */
@@ -344,6 +346,8 @@ test.describe('the details on a phone and in a narrow Split', () => {
 		await more.click();
 		// The burst ends by its pause (1.2 s) and its edit is in the text.
 		await expect.poll(() => text(page)).toBe(original.replace('effort 3d', 'effort 4d'));
+		// The stepper's burst ends after a pause of 1.2 s (Stepper.svelte PAUSE_MS) and it shows no state
+		// while it waits: the test is of a press after that pause, so the wait is the input.
 		await page.waitForTimeout(1700);
 		await more.click();
 		await expect(effort.getByRole('textbox')).toHaveValue('5d');
@@ -378,7 +382,7 @@ test.describe('the details on a phone and in a narrow Split', () => {
 			((await page.locator('header.topbar').boundingBox())?.height ?? 0) - 1,
 		);
 		await grab.click();
-		await page.waitForTimeout(300);
+		await panelSettled(panel);
 		await above();
 		// The sheet covers the status strip, so it carries the state itself.
 		await expect(panel.getByText('Scheduled', { exact: true })).toBeVisible();
@@ -396,7 +400,7 @@ test.describe('the details on a phone and in a narrow Split', () => {
 			'aria-expanded',
 			'true',
 		);
-		await page.waitForTimeout(300);
+		await panelSettled(panel);
 		const effort = panel.getByRole('group', { name: 'Effort' });
 		await effort.getByRole('textbox').fill('5d');
 		await effort.getByRole('textbox').press('Enter');
@@ -415,7 +419,7 @@ test.describe('the details on a phone and in a narrow Split', () => {
 		await expect.poll(() => text(page)).toBe(original);
 		// Half height: the same, and the sheet is below the top bar.
 		await panel.getByRole('button', { name: /Details height/ }).click();
-		await page.waitForTimeout(300);
+		await panelSettled(panel);
 		await effort.getByRole('textbox').fill('4d');
 		await effort.getByRole('textbox').press('Enter');
 		await expect(announced(page)).toContainText('Effort of Research: 3d to 4d');
@@ -473,7 +477,7 @@ test.describe('the details on a phone and in a narrow Split', () => {
 		if (process.env['SCREENSHOTS']) {
 			await row(page, 'Research').click();
 			await expect(drawer).toBeVisible();
-			await page.waitForTimeout(400);
+			await panelSettled(drawer);
 			await page.screenshot({
 				path: path.join(DIR, `inspector-split-1280-${info.project.name}-light.png`),
 			});
@@ -525,24 +529,24 @@ test.describe('inspector screenshots', () => {
 			const shot = (name: string) =>
 				page.screenshot({ path: path.join(DIR, `${name}-${info.project.name}-${scheme}.png`) });
 			const panel = await select(page, info, 'Research');
-			await page.waitForTimeout(400);
+			await panelSettled(panel);
 			await shot('inspector');
 			if (phone(info)) {
 				// Dragged to full height with the grabber.
 				await panel.getByRole('button', { name: /Details height/ }).click();
-				await page.waitForTimeout(400);
+				await panelSettled(panel);
 				await shot('inspector-full');
 				await panel.getByRole('button', { name: /Details height/ }).click();
 			}
 			await panel.getByRole('button', { name: 'Show source' }).click();
-			await page.waitForTimeout(400);
+			await animationsDone(page, 3);
 			await shot('source-sheet');
 			await page
 				.getByRole('dialog', { name: 'Source of Research' })
 				.getByRole('button', { name: 'Close' })
 				.click();
 			await page.locator('header').getByRole('button', { name: 'Project settings' }).click();
-			await page.waitForTimeout(400);
+			await animationsDone(page, 3);
 			await shot('project-sheet');
 		});
 	}
