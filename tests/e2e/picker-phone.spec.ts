@@ -13,6 +13,7 @@
 import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { appSettled, boxStable, frames, panelSettled } from './lib/settle';
 import { openCalendar, openDetails as openDayDetails } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { WIKI_TASK, openHealthRow } from './lib/select-states';
@@ -68,12 +69,12 @@ async function openTaskDetails(page: Page): Promise<void> {
 		.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Research' }) })
 		.first();
 	await expect(row).toBeVisible();
-	await page.waitForTimeout(500);
+	await appSettled(page);
 	await row.click();
 	const panel = page.getByRole('dialog', { name: /Task details/ });
 	if ((await panel.count()) === 0) await row.click();
 	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Research');
-	await page.waitForTimeout(600);
+	await panelSettled(page.locator(SHEET));
 }
 
 test('the picker: the sheet goes full, the list fills it with 44 px rows, the search box stays', async ({
@@ -91,7 +92,8 @@ test('the picker: the sheet goes full, the list fills it with 44 px rows, the se
 	await search.tap();
 	await expect(search).toBeFocused();
 	await expect(picker.getByRole('option').first()).toBeVisible();
-	await page.waitForTimeout(900);
+	await panelSettled(sheet);
+	await boxStable(picker);
 	await shot(page, '2-open', info);
 
 	await expect(sheet, 'the sheet has the height the list needs').toHaveAttribute(
@@ -118,7 +120,7 @@ test('the picker: the sheet goes full, the list fills it with 44 px rows, the se
 	// The list scrolls under a search box that stays where it is.
 	const before = await search.boundingBox();
 	await list.evaluate((el) => (el.scrollTop = el.scrollHeight));
-	await page.waitForTimeout(150);
+	await frames(page, 4);
 	const after = await search.boundingBox();
 	expect(after?.y).toBeCloseTo(before?.y ?? -1, 0);
 	// A scroll the person did not make (WebKit's own scroll to a focused field, late on a busy
@@ -152,13 +154,13 @@ test('every field is 16 px or more on a finger (the day sheet, the new-plan shee
 }, info) => {
 	await openCalendar(page, info);
 	await openDayDetails(page, info, '2026-11-20');
-	await page.waitForTimeout(600);
+	await panelSettled(page.getByTestId('cal-details'));
 	await expectBig(page, 'the day details');
 	await page.goto('/app?sample=gantt-manipulation&mode=visual');
 	await ready(page);
 	await page.getByLabel('Sample plan').selectOption({ label: 'New plan…' });
 	await expect(page.getByRole('dialog', { name: /New plan/ })).toBeVisible();
-	await page.waitForTimeout(500);
+	await panelSettled(page.getByRole('dialog', { name: /New plan/ }));
 	await expectBig(page, 'the new-plan sheet');
 });
 

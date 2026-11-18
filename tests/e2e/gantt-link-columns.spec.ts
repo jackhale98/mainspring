@@ -9,6 +9,7 @@
 import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { animationsDone, appSettled, ganttSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const OUT = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
@@ -35,7 +36,8 @@ async function open(page: Page): Promise<void> {
 		timeout: READY_TIMEOUT_MS,
 	});
 	await expect(row(page, 'task:design.research')).toBeVisible();
-	await page.waitForTimeout(500);
+	await appSettled(page);
+	await ganttSettled(page);
 }
 
 test.describe('the number and link columns', () => {
@@ -211,7 +213,7 @@ test.describe('the number and link columns', () => {
 		await grid(page)
 			.locator('.body-scroll')
 			.evaluate((el) => (el.scrollLeft = 200));
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		const [n1, t1, head] = await Promise.all([
 			cell(sketch, 'number').boundingBox(),
 			cell(sketch, 'name').boundingBox(),
@@ -233,7 +235,7 @@ test.describe('the number and link columns', () => {
 		const divider = page.getByRole('separator', { name: /task table/i });
 		await divider.focus();
 		await page.keyboard.press('Home');
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		const sketch = row(page, 'task:design.sketch');
 		const pane = await page.getByTestId('gantt').locator('.names').boundingBox();
 		// The name keeps its 10 rem (160 px) and the number is beside it: 196 px in all.
@@ -367,7 +369,7 @@ test.describe('polish-16 pictures', () => {
 			await open(page);
 			const panel = await openDetails(page, info, 'task:design.sketch');
 			await panel.getByRole('heading', { name: 'Waits for' }).scrollIntoViewIfNeeded();
-			await page.waitForTimeout(400);
+			await animationsDone(page, 4);
 			await page.screenshot({ path: path.join(OUT, `polish-16-details-desktop-${scheme}.png`) });
 		});
 
@@ -383,15 +385,15 @@ test.describe('polish-16 pictures', () => {
 			await page.mouse.down();
 			await page.mouse.move(1180, y, { steps: 8 });
 			await page.mouse.up();
-			await page.waitForTimeout(400);
+			await ganttSettled(page);
 			await row(page, 'task:design.sketch').locator('.label').click();
-			await page.waitForTimeout(400);
+			await ganttSettled(page);
 			await page.screenshot({ path: path.join(OUT, `polish-16-desktop-columns-${scheme}.png`) });
 			// Scrolled to the end: # and Task stay, the links are beside them.
 			await grid(page)
 				.locator('.body-scroll')
 				.evaluate((el) => (el.scrollLeft = el.scrollWidth));
-			await page.waitForTimeout(400);
+			await ganttSettled(page);
 			await page.screenshot({ path: path.join(OUT, `polish-16-desktop-links-${scheme}.png`) });
 			await grid(page)
 				.locator('.body-scroll')
@@ -399,7 +401,7 @@ test.describe('polish-16 pictures', () => {
 			const divider = page.getByRole('separator', { name: /task table/i });
 			await divider.focus();
 			await page.keyboard.press('Home');
-			await page.waitForTimeout(400);
+			await ganttSettled(page);
 			await page.screenshot({ path: path.join(OUT, `polish-16-desktop-min-${scheme}.png`) });
 		});
 	}
@@ -416,7 +418,7 @@ test.describe('polish-16 phone pictures', () => {
 			await open(page);
 			const panel = await openDetails(page, info, 'task:design.sketch');
 			await panel.getByRole('heading', { name: 'Waits for' }).scrollIntoViewIfNeeded();
-			await page.waitForTimeout(400);
+			await animationsDone(page, 4);
 			await page.screenshot({ path: path.join(OUT, `polish-16-details-pixel7-${scheme}.png`) });
 		});
 	}

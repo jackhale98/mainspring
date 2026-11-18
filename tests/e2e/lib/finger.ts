@@ -31,6 +31,7 @@ export async function holdFinger(page: Page, target: Locator, ms = 700): Promise
 	const p = { x: box.x + box.width / 2, y: box.y + box.height / 2, id: 1 };
 	const cdp = await page.context().newCDPSession(page);
 	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [p] });
+	// The hold is the input (a long press is a time on the page's clock; nothing shows it before it ends).
 	await page.waitForTimeout(ms);
 	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 	await cdp.detach();

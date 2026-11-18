@@ -19,6 +19,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { isWebKit } from './lib/finger';
 import { isTouch } from './lib/gantt-rig';
+import { appSettled, frames as nextFrames, ganttSettled, settledValue } from './lib/settle';
 import { skipOnWebKitIfAllowlisted } from './lib/webkit-allowlist';
 
 const READY_TIMEOUT_MS = 120_000;
@@ -70,7 +71,8 @@ async function open(page: Page, sample = 'upstream-fedora-20'): Promise<void> {
 	});
 	await expect(page.getByTestId('gantt')).toBeVisible();
 	await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
-	await page.waitForTimeout(600);
+	await appSettled(page);
+	await ganttSettled(page);
 }
 
 const rectsOf = (page: Page): Promise<Rects> =>
@@ -92,6 +94,20 @@ const rectsOf = (page: Page): Promise<Rects> =>
 	});
 
 test.describe('frozen header and name column', () => {
+	/**
+	 * A fling has run out: the scroll position of the chart is the same for a few frames. Light enough to
+	 * run inside a sampled window (it reads two numbers a frame and lays nothing out).
+	 */
+	const flungOut = (page: Page): Promise<string> =>
+		settledValue(
+			page,
+			() => {
+				const el = document.querySelector('[data-testid="gantt"] .scroller');
+				return `${el?.scrollLeft},${el?.scrollTop}`;
+			},
+			6,
+		);
+
 	test.setTimeout(READY_TIMEOUT_MS + 60_000);
 
 	test('stay pinned while the chart scrolls, and the page never scrolls', async ({ page }) => {
@@ -104,7 +120,7 @@ test.describe('frozen header and name column', () => {
 				.querySelector('[data-testid="gantt"] .scroller')
 				?.scrollTo({ left: 240, top: 200, behavior: 'instant' });
 		});
-		await page.waitForTimeout(400);
+		await ganttSettled(page);
 		const after = await rectsOf(page);
 		expect(after.scrollLeft).toBeGreaterThan(100);
 		expect(after.scrollTop).toBeGreaterThan(100);
@@ -194,15 +210,16 @@ test.describe('frozen header and name column', () => {
 					type: 'touchMove',
 					touchPoints: [{ x: x0 + ((x1 - x0) * i) / steps, y: y0 + ((y1 - y0) * i) / steps }],
 				});
-				await page.waitForTimeout(16);
+				// One frame between two moves: the speed of a finger counted in frames, so a slow runner pans as many.
+				await nextFrames(page, 1);
 			}
 			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-			await page.waitForTimeout(350);
+			await flungOut(page);
 		};
 		await drag(350, 420, 150, 420); // pan sideways
 		await drag(300, 520, 300, 300); // pan down the plan
 		await drag(160, 300, 330, 400); // diagonal back
-		await page.waitForTimeout(300);
+		await flungOut(page);
 		const frames = await page.evaluate(() => window.__frames ?? []);
 		expect(frames.length).toBeGreaterThan(20);
 		const spread = (key: string): number => {
@@ -316,7 +333,7 @@ test.describe('frozen header and name column', () => {
 			requestAnimationFrame(tick);
 		});
 		await pan();
-		await page.waitForTimeout(400);
+		await flungOut(page);
 		return page.evaluate(() => window.__frames ?? []);
 	}
 
@@ -421,7 +438,7 @@ test.describe('frozen header and name column', () => {
 			if (webkit) return stepPan();
 			// Far right: swipes with a fling, past the end (the over-scroll), then all the way back.
 			for (let i = 0; i < 40; i++) await drag(380, 90, 430);
-			await page.waitForTimeout(500);
+			await flungOut(page);
 			for (let i = 0; i < 60; i++) await drag(90, 380, 430);
 		});
 		assertLongPan(frames);
@@ -457,7 +474,7 @@ test.describe('frozen header and name column', () => {
 			for (let i = 0; i < 150; i++) {
 				await page.mouse.wheel(0, 900);
 			}
-			await page.waitForTimeout(400);
+			await flungOut(page);
 			for (let i = 0; i < 150; i++) {
 				await page.mouse.wheel(0, -900);
 			}

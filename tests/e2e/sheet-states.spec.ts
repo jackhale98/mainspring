@@ -13,10 +13,10 @@ import path from 'node:path';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { holdFinger } from './lib/finger';
+import { animationsDone, appSettled, frames, panelSettled } from './lib/settle';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import {
 	SPEEDS,
-	settleMs,
 	nonDecreasing,
 	ready,
 	record,
@@ -48,13 +48,13 @@ async function openDetails(page: Page): Promise<Locator> {
 	await page.goto('/app?sample=gantt-manipulation&mode=visual&hooks=edits');
 	await ready(page);
 	await expect(rowOf(page)).toBeVisible();
-	await page.waitForTimeout(500);
+	await appSettled(page);
 	await rowOf(page).click();
 	const panel = page.getByRole('dialog', { name: /Task details/ });
 	if ((await panel.count()) === 0) await rowOf(page).click();
 	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Research');
 	await panel.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
-	await page.waitForTimeout(300);
+	await panelSettled(panel);
 	return panel;
 }
 
@@ -73,13 +73,13 @@ for (const { full, suffix, tag } of SPEEDS)
 			await slowSheets(page, full);
 			await grab.click();
 			// The grow has to be over (and the slow glide needs its late first frame) before the shrink is recorded.
-			await page.waitForTimeout(settleMs(full));
+			await animationsDone(page);
 			// Full to half: the top edge comes down; the bottom edge may go below its place, never above it.
 			await record(page, SHEET);
 			await grab.click();
-			await page.waitForTimeout(80);
+			await frames(page, 2);
 			await shot(page, 'details-shrinking', info);
-			await page.waitForTimeout(settleMs(full));
+			await animationsDone(page);
 			const tops = await stopRecording(page);
 			const { bottoms } = await recorded(page);
 			const rest = bottoms.at(-1) ?? 0;
@@ -94,7 +94,7 @@ for (const { full, suffix, tag } of SPEEDS)
 			// The same for a drag from full height, let go lower down: it settles at half and the top edge
 			// comes down from where the finger left it.
 			await grab.click();
-			await page.waitForTimeout(settleMs(full));
+			await panelSettled(panel);
 			const g = await grab.boundingBox();
 			if (!g) throw new Error('no grabber');
 			const x = g.x + g.width / 2;
@@ -104,7 +104,7 @@ for (const { full, suffix, tag } of SPEEDS)
 			for (let i = 1; i <= 6; i++) await page.mouse.move(x, y + 12 * i);
 			await record(page, SHEET);
 			await page.mouse.up();
-			await page.waitForTimeout(settleMs(full));
+			await animationsDone(page);
 			await stopRecording(page);
 			const dragged = (await recorded(page)).bottoms;
 			const settled = dragged.at(-1) ?? 0;
@@ -183,7 +183,8 @@ test('a tap that opens it again during its slide away is not lost', async ({ pag
 	const panel = await openDetails(page);
 	await panel.getByRole('button', { name: 'Close' }).click();
 	await rowOf(page).click();
-	await page.waitForTimeout(600);
+	// The slide away runs to its end; a tap that was lost leaves the sheet closed after it.
+	await animationsDone(page);
 	await expect(panel).toBeVisible();
 	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Research');
 	expect(

@@ -15,6 +15,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { isTouch } from './lib/gantt-rig';
+import { appSettled, ganttSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -36,7 +37,8 @@ async function open(page: Page, sample = FEDORA): Promise<void> {
 		timeout: READY_TIMEOUT_MS,
 	});
 	await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
-	await page.waitForTimeout(500);
+	await appSettled(page);
+	await ganttSettled(page);
 }
 
 const divider = (page: Page) => page.getByRole('separator', { name: /task table/i });
@@ -71,7 +73,7 @@ test.describe('the table divider', () => {
 			await page.mouse.move(x - 150, y, { steps: 6 });
 			await page.mouse.up();
 		}
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		const dragged = await widthOf(page);
 		expect(start - dragged).toBeGreaterThan(130);
 		expect(start - dragged).toBeLessThan(170);
@@ -99,7 +101,8 @@ test.describe('the table divider', () => {
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible({
 			timeout: READY_TIMEOUT_MS,
 		});
-		await page.waitForTimeout(500);
+		await appSettled(page);
+		await ganttSettled(page);
 		expect(Math.abs((await widthOf(page)) - kept)).toBeLessThanOrEqual(1);
 		await open(page, 'upstream-tutorial');
 		expect(Math.abs((await widthOf(page)) - kept)).toBeGreaterThan(20);
@@ -157,7 +160,7 @@ test.describe('the table divider', () => {
 		const before = await state();
 		expect(before.table.max).toBeGreaterThan(100);
 		await body.evaluate((el) => (el.scrollLeft = 120));
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		const after = await state();
 		expect(after.table.left).toBe(120);
 		// The columns moved with the table's scroll, and the header with them.
@@ -240,7 +243,7 @@ test.describe('the table divider', () => {
 		const min = Number(await divider(page).getAttribute('aria-valuemin'));
 		expect(await valueOf(page)).toBe(min);
 		expect(min).toBeLessThan(20);
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		// The pane is 12.25 rem (196 px): the Task column at its 10 rem, names clipped with an
 		// ellipsis, and the row number (2.25 rem) beside it, so that # does not take from the name
 		// (polish items 13 and 16).
@@ -286,10 +289,10 @@ test.describe('the table divider', () => {
 		test.skip(info.project.name !== 'desktop');
 		await open(page);
 		await page.addStyleTag({ content: 'html { font-size: 20px; }' });
-		await page.waitForTimeout(400);
+		await ganttSettled(page);
 		await divider(page).focus();
 		await page.keyboard.press('Home');
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		// 12.25 rem (the name's 10 and the number's 2.25) at a 20 px root is 245 px.
 		expect(Math.abs((await widthOf(page)) - 245)).toBeLessThanOrEqual(2);
 	});
@@ -315,7 +318,7 @@ test.describe('the table divider', () => {
 		await page.mouse.down();
 		await page.mouse.move(x - 600, y, { steps: 8 });
 		await page.mouse.up();
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		expect(Math.abs((await widthOf(page)) - 196)).toBeLessThanOrEqual(2);
 		await expect(start).not.toBeFocused();
 		await expect(firstRow).toBeFocused();
@@ -334,7 +337,8 @@ test.describe('the table divider', () => {
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible({
 			timeout: READY_TIMEOUT_MS,
 		});
-		await page.waitForTimeout(500);
+		await appSettled(page);
+		await ganttSettled(page);
 		expect(Math.abs((await widthOf(page)) - 196)).toBeLessThanOrEqual(2);
 		expect(await valueOf(page)).toBe(Number(await divider(page).getAttribute('aria-valuemin')));
 		await page.evaluate((k) => localStorage.setItem(k, '0.97'), key);
@@ -342,7 +346,8 @@ test.describe('the table divider', () => {
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible({
 			timeout: READY_TIMEOUT_MS,
 		});
-		await page.waitForTimeout(500);
+		await appSettled(page);
+		await ganttSettled(page);
 		expect(await valueOf(page)).toBe(80);
 	});
 
@@ -357,7 +362,7 @@ test.describe('the table divider', () => {
 		// Widen until the columns are drawn (the name column and the widest one fit).
 		for (let i = 0; i < 40; i++) {
 			await page.keyboard.press('ArrowRight');
-			await page.waitForTimeout(100);
+			await ganttSettled(page);
 			if (((await firstRow.locator('[data-col="start"]').boundingBox())?.width ?? 0) > 1) break;
 		}
 		expect(
@@ -405,7 +410,7 @@ test.describe('the table divider', () => {
 		await open(page, 'gantt-500');
 		const scroller = page.getByTestId('gantt').locator('.scroller');
 		await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
-		await page.waitForTimeout(400);
+		await ganttSettled(page);
 		const [bar, last] = await Promise.all([
 			page.getByTestId('gantt-table-scrollbar').boundingBox(),
 			page.locator('[role="row"][data-key]').last().boundingBox(),
@@ -474,7 +479,7 @@ test.describe('the table divider', () => {
 		for (let i = 0; i < 60; i++) await page.mouse.wheel(0, 700);
 		await page.mouse.move(box.x - 150, box.y + 200);
 		for (let i = 0; i < 60; i++) await page.mouse.wheel(0, -900);
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		const drift = await page.evaluate(() => (window as unknown as { __drift: number[] }).__drift);
 		expect(drift.length).toBeGreaterThan(30);
 		expect(Math.max(...drift)).toBeLessThanOrEqual(0.5);
@@ -525,7 +530,7 @@ test.describe('the table divider', () => {
 				await open(page);
 				await divider(page).focus();
 				await page.keyboard.press('Home');
-				await page.waitForTimeout(400);
+				await ganttSettled(page);
 				await page.screenshot({ path: path.join(OUT3, `polish-13-desktop-min-${scheme}.png`) });
 			});
 		}
@@ -553,10 +558,10 @@ test.describe('the table divider', () => {
 			await shot(`polish-10-desktop-default-${scheme}.png`);
 			await divider(page).focus();
 			await page.keyboard.press('Home');
-			await page.waitForTimeout(300);
+			await ganttSettled(page);
 			await shot(`polish-10-desktop-narrow-${scheme}.png`);
 			for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight');
-			await page.waitForTimeout(300);
+			await ganttSettled(page);
 			await shot(`polish-10-desktop-wide-${scheme}.png`);
 			await page.setViewportSize({ width: 820, height: 1180 });
 			await page.evaluate(() => localStorage.clear());
@@ -567,7 +572,8 @@ test.describe('the table divider', () => {
 			await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 				timeout: READY_TIMEOUT_MS,
 			});
-			await page.waitForTimeout(900);
+			await appSettled(page);
+			await ganttSettled(page);
 			await shot(`polish-10-tablet-${scheme}.png`);
 		});
 	}

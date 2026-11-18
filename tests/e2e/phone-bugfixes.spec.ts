@@ -19,6 +19,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 import { REPO } from '../golden/corpus';
 import { openCalendar, day, showDay, tapDay } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
+import { animationsDone, appSettled, frames, panelSettled } from './lib/settle';
 import { openResources, selectRow } from './lib/resources-rig';
 import {
 	SPEEDS,
@@ -26,7 +27,6 @@ import {
 	nonIncreasing,
 	record,
 	recorded,
-	settleMs,
 	slowSheets,
 	ready,
 	steps,
@@ -57,13 +57,13 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 			.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Research' }) })
 			.first();
 		await expect(rowOf).toBeVisible();
-		await page.waitForTimeout(500);
+		await appSettled(page);
 		await rowOf.click();
 		const panel = page.getByRole('dialog', { name: /Task details/ });
 		if ((await panel.count()) === 0) await rowOf.click();
 		await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Research');
 		await expect(panel).toBeInViewport({ ratio: 1 });
-		await page.waitForTimeout(500);
+		await panelSettled(panel);
 		return panel;
 	}
 
@@ -84,7 +84,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 
 				await record(page, SHEET);
 				await grab.click();
-				await page.waitForTimeout(settleMs(full));
+				await animationsDone(page);
 				const grow = await stopRecording(page);
 				expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
 				// Pinned at the foot, the top edge travels up from where it was to its new place, in many frames.
@@ -97,7 +97,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 				// Back to half, the same way (down).
 				await record(page, SHEET);
 				await grab.click();
-				await page.waitForTimeout(settleMs(full));
+				await animationsDone(page);
 				const shrink = await stopRecording(page);
 				expect(steps(shrink)).toBeGreaterThan(3);
 				expect(nonDecreasing(shrink)).toBe(true);
@@ -105,9 +105,10 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 				// Closing: still there, marked, with a transform animation running; then gone.
 				await record(page, SHEET);
 				await panel.getByRole('button', { name: 'Close' }).click();
-				await page.waitForTimeout(150);
+				// Marked as closing while it is still open and sliding: the picture is of the slide.
+				await expect(page.locator(SHEET)).toHaveAttribute('data-closing', '');
 				await shot(page, 'details-closing', info);
-				await page.waitForTimeout(settleMs(full));
+				await animationsDone(page);
 				const away = await stopRecording(page);
 				const seen = await recorded(page);
 				expect(seen.closing, 'the sheet was on screen, marked closing, while it slid away').toBe(
@@ -233,7 +234,7 @@ test.describe('2. the docs sheet opens at its final place', () => {
 			vv.dispatchEvent(new Event('resize'));
 		});
 		await expect(page.getByRole('dialog', { name: 'Documentation' })).toBeVisible();
-		await page.waitForTimeout(settleMs());
+		await animationsDone(page);
 		const tops = await stopRecording(page);
 		const finalTop = tops.at(-1) ?? 0;
 		// Never above its final place, and it came up from below it. (In WebKit it was: the dialog scrolled
@@ -264,7 +265,7 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		await record(page, 'dialog.sheet[data-modal="true"] .inner');
 		await page.getByRole('button', { name: 'Docs' }).click();
 		await expect(page.getByRole('dialog', { name: 'Documentation' })).toBeVisible();
-		await page.waitForTimeout(settleMs());
+		await animationsDone(page);
 		const tops = await stopRecording(page);
 		expect(nonIncreasing(tops)).toBe(true);
 		const view = page.viewportSize()?.height ?? 0;
@@ -297,7 +298,7 @@ test.describe('3. the calendar day details slide up and down', () => {
 				await record(page, SHEET);
 				await tapDay(page, info, d);
 				await expect(page.getByTestId('cal-details')).toBeVisible();
-				await page.waitForTimeout(settleMs(full));
+				await animationsDone(page);
 				const up = await stopRecording(page);
 				expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
 				expect(steps(up), 'it slid up in more than a jump').toBeGreaterThan(3);
@@ -307,7 +308,7 @@ test.describe('3. the calendar day details slide up and down', () => {
 				await record(page, SHEET);
 				await page.locator(SHEET).getByRole('button', { name: 'Close' }).tap();
 				await expect(page.locator(SHEET)).toHaveCount(1);
-				await page.waitForTimeout(settleMs(full));
+				await animationsDone(page);
 				const down = await stopRecording(page);
 				expect(steps(down), 'it slid down in more than a jump').toBeGreaterThan(2);
 				expect(nonDecreasing(down)).toBe(true);
@@ -326,7 +327,7 @@ test.describe('4. the row menu fits the screen', () => {
 		await page.getByTestId('resource-menu').tap();
 		const menu = page.getByTestId('resource-menu-sheet');
 		await expect(menu).toBeVisible();
-		await page.waitForTimeout(600);
+		await panelSettled(menu);
 		await shot(page, 'row-menu', info);
 		const view = page.viewportSize();
 		const items = menu.getByRole('menuitem');
@@ -452,7 +453,10 @@ test.describe('5. each People segment starts right under the tabs', () => {
 			await openResources(page, info, { scheme: 'dark' });
 			for (const name of order) {
 				await seg(page, name);
-				await page.waitForTimeout(400);
+				// The segment is the one shown: its chunk is in (no loading line) and it has been drawn.
+				await expect(page.getByTestId('people-host')).toHaveAttribute('data-state', 'content');
+				await expect(page.getByTestId('people-view-loading')).toHaveCount(0);
+				await animationsDone(page, 3);
 			}
 			await expect(page.getByTestId('team-view')).toBeVisible();
 			// The toolbar's first button is within a few px of the top (its own padding).
@@ -509,6 +513,11 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 			return { opaque, share: opaque === 0 ? 0 : light / opaque };
 		}, root);
 
+	/** The view that was switched to has been drawn: its chunk is in, nothing is sliding, frames drawn. */
+	const viewShown = async (page: Page): Promise<void> => {
+		await expect(page.getByTestId('people-view-loading')).toHaveCount(0);
+		await animationsDone(page, 4);
+	};
 	const goPeople = async (page: Page, info: TestInfo, name: string) => {
 		if (isTouch(info)) {
 			await page
@@ -524,7 +533,7 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 			if (await radio.isVisible()) await radio.click();
 			else await page.getByRole('combobox', { name: 'Views' }).selectOption({ label: view });
 		}
-		await page.waitForTimeout(700);
+		await viewShown(page);
 	};
 	const goGantt = async (page: Page, info: TestInfo) => {
 		if (isTouch(info)) {
@@ -536,7 +545,8 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 			if (await radio.isVisible()) await radio.click();
 			else await page.getByRole('combobox', { name: 'Views' }).selectOption({ label: 'Gantt' });
 		}
-		await page.waitForTimeout(700);
+		await expect(page.getByTestId('gantt')).toBeVisible();
+		await viewShown(page);
 	};
 
 	for (const mode of ['system dark', 'chosen dark'] as const) {
@@ -553,8 +563,13 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 				`/app?sample=poc-sample&hooks=edits,lanes${isTouch(info) ? '' : '&mode=visual'}`,
 			);
 			await ready(page);
-			await page.waitForTimeout(1000);
+			await appSettled(page);
 			await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+			await expect
+				.poll(async () => (await lightShare(page, '[data-testid="gantt"]')).opaque, {
+					message: 'the chart is painted',
+				})
+				.toBeGreaterThan(100);
 			const before = await lightShare(page, '[data-testid="gantt"]');
 			expect(before.opaque).toBeGreaterThan(100);
 			expect(before.share).toBeLessThan(0.1);
@@ -568,7 +583,7 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 					const root = document.documentElement;
 					root.setAttribute('data-theme', root.getAttribute('data-theme') ?? 'dark');
 				});
-				await page.waitForTimeout(200);
+				await frames(page, 3);
 				await goGantt(page, info);
 				const after = await lightShare(page, '[data-testid="gantt"]');
 				expect(after.opaque, `${name}: painted`).toBeGreaterThan(100);
@@ -591,12 +606,12 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 				`/app?sample=poc-sample&hooks=edits,lanes${isTouch(info) ? '' : '&mode=visual'}`,
 			);
 			await ready(page);
-			await page.waitForTimeout(1000);
+			await appSettled(page);
 			await expect(page.locator('html')).toHaveAttribute('data-theme', from);
 			await goPeople(page, info, 'Load');
 			await page.emulateMedia({ colorScheme: to });
 			await expect(page.locator('html')).toHaveAttribute('data-theme', to);
-			await page.waitForTimeout(300);
+			await frames(page, 3);
 			await goGantt(page, info);
 			await expect
 				.poll(async () => (await lightShare(page, '[data-testid="gantt"]')).share, {
@@ -622,7 +637,7 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 			const root = document.documentElement;
 			root.setAttribute('data-theme', root.getAttribute('data-theme') ?? 'dark');
 		});
-		await page.waitForTimeout(200);
+		await frames(page, 3);
 		await goPeople(page, info, 'Load');
 		const back = await lightShare(page, heat);
 		expect(back.opaque).toBeGreaterThan(50);
