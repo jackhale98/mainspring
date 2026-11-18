@@ -94,8 +94,8 @@ that already have tests.
   with its reason. It holds only what WebKit cannot do: touch through CDP, Chromium-only
   performance APIs, Android EditContext. The target is at most 6 entries. A grep in the `check` job
   fails on any `iphone-14` or `webkit` skip outside the allowlist.
-- **The user tries each batch on the phone.** Each batch ends with the Pages preview link for the
-  user's iPhone. Emulation is not Safari.
+- **The user tries each batch on the phone.** Each batch lands on `main`, which the Pages preview
+  serves (no separate link, user 2026-11-18). Emulation is not Safari.
 
 ### 3. Shared UI primitives with owners and contract tests
 
