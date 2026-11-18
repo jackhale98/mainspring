@@ -9,6 +9,8 @@ const launchOptions = process.env['CHROMIUM_PATH']
 	: {};
 
 export default defineConfig({
+	// Two tiers (ADR-0016 section 1): the merge run uses `--grep-invert @timing`; the timing job
+	// (ci.yml `timing`, nightly.yml) runs `--grep @timing --workers=1`, alone on its runner.
 	testDir: 'tests/e2e',
 	// Vitest unit tests live beside the helpers; responsiveness has its own config. The Text mode
 	// timings (about 8 minutes, serial) run only with E2E_PERF=1: nightly and `npm run test:e2e:perf`.
@@ -16,16 +18,15 @@ export default defineConfig({
 		'**/*.test.ts',
 		'**/engine-responsiveness.spec.ts',
 		...(process.env['E2E_PERF'] === '1' ? [] : ['**/text-mode-perf.spec.ts']),
-		// CI runs the frame-rate gates (Gantt and workload) in a step of their own, alone on the
-		// runner (ci.yml): other workers' tests made them fail on noise.
-		...(process.env['E2E_SKIP_GANTT_PERF'] === '1'
-			? ['**/gantt-perf.spec.ts', '**/workload-perf.spec.ts']
-			: []),
 	],
 	fullyParallel: true,
 	forbidOnly: !!process.env['CI'],
 	retries: process.env['CI'] ? 1 : 0,
-	reporter: process.env['CI'] ? 'github' : 'list',
+	// CI also writes the JSON results, which scripts/ci/flaky-summary.mjs reads to name the tests
+	// that passed only on their retry (ADR-0016 section 5).
+	reporter: process.env['CI']
+		? [['github'], ['json', { outputFile: 'test-results/e2e-results.json' }]]
+		: 'list',
 	use: {
 		baseURL: `http://localhost:${PORT}/`,
 		trace: 'retain-on-failure',

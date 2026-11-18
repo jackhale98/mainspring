@@ -9,9 +9,12 @@ on:
   pull_request:
     paths-ignore: ['**/*.md']
 
+# A new push cancels the run in progress on a branch, never on main: every commit on main gets a
+# finished run (ADR-0016 section 5). Batch pushes, and do not push within about 5 minutes of a
+# run finishing.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -175,8 +178,8 @@ jobs:
     strategy:
       fail-fast: false
       # Shards sized so no runner takes much over ten minutes (2026-11-17: one Pixel 7 runner took
-      # 22 minutes and set the whole run's time). The frame-rate gates and JS sizes are a job of
-      # their own (gates, below), so they no longer wait for a shard to finish.
+      # 22 minutes and set the whole run's time). The frame-rate checks are in the timing tier (the
+      # timing job, below) and JS sizes in the gates job, so neither waits for a shard to finish.
       matrix:
         include:
           - { project: desktop, shard: 1/3, browsers: chromium }
@@ -214,18 +217,14 @@ jobs:
       - run: npm run build
         env:
           MAINSPRING_DEV_PAGES: '1'
-      # The Text mode timings (text-mode-perf.spec.ts) run nightly instead (nightly.yml, perf job).
-      - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}
-        env:
-          E2E_SKIP_GANTT_PERF: ${{ matrix.project == 'desktop' && '1' || '' }}
-      # The timings the Gantt specs record (gesture frame cost, analysis time), per device.
-      - uses: actions/upload-artifact@v4
-        if: always() && matrix.project != 'iphone-14'
-        with:
-          name: gantt-timings-${{ matrix.project }}-${{ strategy.job-index }}
-          path: test-results/gantt-*.json
-          if-no-files-found: ignore
-          retention-days: 14
+      # The merge tier: everything except the @timing tests (frame rates, full-speed sheet
+      # recordings), which the timing job runs alone (ADR-0016 section 1). The Text mode timings
+      # (text-mode-perf.spec.ts) run nightly instead (nightly.yml, text-mode-perf job).
+      - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }} --grep-invert @timing
+      # Tests that passed only on their retry, named in the run summary (ADR-0016 section 5).
+      - name: List tests that passed only on retry
+        if: always()
+        run: node scripts/ci/flaky-summary.mjs test-results/e2e-results.json '${{ matrix.project }} ${{ matrix.shard }}' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -242,7 +241,7 @@ jobs:
           retention-days: 7
 
   gates:
-    name: Frame-rate gates and JS sizes (desktop)
+    name: JS sizes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -267,35 +266,95 @@ jobs:
       - run: npm run build
         env:
           MAINSPRING_DEV_PAGES: '1'
-      # The frame-rate gates (gantt-perf.spec.ts, workload-perf.spec.ts) measure dropped frames, so
-      # they run alone on this runner, one worker; the Gantt's waits (up to two minutes) for the
-      # load to settle. Other workers' tests made both fail on noise. Budgets unchanged.
-      - name: Frame-rate gates
-        if: ${{ !cancelled() }}
-        run: npm run test:e2e -- --project=desktop --workers=1 tests/e2e/gantt-perf.spec.ts tests/e2e/workload-perf.spec.ts
-        env:
-          PERF_MAX_LOAD: '2.5'
       # JS budget (phase-2 11.3, 13.4, 18.11; amended 2026-11-16, raised 2026-11-17), on this build:
       # a Visual-first load at most 330,000 bytes gzip and a Text-first load at most 440,000 (fail),
       # the total of dist/_astro under a 650,000 guard, named lazy chunks under their caps, and a
       # Visual-first load must not fetch the CodeMirror chunk (fails).
       # It serves dist itself, as Pages does, and loads two pages to Engine Ready: about a minute.
       - name: JS sizes
-        if: ${{ !cancelled() }}
         run: node scripts/js-sizes.mjs --serve --out test-results/js-sizes.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gantt-timings-gates
-          path: |
-            test-results/gantt-*.json
-            test-results/js-sizes.json
+          name: js-sizes
+          path: test-results/js-sizes.json
           if-no-files-found: ignore
           retention-days: 14
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: test-results-gates
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The timing tier (ADR-0016 section 1): the @timing tests, one worker, alone on the runner. It
+  # runs on main only and never blocks a merge: the job is continue-on-error. It goes red only on
+  # a gross regression, a measure over twice its budget in every run (scripts/ci/timing-check.mjs;
+  # docs/phases/phase-3-gate.md, "Reading the timing trend"). Every run adds its table to the step
+  # summary and its JSON to the artifact timing-<run>.
+  timing:
+    name: Timing tier (@timing, desktop and Pixel 7)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      - run: npm run build
+        env:
+          MAINSPRING_DEV_PAGES: '1'
+      # The specs wait (up to two minutes) for the one-minute load average to settle before a Gantt
+      # measurement (PERF_MAX_LOAD). A failing assertion here is a signal, not a gate; the checker
+      # below decides what is red.
+      - name: Timing tests
+        id: run
+        continue-on-error: true
+        run: npx playwright test --grep @timing --workers=1 --project=desktop --project=pixel-7
+        env:
+          PERF_MAX_LOAD: '2.5'
+      - name: Judge the timing run
+        if: always()
+        run: |
+          mkdir -p test-results
+          echo "Timing tests step: ${{ steps.run.outcome }} (an assertion that failed is a signal, not a gate; the table below decides)" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/ci/timing-check.mjs --out test-results/timing-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: List tests that passed only on retry
+        if: always()
+        run: node scripts/ci/flaky-summary.mjs test-results/e2e-results.json timing >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timing-${{ github.run_number }}
+          path: |
+            test-results/gantt-*.json
+            test-results/workload-perf.json
+            test-results/timing-summary.md
+            test-results/e2e-results.json
+          if-no-files-found: ignore
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: timing-test-results
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7

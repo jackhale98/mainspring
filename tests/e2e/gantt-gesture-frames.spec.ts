@@ -62,7 +62,7 @@ async function stopMeter(page: Page): Promise<Stats> {
 	});
 }
 
-test.describe('gesture frame cost (recorded)', () => {
+test.describe('gesture frame cost (recorded)', { tag: '@timing' }, () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 	test.beforeEach(({ browserName: _b }, info) => {
 		test.skip(info.project.name === 'iphone-14', 'Chromium measures (T16)');

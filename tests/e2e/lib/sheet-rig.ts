@@ -155,9 +155,10 @@ export const steps = (tops: number[]): number => new Set(tops.map((t) => Math.ro
  * keyframes, easing and code path, so a jump, a reversal or a gap still shows. Call it once the page
  * is loaded and before the sheet moves.
  */
-export const slowSheets = (page: Page, browserName: string, ms = 2000): Promise<void> =>
-	// Only WebKit: Chromium draws every frame, so it checks the production speed (200 and 180 ms).
-	browserName !== 'webkit'
+export const slowSheets = (page: Page, full = false, ms = 2000): Promise<void> =>
+	// `full` keeps the production speed (200 and 180 ms) for the @timing copies on Chromium, which
+	// draws every frame; every other run slows the sheets, on every browser (ADR-0016 section 1).
+	full
 		? Promise.resolve()
 		: page.evaluate((t) => {
 				const root = document.documentElement.style;
@@ -165,8 +166,17 @@ export const slowSheets = (page: Page, browserName: string, ms = 2000): Promise<
 				root.setProperty('--sheet-out-ms', String(t));
 			}, ms);
 
-/** How long to record after a sheet starts to move: the slowed slide and the renderer's late first frame (WebKit), or the slide. */
-export const settleMs = (browserName: string): number => (browserName === 'webkit' ? 2800 : 700);
+/** How long to record after a sheet starts to move: the slowed slide and the renderer's late first frame, or (`full`) the production slide. */
+export const settleMs = (full = false): number => (full ? 700 : 2800);
+
+/**
+ * The two tiers of a sheet-motion test: the shape check (slowed, every browser, merge tier) and its
+ * `@timing` copy (production speed, Chromium only; the spec skips it elsewhere).
+ */
+export const SPEEDS = [
+	{ full: false, suffix: '', tag: [] as string[] },
+	{ full: true, suffix: ' (full speed)', tag: ['@timing'] },
+] as const;
 
 /** Every sample is at or below the one before it (a slide down), within a pixel. */
 export const nonDecreasing = (t: number[]): boolean =>
