@@ -18,15 +18,14 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Spec file names (paths under tests/e2e) whose WebKit skips a later batch removes. B1 and B2 are done.
+ * Spec file names (paths under tests/e2e) whose WebKit skips a later batch removes. B1, B2 and B5
+ * are done (B5's Android EditContext tests run on both phones with an iOS counterpart, so nothing
+ * of it is allowlisted).
  * @type {Record<string, string[]>}
  */
 export const PENDING_BATCHES = {
-	// B4: health, health fixes, why-here and the screenshot specs.
+	// B4: health, health fixes, why-here and the screenshot specs (paused, see the gate doc).
 	B4: ['health.spec.ts', 'health-fixes.spec.ts', 'health-screenshots.spec.ts', 'why-here.spec.ts'],
-	// B5, misc: Text mode skips that keep the iPhone out (a hardware keyboard; Android's EditContext,
-	// an allowlist reason that needs an entry if the test stays Pixel 7 only).
-	B5: ['text-mode-a11y.spec.ts', 'text-mode-android-enter.spec.ts'],
 };
 
 /**

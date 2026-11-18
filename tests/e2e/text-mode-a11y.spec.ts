@@ -2,9 +2,11 @@
 // Accessibility audit of Text mode (T21; WCAG 2.2 AA): axe in every state that matters, in both
 // colour schemes, and a keyboard-only walkthrough. States: the desktop layout, the tablet drawer,
 // the phone tabs (Text, Plan) and the Docs sheet, the diagnostics popover, the completion popup, a
-// marked problem with its tooltip. Phone states run in the pixel-7 project, the rest on desktop.
+// marked problem with its tooltip. Phone states run in both phone projects (Pixel 7 and iPhone 14),
+// the rest on desktop.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { isTouch } from './lib/gantt-rig';
 
 const READY_TIMEOUT_MS = 120_000;
 const SAMPLE = 'syn-18-structure-include-macro';
@@ -92,7 +94,7 @@ test.describe('axe', () => {
 		});
 
 		test(`phone tabs and docs (${scheme})`, async ({ page }, info) => {
-			test.skip(info.project.name !== 'pixel-7');
+			test.skip(!isTouch(info), 'the phone layout: both phone projects');
 			await page.emulateMedia({ colorScheme: scheme });
 			await openApp(page);
 			await axe(page, 'phone, Text tab');

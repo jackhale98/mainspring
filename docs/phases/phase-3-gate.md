@@ -9,7 +9,7 @@ batch, before the push.
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Last green commit on main | `60680f74` (branch run 44360731949, 2026-11-18; main fast-forwarded): B2 (the Gantt edge specs on the iPhone) and its review fixes, on top of the iPhone CI times (`93c9b361`, run 44346394164, 14 min) |
 | Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
-| iPhone 14 skips left | B3 done (2026-11-18): 9 spec files by the grep below (19 before B3); 5 of them only name the iPhone without skipping it (`calendar-sheet` and `people-shell-screenshots` in a picture or size name, `gantt-frozen`, `gantt-perf` and `workload-perf` through the allowlist helper); `node scripts/ci/webkit-skips.mjs` reports 6 skips in 6 files, all of B4 and B5 (4 naming the iPhone or WebKit, 2 that keep it out as Pixel 7 only; it was 18 in 18 files after B2), and none outside the allowlist for B2 and B3 (`PENDING_BATCHES` lists B4 and B5 only; the check job runs report-only until they empty theirs); allowlist: 5 entries (1 `cdp-touch`: the native touch scroll of `gantt-frozen`; 4 `chromium-performance-api`: the CPU-throttled scroll profile and the two touch-listener runs of `gantt-perf`, and the Pixel 7 swipe recording of `workload-perf`, which needs a Chromium trace); target: at most 6 allowlisted, so one entry is left for B4 and B5 |
+| iPhone 14 skips left | B5 done (2026-11-19, merged after the T27 work): the Text mode a11y phone states and the Android Enter tests run on both phones (an iOS key path for Enter), nothing added to the allowlist. Left: B4 (health, health fixes, why-here, health screenshots), paused on an app bug (the windowed Health list jumps on WebKit). `node scripts/ci/webkit-skips.mjs` reports the 4 B4 skips as pending; `PENDING_BATCHES` lists B4 only. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`) |
 | CI wall time | 14.7 min (run 44371927138, B2 with 9 iPhone shards). B3's specs made the iPhone project about 103 worker-minutes (run 44382320872, whose shard 1/9 ran 49 min because they were estimated at zero), so it has 15 shards at 8 min or less by the plan, and `workload.spec.ts` is split in two (one file ran 9 min on the iPhone). The iPhone times are re-measured from the CI reports of each batch's first run (`shard-plan.mjs measure`); a push to `main` runs only the timing tier, and an e2e shard stops at 35 min. Target 12 min (ADR-0016 section 4); with 35 jobs against about 20 concurrent runners the wall time is expected above it, to be measured. The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble` |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
@@ -21,8 +21,8 @@ grep -lE "skip" tests/e2e/*.spec.ts | xargs grep -lE "iphone-14|isIphone|webkit"
 
 `tests/e2e/lib/webkit-allowlist.ts` now exists (ADR-0016 section 2): count its entries as well, and the
 `check` job's `node scripts/ci/webkit-skips.mjs` fails on a skip naming the iPhone or WebKit outside it,
-for every spec but those of the batches in its `PENDING_BATCHES` list (B3 to B5; each batch empties its
-part of the list). Run the iPhone specs with `npm run setup:webkit` once, then
+for every spec but those of the batches in its `PENDING_BATCHES` list (B4 is left; each batch
+empties its part of the list). Run the iPhone specs with `npm run setup:webkit` once, then
 `npm run test:e2e:iphone -- <spec>`.
 
 How the CI wall time is read: open the run of the `CI` workflow on the branch commit that `main` was
@@ -251,7 +251,7 @@ App bugs found on the way, open:
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five
    reruns of the merge tier on one commit green, and three timing trend entries: not yet.
-2. iPhone skips down to the allowlist: not yet.
+2. iPhone skips down to the allowlist: not yet (B1, B2, B5 done; B3 and B4 paused).
 3. Contract specs for the six primitives: done (T25 above): pass on desktop, Pixel 7 and iPhone 14;
    `select-arrows.spec.ts` passes on all three and the global select rule is gone.
 4. CI meets the time target: not yet.
