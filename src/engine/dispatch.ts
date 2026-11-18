@@ -9,6 +9,10 @@
  *   Ruby runs synchronously, so a schedule in progress cannot be interrupted.
  * - `schedule` replies `scheduled`, or `failed` with the request's revision. `syntax` replies
  *   `syntax`, or `failed` with its id. Error kinds follow failure.ts.
+ * - While a `schedule` or `syntax` runs, each progress beat of the engine (runtime.ts, at most one
+ *   a second) is posted as `progress`, so the client's reply watchdog sees a slow run advancing
+ *   and still terminates a run that stops advancing. Beats after the request returned, and a
+ *   `progress` that cannot be posted, are dropped.
  * - `cancel` is a no-op (ADR-0002, decision 6): the client never has more than one request here.
  * - A message that is not a well-formed ToWorker is dropped when it is not an object or its type
  *   is unknown. A `schedule` whose request has no valid numeric revision gets `failed` with kind
@@ -29,8 +33,9 @@ import type {
 export interface EngineLike {
 	readonly versions: EngineVersions;
 	readonly bootMs: number;
-	schedule(request: ScheduleRequest): ScheduleResult;
-	syntax(): SyntaxDocs;
+	/** `onProgress` is called synchronously, during the call, whenever the run advances. */
+	schedule(request: ScheduleRequest, onProgress?: () => void): ScheduleResult;
+	syntax(onProgress?: () => void): SyntaxDocs;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -73,15 +78,23 @@ export function checkScheduleRequest(request: unknown): ScheduleRequest {
 	return request as unknown as ScheduleRequest;
 }
 
-/** The single reply to one incoming message, or null when there is nothing to answer. */
-export function handleMessage(engine: EngineLike, message: unknown): FromWorker | null {
+/**
+ * The single reply to one incoming message, or null when there is nothing to answer. The engine
+ * calls `onProgress` while it runs a `schedule` or `syntax`.
+ */
+export function handleMessage(
+	engine: EngineLike,
+	message: unknown,
+	onProgress?: () => void,
+): FromWorker | null {
 	if (!isRecord(message)) return null;
 	switch (message['type']) {
 		case 'schedule': {
 			const request = message['request'];
 			const revision = isRecord(request) && isNumber(request['revision']) ? request['revision'] : undefined;
 			try {
-				return { type: 'scheduled', result: engine.schedule(checkScheduleRequest(request)) };
+				const result = engine.schedule(checkScheduleRequest(request), onProgress);
+				return { type: 'scheduled', result };
 			} catch (error) {
 				return failed(toEngineError(error), revision === undefined ? {} : { revision });
 			}
@@ -90,7 +103,7 @@ export function handleMessage(engine: EngineLike, message: unknown): FromWorker 
 			const id = message['id'];
 			if (!isNumber(id)) return null;
 			try {
-				return { type: 'syntax', id, result: engine.syntax() };
+				return { type: 'syntax', id, result: engine.syntax(onProgress) };
 			} catch (error) {
 				return failed(toEngineError(error), { id });
 			}
@@ -126,9 +139,23 @@ export function startDispatcher(
 	);
 	return (message) => {
 		const step = (): void => {
-			const reply = engine
-				? handleMessage(engine, message)
-				: bootError && bootFailureReply(message, bootError);
+			let open = true;
+			const progress = (): void => {
+				if (!open) return;
+				try {
+					post({ type: 'progress' });
+				} catch {
+					// A lost beat only shortens the watchdog's view; the reply still comes.
+				}
+			};
+			let reply: FromWorker | null;
+			try {
+				reply = engine
+					? handleMessage(engine, message, progress)
+					: bootError && bootFailureReply(message, bootError);
+			} finally {
+				open = false;
+			}
 			if (reply) deliver(reply, post);
 		};
 		// If a step throws, the queue must not stall: later messages still run.

@@ -460,7 +460,14 @@ export type FromWorker =
 	| { type: 'scheduled'; result: ScheduleResult }
 	| { type: 'syntax'; id: number; result: SyntaxDocs }
 	/** `revision` or `id` names the request that failed; see EngineErrorKind for the rules. */
-	| { type: 'failed'; revision?: Revision; id?: number; error: EngineError };
+	| { type: 'failed'; revision?: Revision; id?: number; error: EngineError }
+	/**
+	 * The request the worker is running has advanced (engine/bridge/progress.rb), at most about
+	 * once a second. Only sent while a `schedule` or `syntax` runs, and never answers anything:
+	 * the client restarts its reply timeout on it (client.ts `timeoutMs`), so a slow run is not
+	 * taken for a hung one. Added after spec 3.2; a client that does not know it ignores it.
+	 */
+	| { type: 'progress' };
 
 export interface EngineVersions {
 	tj: '3.8.4';

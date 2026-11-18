@@ -116,7 +116,12 @@
 #   372-375). Allocation keeps that list in @candidates; its public
 #   #candidates returns the list sorted by the selection mode once scheduling
 #   has cached one (Allocation.rb:75-78, 123), so the list is read directly.
+#
+# Progress: one beat site per task and per resource (progress.rb), so that the
+# client's watchdog sees a long serialization advance. Natively nothing is
+# connected and the call returns at once; it changes no output.
 require 'json'
+require_relative 'progress'
 
 module MainspringBridge
   # Raised when the serializer meets data it cannot represent exactly, such as
@@ -271,6 +276,7 @@ module MainspringBridge
     end
 
     def task(t)
+      Progress.tick
       scenarios = {}
       milestone = nil
       @active.each do |id, idx|
@@ -350,6 +356,7 @@ module MainspringBridge
     end
 
     def resource(r)
+      Progress.tick
       scenarios = {}
       @active.each do |id, idx|
         rs = { 'efficiency' => r['efficiency', idx], 'workingTime' => [], 'leaves' => [] }

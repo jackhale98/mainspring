@@ -66,8 +66,8 @@ export interface EngineClientOptions {
 	/**
 	 * Default 60_000. When the worker owes a reply and sends nothing for this long, the client
 	 * terminates it, reboots, and settles the in-flight request `failed` with kind `timeout`.
-	 * Any message from the live worker counts as progress and restarts the countdown.
-	 * `Infinity` turns the watchdog off.
+	 * Any message from the live worker restarts the countdown, `progress` included (sent while a
+	 * run advances), so this bounds time without progress, not run time. `Infinity` turns it off.
 	 */
 	timeoutMs?: number;
 	/**
@@ -235,8 +235,8 @@ class Client implements EngineClient {
 	}
 
 	/**
-	 * Applies one worker message; the listener then calls `#afterEvent`. Unknown message types are
-	 * ignored, so a newer worker cannot break an older client.
+	 * Applies one worker message; the listener then calls `#afterEvent`. `progress` has nothing to
+	 * apply; unknown types are ignored, so a newer worker cannot break an older client.
 	 */
 	#onMessage(message: FromWorker): void {
 		switch (message.type) {

@@ -159,10 +159,50 @@ describe('timeout (rule 6)', () => {
 		factory.current.boot();
 		const one = client.schedule(req(1));
 		vi.advanceTimersByTime(TIMEOUT - 10);
-		factory.current.emitRaw({ type: 'progress' });
+		factory.current.emitRaw({ type: 'future' });
 		vi.advanceTimersByTime(TIMEOUT - 10);
 		factory.current.answerNext();
 		await expect(one).resolves.toMatchObject({ status: 'done' });
+	});
+
+	it('keeps a slow run that sends progress, however long it takes', async () => {
+		factory.current.boot();
+		const one = client.schedule(req(1));
+		for (let i = 0; i < 20; i++) {
+			vi.advanceTimersByTime(TIMEOUT - 1);
+			factory.current.emit({ type: 'progress' });
+		}
+		factory.current.answerNext();
+		await expect(one).resolves.toMatchObject({ status: 'done' });
+		expect(factory.workers).toHaveLength(1);
+		expect(states).toEqual(['idle', 'busy', 'idle']);
+	});
+
+	it('still terminates a worker that stops sending progress, a full timeout after the last', async () => {
+		factory.current.boot();
+		const one = client.schedule(req(1));
+		const two = client.schedule(req(2));
+		for (let i = 0; i < 5; i++) {
+			vi.advanceTimersByTime(TIMEOUT / 2);
+			factory.current.emit({ type: 'progress' });
+		}
+		vi.advanceTimersByTime(TIMEOUT - 1);
+		expect(factory.workers[0]?.terminated).toBe(false);
+		vi.advanceTimersByTime(1);
+		await expect(one).resolves.toMatchObject({ status: 'failed', error: { kind: 'timeout' } });
+		expect(factory.workers[0]?.terminated).toBe(true);
+		// The new worker runs the request that waited; the one that timed out is not sent again.
+		factory.current.boot();
+		expect(factory.current.postedRevisions()).toEqual([2]);
+		factory.current.answerNext();
+		await expect(two).resolves.toMatchObject({ status: 'done' });
+	});
+
+	it('starts no watchdog for progress while no reply is owed', () => {
+		factory.current.boot();
+		factory.current.emit({ type: 'progress' });
+		expect(vi.getTimerCount()).toBe(0);
+		expect(states).toEqual(['idle']);
 	});
 
 	it('turns the reply watchdog off with Infinity', () => {

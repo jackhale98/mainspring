@@ -14,6 +14,11 @@
 #   TJBridge.syntax -> String (JSON)
 #   TJBridge.versions -> String (JSON) { "tj", "ruby" }
 #   TJBridge.tokens(text) -> String (JSON), Node only (see below)
+#   TJBridge.connect_progress(host, interval_ms) -> nil
+#
+# connect_progress hands the bridge a JS object with a `beat()` method, which
+# schedule and syntax call at most once per interval_ms while they advance
+# (progress.rb; the beat sites inside TaskJuggler are wasm/tj_progress.rb).
 #
 # request_json is a ScheduleRequest: { files, entry, revision, options? }.
 # The bridge replaces WORKSPACE (default /workspace, which the worker must
@@ -63,11 +68,12 @@
 # reply. The worker reports the wasm memory size with each result, and the
 # client replaces a worker that has grown too large (src/engine/client.ts).
 #
-# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time, jump and
-# parser-cache patches on native Ruby too (the Intl time-zone patch needs a JS
-# host and is
-# never loaded natively). This exists only to check natively that the patches
-# change no results; the golden recorder never sets it.
+# MAINSPRING_FORCE_WASM_PATCHES=1 loads the perf, stable-sort, time, jump,
+# parser-cache and progress patches on native Ruby too (the Intl time-zone
+# patch needs a JS host and is never loaded natively; natively no progress
+# host is connected, so the progress hooks only call through). This exists
+# only to check natively that the patches change no results; the golden
+# recorder never sets it.
 require 'json'
 
 module TJBridge
@@ -83,6 +89,8 @@ require_relative 'wasm/tj_wasm_tz' if TJBridge::WASM
 require_relative 'wasm/tj_wasm_time' if TJBridge::PATCHES
 require_relative 'wasm/tj_parser_cache' if TJBridge::PATCHES
 require_relative 'wasm/tj_wasm_jumps' if TJBridge::PATCHES
+require_relative 'progress'
+require_relative 'wasm/tj_progress' if TJBridge::PATCHES
 require_relative 'request'
 require_relative 'fast_path'
 
@@ -196,6 +204,10 @@ module TJBridge
     exception_failure('crash', e)
   rescue StandardError, ScriptError => e
     exception_failure('internal', e)
+  end
+
+  def connect_progress(host, interval_ms)
+    MainspringBridge::Progress.connect(host, interval_ms)
   end
 
   def versions
