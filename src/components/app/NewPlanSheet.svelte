@@ -137,7 +137,10 @@
 					onchange={(v) => (zone = v)}
 					aria-invalid={zoneProblem !== null}
 					aria-describedby={zoneProblem ? `${ids.zone}-error` : undefined}
-					options={[{ value: '', label: N.zoneNone }, ...zones.map((z) => ({ value: z, label: z }))]}
+					options={[
+						{ value: '', label: N.zoneNone },
+						...zones.map((z) => ({ value: z, label: z })),
+					]}
 				/>
 				{#if zoneProblem}
 					<p class="error" id="{ids.zone}-error" role="alert">{N.errors.zone}</p>

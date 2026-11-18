@@ -4,9 +4,9 @@
 	steppers, "Spare below" (default 80) and "Over above" (default 100), in percent of available
 	time. They are stored per plan (heat-state.svelte.ts). A value that would make the pair invalid
 	(spare above over, or outside 1 to 500) is refused with a sentence and the fields keep what they
-	had. It is a disclosure: the chip is a button with `aria-expanded`, the panel opens under it on
-	a desktop and as a sheet at the foot on a phone, Escape closes it and returns the focus to the
-	chip, and so does a click outside.
+	had. It is a disclosure: the chip is a button with `aria-expanded` that opens the shared Popover
+	(ui/Popover.svelte: beside the chip on a desktop, a panel at the foot on a phone, inside the
+	viewport, Escape and a press outside close it and the focus returns to the chip).
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
@@ -15,6 +15,7 @@
 	import { workloadStrings as W } from '../../lib/strings-workload';
 	import BandLegend from './BandLegend.svelte';
 	import Icon from '../Icon.svelte';
+	import Popover from '../ui/Popover.svelte';
 
 	interface Props {
 		thresholds: Thresholds;
@@ -25,8 +26,7 @@
 
 	let open = $state(false);
 	let error = $state(false);
-	let chip: HTMLButtonElement | undefined = $state();
-	let panel: HTMLDivElement | undefined = $state();
+	let panel: HTMLElement | undefined = $state();
 	let spare = $state('');
 	let over = $state('');
 
@@ -35,20 +35,11 @@
 		over = String(thresholds.overAbove);
 	});
 
-	async function toggle(): Promise<void> {
-		open = !open;
+	// Opened (by the chip: popovertarget): the first field takes the focus; closed: a stale refusal goes.
+	$effect(() => {
 		error = false;
-		if (open) {
-			await tick();
-			panel?.querySelector<HTMLInputElement>('input')?.focus();
-		}
-	}
-
-	function close(): void {
-		open = false;
-		error = false;
-		chip?.focus();
-	}
+		if (open) void tick().then(() => panel?.querySelector<HTMLInputElement>('input')?.focus());
+	});
 
 	function commit(): void {
 		const next: Thresholds = { spareBelow: Number(spare), overAbove: Number(over) };
@@ -77,49 +68,31 @@
 	}
 </script>
 
-<svelte:window
-	onpointerdown={(e) => {
-		if (
-			open &&
-			e.target instanceof Node &&
-			!panel?.contains(e.target) &&
-			!chip?.contains(e.target)
-		) {
-			open = false;
-		}
-	}}
-/>
-
 <span class="host">
 	<button
 		type="button"
 		class="chip"
-		bind:this={chip}
+		data-narrow="icon-phone"
+		popovertarget="heat-thresholds"
 		aria-expanded={open}
 		aria-controls="heat-thresholds"
 		aria-haspopup="true"
 		aria-label={W.thresholds}
 		data-testid="heat-thresholds-chip"
-		onclick={toggle}
 	>
 		<Icon name="sliders" size={14} /><span class="lbl">{W.thresholds}</span>
 	</button>
-	{#if open}
-		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<div
-			id="heat-thresholds"
-			class="panel"
-			role="group"
-			aria-label={W.thresholdsTitle}
-			bind:this={panel}
-			data-testid="heat-thresholds"
-			onkeydown={(e) => {
-				if (e.key === 'Escape') {
-					e.stopPropagation();
-					close();
-				}
-			}}
-		>
+	<Popover
+		id="heat-thresholds"
+		label={W.thresholdsTitle}
+		testid="heat-thresholds"
+		placement="anchor"
+		foot
+		width="17rem"
+		bind:open
+		bind:popover={panel}
+	>
+		<div class="panel">
 			<p class="title">{W.thresholdsTitle}</p>
 			{@render field('spare', W.spareBelow, spare)}
 			{@render field('over', W.overAbove, over)}
@@ -131,7 +104,7 @@
 			<BandLegend rules={thresholds} />
 			<button type="button" class="reset" onclick={reset}>{W.thresholdsReset}</button>
 		</div>
-	{/if}
+	</Popover>
 </span>
 
 {#snippet field(id: 'spare' | 'over', label: string, value: string)}
@@ -197,21 +170,9 @@
 		outline-offset: 2px;
 	}
 	.panel {
-		position: absolute;
-		z-index: 30;
-		inset-block-start: calc(100% + 6px);
-		inset-inline-start: 0;
-		box-sizing: border-box;
-		inline-size: 17rem;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
-		padding: var(--space-3) var(--space-4);
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		box-shadow: var(--shadow-raised);
-		color: var(--color-text);
 		font-size: var(--text-sm);
 	}
 	.title {
@@ -299,22 +260,5 @@
 			min-block-size: var(--size-tap);
 		}
 	}
-	/* A phone: the panel is a sheet at the foot of the screen, above the tab bar. */
-	@media (max-width: 599px) {
-		.chip {
-			padding-inline: 0;
-			justify-content: center;
-			min-inline-size: var(--size-tap);
-		}
-		.lbl {
-			display: none;
-		}
-		.panel {
-			position: fixed;
-			inset-inline: var(--space-2);
-			inset-block-start: auto;
-			inset-block-end: var(--tabbar-clearance);
-			inline-size: auto;
-		}
-	}
+	/* A phone: the card is a panel at the foot of the screen (the Popover's `foot`); the chip is its icon (data-narrow). */
 </style>

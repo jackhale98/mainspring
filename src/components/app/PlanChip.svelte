@@ -46,12 +46,7 @@
 		{#if title && subtitle !== ''}<span class="sub">{subtitle}</span>{/if}
 	</span>
 	<Icon name="chevronDown" size={title ? 16 : 13} />
-	<Select
-		variant="overlay"
-		value={app.sampleId}
-		onchange={pick}
-		aria-label={strings.topBar.sample}
-	>
+	<Select variant="overlay" value={app.sampleId} onchange={pick} aria-label={strings.topBar.sample}>
 		<option value={CREATE}>{strings.newPlan.chooser}</option>
 		{#if app.newPlanName !== null}
 			<option value={NEW_PLAN_ID}>{app.planLabel}</option>
