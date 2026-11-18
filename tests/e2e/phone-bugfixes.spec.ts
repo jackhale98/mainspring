@@ -263,7 +263,8 @@ test.describe('3. the calendar day details slide up and down', () => {
 	test.beforeEach(({ browserName: _b }, info) => {
 		test.skip(!isTouch(info), 'the phone bottom sheet');
 	});
-	const SHEET = '[data-testid="calendar"] .sheet';
+	// The day details are the shared non-modal bottom Sheet (the dialog moves), as the task details are.
+	const SHEET = 'dialog.sheet[data-modal="false"][open]';
 
 	test('a second tap on a day slides the sheet up on transform; closing slides it down', async ({
 		page,
@@ -287,7 +288,7 @@ test.describe('3. the calendar day details slide up and down', () => {
 		await shot(page, 'calendar-sheet', info);
 
 		await record(page, SHEET);
-		await page.getByTestId('cal-details').getByRole('button', { name: 'Close' }).first().tap();
+		await page.locator(SHEET).getByRole('button', { name: 'Close' }).tap();
 		await expect(page.locator(SHEET)).toHaveCount(1);
 		await page.waitForTimeout(600);
 		const down = await stopRecording(page);

@@ -255,7 +255,9 @@ test('a leave of a macro is text only: the day says so and an erase is refused',
 	await expect(page.getByTestId('cal-textonly')).toContainText(
 		'From a shift or macro. Edit as text.',
 	);
-	// Erase it: the planner says text only, and nothing changes in the text.
+	// Erase it: the planner says text only, and nothing changes in the text. (On a phone the details
+	// sheet covers the mode row: close it first.)
+	if (phone) await page.locator('dialog.sheet[open]').getByRole('button', { name: 'Close' }).tap();
 	await setMode(page, 'erase');
 	await tapDay(page, info, d);
 	if (phone) await drag(page, info, d, d);
