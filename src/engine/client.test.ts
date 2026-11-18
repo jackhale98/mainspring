@@ -126,7 +126,7 @@ describe('createEngineClient', () => {
 		factory.current.boot();
 		const first = client.schedule(req(1));
 		factory.current.emit({ type: 'scheduled', result: res(0) });
-		factory.current.emitRaw({ type: 'progress' });
+		factory.current.emitRaw({ type: 'future' });
 		factory.current.emitRaw(null);
 		factory.current.emitRaw('scheduled');
 		expect(client.state).toBe('busy');

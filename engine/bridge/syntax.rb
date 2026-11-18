@@ -27,6 +27,7 @@
 # which restores its pristine tables on the next parse.
 require 'taskjuggler/SyntaxReference'
 require 'taskjuggler/version'
+require_relative 'progress'
 
 module MainspringBridge
   module SyntaxDocs
@@ -45,6 +46,8 @@ module MainspringBridge
     end
 
     def keyword(kwd)
+      # A beat site (progress.rb): once per keyword.
+      Progress.tick
       doc = render(kwd.pattern.doc)
       {
         'keyword' => kwd.keyword,

@@ -47,9 +47,11 @@
 			import { createEngineClient } from '../../engine/client';
 			import { createDevApi } from '../../engine/devApi';
 
+			// `?timeoutMs=` shortens the reply watchdog (tests/e2e/engine-watchdog.spec.ts).
+			const timeoutMs = Number(new URLSearchParams(location.search).get('timeoutMs'));
 			// The responsiveness test starts its cold window at this mark.
 			performance.mark('mainspring:client-created');
-			const client = createEngineClient();
+			const client = createEngineClient(timeoutMs > 0 ? { timeoutMs } : {});
 			// A rAF-driven animation, next to the CSS one.
 			const ticker = document.getElementById('ticker');
 			let angle = 0;

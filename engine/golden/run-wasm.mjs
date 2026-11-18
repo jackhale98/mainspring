@@ -34,8 +34,9 @@ const GOLDEN = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(GOLDEN, '..', '..');
 
 /**
- * Boots the engine from a directory holding manifest.json and the hashed assets.
- * @param {{ dir?: string, log?: (stream: 'stdout' | 'stderr', line: string) => void }} [opts]
+ * Boots the engine from a directory holding manifest.json and the hashed assets. `progressMs` is
+ * passed on (runtime.ts BootOptions).
+ * @param {{ dir?: string, log?: (stream: 'stdout' | 'stderr', line: string) => void, progressMs?: number }} [opts]
  * @returns {Promise<import('../../src/engine/runtime.ts').NodeEngine>}
  */
 export async function bootNodeEngine(opts = {}) {
@@ -45,7 +46,11 @@ export async function bootNodeEngine(opts = {}) {
 	}
 	/** @param {string} name */
 	const load = async (name) => new Uint8Array(await fs.promises.readFile(path.join(dir, name)));
-	return bootEngineForNode({ load, log: opts.log ?? ((stream, line) => console.error(`[${stream}] ${line}`)) });
+	return bootEngineForNode({
+		load,
+		log: opts.log ?? ((stream, line) => console.error(`[${stream}] ${line}`)),
+		...(opts.progressMs === undefined ? {} : { progressMs: opts.progressMs }),
+	});
 }
 
 /**

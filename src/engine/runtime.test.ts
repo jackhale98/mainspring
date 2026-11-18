@@ -97,6 +97,19 @@ describe('bootEngine', () => {
 		}).catch((e: unknown) => e);
 		expect(toEngineError(error)).toMatchObject({ kind: 'boot', detail: 'Error: HTTP 404' });
 	});
+
+	it.each([0, -5, Number.NaN, Number.POSITIVE_INFINITY])(
+		'rejects progressMs %s before loading anything',
+		async (progressMs) => {
+			let loads = 0;
+			const load = (): Promise<Uint8Array> => {
+				loads++;
+				return Promise.reject(new Error('not reached'));
+			};
+			await expect(bootEngine({ load, progressMs })).rejects.toThrow(RangeError);
+			expect(loads).toBe(0);
+		},
+	);
 });
 
 describe('toEngineError', () => {

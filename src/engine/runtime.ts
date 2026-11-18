@@ -15,6 +15,12 @@
  * `bootEngineForNode` boots the same engine typed as `NodeEngine`, which adds the phase-1 token
  * oracle `tokens(text)` (spec 6.9). Only Node tools use it; the worker boots with `bootEngine`,
  * whose `Engine` type has no `tokens`, and the worker protocol has no message for it.
+ *
+ * Progress: `schedule` and `syntax` take an `onProgress` callback. While the call runs, the bridge
+ * beats at its progress points (engine/bridge/progress.rb), at most once per `progressMs`, and
+ * each beat calls `onProgress` synchronously, from inside the Ruby call. The worker turns it into
+ * a `progress` message, so the client's reply watchdog sees a long run advance. A beat outside a
+ * call, and anything `onProgress` throws, is dropped: it never reaches Ruby.
  */
 import { WASI } from '@bjorn3/browser_wasi_shim';
 import { RbError, RbFatalError, RubyVM, type RbValue } from '@ruby/wasm-wasi';
@@ -37,6 +43,9 @@ export interface BootTimings {
 	totalMs: number;
 }
 
+/** Called during a running request when it advances (module comment). */
+export type ProgressFn = () => void;
+
 export interface Engine {
 	readonly versions: EngineVersions;
 	/** RUBY_VERSION inside the VM. */
@@ -45,8 +54,8 @@ export interface Engine {
 	readonly bootMs: number;
 	readonly bootTimings: BootTimings;
 	/** Never throws for TaskJuggler errors (they are messages); see the module comment. */
-	schedule(request: ScheduleRequest): ScheduleResult;
-	syntax(): SyntaxDocs;
+	schedule(request: ScheduleRequest, onProgress?: ProgressFn): ScheduleResult;
+	syntax(onProgress?: ProgressFn): SyntaxDocs;
 }
 
 /** The engine as Node tools see it: `Engine` plus the token oracle, which the worker never exposes. */
@@ -66,7 +75,15 @@ export interface BootOptions {
 	log?: LogFn;
 	/** Clock in ms. Default: `performance.now`. */
 	now?: () => number;
+	/**
+	 * The shortest time in ms between two progress beats (`onProgress`). Default
+	 * `DEFAULT_PROGRESS_MS`; must be a positive finite number.
+	 */
+	progressMs?: number;
 }
+
+/** Well under the client's reply timeout (client.ts, 60 s), and cheap: one message a second. */
+export const DEFAULT_PROGRESS_MS = 1000;
 
 export { createTimeZoneHost, type TimeZoneHost } from './timezone.ts';
 import { createTimeZoneHost } from './timezone.ts';
@@ -156,6 +173,8 @@ class WasmEngine implements NodeEngine {
 	readonly #memory: WebAssembly.Memory | null;
 	#broken: string | null = null;
 	#syntax: SyntaxDocs | null = null;
+	/** The running call's `onProgress`; null between calls. */
+	#onProgress: ProgressFn | null = null;
 
 	constructor(init: {
 		vm: RubyVM;
@@ -165,6 +184,7 @@ class WasmEngine implements NodeEngine {
 		clearWorkspace: () => void;
 		now: () => number;
 		memory: WebAssembly.Memory | null;
+		progressMs: number;
 	}) {
 		this.#vm = init.vm;
 		this.#bridge = init.vm.eval('TJBridge');
@@ -175,9 +195,28 @@ class WasmEngine implements NodeEngine {
 		this.#clearWorkspace = init.clearWorkspace;
 		this.#now = init.now;
 		this.#memory = init.memory;
+		// The bridge calls `beat` from inside a Ruby call; it must never throw back into Ruby.
+		const host = {
+			beat: (): void => {
+				try {
+					this.#onProgress?.();
+				} catch {
+					// A broken listener must not change the run.
+				}
+			},
+		};
+		// A bundle from before the progress beats (a stale manifest in the HTTP cache) has no
+		// `connect_progress`: it still boots, without beats, rather than failing with kind `boot`.
+		if (init.vm.eval('TJBridge.respond_to?(:connect_progress)').toString() === 'true') {
+			this.#bridge.call(
+				'connect_progress',
+				init.vm.wrap(host),
+				init.vm.eval(String(init.progressMs)),
+			);
+		}
 	}
 
-	schedule(request: ScheduleRequest): ScheduleResult {
+	schedule(request: ScheduleRequest, onProgress?: ProgressFn): ScheduleResult {
 		const t0 = this.#now();
 		let json: string;
 		try {
@@ -190,7 +229,7 @@ class WasmEngine implements NodeEngine {
 			this.#call(() => {
 				this.#clearWorkspace();
 				return this.#bridge.call('schedule', this.#vm.wrap(json)).toString();
-			}),
+			}, onProgress),
 		);
 		const timings = isRecord(reply['timings']) ? reply['timings'] : {};
 		const ms = (name: string): number =>
@@ -209,9 +248,11 @@ class WasmEngine implements NodeEngine {
 		return result;
 	}
 
-	syntax(): SyntaxDocs {
+	syntax(onProgress?: ProgressFn): SyntaxDocs {
 		if (!this.#syntax) {
-			const reply = this.#reply(this.#call(() => this.#bridge.call('syntax').toString()));
+			const reply = this.#reply(
+				this.#call(() => this.#bridge.call('syntax').toString(), onProgress),
+			);
 			this.#syntax = reply as unknown as SyntaxDocs;
 		}
 		return this.#syntax;
@@ -237,10 +278,11 @@ class WasmEngine implements NodeEngine {
 	}
 
 	/** Runs a Ruby call; marks the engine broken when the VM fails underneath. */
-	#call(fn: () => string): string {
+	#call(fn: () => string, onProgress?: ProgressFn): string {
 		if (this.#broken !== null) {
 			throw new EngineFailure('crash', 'The engine stopped after an earlier failure.', this.#broken);
 		}
+		this.#onProgress = onProgress ?? null;
 		try {
 			return fn();
 		} catch (error) {
@@ -250,6 +292,8 @@ class WasmEngine implements NodeEngine {
 				throw new EngineFailure('crash', 'The engine stopped unexpectedly.', detail);
 			}
 			throw new EngineFailure('internal', 'The engine raised an error.', detail);
+		} finally {
+			this.#onProgress = null;
 		}
 	}
 }
@@ -267,6 +311,10 @@ export async function bootEngineForNode(opts: BootOptions): Promise<NodeEngine> 
 async function boot(opts: BootOptions): Promise<WasmEngine> {
 	const now = opts.now ?? (() => performance.now());
 	const log = opts.log ?? (() => {});
+	const progressMs = opts.progressMs ?? DEFAULT_PROGRESS_MS;
+	if (!(progressMs > 0 && Number.isFinite(progressMs))) {
+		throw new RangeError(`progressMs must be a positive finite number, got ${progressMs}.`);
+	}
 	const t0 = now();
 	const manifest = await loadManifest(opts.load);
 	const t1 = now();
@@ -313,6 +361,7 @@ async function boot(opts: BootOptions): Promise<WasmEngine> {
 			clearWorkspace: () => clearDirectory(fs.workspace),
 			now,
 			memory: memory instanceof WebAssembly.Memory ? memory : null,
+			progressMs,
 		});
 	} catch (error) {
 		if (error instanceof EngineFailure) throw error;

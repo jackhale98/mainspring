@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * Property tests for the client: random interleavings of edits, cancels, worker replies, crashes,
- * timeouts and refused posts against fake workers with controlled timing and fake timers.
+ * Property tests for the client: random interleavings of edits, cancels, worker replies, progress
+ * beats, crashes, timeouts and refused posts against fake workers with controlled timing and fake
+ * timers.
  * Sequences are 20 to 80 events long; a final event that ends the engine (boot failure, failed
  * restart, boot timeout, dispose) is rare and lands near the end, so a few events follow it.
  */
@@ -20,6 +21,7 @@ type Action =
 	| { kind: 'cancel'; recent: boolean; pick: number }
 	| { kind: 'answer' }
 	| { kind: 'fail' }
+	| { kind: 'progress' }
 	| { kind: 'crash-event' }
 	| { kind: 'crash-message' }
 	| { kind: 'timeout' }
@@ -55,6 +57,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
 	},
 	{ weight: 8, arbitrary: fc.constant({ kind: 'answer' as const }) },
 	{ weight: 2, arbitrary: fc.constant({ kind: 'fail' as const }) },
+	{ weight: 2, arbitrary: fc.constant({ kind: 'progress' as const }) },
 	{ weight: 1, arbitrary: fc.constant({ kind: 'crash-event' as const }) },
 	{ weight: 1, arbitrary: fc.constant({ kind: 'crash-message' as const }) },
 	{ weight: 1, arbitrary: fc.constant({ kind: 'timeout' as const }) },
@@ -212,6 +215,9 @@ class Harness {
 				break;
 			case 'fail':
 				if (worker.booted) worker.failNext();
+				break;
+			case 'progress':
+				if (worker.booted) worker.emit({ type: 'progress' });
 				break;
 			case 'crash-event':
 				if (worker.booted) worker.emitError('error', 'RuntimeError: unreachable');

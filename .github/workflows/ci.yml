@@ -114,6 +114,11 @@ jobs:
       - run: npx vitest run tests/engine/memory.engine.test.ts
         env:
           ENGINE_MEMORY: '1'
+      # A long run sends progress beats while it runs, so the client's reply watchdog keeps a slow
+      # engine alive (engine/bridge/progress.rb); beats change no result. Fails without the engine.
+      - run: npx vitest run src/engine/progress.engine.test.ts
+        env:
+          ENGINE_PROGRESS: '1'
       # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
       # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
       # engine build hash alone (bridge-only changes) prints a note and passes.

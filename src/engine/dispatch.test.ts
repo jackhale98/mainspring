@@ -211,6 +211,60 @@ describe('startDispatcher', () => {
 		expect(posted[1]).toMatchObject({ revision: 1 });
 	});
 
+	it('posts the beats of a running request as progress, before its reply, and drops later ones', async () => {
+		const posted: FromWorker[] = [];
+		let late: (() => void) | undefined;
+		const engine = fakeEngine({
+			schedule(r, onProgress) {
+				onProgress?.();
+				onProgress?.();
+				late = onProgress;
+				return resultFor(r);
+			},
+			syntax(onProgress) {
+				onProgress?.();
+				return docs;
+			},
+		});
+		const handle = startDispatcher(
+			() => Promise.resolve(engine),
+			(m) => posted.push(m),
+		);
+		handle({ type: 'schedule', request: request(1) });
+		handle({ type: 'syntax', id: 1 });
+		await settle();
+		late?.();
+		expect(posted.map((m) => m.type)).toEqual([
+			'ready',
+			'progress',
+			'progress',
+			'scheduled',
+			'progress',
+			'syntax',
+		]);
+		expect(posted[1]).toEqual({ type: 'progress' });
+	});
+
+	it('still replies when a progress beat cannot be posted', async () => {
+		const posted: FromWorker[] = [];
+		const engine = fakeEngine({
+			schedule(r, onProgress) {
+				onProgress?.();
+				return resultFor(r);
+			},
+		});
+		const handle = startDispatcher(
+			() => Promise.resolve(engine),
+			(m) => {
+				if (m.type === 'progress') throw new Error('port closed');
+				posted.push(m);
+			},
+		);
+		handle({ type: 'schedule', request: request(3) });
+		await settle();
+		expect(posted.map((m) => m.type)).toEqual(['ready', 'scheduled']);
+	});
+
 	it('keeps answering after a message handler throws', async () => {
 		const posted: FromWorker[] = [];
 		const handle = startDispatcher(

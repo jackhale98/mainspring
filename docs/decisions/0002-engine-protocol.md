@@ -63,3 +63,16 @@ results are dropped. Writing the Phase 0 spec raised four points the plan leaves
 13. **Text decoding.** Files are decoded as UTF-8 with invalid sequences replaced by U+FFFD,
     and exactly one leading BOM is dropped, the same way on both sides. Browser code decodes
     bytes with `TextDecoder('utf-8', { ignoreBOM: true })` and leaves BOM removal to the bridge.
+14. **Progress beats (2026-11-18, approved by the user).** While a `schedule` or `syntax` runs,
+    the worker may post `{ type: 'progress' }`, at most about once per second
+    (`BootOptions.progressMs`, default 1000). The bridge sends a beat only from points that run at
+    most once per item of finite input: TaskJuggler's progress-meter calls, grammar rules and
+    states built, source lines read, every 1024th Scoreboard slot in `each_index` and `collect!`,
+    and each task, resource and keyword serialized. It never sends one from a timer
+    (`engine/bridge/progress.rb`, `wasm/tj_progress.rb`). The client restarts its reply watchdog
+    on any worker message, so `timeoutMs` now limits time without progress, not total run time. A
+    slow but advancing run (WebKit, older phones) is no longer killed. An endless loop, including
+    a runaway macro expansion, still passes no beat point and is terminated after `timeoutMs`.
+    Accepted cost: a finite but very long run is no longer cut off at 60 s, and newer edits wait
+    for it (the latest-wins rule stands). `progress` never answers a request; a client that does
+    not know it ignores it. A runtime whose bundle predates the beats boots without them.
