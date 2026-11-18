@@ -427,6 +427,13 @@ test('a text-only task shows its badge and does not drag', async ({ page }, info
 	const down = await rig.lane('dev1', inside.x);
 	await rig.drag(inside, down, { hold: rig.hold, steps: 8 });
 	await page.waitForTimeout(500);
+	// A finger's long-press on a text-only bar opens its details (the next test), and the sheet
+	// then covers the bar: close it, so that the next press is on the lane.
+	const details = rig.root.getByTestId('cell-details');
+	if (await details.isVisible()) {
+		await details.getByRole('button', { name: 'Close' }).first().click();
+		await expect(details).toBeHidden();
+	}
 	const along = await rig.barPoint('ops1', 'build.check_unit', 0, 5);
 	await rig.drag(along, { x: along.x + w, y: along.y }, { hold: rig.hold, steps: 8 });
 	await page.waitForTimeout(700);
@@ -442,7 +449,8 @@ test('a click (a second tap on a phone) on a bar selects its task and opens the 
 	const at = await rig.barPoint('dev3', 'spike', 0, 10);
 	await rig.tap(at);
 	if (rig.touch) {
-		// A first tap selects; the sheet opens on the second.
+		// A first tap selects (the task is the app's selection by then); the sheet opens on the second.
+		await expect.poll(() => rig.selection()).toMatchObject({ kind: 'task', id: 'spike' });
 		await expect(rig.root.getByTestId('cell-details')).toBeHidden();
 		await rig.tap(at);
 	}
@@ -465,7 +473,16 @@ test('a long-press without moving opens the details; on a text-only bar too', as
 	test.skip(!isTouch(info), 'a finger');
 	const rig = await LanesRig.openLanes(page, info);
 	const at = await rig.barPoint('ops1', 'build.check_unit', 0, 5);
-	await rig.drag(at, at, { hold: 550, steps: 1 });
+	// A finger down and held in place, no move: a text-only bar opens its details as the hold
+	// completes, with the finger still down. Wait for that, not for a time, then lift.
+	try {
+		await rig.overlayUnder(at);
+		await rig.touches('touchStart', [at]);
+		await expect(rig.root.getByTestId('cell-details')).toBeVisible({ timeout: 10_000 });
+		await rig.touches('touchEnd', []);
+	} finally {
+		await rig.detach();
+	}
 	await expect(rig.root.getByTestId('cell-details')).toBeVisible();
 	await expect(rig.root.getByTestId('cell-details')).toContainText('Check');
 });

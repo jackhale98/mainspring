@@ -269,12 +269,13 @@ test('W8: the details of a person: efficiency (one undo step), rate, e-mail, man
 	await plus.click();
 	await plus.click();
 	await plus.click();
-	const eff = await changed(page, before);
-	await expect
-		.poll(() => text(page), { timeout: 20_000 })
-		.toBe(
-			before.replace('resource ana "Ana"\n', 'resource ana "Ana" {\n    efficiency 1.15\n  }\n'),
-		);
+	// Each press sends the cumulative total and the text passes through 1.05 and 1.1 (a gesture's edit
+	// is replaced in place, edits.svelte.ts); the one undo step is checked below. `eff` is the last.
+	const eff = before.replace(
+		'resource ana "Ana"\n',
+		'resource ana "Ana" {\n    efficiency 1.15\n  }\n',
+	);
+	await expect.poll(() => text(page), { timeout: 20_000 }).toBe(eff);
 	await caughtUp(page);
 	await undo(page);
 	await expect.poll(() => text(page)).toBe(before);

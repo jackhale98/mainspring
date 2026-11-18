@@ -175,6 +175,43 @@ export class LanesRig extends Rig {
 		return at;
 	}
 
+	/**
+	 * The lanes' gestures listen on the overlay canvas: until it is sized and painted under `at`, a
+	 * press lands on its container and is lost (seen on a slow runner: the first tap of a pair
+	 * never reached the gestures). Waits for that before a press.
+	 */
+	async overlayUnder(at: Point): Promise<void> {
+		await expect
+			.poll(
+				() =>
+					this.page.evaluate(
+						({ x, y }) => document.elementFromPoint(x, y)?.getAttribute('data-testid') ?? null,
+						at,
+					),
+				{ message: 'the lanes overlay is under the press' },
+			)
+			.toBe('lane-overlay');
+	}
+
+	override async tap(p: Point): Promise<void> {
+		await this.overlayUnder(p);
+		return super.tap(p);
+	}
+
+	override async drag(from: Point, to: Point, o: Parameters<Rig['drag']>[2] = {}): Promise<void> {
+		await this.overlayUnder(from);
+		return super.drag(from, to, o);
+	}
+
+	/** The app's selection (the `edits` hook): what a tap on a bar has made it. */
+	selection(): Promise<unknown> {
+		return this.page.evaluate(() =>
+			(
+				window as unknown as { __mainspringEdits: { selection(): unknown } }
+			).__mainspringEdits.selection(),
+		);
+	}
+
 	/** The point of a lane at a viewport x (the same x as a bar, to drop it on another person). */
 	async lane(person: string, x: number): Promise<Point> {
 		await this.revealPerson(person);
