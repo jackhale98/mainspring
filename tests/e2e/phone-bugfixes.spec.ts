@@ -21,6 +21,7 @@ import { openCalendar, day, showDay, tapDay } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { openResources, selectRow } from './lib/resources-rig';
 import {
+	SPEEDS,
 	nonDecreasing,
 	nonIncreasing,
 	record,
@@ -70,57 +71,68 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		return panel;
 	}
 
-	test('going to full height glides on transform; closing slides down before it goes', async ({
-		page,
-		browserName,
-	}, info) => {
-		await page.emulateMedia({ colorScheme: 'dark' });
-		const panel = await openDetails(page);
-		await shot(page, 'details-half', info);
-		const grab = panel.getByRole('button', { name: /Details height/ });
-		await slowSheets(page, browserName);
+	for (const { full, suffix, tag } of SPEEDS)
+		test(
+			`going to full height glides on transform; closing slides down before it goes${suffix}`,
+			{ tag: [...tag] },
+			async ({ page, browserName }, info) => {
+				test.skip(
+					full && browserName !== 'chromium',
+					'the full-speed copy is a Chromium timing check',
+				);
+				await page.emulateMedia({ colorScheme: 'dark' });
+				const panel = await openDetails(page);
+				await shot(page, 'details-half', info);
+				const grab = panel.getByRole('button', { name: /Details height/ });
+				await slowSheets(page, full);
 
-		await record(page, SHEET);
-		await grab.click();
-		await page.waitForTimeout(settleMs(browserName));
-		const grow = await stopRecording(page);
-		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
-		// Pinned at the foot, the top edge travels up from where it was to its new place, in many frames.
-		expect(steps(grow), 'the top edge moved in more than a jump').toBeGreaterThan(3);
-		expect(nonIncreasing(grow)).toBe(true);
-		const fullTop = grow.at(-1) ?? 0;
-		expect(fullTop).toBeLessThan((grow[0] ?? 0) - 100);
-		await shot(page, 'details-full', info);
+				await record(page, SHEET);
+				await grab.click();
+				await page.waitForTimeout(settleMs(full));
+				const grow = await stopRecording(page);
+				expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
+				// Pinned at the foot, the top edge travels up from where it was to its new place, in many frames.
+				expect(steps(grow), 'the top edge moved in more than a jump').toBeGreaterThan(3);
+				expect(nonIncreasing(grow)).toBe(true);
+				const fullTop = grow.at(-1) ?? 0;
+				expect(fullTop).toBeLessThan((grow[0] ?? 0) - 100);
+				await shot(page, 'details-full', info);
 
-		// Back to half, the same way (down).
-		await record(page, SHEET);
-		await grab.click();
-		await page.waitForTimeout(settleMs(browserName));
-		const shrink = await stopRecording(page);
-		expect(steps(shrink)).toBeGreaterThan(3);
-		expect(nonDecreasing(shrink)).toBe(true);
+				// Back to half, the same way (down).
+				await record(page, SHEET);
+				await grab.click();
+				await page.waitForTimeout(settleMs(full));
+				const shrink = await stopRecording(page);
+				expect(steps(shrink)).toBeGreaterThan(3);
+				expect(nonDecreasing(shrink)).toBe(true);
 
-		// Closing: still there, marked, with a transform animation running; then gone.
-		await record(page, SHEET);
-		await panel.getByRole('button', { name: 'Close' }).click();
-		await page.waitForTimeout(150);
-		await shot(page, 'details-closing', info);
-		await page.waitForTimeout(settleMs(browserName));
-		const away = await stopRecording(page);
-		const seen = await recorded(page);
-		expect(seen.closing, 'the sheet was on screen, marked closing, while it slid away').toBe(true);
-		expect(seen.props).toContain('transform');
-		expect(steps(away), 'it slid down in more than a jump').toBeGreaterThan(2);
-		expect(nonDecreasing(away)).toBe(true);
-		await expect
-			.poll(() => page.evaluate((s) => document.querySelector<HTMLDialogElement>(s)?.open, SHEET))
-			.toBe(false);
-	});
+				// Closing: still there, marked, with a transform animation running; then gone.
+				await record(page, SHEET);
+				await panel.getByRole('button', { name: 'Close' }).click();
+				await page.waitForTimeout(150);
+				await shot(page, 'details-closing', info);
+				await page.waitForTimeout(settleMs(full));
+				const away = await stopRecording(page);
+				const seen = await recorded(page);
+				expect(seen.closing, 'the sheet was on screen, marked closing, while it slid away').toBe(
+					true,
+				);
+				expect(seen.props).toContain('transform');
+				expect(steps(away), 'it slid down in more than a jump').toBeGreaterThan(2);
+				expect(nonDecreasing(away)).toBe(true);
+				await expect
+					.poll(() =>
+						page.evaluate((s) => document.querySelector<HTMLDialogElement>(s)?.open, SHEET),
+					)
+					.toBe(false);
+			},
+		);
 
 	test('Escape slides it away too, and the sheet opens again afterwards', async ({ page }) => {
 		const panel = await openDetails(page);
 		// A key goes to the focus, which the sheet leaves on the row until the person goes in.
 		await panel.getByRole('button', { name: /Details height/ }).focus();
+		await slowSheets(page);
 		await record(page, SHEET);
 		await page.keyboard.press('Escape');
 		await expect(panel).toBeHidden();
@@ -145,6 +157,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		await expect(search).toBeFocused();
 		await expect(page.getByTestId('depends-picker').getByRole('option').first()).toBeVisible();
 		// A keyboard is up over the sheet's search box: the sheet closes without opening or blurring anything else.
+		await slowSheets(page);
 		await record(page, SHEET);
 		await panel.getByRole('button', { name: 'Close' }).click();
 		await expect(panel).toBeHidden();
@@ -200,6 +213,7 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		await page.evaluate(() =>
 			document.addEventListener('mousedown', (e) => e.preventDefault(), true),
 		);
+		await slowSheets(page);
 		await record(page, SHEET);
 		await page.getByRole('button', { name: 'Docs' }).click();
 		// The editor lets go of the focus (so the keyboard goes) as the press is handled; on a loaded
@@ -223,7 +237,7 @@ test.describe('2. the docs sheet opens at its final place', () => {
 			vv.dispatchEvent(new Event('resize'));
 		});
 		await expect(page.getByRole('dialog', { name: 'Documentation' })).toBeVisible();
-		await page.waitForTimeout(600);
+		await page.waitForTimeout(settleMs());
 		const tops = await stopRecording(page);
 		const finalTop = tops.at(-1) ?? 0;
 		// Never above its final place, and it came up from below it. (In WebKit it was: the dialog scrolled
@@ -250,10 +264,11 @@ test.describe('2. the docs sheet opens at its final place', () => {
 		await page.goto('/app?sample=syn-18-structure-include-macro&mode=text');
 		await ready(page);
 		await page.locator('.cm-line', { hasText: /^project / }).click({ position: { x: 4, y: 4 } });
+		await slowSheets(page);
 		await record(page, 'dialog.sheet[data-modal="true"] .inner');
 		await page.getByRole('button', { name: 'Docs' }).click();
 		await expect(page.getByRole('dialog', { name: 'Documentation' })).toBeVisible();
-		await page.waitForTimeout(600);
+		await page.waitForTimeout(settleMs());
 		const tops = await stopRecording(page);
 		expect(nonIncreasing(tops)).toBe(true);
 		const view = page.viewportSize()?.height ?? 0;
@@ -268,35 +283,41 @@ test.describe('3. the calendar day details slide up and down', () => {
 	// The day details are the shared non-modal bottom Sheet (the dialog moves), as the task details are.
 	const SHEET = 'dialog.sheet[data-modal="false"][open]';
 
-	test('a second tap on a day slides the sheet up on transform; closing slides it down', async ({
-		page,
-		browserName,
-	}, info) => {
-		await page.emulateMedia({ colorScheme: 'dark' });
-		await openCalendar(page, info);
-		const d = await showDay(page, '2026-11-26');
-		await tapDay(page, info, d);
-		await expect(day(page, '2026-11-26')).toHaveAttribute('aria-selected', 'true');
-		await slowSheets(page, browserName);
-		await record(page, SHEET);
-		await tapDay(page, info, d);
-		await expect(page.getByTestId('cal-details')).toBeVisible();
-		await page.waitForTimeout(settleMs(browserName));
-		const up = await stopRecording(page);
-		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
-		expect(steps(up), 'it slid up in more than a jump').toBeGreaterThan(3);
-		expect(nonIncreasing(up)).toBe(true);
-		await shot(page, 'calendar-sheet', info);
+	for (const { full, suffix, tag } of SPEEDS)
+		test(
+			`a second tap on a day slides the sheet up on transform; closing slides it down${suffix}`,
+			{ tag: [...tag] },
+			async ({ page, browserName }, info) => {
+				test.skip(
+					full && browserName !== 'chromium',
+					'the full-speed copy is a Chromium timing check',
+				);
+				await page.emulateMedia({ colorScheme: 'dark' });
+				await openCalendar(page, info);
+				const d = await showDay(page, '2026-11-26');
+				await tapDay(page, info, d);
+				await expect(day(page, '2026-11-26')).toHaveAttribute('aria-selected', 'true');
+				await slowSheets(page, full);
+				await record(page, SHEET);
+				await tapDay(page, info, d);
+				await expect(page.getByTestId('cal-details')).toBeVisible();
+				await page.waitForTimeout(settleMs(full));
+				const up = await stopRecording(page);
+				expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
+				expect(steps(up), 'it slid up in more than a jump').toBeGreaterThan(3);
+				expect(nonIncreasing(up)).toBe(true);
+				await shot(page, 'calendar-sheet', info);
 
-		await record(page, SHEET);
-		await page.locator(SHEET).getByRole('button', { name: 'Close' }).tap();
-		await expect(page.locator(SHEET)).toHaveCount(1);
-		await page.waitForTimeout(settleMs(browserName));
-		const down = await stopRecording(page);
-		expect(steps(down), 'it slid down in more than a jump').toBeGreaterThan(2);
-		expect(nonDecreasing(down)).toBe(true);
-		await expect(page.locator(SHEET)).toHaveCount(0);
-	});
+				await record(page, SHEET);
+				await page.locator(SHEET).getByRole('button', { name: 'Close' }).tap();
+				await expect(page.locator(SHEET)).toHaveCount(1);
+				await page.waitForTimeout(settleMs(full));
+				const down = await stopRecording(page);
+				expect(steps(down), 'it slid down in more than a jump').toBeGreaterThan(2);
+				expect(nonDecreasing(down)).toBe(true);
+				await expect(page.locator(SHEET)).toHaveCount(0);
+			},
+		);
 });
 
 test.describe('4. the row menu fits the screen', () => {

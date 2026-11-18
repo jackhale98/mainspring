@@ -170,15 +170,20 @@ test.describe('text mode', () => {
 					'true',
 				);
 		};
-		// plan.tjp -> lib/resources.tji -> lib/tasks.tji -> plan.tjp
+		// plan.tjp -> lib/resources.tji -> lib/tasks.tji -> plan.tjp. A phone's Plan tab has no
+		// resource tree (People has the people: user, 2026-11-18), so a phone starts at the tasks.
 		await showOutline(page);
-		await page
-			.getByRole('tree', { name: 'Resources' })
-			.getByRole('treeitem', { name: /Mira/ })
-			.click();
-		await openFile('lib/resources.tji');
-		await expect(page.locator('.cm-activeLine')).toContainText('resource mira');
-		await showOutline(page);
+		if (phone) {
+			await expect(page.getByRole('tree', { name: 'Resources' })).toHaveCount(0);
+		} else {
+			await page
+				.getByRole('tree', { name: 'Resources' })
+				.getByRole('treeitem', { name: /Mira/ })
+				.click();
+			await openFile('lib/resources.tji');
+			await expect(page.locator('.cm-activeLine')).toContainText('resource mira');
+			await showOutline(page);
+		}
 		await page
 			.getByRole('tree', { name: 'Tasks' })
 			.getByRole('treeitem', { name: /Vorbereitung/ })
