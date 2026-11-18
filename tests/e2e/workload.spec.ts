@@ -143,14 +143,15 @@ async function pointOf(page: Page, person: string, col: number) {
 			[person, col] as const,
 		);
 	let at = await read();
-	for (let i = 0; i < 40; i++) {
+	let settled = false;
+	for (let i = 0; i < 40 && at && !settled; i++) {
 		await page.waitForTimeout(120);
 		const next = await read();
-		const same = next && at && next.x === at.x && next.y === at.y;
+		settled = !!next && next.x === at.x && next.y === at.y;
 		at = next;
-		if (same) break;
 	}
 	if (!at) throw new Error('no such cell');
+	if (!settled) throw new Error(`the cell ${person} ${col} kept moving after the scroll`);
 	return at;
 }
 
@@ -542,10 +543,16 @@ test('a long-press on a finger opens the cell details; a tap selects, a second t
 	await expect(page.getByTestId('cell-details')).toBeVisible();
 	await page.getByRole('button', { name: 'Close' }).tap();
 	await expect(page.getByTestId('cell-details')).toBeHidden();
-	// Long-press, let go without moving.
-	// A finger down for 550 ms and lifted in place: real touch events on the Pixel 7, dispatched
-	// touch pointers on the iPhone (Rig.drag).
-	await new Rig(page, info).drag(at, at, { hold: 550, steps: 1 });
+	// Long-press, let go without moving: a finger down for 550 ms and lifted in place (real touch
+	// events on the Pixel 7, dispatched touch pointers on the iPhone).
+	const rig = new Rig(page, info);
+	try {
+		await rig.touches('touchStart', [at]);
+		await page.waitForTimeout(550);
+		await rig.touches('touchEnd', []);
+	} finally {
+		await rig.detach();
+	}
 	await expect(page.getByTestId('cell-details')).toBeVisible();
 });
 

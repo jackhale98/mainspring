@@ -37,6 +37,7 @@ export const resourceStrings = {
 		keys: 'Keys: Up and Down move, Right and Left open and close a group, Enter opens the details, F2 renames, Delete removes, Alt+Shift+arrows move the person.',
 		selectHint: 'Select a person to see and change their details.',
 		deleted: (name: string) => `${name} deleted`,
+		changedMeanwhile: 'The plan changed while you were moving. Nothing was moved; try again.',
 		nowhere: (step: string) =>
 			({
 				up: 'Already the first in its group.',

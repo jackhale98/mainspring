@@ -135,6 +135,13 @@ export class Rig {
 		return this.page.locator(`[role="row"][data-key="${key}"]`);
 	}
 
+	/** Detaches the DevTools session a real-touch drag opened (the Pixel 7); a no-op otherwise. */
+	async detach(): Promise<void> {
+		const cdp = this.#cdp;
+		this.#cdp = null;
+		await cdp?.detach().catch(() => undefined);
+	}
+
 	async #session(): Promise<CDPSession> {
 		this.#cdp ??= await this.page.context().newCDPSession(this.page);
 		return this.#cdp;
@@ -158,8 +165,14 @@ export class Rig {
 				const w = window as unknown as {
 					__fingers?: Record<number, Finger>;
 					__touchmovesPrevented?: number;
+					__touchmovesSent?: number;
 				};
 				const down = (w.__fingers ??= {});
+				// A new gesture starts the counts again: they say what the page did with this one.
+				if (type === 'touchStart' && Object.keys(down).length === 0) {
+					w.__touchmovesPrevented = 0;
+					w.__touchmovesSent = 0;
+				}
 				const send = (id: number, name: string, f: Finger, buttons: number): void => {
 					f.el.dispatchEvent(
 						new PointerEvent(name, {
@@ -197,6 +210,7 @@ export class Rig {
 								? new TouchEvent('touchmove', init)
 								: new Event('touchmove', init);
 						f.el.dispatchEvent(move);
+						w.__touchmovesSent = (w.__touchmovesSent ?? 0) + 1;
 						if (move.defaultPrevented) w.__touchmovesPrevented = (w.__touchmovesPrevented ?? 0) + 1;
 					} else if (type === 'touchStart') {
 						const fresh = { el: document.elementFromPoint(p.x, p.y) ?? document.body, ...p };
@@ -227,16 +241,21 @@ export class Rig {
 
 	/**
 	 * After a long-press drag with dispatched fingers (the iPhone): the page took the touch, so it
-	 * cancelled the touchmoves and the browser did not pan or scroll under the finger. A drag that
-	 * left them uncancelled would scroll the page on a real phone. Real touch events (the Pixel 7)
-	 * have no such count and are not checked here.
+	 * cancelled every touchmove the drag sent after the hold and the browser did not pan or scroll
+	 * under the finger. A drag that let one through would scroll the page on a real phone. The
+	 * counts are of the last gesture (they restart at its `touchStart`). Real touch events (the
+	 * Pixel 7) have no such count and are not checked here.
 	 */
 	async expectOwnsTouch(): Promise<void> {
 		if (!this.dispatched) return;
-		expect(
-			await this.takePreventedTouchmoves(),
-			'a long-press drag owns the touch: the page cancels its touchmoves',
-		).toBeGreaterThan(0);
+		const { sent, prevented } = await this.page.evaluate(() => {
+			const w = window as unknown as { __touchmovesPrevented?: number; __touchmovesSent?: number };
+			return { sent: w.__touchmovesSent ?? 0, prevented: w.__touchmovesPrevented ?? 0 };
+		});
+		expect(sent, 'the drag sent touchmoves after its hold').toBeGreaterThan(0);
+		expect(prevented, 'a long-press drag owns the touch: the page cancels every touchmove').toBe(
+			sent,
+		);
 	}
 
 	/** Raw touch points (one to two fingers), for the specs that need a gesture of their own. */

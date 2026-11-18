@@ -62,7 +62,7 @@ export const WEBKIT_ALLOWLIST: readonly WebKitAllowEntry[] = [
 		title: 'Pixel 7: the frame times of a swipe are recorded',
 		reason: 'chromium-performance-api',
 		detail:
-			"records the frame times of the browser's own touch scroll with Chromium's trace (browser.startTracing); WebKit has no trace and Playwright has no touch scroll there. The mounted-DOM cap of the same view runs on the iPhone (the test above it)",
+			"records the frame times of the browser's own touch scroll with Chromium's trace (browser.startTracing); WebKit has no trace and Playwright has no touch scroll there. The mounted-DOM cap of the same view runs on the iPhone (the DOM-node test above it)",
 	},
 ];
 

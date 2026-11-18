@@ -3,8 +3,9 @@
  * A rig for the Calendar specs (phase-3.md 13.2): opens a plan in the Calendar view (the desktop's
  * view switcher, or the phone's People tab and its Calendar segment), finds days by their date,
  * moves to a month with the toolbar (a desktop shows one month that fills the view, as a phone
- * does, so a day outside it is not in the DOM), drags over days with a mouse or a finger (a long-press, then
- * a move, through the DevTools protocol on the Pixel 7, dispatched touch pointers on the iPhone), reads the entry file's text, and presses Undo.
+ * does, so a day outside it is not in the DOM), drags over days with a mouse or a finger (a
+ * long-press, then a move: real touch events through the DevTools protocol on the Pixel 7,
+ * dispatched touch pointers on the iPhone), reads the entry file's text, and presses Undo.
  */
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './gantt-rig';
@@ -102,7 +103,12 @@ export async function drag(page: Page, info: TestInfo, from: Locator, to: Locato
 	const steps = 8;
 	if (isTouch(info)) {
 		// Real touch events on the Pixel 7, dispatched touch pointers on the iPhone (Rig.drag).
-		await new Rig(page, info).drag(a, b, { hold: 450, steps });
+		const rig = new Rig(page, info);
+		try {
+			await rig.drag(a, b, { hold: 450, steps });
+		} finally {
+			await rig.detach();
+		}
 	} else {
 		await page.mouse.move(a.x, a.y);
 		await page.mouse.down();

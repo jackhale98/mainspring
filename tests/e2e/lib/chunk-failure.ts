@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The specs that abort a lazy chunk's script (`page.route(..., route.abort())`) and then press
- * "Reload the page". Playwright's WebKit keeps the aborted request ("Blocked by Web Inspector")
- * as the page cache's answer for that URL across the reload: the reloaded page asks for the chunk
- * and fails again without a request reaching the server (seen: the request log has no entry after
- * the reload; a plain `fetch` of the URL from the page clears it). That is the harness, not the app
- * (a browser that cannot reach the network keeps no such entry), so on WebKit the specs refetch the
- * URLs that failed once the page has reloaded and before they go on.
+ * "Reload the page". On Playwright's WebKit the reloaded page fails the same import again without
+ * a request reaching the server (the request log has no entry after the reload); a plain `fetch`
+ * of the URL from the page clears it. Answering the script with a 503 (`route.fulfill`) instead of
+ * an abort did not change that, so the likely cause is WebKit's own memory of a failed load of
+ * that URL surviving the reload, not the inspector's block and not the app. A browser that cannot
+ * reach the network should not behave so, but that is not shown. On WebKit the specs therefore
+ * refetch the URLs that failed once the page has reloaded; the limit: on WebKit they cannot catch
+ * an app failure that sticks after a reload (they would pass on the refetch), and Chromium
+ * (Pixel 7 and desktop) does check it without the refetch.
  */
 import type { Locator, Page } from '@playwright/test';
 import { isWebKit } from './finger';

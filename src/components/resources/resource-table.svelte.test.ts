@@ -132,6 +132,51 @@ describe('W6 regroup', () => {
 		expect(sent.at(-1)?.intent).toMatchObject({ resource: 'jack', parent: null, index: 1 });
 	});
 
+	it('reads the place from the fresh tree: a step waits for the outline to catch up with the text', async () => {
+		// After a Redo the text has Reviewer inside Developers, but the index (and the outline built
+		// from it) still shows the old text for 60 ms. Up must swap Reviewer with Ana, not take it out.
+		const { app, sent, table } = fake();
+		const old = { index: app.index, outline: app.outline };
+		const next = indexOf(
+			TEXT.replace('resource rev "Reviewer"\n', '').replace(
+				'  resource ana "Ana"\n',
+				'  resource ana "Ana"\n  resource rev "Reviewer"\n',
+			),
+		);
+		Object.defineProperty(next, 'version', {
+			value: (old.index as { version: number }).version + 1,
+		});
+		let caughtUp = false;
+		Object.defineProperty(app, 'index', { get: () => (caughtUp ? next : old.index) });
+		Object.defineProperty(app, 'outline', {
+			get: () => (caughtUp ? buildOutline(next) : old.outline),
+		});
+		const ws = app.workspace as unknown as { snapshot: () => { version: number } };
+		ws.snapshot = () => ({ version: next.version });
+		setTimeout(() => (caughtUp = true), 60);
+		expect(await table.step('resource:rev', 'up')).toBe(true);
+		expect(sent.at(-1)?.intent).toEqual({
+			type: 'moveResource',
+			resource: 'rev',
+			parent: 'dev',
+			index: 1,
+		});
+	});
+
+	it('refuses a drop whose tree is older than the text, and sends nothing', async () => {
+		const { app, table, sent, refused } = fake();
+		const shown = (app.index as { version: number }).version - 1;
+		expect(await table.regroup('resource:rev', 'resource:dev', 2, shown)).toBe(false);
+		expect(sent).toEqual([]);
+		expect(refused[0]?.message).toBe(
+			'The plan changed while you were moving. Nothing was moved; try again.',
+		);
+		expect(table.announcement).toBe(refused[0]?.message);
+		// The same drop from the tree of the current version goes through.
+		const now = (app.index as { version: number }).version;
+		expect(await table.regroup('resource:rev', 'resource:dev', 2, now)).toBe(true);
+	});
+
 	it('says there is nowhere to go, without sending', async () => {
 		const { table, sent } = fake();
 		expect(await table.step('resource:dev', 'up')).toBe(false);

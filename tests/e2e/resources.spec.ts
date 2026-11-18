@@ -203,8 +203,6 @@ test('W6: Alt+Shift+arrows move a person into the group above and out again', as
 	await expect(row(page, 'rev')).toHaveAttribute('aria-level', '2');
 	await undoRedo(page, before, into);
 	await caughtUp(page);
-	// The next key plans on the tree the view shows: wait until Redo has put Reviewer back in the group.
-	await expect(row(page, 'rev')).toHaveAttribute('aria-level', '2');
 
 	// Up among the siblings, then out of the group.
 	await row(page, 'rev').focus();

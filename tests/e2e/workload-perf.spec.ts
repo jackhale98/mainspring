@@ -141,13 +141,13 @@ test(
 );
 
 // The DOM-node cap is deterministic: it stays in the merge tier (ADR-0016 section 1).
-test('Pixel 7: the mounted Workload view stays under 800 DOM nodes', async ({ page }, info) => {
+test('the mounted Workload view stays under 800 DOM nodes on a phone', async ({ page }, info) => {
 	test.skip(!isTouch(info), 'a finger');
 	await openHeatmap(page, info);
 	const nodes = await page.evaluate(
 		() => document.querySelector('[data-testid="workload"]')?.querySelectorAll('*').length ?? 0,
 	);
-	console.log('workload DOM nodes (Pixel 7):', nodes);
+	console.log('workload DOM nodes (phone):', nodes);
 	expect(nodes).toBeLessThanOrEqual(800);
 });
 

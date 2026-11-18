@@ -98,7 +98,12 @@ export async function dragRow(
 	const steps = 8;
 	if (isTouch(info)) {
 		// Real touch events on the Pixel 7, dispatched touch pointers on the iPhone (Rig.drag).
-		await new Rig(page, info).drag(a, { x: a.x + dx, y: a.y + dy }, { hold: 450, steps });
+		const rig = new Rig(page, info);
+		try {
+			await rig.drag(a, { x: a.x + dx, y: a.y + dy }, { hold: 450, steps });
+		} finally {
+			await rig.detach();
+		}
 	} else {
 		await page.mouse.move(a.x, a.y);
 		await page.mouse.down();

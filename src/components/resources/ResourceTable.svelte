@@ -89,8 +89,9 @@
 		nameOf: name,
 		open: (key) => t.open(key),
 		// The drop names the parent by its id; the table's commands name outline keys.
+		// The place was read from the tree shown now: the move is refused if the text moves on first.
 		move: (key, parent, index) =>
-			void t.regroup(key, parent === null ? null : `resource:${parent}`, index),
+			void t.regroup(key, parent === null ? null : `resource:${parent}`, index, app.index?.version),
 		announce: (text) => (t.announcement = text),
 	});
 

@@ -150,14 +150,29 @@ export class ResourceTable {
 		return (this.rows[i + 1] ?? this.rows[i - 1])?.node.key ?? null;
 	}
 
-	/** W6: moves a resource to `index` among the children of `parentKey` (null: the top level). */
-	async regroup(key: string, parentKey: string | null, index: number): Promise<boolean> {
+	/**
+	 * W6: moves a resource to `index` among the children of `parentKey` (null: the top level).
+	 * `shownVersion` is the index version of the tree the place was read from (a drop): when the
+	 * text has moved on since, the place may mean something else, so the move is refused.
+	 */
+	async regroup(
+		key: string,
+		parentKey: string | null,
+		index: number,
+		shownVersion?: number,
+	): Promise<boolean> {
 		const edits = this.#app.edits;
 		const node = this.tree.get(key);
 		if (!edits || !node || node.id === null) return false;
 		await this.#fresh();
 		const idx = this.#app.index;
 		if (!idx) return false;
+		if (shownVersion !== undefined && idx.version !== shownVersion) {
+			const message = R.table.changedMeanwhile;
+			edits.refuse(message, [], idx.version);
+			this.announcement = message;
+			return false;
+		}
 		const parent = parentKey === null ? null : (this.tree.get(parentKey)?.id ?? null);
 		const plan = planRegroup(idx, node.id, parent, index);
 		if (plan.status === 'not-possible') {
@@ -176,6 +191,9 @@ export class ResourceTable {
 
 	/** Alt+Shift+Arrow, and the menu's Up, Down, Indent and Outdent: one place along the tree. */
 	async step(key: string, step: Step): Promise<boolean> {
+		// The place is read from the tree the text has now: after an Undo or a Redo the outline can
+		// lag the text, and a place found in the old tree names another row.
+		await this.#fresh();
 		const place = stepTarget(this.tree, key, step, this.roots);
 		if (!place) {
 			this.announcement = R.table.nowhere(step);
