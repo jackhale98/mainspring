@@ -4,9 +4,8 @@
 # people; tasks/*.tji hold the work. `cut` is a macro-declared task (text-only), and a task has a
 # macro-built name part.
 # SPDX-License-Identifier: GPL-2.0-or-later
-project uimulti "UI multifile" 2026-03-02 - 2026-06-30 {
-  now 2026-03-16-09:00
-}
+# No `now`: the status date is the clock, after this plan finishes (gantt-critical.spec.ts reads that).
+project uimulti "UI multifile" 2026-03-02 - 2026-06-30
 
 macro owner [ana]
 macro stub [
