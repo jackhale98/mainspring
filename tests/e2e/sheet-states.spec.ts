@@ -14,7 +14,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import {
-	SLOW_SETTLE_MS,
+	settleMs,
 	nonDecreasing,
 	ready,
 	record,
@@ -58,20 +58,21 @@ async function openDetails(page: Page): Promise<Locator> {
 
 test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async ({
 	page,
+	browserName,
 }, info) => {
 	await page.emulateMedia({ colorScheme: 'dark' });
 	const panel = await openDetails(page);
 	const grab = panel.getByRole('button', { name: /Details height/ });
-	await slowSheets(page);
+	await slowSheets(page, browserName);
 	await grab.click();
 	// The grow has to be over (and the slow glide needs its late first frame) before the shrink is recorded.
-	await page.waitForTimeout(SLOW_SETTLE_MS);
+	await page.waitForTimeout(settleMs(browserName));
 	// Full to half: the top edge comes down; the bottom edge may go below its place, never above it.
 	await record(page, SHEET);
 	await grab.click();
 	await page.waitForTimeout(80);
 	await shot(page, 'details-shrinking', info);
-	await page.waitForTimeout(SLOW_SETTLE_MS);
+	await page.waitForTimeout(settleMs(browserName));
 	const tops = await stopRecording(page);
 	const { bottoms } = await recorded(page);
 	const rest = bottoms.at(-1) ?? 0;
@@ -86,7 +87,7 @@ test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async 
 	// The same for a drag from full height, let go lower down: it settles at half and the top edge
 	// comes down from where the finger left it.
 	await grab.click();
-	await page.waitForTimeout(SLOW_SETTLE_MS);
+	await page.waitForTimeout(settleMs(browserName));
 	const g = await grab.boundingBox();
 	if (!g) throw new Error('no grabber');
 	const x = g.x + g.width / 2;
@@ -96,7 +97,7 @@ test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async 
 	for (let i = 1; i <= 6; i++) await page.mouse.move(x, y + 12 * i);
 	await record(page, SHEET);
 	await page.mouse.up();
-	await page.waitForTimeout(SLOW_SETTLE_MS);
+	await page.waitForTimeout(settleMs(browserName));
 	await stopRecording(page);
 	const dragged = (await recorded(page)).bottoms;
 	const settled = dragged.at(-1) ?? 0;
@@ -235,4 +236,44 @@ test('the History sheet keeps its list while it slides away after a rewind', asy
 		return w.__empty;
 	});
 	expect(empty, 'it never said "nothing to undo" while it slid away').toBe(false);
+});
+
+test('the motion tokens are 200 ms in and 180 ms out, and nothing with reduced motion', async ({
+	page,
+}) => {
+	// The production speed (the specs above slow it on WebKit to see every frame): the tokens the CSS
+	// and Sheet.svelte read, the duration the sheet's animations really have, and the closing one.
+	const panel = await openDetails(page);
+	const tokens = (): Promise<{ inMs: string; outMs: string }> =>
+		page.evaluate(() => {
+			const cs = getComputedStyle(document.documentElement);
+			return {
+				inMs: cs.getPropertyValue('--sheet-ms').trim(),
+				outMs: cs.getPropertyValue('--sheet-out-ms').trim(),
+			};
+		});
+	expect(await tokens()).toEqual({ inMs: '200', outMs: '180' });
+	// The duration a closing sheet is given, read as the mark goes on (a frame loop may miss it).
+	await page.evaluate((sel) => {
+		const w = window as unknown as { __out: string };
+		const el = document.querySelector(sel);
+		if (!el) return;
+		new MutationObserver(() => {
+			if (el.hasAttribute('data-closing')) w.__out = getComputedStyle(el).animationDuration;
+		}).observe(el, { attributes: true, attributeFilter: ['data-closing'] });
+	}, SHEET);
+	await panel.getByRole('button', { name: 'Close' }).click();
+	await expect(panel).toBeHidden();
+	expect(await page.evaluate(() => (window as unknown as { __out: string }).__out)).toBe('0.18s');
+	// Opened again: the slide in is 200 ms.
+	await rowOf(page).click();
+	await expect(page.getByRole('dialog', { name: /Task details/ })).toBeVisible();
+	expect(
+		await page.evaluate((sel) => {
+			const el = document.querySelector(sel);
+			return el ? getComputedStyle(el).animationDuration : '';
+		}, SHEET),
+	).toBe('0.2s');
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	expect(await tokens()).toEqual({ inMs: '0', outMs: '0' });
 });

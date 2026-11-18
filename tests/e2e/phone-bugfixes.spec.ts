@@ -25,7 +25,7 @@ import {
 	nonIncreasing,
 	record,
 	recorded,
-	SLOW_SETTLE_MS,
+	settleMs,
 	slowSheets,
 	ready,
 	steps,
@@ -72,16 +72,17 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 
 	test('going to full height glides on transform; closing slides down before it goes', async ({
 		page,
+		browserName,
 	}, info) => {
 		await page.emulateMedia({ colorScheme: 'dark' });
 		const panel = await openDetails(page);
 		await shot(page, 'details-half', info);
 		const grab = panel.getByRole('button', { name: /Details height/ });
-		await slowSheets(page);
+		await slowSheets(page, browserName);
 
 		await record(page, SHEET);
 		await grab.click();
-		await page.waitForTimeout(SLOW_SETTLE_MS);
+		await page.waitForTimeout(settleMs(browserName));
 		const grow = await stopRecording(page);
 		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
 		// Pinned at the foot, the top edge travels up from where it was to its new place, in many frames.
@@ -94,7 +95,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		// Back to half, the same way (down).
 		await record(page, SHEET);
 		await grab.click();
-		await page.waitForTimeout(SLOW_SETTLE_MS);
+		await page.waitForTimeout(settleMs(browserName));
 		const shrink = await stopRecording(page);
 		expect(steps(shrink)).toBeGreaterThan(3);
 		expect(nonDecreasing(shrink)).toBe(true);
@@ -104,7 +105,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 		await panel.getByRole('button', { name: 'Close' }).click();
 		await page.waitForTimeout(150);
 		await shot(page, 'details-closing', info);
-		await page.waitForTimeout(SLOW_SETTLE_MS);
+		await page.waitForTimeout(settleMs(browserName));
 		const away = await stopRecording(page);
 		const seen = await recorded(page);
 		expect(seen.closing, 'the sheet was on screen, marked closing, while it slid away').toBe(true);
@@ -269,17 +270,18 @@ test.describe('3. the calendar day details slide up and down', () => {
 
 	test('a second tap on a day slides the sheet up on transform; closing slides it down', async ({
 		page,
+		browserName,
 	}, info) => {
 		await page.emulateMedia({ colorScheme: 'dark' });
 		await openCalendar(page, info);
 		const d = await showDay(page, '2026-11-26');
 		await tapDay(page, info, d);
 		await expect(day(page, '2026-11-26')).toHaveAttribute('aria-selected', 'true');
-		await slowSheets(page);
+		await slowSheets(page, browserName);
 		await record(page, SHEET);
 		await tapDay(page, info, d);
 		await expect(page.getByTestId('cal-details')).toBeVisible();
-		await page.waitForTimeout(SLOW_SETTLE_MS);
+		await page.waitForTimeout(settleMs(browserName));
 		const up = await stopRecording(page);
 		expect((await recorded(page)).props, 'only transform moves').toEqual(['transform']);
 		expect(steps(up), 'it slid up in more than a jump').toBeGreaterThan(3);
@@ -289,7 +291,7 @@ test.describe('3. the calendar day details slide up and down', () => {
 		await record(page, SHEET);
 		await page.locator(SHEET).getByRole('button', { name: 'Close' }).tap();
 		await expect(page.locator(SHEET)).toHaveCount(1);
-		await page.waitForTimeout(SLOW_SETTLE_MS);
+		await page.waitForTimeout(settleMs(browserName));
 		const down = await stopRecording(page);
 		expect(steps(down), 'it slid down in more than a jump').toBeGreaterThan(2);
 		expect(nonDecreasing(down)).toBe(true);

@@ -155,15 +155,18 @@ export const steps = (tops: number[]): number => new Set(tops.map((t) => Math.ro
  * keyframes, easing and code path, so a jump, a reversal or a gap still shows. Call it once the page
  * is loaded and before the sheet moves.
  */
-export const slowSheets = (page: Page, ms = 2000): Promise<void> =>
-	page.evaluate((t) => {
-		const root = document.documentElement.style;
-		root.setProperty('--sheet-ms', String(t));
-		root.setProperty('--sheet-out-ms', String(t));
-	}, ms);
+export const slowSheets = (page: Page, browserName: string, ms = 2000): Promise<void> =>
+	// Only WebKit: Chromium draws every frame, so it checks the production speed (200 and 180 ms).
+	browserName !== 'webkit'
+		? Promise.resolve()
+		: page.evaluate((t) => {
+				const root = document.documentElement.style;
+				root.setProperty('--sheet-ms', String(t));
+				root.setProperty('--sheet-out-ms', String(t));
+			}, ms);
 
-/** How long to record after a slowed sheet starts to move: the slide and the renderer's late first frame. */
-export const SLOW_SETTLE_MS = 2800;
+/** How long to record after a sheet starts to move: the slowed slide and the renderer's late first frame (WebKit), or the slide. */
+export const settleMs = (browserName: string): number => (browserName === 'webkit' ? 2800 : 700);
 
 /** Every sample is at or below the one before it (a slide down), within a pixel. */
 export const nonDecreasing = (t: number[]): boolean =>
