@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main  | `d4150c6d` (branch run 44237567781, 2026-11-18); its run on `main` failed only on a hung iPhone browser install, fixed in `5d2a7624` |
+| Last green commit on main | `4f39836e` (branch run 44271594925, 2026-11-18; main fast-forwarded): T25, the picker hold fix, the shell `overflow: clip` fix |
 | Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
-| iPhone 14 skips left       | 37 spec files at 2026-11-18 (ADR-0016 counted 33 by its own method); target: at most 6 allowlisted    |
-| CI wall time               | about 21 min (run 44237567781, 04:28–04:49 UTC); target 12 min (ADR-0016 section 4)                  |
+| iPhone 14 skips left | 38 spec files at 2026-11-18 after T25 (37 before; ADR-0016 counted 33 by its own method); target: at most 6 allowlisted |
+| CI wall time | about 14 min (run 44271594925, 08:58–09:12 UTC; slowest job 11.2 min on run 44268831320); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
