@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * Waits for observable state, to replace `page.waitForTimeout(ms)` (scripts/ci/fixed-waits.mjs
+ * Waits for observable state, to replace fixed waits (scripts/ci/fixed-waits.mjs
  * counts what is left). A fixed wait is right on a fast Chromium and too short on a WebKit runner that
  * is three to five times slower; these wait for the thing itself: frames drawn, a box that holds still,
  * animations that have ended, a value that stopped changing. None has a time of its own beyond a
