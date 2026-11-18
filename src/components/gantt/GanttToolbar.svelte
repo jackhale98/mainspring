@@ -140,7 +140,7 @@
 		<button
 			type="button"
 			class="chip today"
-			data-narrow="icon"
+			data-narrow="icon-phone"
 			onclick={ontoday}
 			disabled={!hasMarker}
 			aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
@@ -507,8 +507,8 @@
 		.legend {
 			display: none;
 		}
-		/* Today is its icon alone (data-narrow="icon": src/styles/toolbar.css), the zoom select shrinks
-		   (data-narrow="shrink"): nothing wraps or is cut off at 360 px. */
+		/* On a phone Today is its icon alone (data-narrow="icon-phone": src/styles/toolbar.css) and the
+		   zoom select shrinks (data-narrow="shrink"): nothing wraps or is cut off at 360 px. */
 		.task {
 			position: absolute;
 			z-index: 6;

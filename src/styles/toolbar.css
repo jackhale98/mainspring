@@ -49,15 +49,15 @@
 	}
 }
 
-/* shrink: the text is cut rather than push a chip off the row. */
-@container (max-width: 899px) {
+/* shrink: the text is cut rather than push a chip off the row (a phone's zoom select). */
+@media (max-width: 599px) {
 	[data-narrow='shrink'][data-narrow] select {
 		max-inline-size: 5.5rem;
 		text-overflow: ellipsis;
 	}
-	@media (max-width: 399px) {
-		[data-narrow='shrink'][data-narrow] select {
-			max-inline-size: 4.75rem;
-		}
+}
+@media (max-width: 399px) {
+	[data-narrow='shrink'][data-narrow] select {
+		max-inline-size: 4.75rem;
 	}
 }

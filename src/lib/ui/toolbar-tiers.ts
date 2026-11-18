@@ -32,7 +32,7 @@ export type Tier = keyof typeof TIERS;
  * - `icon`: its label (`.lbl`) goes at the narrow tier and on a phone; it is its icon (its aria-label
  *   is its name), and 44 px on a finger;
  * - `icon-phone`: the same, on a phone only;
- * - `shrink`: its text is cut with an ellipsis (a select reads "Week (custom)" shorter);
+ * - `shrink`: its text is cut with an ellipsis on a phone (a select reads "Week (custom)" shorter);
  * - `fixed`: it keeps its size, and fits 360 px as it is;
  * - `own`: a component with tier rules of its own (the people picker, the filter, the view switcher);
  *   the one-row check still covers it.

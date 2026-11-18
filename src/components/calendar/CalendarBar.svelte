@@ -2,9 +2,10 @@
 <!--
 	The Calendar's toolbar (phase-3.md 9.2, 9.5, 18.6): whose leave is shown (Everyone, or a person),
 	the mode (Select, Paint, Erase), the leave type to paint, and the way between months (previous,
-	next, today). A desktop and a tablet have it in a row above the months; a phone has it in a bar
-	of two rows above the tab bar, with the months' own title row on top ("Paint bar above the tab
-	bar", 9.2). It holds no state: the Calendar owns the choices.
+	next, today). A wide desktop has it in one row above the months (from about 1024 px); a narrower
+	view wraps it to two rows, and a phone has it in a bar of three rows above the tab bar: the months,
+	the mode, then whose and what ("Paint bar above the tab bar", 9.2). The four groups cannot share
+	360 px, so the toolbar contract spec (tests/e2e/primitives/toolbar.spec.ts) allows these rows. It holds no state: the Calendar owns the choices.
 
 	The type picker offers `annual`, `special`, `sick`, `unpaid` and `unemployed` for a person, and
 	`holiday` for Everyone (`typesFor`). The mode and the type are announced when they change (the
@@ -292,7 +293,7 @@
 			min-inline-size: var(--size-tap);
 		}
 	}
-	/* A phone: two rows above the tab bar: the months and the mode, then whose and what. */
+	/* A phone: three rows above the tab bar: the months, the mode, then whose and what. */
 	@container calendar (max-width: 599px) {
 		.bar {
 			gap: var(--space-2);

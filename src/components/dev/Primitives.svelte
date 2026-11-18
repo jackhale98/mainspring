@@ -204,12 +204,17 @@
 			<button type="button" data-testid="pop-center-button" popovertarget="pop-center"
 				>Centred card</button
 			>
+			<button type="button" data-testid="pop-foot-button" popovertarget="pop-foot"
+				>Foot panel</button
+			>
 			<button
 				type="button"
 				data-testid="pop-anchor-button"
 				popovertarget="pop-anchor"
-				aria-expanded={popOpen}>Anchored</button
+				aria-expanded={popOpen}
 			>
+				Anchored
+			</button>
 		</div>
 		<Popover id="pop-center" title="Details" testid="pop-center">
 			<p>A card that never exceeds the screen.</p>
@@ -227,6 +232,17 @@
 			<label for="pop-input">A field</label>
 			<input id="pop-input" type="number" value="80" />
 			<p>Beside its button, inside the viewport.</p>
+		</Popover>
+		<Popover
+			id="pop-foot"
+			label="Foot panel card"
+			testid="pop-foot"
+			placement="anchor"
+			foot
+			width="17rem"
+		>
+			<p>Beside its button, or a panel at the foot of a phone's screen.</p>
+			<button type="button">A button inside</button>
 		</Popover>
 	</section>
 

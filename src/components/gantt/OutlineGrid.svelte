@@ -243,13 +243,25 @@
 
 	/**
 	 * The focus kept across a rebuild (lib/ui/roving-grid.ts): a row that is mounted again (a window
-	 * moved, a rebuild) gets it back; a row that is gone for good is `lastFocus`' business.
+	 * moved, a rebuild) gets it back, on the same cell (its column) when it was on one; a row that is
+	 * gone for good is `lastFocus`' business. A place is a row's key, and the column's after a NUL ("" for
+	 * the row itself).
 	 */
+	const placeKey = (row: string, col: string | null): string => `${row}\u0000${col ?? ''}`;
 	const roving = new RovingGrid<string>({
 		root: () => grid,
-		keyOf: (t) =>
-			t instanceof Element ? (t.closest('[data-key]')?.getAttribute('data-key') ?? null) : null,
-		find: (r, k) => r.querySelector<HTMLElement>(`[role="row"][data-key="${CSS.escape(k)}"]`),
+		keyOf: (t) => {
+			if (!(t instanceof Element)) return null;
+			const row = t.closest('[data-key]')?.getAttribute('data-key');
+			if (!row) return null;
+			return placeKey(row, t.closest('[data-col]')?.getAttribute('data-col') ?? null);
+		},
+		find: (r, k) => {
+			const [row, col] = k.split('\u0000');
+			const sel = `[role="row"][data-key="${CSS.escape(row ?? '')}"]`;
+			const cell = col ? r.querySelector<HTMLElement>(`${sel} [data-col="${col}"]`) : null;
+			return cell ?? r.querySelector<HTMLElement>(sel);
+		},
 	});
 
 	/** Where the focus last was inside the grid, to find it a place if its row goes away. */
@@ -301,7 +313,7 @@
 		if (active !== null && active !== document.body) return;
 		// The row is still there under a new element: the focus goes back to it.
 		if (rowOf.has(gone.row.key)) {
-			void tick().then(() => roving.restore(gone.row.key));
+			void tick().then(() => roving.restore());
 			return;
 		}
 		lastFocus = null;
