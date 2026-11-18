@@ -15,6 +15,19 @@ describe('shard-plan', () => {
 		expect(s[1]?.files).toEqual(['b', 'c', 'e']);
 	});
 
+	it('estimates a file with no time from another project, scaled by their median ratio', () => {
+		const two = {
+			projects: {
+				slow: { a: 300, b: 90 },
+				fast: { a: 100, b: 30, c: 20 },
+			},
+		};
+		expect(sp.ratio(two, 'slow', 'fast')).toBe(3);
+		expect(sp.estimate(two, 'slow', 'c')).toBe(60);
+		// No other project has it: the project's median.
+		expect(sp.estimate(two, 'slow', 'zz')).toBe(300);
+	});
+
 	it('gives every file to exactly one shard, and an unknown file the median', () => {
 		const files = ['a', 'b', 'c', 'd', 'e', 'new'];
 		expect(sp.estimate(d, 'p', 'new')).toBe(50);
@@ -67,6 +80,25 @@ describe('shard-plan', () => {
 			],
 		};
 		expect(sp.measure(report, 'desktop', 2)).toEqual({ 'tests/e2e/x.spec.ts': 4 });
+		expect(sp.measure([report, report], 'desktop', 2)).toEqual({ 'tests/e2e/x.spec.ts': 8 });
+	});
+
+	it('plans a 0 from the alike project, so that a file a skip batch turns on is not planned at 0', () => {
+		const d2 = {
+			alike: { iphone: ['pixel'] },
+			projects: {
+				desktop: { only: 50, both: 10, lifted: 10 },
+				pixel: { only: 0, both: 20, lifted: 20 },
+				iphone: { only: 0, both: 60, lifted: 0 },
+			},
+		};
+		// Turned on by a batch: the Pixel time times the iPhone's ratio to it.
+		expect(sp.estimate(d2, 'iphone', 'lifted')).toBe(60);
+		// Desktop-only (no phone runs it): stays 0, not the desktop time.
+		expect(sp.estimate(d2, 'iphone', 'only')).toBe(0);
+		expect(sp.estimate(d2, 'iphone', 'both')).toBe(60);
+		// Still skipped by a pending batch: stays 0.
+		expect(sp.estimate(d2, 'iphone', 'lifted', new Set(['lifted']))).toBe(0);
 	});
 
 	it('every committed shard of ci.yml is within the time target', () => {

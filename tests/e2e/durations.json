@@ -7,6 +7,10 @@
 		"pixel-7": 1.25,
 		"iphone-14": 1
 	},
+	"alike": {
+		"iphone-14": ["pixel-7"],
+		"pixel-7": ["iphone-14"]
+	},
 	"projects": {
 		"desktop": {
 			"tests/e2e/add-task-screenshots.spec.ts": 0,

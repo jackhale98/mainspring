@@ -5,8 +5,14 @@
 // longest first, each onto the shard with the least time so far, from the committed durations in
 // tests/e2e/durations.json (seconds of worker time per file and project, measured locally with
 // two workers; `node scripts/ci/shard-plan.mjs measure <project> <reports...>` rewrites one
-// project from Playwright JSON reports). A spec file that is not in the file gets the median of
-// its project, so a new file lands somewhere sensible until the next measurement.
+// project from Playwright JSON reports). A file with no time is estimated from another project
+// that has it, scaled by the median ratio of the two projects over the files both have, else it
+// gets the median of its project. A file whose tests were all skipped is measured at 0, which is
+// right for a file that a project never runs (desktop-only specs on the phones) but wrong once a
+// skip batch turns it on: a 0 put every file B1 to B3 turned on into one iPhone shard, which then
+// ran 20 to 49 minutes (2026-11-18). So a 0 in a project whose `alike` project (durations.json:
+// the other phone) has a time is estimated from that project as well, until the next measurement,
+// unless the file is still in a pending WebKit skip batch (webkit-skips.mjs), where it is still 0.
 //
 //   node scripts/ci/shard-plan.mjs files <project> <i>/<n>   the spec files of one shard
 //   node scripts/ci/shard-plan.mjs table                     every project's plan with times
@@ -16,6 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PENDING_BATCHES } from './webkit-skips.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DURATIONS = path.join(ROOT, 'tests/e2e/durations.json');
@@ -47,10 +54,55 @@ const median = (xs) => {
 	return s[Math.floor(s.length / 2)];
 };
 
-/** Estimated seconds of one file in one project (a missing file gets the project's median). */
-export function estimate(durations, project, file) {
-	const known = durations.projects?.[project] ?? {};
-	return known[file] ?? median(Object.values(known));
+/**
+ * The median ratio of `project` to `other` over the files both have a time for (null: none shared).
+ */
+export function ratio(durations, project, other) {
+	const a = durations.projects?.[project] ?? {};
+	const b = durations.projects?.[other] ?? {};
+	const rs = Object.keys(a)
+		.filter((f) => a[f] > 0 && b[f] > 0)
+		.map((f) => a[f] / b[f]);
+	return rs.length === 0 ? null : median(rs);
+}
+
+/** The spec files (repository paths) whose WebKit skips a pending batch still holds, on the iPhone. */
+function pendingWebKit(project) {
+	if (project !== 'iphone-14') return new Set();
+	return new Set(
+		Object.values(PENDING_BATCHES).flatMap((names) => names.map((n) => `tests/e2e/${n}`)),
+	);
+}
+
+/** Another project's time for `file`, scaled by `ratio` (null: none of `others` has it). */
+function scaled(durations, project, file, others) {
+	const all = durations.projects ?? {};
+	const known = all[project] ?? {};
+	const shared = (o) => Object.keys(all[o] ?? {}).filter((f) => f in known).length;
+	const have = others
+		.filter((o) => o !== project && (all[o]?.[file] ?? 0) > 0)
+		.sort((x, y) => shared(y) - shared(x) || x.localeCompare(y));
+	for (const o of have) {
+		const r = ratio(durations, project, o);
+		if (r !== null) return Math.round(all[o][file] * r * 10) / 10;
+	}
+	return null;
+}
+
+/**
+ * Estimated seconds of one file in one project: its own time (a 0 only if no `alike` project runs
+ * it); else another project's time scaled by `ratio`; else the project's median.
+ */
+export function estimate(durations, project, file, stillSkipped = pendingWebKit(project)) {
+	const all = durations.projects ?? {};
+	const known = all[project] ?? {};
+	const own = known[file];
+	if (own === 0) {
+		if (stillSkipped.has(file)) return 0;
+		return scaled(durations, project, file, durations.alike?.[project] ?? []) ?? 0;
+	}
+	if (own !== undefined) return own;
+	return scaled(durations, project, file, Object.keys(all)) ?? median(Object.values(known));
 }
 
 /**
@@ -92,21 +144,27 @@ export function matrixFromWorkflow(text) {
 	return counts;
 }
 
-/** Sums a Playwright JSON report into seconds per spec file for one project, per worker. */
-export function measure(report, project, workers = 2) {
+/**
+ * Sums Playwright JSON reports into seconds per spec file for one project, per worker (retries
+ * included: they are time the shard spends). A file whose tests were all skipped is 0.
+ */
+export function measure(reports, project, workers = 2) {
 	const out = {};
 	const walk = (suite) => {
 		for (const spec of suite.specs ?? []) {
 			for (const t of spec.tests ?? []) {
 				if (t.projectName !== project) continue;
-				const ms = (t.results ?? []).reduce((a, r) => a + (r.duration ?? 0), 0);
+				const results = t.results ?? [];
+				const ms = results.reduce((a, r) => a + (r.duration ?? 0), 0);
 				const file = `tests/e2e/${spec.file}`.replace('tests/e2e/tests/e2e/', 'tests/e2e/');
 				out[file] = (out[file] ?? 0) + ms / 1000 / workers;
 			}
 		}
 		for (const s of suite.suites ?? []) walk(s);
 	};
-	for (const s of report.suites ?? []) walk(s);
+	for (const report of Array.isArray(reports) ? reports : [reports]) {
+		for (const s of report.suites ?? []) walk(s);
+	}
 	for (const k of Object.keys(out)) out[k] = Math.round(out[k] * 10) / 10;
 	return out;
 }
@@ -144,17 +202,20 @@ function main(argv) {
 			process.exit(1);
 		}
 	} else if (cmd === 'measure') {
-		const [file, project, workers] = args;
+		// measure <project> <report.json>... [--workers N]: the merged report of every shard.
+		const wi = args.indexOf('--workers');
+		const workers = wi >= 0 ? Number(args[wi + 1]) : 2;
+		const [project, ...files] = args.filter((_, i) => wi < 0 || (i !== wi && i !== wi + 1));
+		if (!project || files.length === 0) throw new Error('measure <project> <report.json>...');
 		const d = load();
-		d.projects[project] = measure(
-			JSON.parse(fs.readFileSync(file, 'utf8')),
-			project,
-			Number(workers ?? 2),
+		const reports = files.map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
+		d.projects[project] = Object.fromEntries(
+			Object.entries(measure(reports, project, workers)).sort(([a], [b]) => a.localeCompare(b)),
 		);
 		fs.writeFileSync(DURATIONS, `${JSON.stringify(d, null, '\t')}\n`);
 	} else {
 		console.error(
-			'usage: shard-plan.mjs files <project> <i>/<n> | table | check | measure <report> <project>',
+			'usage: shard-plan.mjs files <project> <i>/<n> | table | check | measure <project> <report.json>... [--workers N]',
 		);
 		process.exit(2);
 	}
