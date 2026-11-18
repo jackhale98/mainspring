@@ -24,7 +24,7 @@
 	import CommitInput from './CommitInput.svelte';
 	import { getInspector } from './context';
 	import Field from './Field.svelte';
-	import Select from './Select.svelte';
+	import Select from '../ui/Select.svelte';
 	import Stepper from './Stepper.svelte';
 
 	let { d }: { d: TaskDetails } = $props();
@@ -114,7 +114,7 @@
 					value={text(d.scheduling)}
 					options={scheduling}
 					{disabled}
-					{describedby}
+					aria-describedby={describedby}
 					onchange={(v) => ok(actions.edit(schedulingEdit(d, v)))}
 				/>
 			{/snippet}
@@ -135,7 +135,7 @@
 					value={responsible}
 					options={people}
 					{disabled}
-					{describedby}
+					aria-describedby={describedby}
 					onchange={(v) => ok(actions.edit(responsibleEdit(d, v === '' ? null : v, nameOf(v))))}
 				/>
 			{/snippet}

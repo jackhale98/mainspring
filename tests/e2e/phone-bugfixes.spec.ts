@@ -387,10 +387,17 @@ test.describe('4. the row menu fits the screen', () => {
 		await page.getByTestId('resource-menu').click();
 		const pop = page.getByRole('menu', { name: 'Row actions' });
 		await expect(pop).toBeVisible();
-		// A scroll of the menu's own list does not close it; one of the view under it does.
+		// A scroll of the menu's own list does not close it, and neither does one that leaves its
+		// button where it was (a late scroll event from elsewhere: the list is still beside it).
 		await pop.evaluate((el) => el.dispatchEvent(new Event('scroll')));
 		await expect(pop).toBeVisible();
 		await page.evaluate(() => document.body.dispatchEvent(new Event('scroll')));
+		await expect(pop).toBeVisible();
+		// A scroll of the view under it that moves the button takes the list's place away.
+		await page.getByTestId('resource-menu').evaluate((el) => {
+			el.style.transform = 'translateY(40px)';
+			document.body.dispatchEvent(new Event('scroll'));
+		});
 		await expect(pop).toBeHidden();
 	});
 

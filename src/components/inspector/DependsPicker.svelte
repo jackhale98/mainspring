@@ -61,6 +61,7 @@
 	let busy = false;
 	let input: HTMLInputElement | undefined = $state();
 	let list: HTMLUListElement | undefined = $state();
+	let root: HTMLDivElement | undefined = $state();
 
 	const all = $derived.by(() => {
 		if (!open) return [];
@@ -83,6 +84,55 @@
 		// focus on the first tap on the box instead (a mouse and a keyboard take it at once).
 		if (globalThis.matchMedia?.('(pointer: coarse)').matches !== true)
 			void tick().then(() => input?.focus());
+	});
+	// In a sheet the picker is the point of the sheet while it is open: it goes to the top of the
+	// sheet's content, where the list can use the rest of it. The owner gives the sheet its full
+	// height as the picker opens, and the list fills in after the chunk, so the content's size
+	// changes while it settles, and WebKit scrolls a focused field into view on its own, late on a
+	// busy phone. No fixed time window covers all of that, so the picker is held at the top by
+	// events: any change of size of the content or the picker, and any scroll the person did not
+	// make, puts it back. The hold ends when the person scrolls the content themselves (a wheel, a
+	// press outside the picker, a finger dragged outside the list; a tap on the search box or a row
+	// is not one) or the picker closes.
+	$effect(() => {
+		const el = root;
+		if (!open || !el) return;
+		const content = el.closest('dialog.sheet')?.querySelector<HTMLElement>('.content');
+		if (!content) return;
+		let frame = 0;
+		const align = (): void => {
+			frame = 0;
+			const off = el.getBoundingClientRect().top - content.getBoundingClientRect().top;
+			if (Math.abs(off) > 1) content.scrollTop += off;
+		};
+		const soon = (): void => {
+			if (frame === 0) frame = requestAnimationFrame(align);
+		};
+		const sizes = new ResizeObserver(soon);
+		const release = (): void => {
+			sizes.disconnect();
+			cancelAnimationFrame(frame);
+			frame = 0;
+			content.removeEventListener('scroll', soon);
+			content.removeEventListener('pointerdown', pressed);
+			content.removeEventListener('wheel', release);
+			content.removeEventListener('touchmove', dragged);
+		};
+		// A finger that drags anywhere but the list (which scrolls itself) scrolls the content.
+		const dragged = (e: TouchEvent): void => {
+			if (!(e.target instanceof Node) || !list?.contains(e.target)) release();
+		};
+		const pressed = (e: PointerEvent): void => {
+			if (!(e.target instanceof Node) || !el.contains(e.target)) release();
+		};
+		sizes.observe(content);
+		sizes.observe(el);
+		content.addEventListener('scroll', soon, { passive: true });
+		content.addEventListener('pointerdown', pressed);
+		content.addEventListener('wheel', release, { passive: true });
+		content.addEventListener('touchmove', dragged, { passive: true });
+		align();
+		return release;
 	});
 	$effect(() => {
 		// Keep the active option in view as the arrows move.
@@ -124,7 +174,14 @@
 
 {#if open}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="picker" {id} data-testid="depends-picker" data-role={role} {onfocusout}>
+	<div
+		class="picker"
+		{id}
+		data-testid="depends-picker"
+		data-role={role}
+		{onfocusout}
+		bind:this={root}
+	>
 		<input
 			bind:this={input}
 			bind:value={query}
@@ -216,6 +273,16 @@
 		padding: 0;
 		overflow-y: auto;
 		list-style: none;
+	}
+	/*
+	   A finger gets a list that fills the sheet (the sheet is full height while the picker is open):
+	   the viewport less the top bar, the sheet's grabber and header, the search box and the status
+	   line, and never less than a few rows. The search box stays above it; the list scrolls.
+	*/
+	@media (pointer: coarse) {
+		[role='listbox'] {
+			max-block-size: max(14rem, calc(100dvh - 19rem));
+		}
 	}
 	[role='option'] {
 		display: grid;

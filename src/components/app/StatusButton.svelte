@@ -18,7 +18,7 @@
 	import type { ThemeState } from '../../lib/state/theme.svelte';
 	import type { AppUpdates } from '../../lib/state/updates.svelte';
 	import { engineLine, historyStrings, strings } from '../../lib/strings';
-	import DetailsPopover from './DetailsPopover.svelte';
+	import Popover from '../ui/Popover.svelte';
 	import EngineDetails from './EngineDetails.svelte';
 	import StatusGlyph from './StatusGlyph.svelte';
 
@@ -89,7 +89,7 @@
 		{engineLine(app.engine)}
 	</span>
 </button>
-<DetailsPopover
+<Popover
 	id="status-details-{id}"
 	title={strings.status.button.popoverTitle}
 	testid="engine-info-details"
@@ -178,7 +178,7 @@
 		{/if}
 	</div>
 	<EngineDetails info={s?.engine ?? null} {updates} onreload={reload} />
-</DetailsPopover>
+</Popover>
 
 <style>
 	.status-button {

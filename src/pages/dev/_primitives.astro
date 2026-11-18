@@ -1,0 +1,14 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// The shared UI primitives on one page, without the engine (ADR-0016 #3): /dev/primitives, routed only
+// when MAINSPRING_DEV_PAGES=1 (scripts/astro-dev-pages.mjs), like /dev/gantt-perf. Each primitive's
+// contract spec (tests/e2e/primitives/*.spec.ts) opens this page on desktop, Pixel 7 and iPhone 14 and
+// takes seconds, because nothing here boots ruby.wasm. Plain text is fine on this page: it is not
+// user-facing.
+import Primitives from '../../components/dev/Primitives.svelte';
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Primitives">
+	<Primitives client:only="svelte" />
+</Base>

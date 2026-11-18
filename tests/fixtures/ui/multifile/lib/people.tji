@@ -1,0 +1,7 @@
+# Feature: ui-multifile - the people, included from plan.tjp
+# SPDX-License-Identifier: GPL-2.0-or-later
+resource ana "Ana"
+resource ben "Ben"
+resource cy "Cy" {
+  leaves annual "Annual leave" 2026-04-13 - 2026-04-17
+}

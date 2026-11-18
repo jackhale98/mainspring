@@ -498,19 +498,19 @@ test.describe('the people picker', () => {
 	test('opening another plan ends assign mode and forgets the recent people', async ({
 		page,
 	}, info) => {
-		// Wide, so that the recent chips show; Resource 1 (r00) is in both plans, so that only the
+		// Wide, so that the recent chips show; Ana (ana) is in both plans, so that only the
 		// switch can end the mode.
 		await page.setViewportSize({ width: 1920, height: 1000 });
-		const rig = await Rig.open(page, info, 'week', 'visual', 'gantt-200');
+		const rig = await Rig.open(page, info, 'week', 'visual', 'ui-basic');
 		await page.getByRole('button', { name: 'Hide details' }).click();
 		await rig.openPeople();
-		await rig.personOption('r00').click();
-		await expect(page.getByTestId('assign-mode')).toContainText('Assigning Resource 1');
+		await rig.personOption('ana').click();
+		await expect(page.getByTestId('assign-mode')).toContainText('Assigning Ana');
 		await page.getByRole('button', { name: 'Done assigning' }).click();
 		await rig.openPeople();
-		await rig.personOption('r00').click();
+		await rig.personOption('ana').click();
 		await expect(page.getByTestId('assign-mode')).toBeVisible();
-		await page.getByRole('combobox', { name: 'Sample plan' }).selectOption('gantt-500');
+		await page.getByRole('combobox', { name: 'Sample plan' }).selectOption('ui-multifile');
 		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 			timeout: READY_TIMEOUT_MS,
 		});

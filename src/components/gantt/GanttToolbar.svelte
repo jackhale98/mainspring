@@ -30,6 +30,7 @@
 	import type { CriticalChip } from '../../lib/gantt/analysis';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import type { AddMode } from '../../lib/gantt/add-task';
 	import AddTaskMenu from './AddTaskMenu.svelte';
 	import FilterControl from './FilterControl.svelte';
@@ -112,17 +113,17 @@
 </script>
 
 <div class="bar" class:assigning={people?.assigning != null}>
-	<div class="chips" role="group" aria-label={strings.gantt.toolbar}>
+	<div class="chips" role="group" aria-label={strings.gantt.toolbar} data-toolbar="gantt">
 		{#if lead}{@render lead()}{/if}
 		{#if add}<AddTaskMenu {...add} />{/if}
-		<label class="chip select">
+		<label class="chip select" data-narrow="shrink">
 			<span class="sr-only">{strings.gantt.zoom}</span>
 			<!-- Between two presets the select shows "Week (custom)", so that choosing Week still changes it. -->
-			<select
-				data-own-caret
+			<Select
+				variant="inline"
 				value={zoomExact ? level : 'custom'}
-				onchange={(e) => {
-					if (e.currentTarget.value !== 'custom') onlevel(e.currentTarget.value as ZoomLevel);
+				onchange={(v) => {
+					if (v !== 'custom') onlevel(v as ZoomLevel);
 				}}
 				aria-label={strings.gantt.zoom}
 			>
@@ -134,12 +135,12 @@
 				{#each ZOOM_ORDER as z (z)}
 					<option value={z}>{strings.gantt.level[z]}</option>
 				{/each}
-			</select>
-			<span class="caret"><Icon name="chevronDown" size={12} /></span>
+			</Select>
 		</label>
 		<button
 			type="button"
 			class="chip today"
+			data-narrow="icon-phone"
 			onclick={ontoday}
 			disabled={!hasMarker}
 			aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
@@ -150,6 +151,7 @@
 		<button
 			type="button"
 			class="chip critical"
+			data-narrow="icon-phone"
 			aria-label={strings.gantt.criticalPath}
 			aria-pressed={critical.available ? critical.pressed : undefined}
 			aria-disabled={critical.available ? undefined : 'true'}
@@ -254,29 +256,12 @@
 		cursor: default;
 	}
 	.chip:focus-visible,
-	.chip:has(select:focus-visible) {
+	.chip:has(:global(select:focus-visible)) {
 		outline: 2px solid var(--color-gantt-accent);
 		outline-offset: 2px;
 	}
 	.select {
 		padding-inline-end: 26px;
-	}
-	select {
-		appearance: none;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		outline: none;
-		padding: 0;
-	}
-	.caret {
-		position: absolute;
-		inset-inline-end: 10px;
-		display: grid;
-		color: var(--color-gantt-text-muted);
-		pointer-events: none;
 	}
 	/* The critical path is ruby: a ruby wash and ink when on, and a ruby icon either way. */
 	.critical :global(.icon) {
@@ -401,6 +386,12 @@
 		.chip {
 			min-block-size: var(--size-tap);
 		}
+		/* A finger's select is 16 px (Base.astro: iOS zooms into a smaller field), which makes the zoom
+		   pill wider; it takes the difference out of its own padding so that the row still fits 360 px. */
+		.select {
+			padding-inline: 10px 22px;
+			--select-caret-end: 8px;
+		}
 	}
 	/* A narrow chart (Split beside the editor) has no room in the band for the selected task's
 	   line beside the chips and the view switcher: it floats over the foot of the chart, as on a
@@ -495,15 +486,7 @@
 	   task line, which has no room to spare and shows only with a task. */
 	@media (max-width: 599px) {
 		/* Zoom, Today, Add task, the critical path, the filter and the row menu fit 44 px apiece
-		   without a clip (the critical path is its icon: its aria-label is the name). */
-		.critical .lbl {
-			display: none;
-		}
-		.critical {
-			padding-inline: 0;
-			justify-content: center;
-			min-inline-size: var(--size-tap);
-		}
+		   without a clip (the critical path is its icon: data-narrow="icon-phone"). */
 	}
 	/* 360 px: the six controls need the gaps tightened, and the zoom select a little less. */
 	@media (max-width: 399px) {
@@ -524,26 +507,8 @@
 		.legend {
 			display: none;
 		}
-		/* The Add task button took 44 px of the row: Today is its icon alone (its aria-label is
-		   the name), so that nothing wraps or is cut off at 360 px. */
-		.today .lbl {
-			display: none;
-		}
-		/* The select shrinks (a custom zoom reads "Week (custom)") rather than push a chip off. */
-		select {
-			max-inline-size: 5.5rem;
-			text-overflow: ellipsis;
-		}
-		@media (max-width: 399px) {
-			select {
-				max-inline-size: 4.75rem;
-			}
-		}
-		.today {
-			padding-inline: 0;
-			justify-content: center;
-			min-inline-size: var(--size-tap);
-		}
+		/* On a phone Today is its icon alone (data-narrow="icon-phone": src/styles/toolbar.css) and the
+		   zoom select shrinks (data-narrow="shrink"): nothing wraps or is cut off at 360 px. */
 		.task {
 			position: absolute;
 			z-index: 6;

@@ -8,6 +8,7 @@
 	import type { AppState } from '../lib/state/app.svelte';
 	import type { LayoutKind } from '../lib/state/layout.svelte';
 	import { strings } from '../lib/strings';
+	import Select from './ui/Select.svelte';
 
 	interface Props {
 		app: AppState;
@@ -38,15 +39,12 @@
 {#if layout === 'phone'}
 	<label class="select">
 		<span class="sr-only">{strings.editor.file}</span>
-		<select
+		<Select
 			value={app.activeFile}
-			onchange={(e) => app.openFile(e.currentTarget.value)}
+			onchange={(v) => app.openFile(v)}
 			disabled={app.files.length < 2}
-		>
-			{#each app.files as path (path)}
-				<option value={path}>{path}</option>
-			{/each}
-		</select>
+			options={app.files.map((path) => ({ value: path, label: path }))}
+		/>
 	</label>
 {:else}
 	<!-- svelte-ignore a11y_interactive_supports_focus -->
@@ -95,16 +93,11 @@
 	[role='tab']:hover {
 		background: var(--color-row-hover);
 	}
-	.select select {
+	.select :global(select) {
 		min-block-size: var(--size-tap);
 		max-inline-size: 60vw;
-		padding-inline: var(--space-2);
-		border: 1px solid var(--color-border);
+		border-color: var(--color-border);
 		border-radius: var(--radius-sm);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font: inherit;
 		font-family: var(--font-mono);
-		font-size: max(16px, var(--text-md));
 	}
 </style>

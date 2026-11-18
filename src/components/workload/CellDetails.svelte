@@ -31,6 +31,7 @@
 	import type { HeatUnit } from '../../lib/workload/heat-prefs';
 	import LazyMount from '../app/LazyMount.svelte';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 
 	interface Props {
 		/** For "Why here?" (the explainer under a task): the app, and the result and text it reads. */
@@ -120,9 +121,13 @@
 		onnudge(t, axis, step);
 	}
 
-	function choose(e: Event, t: DetailTask, axis: 'person' | 'period'): void {
-		const select = e.currentTarget as HTMLSelectElement;
-		const n = Number(select.value);
+	function choose(
+		value: string,
+		select: HTMLSelectElement,
+		t: DetailTask,
+		axis: 'person' | 'period',
+	): void {
+		const n = Number(value);
 		select.value = '';
 		if (Number.isNaN(n)) return;
 		onmove(t, axis === 'person' ? { row: n } : { col: n });
@@ -211,22 +216,36 @@
 										{#if t.kind === 'booked'}
 											<label class="pick">
 												<span class="sr-only">{D.movePerson} {t.name}</span>
-												<select value="" onchange={(e) => choose(e, t, 'person')}>
-													<option value="" disabled>{D.movePerson}</option>
-													{#each people as p (p.row)}
-														<option value={p.row} disabled={p.row === i.row}>{p.name}</option>
-													{/each}
-												</select>
+												<Select
+													variant="pill"
+													value=""
+													onchange={(v, select) => choose(v, select, t, 'person')}
+													options={[
+														{ value: '', label: D.movePerson, disabled: true },
+														...people.map((p) => ({
+															value: String(p.row),
+															label: p.name,
+															disabled: p.row === i.row,
+														})),
+													]}
+												/>
 											</label>
 										{/if}
 										<label class="pick">
 											<span class="sr-only">{D.moveWeek} {t.name}</span>
-											<select value="" onchange={(e) => choose(e, t, 'period')}>
-												<option value="" disabled>{D.moveWeek}</option>
-												{#each periods as p (p.col)}
-													<option value={p.col} disabled={p.col === i.col}>{p.text}</option>
-												{/each}
-											</select>
+											<Select
+												variant="pill"
+												value=""
+												onchange={(v, select) => choose(v, select, t, 'period')}
+												options={[
+													{ value: '', label: D.moveWeek, disabled: true },
+													...periods.map((p) => ({
+														value: String(p.col),
+														label: p.text,
+														disabled: p.col === i.col,
+													})),
+												]}
+											/>
 										</label>
 									{/if}
 									<button
@@ -322,8 +341,7 @@
 	}
 	.close:focus-visible,
 	.show:focus-visible,
-	.task:focus-visible,
-	select:focus-visible {
+	.task:focus-visible {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}
@@ -433,7 +451,6 @@
 		flex-wrap: wrap;
 		gap: var(--space-2);
 	}
-	.pick select,
 	.show {
 		min-block-size: 32px;
 		padding-inline: var(--space-2);
@@ -445,11 +462,7 @@
 		font-size: var(--text-xs);
 		cursor: pointer;
 	}
-	.pick select {
-		max-inline-size: 11rem;
-	}
 	@media (pointer: coarse) {
-		.pick select,
 		.show,
 		.close {
 			min-block-size: var(--size-tap);

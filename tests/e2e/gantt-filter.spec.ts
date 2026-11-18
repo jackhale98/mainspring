@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The Gantt's filter by person and by flag (phase-3.md T19, "Amendments from T19"; 13.2 `gantt-filter.spec.ts`).
-// On the Fedora plan with a people pool (fedora-res: 24 people, flags on a few hundred tasks):
+// On the small people plan (ui-people: five people, flags on a container and on single tasks; the
+// oracle reads the result and the text, so it does not depend on the plan's size). The list of 24
+// people scrolled to the chosen person is the one case left on fedora-res:
 // - the rows the filter shows equal an oracle written here from the schedule result (a person's
 //   booked and named tasks) and from the plan text (flags, as TaskJuggler inherits them), with the
 //   ancestors of a match as context rows;
@@ -107,7 +109,7 @@ function tasksOf(r: ScheduleResult, person: string): Set<string> {
  * copied into a child once, when the child's header is read, so a child has its own and those its
  * parent had written before the child's `task` keyword; a `flags` after the child, or in a later
  * `supplement`, is not inherited by it. A `scen:flags` counts only for the shown scenario.
- * `purge flags` is not handled (Fedora has none).
+ * `purge flags` is not handled (the plans have none).
  */
 function flagsOfText(text: string, shown = 'plan'): Map<string, Set<string>> {
 	// The root's id is a macro (`${content}${major}`, defined in the same file as `f` and `20`).
@@ -215,9 +217,14 @@ const intersect = (a: ReadonlySet<string>, b: ReadonlySet<string>): Set<string> 
 
 // --- The page.
 
-async function open(page: Page, info: Parameters<typeof Rig.open>[1], width = 1280): Promise<Rig> {
+async function open(
+	page: Page,
+	info: Parameters<typeof Rig.open>[1],
+	width = 1280,
+	plan = 'ui-people',
+): Promise<Rig> {
 	if (!isTouch(info)) await page.setViewportSize({ width, height: 720 });
-	return Rig.open(page, info, 'month', 'visual', 'fedora-res');
+	return Rig.open(page, info, 'month', 'visual', plan);
 }
 const button = (page: Page): Locator => page.getByTestId('filter-button');
 const panel = (page: Page): Locator => page.getByTestId('filter-panel');
@@ -357,17 +364,17 @@ test.describe('filter by flag', () => {
 		const rig = await open(page, info);
 		const r = await resultOf(page);
 		const flags = flagsOfText(await rig.text());
-		const key = tasksWith(r, flags, 'key');
-		expect(key.size, 'the oracle finds tasks with the flag `key`').toBeGreaterThan(5);
+		const key = tasksWith(r, flags, 'urgent');
+		expect(key.size, 'the oracle finds tasks with the flag `urgent`').toBeGreaterThan(3);
 		const before = await rig.text();
 		await openPanel(page);
-		await chooseFlag(page, 'key');
+		await chooseFlag(page, 'urgent');
 		await closePanel(page);
-		await expectRows(page, r, key, 'flag key');
-		await expect(button(page)).toHaveAccessibleName('Filter: flag key');
+		await expectRows(page, r, key, 'flag urgent');
+		await expect(button(page)).toHaveAccessibleName('Filter: flag urgent');
 
-		// An inherited flag: `hidden` is written on a container whose children carry it too.
-		for (const flag of ['hidden', 'design']) {
+		// An inherited flag: `urgent` is written on a container whose children carry it too.
+		for (const flag of ['urgent', 'review']) {
 			await openPanel(page);
 			await chooseFlag(page, flag);
 			await closePanel(page);
@@ -386,7 +393,7 @@ test.describe('filter by flag', () => {
 			els.map((e) => e.closest('label')?.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
 		);
 		expect(names[0]).toBe('Any flag');
-		for (const flag of ['key', 'design', 'devel']) {
+		for (const flag of ['urgent', 'review', 'later']) {
 			const n = tasksWith(r, flags, flag).size;
 			expect(
 				names.some((x) => x.startsWith(`${flag} ${n}, `) && x.endsWith(`${n} tasks`)),
@@ -411,7 +418,7 @@ test.describe('both together, and nothing', () => {
 		} | null = null;
 		for (const p of r.resources.filter((x) => !x.group)) {
 			const mine = tasksOf(r, p.id);
-			for (const flag of ['design', 'devel', 'docs', 'key', 'marketing', 'pm', 'web']) {
+			for (const flag of ['urgent', 'review', 'later']) {
 				const withFlag = tasksWith(r, flags, flag);
 				const both = intersect(mine, withFlag);
 				if (both.size >= 2 && both.size < mine.size && both.size < withFlag.size) {
@@ -447,7 +454,7 @@ test.describe('both together, and nothing', () => {
 		let empty: { id: string; name: string; flag: string } | null = null;
 		for (const p of r.resources.filter((x) => !x.group)) {
 			const mine = tasksOf(r, p.id);
-			for (const flag of ['ambassadors', 'elections', 'fpl', 'translation']) {
+			for (const flag of ['urgent', 'review', 'later']) {
 				if (intersect(mine, tasksWith(r, flags, flag)).size === 0) {
 					empty = { id: p.id, name: p.name, flag };
 					break;
@@ -592,7 +599,8 @@ test.describe('a filter whose code cannot be fetched', () => {
 test.describe('the panel opens on the person chosen', () => {
 	test('the active option is the chosen person, scrolled into view', async ({ page }, info) => {
 		test.skip(isTouch(info), 'a mouse and a keyboard');
-		await open(page, info);
+		// Named for scale: the last of 24 people sits below the list's fold.
+		await open(page, info, 1280, 'fedora-res');
 		const r = await resultOf(page);
 		// A person far down the list of 24, so that opening on them needs the scroll.
 		const people = r.resources.filter((x) => !x.group);
@@ -697,12 +705,12 @@ test.describe('accessibility', () => {
 			await openPanel(page);
 			await axe(page, `panel open (${scheme})`);
 			await choosePerson(page, person.id, person.name);
-			await chooseFlag(page, 'key');
+			await chooseFlag(page, 'urgent');
 			await axe(page, `panel with a filter (${scheme})`);
 			await closePanel(page);
 			await axe(page, `filtered (${scheme})`);
 			await openPanel(page);
-			await chooseFlag(page, 'ambassadors');
+			await chooseFlag(page, 'later');
 			await choosePerson(page, person.id, person.name);
 			await closePanel(page);
 			await axe(page, `nothing matches (${scheme})`);
@@ -772,7 +780,7 @@ test.describe('the toolbar', () => {
 		test(`stays on one row at ${width} px: closed, open, filtered`, async ({ page }, info) => {
 			test.skip(isTouch(info), 'a desktop window');
 			await page.setViewportSize({ width, height });
-			await Rig.open(page, info, 'month', 'visual', 'fedora-res');
+			await Rig.open(page, info, 'month', 'visual', 'ui-people');
 			const r = await resultOf(page);
 			const person = aPerson(r);
 			await oneRow(page, 'closed');
@@ -797,7 +805,7 @@ test.describe('the toolbar', () => {
 		}, info) => {
 			test.skip(!isTouch(info), 'a phone');
 			await page.setViewportSize({ width, height: 800 });
-			await Rig.open(page, info, 'week', 'visual', 'fedora-res');
+			await Rig.open(page, info, 'week', 'visual', 'ui-people');
 			const r = await resultOf(page);
 			const person = aPerson(r);
 			await oneRow(page, 'closed');

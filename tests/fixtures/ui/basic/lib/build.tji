@@ -1,0 +1,32 @@
+# Feature: ui-basic - the build container, included from plan.tjp; depends on a task of plan.tjp.
+# checkTask declares a task through a macro call (a text-only declaration).
+# SPDX-License-Identifier: GPL-2.0-or-later
+macro checkTask [
+  task check_${1} "Check ${1}" {
+    depends !tests
+    effort 2d
+    allocate cy
+  }
+]
+
+task build "Build" {
+  depends design.gate
+  task code "Write code" {
+    effort 6d
+    allocate ben, cy
+    complete 25
+    priority 600
+  }
+  task tests "Write tests" {
+    effort 3d
+    allocate cy
+    depends !code { gaplength 1d }
+  }
+  ${checkTask "unit"}
+  task lint "Lint" {
+    effort 1d
+    allocate ana
+    depends !tests { onstart }
+    flags review
+  }
+}

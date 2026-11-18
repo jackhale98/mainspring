@@ -101,6 +101,11 @@ jobs:
         env:
           TJP_EDIT_ENGINE: '1'
           FC_SEED: '20261112'
+      # The small UI fixtures (tests/fixtures/ui) schedule with no error and no warning: they have
+      # no native goldens, so this is their engine check (ADR-0016 change 4).
+      - run: npx vitest run src/lib/workspace/ui-fixtures.engine.test.ts
+        env:
+          UI_FIXTURES_ENGINE: '1'
       # One engine's memory must stay flat over repeated full runs of the golden plans (wasm
       # memory never shrinks; engine/bridge/wasm/tj_wasm_jumps.rb). Fails without the engine.
       - run: npx vitest run tests/engine/memory.engine.test.ts
@@ -180,21 +185,40 @@ jobs:
   e2e:
     name: End-to-end and accessibility (${{ matrix.project }} ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    # Playwright's own image has every browser and its system libraries, so no shard installs them:
+    # the apt install took 3 to 22 minutes on the WebKit shards and hung twice (2026-11-17, -18).
+    # The tag must be the Playwright version in package-lock.json; tests/ci/playwright-image.test.ts
+    # fails when they differ. --ipc=host gives Chromium the shared memory Docker's 64 MB lacks.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
     strategy:
       fail-fast: false
-      # Shards sized so no runner takes much over ten minutes (2026-11-17: one Pixel 7 runner took
-      # 22 minutes and set the whole run's time). The frame-rate checks are in the timing tier (the
-      # timing job, below) and JS sizes in the gates job, so neither waits for a shard to finish.
+      # Shards are whole spec files packed by measured duration (scripts/ci/shard-plan.mjs, from
+      # tests/e2e/durations.json), not Playwright's equal-count --shard: that gave one Pixel 7 runner
+      # 22 minutes and its sibling 9. The counts are sized so no shard goes over 8 minutes
+      # (ADR-0016 change 4); `node scripts/ci/shard-plan.mjs check` (and its unit test) fails if a
+      # row here is too few for the durations file. The frame-rate checks are in the timing tier
+      # (the timing job, below) and JS sizes in the gates job, so neither waits for a shard.
       matrix:
         include:
-          - { project: desktop, shard: 1/3, browsers: chromium }
-          - { project: desktop, shard: 2/3, browsers: chromium }
-          - { project: desktop, shard: 3/3, browsers: chromium }
-          - { project: pixel-7, shard: 1/2, browsers: chromium }
-          - { project: pixel-7, shard: 2/2, browsers: chromium }
-          - { project: iphone-14, shard: 1/3, browsers: webkit }
-          - { project: iphone-14, shard: 2/3, browsers: webkit }
-          - { project: iphone-14, shard: 3/3, browsers: webkit }
+          - { project: desktop, shard: 1/5, browsers: chromium }
+          - { project: desktop, shard: 2/5, browsers: chromium }
+          - { project: desktop, shard: 3/5, browsers: chromium }
+          - { project: desktop, shard: 4/5, browsers: chromium }
+          - { project: desktop, shard: 5/5, browsers: chromium }
+          - { project: pixel-7, shard: 1/6, browsers: chromium }
+          - { project: pixel-7, shard: 2/6, browsers: chromium }
+          - { project: pixel-7, shard: 3/6, browsers: chromium }
+          - { project: pixel-7, shard: 4/6, browsers: chromium }
+          - { project: pixel-7, shard: 5/6, browsers: chromium }
+          - { project: pixel-7, shard: 6/6, browsers: chromium }
+          - { project: iphone-14, shard: 1/6, browsers: webkit }
+          - { project: iphone-14, shard: 2/6, browsers: webkit }
+          - { project: iphone-14, shard: 3/6, browsers: webkit }
+          - { project: iphone-14, shard: 4/6, browsers: webkit }
+          - { project: iphone-14, shard: 5/6, browsers: webkit }
+          - { project: iphone-14, shard: 6/6, browsers: webkit }
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -202,34 +226,26 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ matrix.browsers }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install Playwright browsers and system dependencies
-        # The runner's apt index can be stale, and mirrors occasionally fail, so refresh it
-        # first and retry the whole install a few times. A hung mirror (23 minutes on
-        # 2026-11-17) fails the step instead of holding the whole run.
-        timeout-minutes: 8
-        run: |
-          for attempt in 1 2 3; do
-            sudo apt-get update -q && npx playwright install --with-deps ${{ matrix.browsers }} && exit 0
-            echo "install attempt $attempt failed; retrying in 20s"
-            sleep 20
-          done
-          exit 1
       - run: npm run build
         env:
           MAINSPRING_DEV_PAGES: '1'
       # The merge tier: everything except the @timing tests (frame rates, full-speed sheet
       # recordings), which the timing job runs alone (ADR-0016 section 1). The Text mode timings
       # (text-mode-perf.spec.ts) run nightly instead (nightly.yml, text-mode-perf job).
-      - run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }} --grep-invert @timing
+      - run: npm run test:e2e -- --project=${{ matrix.project }} --grep-invert @timing $(node scripts/ci/shard-plan.mjs files ${{ matrix.project }} ${{ matrix.shard }})
       # Tests that passed only on their retry, named in the run summary (ADR-0016 section 5).
       - name: List tests that passed only on retry
         if: always()
         run: node scripts/ci/flaky-summary.mjs test-results/e2e-results.json '${{ matrix.project }} ${{ matrix.shard }}' >> "$GITHUB_STEP_SUMMARY"
+      # The JSON report of every shard, to refresh tests/e2e/durations.json from real CI times
+      # (`node scripts/ci/shard-plan.mjs measure <report> <project>`).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-durations-${{ matrix.project }}-${{ strategy.job-index }}
+          path: test-results/e2e-results.json
+          if-no-files-found: ignore
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

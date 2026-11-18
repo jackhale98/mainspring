@@ -11,7 +11,7 @@
 	import type { EngineInfo } from '../../lib/state/status';
 	import type { AppUpdates } from '../../lib/state/updates.svelte';
 	import { strings } from '../../lib/strings';
-	import DetailsPopover from './DetailsPopover.svelte';
+	import Popover from '../ui/Popover.svelte';
 	import EngineDetails from './EngineDetails.svelte';
 
 	interface Props {
@@ -39,13 +39,13 @@
 >
 	<span aria-hidden="true">{label}</span>
 </button>
-<DetailsPopover
+<Popover
 	id="engine-info-{id}"
 	title={strings.status.engineDetailsTitle}
 	testid="engine-info-details"
 >
 	<EngineDetails {info} {updates} {onreload} />
-</DetailsPopover>
+</Popover>
 
 <style>
 	.engine-info {

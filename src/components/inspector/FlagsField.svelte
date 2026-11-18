@@ -12,7 +12,7 @@
 	import { inspectorStrings as S } from '../../lib/strings';
 	import CommitInput from './CommitInput.svelte';
 	import { getInspector } from './context';
-	import Select from './Select.svelte';
+	import Select from '../ui/Select.svelte';
 
 	let { d }: { d: TaskDetails } = $props();
 	const { app, actions, showInText } = getInspector();
@@ -80,7 +80,7 @@
 		{#if free.length > 0}
 			<Select
 				id="{uid}-add"
-				label={S.flagAdd}
+				aria-label={S.flagAdd}
 				value=""
 				options={[{ value: '', label: S.flagAdd }, ...free.map((f) => ({ value: f, label: f }))]}
 				onchange={(v) => (v === '' ? false : add(v))}

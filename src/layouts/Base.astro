@@ -4,6 +4,7 @@ import '../styles/fonts.css';
 import '../styles/tokens.css';
 import '../styles/theme-light.css';
 import '../styles/theme-dark.css';
+import '../styles/toolbar.css';
 import { strings } from '../lib/strings';
 import { themeBootScript } from '../lib/state/theme';
 import { sitePath } from '../lib/site-path';
@@ -65,12 +66,14 @@ const { title = strings.appName, description = strings.tagline, shell = false } 
 	 * The app shell behaves like a native app (phase-2.md 9.2): the page never scrolls or
 	 * rubber-bands, the shell is exactly the viewport, and only the panels inside scroll. Chrome
 	 * (bars, buttons, tabs) is not text to select and has no tap flash; the editor, inputs and
-	 * the documentation keep normal selection.
+	 * the documentation keep normal selection. `clip`, not `hidden`: a hidden overflow can still be
+	 * scrolled by the browser itself (a focus, a scroll into view), and was, by 69 px on a desktop,
+	 * shifting the whole shell up and closing an open menu (2026-11-18).
 	 */
 	html[data-shell],
 	html[data-shell] body {
 		block-size: 100%;
-		overflow: hidden;
+		overflow: clip;
 		overscroll-behavior: none;
 	}
 	html[data-shell] body {
@@ -89,43 +92,28 @@ const { title = strings.appName, description = strings.tagline, shell = false } 
 		-webkit-touch-callout: default;
 	}
 	/*
-	 * A <select> draws like the inputs beside it, in both themes. WebKit paints its native grey
-	 * fill and a white arrow whatever `background` says (a real iPhone does, and so does the
-	 * Playwright WebKit), so the native look is turned off and the arrow is drawn here, in the text
-	 * colour of the select. A select that has its own caret over it (a toolbar pill: its CSS sets
-	 * `appearance: none` itself) says so with `data-own-caret` and keeps its own look. The arrow
-	 * and its room are `!important`: a component styles its select with a `background` or `padding`
-	 * shorthand, which would otherwise reset the arrow whatever the selectors' specificity (the
-	 * inspector's, the health panel's, the time zone's and the move menus' selects did). The
-	 * colour, the border and the radius stay the component's. In forced colors the browser draws
-	 * the select, arrow included.
+	 * iOS Safari zooms the whole page into any field whose text is under 16 px when it takes the
+	 * focus, and does not zoom back (a real iPhone did, on the dependency picker's search box). On
+	 * a coarse pointer every text field and text area is at least 16 px. The viewport is
+	 * left alone (no `maximum-scale`, no `user-scalable=no`): a person can still zoom (WCAG 1.4.4).
+	 * The editor's own text is 16 px or more there already (lib/tjp/cm/theme.ts). `!important`: the
+	 * components size their fields in `font-size: var(--text-sm)` and the like. This stays a global
+	 * rule for inputs and text areas: they are plain elements in many components, not a primitive.
+	 * A <select> is the Select primitive's (components/ui/Select.svelte), which draws its own arrow
+	 * and holds its own 16 px floor, so no global rule reaches a select.
 	 */
-	html select:not([data-own-caret]) {
-		appearance: none;
-		-webkit-appearance: none;
-		padding-inline-end: 2rem !important;
-		background-image:
-			linear-gradient(45deg, transparent 50%, currentColor 50%),
-			linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
-		background-position:
-			calc(100% - 1.2rem) 50%,
-			calc(100% - 0.85rem) 50% !important;
-		background-size:
-			0.35rem 0.35rem,
-			0.35rem 0.35rem !important;
-		background-repeat: no-repeat !important;
-		text-overflow: ellipsis;
-	}
-	@media (forced-colors: active) {
-		html select:not([data-own-caret]) {
-			appearance: auto;
-			-webkit-appearance: auto;
-			padding-inline-end: revert !important;
-			background-image: none !important;
+	@media (pointer: coarse) {
+		html
+			:is(
+				textarea,
+				input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+						[type='button']
+					):not([type='submit']):not([type='reset']):not([type='file']):not([type='color']):not(
+						[type='image']
+					)
+			) {
+			font-size: max(16px, 1rem) !important;
 		}
-	}
-	html select:not([data-own-caret]):disabled {
-		opacity: 0.6;
 	}
 	:focus-visible {
 		outline: 3px solid var(--color-focus);

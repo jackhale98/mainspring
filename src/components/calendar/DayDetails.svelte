@@ -29,6 +29,7 @@
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import type { CommitResult } from '../../lib/calendar/leave-edit';
 	import LeaveCard from './LeaveCard.svelte';
 
@@ -110,13 +111,13 @@
 	<div class="add" role="group" aria-label={D.add}>
 		<label>
 			<span>{D.typeLabel}</span>
-			<select
+			<Select
+				size="sm"
 				value={leaveType}
-				onchange={(e) => ontype(e.currentTarget.value as LeaveType)}
+				onchange={(v) => ontype(v as LeaveType)}
 				data-testid="cal-add-type"
-			>
-				{#each types as t (t)}<option value={t}>{L.type[t]}</option>{/each}
-			</select>
+				options={types.map((t) => ({ value: t, label: L.type[t] }))}
+			/>
 		</label>
 		<label>
 			<span>{D.name}</span>
@@ -382,7 +383,6 @@
 	.show:focus-visible,
 	.clear:focus-visible,
 	.primary:focus-visible,
-	select:focus-visible,
 	input:focus-visible {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
@@ -403,7 +403,6 @@
 		color: var(--color-text-muted);
 		font-size: var(--text-xs);
 	}
-	select,
 	input {
 		box-sizing: border-box;
 		inline-size: 100%;

@@ -11,7 +11,7 @@
 	import { assignable, type PersonFact, type TaskDetails } from '../../lib/inspector/task';
 	import { inspectorStrings as S } from '../../lib/strings';
 	import { getInspector } from './context';
-	import Select from './Select.svelte';
+	import Select from '../ui/Select.svelte';
 
 	let { d }: { d: TaskDetails } = $props();
 	const { app, actions } = getInspector();
@@ -44,19 +44,20 @@
 						{#if others(p).length > 0}
 							<span class="replace">
 								<span aria-hidden="true">⇄</span>
-								<select
-									data-own-caret
+								<Select
+									variant="overlay"
+									value=""
 									aria-label={S.personReplace(p.name)}
 									title={S.personReplace(p.name)}
-									onchange={async (e) => {
-										const select = e.currentTarget;
-										await replace(p, select.value);
+									options={[
+										{ value: '', label: S.personReplace(p.name) },
+										...others(p).map((r) => ({ value: r.id, label: r.name })),
+									]}
+									onchange={async (v, select) => {
+										await replace(p, v);
 										select.value = '';
 									}}
-								>
-									<option value="">{S.personReplace(p.name)}</option>
-									{#each others(p) as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
-								</select>
+								/>
 							</span>
 						{/if}
 						<button
@@ -76,7 +77,7 @@
 	{#if free.length > 0}
 		<Select
 			id="{uid}-add"
-			label={S.personAdd}
+			aria-label={S.personAdd}
 			value=""
 			options={[
 				{ value: '', label: S.personAdd },
@@ -136,14 +137,6 @@
 	}
 	.replace:hover {
 		background: var(--color-row-hover);
-	}
-	.replace select {
-		position: absolute;
-		inset: 0;
-		inline-size: 100%;
-		block-size: 100%;
-		opacity: 0;
-		cursor: pointer;
 	}
 	.replace:focus-within {
 		outline: 2px solid var(--color-focus);

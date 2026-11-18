@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main  | not yet recorded (set it to the short SHA of the last CI run on `main` that was green)               |
-| Timing trend               | no entries yet: see "Reading the timing trend" below; record the three latest runs here              |
-| iPhone 14 skips left       | 37 spec files at 2026-11-18 (ADR-0016 counted 33 by its own method); target: at most 6 allowlisted    |
-| CI wall time               | not yet recorded (target in ADR-0016 section 4; read it from the slowest job of the last green run)   |
+| Last green commit on main | `4f39836e` (branch run 44271594925, 2026-11-18; main fast-forwarded): T25, the picker hold fix, the shell `overflow: clip` fix |
+| Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
+| iPhone 14 skips left | 38 spec files at 2026-11-18 after T25 (37 before; ADR-0016 counted 33 by its own method); target: at most 6 allowlisted |
+| CI wall time | about 14 min (run 44271594925, 08:58–09:12 UTC; slowest job 11.2 min on run 44268831320); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
@@ -96,11 +96,56 @@ moved to the timing tier.
 `cancel-in-progress` is on for every ref except `main`: a push to `main` never cancels the run of the
 commit before it. Batch pushes; do not push within about 5 minutes of a run finishing.
 
+## T25: shared UI primitives (ADR-0016 change 3)
+
+Six primitives with an owner (`ui-builder`) and a contract spec each, all in the header of the
+component. The specs run on `/dev/primitives` (built only with the dev pages, no engine) on desktop,
+Pixel 7 and iPhone 14, and are in the CI shards (`scripts/ci/shard-plan.mjs` walks
+`tests/e2e/primitives/`; its unit test checks every spec lands in exactly one shard).
+
+| Primitive  | Code                                                                | Contract spec                          |
+| ---------- | ------------------------------------------------------------------- | -------------------------------------- |
+| Sheet      | `src/components/Sheet.svelte`                                       | `tests/e2e/primitives/sheet.spec.ts`   |
+| Menu       | `src/components/ui/Menu.svelte`, `src/lib/ui/place.ts`              | `tests/e2e/primitives/menu.spec.ts`    |
+| Select     | `src/components/ui/Select.svelte` (the global select rule is gone)  | `tests/e2e/primitives/select.spec.ts`  |
+| Toolbar    | `src/lib/ui/toolbar-tiers.ts`, `src/styles/toolbar.css`             | `tests/e2e/primitives/toolbar.spec.ts` |
+| Grid focus | `src/lib/ui/roving-grid.ts`                                         | `tests/e2e/primitives/grid-focus.spec.ts` |
+| Popover    | `src/components/ui/Popover.svelte`                                  | `tests/e2e/primitives/popover.spec.ts` |
+
+**Exception: the Calendar bar wraps.** The one-row check from 360 to 1600 px holds for the Gantt's
+chips and for the Workload and Lanes bar. The Calendar's bar has four groups (months, person, mode,
+type) that cannot share 360 px, so it is three rows on a phone (up to 600 px), two rows up to about
+1000 px, and one row from 1024 px. `toolbar.spec.ts` allows exactly that (`calendarRows`) and still
+fails on any clipped control. Making it one row on a phone would be a redesign of the bar.
+
+**First-load JS (gzip, `js-sizes.mjs --serve`), before and after T25.** Both stay under their caps.
+
+| First load   | Before  | After   | Delta  | Cap     | Headroom |
+| ------------ | ------- | ------- | ------ | ------- | -------- |
+| Visual-first | 324,406 | 327,560 | +3,154 | 330,000 | 2.4 KB   |
+| Text-first   | 435,830 | 438,913 | +3,083 | 440,000 | 1.1 KB   |
+
+By chunk (first load): `shared-ui` 38,369 to 44,689 (+6,320: Select, Menu, Popover, `place`,
+`roving-grid` and what they import; the group keeps lazy views from carrying a copy each). The
+bundler re-cut the rest: `App` 91,432 to 84,204 (-7,228), and the small `SegmentTabs` (10,636),
+`Sheet` (2,807), `preload-helper` (852) and `avatar` (115) chunks went into the new `ViewSwitcher`
+(9,010) and `gantt-env.svelte` (9,504) chunks. Every named lazy-chunk cap in `js-sizes.mjs` holds.
+Text-first headroom is thin: the next UI change has to pay for itself.
+
+**Behaviour changes, disclosed.** The three menus now share one placement (fixed, inside the viewport,
+flipped above when short) and hide key hints without a fine pointer; the Workload bar's Today loses its
+label at 899 px, not 859; `OutlineGrid` and the Calendar gain the kept-focus rule. The Gantt toolbar's
+Today and zoom select change only on a phone, as before the move.
+
+Pictures: `docs/phases/screenshots/phase-3/t25-<primitive>-<desktop|pixel-7>-<light|dark>.png` (the dev
+page) and `t25-app-<what>-<pixel-7|iphone-14>-<light|dark>.png` (the real app).
+
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five
    reruns of the merge tier on one commit green, and three timing trend entries: not yet.
 2. iPhone skips down to the allowlist: not yet.
-3. Contract specs for the six primitives: not yet.
+3. Contract specs for the six primitives: done (T25 above): pass on desktop, Pixel 7 and iPhone 14;
+   `select-arrows.spec.ts` passes on all three and the global select rule is gone.
 4. CI meets the time target: not yet.
 5. The status line is at the top of this file: done (this file).
