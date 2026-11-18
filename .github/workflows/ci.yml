@@ -180,6 +180,13 @@ jobs:
   e2e:
     name: End-to-end and accessibility (${{ matrix.project }} ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    # Playwright's own image has every browser and its system libraries, so no shard installs them:
+    # the apt install took 3 to 22 minutes on the WebKit shards and hung twice (2026-11-17, -18).
+    # The tag must be the Playwright version in package-lock.json; tests/ci/playwright-image.test.ts
+    # fails when they differ. --ipc=host gives Chromium the shared memory Docker's 64 MB lacks.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
     strategy:
       fail-fast: false
       # Shards are whole spec files packed by measured duration (scripts/ci/shard-plan.mjs, from
@@ -214,28 +221,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ matrix.browsers }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install Playwright browsers and system dependencies
-        # The runner's apt index can be stale, and mirrors occasionally fail, so refresh it
-        # first and retry the whole install a few times. Each attempt gives up after 7 minutes, so a
-        # hung mirror (23 minutes on 2026-11-17) is retried rather than holding or failing the run.
-        timeout-minutes: 24
-        run: |
-          for attempt in 1 2 3; do
-            timeout 420 sh -c "sudo apt-get update -q && npx playwright install --with-deps ${{ matrix.browsers }}" && exit 0
-            # A timed-out attempt leaves its apt-get child holding the dpkg lock (2026-11-18): end it
-            # and repair dpkg before the next attempt.
-            sudo pkill -KILL -x apt-get || true
-            sudo pkill -KILL -x dpkg || true
-            sudo dpkg --configure -a || true
-            echo "install attempt $attempt failed; retrying in 20s"
-            sleep 20
-          done
-          exit 1
       - run: npm run build
         env:
           MAINSPRING_DEV_PAGES: '1'
