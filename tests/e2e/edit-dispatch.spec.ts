@@ -58,9 +58,6 @@ const viewText = (page: Page) =>
 const desktop = (info: { project: { name: string } }) => info.project.name === 'desktop';
 
 test.describe('a visual edit through the dispatcher', () => {
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T13)');
-	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	test('shows its toast, reschedules, and Undo restores the text', async ({ page }, info) => {

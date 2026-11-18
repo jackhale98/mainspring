@@ -168,7 +168,7 @@ test.describe('modes', () => {
 	});
 
 	test('a phone remembers the tab as the mode', async ({ page }, info) => {
-		test.skip(info.project.name !== 'pixel-7');
+		test.skip(info.project.name === 'desktop', 'a phone');
 		await page.goto(`/app?sample=${A}`);
 		await ready(page);
 		await expect(page.getByRole('tab', { name: 'Gantt', exact: true })).toHaveAttribute(

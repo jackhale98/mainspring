@@ -60,6 +60,13 @@
 	[data-narrow='shrink'][data-narrow] select {
 		max-inline-size: 4.75rem;
 	}
+	/* A finger's select is 16 px, which made a phone's zoom chip 93 px wide, and the six controls of
+	   the Gantt's row 9 px wider than the band at 360 px. The chip takes the room out of its own
+	   padding (the caret is 8 px from its end). Repeated like the rules above: a component's scoped
+	   `padding-inline` must not win. */
+	[data-narrow='shrink'][data-narrow][data-narrow][data-narrow] {
+		padding-inline: 8px 18px;
+	}
 }
 
 /*

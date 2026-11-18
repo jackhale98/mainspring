@@ -8,7 +8,9 @@
 // docs/phases/screenshots/phase-2/selection-*.png.
 import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { lineAt } from './lib/editor-lines';
 import { REPO } from '../golden/corpus';
+import { modKey } from './lib/keys';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -57,19 +59,7 @@ const row = (page: Page, name: string): Locator =>
 		.locator('[role="treegrid"] [role="row"][data-key]')
 		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
 		.first();
-const line = (page: Page, text: string): Locator =>
-	page.locator('.cm-content .cm-line').filter({ hasText: text }).first();
 
-/** A line of the text, scrolled to: the editor draws only the lines in or near its view. */
-async function lineAt(page: Page, text: string): Promise<Locator> {
-	const target = line(page, text);
-	for (let i = 0; i < 60 && (await target.count()) === 0; i++) {
-		await page.locator('.cm-scroller').evaluate((e) => void (e.scrollTop += e.clientHeight / 2));
-		await page.waitForTimeout(40);
-	}
-	await target.scrollIntoViewIfNeeded();
-	return target;
-}
 const lit = (page: Page): Locator => page.locator('.cm-content .cm-line.cm-source-selected');
 const litText = async (page: Page): Promise<string[]> =>
 	(await lit(page).allTextContents()).map((t) => t.replace(/​/g, ''));
@@ -92,9 +82,6 @@ async function pick(page: Page, name: string): Promise<void> {
 }
 
 test.describe('selection sync', () => {
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T15)');
-	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	test('the cursor in the text selects its bar, and the editor keeps the focus', async ({
@@ -129,7 +116,7 @@ test.describe('selection sync', () => {
 		await tab(page, info, 'Text');
 		await (await lineAt(page, 'project gantt200')).click();
 		// The end of the plan: the last task's block, far below the rows in view.
-		await page.keyboard.press('ControlOrMeta+End');
+		await page.keyboard.press(`${await modKey(page)}+End`);
 		for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowUp');
 		await tab(page, info, 'Gantt');
 		const target = row(page, 'Phase 4 done');

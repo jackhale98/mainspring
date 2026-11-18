@@ -169,8 +169,8 @@ for (const scheme of ['light', 'dark'] as const) {
 	});
 }
 
-test('forced colors: the browser draws the select and its arrow', async ({ page, browserName }) => {
-	test.skip(browserName !== 'chromium', 'forced-colors emulation is Chromium’s');
+test('forced colors: the browser draws the select and its arrow', async ({ page }) => {
+	// emulateMedia({ forcedColors }) works in WebKit as well as Chromium.
 	await openPrimitives(page);
 	await page.emulateMedia({ forcedColors: 'active' });
 	const l = await look(page, '#sel-field');

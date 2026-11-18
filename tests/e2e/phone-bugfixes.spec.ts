@@ -36,12 +36,8 @@ import {
 test.setTimeout(READY_TIMEOUT_MS * 2);
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 const TAG = process.env['SHOT_TAG'] ? `-${process.env['SHOT_TAG']}` : '';
-const device = (info: TestInfo): string =>
-	info.project.name === 'iphone-14'
-		? 'iphone14'
-		: info.project.name === 'pixel-7'
-			? 'pixel7'
-			: 'desktop';
+/** The device in a picture's file name: the project's name without its hyphen (iphone14, pixel7). */
+const device = (info: TestInfo): string => info.project.name.replace('-', '');
 const shot = async (page: Page, name: string, info: TestInfo): Promise<void> => {
 	if (!process.env['SCREENSHOTS']) return;
 	await page.screenshot({ path: path.join(DIR, `bugfix-${name}-${device(info)}${TAG}.png`) });

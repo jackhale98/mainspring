@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main | `4f39836e` (branch run 44271594925, 2026-11-18; main fast-forwarded): T25, the picker hold fix, the shell `overflow: clip` fix |
+| Last green commit on main | `235e6318` (branch run 44315084460, 2026-11-18; main fast-forwarded): B1 on top of the engine progress beats (`90a5cb2a`, run 44304712543) |
 | Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
-| iPhone 14 skips left | 38 spec files at 2026-11-18 after T25 (37 before; ADR-0016 counted 33 by its own method); target: at most 6 allowlisted |
-| CI wall time | about 14 min (run 44271594925, 08:58–09:12 UTC; slowest job 11.2 min on run 44268831320); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
+| iPhone 14 skips left | B1 done (2026-11-18): 24 spec files by the grep below (38 before); `node scripts/ci/webkit-skips.mjs` reports 33 skips in 28 files, all of B2 to B5, 23 naming the iPhone or WebKit and 10 that keep it out as Pixel 7 only or Chromium only (strict mode fails on them; the check job runs report-only until a batch empties its part of `PENDING_BATCHES`); allowlist: 0 entries; target: at most 6 allowlisted |
+| CI wall time | 12.5 to 15 min (runs 44304712543 and 44315084460); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
@@ -19,8 +19,11 @@ How the iPhone skips are counted, so that the number is repeatable. A spec file 
 grep -lE "skip" tests/e2e/*.spec.ts | xargs grep -lE "iphone-14|isIphone|webkit" | wc -l
 ```
 
-Once `tests/e2e/lib/webkit-allowlist.ts` exists (ADR-0016 section 2), count its entries instead and
-keep this grep at zero outside it.
+`tests/e2e/lib/webkit-allowlist.ts` now exists (ADR-0016 section 2): count its entries as well, and the
+`check` job's `node scripts/ci/webkit-skips.mjs` fails on a skip naming the iPhone or WebKit outside it,
+for every spec but those of the batches in its `PENDING_BATCHES` list (B2 to B5; each batch empties its
+part of the list). Run the iPhone specs with `npm run setup:webkit` once, then
+`npm run test:e2e:iphone -- <spec>`.
 
 How the CI wall time is read: open the last green run of the `CI` workflow on `main`; the wall time
 is the time from start to the end of the slowest job (the run's "Total duration"). The timing job is
@@ -40,8 +43,10 @@ is the time from start to the end of the slowest job (the run's "Total duration"
     touch-listener comparison; the phone profile runs only with `E2E_PERF=1`, that is nightly),
   - `workload-perf.spec.ts` desktop scroll caps and the Pixel 7 swipe frame times,
   - `gantt-gesture-frames.spec.ts`,
-  - the full-speed copies of the sheet shape tests (named `... (full speed)`, Chromium only) and
-    "closing while it slides in goes on from where it is".
+  - the full-speed copies of the sheet shape tests (named `... (full speed)`, Chromium only), including
+    "closing while it slides in goes on from where it is". Its shape copy (merge tier, every browser,
+    iPhone 14 included) slows the sheets to 6 s and closes 250 ms in; the full-speed copy closes 70 ms
+    into the 200 ms slide.
 - Where it runs: the `timing` job of `ci.yml` on every push to `main` (`if: github.ref ==
 'refs/heads/main'`), and the `timing` job of `nightly.yml` (with `E2E_PERF=1`).
   Both are `continue-on-error`: the workflow stays green whatever they do.

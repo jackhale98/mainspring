@@ -5,6 +5,7 @@
 // block on show; the cursor in either file selects its row. Desktop Chrome (Split) and Pixel 7
 // (the Gantt and Text tabs). Mode shortcuts and their persistence are in modes-layout.spec.ts.
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { lineAt } from './lib/editor-lines';
 
 const READY_TIMEOUT_MS = 120_000;
 type Info = { project: { name: string } };
@@ -15,8 +16,6 @@ const row = (page: Page, name: string): Locator =>
 		.locator('[role="treegrid"] [role="row"][data-key]')
 		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
 		.first();
-const line = (page: Page, text: string): Locator =>
-	page.locator('.cm-content .cm-line').filter({ hasText: text }).first();
 /** The open file: a tab on a desktop, the File menu on a phone. */
 async function expectFile(page: Page, info: Info, file: string): Promise<void> {
 	if (phone(info)) await expect(page.getByRole('combobox', { name: 'File' })).toHaveValue(file);
@@ -37,22 +36,8 @@ async function tab(page: Page, info: Info, name: 'Text' | 'Gantt'): Promise<void
 	);
 }
 
-/** A line of the text, scrolled to: the editor draws only the lines in or near its view. */
-async function lineAt(page: Page, text: string): Promise<Locator> {
-	const target = line(page, text);
-	for (let i = 0; i < 60 && (await target.count()) === 0; i++) {
-		await page.locator('.cm-scroller').evaluate((e) => void (e.scrollTop += e.clientHeight / 2));
-		await page.waitForTimeout(40);
-	}
-	await target.scrollIntoViewIfNeeded();
-	return target;
-}
-
 test.describe('selection sync across files', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T21); iPhone is reported');
-	});
 
 	test('a row of a task in lib/build.tji opens that file; the cursor in either file selects its row', async ({
 		page,

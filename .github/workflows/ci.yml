@@ -52,6 +52,9 @@ jobs:
           retention-days: 14
       # Production dependencies that can reach the built site must be GPL-2.0 compatible (ADR-0001).
       - run: node scripts/ci/licenses.mjs
+      # A skip on the iPhone 14 project (WebKit) hides bugs a phone shows; only the allowlist may skip
+      # there (ADR-0016 section 2). Specs of batches not done yet are reported, not failed.
+      - run: node scripts/ci/webkit-skips.mjs
 
   engine:
     name: Engine build

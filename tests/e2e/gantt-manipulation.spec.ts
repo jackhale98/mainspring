@@ -5,8 +5,8 @@
 // on the canvas or in the task list, asserts the exact text patch (written by hand here from the
 // plan's "Text change" column, as a replacement of exact original lines), waits for the engine's
 // reschedule, and asserts that one undo restores the text byte for byte. The keyboard path of each
-// row (10.2) is exercised on desktop. The iPhone 14 (WebKit) runs the drag rows R1, R2, R3, R5 and
-// R9 with dispatched pointer events, because Playwright cannot drive a touch drag there (18.14,
+// row (10.2) is exercised on desktop. The iPhone 14 (WebKit) runs every row a finger can do, the
+// drags with dispatched pointer events because Playwright cannot drive a touch drag there (18.14,
 // rig.dispatched); GANTT_DISPATCHED=1 runs that path on the Pixel 7 emulation where WebKit is not
 // installed. `?hooks=edits,gantt` only reads: the text, the revision, and where the bars are on
 // the screen. With SCREENSHOTS=1 it writes
@@ -20,14 +20,6 @@ const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 
 test.describe('direct manipulation (R1 to R10)', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		// The iPhone 14 runs the rows whose gesture is a drag or a hold, with dispatched pointer
-		// events (18.14); the rows that are taps in a sheet are the same code as on the Pixel 7.
-		test.skip(
-			info.project.name === 'iphone-14' && !/^R[12359] /.test(info.title),
-			'desktop and Pixel 7 run every row; the iPhone 14 the drag rows (T21)',
-		);
-	});
 
 	/** Both themes of the current screen, when asked for. */
 	async function shoot(page: Page, info: TestInfo, what: string): Promise<void> {
@@ -481,6 +473,29 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			const y = box.y + 140;
 			// One finger pans natively.
 			await rig.drag({ x: box.x + box.width - 40, y }, { x: box.x + 160, y }, { steps: 12 });
+			if (rig.dispatched) {
+				// A pan is the browser's, and dispatched events cannot start one (Playwright has no touch drag
+				// in WebKit). What the app owns is checked: the effective `touch-action` under the finger (the
+				// element and its ancestors up to the chart's scroller; a value other than `auto` narrows what
+				// is above it) lets one finger pan both ways, and the chart declares it; and the drag it just
+				// saw changed nothing (checked below). The view is then moved by script: mobile WebKit has no
+				// mouse wheel either.
+				const chain = await page.evaluate(
+					([x, py]) => {
+						const out: string[] = [];
+						for (let e = document.elementFromPoint(x, py); e; e = e.parentElement) {
+							out.push(getComputedStyle(e).touchAction);
+							if (e.classList.contains('scroller')) break;
+						}
+						return out;
+					},
+					[box.x + 160, y] as const,
+				);
+				const narrowing = chain.filter((a) => a !== 'auto' && a !== 'pan-x pan-y');
+				expect(narrowing, 'nothing under the finger takes the pan from the browser').toEqual([]);
+				expect(chain, 'the chart declares one-finger panning').toContain('pan-x pan-y');
+				await scroller.evaluate((el) => el.scrollBy(300, 0));
+			}
 			await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(left0);
 		} else {
 			// Over the chart itself (the middle of the overlay is under the task list).

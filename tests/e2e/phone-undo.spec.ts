@@ -2,11 +2,13 @@
 // Undo on a phone: no toast after an edit, Undo and Redo in the top bar, a compact message for what
 // needs reading, the History sheet (press and hold Undo) that rewinds several steps after a
 // confirmation, and the theme choice in the status card (the top bar has no room for its toggle).
-// Pixel 7; desktop keeps its toasts and its toggle. Screenshots (SCREENSHOTS=1) go to
+// Pixel 7 and iPhone 14; desktop keeps its toasts and its toggle. Screenshots (SCREENSHOTS=1) go to
 // docs/phases/screenshots/phase-2/phone-undo-*.png.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
+import { holdFinger, openHistoryFromUndo } from './lib/finger';
+import { isTouch } from './lib/gantt-rig';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join('docs', 'phases', 'screenshots', 'phase-2');
@@ -51,18 +53,6 @@ async function edit3(page: Page): Promise<string[]> {
 	return texts;
 }
 
-/** A finger held on an element for `ms` (CDP touch events: Playwright's `tap` cannot hold). */
-async function hold(page: Page, testid: string, ms: number): Promise<void> {
-	const box = await page.getByTestId(testid).boundingBox();
-	if (!box) throw new Error(`no ${testid}`);
-	const p = { x: box.x + box.width / 2, y: box.y + box.height / 2, id: 1 };
-	const cdp = await page.context().newCDPSession(page);
-	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [p] });
-	await page.waitForTimeout(ms);
-	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-	await cdp.detach();
-}
-
 async function shot(page: Page, name: string): Promise<void> {
 	if (process.env['SCREENSHOTS'] !== '1') return;
 	for (const scheme of ['light', 'dark'] as const) {
@@ -83,7 +73,7 @@ async function axe(page: Page, state: string): Promise<void> {
 
 test.describe('undo on a phone', () => {
 	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name !== 'pixel-7', 'the phone layout');
+		test.skip(!isTouch(info), 'the phone layout');
 	});
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
@@ -176,7 +166,7 @@ test.describe('undo on a phone', () => {
 		const [original, a, b, c] = await edit3(page);
 		const redo = page.getByTestId('redo');
 
-		await hold(page, 'undo', 700);
+		await holdFinger(page, page.getByTestId('undo'), 700);
 		const sheet = page.getByRole('dialog', { name: 'History' });
 		await expect(sheet).toBeVisible();
 		// The hold was not an undo.
@@ -235,8 +225,7 @@ test.describe('undo on a phone', () => {
 	}) => {
 		await open(page);
 		await edit3(page);
-		await page.getByTestId('undo').focus();
-		await page.keyboard.press('Shift+F10');
+		await openHistoryFromUndo(page);
 		const sheet = page.getByRole('dialog', { name: 'History' });
 		await expect(sheet).toBeVisible();
 		await page.keyboard.press('Escape');

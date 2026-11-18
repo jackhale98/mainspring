@@ -488,12 +488,6 @@
 		/* Zoom, Today, Add task, the critical path, the filter and the row menu fit 44 px apiece
 		   without a clip (the critical path is its icon: data-narrow="icon-phone"). */
 	}
-	/* 360 px: the six controls need the gaps tightened, and the zoom select a little less. */
-	@media (max-width: 399px) {
-		.chips {
-			gap: var(--space-1);
-		}
-	}
 	@media (max-width: 599px) {
 		.bar {
 			display: contents;
@@ -522,6 +516,14 @@
 		}
 		.task.hover {
 			z-index: 7;
+		}
+	}
+	/* 360 px, after the phone rules above: the six controls need the gaps tightened and the band's side
+	   padding. (The zoom chip's own padding is the `shrink` form's rule: src/styles/toolbar.css.) */
+	@media (max-width: 399px) {
+		.chips {
+			gap: var(--space-1);
+			padding-inline: 4px;
 		}
 	}
 </style>
