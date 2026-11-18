@@ -46,7 +46,7 @@ export default defineConfig({
 						groups: [
 							{
 								name: 'shared-ui',
-								test: /[\\/]src[\\/](components[\\/](inspector[\\/]Stepper|app[\\/]SplitDivider|gantt[\\/](RowDropMarks|row-drag))|lib[\\/]gantt[\\/]reorder|lib[\\/]gesture[\\/])/,
+								test: /[\\/]src[\\/](components[\\/](ui[\\/](Select|Menu|Popover)|inspector[\\/]Stepper|app[\\/]SplitDivider|gantt[\\/](RowDropMarks|row-drag))|lib[\\/]gantt[\\/]reorder|lib[\\/]gesture[\\/]|lib[\\/]ui[\\/](place|roving-grid))/,
 							},
 							{
 								name: 'core-shared',

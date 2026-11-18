@@ -23,6 +23,7 @@
 	import { workloadStrings as W } from '../../lib/strings-workload';
 	import type { BucketKind, Thresholds } from '../../lib/workload/types';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import SegmentTabs from '../people/SegmentTabs.svelte';
 	import LanesLegend from '../resources/LanesLegend.svelte';
 	import BandLegend from './BandLegend.svelte';
@@ -102,15 +103,13 @@
 	</span>
 	<label class="chip select zoom-select">
 		<span class="sr-only">{W.zoom}</span>
-		<select
-			data-own-caret
+		<Select
+			variant="inline"
 			value={zoom}
 			aria-label={W.zoom}
-			onchange={(e) => onzoom(e.currentTarget.value as BucketKind)}
-		>
-			{#each ZOOMS as z (z.id)}<option value={z.id}>{z.label}</option>{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
+			options={ZOOMS.map((z) => ({ value: z.id, label: z.label }))}
+			onchange={(v) => onzoom(v as BucketKind)}
+		/>
 	</label>
 	{#if heat}
 		<span class="unit-radios">
@@ -209,29 +208,12 @@
 		cursor: default;
 	}
 	.chip:focus-visible,
-	.chip:has(select:focus-visible) {
+	.chip:has(:global(select:focus-visible)) {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}
 	.select {
 		padding-inline-end: 26px;
-	}
-	select {
-		appearance: none;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		outline: none;
-		padding: 0;
-	}
-	.caret {
-		position: absolute;
-		inset-inline-end: 10px;
-		display: grid;
-		color: var(--color-gantt-text-muted);
-		pointer-events: none;
 	}
 	.zoom-select,
 	.unit-toggle {

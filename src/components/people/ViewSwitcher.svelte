@@ -22,6 +22,7 @@
 	import { VIEWS } from '../../lib/workload/prefs';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import SegmentTabs from './SegmentTabs.svelte';
 
 	interface Props {
@@ -82,20 +83,16 @@
 	<label class="compact">
 		<Icon name={ICON[view]} size={14} />
 		<span class="sr-only">{S.switcher}</span>
-		<select
-			data-own-caret
+		<Select
+			variant="inline"
 			value={view}
 			aria-label={S.switcher}
-			onchange={(e) => {
-				pick(e.currentTarget.value as View);
-				void refocus(e.currentTarget.value as View);
+			options={ITEMS.map((item) => ({ value: item.id, label: item.label }))}
+			onchange={(v) => {
+				pick(v as View);
+				void refocus(v as View);
 			}}
-		>
-			{#each ITEMS as item (item.id)}
-				<option value={item.id}>{item.label}</option>
-			{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
+		/>
 	</label>
 </div>
 
@@ -144,7 +141,7 @@
 		font-weight: 600;
 		cursor: pointer;
 	}
-	.compact:has(select:focus-visible) {
+	.compact:has(:global(select:focus-visible)) {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}
@@ -153,23 +150,6 @@
 			min-block-size: var(--size-tap);
 		}
 	}
-	select {
-		appearance: none;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		outline: none;
-		padding: 0;
-	}
-	.caret {
-		position: absolute;
-		inset-inline-end: 10px;
-		display: grid;
-		color: var(--color-text-muted);
-		pointer-events: none;
-	}
 	/* Under 900 px (Split beside the editor) the button is the view's icon and the caret only, so
 	   the Gantt's chips stay clear of the details drawer. The select still covers the whole button
 	   and keeps its name; the chosen view's name is the icon there. */
@@ -177,7 +157,7 @@
 		.compact {
 			padding-inline: 10px 24px;
 		}
-		.compact select {
+		.compact :global(select) {
 			position: absolute;
 			inset: 0;
 			inline-size: 100%;

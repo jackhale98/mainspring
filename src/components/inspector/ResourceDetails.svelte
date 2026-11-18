@@ -35,7 +35,7 @@
 	import Field from './Field.svelte';
 	import ManagersField from './ManagersField.svelte';
 	import ResourceLeaves from './ResourceLeaves.svelte';
-	import Select from './ResourceSelect.svelte';
+	import Select from '../ui/Select.svelte';
 	import Stepper from './Stepper.svelte';
 	import WorkingHoursEditor from './WorkingHoursEditor.svelte';
 
@@ -165,7 +165,7 @@
 				value={d.group?.id ?? ''}
 				options={groups}
 				disabled={disabled || locked}
-				{describedby}
+				aria-describedby={describedby}
 				onchange={regroup}
 			/>
 		{/snippet}

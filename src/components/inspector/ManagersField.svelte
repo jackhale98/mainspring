@@ -13,7 +13,7 @@
 	import { inspectorStrings as S } from '../../lib/strings';
 	import { resourceStrings as R } from '../../lib/strings-resources';
 	import { getInspector } from './context';
-	import Select from './ResourceSelect.svelte';
+	import Select from '../ui/Select.svelte';
 
 	let { d }: { d: PersonDetails } = $props();
 	const { app, actions, showInText } = getInspector();

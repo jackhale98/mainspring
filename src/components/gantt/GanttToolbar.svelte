@@ -30,6 +30,7 @@
 	import type { CriticalChip } from '../../lib/gantt/analysis';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import type { AddMode } from '../../lib/gantt/add-task';
 	import AddTaskMenu from './AddTaskMenu.svelte';
 	import FilterControl from './FilterControl.svelte';
@@ -118,11 +119,11 @@
 		<label class="chip select">
 			<span class="sr-only">{strings.gantt.zoom}</span>
 			<!-- Between two presets the select shows "Week (custom)", so that choosing Week still changes it. -->
-			<select
-				data-own-caret
+			<Select
+				variant="inline"
 				value={zoomExact ? level : 'custom'}
-				onchange={(e) => {
-					if (e.currentTarget.value !== 'custom') onlevel(e.currentTarget.value as ZoomLevel);
+				onchange={(v) => {
+					if (v !== 'custom') onlevel(v as ZoomLevel);
 				}}
 				aria-label={strings.gantt.zoom}
 			>
@@ -134,8 +135,7 @@
 				{#each ZOOM_ORDER as z (z)}
 					<option value={z}>{strings.gantt.level[z]}</option>
 				{/each}
-			</select>
-			<span class="caret"><Icon name="chevronDown" size={12} /></span>
+			</Select>
 		</label>
 		<button
 			type="button"
@@ -254,29 +254,12 @@
 		cursor: default;
 	}
 	.chip:focus-visible,
-	.chip:has(select:focus-visible) {
+	.chip:has(:global(select:focus-visible)) {
 		outline: 2px solid var(--color-gantt-accent);
 		outline-offset: 2px;
 	}
 	.select {
 		padding-inline-end: 26px;
-	}
-	select {
-		appearance: none;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		outline: none;
-		padding: 0;
-	}
-	.caret {
-		position: absolute;
-		inset-inline-end: 10px;
-		display: grid;
-		color: var(--color-gantt-text-muted);
-		pointer-events: none;
 	}
 	/* The critical path is ruby: a ruby wash and ink when on, and a ruby icon either way. */
 	.critical :global(.icon) {
@@ -405,9 +388,7 @@
 		   pill wider; it takes the difference out of its own padding so that the row still fits 360 px. */
 		.select {
 			padding-inline: 10px 22px;
-		}
-		.caret {
-			inset-inline-end: 8px;
+			--select-caret-end: 8px;
 		}
 	}
 	/* A narrow chart (Split beside the editor) has no room in the band for the selected task's
@@ -538,12 +519,12 @@
 			display: none;
 		}
 		/* The select shrinks (a custom zoom reads "Week (custom)") rather than push a chip off. */
-		select {
+		.select :global(select) {
 			max-inline-size: 5.5rem;
 			text-overflow: ellipsis;
 		}
 		@media (max-width: 399px) {
-			select {
+			.select :global(select) {
 				max-inline-size: 4.75rem;
 			}
 		}

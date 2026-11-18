@@ -13,6 +13,7 @@
 	import { strings } from '../../lib/strings';
 	import { NEW_PLAN_ID } from '../../lib/workspace/samples';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 
 	interface Props {
 		app: AppState;
@@ -25,15 +26,14 @@
 	/** The "New plan…" entry's value: not a plan's key. */
 	const CREATE = '__new-plan__';
 
-	async function pick(event: Event & { currentTarget: HTMLSelectElement }): Promise<void> {
-		const select = event.currentTarget;
-		if (select.value === CREATE) {
+	async function pick(value: string, select: HTMLSelectElement): Promise<void> {
+		if (value === CREATE) {
 			select.value = app.sampleId;
 			app.newPlanOpen = true;
 			return;
 		}
-		if (select.value === NEW_PLAN_ID) return;
-		const opened = await app.openSample(select.value);
+		if (value === NEW_PLAN_ID) return;
+		const opened = await app.openSample(value);
 		// A cancelled switch leaves the old plan open: show it in the picker again.
 		if (!opened) select.value = app.sampleId;
 	}
@@ -46,7 +46,12 @@
 		{#if title && subtitle !== ''}<span class="sub">{subtitle}</span>{/if}
 	</span>
 	<Icon name="chevronDown" size={title ? 16 : 13} />
-	<select data-own-caret value={app.sampleId} onchange={pick} aria-label={strings.topBar.sample}>
+	<Select
+		variant="overlay"
+		value={app.sampleId}
+		onchange={pick}
+		aria-label={strings.topBar.sample}
+	>
 		<option value={CREATE}>{strings.newPlan.chooser}</option>
 		{#if app.newPlanName !== null}
 			<option value={NEW_PLAN_ID}>{app.planLabel}</option>
@@ -56,7 +61,7 @@
 				<option value={sample.id}>{sample.label}</option>
 			{/each}
 		</optgroup>
-	</select>
+	</Select>
 </label>
 
 <style>
@@ -91,20 +96,8 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	/* The real control covers the chip: a tap anywhere opens the picker. */
-	select {
-		position: absolute;
-		inset: 0;
-		inline-size: 100%;
-		block-size: 100%;
-		margin: 0;
-		border: 0;
-		border-radius: inherit;
-		opacity: 0;
-		cursor: pointer;
-		font-size: max(16px, var(--text-sm));
-	}
-	.chip:has(select:focus-visible) {
+	/* The real control (the Select's overlay variant) covers the chip: a tap anywhere opens the picker. */
+	.chip:has(:global(select:focus-visible)) {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}

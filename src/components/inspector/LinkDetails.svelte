@@ -11,7 +11,7 @@
 	import CommitInput from './CommitInput.svelte';
 	import { getInspector } from './context';
 	import Field from './Field.svelte';
-	import Select from './Select.svelte';
+	import Select from '../ui/Select.svelte';
 
 	let { link }: { link: LinkFact } = $props();
 	const { actions, showInText, openTask } = getInspector();

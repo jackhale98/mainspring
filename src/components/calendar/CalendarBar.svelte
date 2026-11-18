@@ -16,6 +16,7 @@
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import type { CalendarMode } from './calendar-state.svelte';
 
 	interface Person {
@@ -67,8 +68,7 @@
 	const types = $derived(typesFor(scope.kind === 'global'));
 	const scopeValue = $derived(scope.kind === 'global' ? '' : scope.resource);
 
-	function pickScope(e: Event): void {
-		const v = (e.currentTarget as HTMLSelectElement).value;
+	function pickScope(v: string): void {
 		onscope(v === '' ? { kind: 'global' } : { kind: 'resource', resource: v });
 	}
 </script>
@@ -106,8 +106,8 @@
 	</div>
 	<label class="chip select scope">
 		<span class="cap">{C.scope}</span>
-		<select
-			data-own-caret
+		<Select
+			variant="inline"
 			value={scopeValue}
 			onchange={pickScope}
 			aria-label={C.scope}
@@ -117,8 +117,7 @@
 			{#each people as p (p.id)}
 				<option value={p.id}>{'  '.repeat(p.level - 1)}{p.name}</option>
 			{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
+		</Select>
 	</label>
 	<div class="modes" role="radiogroup" aria-label={C.mode}>
 		{#each MODES as m (m.id)}
@@ -137,18 +136,14 @@
 	</div>
 	<label class="chip select type">
 		<span class="cap">{C.type}</span>
-		<select
-			data-own-caret
+		<Select
+			variant="inline"
 			value={leaveType}
 			aria-label={C.type}
-			onchange={(e) => ontype(e.currentTarget.value as LeaveType)}
+			onchange={(v) => ontype(v as LeaveType)}
 			data-testid="cal-type"
-		>
-			{#each types as t (t)}
-				<option value={t}>{L.type[t]}</option>
-			{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
+			options={types.map((t) => ({ value: t, label: L.type[t] }))}
+		/>
 	</label>
 	<p class="hint" data-testid="cal-hint">{hint}</p>
 </div>
@@ -211,7 +206,7 @@
 		cursor: default;
 	}
 	.chip:focus-visible,
-	.chip:has(select:focus-visible) {
+	.chip:has(:global(select:focus-visible)) {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}
@@ -219,33 +214,16 @@
 	.select {
 		padding-inline: 12px 0;
 	}
-	.select select {
+	.select :global(select) {
 		/* Over the chip's own 1 px edge too, so a finger's target is the whole 44 px. */
 		align-self: stretch;
 		margin-block: -1px;
 		padding-inline-end: 26px;
+		max-inline-size: 11rem;
+		font-weight: 600;
 	}
 	.cap {
 		color: var(--color-gantt-text-muted);
-	}
-	select {
-		appearance: none;
-		max-inline-size: 11rem;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		font-weight: 600;
-		cursor: pointer;
-		outline: none;
-		padding: 0;
-	}
-	.caret {
-		position: absolute;
-		inset-inline-end: 10px;
-		display: grid;
-		color: var(--color-gantt-text-muted);
-		pointer-events: none;
 	}
 	/* The mode switch: the look of the toolbar's pills (SegmentTabs), as native radios. */
 	.modes {
@@ -334,7 +312,7 @@
 			flex: 1 1 0;
 			min-inline-size: 0;
 		}
-		.bar select {
+		.bar :global(select) {
 			min-inline-size: 0;
 			max-inline-size: 100%;
 			text-overflow: ellipsis;
