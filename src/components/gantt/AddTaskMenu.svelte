@@ -64,6 +64,7 @@
 		<button
 			type="button"
 			class="chip primary"
+			data-narrow="icon"
 			{...hasSelection ? attrs : { 'data-menu-trigger': true }}
 			aria-label={S.label}
 			aria-disabled={busy ? 'true' : undefined}
@@ -111,25 +112,8 @@
 		opacity: 0.6;
 		cursor: default;
 	}
-	/* No room for the word (a narrow chart, as for the People chip; a phone): the plus is the
-	   button. */
-	@container gantt (max-width: 899px) {
-		.lbl {
-			display: none;
-		}
-		.chip {
-			padding-inline: 0;
-		}
-	}
-	/* The Plan tab has no chart around it. */
-	@media (max-width: 599px) {
-		.lbl {
-			display: none;
-		}
-		.chip {
-			padding-inline: 0;
-		}
-	}
+	/* No room for the word (a narrow chart, a phone, the Plan tab): the plus is the button
+	   (data-narrow="icon": src/styles/toolbar.css). */
 	@media (pointer: coarse) {
 		.chip {
 			min-block-size: var(--size-tap);

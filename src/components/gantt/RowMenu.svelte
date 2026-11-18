@@ -43,6 +43,7 @@
 			bind:this={button}
 			type="button"
 			class="chip"
+			data-narrow="fixed"
 			{...attrs}
 			aria-label={gestureStrings.row.menu}
 			title={gestureStrings.row.menu}

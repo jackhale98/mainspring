@@ -68,7 +68,7 @@
 	}
 </script>
 
-<div class="switcher" data-view-switcher={scope}>
+<div class="switcher" data-view-switcher={scope} data-narrow="own">
 	<div class="full">
 		<SegmentTabs
 			items={ITEMS}

@@ -87,11 +87,12 @@
 
 <div
 	class="chips"
+	data-toolbar="workload"
 	role="group"
 	aria-label={heat ? W.toolbar : L.toolbar}
 	data-testid="{id}-toolbar"
 >
-	<span class="zoom-radios">
+	<span class="zoom-radios" data-narrow="own">
 		<SegmentTabs
 			items={ZOOMS}
 			value={zoom}
@@ -101,7 +102,7 @@
 			kind="radios"
 		/>
 	</span>
-	<label class="chip select zoom-select">
+	<label class="chip select zoom-select" data-narrow="fixed">
 		<span class="sr-only">{W.zoom}</span>
 		<Select
 			variant="inline"
@@ -112,7 +113,7 @@
 		/>
 	</label>
 	{#if heat}
-		<span class="unit-radios">
+		<span class="unit-radios" data-narrow="own">
 			<SegmentTabs
 				items={UNITS}
 				value={unit}
@@ -126,6 +127,7 @@
 		<button
 			type="button"
 			class="chip unit-toggle"
+			data-narrow="fixed"
 			data-testid="heat-unit-toggle"
 			aria-label="{unit === 'hours' ? W.unitHours : W.unitPercent}: {unit === 'hours'
 				? W.unitHint.percent
@@ -139,6 +141,7 @@
 	<button
 		type="button"
 		class="chip today"
+		data-narrow="icon"
 		onclick={ontoday}
 		disabled={!hasToday}
 		aria-label={hasToday ? W.today : W.todayOff}
@@ -320,14 +323,6 @@
 			display: none;
 		}
 	}
-	@container (max-width: 859px) {
-		.today .lbl {
-			display: none;
-		}
-		.today {
-			padding-inline: 9px;
-		}
-	}
 	/* A phone: one compact row; the line floats at the foot of the heatmap (Workload.svelte). */
 	@media (max-width: 599px) {
 		.zoom-radios,
@@ -341,14 +336,6 @@
 		}
 		.zoom-select {
 			display: inline-flex;
-		}
-		.today {
-			padding-inline: 0;
-			justify-content: center;
-			min-inline-size: var(--size-tap);
-		}
-		.today .lbl {
-			display: none;
 		}
 		.legend {
 			display: none;

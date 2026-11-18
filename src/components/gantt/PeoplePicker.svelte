@@ -93,6 +93,7 @@
 
 <div
 	class="picker"
+	data-narrow="own"
 	class:assigning={assigning !== null}
 	bind:this={root}
 	data-testid="people-picker"

@@ -113,10 +113,10 @@
 </script>
 
 <div class="bar" class:assigning={people?.assigning != null}>
-	<div class="chips" role="group" aria-label={strings.gantt.toolbar}>
+	<div class="chips" role="group" aria-label={strings.gantt.toolbar} data-toolbar="gantt">
 		{#if lead}{@render lead()}{/if}
 		{#if add}<AddTaskMenu {...add} />{/if}
-		<label class="chip select">
+		<label class="chip select" data-narrow="shrink">
 			<span class="sr-only">{strings.gantt.zoom}</span>
 			<!-- Between two presets the select shows "Week (custom)", so that choosing Week still changes it. -->
 			<Select
@@ -140,6 +140,7 @@
 		<button
 			type="button"
 			class="chip today"
+			data-narrow="icon"
 			onclick={ontoday}
 			disabled={!hasMarker}
 			aria-label={hasMarker ? strings.gantt.today : strings.gantt.todayOff}
@@ -150,6 +151,7 @@
 		<button
 			type="button"
 			class="chip critical"
+			data-narrow="icon-phone"
 			aria-label={strings.gantt.criticalPath}
 			aria-pressed={critical.available ? critical.pressed : undefined}
 			aria-disabled={critical.available ? undefined : 'true'}
@@ -484,15 +486,7 @@
 	   task line, which has no room to spare and shows only with a task. */
 	@media (max-width: 599px) {
 		/* Zoom, Today, Add task, the critical path, the filter and the row menu fit 44 px apiece
-		   without a clip (the critical path is its icon: its aria-label is the name). */
-		.critical .lbl {
-			display: none;
-		}
-		.critical {
-			padding-inline: 0;
-			justify-content: center;
-			min-inline-size: var(--size-tap);
-		}
+		   without a clip (the critical path is its icon: data-narrow="icon-phone"). */
 	}
 	/* 360 px: the six controls need the gaps tightened, and the zoom select a little less. */
 	@media (max-width: 399px) {
@@ -513,26 +507,8 @@
 		.legend {
 			display: none;
 		}
-		/* The Add task button took 44 px of the row: Today is its icon alone (its aria-label is
-		   the name), so that nothing wraps or is cut off at 360 px. */
-		.today .lbl {
-			display: none;
-		}
-		/* The select shrinks (a custom zoom reads "Week (custom)") rather than push a chip off. */
-		.select :global(select) {
-			max-inline-size: 5.5rem;
-			text-overflow: ellipsis;
-		}
-		@media (max-width: 399px) {
-			.select :global(select) {
-				max-inline-size: 4.75rem;
-			}
-		}
-		.today {
-			padding-inline: 0;
-			justify-content: center;
-			min-inline-size: var(--size-tap);
-		}
+		/* Today is its icon alone (data-narrow="icon": src/styles/toolbar.css), the zoom select shrinks
+		   (data-narrow="shrink"): nothing wraps or is cut off at 360 px. */
 		.task {
 			position: absolute;
 			z-index: 6;

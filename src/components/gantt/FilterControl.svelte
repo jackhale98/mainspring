@@ -87,7 +87,7 @@
 
 <svelte:window onpointerdown={onwindowdown} />
 
-<div class="filter" class:on bind:this={root} data-testid="gantt-filter">
+<div class="filter" class:on bind:this={root} data-testid="gantt-filter" data-narrow="own">
 	<button
 		bind:this={button}
 		type="button"

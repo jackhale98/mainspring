@@ -73,8 +73,14 @@
 	}
 </script>
 
-<div class="bar {placement}" role="group" aria-label={C.toolbar} data-testid="cal-bar-{placement}">
-	<div class="months" role="group" aria-label={C.months}>
+<div
+	class="bar {placement}"
+	role="group"
+	aria-label={C.toolbar}
+	data-toolbar="calendar"
+	data-testid="cal-bar-{placement}"
+>
+	<div class="months" role="group" aria-label={C.months} data-narrow="fixed">
 		<button
 			type="button"
 			class="chip icon"
@@ -104,7 +110,7 @@
 			<Icon name="today" size={14} /><span class="lbl">{C.today}</span>
 		</button>
 	</div>
-	<label class="chip select scope">
+	<label class="chip select scope" data-narrow="own">
 		<span class="cap">{C.scope}</span>
 		<Select
 			variant="inline"
@@ -119,7 +125,7 @@
 			{/each}
 		</Select>
 	</label>
-	<div class="modes" role="radiogroup" aria-label={C.mode}>
+	<div class="modes" role="radiogroup" aria-label={C.mode} data-narrow="own">
 		{#each MODES as m (m.id)}
 			<label class:on={mode === m.id}>
 				<input
@@ -134,7 +140,7 @@
 			</label>
 		{/each}
 	</div>
-	<label class="chip select type">
+	<label class="chip select type" data-narrow="own">
 		<span class="cap">{C.type}</span>
 		<Select
 			variant="inline"
