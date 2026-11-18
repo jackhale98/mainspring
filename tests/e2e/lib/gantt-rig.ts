@@ -50,20 +50,6 @@ export const isTouch = (info: TestInfo): boolean =>
 export const deviceName = (info: TestInfo): string =>
 	isIphone(info) ? 'iphone-14' : isTouch(info) ? 'pixel-7' : 'desktop';
 
-/**
- * The menu key (Shift+F10) on the focused element. Chromium turns it into a `contextmenu` event;
- * Playwright's WebKit does not (the operating system does that on a device), so there the event it
- * stands for is dispatched on the focused element.
- */
-export async function pressMenuKey(page: Page): Promise<void> {
-	await page.keyboard.press('Shift+F10');
-	if (page.context().browser()?.browserType().name() !== 'webkit') return;
-	await page.evaluate(() => {
-		const init = { bubbles: true, cancelable: true, composed: true };
-		document.activeElement?.dispatchEvent(new MouseEvent('contextmenu', init));
-	});
-}
-
 export class Rig {
 	readonly touch: boolean;
 	/**

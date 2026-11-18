@@ -10,7 +10,8 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
-import { READY_TIMEOUT_MS, Rig, isTouch, pressMenuKey } from './lib/gantt-rig';
+import { openHistoryFromUndo } from './lib/finger';
+import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -76,8 +77,7 @@ test.describe('the id follows the first name', () => {
 		const undo = page.getByTestId('undo');
 		const redo = page.getByTestId('redo');
 		if (isTouch(info)) {
-			await undo.focus();
-			await pressMenuKey(page);
+			await openHistoryFromUndo(page);
 			const sheet = page.getByRole('dialog', { name: 'History' });
 			await expect(sheet).toBeVisible();
 			const entries = sheet.getByTestId('history-entry');

@@ -6,7 +6,8 @@
 // name typed is a second undo step. The control is a 44 px target on a coarse pointer and has an
 // accessible name. The screenshots are add-task-screenshots.spec.ts.
 import { expect, test, type Page } from '@playwright/test';
-import { READY_TIMEOUT_MS, Rig, isTouch, pressMenuKey } from './lib/gantt-rig';
+import { openHistoryFromUndo } from './lib/finger';
+import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 
 test.describe('Add task (+)', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -280,8 +281,7 @@ test.describe('Add task (+) on the Plan tab', () => {
 				((await rig.text()) + (await rig.text('lib/build.tji'))).includes('"Write the specs"'),
 			)
 			.toBe(true);
-		await page.getByTestId('undo').focus();
-		await pressMenuKey(page);
+		await openHistoryFromUndo(page);
 		const sheet = page.getByRole('dialog', { name: 'History' });
 		await expect(sheet).toBeVisible();
 		const entries = sheet.getByTestId('history-entry');

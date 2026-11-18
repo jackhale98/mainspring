@@ -8,6 +8,7 @@
 // docs/phases/screenshots/phase-2/selection-*.png.
 import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { lineAt } from './lib/editor-lines';
 import { REPO } from '../golden/corpus';
 import { modKey } from './lib/keys';
 
@@ -58,40 +59,7 @@ const row = (page: Page, name: string): Locator =>
 		.locator('[role="treegrid"] [role="row"][data-key]')
 		.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
 		.first();
-const line = (page: Page, text: string): Locator =>
-	page.locator('.cm-content .cm-line').filter({ hasText: text }).first();
 
-/**
- * A line of the text, scrolled to and inside the editor's view: the editor draws only the lines in
- * or near its view, and (WebKit more) replaces the ones it scrolls past. A click that has to scroll
- * to a line is retried by Playwright each time the line is replaced, and can go on for ever, so the
- * line is first brought into view here, by script, and the click finds it where it is.
- */
-async function lineAt(page: Page, text: string): Promise<Locator> {
-	await expect
-		.poll(
-			() =>
-				page.evaluate((t) => {
-					const scroller = document.querySelector<HTMLElement>('.cm-scroller');
-					if (!scroller) return false;
-					const el = [...document.querySelectorAll('.cm-content .cm-line')].find((l) =>
-						l.textContent?.includes(t),
-					);
-					if (!el) {
-						scroller.scrollTop += scroller.clientHeight / 2;
-						return false;
-					}
-					const at = el.getBoundingClientRect();
-					const view = scroller.getBoundingClientRect();
-					if (at.top >= view.top + 4 && at.bottom <= view.bottom - 4) return true;
-					scroller.scrollTop += at.top - view.top - view.height / 2;
-					return false;
-				}, text),
-			{ timeout: 30_000, intervals: [40, 80, 160] },
-		)
-		.toBe(true);
-	return line(page, text);
-}
 const lit = (page: Page): Locator => page.locator('.cm-content .cm-line.cm-source-selected');
 const litText = async (page: Page): Promise<string[]> =>
 	(await lit(page).allTextContents()).map((t) => t.replace(/​/g, ''));

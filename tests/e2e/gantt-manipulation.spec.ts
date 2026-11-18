@@ -475,14 +475,25 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			await rig.drag({ x: box.x + box.width - 40, y }, { x: box.x + 160, y }, { steps: 12 });
 			if (rig.dispatched) {
 				// A pan is the browser's, and dispatched events cannot start one (Playwright has no touch drag
-				// in WebKit). What the app owns is checked: under the finger the chart declares
-				// `touch-action: pan-x pan-y`, and the drag it just saw changed nothing (checked below).
-				// The view is then moved by script: mobile WebKit has no mouse wheel either.
-				const action = await page.evaluate(
-					([x, py]) => getComputedStyle(document.elementFromPoint(x, py) as Element).touchAction,
+				// in WebKit). What the app owns is checked: the effective `touch-action` under the finger (the
+				// element and its ancestors up to the chart's scroller; a value other than `auto` narrows what
+				// is above it) lets one finger pan both ways, and the chart declares it; and the drag it just
+				// saw changed nothing (checked below). The view is then moved by script: mobile WebKit has no
+				// mouse wheel either.
+				const chain = await page.evaluate(
+					([x, py]) => {
+						const out: string[] = [];
+						for (let e = document.elementFromPoint(x, py); e; e = e.parentElement) {
+							out.push(getComputedStyle(e).touchAction);
+							if (e.classList.contains('scroller')) break;
+						}
+						return out;
+					},
 					[box.x + 160, y] as const,
 				);
-				expect(action, 'the chart leaves one-finger panning to the browser').toBe('pan-x pan-y');
+				const narrowing = chain.filter((a) => a !== 'auto' && a !== 'pan-x pan-y');
+				expect(narrowing, 'nothing under the finger takes the pan from the browser').toEqual([]);
+				expect(chain, 'the chart declares one-finger panning').toContain('pan-x pan-y');
 				await scroller.evaluate((el) => el.scrollBy(300, 0));
 			}
 			await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(left0);

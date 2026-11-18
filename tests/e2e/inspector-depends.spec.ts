@@ -11,6 +11,7 @@ import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { swipeOn } from './lib/finger';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
@@ -69,19 +70,21 @@ const addWaitsFor = (panel: Locator) =>
 	panel.getByRole('button', { name: 'Add a task this one waits for' });
 /**
  * Press Add while the picker is open. On a phone the open picker holds itself at the top of the
- * sheet, which scrolls Add out of sight; the hold lets go when the person scrolls the sheet (a
- * wheel, a finger dragged outside the list), so the test makes that scroll as a person does before
- * it presses: the event the browser sends, then the scroll. Playwright's own scroll into view is
- * not the person's, and the picker puts it back: in WebKit the press then hit the sheet's header.
- * (Mobile WebKit has no mouse wheel and no touch drag in Playwright, so both are made in the page.)
+ * sheet, which scrolls Add out of sight; the hold lets go when a finger presses or drags on the
+ * sheet outside the picker (`pressed` and `dragged` in DependsPicker.svelte). So the test puts a
+ * finger on the sheet's margin and drags it, as a person does (real touch on Pixel 7, the dispatched
+ * events on iPhone 14: finger.ts), then brings Add into view. Playwright's own scroll into view is
+ * not a person's, and the picker puts it back: in WebKit the press then hit the sheet's header.
  */
 async function pressAddAgain(page: Page, panel: Locator): Promise<void> {
 	const add = addWaitsFor(panel);
 	if ((page.viewportSize()?.width ?? 1280) < 600) {
-		await panel.locator('.content').evaluate((el) => {
-			el.dispatchEvent(new WheelEvent('wheel', { deltaY: -4000, bubbles: true }));
-			el.querySelector('[data-depends-add="predecessor"]')?.scrollIntoView({ block: 'center' });
-		});
+		await swipeOn(page, panel.locator('.content'));
+		await panel
+			.locator('.content')
+			.evaluate((el) =>
+				el.querySelector('[data-depends-add="predecessor"]')?.scrollIntoView({ block: 'center' }),
+			);
 		await expect(add).toBeInViewport({ ratio: 1 });
 	}
 	await add.click();

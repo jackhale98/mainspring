@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // npm run setup:webkit: installs Playwright's WebKit into a local browsers folder and checks that
 // it starts (ADR-0016 section 2). The folder is PLAYWRIGHT_BROWSERS_PATH when set, else
-// `.cache/pw-webkit` (git-ignored). On Linux a missing system library is fixed with
-// `npx playwright install-deps webkit` when this run may (root, or --deps); otherwise the command
-// is printed. Run the iPhone specs with `npm run test:e2e:iphone -- tests/e2e/<spec>.spec.ts`.
+// `.cache/pw-webkit` (git-ignored); `0` is Playwright's "inside node_modules". On Linux a missing
+// system library is fixed with `npx playwright install-deps webkit` only when asked with `--deps`
+// (it runs apt, so never unasked, root or not); otherwise the command is printed. Run the iPhone specs with `npm run test:e2e:iphone -- tests/e2e/<spec>.spec.ts`.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { webkitBrowsersPath } from './webkit-path.mjs';
@@ -29,21 +29,22 @@ function launchError() {
 	return r.status === 0 ? null : (r.stderr || 'WebKit did not start').trim();
 }
 
-mkdirSync(browsersPath, { recursive: true });
-console.log(`WebKit folder: ${browsersPath}`);
+if (browsersPath !== '0') mkdirSync(browsersPath, { recursive: true });
+console.log(
+	`WebKit folder: ${browsersPath === '0' ? 'inside node_modules (PLAYWRIGHT_BROWSERS_PATH=0)' : browsersPath}`,
+);
 if (run(['install', 'webkit']) !== 0) process.exit(1);
 
 let problem = launchError();
 if (problem && process.platform === 'linux') {
-	const mayInstall = process.argv.includes('--deps') || (process.getuid?.() ?? 1) === 0;
-	if (mayInstall) {
+	if (process.argv.includes('--deps')) {
 		console.log('WebKit did not start; installing its system libraries (needs apt).');
 		if (run(['install-deps', 'webkit']) === 0) problem = launchError();
 	} else {
 		console.error(
 			'WebKit is installed but did not start (a system library is probably missing). Run:\n' +
 				'  sudo npx playwright install-deps webkit\n' +
-				'or run this script again as root, or with --deps.',
+				'or run this script again with --deps (it runs that command).',
 		);
 	}
 }

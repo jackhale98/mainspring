@@ -12,6 +12,7 @@
 import path from 'node:path';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { holdFinger } from './lib/finger';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import {
 	SPEEDS,
@@ -113,55 +114,70 @@ for (const { full, suffix, tag } of SPEEDS)
 		},
 	);
 
-test('closing while it slides in goes on from where it is', async ({ page }) => {
-	// The sheets are slowed to 6 s, so that a close 250 ms into the slide in is caught on every browser,
-	// headless WebKit's late first frame included (the curve is front-loaded: at 2 s a sheet is nearly
-	// there). The speed is not what this checks: the edge must go on down from where it is, not jump
-	// to rest first.
-	const SLOW_MS = 6000;
-	const panel = await openDetails(page);
-	// Where it rests, open: a close cut short never gets there, so the lowest edge seen is not it.
-	const rest = (await panel.boundingBox())?.y ?? 0;
-	await slowSheets(page, false, SLOW_MS);
-	await panel.getByRole('button', { name: 'Close' }).click();
-	await expect(panel).toBeHidden({ timeout: SLOW_MS * 2 });
-	let midSlide = false;
-	for (let attempt = 0; attempt < 4 && !midSlide; attempt++) {
-		await record(page, SHEET);
-		await rowOf(page).click();
-		// 250 ms into the slide in, close it, in the page (a click from here would wait for it to stop).
-		await page.evaluate(
-			() =>
-				new Promise<void>((done) => {
-					const look = (): void => {
-						const el = document.querySelector<HTMLDialogElement>(
-							'dialog.sheet[data-modal="false"]',
-						);
-						const a = el?.getAnimations()[0];
-						if (el?.open && a && Number(a.currentTime) > 250) {
-							el.querySelector<HTMLButtonElement>('button.close')?.click();
-							done();
-						} else requestAnimationFrame(look);
-					};
-					look();
-				}),
-		);
-		await expect(panel).toBeHidden({ timeout: SLOW_MS * 2 });
-		const tops = await stopRecording(page);
-		const seen = await recorded(page);
-		const at = seen.closeAt;
-		// Was it really mid slide? (Under load the close can be late: try again.)
-		// (It has come into view, and has a way to go still.)
-		const shown = (tops[at - 1] ?? 0) < (page.viewportSize()?.height ?? 0) - 5;
-		midSlide = at > 0 && shown && (tops[at - 1] ?? 0) > rest + 30;
-		if (!midSlide) continue;
-		const before = tops[at - 1] ?? 0;
-		// From the frame it began to go, the edge only goes down from where it was.
-		expect(Math.min(...tops.slice(at)), 'no jump up to rest').toBeGreaterThanOrEqual(before - 3);
-		expect(nonDecreasing(tops.slice(at))).toBe(true);
-	}
-	expect(midSlide, 'the close landed in the slide in at least once').toBe(true);
-});
+for (const { full, suffix, tag } of SPEEDS)
+	test(
+		`closing while it slides in goes on from where it is${suffix}`,
+		{ tag: [...tag] },
+		async ({ page, browserName }) => {
+			test.skip(
+				full && browserName !== 'chromium',
+				'the full-speed copy is a Chromium timing check',
+			);
+			// The shape test slows the sheets to 6 s, so that a close 250 ms into the slide in is caught on
+			// every browser, headless WebKit's late first frame included (the curve is front-loaded: at 2 s a
+			// sheet is nearly there). The full-speed copy (timing tier, Chromium) closes 70 ms into the
+			// production 200 ms. The speed is not what the shape test checks: the edge must go on down from
+			// where it is, not jump to rest first.
+			const SLOW_MS = 6000;
+			const closeAfter = full ? 70 : 250;
+			const wait = full ? 5000 : SLOW_MS * 2;
+			const panel = await openDetails(page);
+			// Where it rests, open: a close cut short never gets there, so the lowest edge seen is not it.
+			const rest = (await panel.boundingBox())?.y ?? 0;
+			await slowSheets(page, full, SLOW_MS);
+			await panel.getByRole('button', { name: 'Close' }).click();
+			await expect(panel).toBeHidden({ timeout: wait });
+			let midSlide = false;
+			for (let attempt = 0; attempt < 4 && !midSlide; attempt++) {
+				await record(page, SHEET);
+				await rowOf(page).click();
+				// Part way into the slide in, close it, in the page (a click from here would wait for it to stop).
+				await page.evaluate(
+					(after) =>
+						new Promise<void>((done) => {
+							const look = (): void => {
+								const el = document.querySelector<HTMLDialogElement>(
+									'dialog.sheet[data-modal="false"]',
+								);
+								const a = el?.getAnimations()[0];
+								if (el?.open && a && Number(a.currentTime) > after) {
+									el.querySelector<HTMLButtonElement>('button.close')?.click();
+									done();
+								} else requestAnimationFrame(look);
+							};
+							look();
+						}),
+					closeAfter,
+				);
+				await expect(panel).toBeHidden({ timeout: wait });
+				const tops = await stopRecording(page);
+				const seen = await recorded(page);
+				const at = seen.closeAt;
+				// Was it really mid slide? (Under load the close can be late: try again.) It has come into
+				// view, and has a way to go still.
+				const shown = (tops[at - 1] ?? 0) < (page.viewportSize()?.height ?? 0) - 5;
+				midSlide = at > 0 && shown && (tops[at - 1] ?? 0) > rest + 30;
+				if (!midSlide) continue;
+				const before = tops[at - 1] ?? 0;
+				// From the frame it began to go, the edge only goes down from where it was.
+				expect(Math.min(...tops.slice(at)), 'no jump up to rest').toBeGreaterThanOrEqual(
+					before - 3,
+				);
+				expect(nonDecreasing(tops.slice(at))).toBe(true);
+			}
+			expect(midSlide, 'the close landed in the slide in at least once').toBe(true);
+		},
+	);
 
 test('a tap that opens it again during its slide away is not lost', async ({ page }) => {
 	const panel = await openDetails(page);
@@ -209,16 +225,8 @@ test('the History sheet keeps its list while it slides away after a rewind', asy
 			a,
 		);
 	}
-	// Press and hold Undo: a finger held, as the pointer events the hold listens to (Playwright has
-	// no touch hold in WebKit, and ButtonHold reads only pointer events).
-	await page.getByTestId('undo').evaluate(async (el) => {
-		const r = el.getBoundingClientRect();
-		const at = { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 };
-		const init = { pointerId: 7, pointerType: 'touch', isPrimary: true, bubbles: true, ...at };
-		el.dispatchEvent(new PointerEvent('pointerdown', { ...init, buttons: 1 }));
-		await new Promise((done) => setTimeout(done, 700));
-		el.dispatchEvent(new PointerEvent('pointerup', { ...init, buttons: 0 }));
-	});
+	// Press and hold Undo: a finger held (real touch on Chromium, dispatched pointer events on WebKit).
+	await holdFinger(page, page.getByTestId('undo'), 700);
 	const sheet = page.getByRole('dialog', { name: 'History' });
 	await expect(sheet).toBeVisible();
 	await sheet.getByTestId('history-entry').nth(1).click();

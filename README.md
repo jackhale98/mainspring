@@ -27,8 +27,9 @@ npx astro build        # MAINSPRING_DEV_PAGES=1 as well for the specs that open 
 npm run test:e2e:iphone -- tests/e2e/gantt-undo.spec.ts
 ```
 
-On Linux, `setup:webkit` runs `npx playwright install-deps webkit` when it may (as root, or with
-`--deps`) and otherwise prints the command. Only `tests/e2e/lib/webkit-allowlist.ts` may skip a test
+On Linux, if WebKit does not start for a missing system library, `setup:webkit` prints
+`sudo npx playwright install-deps webkit`; `npm run setup:webkit -- --deps` runs it (it uses apt,
+so it never runs unasked). Only `tests/e2e/lib/webkit-allowlist.ts` may skip a test
 on WebKit; `node scripts/ci/webkit-skips.mjs` (run by the `check` job) fails on any other skip.
 
 A public preview of `main` runs on GitHub Pages: <https://jackhale98.github.io/mainspring/>

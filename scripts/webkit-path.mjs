@@ -11,8 +11,12 @@ export const DEFAULT_WEBKIT_DIR = resolve(
 	'pw-webkit',
 );
 
-/** The browsers folder for this run: the environment's choice, else the repository's own. */
+/**
+ * The browsers folder for this run: the environment's choice, else the repository's own. `0` is
+ * Playwright's own setting (the browsers live inside node_modules) and is passed on as it is.
+ */
 export function webkitBrowsersPath(env = process.env) {
 	const set = env['PLAYWRIGHT_BROWSERS_PATH'];
-	return set && set !== '0' ? resolve(set) : DEFAULT_WEBKIT_DIR;
+	if (set === '0') return '0';
+	return set ? resolve(set) : DEFAULT_WEBKIT_DIR;
 }

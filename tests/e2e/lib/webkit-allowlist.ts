@@ -15,7 +15,11 @@ export type WebKitSkipReason = 'cdp-touch' | 'chromium-performance-api' | 'andro
 export interface WebKitAllowEntry {
 	/** The spec file name, e.g. `gantt-gestures-edge.spec.ts`. */
 	file: string;
-	/** The full test title as Playwright reports it (`info.title`). */
+	/**
+	 * The full title path: the describe blocks and the test title joined with ` › `, as Playwright
+	 * lists it without the file and project (`info.titlePath` after the file). A test in a loop has
+	 * the title it gets for each value, so one entry names one test, not the loop.
+	 */
 	title: string;
 	reason: WebKitSkipReason;
 	/** One line: what exactly WebKit cannot do here. */
@@ -26,12 +30,15 @@ export const MAX_WEBKIT_ALLOWLIST = 6;
 
 export const WEBKIT_ALLOWLIST: readonly WebKitAllowEntry[] = [];
 
-/** The entry that allows `title` in `file` to skip on WebKit, if there is one. */
+export const TITLE_SEPARATOR = ' › ';
+
+/** The entry that allows the test with this title path in `file` to skip on WebKit, if any. */
 export function findAllowEntry(
 	file: string,
-	title: string,
+	titlePath: readonly string[] | string,
 	list: readonly WebKitAllowEntry[] = WEBKIT_ALLOWLIST,
 ): WebKitAllowEntry | undefined {
+	const title = typeof titlePath === 'string' ? titlePath : titlePath.join(TITLE_SEPARATOR);
 	return list.find((e) => e.file === file && e.title === title);
 }
 
@@ -41,7 +48,8 @@ export function findAllowEntry(
  */
 export function skipOnWebKitIfAllowlisted(info: TestInfo): void {
 	if (info.project.name !== 'iphone-14') return;
-	const file = info.file.split(/[\\/]/).pop() ?? info.file;
-	const entry = findAllowEntry(file, info.title);
+	// `titlePath` is the file, the describe blocks, then the title.
+	const [file = '', ...titles] = info.titlePath;
+	const entry = findAllowEntry(file.split(/[\\/]/).pop() ?? file, titles);
 	if (entry) test.skip(true, `WebKit cannot: ${entry.reason} (${entry.detail})`);
 }

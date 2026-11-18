@@ -3,10 +3,16 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkSpecs, findWebKitSkips, PENDING_BATCHES } from '../../scripts/ci/webkit-skips.mjs';
+import {
+	checkSpecs,
+	EXEMPT_FILES,
+	findWebKitSkips,
+	PENDING_BATCHES,
+} from '../../scripts/ci/webkit-skips.mjs';
 import {
 	findAllowEntry,
 	MAX_WEBKIT_ALLOWLIST,
+	TITLE_SEPARATOR,
 	WEBKIT_ALLOWLIST,
 	type WebKitAllowEntry,
 } from '../e2e/lib/webkit-allowlist';
@@ -51,6 +57,51 @@ describe('findWebKitSkips', () => {
 	});
 });
 
+describe('findWebKitSkips: the forms that keep the iPhone out without naming it', () => {
+	it('flags a skip for another phone only, and a Chromium-only skip', () => {
+		const src = [
+			"test.skip(info.project.name !== 'pixel-7');",
+			"test.skip(!isTouch(info) || info.project.name !== 'pixel-7', 'coarse');",
+			"test.skip(browserName !== 'chromium', 'forced colours');",
+			"test.skip(info.project.name !== 'pixel-7' || browserName !== 'chromium');",
+		].join('\n');
+		const hits = findWebKitSkips(src);
+		expect(hits.map((h) => h.line)).toEqual([1, 2, 3, 4]);
+		expect(new Set(hits.map((h) => h.kind))).toEqual(new Set(['other-project']));
+	});
+
+	it('marks a skip that names the iPhone as webkit, whatever else it says', () => {
+		const [hit] = findWebKitSkips("test.skip(info.project.name !== 'pixel-7' || isIphone(info));");
+		expect(hit?.kind).toBe('webkit');
+	});
+
+	it('leaves desktop-only skips, the full-speed copies and SCREENSHOTS-gated files alone', () => {
+		const src = [
+			"test.skip(info.project.name !== 'desktop', 'a mouse');",
+			"test.skip(info.project.name === 'desktop', 'a phone');",
+			"test.skip(full && browserName !== 'chromium', 'the full-speed copy');",
+			"test.skip(isTouch(info), 'keys');",
+		].join('\n');
+		expect(findWebKitSkips(src)).toEqual([]);
+		const gated = [
+			"test.skip(!process.env['SCREENSHOTS'], 'set SCREENSHOTS=1');",
+			"test.skip(info.project.name !== 'pixel-7');",
+		].join('\n');
+		expect(findWebKitSkips(gated)).toEqual([]);
+		// ...but a skip before the gate is still counted, and a webkit one is never exempt.
+		const before = "test.skip(info.project.name !== 'pixel-7');\n" + gated;
+		expect(findWebKitSkips(before).map((h) => h.line)).toEqual([1]);
+		expect(findWebKitSkips(gated + "\ntest.skip(info.project.name === 'iphone-14');")).toHaveLength(
+			1,
+		);
+	});
+
+	it('does not count the other-project forms in a file outside the three projects', () => {
+		expect(findWebKitSkips("test.skip(browserName !== 'chromium');", { exempt: true })).toEqual([]);
+		expect(EXEMPT_FILES).toContain('engine-responsiveness.spec.ts');
+	});
+});
+
 describe('checkSpecs', () => {
 	const dirs: string[] = [];
 	afterEach(() => {
@@ -81,6 +132,12 @@ describe('checkSpecs', () => {
 		const r = checkSpecs(dir(), { pending, strict: true });
 		expect(r.pending).toEqual([]);
 		expect(r.failures.map((f) => f.file).sort()).toEqual(['done.spec.ts', 'later.spec.ts']);
+	});
+
+	it('matches a pending file in a sub-folder by its path under tests/e2e', () => {
+		const sub = specs({ 'p/b.spec.ts': "test.skip(browserName !== 'chromium');\n" });
+		expect(checkSpecs(sub, { pending: { B5: ['p/b.spec.ts'] } }).pending).toHaveLength(1);
+		expect(checkSpecs(sub, { pending: { B5: ['b.spec.ts'] } }).failures).toHaveLength(1);
 	});
 
 	it('passes when no spec has a WebKit skip, and scans sub-folders', () => {
@@ -125,16 +182,56 @@ describe('the allowlist', () => {
 			expect(existsSync(file), e.file).toBe(true);
 			const src = readFileSync(file, 'utf8');
 			expect(src, e.file).toContain('skipOnWebKitIfAllowlisted');
-			expect(src, `${e.file}: ${e.title}`).toContain(e.title);
+			for (const part of e.title.split(TITLE_SEPARATOR))
+				expect(titleInSource(src, part), `${e.file}: ${part}`).toBe(true);
 		}
 	});
 
-	it('finds an entry by file and title', () => {
+	it('finds an entry by file and the full title path', () => {
 		const list: WebKitAllowEntry[] = [
-			{ file: 'a.spec.ts', title: 'drag', reason: 'cdp-touch', detail: 'Input.dispatchTouchEvent' },
+			{
+				file: 'a.spec.ts',
+				title: `the drag${TITLE_SEPARATOR}moves a bar`,
+				reason: 'cdp-touch',
+				detail: 'Input.dispatchTouchEvent',
+			},
 		];
-		expect(findAllowEntry('a.spec.ts', 'drag', list)?.reason).toBe('cdp-touch');
-		expect(findAllowEntry('a.spec.ts', 'other', list)).toBeUndefined();
-		expect(findAllowEntry('b.spec.ts', 'drag', list)).toBeUndefined();
+		expect(findAllowEntry('a.spec.ts', ['the drag', 'moves a bar'], list)?.reason).toBe(
+			'cdp-touch',
+		);
+		// A test with the same title under another describe is another test.
+		expect(findAllowEntry('a.spec.ts', ['the pan', 'moves a bar'], list)).toBeUndefined();
+		expect(findAllowEntry('a.spec.ts', ['moves a bar'], list)).toBeUndefined();
+		expect(findAllowEntry('b.spec.ts', ['the drag', 'moves a bar'], list)).toBeUndefined();
+	});
+
+	it('finds a title in a spec, also one built from a template literal', () => {
+		const src = [
+			"test.describe('the drag', () => {",
+			'	for (const scheme of schemes) {',
+			'		test(`inspector, project sheet and source sheet, ${scheme}`, async () => {});',
+			'	}',
+			'});',
+		].join('\n');
+		expect(titleInSource(src, 'the drag')).toBe(true);
+		expect(titleInSource(src, 'inspector, project sheet and source sheet, light')).toBe(true);
+		expect(titleInSource(src, 'inspector, project sheet')).toBe(false);
+		expect(titleInSource(src, 'no such test')).toBe(false);
 	});
 });
+
+/** Whether a title (a describe or a test) is written in `src`; a `${...}` in a template matches any text. */
+function titleInSource(src: string, title: string): boolean {
+	for (const m of src.matchAll(/(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
+		const text = m[2] ?? '';
+		if (text === title) return true;
+		if (m[1] === '`' && text.includes('${')) {
+			const pattern = text
+				.split(/\$\{[^}]*\}/)
+				.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+				.join('.+');
+			if (new RegExp(`^${pattern}$`).test(title)) return true;
+		}
+	}
+	return false;
+}
