@@ -74,7 +74,14 @@
 			"tests/e2e/workload-gate.spec.ts": 17.2,
 			"tests/e2e/workload-perf.spec.ts": 0,
 			"tests/e2e/workload-screenshots.spec.ts": 0,
-			"tests/e2e/workload.spec.ts": 133.1
+			"tests/e2e/workload.spec.ts": 133.1,
+			"tests/e2e/primitives/grid-focus.spec.ts": 3.7,
+			"tests/e2e/primitives/menu.spec.ts": 9.0,
+			"tests/e2e/primitives/popover.spec.ts": 3.1,
+			"tests/e2e/primitives/select.spec.ts": 6.5,
+			"tests/e2e/primitives/sheet.spec.ts": 36.2,
+			"tests/e2e/primitives/toolbar.spec.ts": 9.6,
+			"tests/e2e/primitives/primitives-screenshots.spec.ts": 4.0
 		},
 		"pixel-7": {
 			"tests/e2e/add-task-screenshots.spec.ts": 0,
@@ -142,7 +149,14 @@
 			"tests/e2e/workload-gate.spec.ts": 14.2,
 			"tests/e2e/workload-perf.spec.ts": 4.8,
 			"tests/e2e/workload-screenshots.spec.ts": 0,
-			"tests/e2e/workload.spec.ts": 72.5
+			"tests/e2e/workload.spec.ts": 72.5,
+			"tests/e2e/primitives/grid-focus.spec.ts": 3.2,
+			"tests/e2e/primitives/menu.spec.ts": 6.6,
+			"tests/e2e/primitives/popover.spec.ts": 3.5,
+			"tests/e2e/primitives/select.spec.ts": 8.6,
+			"tests/e2e/primitives/sheet.spec.ts": 36.1,
+			"tests/e2e/primitives/toolbar.spec.ts": 9.0,
+			"tests/e2e/primitives/primitives-screenshots.spec.ts": 4.0
 		},
 		"iphone-14": {
 			"tests/e2e/add-task-screenshots.spec.ts": 0,
@@ -210,7 +224,14 @@
 			"tests/e2e/workload-gate.spec.ts": 3.6,
 			"tests/e2e/workload-perf.spec.ts": 1.2,
 			"tests/e2e/workload-screenshots.spec.ts": 0,
-			"tests/e2e/workload.spec.ts": 18.1
+			"tests/e2e/workload.spec.ts": 18.1,
+			"tests/e2e/primitives/grid-focus.spec.ts": 5.9,
+			"tests/e2e/primitives/menu.spec.ts": 10.9,
+			"tests/e2e/primitives/popover.spec.ts": 6.5,
+			"tests/e2e/primitives/select.spec.ts": 15.7,
+			"tests/e2e/primitives/sheet.spec.ts": 43.6,
+			"tests/e2e/primitives/toolbar.spec.ts": 18.7,
+			"tests/e2e/primitives/primitives-screenshots.spec.ts": 4.0
 		}
 	}
 }

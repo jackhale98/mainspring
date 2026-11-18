@@ -85,4 +85,29 @@ describe('shard-plan', () => {
 			}
 		}
 	});
+	it('every spec file under tests/e2e (subfolders too, not lib/) lands in exactly one shard per project', () => {
+		const dur = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests/e2e/durations.json'), 'utf8'));
+		const counts = sp.matrixFromWorkflow(
+			fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8'),
+		);
+		const found: string[] = [];
+		const walk = (dir: string): void => {
+			for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+				if (e.isDirectory()) {
+					if (e.name !== 'lib') walk(`${dir}/${e.name}`);
+				} else if (e.name.endsWith('.spec.ts')) found.push(`${dir}/${e.name}`);
+			}
+		};
+		walk('tests/e2e');
+		// The two files that playwright.config.ts ignores in the merge tier.
+		const merge = found.filter((f) => !/(engine-responsiveness|text-mode-perf)\.spec\.ts$/.test(f));
+		expect(merge.some((f) => f.startsWith('tests/e2e/primitives/'))).toBe(true);
+		expect([...sp.specFiles(ROOT)].sort()).toEqual([...merge].sort());
+		for (const [project, n] of Object.entries(counts) as [string, number][]) {
+			const placed = sp
+				.plan(sp.specFiles(ROOT), dur, project, n)
+				.flatMap((x: { files: string[] }) => x.files);
+			expect([...placed].sort(), project).toEqual([...merge].sort());
+		}
+	});
 });
