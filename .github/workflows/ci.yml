@@ -9,9 +9,13 @@ on:
   pull_request:
     paths-ignore: ['**/*.md']
 
-# A new push cancels the run in progress on a branch, never on main: every commit on main gets a
-# finished run (ADR-0016 section 5). Batch pushes, and do not push within about 5 minutes of a
-# run finishing.
+# A new push cancels the run in progress on a branch, never on main (ADR-0016 section 5). Batch
+# pushes, and do not push within about 5 minutes of a run finishing.
+#
+# Main is only ever fast-forwarded to a commit whose run on its branch was green, so a push to main
+# runs only the timing tier (the deploy is pages.yml): running every job again on the same commit
+# took the runners the next branch run needed and started its shards up to 14 minutes late
+# (user, 2026-11-18). Every other job has `if: github.ref != 'refs/heads/main'`.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -22,6 +26,7 @@ permissions:
 jobs:
   check:
     name: Format, typecheck and unit tests
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -58,6 +63,7 @@ jobs:
 
   engine:
     name: Engine build
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -136,6 +142,7 @@ jobs:
 
   fidelity:
     name: Patch fidelity
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     # The fidelity properties take about 2 minutes, the fast-path suites about 5 more.
     timeout-minutes: 25
@@ -187,7 +194,11 @@ jobs:
 
   e2e:
     name: End-to-end and accessibility (${{ matrix.project }} ${{ matrix.shard }})
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
+    # A shard is planned at about 8 minutes (scripts/ci/shard-plan.mjs): one that runs four times
+    # that has a hang or a stale durations file, and stops here instead of after GitHub's 6 hours.
+    timeout-minutes: 35
     # Playwright's own image has every browser and its system libraries, so no shard installs them:
     # the apt install took 3 to 22 minutes on the WebKit shards and hung twice (2026-11-17, -18).
     # The tag must be the Playwright version in package-lock.json; tests/ci/playwright-image.test.ts
@@ -216,15 +227,22 @@ jobs:
           - { project: pixel-7, shard: 4/6, browsers: chromium }
           - { project: pixel-7, shard: 5/6, browsers: chromium }
           - { project: pixel-7, shard: 6/6, browsers: chromium }
-          - { project: iphone-14, shard: 1/9, browsers: webkit }
-          - { project: iphone-14, shard: 2/9, browsers: webkit }
-          - { project: iphone-14, shard: 3/9, browsers: webkit }
-          - { project: iphone-14, shard: 4/9, browsers: webkit }
-          - { project: iphone-14, shard: 5/9, browsers: webkit }
-          - { project: iphone-14, shard: 6/9, browsers: webkit }
-          - { project: iphone-14, shard: 7/9, browsers: webkit }
-          - { project: iphone-14, shard: 8/9, browsers: webkit }
-          - { project: iphone-14, shard: 9/9, browsers: webkit }
+          - { project: iphone-14, shard: 1/16, browsers: webkit }
+          - { project: iphone-14, shard: 2/16, browsers: webkit }
+          - { project: iphone-14, shard: 3/16, browsers: webkit }
+          - { project: iphone-14, shard: 4/16, browsers: webkit }
+          - { project: iphone-14, shard: 5/16, browsers: webkit }
+          - { project: iphone-14, shard: 6/16, browsers: webkit }
+          - { project: iphone-14, shard: 7/16, browsers: webkit }
+          - { project: iphone-14, shard: 8/16, browsers: webkit }
+          - { project: iphone-14, shard: 9/16, browsers: webkit }
+          - { project: iphone-14, shard: 10/16, browsers: webkit }
+          - { project: iphone-14, shard: 11/16, browsers: webkit }
+          - { project: iphone-14, shard: 12/16, browsers: webkit }
+          - { project: iphone-14, shard: 13/16, browsers: webkit }
+          - { project: iphone-14, shard: 14/16, browsers: webkit }
+          - { project: iphone-14, shard: 15/16, browsers: webkit }
+          - { project: iphone-14, shard: 16/16, browsers: webkit }
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -269,6 +287,7 @@ jobs:
 
   gates:
     name: JS sizes
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -380,6 +399,7 @@ jobs:
 
   responsiveness:
     name: Responsiveness gate (Chromium)
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -422,6 +442,7 @@ jobs:
 
   golden:
     name: Golden plans (Chromium)
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -465,6 +486,7 @@ jobs:
 
   base-path:
     name: Pages base path (Chromium)
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -501,6 +523,7 @@ jobs:
 
   no-ruby:
     name: No Ruby invoked
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

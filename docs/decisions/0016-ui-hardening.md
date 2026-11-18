@@ -138,6 +138,10 @@ that already have tests.
   is within about 5 minutes of finishing.
 - **Runs on `main` are never cancelled.** `cancel-in-progress` is set only for branches that are
   not `main`.
+- **A push to `main` runs only the timing tier** (amendment, user, 2026-11-18). `main` is only
+  fast-forwarded to a commit that ran green on its branch, so running every job again on that
+  commit only took the runners the next branch run needed (its shards started up to 14 minutes
+  late). The deploy is `pages.yml`, which is unchanged.
 - **Flaky tests are named.** Retries stay at 1. A test that passed only on its retry is listed in
   the run summary. If that happens twice in a week, it is fixed or moved to the timing tier.
 - **The gate file opens with a status line.** `phase-3-gate.md` starts with: the last green commit,
