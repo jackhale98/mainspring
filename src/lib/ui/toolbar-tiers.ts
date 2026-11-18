@@ -36,6 +36,14 @@ export type Tier = keyof typeof TIERS;
  * - `fixed`: it keeps its size, and fits 360 px as it is;
  * - `own`: a component with tier rules of its own (the people picker, the filter, the view switcher);
  *   the one-row check still covers it.
+ *
+ * Two hooks inside a control or group that declares a form (src/styles/toolbar.css):
+ * - `.ico-stand`: an icon that is drawn only where the control's label (`.lbl`) is hidden, for a
+ *   control with no icon of its own at a wide width (the Calendar's Select, Paint and Erase). It
+ *   follows its control's form: `icon` at the narrow tier and on a phone, `icon-phone` on a phone;
+ * - `.lbl-long` and `.lbl-short`: one label in two spellings ("November 2026", "Nov 2026"); a phone
+ *   draws the short one. A control whose only name is hidden text needs its name some other way
+ *   (`aria-label`).
  */
 export const NARROW_FORMS = ['icon', 'icon-phone', 'shrink', 'fixed', 'own'] as const;
 export type NarrowForm = (typeof NARROW_FORMS)[number];

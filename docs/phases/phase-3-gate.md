@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main | `235e6318` (branch run 44315084460, 2026-11-18; main fast-forwarded): B1 on top of the engine progress beats (`90a5cb2a`, run 44304712543) |
+| Last green commit on main | `b86b8359` (branch run 44325421153, 2026-11-18; main fast-forwarded): the compact phone Calendar bar on top of B1 (`235e6318`, run 44315084460) |
 | Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
 | iPhone 14 skips left | B2 done (2026-11-18): 19 spec files by the grep below (24 before B2; two of the 19, `gantt-frozen` and `gantt-perf`, only name the allowlist helper); `node scripts/ci/webkit-skips.mjs` reports 18 skips in 18 files, all of B3 to B5 (16 naming the iPhone or WebKit, 2 that keep it out as Pixel 7 only; it was 33 in 28 files after B1), and none outside the allowlist for B2 (`PENDING_BATCHES` no longer lists it; the check job runs report-only until B3 to B5 empty theirs); allowlist: 4 entries (2 `cdp-touch`: the native touch pans of `gantt-frozen`; 2 `chromium-performance-api`: the CPU-throttled scroll profile and the touch-listener comparison of `gantt-perf`); target: at most 6 allowlisted |
-| CI wall time | 12.5 to 15 min (runs 44304712543 and 44315084460); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
+| CI wall time | 12.5 to 15 min (runs 44304712543 and 44315084460); 21.5 min on run 44325421153, where one iPhone shard ran 20 min because the specs B1 turned on had near-zero estimated times. The iPhone times are now the CI times of that run and the iPhone project has 8 shards (about 7.7 min each by the plan); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
@@ -21,7 +21,7 @@ grep -lE "skip" tests/e2e/*.spec.ts | xargs grep -lE "iphone-14|isIphone|webkit"
 
 `tests/e2e/lib/webkit-allowlist.ts` now exists (ADR-0016 section 2): count its entries as well, and the
 `check` job's `node scripts/ci/webkit-skips.mjs` fails on a skip naming the iPhone or WebKit outside it,
-for every spec but those of the batches in its `PENDING_BATCHES` list (B2 to B5; each batch empties its
+for every spec but those of the batches in its `PENDING_BATCHES` list (B3 to B5; each batch empties its
 part of the list). Run the iPhone specs with `npm run setup:webkit` once, then
 `npm run test:e2e:iphone -- <spec>`.
 
@@ -117,11 +117,37 @@ Pixel 7 and iPhone 14, and are in the CI shards (`scripts/ci/shard-plan.mjs` wal
 | Grid focus | `src/lib/ui/roving-grid.ts`                                         | `tests/e2e/primitives/grid-focus.spec.ts` |
 | Popover    | `src/components/ui/Popover.svelte`                                  | `tests/e2e/primitives/popover.spec.ts` |
 
-**Exception: the Calendar bar wraps.** The one-row check from 360 to 1600 px holds for the Gantt's
-chips and for the Workload and Lanes bar. The Calendar's bar has four groups (months, person, mode,
-type) that cannot share 360 px, so it is three rows on a phone (up to 600 px), two rows up to about
-1000 px, and one row from 1024 px. `toolbar.spec.ts` allows exactly that (`calendarRows`) and still
-fails on any clipped control. Making it one row on a phone would be a redesign of the bar.
+**Exception: the Calendar bar wraps, in two rows on a phone.** The one-row check from 360 to 1600 px
+holds for the Gantt's chips and for the Workload and Lanes bar. The Calendar's bar has five groups
+(months, Today, person, mode, type) that cannot share 360 px. After the compact pass (user,
+2026-11-18, "Make the controls more compact") it is two rows on a phone (up to 599 px; it was three),
+two rows from about 615 to 1000 px, and one row from 1024 px. Row one is the months (previous, "Nov
+2026", next) and the mode as three icons (Select, Paint, Erase); row two is Today as an icon, the
+person and the leave type. They use the toolbar's narrow forms (`icon-phone`, plus the `.ico-stand`
+and `.lbl-short` hooks added to `toolbar.css`). Measured at 107 px high (it was 175): the month shows
+five full weeks at 390x664 (iPhone 14; four before) and at 360x640 (three before).
+`toolbar.spec.ts` allows exactly that (`calendarRows`) and still fails on any clipped control.
+
+**Three rows still happen** where the Calendar's own width is under 600 px but the viewport is not a
+phone: at every viewport from 600 to about 615 px (in Visual mode at 600 px the Calendar is 584 px
+wide and its bar is 133 px high), and in a Split pane dragged under 600 px. That is the bar from
+before the compact pass, left as it was (the compact form is keyed to the viewport, `icon-phone`;
+tablet and desktop layouts were to stay as they are). The spec allows three rows only at its 600 px
+step. **Follow-up for the user:** a compact Calendar bar in a narrow container, and on 600 dp
+tablets (a container-keyed `icon` form for the mode switch and Today, so that the two-row bar also
+serves 600 to 615 px and a narrow Split pane).
+
+**First-load JS (gzip, `js-sizes.mjs --serve`), before and after the compact Calendar bar.** The three
+mode icons live in the lazy `src/lib/icons-calendar.ts` (passed to `Icon` as `paths`), so the first
+load does not carry them. Measured on the merged tree, with and without the change:
+
+| First load   | Before  | After   | Delta | Cap     | Headroom |
+| ------------ | ------- | ------- | ----- | ------- | -------- |
+| Visual-first | 327,837 | 327,865 | +28   | 330,000 | 2.1 KB   |
+| Text-first   | 439,192 | 439,222 | +30   | 440,000 | 0.8 KB   |
+
+The `calendar` chunk is 13,069 before and 13,089 after (cap 16,400). With the icons in `icons.ts` the
+delta had been +239 and +246 bytes.
 
 **First-load JS (gzip, `js-sizes.mjs --serve`), before and after T25.** Both stay under their caps.
 

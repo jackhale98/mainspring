@@ -7,13 +7,17 @@
 	import { ICONS, type IconName } from '../lib/icons';
 
 	interface Props {
-		name: IconName;
+		/** A shared icon. Optional when `paths` is given. */
+		name?: IconName;
+		/** The path data itself, for an icon that one lazy view owns (lib/icons-calendar.ts). */
+		paths?: readonly string[];
 		/** Size in px; the grid is 24. */
 		size?: number;
 		/** Stroke width on the 24 px grid (ADR-0009: 1.8). */
 		stroke?: number;
 	}
-	let { name, size = 16, stroke = 1.8 }: Props = $props();
+	let { name, paths, size = 16, stroke = 1.8 }: Props = $props();
+	const shapes = $derived(paths ?? (name ? ICONS[name] : []));
 </script>
 
 <svg
@@ -29,7 +33,7 @@
 	aria-hidden="true"
 	focusable="false"
 >
-	{#each ICONS[name] as d (d)}<path {d} />{/each}
+	{#each shapes as d (d)}<path {d} />{/each}
 </svg>
 
 <style>

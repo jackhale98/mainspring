@@ -36,7 +36,13 @@
 	import { onMount, tick, untrack } from 'svelte';
 	import { createTimeZoneHost } from '../../engine/timezone';
 	import { detailsOf } from '../../lib/calendar/details';
-	import { monthTitle, rangeLabel, dateLabel, typeName } from '../../lib/calendar/describe';
+	import {
+		monthTitle,
+		monthTitleShort,
+		rangeLabel,
+		dateLabel,
+		typeName,
+	} from '../../lib/calendar/describe';
 	import { prepareFacts } from '../../lib/calendar/facts';
 	import { buildGrid } from '../../lib/calendar/grid';
 	import {
@@ -145,6 +151,10 @@
 	const shownTitle = $derived.by(() => {
 		const m = grid.months[topMonth];
 		return m ? monthTitle(m.year, m.month) : '';
+	});
+	const shortTitle = $derived.by(() => {
+		const m = grid.months[topMonth];
+		return m ? monthTitleShort(m.year, m.month) : '';
 	});
 	// --- Selection (the app's `days`), the focus and the tab stop
 	const sel = $derived(app.selection.current);
@@ -589,6 +599,7 @@
 			mode={cal.mode}
 			leaveType={cal.leaveType}
 			title={shownTitle}
+			{shortTitle}
 			hasToday={todayDay !== null}
 			onscope={setScope}
 			onmode={setMode}
@@ -673,6 +684,7 @@
 			mode={cal.mode}
 			leaveType={cal.leaveType}
 			title={shownTitle}
+			{shortTitle}
 			hasToday={todayDay !== null}
 			onscope={setScope}
 			onmode={setMode}
