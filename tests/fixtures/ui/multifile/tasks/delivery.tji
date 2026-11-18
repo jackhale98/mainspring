@@ -1,0 +1,23 @@
+# Feature: ui-multifile - delivery tasks, included from plan.tjp; they depend on a task of plan.tjp,
+# and support.tji depends on them. `build` takes its person from the supplement in plan.tjp.
+# SPDX-License-Identifier: GPL-2.0-or-later
+task delivery "Delivery" {
+  depends plan.prep
+  task design "Design" {
+    effort 4d
+    allocate ana
+  }
+  task build "Build" {
+    effort 8d
+    depends !design
+  }
+  task test "Test" {
+    effort 3d
+    allocate cy
+    depends !build { gaplength 1d }
+  }
+  task done "Delivered" {
+    milestone
+    depends !test
+  }
+}

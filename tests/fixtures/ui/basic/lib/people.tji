@@ -1,0 +1,9 @@
+# Feature: ui-basic - the people, included from plan.tjp
+# SPDX-License-Identifier: GPL-2.0-or-later
+resource ana "Ana"
+
+resource ben "Ben" {
+  efficiency 0.8
+}
+
+resource cy "Cy"

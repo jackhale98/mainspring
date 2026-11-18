@@ -1,0 +1,14 @@
+# Feature: ui-multifile - support tasks, included from plan.tjp; they depend on delivery.tji
+# SPDX-License-Identifier: GPL-2.0-or-later
+task support "Support" {
+  depends delivery.done
+  task onboard "Onboarding" {
+    effort 2d
+    allocate ana, cy
+  }
+  task fixes "Fixes" {
+    effort 5d
+    allocate ben
+    depends !onboard { gapduration 2d }
+  }
+}

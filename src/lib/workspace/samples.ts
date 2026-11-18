@@ -106,6 +106,23 @@ export const SAMPLES: readonly BuiltInSample[] = [
 		'mainspring-load.tji': () =>
 			import('../../../engine/golden/plans/fedora-res/mainspring-load.tji?raw'),
 	}),
+	// Small plans for the interface specs (tests/fixtures/ui, ADR-0016 change 4). No native goldens:
+	// ui-fixtures.engine.test.ts schedules each in the wasm engine and requires no error or warning.
+	sample('ui-basic', 'plan.tjp', {
+		'plan.tjp': () => import('../../../tests/fixtures/ui/basic/plan.tjp?raw'),
+		'lib/people.tji': () => import('../../../tests/fixtures/ui/basic/lib/people.tji?raw'),
+		'lib/build.tji': () => import('../../../tests/fixtures/ui/basic/lib/build.tji?raw'),
+	}),
+	sample('ui-people', 'plan.tjp', {
+		'plan.tjp': () => import('../../../tests/fixtures/ui/people/plan.tjp?raw'),
+	}),
+	sample('ui-multifile', 'plan.tjp', {
+		'plan.tjp': () => import('../../../tests/fixtures/ui/multifile/plan.tjp?raw'),
+		'lib/people.tji': () => import('../../../tests/fixtures/ui/multifile/lib/people.tji?raw'),
+		'tasks/delivery.tji': () =>
+			import('../../../tests/fixtures/ui/multifile/tasks/delivery.tji?raw'),
+		'tasks/support.tji': () => import('../../../tests/fixtures/ui/multifile/tasks/support.tji?raw'),
+	}),
 ];
 
 /** The sample with this id, or null. */
