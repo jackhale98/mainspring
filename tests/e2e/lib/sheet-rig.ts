@@ -144,24 +144,26 @@ export const recorded = (page: Page): Promise<Recording> =>
 export const steps = (tops: number[]): number => new Set(tops.map((t) => Math.round(t))).size;
 
 /**
- * The fewest distinct edge positions that count as a slide rather than a jump. Headless WebKit on a
- * CI runner paints few frames during a 200 ms animation (one or two samples), so there the count
- * cannot tell a slide from a jump; the transform-only check on the element's animations (`props`)
- * is what shows the slide ran. Chromium samples every frame.
+ * Slows the sheets' motion (the tokens that the CSS and Sheet.svelte read, set on the root) so that
+ * the recorder sees all of it. Headless WebKit on a software renderer draws the first frame after a
+ * sheet opens 200 to 300 ms late, while the page is idle: the app's large blurred panel shadows
+ * (`.panel`, `--shadow-panel`) are what it spends the time on (the stall drops to about 80 ms with
+ * every box-shadow off, and a bare page with a dialog and the same slide has none; measured
+ * 2026-11-18). An ease-out slide of 200
+ * ms is therefore over before its first frame: one or two samples, no `animationstart`, and no
+ * animation left to inspect. A slide ten times as long is seen in many frames; it has the same
+ * keyframes, easing and code path, so a jump, a reversal or a gap still shows. Call it once the page
+ * is loaded and before the sheet moves.
  */
-export const moreThanAJump = (browser: string, chromium: number): number =>
-	browser === 'webkit' ? 0 : chromium;
+export const slowSheets = (page: Page, ms = 2000): Promise<void> =>
+	page.evaluate((t) => {
+		const root = document.documentElement.style;
+		root.setProperty('--sheet-ms', String(t));
+		root.setProperty('--sheet-out-ms', String(t));
+	}, ms);
 
-/**
- * Drops a frame that was sampled between a layout change and the browser's resize notification,
- * which starts the glide before anything is painted: a lone spike at the start of a slide.
- */
-export const despike = (t: number[]): number[] =>
-	t.filter((v, i) => {
-		const a = t[i - 1];
-		const b = t[i + 1];
-		return a === undefined || b === undefined || !((v - a) * (v - b) > 100);
-	});
+/** How long to record after a slowed sheet starts to move: the slide and the renderer's late first frame. */
+export const SLOW_SETTLE_MS = 2800;
 
 /** Every sample is at or below the one before it (a slide down), within a pixel. */
 export const nonDecreasing = (t: number[]): boolean =>

@@ -13,7 +13,15 @@ import path from 'node:path';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
-import { despike, nonDecreasing, ready, record, recorded, stopRecording } from './lib/sheet-rig';
+import {
+	SLOW_SETTLE_MS,
+	nonDecreasing,
+	ready,
+	record,
+	recorded,
+	slowSheets,
+	stopRecording,
+} from './lib/sheet-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
 test.beforeEach(({ browserName: _b }, info) => {
@@ -50,19 +58,20 @@ async function openDetails(page: Page): Promise<Locator> {
 
 test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async ({
 	page,
-	browserName,
 }, info) => {
 	await page.emulateMedia({ colorScheme: 'dark' });
 	const panel = await openDetails(page);
 	const grab = panel.getByRole('button', { name: /Details height/ });
+	await slowSheets(page);
 	await grab.click();
-	await page.waitForTimeout(500);
+	// The grow has to be over (and the slow glide needs its late first frame) before the shrink is recorded.
+	await page.waitForTimeout(SLOW_SETTLE_MS);
 	// Full to half: the top edge comes down; the bottom edge may go below its place, never above it.
 	await record(page, SHEET);
 	await grab.click();
 	await page.waitForTimeout(80);
 	await shot(page, 'details-shrinking', info);
-	await page.waitForTimeout(500);
+	await page.waitForTimeout(SLOW_SETTLE_MS);
 	const tops = await stopRecording(page);
 	const { bottoms } = await recorded(page);
 	const rest = bottoms.at(-1) ?? 0;
@@ -70,14 +79,14 @@ test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async 
 		Math.min(...bottoms),
 		'the bottom edge never rises off the tab bar',
 	).toBeGreaterThanOrEqual(rest - 1);
-	expect(nonDecreasing(despike(tops)), 'the top edge only comes down').toBe(true);
+	expect(nonDecreasing(tops), 'the top edge only comes down').toBe(true);
 	const bar = await page.locator('.tabbar').boundingBox();
 	expect(rest, 'it ends above the tab bar').toBeLessThanOrEqual((bar?.y ?? 9999) + 1);
 
 	// The same for a drag from full height, let go lower down: it settles at half and the top edge
 	// comes down from where the finger left it.
 	await grab.click();
-	await page.waitForTimeout(500);
+	await page.waitForTimeout(SLOW_SETTLE_MS);
 	const g = await grab.boundingBox();
 	if (!g) throw new Error('no grabber');
 	const x = g.x + g.width / 2;
@@ -87,14 +96,10 @@ test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async 
 	for (let i = 1; i <= 6; i++) await page.mouse.move(x, y + 12 * i);
 	await record(page, SHEET);
 	await page.mouse.up();
-	await page.waitForTimeout(600);
+	await page.waitForTimeout(SLOW_SETTLE_MS);
 	await stopRecording(page);
 	const dragged = (await recorded(page)).bottoms;
 	const settled = dragged.at(-1) ?? 0;
-	// The drag here is a mouse drag; on the iPhone project (WebKit, touch emulation) it is not the
-	// gesture a finger makes, and on 2026-11-17 it measured a bottom 63 px high in one CI run and
-	// none in the next on the same commit. Chromium (desktop and Pixel 7) holds the check.
-	if (browserName === 'webkit') return;
 	expect(Math.min(...dragged), 'a drag let go leaves no gap either').toBeGreaterThanOrEqual(
 		settled - 1,
 	);
