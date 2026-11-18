@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main | `235e6318` (branch run 44315084460, 2026-11-18; main fast-forwarded): B1 on top of the engine progress beats (`90a5cb2a`, run 44304712543) |
+| Last green commit on main | `b86b8359` (branch run 44325421153, 2026-11-18; main fast-forwarded): the compact phone Calendar bar on top of B1 (`235e6318`, run 44315084460) |
 | Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
 | iPhone 14 skips left | B1 done (2026-11-18): 24 spec files by the grep below (38 before); `node scripts/ci/webkit-skips.mjs` reports 33 skips in 28 files, all of B2 to B5, 23 naming the iPhone or WebKit and 10 that keep it out as Pixel 7 only or Chromium only (strict mode fails on them; the check job runs report-only until a batch empties its part of `PENDING_BATCHES`); allowlist: 0 entries; target: at most 6 allowlisted |
-| CI wall time | 12.5 to 15 min (runs 44304712543 and 44315084460); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
+| CI wall time | 12.5 to 15 min (runs 44304712543 and 44315084460); 21.5 min on run 44325421153, where one iPhone shard ran 20 min because the specs B1 turned on had near-zero estimated times. The iPhone times are now the CI times of that run and the iPhone project has 8 shards (about 7.7 min each by the plan); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
