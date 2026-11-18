@@ -258,7 +258,15 @@ test.describe('the edges of the gestures', () => {
 		const from = await rig.peek('design.research');
 		await rig.tap(from.dot);
 		await expect(sheet).toHaveAttribute('data-detent', 'peek');
-		await page.waitForTimeout(400);
+		// The detent is set at once and the height follows in a transition, which a busy CI runner can
+		// stretch well past its nominal time: wait for the sheet to reach the peek's height.
+		await expect
+			.poll(async () => (await rowsInReach()).sheetHeight, {
+				message: 'the sheet comes down to the peek',
+				timeout: 10_000,
+			})
+			.toBeLessThanOrEqual(120);
+		await page.waitForTimeout(200);
 		// Most of the chart is in reach: more rows than the half sheet leaves. The peek is the grabber
 		// and the header (a fixed height), so the rows it leaves depend on the phone's height: the
 		// Pixel 7 (839 px high) shows 10 of them, the iPhone 14 (664 px) 6, once the top bar, the link
