@@ -127,6 +127,28 @@ const { title = strings.appName, description = strings.tagline, shell = false } 
 	html select:not([data-own-caret]):disabled {
 		opacity: 0.6;
 	}
+	/*
+	 * iOS Safari zooms the whole page into any field whose text is under 16 px when it takes the
+	 * focus, and does not zoom back (a real iPhone did, on the dependency picker's search box). On
+	 * a coarse pointer every text field, select and text area is at least 16 px. The viewport is
+	 * left alone (no `maximum-scale`, no `user-scalable=no`): a person can still zoom (WCAG 1.4.4).
+	 * The editor's own text is 16 px or more there already (lib/tjp/cm/theme.ts). `!important`: the
+	 * components size their fields in `font-size: var(--text-sm)` and the like.
+	 */
+	@media (pointer: coarse) {
+		html
+			:is(
+				textarea,
+				select,
+				input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+						[type='button']
+					):not([type='submit']):not([type='reset']):not([type='file']):not([type='color']):not(
+						[type='image']
+					)
+			) {
+			font-size: max(16px, 1rem) !important;
+		}
+	}
 	:focus-visible {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;

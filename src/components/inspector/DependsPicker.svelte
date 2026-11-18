@@ -61,6 +61,7 @@
 	let busy = false;
 	let input: HTMLInputElement | undefined = $state();
 	let list: HTMLUListElement | undefined = $state();
+	let root: HTMLDivElement | undefined = $state();
 
 	const all = $derived.by(() => {
 		if (!open) return [];
@@ -83,6 +84,33 @@
 		// focus on the first tap on the box instead (a mouse and a keyboard take it at once).
 		if (globalThis.matchMedia?.('(pointer: coarse)').matches !== true)
 			void tick().then(() => input?.focus());
+	});
+	// In a sheet the picker is the point of the sheet while it is open: it goes to the top of the
+	// sheet's content, where the list can use the rest of it. The owner gives the sheet its full
+	// height as the picker opens, and the list fills in after the chunk, so the content's size
+	// changes while it settles and one scroll can be clamped short. The picker is held at the top
+	// frame by frame for the first 700 ms (or until the person touches the content).
+	$effect(() => {
+		const el = root;
+		if (!open || !el) return;
+		const content = el.closest('dialog.sheet')?.querySelector<HTMLElement>('.content');
+		if (!content) return;
+		const until = performance.now() + 700;
+		let frame = 0;
+		const hold = (): void => {
+			const off = el.getBoundingClientRect().top - content.getBoundingClientRect().top;
+			if (Math.abs(off) > 1) content.scrollTop += off;
+			if (performance.now() < until) frame = requestAnimationFrame(hold);
+		};
+		const release = (): void => cancelAnimationFrame(frame);
+		content.addEventListener('pointerdown', release, { once: true });
+		content.addEventListener('wheel', release, { once: true, passive: true });
+		hold();
+		return () => {
+			release();
+			content.removeEventListener('pointerdown', release);
+			content.removeEventListener('wheel', release);
+		};
 	});
 	$effect(() => {
 		// Keep the active option in view as the arrows move.
@@ -124,7 +152,14 @@
 
 {#if open}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="picker" {id} data-testid="depends-picker" data-role={role} {onfocusout}>
+	<div
+		class="picker"
+		{id}
+		data-testid="depends-picker"
+		data-role={role}
+		{onfocusout}
+		bind:this={root}
+	>
 		<input
 			bind:this={input}
 			bind:value={query}
@@ -216,6 +251,16 @@
 		padding: 0;
 		overflow-y: auto;
 		list-style: none;
+	}
+	/*
+	   A finger gets a list that fills the sheet (the sheet is full height while the picker is open):
+	   the viewport less the top bar, the sheet's grabber and header, the search box and the status
+	   line, and never less than a few rows. The search box stays above it; the list scrolls.
+	*/
+	@media (pointer: coarse) {
+		[role='listbox'] {
+			max-block-size: max(14rem, calc(100dvh - 19rem));
+		}
 	}
 	[role='option'] {
 		display: grid;
