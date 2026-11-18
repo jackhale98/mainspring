@@ -15,6 +15,10 @@
 	Sheet's content area is the one thing that scrolls. With no leave on the days the add form comes
 	first, so that it is in reach at half height without scrolling. Escape or Close returns the focus
 	to the day it came from (the Calendar's job).
+
+	Over 400 lines on purpose: the column and the Sheet's content are one tree of sections (the leave
+	lists, the milestones, the add form and the clear button) with two frames around it, and the
+	styles of every section are one cascade; splitting them would copy the sections.
 -->
 <script lang="ts">
 	import type { SelectionDetails } from '../../lib/calendar/details';

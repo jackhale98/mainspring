@@ -21,10 +21,13 @@
 	  the arrows extends it, also past the month's edge: the next month is shown and it goes on. L opens the type picker (Enter adds that leave), Delete clears the leave
 	  on the selected days, Enter opens the details, Escape closes the picker or the details.
 	- Selection is the app's (`app.selection`, kind `days`), so a person's details can follow it.
-	- The days' details are a column beside the month when the view is 760 px wide or more. Narrower
-	  (a phone, a tablet in portrait) they are the shared bottom Sheet that the task details use:
-	  non-modal, half and full height, over the toolbar rows and the tab bar. The month keeps its
-	  place and scrolls only as far as the selected day needs to stay above the Sheet.
+	- The days' details are a column beside the month when the view is 760 px wide or more. On a
+	  phone and a tablet narrower than that they are the shared bottom Sheet that the task details
+	  use: non-modal, half and full height, over the toolbar rows and the tab bar (close it to change
+	  the mode, the person or the month; the mode in force shows in its header). The month keeps its
+	  place and scrolls only as far as the selected day needs to stay above the Sheet. A desktop never
+	  uses the Sheet: in a pane narrower than 760 px (a docked person's details beside it) the
+	  details are a panel over the month's foot.
 
 	Over 400 lines on purpose: this one component owns the month, the selection, the focus and the
 	dispatch, which only work together (as Workload.svelte does); the rules are in lib/calendar.
@@ -67,11 +70,13 @@
 		app: AppState;
 		/** A phone: the bar is above the tab bar, and there is one month. */
 		phone: boolean;
+		/** The desktop layout: the details stay a column or a panel in the view, never the bottom Sheet. */
+		desktop?: boolean;
 		state: CalendarState;
 		/** Goes to the Gantt (the details' "Show in Gantt"). */
 		showGantt: () => void;
 	}
-	let { app, phone, state: cal, showGantt }: Props = $props();
+	let { app, phone, desktop = false, state: cal, showGantt }: Props = $props();
 
 	const zones = createTimeZoneHost();
 	let root: HTMLDivElement | undefined = $state();
@@ -79,13 +84,19 @@
 	let details: DayDetails | undefined = $state();
 	let rootW = $state(0);
 	let rootH = $state(0);
-	/** A narrow view: the days' details are the shared bottom Sheet (as the task details are), else a column. */
-	const sheetMode = $derived(rootW > 0 && rootW < 760);
+	/**
+	 * A phone, or a tablet narrower than 760 px: the days' details are the shared bottom Sheet (as the
+	 * task details are). A desktop keeps them in the view: a column beside the month, and, in a pane
+	 * narrower than 760 px (a docked person's details beside it), a panel over the month's foot.
+	 */
+	const sheetMode = $derived(phone || (!desktop && rootW > 0 && rootW < 760));
 	let detent = $state<Detent>('half');
 	/** How far the Sheet reaches up from the viewport's bottom, in px (kept until it has left). */
 	let reach = $state(0);
 	/** How much of the month's box the Sheet covers, in px: the room the month keeps to scroll above it. */
 	let cover = $state(0);
+	/** The in-pane panel's height (a desktop's narrow pane), px: the room the month keeps above it. */
+	let panelH = $state(0);
 	/** What the Sheet shows while it slides away, after the selection has gone. */
 	let held = $state.raw<{ details: SelectionDetails; range: string } | null>(null);
 	let detailsOpen = $state(false);
@@ -281,6 +292,7 @@
 	const gestures = new CalendarGestures({
 		mode: () => cal.mode,
 		scroller: () => scroller,
+		covered: (): number => (sheetMode && detailed ? cover : 0),
 		valid: (d) => d >= 0 && d < grid.days.length,
 		label: (d) => {
 			const day = grid.days[d];
@@ -450,6 +462,16 @@
 		);
 	});
 
+	// A panel over the foot of a narrow desktop pane: bring the selected day above it (WCAG 2.4.11).
+	$effect(() => {
+		if (sheetMode || !detailed || panelH <= 0) return;
+		const lo = untrack(() => selected?.[0]);
+		if (lo === undefined) return;
+		void tick().then(() =>
+			root?.querySelector<HTMLElement>(`[data-day="${lo}"]`)?.scrollIntoView({ block: 'nearest' }),
+		);
+	});
+
 	function onscroll(): void {
 		gestures.scrolled();
 	}
@@ -517,6 +539,14 @@
 	/>
 {/snippet}
 
+{#snippet modeChip()}
+	{#if cal.mode !== 'select'}
+		<span class="modechip" data-testid="cal-mode-chip">
+			{C.painting(C.modes[cal.mode], typeName(cal.leaveType))}
+		</span>
+	{/if}
+{/snippet}
+
 <div
 	class="calendar"
 	class:dimmed
@@ -530,8 +560,7 @@
 	data-mode={cal.mode}
 	bind:clientHeight={rootH}
 	data-layout={fill ? 'fill' : 'month'}
-	data-sheet={sheetMode ? '' : undefined}
-	style:--sheet-h="{cover}px"
+	style:--sheet-h="{sheetMode ? cover : detailed ? panelH : 0}px"
 >
 	{#if !phone}
 		<CalendarBar
@@ -597,7 +626,7 @@
 			<div class="inset" aria-hidden="true"></div>
 		</div>
 		{#if detailed && !sheetMode}
-			<div class="sheet">
+			<div class="sheet" bind:clientHeight={panelH}>
 				{@render dayDetails(detailed, rangeText, false)}
 			</div>
 		{/if}
@@ -645,6 +674,7 @@
 		focusOnOpen={false}
 		title={shown?.range ?? ''}
 		closeLabel={C.details.close}
+		actions={modeChip}
 		{detent}
 		ondetent={(d) => (detent = d)}
 		onheight={(h) => {
@@ -760,15 +790,48 @@
 	.pickwrap :global(.picker) {
 		pointer-events: auto;
 	}
-	/* Wide: the details are a column beside the months. Narrower they are the shared bottom Sheet. */
-	.sheet {
-		flex: none;
-		inline-size: 24rem;
+	/*
+	   The details of a desktop: a column beside the months, and in a pane narrower than 760 px a panel
+	   over their foot. A phone and a tablet use the shared bottom Sheet instead (outside this box).
+	   The inset is the room to scroll the last rows above the Sheet or the panel (WCAG 2.4.11).
+	*/
+	@container calendar (min-width: 760px) {
+		.sheet {
+			flex: none;
+			inline-size: 24rem;
+		}
 	}
-	/* Room to scroll the last rows above the Sheet (WCAG 2.4.11). */
-	.calendar[data-sheet] .inset {
-		display: block;
-		block-size: var(--sheet-h);
+	@container calendar (max-width: 759px) {
+		.sheet {
+			position: absolute;
+			z-index: 12;
+			inset-inline: 0;
+			inset-block-end: 0;
+			max-block-size: 70%;
+			border-start-start-radius: var(--radius-sheet);
+			border-start-end-radius: var(--radius-sheet);
+			box-shadow: var(--shadow-raised);
+			background: var(--color-surface);
+			overflow: hidden;
+		}
+		.sheet :global(.details) {
+			border-inline-start: 0;
+			max-block-size: 100%;
+		}
+		.inset {
+			display: block;
+			block-size: var(--sheet-h);
+		}
+	}
+	/* The mode in force while the Sheet covers the toolbar: a drag on the month above it paints or erases. */
+	.modechip {
+		padding: 2px var(--space-3);
+		border-radius: var(--radius-pill);
+		background: var(--color-brass-wash);
+		color: var(--color-brass-ink);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		white-space: nowrap;
 	}
 	.sr-only {
 		position: absolute;

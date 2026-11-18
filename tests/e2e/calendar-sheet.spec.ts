@@ -15,7 +15,7 @@
 import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
-import { day, openCalendar, openDetails, showDay, tapDay } from './lib/calendar-rig';
+import { day, openCalendar, openDetails, setMode, showDay, tapDay } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -150,6 +150,31 @@ test('adding leave from the sheet shows its card, and only the sheet scrolls', a
 	expect(areas, 'one scroll area in the sheet').toBe(1);
 	await sheet.getByTestId('cal-clear').scrollIntoViewIfNeeded();
 	await expect(sheet.getByTestId('cal-clear')).toBeInViewport();
+	// "Clear leave on these days" works with the sheet open: the card goes, the sheet stays.
+	await sheet.getByTestId('cal-clear').tap();
+	await expect(sheet.getByTestId('cal-leave')).toHaveCount(0, { timeout: 30_000 });
+	await expect(sheet).toBeVisible();
+});
+
+test('the mode in force shows in the sheet header while the toolbar is covered', async ({
+	page,
+}, info) => {
+	await openCalendar(page, info);
+	// Paint is chosen on the toolbar (the sheet covers it, so before the sheet opens).
+	await setMode(page, 'paint');
+	await openDetails(page, info, '2026-11-20');
+	await settle(page);
+	const chip = page.locator(SHEET).getByTestId('cal-mode-chip');
+	await expect(chip).toBeVisible();
+	await expect(chip).toContainText('Paint');
+	await expect(chip).toContainText('Holiday');
+	// Back to Select (close the sheet to reach the toolbar): no chip.
+	await page.locator(SHEET).getByRole('button', { name: 'Close' }).tap();
+	await expect(page.locator(SHEET)).toHaveCount(0);
+	await setMode(page, 'select');
+	await openDetails(page, info, '2026-11-20');
+	await settle(page);
+	await expect(page.locator(SHEET).getByTestId('cal-mode-chip')).toHaveCount(0);
 });
 
 test('the month scrolls only as far as it must, and stays put when the day is clear', async ({
