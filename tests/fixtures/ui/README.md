@@ -12,6 +12,6 @@ week as `tests/fixtures/gantt/manipulation`, so the e2e rigs' `minute()` helper 
 | `ui-multifile` | `multifile/` | Includes in sub-folders, a cross-file `depends`, macros, `supplement`, and text-only tasks                                                 |
 
 They are registered as samples in `src/lib/workspace/samples.ts`, so a test opens one with
-`?sample=ui-basic`. They have no native goldens (no `tj3` in the test environment, and the
+`?sample=ui-basic`. They have no native goldens (no native TaskJuggler in the test environment, and the
 golden corpus is for engine parity). `src/lib/workspace/ui-fixtures.engine.test.ts` schedules each
 one in the wasm engine and requires no error and no warning.

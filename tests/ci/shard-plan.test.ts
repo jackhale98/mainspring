@@ -2,7 +2,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error plain .mjs script without types
 import * as sp from '../../scripts/ci/shard-plan.mjs';
 
 const ROOT = path.resolve(__dirname, '../..');
@@ -12,8 +11,8 @@ describe('shard-plan', () => {
 	it('packs the longest first onto the emptiest shard', () => {
 		const s = sp.plan(['a', 'b', 'c', 'd', 'e'], d, 'p', 2);
 		expect(s.map((x: { seconds: number }) => x.seconds)).toEqual([140, 120]);
-		expect(s[0].files).toEqual(['a', 'd']);
-		expect(s[1].files).toEqual(['b', 'c', 'e']);
+		expect(s[0]?.files).toEqual(['a', 'd']);
+		expect(s[1]?.files).toEqual(['b', 'c', 'e']);
 	});
 
 	it('gives every file to exactly one shard, and an unknown file the median', () => {
