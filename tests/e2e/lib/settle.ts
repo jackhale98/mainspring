@@ -28,20 +28,25 @@ export const frames = (page: Page, n = 2): Promise<void> =>
 
 /**
  * Waits until the page's own `read` returns the same value on `n` consecutive frames and gives it.
- * `read` runs in the page: it may use only its own scope and `window`. A value that never holds still
+ * `read` runs in the page: it may use only its own scope, `window` and `arg` (serialised). A value that never holds still
  * (an app that keeps re-laying out) fails after the cap, saying so.
  */
-export async function settledValue<T>(page: Page, read: () => T, n = 4): Promise<T> {
+export async function settledValue<T, A = undefined>(
+	page: Page,
+	read: (arg: A) => T,
+	n = 4,
+	arg?: A,
+): Promise<T> {
 	const r = await page.evaluate(
-		({ src, count, cap }) =>
+		({ src, count, cap, arg }) =>
 			new Promise<{ ok: boolean; value: unknown }>((resolve) => {
-				const fn = new Function(`return (${src})`)() as () => unknown;
+				const fn = new Function(`return (${src})`)() as (a: unknown) => unknown;
 				const t0 = performance.now();
 				let last = '';
 				let value: unknown;
 				let same = 0;
 				const tick = (): void => {
-					value = fn();
+					value = fn(arg);
 					const key = JSON.stringify(value) ?? 'undefined';
 					same = key === last ? same + 1 : 0;
 					last = key;
@@ -51,7 +56,7 @@ export async function settledValue<T>(page: Page, read: () => T, n = 4): Promise
 				};
 				tick();
 			}),
-		{ src: read.toString(), count: n, cap: CAP_MS },
+		{ src: read.toString(), count: n, cap: CAP_MS, arg },
 	);
 	if (!r.ok)
 		throw new Error(`the value never held still for ${n} frames: ${JSON.stringify(r.value)}`);
@@ -96,7 +101,7 @@ export async function animationsDone(page: Page, after = 2): Promise<void> {
 	await page.waitForFunction(
 		() =>
 			document.getAnimations().every((a) => {
-				if (a.playState !== 'running' && a.playState !== 'pending') return true;
+				if (a.playState !== 'running' && !a.pending) return true;
 				return a.effect?.getComputedTiming().iterations === Infinity;
 			}),
 		undefined,

@@ -2,6 +2,7 @@
 /** States of the app that hold a health finding, for select-arrows.spec.ts and picker-phone.spec.ts. */
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { Rig } from './gantt-rig';
+import { frames } from './settle';
 import { openHealth, openPlan, rowOf } from './health-rig';
 
 export const LICENSE_TASK = 'f20.supplement_wallpaper.supplement_license_review';
@@ -30,7 +31,8 @@ export async function openHealthRow(
 			return row;
 		} catch (e) {
 			last = e;
-			await page.waitForTimeout(300);
+			// The windowed list remounts its rows as it settles: draw frames, then look again.
+			await frames(page, 12);
 		}
 	}
 	throw last;

@@ -35,6 +35,7 @@ interface GanttHook {
 	bar(task: string): BarPoints | null;
 	x(minute: number): number;
 	reveal(task: string): void;
+	scroller(): { left: number; top: number; right: number; bottom: number } | null;
 }
 type Win = { __mainspringEdits: EditsHook; __mainspringGantt: GanttHook };
 

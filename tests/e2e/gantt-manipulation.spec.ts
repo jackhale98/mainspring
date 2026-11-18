@@ -15,6 +15,7 @@ import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, deviceName, isTouch, minute } from './lib/gantt-rig';
+import { frames, panelSettled, quietAfter } from './lib/settle';
 
 const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 
@@ -27,10 +28,10 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		const device = deviceName(info);
 		await page.screenshot({ path: path.join(SHOTS, `gesture-${what}-${device}-light.png`) });
 		await page.emulateMedia({ colorScheme: 'dark' });
-		await page.waitForTimeout(250);
+		await frames(page, 4);
 		await page.screenshot({ path: path.join(SHOTS, `gesture-${what}-${device}-dark.png`) });
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(150);
+		await frames(page, 4);
 	}
 
 	test('R1 change effort: drag the end handle (a selected bar), then undo', async ({
@@ -189,7 +190,10 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		// Research is row 1; Review is two rows further down.
 		await expect(page.getByTestId('link-banner')).toContainText('Linking from Research');
 		for (let i = 0; i < 2; i++) await page.keyboard.press('ArrowDown');
-		await page.waitForTimeout(300);
+		// The live region names the target the keys have reached: Review, two rows down.
+		await expect(
+			page.getByTestId('gantt').locator('[role="status"][aria-live="polite"]'),
+		).toContainText(/Review: /);
 		await page.keyboard.press('Enter');
 		await rig.patched(
 			before.replace('depends !sketch { onstart }', 'depends !sketch { onstart }, !research'),
@@ -261,10 +265,11 @@ test.describe('direct manipulation (R1 to R10)', () => {
 			// once the row is lifted.
 			await sketch.locator('.label').tap();
 			await expect(sketch).toHaveAttribute('aria-selected', 'true');
-			await page.waitForTimeout(600);
+			await rig.layoutSettled();
 			await sketch.locator('.label').tap();
 			await expect(sheet).toHaveAttribute('data-detent', 'half');
-			await page.waitForTimeout(400);
+			await panelSettled(sheet);
+			await rig.layoutSettled();
 		} else {
 			await sketch.hover();
 		}
@@ -374,7 +379,8 @@ test.describe('direct manipulation (R1 to R10)', () => {
 		await expect(rig.personOption('dev2')).toContainText('on the selected task');
 		await page.keyboard.type('dev 2');
 		await page.keyboard.press('Enter');
-		await page.waitForTimeout(300);
+		// "Nothing changes": the engine is idle and frames were drawn after the key; then the text is checked.
+		await quietAfter(page);
 		expect(await rig.text()).toBe(booked);
 		await rig.undoTo(before);
 	});

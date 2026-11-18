@@ -10,6 +10,7 @@
 // light and dark. tests/e2e/primitives/select.spec.ts is the contract of the primitive itself.
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { openCalendar, showDay, tapDay } from './lib/calendar-rig';
+import { appSettled, panelSettled, settledValue } from './lib/settle';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { openSmallHealthPanel } from './lib/select-states';
 import { openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
@@ -83,14 +84,14 @@ for (const scheme of ['dark', 'light'] as const) {
 				.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Research' }) })
 				.first();
 			await expect(row).toBeVisible();
-			await page.waitForTimeout(500);
+			await appSettled(page);
 			await row.click();
 			const panel = isTouch(info)
 				? page.getByRole('dialog', { name: /Task details/ })
 				: page.getByTestId('inspector');
 			if (isTouch(info) && (await panel.count()) === 0) await row.click();
 			await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Research');
-			await page.waitForTimeout(400);
+			await panelSettled(panel);
 			await expectArrows(page, 'task details');
 		});
 
@@ -99,7 +100,7 @@ for (const scheme of ['dark', 'light'] as const) {
 			await ready(page);
 			await page.getByLabel('Sample plan').selectOption({ label: 'New plan…' });
 			await expect(page.getByRole('dialog', { name: /New plan/ })).toBeVisible();
-			await page.waitForTimeout(400);
+			await panelSettled(page.getByRole('dialog', { name: /New plan/ }));
 			await expectArrows(page, 'new plan');
 		});
 
@@ -110,7 +111,7 @@ for (const scheme of ['dark', 'light'] as const) {
 			await tapDay(page, info, d);
 			if (isTouch(info)) await tapDay(page, info, d);
 			await expect(page.getByTestId('cal-details')).toBeVisible();
-			await page.waitForTimeout(600);
+			await panelSettled(page.getByTestId('cal-details'));
 			await expectArrows(page, 'day details');
 		});
 
@@ -143,7 +144,19 @@ for (const scheme of ['dark', 'light'] as const) {
 					),
 				[person, col] as const,
 			);
-			await page.waitForTimeout(150);
+			// The scroll moves the heatmap: its cell is where it will stay when two reads agree.
+			await settledValue(
+				page,
+				([p, c]) =>
+					JSON.stringify(
+						(window as unknown as { __mainspringWorkload: Hook }).__mainspringWorkload.cell(
+							p as string,
+							c as number,
+						),
+					),
+				4,
+				[person, col] as const,
+			);
 			const at = await page.evaluate(
 				([p, c]) =>
 					(window as unknown as { __mainspringWorkload: Hook }).__mainspringWorkload.cell(
@@ -156,7 +169,7 @@ for (const scheme of ['dark', 'light'] as const) {
 			await tap(page, info, at);
 			if (isTouch(info)) await tap(page, info, at);
 			await expect(page.getByTestId('cell-details')).toBeVisible();
-			await page.waitForTimeout(500);
+			await panelSettled(page.getByTestId('cell-details'));
 			await expectArrows(page, 'cell details');
 		});
 
