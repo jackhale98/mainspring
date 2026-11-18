@@ -87,21 +87,29 @@
 	});
 	// In a sheet the picker is the point of the sheet while it is open: it goes to the top of the
 	// sheet's content, where the list can use the rest of it. The owner gives the sheet its full
-	// height as the picker opens, so the content's size changes while it settles: the picker is
-	// brought to the top again for a moment after each change (a press elsewhere has no effect on it).
+	// height as the picker opens, and the list fills in after the chunk, so the content's size
+	// changes while it settles and one scroll can be clamped short. The picker is held at the top
+	// frame by frame for the first 700 ms (or until the person touches the content).
 	$effect(() => {
 		const el = root;
 		if (!open || !el) return;
-		const content = el.closest('dialog.sheet')?.querySelector('.content');
+		const content = el.closest('dialog.sheet')?.querySelector<HTMLElement>('.content');
 		if (!content) return;
-		const bring = (): void => el.scrollIntoView({ block: 'start', behavior: 'instant' });
-		requestAnimationFrame(bring);
-		const watch = new ResizeObserver(bring);
-		watch.observe(content);
-		const stop = setTimeout(() => watch.disconnect(), 700);
+		const until = performance.now() + 700;
+		let frame = 0;
+		const hold = (): void => {
+			const off = el.getBoundingClientRect().top - content.getBoundingClientRect().top;
+			if (Math.abs(off) > 1) content.scrollTop += off;
+			if (performance.now() < until) frame = requestAnimationFrame(hold);
+		};
+		const release = (): void => cancelAnimationFrame(frame);
+		content.addEventListener('pointerdown', release, { once: true });
+		content.addEventListener('wheel', release, { once: true, passive: true });
+		hold();
 		return () => {
-			clearTimeout(stop);
-			watch.disconnect();
+			release();
+			content.removeEventListener('pointerdown', release);
+			content.removeEventListener('wheel', release);
 		};
 	});
 	$effect(() => {
