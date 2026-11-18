@@ -13,9 +13,6 @@ const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 test.describe('people shell screenshots', () => {
 	test.skip(!process.env['SCREENSHOTS'], 'set SCREENSHOTS=1 to write docs/phases/screenshots');
 	test.setTimeout(READY_TIMEOUT_MS * 2);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14');
-	});
 
 	async function shoot(page: Page, device: string, what: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {
@@ -120,14 +117,16 @@ test.describe('people shell screenshots', () => {
 		const device = deviceName(info);
 		await open(page);
 		await peopleTab(page).tap();
-		await expect(page.getByTestId('resource-table').first()).toBeVisible({
-			timeout: READY_TIMEOUT_MS,
-		});
+		// The phone's People tab opens on Load: the heatmap, then the Team segment's table.
+		await expect(page.getByTestId('workload')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 		await shoot(page, device, 'people-tab-load');
 		await page
 			.getByRole('tablist', { name: 'People views' })
 			.getByRole('tab', { name: 'Team' })
 			.tap();
+		await expect(page.getByTestId('resource-table').first()).toBeVisible({
+			timeout: READY_TIMEOUT_MS,
+		});
 		await shoot(page, device, 'people-tab-team');
 		await newPlan(page, true);
 		await peopleTab(page).tap();
@@ -150,14 +149,14 @@ test.describe('people shell screenshots', () => {
 			const page = await context.newPage();
 			await open(page);
 			await peopleTab(page).tap();
-			await expect(page.getByTestId('resource-table').first()).toBeVisible({
-				timeout: READY_TIMEOUT_MS,
-			});
+			await expect(page.getByTestId('workload')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 			await page
 				.getByRole('tablist', { name: 'People views' })
 				.getByRole('tab', { name: 'Calendar' })
 				.tap();
-			await light(page, `t13-people-tab-calendar-${name}-light.png`);
+			// The Pixel 7 project writes the sizes' own names; the iPhone project (WebKit) adds its device.
+			const suffix = info.project.name === 'iphone-14' ? '-webkit' : '';
+			await light(page, `t13-people-tab-calendar-${name}${suffix}-light.png`);
 			await context.close();
 		});
 	}

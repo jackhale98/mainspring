@@ -21,9 +21,6 @@ type Win = {
 test.describe('workload screenshots', () => {
 	test.skip(!process.env['SCREENSHOTS'], 'set SCREENSHOTS=1 to write docs/phases/screenshots');
 	test.setTimeout(READY_TIMEOUT_MS * 3);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14');
-	});
 
 	async function shoot(page: Page, device: string, what: string, only?: 'light'): Promise<void> {
 		for (const scheme of only ? (['light'] as const) : (['light', 'dark'] as const)) {

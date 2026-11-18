@@ -29,9 +29,6 @@ const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 test.describe('calendar screenshots', () => {
 	test.skip(!process.env['SCREENSHOTS'], 'set SCREENSHOTS=1 to write docs/phases/screenshots');
 	test.setTimeout(READY_TIMEOUT_MS * 3);
-	test.beforeEach(({ browserName: _b }, info) => {
-		test.skip(info.project.name === 'iphone-14');
-	});
 
 	async function shoot(page: Page, device: string, what: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {

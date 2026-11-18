@@ -21,9 +21,6 @@ import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T15); iPhone is reported');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
 type Pair = [number, number];
@@ -327,6 +324,7 @@ test('W1: dragging a bar to another person is one exact patch, and Undo and Redo
 	const from = await rig.barPoint('dev1', 'design.research', 0, 12);
 	const to = await rig.lane('dev2', from.x);
 	await rig.drag(from, to, { hold: rig.hold, steps: 8 });
+	await rig.expectOwnsTouch();
 	// Research is `allocate dev1`, written once: the one id token changes, nothing else.
 	const after = swap(
 		before,

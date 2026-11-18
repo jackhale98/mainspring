@@ -14,9 +14,6 @@ import { caughtUp, openPerson, openResources, row, selectRow } from './lib/resou
 
 const DIR = path.join(process.cwd(), 'docs/phases/screenshots/phase-3');
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T17)');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
 for (const scheme of ['light', 'dark'] as const) {

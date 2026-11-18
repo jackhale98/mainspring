@@ -225,6 +225,20 @@ export class Rig {
 		});
 	}
 
+	/**
+	 * After a long-press drag with dispatched fingers (the iPhone): the page took the touch, so it
+	 * cancelled the touchmoves and the browser did not pan or scroll under the finger. A drag that
+	 * left them uncancelled would scroll the page on a real phone. Real touch events (the Pixel 7)
+	 * have no such count and are not checked here.
+	 */
+	async expectOwnsTouch(): Promise<void> {
+		if (!this.dispatched) return;
+		expect(
+			await this.takePreventedTouchmoves(),
+			'a long-press drag owns the touch: the page cancels its touchmoves',
+		).toBeGreaterThan(0);
+	}
+
 	/** Raw touch points (one to two fingers), for the specs that need a gesture of their own. */
 	async touches(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Point[]): Promise<void> {
 		if (this.dispatched) return this.#fingers(type, points);

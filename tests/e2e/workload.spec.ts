@@ -21,15 +21,12 @@ import { availabilityOf } from '../../src/lib/workload/availability';
 import { buildLoad } from '../../src/lib/workload/load';
 import { buildIndex, hintsFromResult } from '../../src/lib/tjp/index';
 import { golden } from '../../src/lib/tjp/index/testing';
-import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { smallTargets } from './lib/targets';
 import { mirrorCells, openHeatmap, oracle, resultOf, shape, walkGrid } from './lib/workload-rig';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T14); iPhone is reported');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
 type Hook = {
@@ -138,12 +135,21 @@ async function pointOf(page: Page, person: string, col: number) {
 		([p, c]) => (window as unknown as Win).__mainspringWorkload.scrollTo(p as string, c as number),
 		[person, col] as const,
 	);
-	await page.waitForTimeout(120);
-	// A little into the cell, clear of the name column and the header.
-	const at = await page.evaluate(
-		([p, c]) => (window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
-		[person, col] as const,
-	);
+	// A little into the cell, clear of the name column and the header. The scroll has settled when
+	// two reads 120 ms apart agree (a fixed wait was short on a loaded machine: the tap missed).
+	const read = () =>
+		page.evaluate(
+			([p, c]) => (window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
+			[person, col] as const,
+		);
+	let at = await read();
+	for (let i = 0; i < 40; i++) {
+		await page.waitForTimeout(120);
+		const next = await read();
+		const same = next && at && next.x === at.x && next.y === at.y;
+		at = next;
+		if (same) break;
+	}
 	if (!at) throw new Error('no such cell');
 	return at;
 }
@@ -537,13 +543,9 @@ test('a long-press on a finger opens the cell details; a tap selects, a second t
 	await page.getByRole('button', { name: 'Close' }).tap();
 	await expect(page.getByTestId('cell-details')).toBeHidden();
 	// Long-press, let go without moving.
-	const cdp = await page.context().newCDPSession(page);
-	await cdp.send('Input.dispatchTouchEvent', {
-		type: 'touchStart',
-		touchPoints: [{ x: at.x, y: at.y, id: 1 }],
-	});
-	await page.waitForTimeout(550);
-	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	// A finger down for 550 ms and lifted in place: real touch events on the Pixel 7, dispatched
+	// touch pointers on the iPhone (Rig.drag).
+	await new Rig(page, info).drag(at, at, { hold: 550, steps: 1 });
 	await expect(page.getByTestId('cell-details')).toBeVisible();
 });
 

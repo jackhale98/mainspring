@@ -20,7 +20,8 @@
 // Over 400 lines on purpose: one spec file for one view, each test a user path.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { modKey } from './lib/keys';
 import {
 	CROWD,
 	FEBRUARY_PLAN,
@@ -49,9 +50,6 @@ import {
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T16); iPhone is reported');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
 const HOLIDAYS = [
@@ -119,6 +117,8 @@ test('W3 paint, merge; W4 erase: trim and split; Undo and Redo (Everyone)', asyn
 
 	// Paint Mon 7 to Wed 9 Dec as a holiday for everyone.
 	const t1 = await stroke(page, info, 'paint', '2026-12-07', '2026-12-09');
+	// On the iPhone's dispatched finger: the stroke took the touch, so the month did not scroll.
+	await new Rig(page, info).expectOwnsTouch();
 	expect(t1).toBe(
 		t0.replace(
 			'holiday "New Year" 2027-01-01',
@@ -234,7 +234,7 @@ test('a leave of a macro is text only: the day says so and an erase is refused',
 	if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
 	const editor = page.getByRole('textbox', { name: /^Editor for / });
 	await editor.click();
-	await page.keyboard.press('Control+End');
+	await page.keyboard.press(`${await modKey(page)}+End`);
 	await page.keyboard.insertText(
 		'\nmacro away [2026-12-14 - 2026-12-16]\nresource sam "Sam" {\n  leaves annual ${away}\n}\n',
 	);

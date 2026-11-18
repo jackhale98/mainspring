@@ -16,12 +16,9 @@
 // The plan upstream-fedora-20 itself declares no resources: the view says so (zero cells, zero
 // differences, which is stated, not counted as evidence).
 import { expect, test } from '@playwright/test';
-import { READY_TIMEOUT_MS } from './lib/gantt-rig';
+import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { openHeatmap, oracle, resultOf, shape, walkGrid } from './lib/workload-rig';
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T14); iPhone is reported');
-});
 test.setTimeout(READY_TIMEOUT_MS * 3);
 
 test('fedora-res: every person and week cell equals the hours of the result bookings', async ({
@@ -76,7 +73,7 @@ test('fedora-res: every person and week cell equals the hours of the result book
 });
 
 test('upstream-fedora-20: no resources, so the view says so', async ({ page }, info) => {
-	const phone = info.project.name === 'pixel-7';
+	const phone = isTouch(info);
 	await page.goto(
 		phone
 			? '/app?sample=upstream-fedora-20&hooks=edits,workload'

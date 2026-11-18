@@ -14,16 +14,18 @@ import { expect, test, type CDPSession, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { installProbe, measure, withinDesktopCaps, type Measure } from './lib/perf';
+import { skipOnWebKitIfAllowlisted } from './lib/webkit-allowlist';
 import { openHeatmap } from './lib/workload-rig';
 
 const OUT = path.join(REPO, 'test-results', 'workload-perf.json');
 const SCROLLER = '[data-testid="workload"] .scroller';
 const RUNS = 3;
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T14)');
-});
 test.setTimeout(READY_TIMEOUT_MS * 4);
+test.beforeEach(({ browserName: _b }, info) => {
+	// Only the swipe recording is on the allowlist (it needs a Chromium trace and a native touch scroll).
+	skipOnWebKitIfAllowlisted(info);
+});
 
 function record(key: string, value: unknown): void {
 	fs.mkdirSync(path.dirname(OUT), { recursive: true });

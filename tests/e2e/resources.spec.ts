@@ -18,7 +18,8 @@
 // Over 400 lines on purpose: one spec file for one view, each test a user path.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
+import { reloadFromFailure, trackFailedChunks } from './lib/chunk-failure';
+import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import {
 	add,
 	caughtUp,
@@ -39,9 +40,6 @@ import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T17); iPhone is reported');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
 const GROUP = 'resource dev "Developers" {\n  resource jack "Jack"\n  resource ana "Ana"\n}\n';
@@ -205,6 +203,8 @@ test('W6: Alt+Shift+arrows move a person into the group above and out again', as
 	await expect(row(page, 'rev')).toHaveAttribute('aria-level', '2');
 	await undoRedo(page, before, into);
 	await caughtUp(page);
+	// The next key plans on the tree the view shows: wait until Redo has put Reviewer back in the group.
+	await expect(row(page, 'rev')).toHaveAttribute('aria-level', '2');
 
 	// Up among the siblings, then out of the group.
 	await row(page, 'rev').focus();
@@ -250,6 +250,8 @@ test('W6: the grip drags a row into the group above (a mouse; a finger after the
 	const before = await text(page);
 	// A row at the same boundary, 24 px to the right: one indent step, into `dev` after Ana.
 	await dragRow(page, info, 'rev', 28, 0);
+	// On the iPhone's dispatched finger: the grip took the touch, so the table did not scroll.
+	await new Rig(page, info).expectOwnsTouch();
 	const into = await changed(page, before);
 	expect(into).toBe(before.replace(GROUP + REV + '\n', INTO));
 	await undoRedo(page, before, into);
@@ -453,6 +455,7 @@ test('a view chunk that cannot be fetched says so: Try again, then Reload the pa
 	page,
 }, info) => {
 	await page.route(/\/ResourcesView[^/]*\.js(\?|$)/, (route) => route.abort());
+	const failedUrls = trackFailedChunks(page, /\/ResourcesView[^/]*\.js(\?|$)/);
 	await page.goto(
 		isTouch(info)
 			? `/app?sample=${PLAN}&hooks=edits`
@@ -472,7 +475,12 @@ test('a view chunk that cannot be fetched says so: Try again, then Reload the pa
 	await failed.getByRole('button', { name: 'Try again' }).click();
 	await expect(failed.getByRole('button', { name: 'Reload the page' })).toBeVisible();
 	await page.unroute(/\/ResourcesView[^/]*\.js(\?|$)/);
-	await failed.getByRole('button', { name: 'Reload the page' }).click();
+	await reloadFromFailure(
+		page,
+		(b) => b.click(),
+		failed.getByRole('button', { name: 'Reload the page' }),
+		failedUrls,
+	);
 	// A reload opens the phone on its first tab again.
 	if (isTouch(info)) {
 		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();
@@ -485,6 +493,7 @@ test('the person details chunk that cannot be fetched says so, with the same two
 	page,
 }, info) => {
 	await page.route(/\/ResourcePanel[^/]*\.js(\?|$)/, (route) => route.abort());
+	const failedUrls = trackFailedChunks(page, /\/ResourcePanel[^/]*\.js(\?|$)/);
 	await openResources(page, info);
 	await selectRow(page, info, 'ana');
 	if (isTouch(info)) await selectRow(page, info, 'ana');
@@ -493,7 +502,12 @@ test('the person details chunk that cannot be fetched says so, with the same two
 	await failed.getByRole('button', { name: 'Try again' }).click();
 	await expect(failed.getByRole('button', { name: 'Reload the page' })).toBeVisible();
 	await page.unroute(/\/ResourcePanel[^/]*\.js(\?|$)/);
-	await failed.getByRole('button', { name: 'Reload the page' }).click();
+	await reloadFromFailure(
+		page,
+		(b) => b.click(),
+		failed.getByRole('button', { name: 'Reload the page' }),
+		failedUrls,
+	);
 	// A reload opens the phone on its first tab again.
 	if (isTouch(info)) {
 		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();

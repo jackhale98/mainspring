@@ -15,14 +15,13 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
+import { reloadFromFailure, trackFailedChunks } from './lib/chunk-failure';
+import { isWebKit } from './lib/finger';
 import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const CHUNK = /PeopleView[^/]*\.js(\?|$)/;
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T13); iPhone is reported');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
 const PLAN = 'upstream-tutorial';
@@ -601,11 +600,27 @@ test.describe('the phone People tab', () => {
 	}) => {
 		await open(page);
 		const hold = await holdChunk(page, 'abort');
+		const failedUrls = trackFailedChunks(page, CHUNK);
 		await peopleTab(page).tap();
 		const alert = page.getByTestId('people-failed');
 		await expect(alert).toBeVisible({ timeout: READY_TIMEOUT_MS });
 		await hold.unroute();
 		await alert.getByRole('button', { name: 'Try again' }).tap();
+		if (isWebKit(page)) {
+			// WebKit remembers a failed import (as the slot's header says a browser may), so the
+			// second try fails at once and the button becomes "Reload the page", which recovers.
+			await expect(alert.getByRole('button', { name: 'Reload the page' })).toBeVisible();
+			await expect(page.getByTestId('people-host')).toHaveCount(0);
+			await reloadFromFailure(
+				page,
+				(b) => b.tap(),
+				alert.getByRole('button', { name: 'Reload the page' }),
+				failedUrls,
+			);
+			// A reload opens the phone on its first tab again.
+			await ready(page);
+			await peopleTab(page).tap();
+		}
 		await expect(page.getByTestId('people-host')).toBeVisible({ timeout: READY_TIMEOUT_MS });
 	});
 

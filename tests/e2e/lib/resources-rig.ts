@@ -7,7 +7,7 @@
  * way the calendar rig does (the entry file's text through the `edits` hook).
  */
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
-import { READY_TIMEOUT_MS, isTouch } from './gantt-rig';
+import { READY_TIMEOUT_MS, Rig, isTouch } from './gantt-rig';
 
 export { caughtUp, changed, redo, text, textOf, undo } from './calendar-rig';
 
@@ -97,20 +97,8 @@ export async function dragRow(
 	const a = await centre(r.getByTestId('resource-grip'));
 	const steps = 8;
 	if (isTouch(info)) {
-		const cdp = await page.context().newCDPSession(page);
-		const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', p?: { x: number; y: number }) =>
-			cdp.send('Input.dispatchTouchEvent', {
-				type,
-				touchPoints: p ? [{ x: p.x, y: p.y, id: 1 }] : [],
-			});
-		await touch('touchStart', a);
-		await page.waitForTimeout(450);
-		for (let i = 1; i <= steps; i++) {
-			await touch('touchMove', { x: a.x + (dx * i) / steps, y: a.y + (dy * i) / steps });
-		}
-		await page.waitForTimeout(100);
-		await touch('touchEnd');
-		await cdp.detach();
+		// Real touch events on the Pixel 7, dispatched touch pointers on the iPhone (Rig.drag).
+		await new Rig(page, info).drag(a, { x: a.x + dx, y: a.y + dy }, { hold: 450, steps });
 	} else {
 		await page.mouse.move(a.x, a.y);
 		await page.mouse.down();

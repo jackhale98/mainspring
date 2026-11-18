@@ -22,22 +22,6 @@ import { fileURLToPath } from 'node:url';
  * @type {Record<string, string[]>}
  */
 export const PENDING_BATCHES = {
-	// B3: People (shell, workload, lanes, calendar, resources, workload-gate).
-	B3: [
-		'people-shell.spec.ts',
-		'people-shell-screenshots.spec.ts',
-		'workload.spec.ts',
-		'workload-gate.spec.ts',
-		'workload-perf.spec.ts',
-		'workload-screenshots.spec.ts',
-		'lanes.spec.ts',
-		'lanes-screenshots.spec.ts',
-		'calendar.spec.ts',
-		'calendar-sheet.spec.ts',
-		'calendar-screenshots.spec.ts',
-		'resources.spec.ts',
-		'resources-screenshots.spec.ts',
-	],
 	// B4: health, health fixes, why-here and the screenshot specs.
 	B4: ['health.spec.ts', 'health-fixes.spec.ts', 'health-screenshots.spec.ts', 'why-here.spec.ts'],
 	// B5, misc: Text mode skips that keep the iPhone out (a hardware keyboard; Android's EditContext,

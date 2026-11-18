@@ -4,10 +4,11 @@
  * view switcher, or the phone's People tab and its Calendar segment), finds days by their date,
  * moves to a month with the toolbar (a desktop shows one month that fills the view, as a phone
  * does, so a day outside it is not in the DOM), drags over days with a mouse or a finger (a long-press, then
- * a move, through the DevTools protocol), reads the entry file's text, and presses Undo.
+ * a move, through the DevTools protocol on the Pixel 7, dispatched touch pointers on the iPhone), reads the entry file's text, and presses Undo.
  */
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
-import { READY_TIMEOUT_MS, isTouch } from './gantt-rig';
+import { READY_TIMEOUT_MS, Rig, isTouch } from './gantt-rig';
+import { modKey } from './keys';
 
 type Win = { __mainspringEdits: { text(path?: string): string | null } };
 
@@ -100,23 +101,8 @@ export async function drag(page: Page, info: TestInfo, from: Locator, to: Locato
 	const b = await centre(to);
 	const steps = 8;
 	if (isTouch(info)) {
-		const cdp = await page.context().newCDPSession(page);
-		const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', p?: { x: number; y: number }) =>
-			cdp.send('Input.dispatchTouchEvent', {
-				type,
-				touchPoints: p ? [{ x: p.x, y: p.y, id: 1 }] : [],
-			});
-		await touch('touchStart', a);
-		await page.waitForTimeout(450);
-		for (let i = 1; i <= steps; i++) {
-			await touch('touchMove', {
-				x: a.x + ((b.x - a.x) * i) / steps,
-				y: a.y + ((b.y - a.y) * i) / steps,
-			});
-		}
-		await page.waitForTimeout(100);
-		await touch('touchEnd');
-		await cdp.detach();
+		// Real touch events on the Pixel 7, dispatched touch pointers on the iPhone (Rig.drag).
+		await new Rig(page, info).drag(a, b, { hold: 450, steps });
 	} else {
 		await page.mouse.move(a.x, a.y);
 		await page.mouse.down();
@@ -239,7 +225,8 @@ export async function appendText(
 	if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
 	const editor = page.getByRole('textbox', { name: /^Editor for / });
 	await editor.click();
-	await page.keyboard.press(replace ? 'Control+A' : 'Control+End');
+	const mod = await modKey(page);
+	await page.keyboard.press(replace ? `${mod}+A` : `${mod}+End`);
 	await page.keyboard.insertText(snippet);
 	await caughtUp(page);
 	if (phone) {
