@@ -4,7 +4,7 @@
 # project, unemployed); a global holiday and a global vacation; a part-timer (Cy, mornings only);
 # an efficiency 0.8 person (Ben); one person with only group work (Eli); several people on one
 # task; a task allocated to the group; busy people (Ana and Ben book weeks in a row); flags on
-# tasks (`urgent` on a container, inherited by its children; `review`; `later` on one task); a
+# tasks (`urgent` on a container, inherited by its children; `review`; `later` on two tasks); a
 # nested container (build.core, three levels deep); a milestone; a task with no people.
 # SPDX-License-Identifier: GPL-2.0-or-later
 project uipeople "UI people" 2026-03-02 - 2026-06-30 {
@@ -88,6 +88,7 @@ task build "Build" {
   task docs "Docs" {
     length 6d
     depends !qa
+    flags later
   }
 }
 
