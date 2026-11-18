@@ -62,6 +62,26 @@
 		return { row: Number(c.dataset['row']), col: Number(c.dataset['col']) };
 	}
 
+	// The focus is in the grid and should stay there when a rebuild of the mirror (a zoom, the
+	// demand arriving, a resize) replaces the focused cell's element: the browser then drops the
+	// focus to the body, and it goes back to the focus cell. A focus the person moved elsewhere
+	// (focusout with a target outside the grid) is left alone.
+	let holding = false;
+	$effect(() => {
+		void mirror;
+		const f = focus;
+		if (!holding || !f) return;
+		void tick().then(() => {
+			if (!holding || !root) return;
+			const active = document.activeElement;
+			if (active && active !== document.body && root.contains(active)) return;
+			if (active && active !== document.body) return;
+			root
+				.querySelector<HTMLElement>(`[data-row="${f.row}"][data-col="${f.col}"]`)
+				?.focus({ preventScroll: true });
+		});
+	});
+
 	// svelte-ignore state_referenced_locally
 	let seen = focusNonce;
 	$effect(() => {
@@ -91,9 +111,21 @@
 		const c = cellOf(e.target);
 		if (c) onkey(e, c);
 	}}
-	onfocusin={(e) => onfocuschange(true, cellOf(e.target))}
+	onfocusin={(e) => {
+		holding = true;
+		onfocuschange(true, cellOf(e.target));
+	}}
 	onfocusout={(e) => {
 		if (!(e.relatedTarget instanceof Node) || !root?.contains(e.relatedTarget)) {
+			// A focus moved to another element, or dropped by a click on nothing (its element still in
+			// the page), is let go; one lost because a rebuild removed its element is held for the
+			// effect above.
+			const from = e.target;
+			if (e.relatedTarget instanceof Node) holding = false;
+			else
+				setTimeout(() => {
+					if (from instanceof Node && from.isConnected) holding = false;
+				}, 0);
 			onfocuschange(false, null);
 		}
 	}}
