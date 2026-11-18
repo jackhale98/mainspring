@@ -93,25 +93,36 @@ const { title = strings.appName, description = strings.tagline, shell = false } 
 	 * fill and a white arrow whatever `background` says (a real iPhone does, and so does the
 	 * Playwright WebKit), so the native look is turned off and the arrow is drawn here, in the text
 	 * colour of the select. A select that has its own caret over it (a toolbar pill: its CSS sets
-	 * `appearance: none` itself) says so with `data-own-caret` and keeps its own look. The selector
-	 * outranks a component's one-class rule, so that a `background` shorthand there does not take
-	 * the arrow away.
+	 * `appearance: none` itself) says so with `data-own-caret` and keeps its own look. The arrow
+	 * and its room are `!important`: a component styles its select with a `background` or `padding`
+	 * shorthand, which would otherwise reset the arrow whatever the selectors' specificity (the
+	 * inspector's, the health panel's, the time zone's and the move menus' selects did). The
+	 * colour, the border and the radius stay the component's. In forced colors the browser draws
+	 * the select, arrow included.
 	 */
 	html select:not([data-own-caret]) {
 		appearance: none;
 		-webkit-appearance: none;
-		padding-inline-end: 2rem;
+		padding-inline-end: 2rem !important;
 		background-image:
 			linear-gradient(45deg, transparent 50%, currentColor 50%),
-			linear-gradient(135deg, currentColor 50%, transparent 50%);
+			linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
 		background-position:
 			calc(100% - 1.2rem) 50%,
-			calc(100% - 0.85rem) 50%;
+			calc(100% - 0.85rem) 50% !important;
 		background-size:
 			0.35rem 0.35rem,
-			0.35rem 0.35rem;
-		background-repeat: no-repeat;
+			0.35rem 0.35rem !important;
+		background-repeat: no-repeat !important;
 		text-overflow: ellipsis;
+	}
+	@media (forced-colors: active) {
+		html select:not([data-own-caret]) {
+			appearance: auto;
+			-webkit-appearance: auto;
+			padding-inline-end: revert !important;
+			background-image: none !important;
+		}
 	}
 	html select:not([data-own-caret]):disabled {
 		opacity: 0.6;
