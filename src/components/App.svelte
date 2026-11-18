@@ -93,7 +93,7 @@
 	};
 
 	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
-	const planViews = { tasks: newOutlineView(), resources: newOutlineView() };
+	const planViews = { tasks: newOutlineView() };
 
 	// The preferences of the open sample: its mode and its divider.
 	$effect(() => {
@@ -104,7 +104,6 @@
 		untrack(() => {
 			// Another plan's outline starts at the top with nothing selected.
 			Object.assign(planViews.tasks, newOutlineView());
-			Object.assign(planViews.resources, newOutlineView());
 			modes.use(id);
 			app.health.use(id);
 			// A new plan opens on the Gantt, whatever the shared `new` key holds (ADR-0013).
@@ -412,6 +411,7 @@
 								showTitle={false}
 								showNotice={false}
 								views={planViews}
+								showResources={false}
 								add={{
 									hasSelection: app.selectedTask !== null,
 									canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),

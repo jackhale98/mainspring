@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-<!-- The outline: the task tree above the resource tree, and the notice about unsaved changes. -->
+<!-- The outline: the task tree above the resource tree (not on the phone's Plan tab, where People has
+     the people: user, 2026-11-18), and the notice about unsaved changes. -->
 <script lang="ts">
 	import type { AddMode } from '../lib/gantt/add-task';
 	import type { AppState } from '../lib/state/app.svelte';
@@ -16,7 +17,9 @@
 		/** The unsaved-changes notice at the foot (a phone shows its compact one on every tab). */
 		showNotice?: boolean;
 		/** What the two trees keep across an unmount (a phone's Plan tab). */
-		views?: { tasks: OutlineView; resources: OutlineView };
+		views?: { tasks: OutlineView; resources?: OutlineView };
+		/** The resource tree under the tasks (the outline drawer and sidebar; the phone's Plan tab has none). */
+		showResources?: boolean;
 		/** The Add task (+) control in the tasks' header: the phone's Plan tab (ADR-0013). */
 		add?:
 			| {
@@ -28,7 +31,15 @@
 		/** The empty state's pointer to Text (the phone's Plan tab: the editor is another tab). */
 		ontext?: (() => void) | undefined;
 	}
-	let { app, showTitle = true, showNotice = true, views, add, ontext }: Props = $props();
+	let {
+		app,
+		showTitle = true,
+		showNotice = true,
+		views,
+		showResources = true,
+		add,
+		ontext,
+	}: Props = $props();
 </script>
 
 <div class="panel">
@@ -57,19 +68,21 @@
 			/>
 		{/if}
 	</section>
-	<section class="resources" aria-labelledby="outline-resources">
-		<h3 id="outline-resources">{strings.outline.resources}</h3>
-		<OutlineTree
-			label={strings.outline.resources}
-			nodes={app.outline.resources}
-			collapsed={app.collapsed}
-			errors={app.errors}
-			emptyText={strings.outline.noResources}
-			ontoggle={(k) => app.toggleNode(k)}
-			onselect={(n) => app.revealNode(n)}
-			view={views?.resources}
-		/>
-	</section>
+	{#if showResources}
+		<section class="resources" aria-labelledby="outline-resources">
+			<h3 id="outline-resources">{strings.outline.resources}</h3>
+			<OutlineTree
+				label={strings.outline.resources}
+				nodes={app.outline.resources}
+				collapsed={app.collapsed}
+				errors={app.errors}
+				emptyText={strings.outline.noResources}
+				ontoggle={(k) => app.toggleNode(k)}
+				onselect={(n) => app.revealNode(n)}
+				view={views?.resources}
+			/>
+		</section>
+	{/if}
 	{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
 </div>
 

@@ -38,8 +38,10 @@ test.describe('text mode', () => {
 		await showOutline(page);
 		const tree = page.getByRole('tree', { name: 'Tasks' });
 		await expect(tree.getByRole('treeitem', { name: /Rollout/ })).toBeVisible();
+		// A phone's Plan tab lists tasks only (People has the people: user, 2026-11-18).
+		const phone = await page.getByRole('tab', { name: 'Plan', exact: true }).isVisible();
 		await expect(page.getByRole('tree', { name: 'Resources' }).getByRole('treeitem')).toHaveCount(
-			2,
+			phone ? 0 : 2,
 		);
 	});
 
