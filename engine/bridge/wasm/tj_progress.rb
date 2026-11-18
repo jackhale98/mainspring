@@ -83,7 +83,7 @@ class TaskJuggler
     class Scanner
       # Extends the StringIO a FileStreamHandle reads from.
       module LineProgress
-        def gets(*args)
+        def gets(...)
           MainspringBridge::Progress.tick
           super
         end

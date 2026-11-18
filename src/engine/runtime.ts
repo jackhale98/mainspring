@@ -205,11 +205,15 @@ class WasmEngine implements NodeEngine {
 				}
 			},
 		};
-		this.#bridge.call(
-			'connect_progress',
-			init.vm.wrap(host),
-			init.vm.eval(String(init.progressMs)),
-		);
+		// A bundle from before the progress beats (a stale manifest in the HTTP cache) has no
+		// `connect_progress`: it still boots, without beats, rather than failing with kind `boot`.
+		if (init.vm.eval('TJBridge.respond_to?(:connect_progress)').toString() === 'true') {
+			this.#bridge.call(
+				'connect_progress',
+				init.vm.wrap(host),
+				init.vm.eval(String(init.progressMs)),
+			);
+		}
 	}
 
 	schedule(request: ScheduleRequest, onProgress?: ProgressFn): ScheduleResult {
