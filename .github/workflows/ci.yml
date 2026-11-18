@@ -101,6 +101,11 @@ jobs:
         env:
           TJP_EDIT_ENGINE: '1'
           FC_SEED: '20261112'
+      # The small UI fixtures (tests/fixtures/ui) schedule with no error and no warning: they have
+      # no native goldens, so this is their engine check (ADR-0016 change 4).
+      - run: npx vitest run src/lib/workspace/ui-fixtures.engine.test.ts
+        env:
+          UI_FIXTURES_ENGINE: '1'
       # One engine's memory must stay flat over repeated full runs of the golden plans (wasm
       # memory never shrinks; engine/bridge/wasm/tj_wasm_jumps.rb). Fails without the engine.
       - run: npx vitest run tests/engine/memory.engine.test.ts

@@ -1,0 +1,39 @@
+# Feature: ui-multifile - includes from sub-folders, a cross-file depends, macros and supplement
+# (tests/fixtures/ui/README.md). The entry file holds the project, the macros' users and a
+# supplement that books a person on a task declared in another file; lib/people.tji holds the
+# people; tasks/*.tji hold the work. `cut` is a macro-declared task (text-only), and a task has a
+# macro-built name part.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project uimulti "UI multifile" 2026-03-02 - 2026-06-30 {
+  now 2026-03-16-09:00
+}
+
+macro owner [ana]
+macro stub [
+  task ${1} "${2}" {
+    length 2d
+    depends !prep
+  }
+]
+
+include "lib/people.tji"
+
+task plan "Plan" {
+  task kickoff "Kickoff" {
+    milestone
+    start 2026-03-02
+  }
+  task prep "Prepare" {
+    effort 3d
+    allocate ${owner}
+    depends !kickoff
+  }
+  ${stub "cut" "Cut scope"}
+}
+
+include "tasks/delivery.tji"
+include "tasks/support.tji"
+
+supplement task delivery.build {
+  allocate ben
+}

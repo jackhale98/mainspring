@@ -18,7 +18,26 @@ const ROOTS: Record<string, string> = {
 	'gantt-200': 'engine/golden/plans/gantt/gantt-200',
 	'gantt-500': 'engine/golden/plans/gantt/gantt-500',
 	'fedora-res': 'engine/golden/plans/fedora-res',
+	'ui-basic': 'tests/fixtures/ui/basic',
+	'ui-people': 'tests/fixtures/ui/people',
+	'ui-multifile': 'tests/fixtures/ui/multifile',
 };
+
+/** The UI fixtures (tests/fixtures/ui) have no native goldens: the files on disk are the reference. */
+const NO_GOLDEN = new Set(['ui-basic', 'ui-people', 'ui-multifile']);
+
+/** Every .tjp and .tji under a folder, as workspace paths. */
+function listPlanFiles(dir: string, prefix = ''): string[] {
+	return fs
+		.readdirSync(dir, { withFileTypes: true })
+		.flatMap((e) =>
+			e.isDirectory()
+				? listPlanFiles(path.join(dir, e.name), `${prefix}${e.name}/`)
+				: /\.tj[pi]$/.test(e.name)
+					? [`${prefix}${e.name}`]
+					: [],
+		);
+}
 
 describe('SAMPLES', () => {
 	it('lists the four samples of spec 6.2 and the Gantt samples, with labels from the strings file', () => {
@@ -35,9 +54,11 @@ describe('SAMPLES', () => {
 		async (id, s) => {
 			const { entry, files } = await s.load();
 			expect(Object.keys(files)).toContain(entry);
-			const golden = JSON.parse(
-				fs.readFileSync(path.join(ROOT, 'engine/golden/expected', `${id}.json`), 'utf8'),
-			) as { entry: string; files: string[] };
+			const golden = NO_GOLDEN.has(id)
+				? { entry: 'plan.tjp', files: listPlanFiles(path.join(ROOT, ROOTS[id] ?? '')) }
+				: (JSON.parse(
+						fs.readFileSync(path.join(ROOT, 'engine/golden/expected', `${id}.json`), 'utf8'),
+					) as { entry: string; files: string[] });
 			expect(entry).toBe(golden.entry);
 			expect(Object.keys(files).sort()).toEqual([...golden.files].sort());
 			for (const [p, text] of Object.entries(files)) {

@@ -831,6 +831,9 @@ export const strings = {
 		'gantt-200': 'Gantt scale: 200 tasks',
 		'gantt-500': 'Gantt scale: 500 tasks',
 		'fedora-res': 'Fedora 20 with people (generated)',
+		'ui-basic': 'Small plan: tasks and links',
+		'ui-people': 'Small plan: five people',
+		'ui-multifile': 'Small plan: several files',
 	},
 	topBar: {
 		sample: 'Sample plan',

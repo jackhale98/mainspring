@@ -1,0 +1,106 @@
+# Feature: ui-people - a small plan for the People specs (workload, lanes, calendar, resources,
+# health, the Gantt filter and the people picker; tests/fixtures/ui/README.md)
+# Covers: one group of five people; personal leave of every type (annual, sick, special, unpaid,
+# project, unemployed); a global holiday and a global vacation; a part-timer (Cy, mornings only);
+# an efficiency 0.8 person (Ben); one person with no work at all (Eli); several people on one
+# task; a task allocated to the group; busy people (Ana and Ben book weeks in a row); flags on
+# tasks; a milestone; tasks with no people (so the health panel has something to say).
+# SPDX-License-Identifier: GPL-2.0-or-later
+project uipeople "UI people" 2026-03-02 - 2026-06-30 {
+  now 2026-03-16-09:00
+}
+
+flags urgent, review
+
+leaves holiday "Spring holiday" 2026-04-06
+vacation "Company closure" 2026-05-25
+
+resource team "Team" {
+  resource ana "Ana" {
+    leaves annual "Annual leave" 2026-03-23 - 2026-03-28
+  }
+  resource ben "Ben" {
+    efficiency 0.8
+    leaves sick "Flu" 2026-03-10 - 2026-03-12
+    leaves special "Study leave" 2026-04-14 - 2026-04-16
+  }
+  resource cy "Cy" {
+    workinghours mon - fri 9:00 - 13:00
+    leaves unpaid "Unpaid leave" 2026-04-20 - 2026-04-22
+  }
+  resource dee "Dee" {
+    leaves project "Offsite" 2026-03-18 - 2026-03-20
+    leaves unemployed "Gap" 2026-05-11 - 2026-05-13
+  }
+  resource eli "Eli"
+}
+
+task discover "Discovery" {
+  task interviews "Interviews" {
+    effort 6d
+    allocate ana
+    complete 100
+    flags review
+  }
+  task survey "Survey" {
+    effort 4d
+    allocate dee
+    complete 60
+  }
+  task findings "Findings" {
+    effort 3d
+    allocate ana, dee
+    depends !interviews, !survey
+    flags review
+  }
+}
+
+task build "Build" {
+  depends discover.findings
+  task api "API" {
+    effort 12d
+    allocate ben
+    flags urgent
+  }
+  task web "Web" {
+    effort 10d
+    allocate ana
+    depends !api { gaplength 2d }
+  }
+  task data "Data migration" {
+    effort 8d
+    allocate cy
+  }
+  task pair "Pairing sprint" {
+    effort 6d
+    allocate ana, ben
+    depends !web
+    flags urgent
+  }
+  task qa "QA" {
+    effort 5d
+    allocate dee, cy
+    depends !api, !data
+  }
+  task docs "Docs" {
+    length 6d
+    depends !qa
+  }
+}
+
+task rollout "Rollout" {
+  task train "Team training" {
+    effort 4d
+    allocate team
+    depends build.qa
+  }
+  task go "Go live" {
+    milestone
+    depends !train, build.docs
+  }
+  task retro "Retrospective" {
+    effort 1d
+    allocate ana, ben, cy
+    depends !go
+  }
+}
