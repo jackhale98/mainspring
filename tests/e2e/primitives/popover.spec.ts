@@ -12,7 +12,7 @@
 // Consumers whose specs run on every change here: shell, phone-status, update-check (the engine
 // details and the plan status), workload (the thresholds).
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { box, expectInside, openPrimitives, viewport } from '../lib/primitives-rig';
 
 test.beforeEach(async ({ page }) => {
@@ -66,17 +66,41 @@ test('the anchored card opens beside its button and aria-expanded follows it', a
 	expect(Math.abs(c.x + c.width - (t.x + t.width))).toBeLessThanOrEqual(2);
 });
 
+/**
+ * Waits for the anchored card to settle: it is placed a frame or two after it opens (later on a
+ * busy CI runner), so a box read at once can be its first, unplaced one.
+ */
+async function placed(page: Page): Promise<void> {
+	const card = page.getByTestId('pop-anchor');
+	await expect(card).toBeVisible();
+	let last = '';
+	await expect
+		.poll(
+			async () => {
+				const b = await box(card);
+				const now = `${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.height)}`;
+				const same = now === last;
+				last = now;
+				return same;
+			},
+			{ message: 'the card stops moving', intervals: [50, 100, 100, 200] },
+		)
+		.toBe(true);
+}
+
 test('the anchored card stays inside the viewport at 360 px, and above a button with no room below', async ({
 	page,
 }) => {
 	await page.setViewportSize({ width: 360, height: 640 });
 	await page.getByTestId('pop-anchor-button').click();
+	await placed(page);
 	expectInside(await box(page.getByTestId('pop-anchor')), await viewport(page), 'at 360 px');
 	await page.keyboard.press('Escape');
 	// Little height: the card is above the button, or scrolls inside the room that there is.
 	await page.setViewportSize({ width: 360, height: 300 });
 	await page.getByTestId('pop-anchor-button').scrollIntoViewIfNeeded();
 	await page.getByTestId('pop-anchor-button').click();
+	await placed(page);
 	expectInside(
 		await box(page.getByTestId('pop-anchor')),
 		await viewport(page),
