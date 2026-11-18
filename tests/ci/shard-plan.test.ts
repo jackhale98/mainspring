@@ -79,7 +79,10 @@ describe('shard-plan', () => {
 		const files = sp.specFiles(ROOT);
 		for (const [project, n] of Object.entries(counts) as [string, number][]) {
 			for (const s of sp.plan(files, dur, project, n)) {
-				expect(s.seconds * dur.ciFactor, `${project} ${n}`).toBeLessThanOrEqual(dur.targetSeconds);
+				expect(
+					s.seconds * dur.ciFactor[project] + dur.setupSeconds,
+					`${project} ${n}`,
+				).toBeLessThanOrEqual(dur.targetSeconds);
 			}
 		}
 	});

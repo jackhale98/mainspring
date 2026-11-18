@@ -4,14 +4,14 @@
 // in time (one Pixel 7 runner took 22 minutes while its sibling took 9). This picks whole files:
 // longest first, each onto the shard with the least time so far, from the committed durations in
 // tests/e2e/durations.json (seconds of worker time per file and project, measured locally with
-// two workers; `node scripts/ci/shard-plan.mjs measure <results.json> <project>` rewrites one
-// project from a Playwright JSON report). A spec file that is not in the file gets the median of
+// two workers; `node scripts/ci/shard-plan.mjs measure <project> <reports...>` rewrites one
+// project from Playwright JSON reports). A spec file that is not in the file gets the median of
 // its project, so a new file lands somewhere sensible until the next measurement.
 //
 //   node scripts/ci/shard-plan.mjs files <project> <i>/<n>   the spec files of one shard
 //   node scripts/ci/shard-plan.mjs table                     every project's plan with times
 //   node scripts/ci/shard-plan.mjs check                     fails if a shard of ci.yml is over target
-//   node scripts/ci/shard-plan.mjs measure <report.json> <project> [workers]
+//   node scripts/ci/shard-plan.mjs measure <project> <report.json>...   (CI: one per shard)
 // The shard counts are the matrix of .github/workflows/ci.yml (e2e job); `check` reads them there.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -120,12 +120,12 @@ function main(argv) {
 		for (const [project, n] of Object.entries(counts)) {
 			const shards = plan(specFiles(), d, project, n);
 			shards.forEach((s, i) => {
-				const ci = s.seconds * d.ciFactor;
+				const ci = s.seconds * d.ciFactor[project] + d.setupSeconds;
 				const over = ci > d.targetSeconds;
 				if (over) bad++;
 				console.log(
 					`${project} ${i + 1}/${n}: ${s.files.length} files, ${Math.round(s.seconds)} s local, ` +
-						`about ${Math.round(ci / 60)} min on CI${over ? '  OVER TARGET' : ''}`,
+						`about ${(ci / 60).toFixed(1)} min on CI${over ? '  OVER TARGET' : ''}`,
 				);
 			});
 		}
