@@ -95,7 +95,7 @@ const rectsOf = (page: Page): Promise<Rects> =>
 
 test.describe('frozen header and name column', () => {
 	/**
-	 * A fling has run out: the chart's scroll position is the same for a few frames. Light enough to
+	 * A fling has run out: the scroll position of the chart is the same for a few frames. Light enough to
 	 * run inside a sampled window (it reads two numbers a frame and lays nothing out).
 	 */
 	const flungOut = (page: Page): Promise<string> =>
@@ -210,7 +210,7 @@ test.describe('frozen header and name column', () => {
 					type: 'touchMove',
 					touchPoints: [{ x: x0 + ((x1 - x0) * i) / steps, y: y0 + ((y1 - y0) * i) / steps }],
 				});
-				// One frame between two moves: a finger's speed in frames, so a slow runner pans as many.
+				// One frame between two moves: the speed of a finger counted in frames, so a slow runner pans as many.
 				await nextFrames(page, 1);
 			}
 			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
