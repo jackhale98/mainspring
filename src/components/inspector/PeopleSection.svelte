@@ -45,6 +45,7 @@
 							<span class="replace">
 								<span aria-hidden="true">⇄</span>
 								<select
+									data-own-caret
 									aria-label={S.personReplace(p.name)}
 									title={S.personReplace(p.name)}
 									onchange={async (e) => {

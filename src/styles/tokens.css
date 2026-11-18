@@ -50,7 +50,7 @@
 	--motion-fast: 150ms;
 	--motion-base: 200ms;
 	/* A sheet slides in, or glides to another height, in 200 ms and out in 180 (ADR-0009 #7: 150 to
-	   200). Unitless ms, so that Sheet.svelte and the Calendar's slide-up.ts read the same numbers
+	   200). Unitless ms, so that Sheet.svelte reads the same numbers
 	   for what script starts (a minifier writes 200ms as .2s, which a script cannot read as ms).
 	   Zero with reduced motion. */
 	--sheet-ms: 200;

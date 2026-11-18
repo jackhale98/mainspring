@@ -28,6 +28,8 @@
 		app: AppState;
 		content: PeopleContent;
 		phone: boolean;
+		/** The desktop layout: a view docks its panel beside it. */
+		desktop: boolean;
 		/** Puts a view's toolbar chips in this slot's bar (a desktop and a tablet); null takes them out. */
 		setBar: (bar: Snippet | null) => void;
 		/** Goes to the Gantt (a view's "Show in Gantt"). */
@@ -53,10 +55,12 @@
 		people: PeopleViewState;
 		/** The phone's People tab: it has the segments; elsewhere a toolbar's switcher chooses the view. */
 		phone: boolean;
+		/** The desktop layout (1024 px and wider): a view that docks a panel beside it (the Calendar's details). */
+		desktop?: boolean;
 		/** The view switcher, for the bar of a desktop and a tablet. */
 		lead?: Snippet | undefined;
 	}
-	let { app, people, phone, lead }: Props = $props();
+	let { app, people, phone, desktop = false, lead }: Props = $props();
 
 	const S = strings.people;
 	const ICON: Record<PeopleSegment, IconName> = {
@@ -136,7 +140,7 @@
 		aria-labelledby={phone ? `segment-tab-${people.segment}` : undefined}
 	>
 		{#if Chunk}
-			<Chunk {app} {content} {phone} setBar={(b) => (barExtra = b)} {showGantt} />
+			<Chunk {app} {content} {phone} {desktop} setBar={(b) => (barExtra = b)} {showGantt} />
 		{:else if failed > 0}
 			<div class="message" role="alert" data-testid="people-failed">
 				<p>{S.loadFailed}</p>

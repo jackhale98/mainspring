@@ -103,6 +103,7 @@
 	<label class="chip select zoom-select">
 		<span class="sr-only">{W.zoom}</span>
 		<select
+			data-own-caret
 			value={zoom}
 			aria-label={W.zoom}
 			onchange={(e) => onzoom(e.currentTarget.value as BucketKind)}

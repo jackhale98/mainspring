@@ -480,7 +480,13 @@
 						{/if}
 						{#if !phone && peopleSeen}
 							<div class="view-host" hidden={!showPeople}>
-								<PeopleSlot {app} {people} phone={false} lead={peopleSwitcher} />
+								<PeopleSlot
+									{app}
+									{people}
+									phone={false}
+									desktop={kind === 'desktop'}
+									lead={peopleSwitcher}
+								/>
 							</div>
 						{/if}
 					</div>

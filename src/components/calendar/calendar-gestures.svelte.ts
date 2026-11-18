@@ -41,6 +41,8 @@ import type { CalendarMode } from './calendar-state.svelte';
 export interface CalendarHost {
 	mode(): CalendarMode;
 	scroller(): HTMLElement | undefined;
+	/** How much of the scroller's foot a bottom sheet covers, in px (0 when there is none): a drag's edge scroll starts above it. */
+	covered?(): number;
 	/** Whether a day (an index) can be selected: the grid has it and it is inside the plan. */
 	valid(day: number): boolean;
 	/** A tap or click on a day; `shift` extends the selection. */
@@ -330,7 +332,7 @@ export class CalendarGestures {
 		const list = this.#h.scroller();
 		if (list && list.scrollHeight > list.clientHeight) {
 			const r = list.getBoundingClientRect();
-			this.#box = { top: r.top, bottom: r.bottom };
+			this.#box = { top: r.top, bottom: Math.max(r.top, r.bottom - (this.#h.covered?.() ?? 0)) };
 		} else this.#box = null;
 		if (this.#raf !== 0) return;
 		this.#lastFrame = performance.now();

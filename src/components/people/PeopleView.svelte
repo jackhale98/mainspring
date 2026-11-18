@@ -31,10 +31,12 @@
 		content: PeopleContent;
 		/** The phone's People tab: the heatmap's toolbar is a row of the view, else the People bar's. */
 		phone: boolean;
+		/** The desktop layout (1024 px and wider). */
+		desktop?: boolean;
 		setBar: (bar: Snippet | null) => void;
 		showGantt: () => void;
 	}
-	let { app, content, phone, setBar, showGantt }: Props = $props();
+	let { app, content, phone, desktop = false, setBar, showGantt }: Props = $props();
 
 	const S = strings.people;
 	const shown = $derived(
@@ -176,7 +178,7 @@
 		<NoPeople {app} ondone={() => (focusContent = true)} />
 	{:else if content === 'calendar' && calendarView.module && calendar}
 		{@const Calendar = calendarView.module.default}
-		<Calendar {app} {phone} state={calendar} {showGantt} />
+		<Calendar {app} {phone} {desktop} state={calendar} {showGantt} />
 	{:else if content === 'team' && lanes.module}
 		{@const Team = lanes.module.default}
 		<Team {app} {phone} team />

@@ -119,6 +119,7 @@
 			<span class="sr-only">{strings.gantt.zoom}</span>
 			<!-- Between two presets the select shows "Week (custom)", so that choosing Week still changes it. -->
 			<select
+				data-own-caret
 				value={zoomExact ? level : 'custom'}
 				onchange={(e) => {
 					if (e.currentTarget.value !== 'custom') onlevel(e.currentTarget.value as ZoomLevel);

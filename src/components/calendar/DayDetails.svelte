@@ -9,9 +9,16 @@
 	name) and "Clear leave on these days" do what a paint or erase stroke does over exactly these
 	days, through the same planner.
 
-	On a desktop it is a column beside the months; narrower it is a bottom sheet over their foot
-	(CSS, by the Calendar's container), as the heatmap's cell details are. Escape or Close returns the
-	focus to the day it came from (the Calendar's job).
+	On a desktop it is a column beside the months with its own header. Narrower (`sheet`) it is the
+	content of the shared bottom Sheet (Sheet.svelte, as the task details are): the Sheet supplies the
+	title (the days), the close button, the grabber and Escape, so there is no header here, and the
+	Sheet's content area is the one thing that scrolls. With no leave on the days the add form comes
+	first, so that it is in reach at half height without scrolling. Escape or Close returns the focus
+	to the day it came from (the Calendar's job).
+
+	Over 400 lines on purpose: the column and the Sheet's content are one tree of sections (the leave
+	lists, the milestones, the add form and the clear button) with two frames around it, and the
+	styles of every section are one cascade; splitting them would copy the sections.
 -->
 <script lang="ts">
 	import type { SelectionDetails } from '../../lib/calendar/details';
@@ -45,6 +52,8 @@
 		onclose: () => void;
 		/** The last sentence a refusal gave. */
 		note: string;
+		/** The content of the Calendar's bottom Sheet: no header (the Sheet has it) and no scroll of its own. */
+		sheet?: boolean;
 	}
 	let {
 		details,
@@ -62,10 +71,12 @@
 		onmilestone,
 		onclose,
 		note,
+		sheet = false,
 	}: Props = $props();
 
 	const D = C.details;
 	let heading: HTMLHeadingElement | undefined = $state();
+	let root: HTMLElement | undefined = $state();
 	let name = $state('');
 	const editable = $derived(global ? details.holidays : details.own);
 	const inheritedGlobal = $derived(global ? [] : details.holidays);
@@ -81,8 +92,11 @@
 		e.item ? `${e.item.range.file}:${e.item.range.from}` : `~${e.from}:${e.type}`;
 
 	export function focus(): void {
-		heading?.focus();
+		(sheet ? root : heading)?.focus();
 	}
+
+	/** With no leave of the person's to edit, the add form is the first thing in a sheet. */
+	const addFirst = $derived(sheet && editable.length === 0);
 
 	function add(): void {
 		onadd(name.trim());
@@ -90,25 +104,52 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<aside
-	class="details"
-	aria-label={D.region}
-	data-testid="cal-details"
-	onkeydown={(e) => {
-		if (e.key === 'Escape') {
-			e.stopPropagation();
-			onclose();
-		}
-	}}
->
-	<header>
-		<h2 tabindex="-1" bind:this={heading}>{rangeText}</h2>
-		<button type="button" class="close" onclick={onclose} aria-label={D.close}>
-			<Icon name="close" size={16} />
+{#snippet addForm()}
+	<!-- First in a sheet, the form is named by its group and the button: the heading's line is room it needs at half height. -->
+	{#if !addFirst}<h3>{D.add}</h3>{/if}
+	<div class="add" role="group" aria-label={D.add}>
+		<label>
+			<span>{D.typeLabel}</span>
+			<select
+				value={leaveType}
+				onchange={(e) => ontype(e.currentTarget.value as LeaveType)}
+				data-testid="cal-add-type"
+			>
+				{#each types as t (t)}<option value={t}>{L.type[t]}</option>{/each}
+			</select>
+		</label>
+		<label>
+			<span>{D.name}</span>
+			<input
+				type="text"
+				bind:value={name}
+				placeholder={D.namePlaceholder}
+				onkeydown={(e) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						add();
+					}
+				}}
+				data-testid="cal-add-name"
+			/>
+		</label>
+		<button type="button" class="primary" onclick={add} data-testid="cal-add">
+			{D.addFor(L.type[leaveType], who)}
 		</button>
-	</header>
+	</div>
+{/snippet}
+
+{#snippet noteLine()}
+	{#if note !== ''}<p class="note" role="status">{note}</p>{/if}
+{/snippet}
+
+{#snippet body()}
 	<p class="facts" data-testid="cal-facts">{D.facts(details.days, details.working)}</p>
+
+	{#if addFirst}
+		{#if nothing}<p class="empty">{D.nothing}</p>{/if}
+		{@render noteLine()}{@render addForm()}
+	{/if}
 
 	{#if editable.length > 0}
 		<h3>{global ? D.holidays : D.leaves(who)}</h3>
@@ -148,7 +189,7 @@
 			{/each}
 		</ul>
 	{/if}
-	{#if nothing}<p class="empty">{D.nothing}</p>{/if}
+	{#if nothing && !addFirst}<p class="empty">{D.nothing}</p>{/if}
 
 	{#if details.milestones.length > 0}
 		<h3>{D.milestones}</h3>
@@ -164,41 +205,46 @@
 		</ul>
 	{/if}
 
-	{#if note !== ''}<p class="note" role="status">{note}</p>{/if}
+	{#if !addFirst}{@render noteLine()}{@render addForm()}{/if}
+	<!-- In a sheet, with no leave there is nothing to clear: the room is the add form's at half height. -->
+	{#if !(sheet && nothing)}
+		<button type="button" class="clear" onclick={onclear} data-testid="cal-clear">{D.clear}</button>
+	{/if}
+{/snippet}
 
-	<h3>{D.add}</h3>
-	<div class="add">
-		<label>
-			<span>{D.typeLabel}</span>
-			<select
-				value={leaveType}
-				onchange={(e) => ontype(e.currentTarget.value as LeaveType)}
-				data-testid="cal-add-type"
-			>
-				{#each types as t (t)}<option value={t}>{L.type[t]}</option>{/each}
-			</select>
-		</label>
-		<label>
-			<span>{D.name}</span>
-			<input
-				type="text"
-				bind:value={name}
-				placeholder={D.namePlaceholder}
-				onkeydown={(e) => {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						add();
-					}
-				}}
-				data-testid="cal-add-name"
-			/>
-		</label>
-		<button type="button" class="primary" onclick={add} data-testid="cal-add">
-			{D.addFor(L.type[leaveType], who)}
-		</button>
+{#if sheet}
+	<div
+		class="details in-sheet"
+		role="group"
+		aria-label={D.region}
+		tabindex="-1"
+		data-testid="cal-details"
+		bind:this={root}
+	>
+		{@render body()}
 	</div>
-	<button type="button" class="clear" onclick={onclear} data-testid="cal-clear">{D.clear}</button>
-</aside>
+{:else}
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<aside
+		class="details"
+		aria-label={D.region}
+		data-testid="cal-details"
+		onkeydown={(e) => {
+			if (e.key === 'Escape') {
+				e.stopPropagation();
+				onclose();
+			}
+		}}
+	>
+		<header>
+			<h2 tabindex="-1" bind:this={heading}>{rangeText}</h2>
+			<button type="button" class="close" onclick={onclose} aria-label={D.close}>
+				<Icon name="close" size={16} />
+			</button>
+		</header>
+		{@render body()}
+	</aside>
+{/if}
 
 <style>
 	.details {
@@ -212,6 +258,17 @@
 		background: var(--color-surface);
 		color: var(--color-text);
 		font-size: var(--text-sm);
+	}
+	/* In the Sheet: its content area pads and scrolls, so nothing here does. */
+	.details.in-sheet {
+		overflow: visible;
+		padding: 0;
+		border: 0;
+		background: transparent;
+	}
+	.details.in-sheet:focus-visible {
+		outline: 2px solid var(--color-focus);
+		outline-offset: 4px;
 	}
 	header {
 		display: flex;
