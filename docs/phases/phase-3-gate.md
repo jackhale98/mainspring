@@ -9,7 +9,7 @@ batch, before the push.
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Last green commit on main | `4f39836e` (branch run 44271594925, 2026-11-18; main fast-forwarded): T25, the picker hold fix, the shell `overflow: clip` fix |
 | Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
-| iPhone 14 skips left | B1 done (2026-11-18): 24 spec files by the grep below (38 before); `node scripts/ci/webkit-skips.mjs` reports 34 skips in 29 files, all of B2 to B5, 24 naming the iPhone or WebKit and 10 that keep it out as Pixel 7 only or Chromium only (strict mode fails on them; the check job runs report-only until a batch empties its part of `PENDING_BATCHES`); allowlist: 0 entries; target: at most 6 allowlisted |
+| iPhone 14 skips left | B1 done (2026-11-18): 24 spec files by the grep below (38 before); `node scripts/ci/webkit-skips.mjs` reports 33 skips in 28 files, all of B2 to B5, 23 naming the iPhone or WebKit and 10 that keep it out as Pixel 7 only or Chromium only (strict mode fails on them; the check job runs report-only until a batch empties its part of `PENDING_BATCHES`); allowlist: 0 entries; target: at most 6 allowlisted |
 | CI wall time | about 14 min (run 44271594925, 08:58–09:12 UTC; slowest job 11.2 min on run 44268831320); target 12 min (ADR-0016 section 4). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`, with no browser install (it took 16–22 min on WebKit shards before) |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
