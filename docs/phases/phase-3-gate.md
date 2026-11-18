@@ -172,6 +172,33 @@ Today and zoom select change only on a phone, as before the move.
 Pictures: `docs/phases/screenshots/phase-3/t25-<primitive>-<desktop|pixel-7>-<light|dark>.png` (the dev
 page) and `t25-app-<what>-<pixel-7|iphone-14>-<light|dark>.png` (the real app).
 
+## Test infrastructure reset (user, 2026-11-18)
+
+After B3 the user paused the skip batches: a day of iPhone fixes had still left CI red. Most red runs
+were fixed waits that CI's WebKit (a median 3x the Pixel 7's time) outran, the shard planner put
+every newly turned-on spec at 0, and every test boots the engine and schedules its plan from scratch
+(about 313 page opens; 55 to 100 s per test on `fedora-res` on CI WebKit). In order:
+
+1. Tooling: the planner estimates a newly turned-on spec from the other phone (`shard-plan.mjs`,
+   `alike`); fixed waits may only go down (`scripts/ci/fixed-waits.mjs`, 339 in 73 files at the
+   start). Done 2026-11-18.
+2. Replace the fixed waits with waits for state, starting with the rigs and the files with the most.
+3. Measure where an iPhone test's time goes (boot, first schedule, the test's own steps) and time
+   the `fedora-res` schedule on a real iPhone.
+4. Stop every test paying the engine start-up (a booted page per worker, smaller plans where the
+   schedule is not under test, or the schedule cache of ADR-0015): an ADR for the user first.
+5. Then B4 (Health; a WIP branch) and B5 (Text mode; done on a branch, held).
+
+App bugs found on the way, open:
+- **The windowed Health list jumps on WebKit** (B4, 2026-11-18). WebKit has no scroll anchoring:
+  as rows mount, the groups above the viewport are measured and re-windowed, and the content moves
+  by thousands of px (a group at 395 px went to -4550 in two frames; `scrollHeight` 44k to 19k), so a
+  tapped row is unmounted; at the end of the panel the layout keeps cycling every 100 ms. A real
+  iPhone user scrolling and tapping findings hits it. A group's height depends on which rows have
+  been measured, and a row mounted and unmounted between ResizeObserver deliveries is never measured.
+- **On Safari the first "Try again" after a failed chunk cannot succeed**: WebKit remembers the
+  failed import, so the slot's Reload step is always needed there (B3 review).
+
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five
