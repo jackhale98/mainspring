@@ -12,6 +12,7 @@
 	import type { GanttAction } from '../../lib/gantt/intents';
 	import type { PickRole } from '../../lib/inspector/depends-picker';
 	import { dependsBlocks } from '../../lib/inspector/depends-blocks';
+	import type { Detent } from '../../lib/inspector/detent';
 	import { gapEdit } from '../../lib/inspector/edit';
 	import type { LinkFact } from '../../lib/inspector/links';
 	import { inspectorStrings as S } from '../../lib/strings';
@@ -36,12 +37,30 @@
 	// focus back to its button. The Health panel asks for one through `app.openDependencyPicker`.
 	let open = $state<PickRole | null>(null);
 	let failed = $state(false);
+	let deps: HTMLDivElement | undefined = $state();
+	/** The sheet's height before the picker opened it to full, to give back when it closes. */
+	let heldDetent: Detent | null = null;
 	const buttons: Partial<Record<PickRole, HTMLButtonElement>> = $state({});
 	const linked = $derived({
 		predecessor: new Set<TaskId>(waitsFor.map((l) => l.pred)),
 		successor: new Set<TaskId>(followedBy.map((l) => l.succ)),
 	});
 	const act = async (a: GanttAction): Promise<string> => (await actions.action(a)).status;
+	// In the details sheet (a phone, a tablet) the picker needs room: the sheet goes to full height
+	// while it is open and gets back the height it had (unless the person has changed it since).
+	$effect(() => {
+		const isOpen = open !== null;
+		untrack(() => {
+			const inSheet = deps?.closest('dialog.sheet') != null;
+			if (isOpen && inSheet && heldDetent === null && app.inspector.detent !== 'full') {
+				heldDetent = app.inspector.detent;
+				app.inspector.detent = 'full';
+			} else if (!isOpen && heldDetent !== null) {
+				if (app.inspector.detent === 'full') app.inspector.detent = heldDetent;
+				heldDetent = null;
+			}
+		});
+	});
 	function toggle(role: PickRole): void {
 		failed = false;
 		open = open === role ? null : role;
@@ -162,7 +181,7 @@
 	/>
 {/snippet}
 
-<div class="deps">
+<div class="deps" bind:this={deps}>
 	{@render head('predecessor', S.section.waitsFor, S.dependency.addWaitsFor)}
 	{#if waitsFor.length === 0}
 		<p class="none">{S.dependency.none}</p>

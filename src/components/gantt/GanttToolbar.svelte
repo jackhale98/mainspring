@@ -401,6 +401,14 @@
 		.chip {
 			min-block-size: var(--size-tap);
 		}
+		/* A finger's select is 16 px (Base.astro: iOS zooms into a smaller field), which makes the zoom
+		   pill wider; it takes the difference out of its own padding so that the row still fits 360 px. */
+		.select {
+			padding-inline: 10px 22px;
+		}
+		.caret {
+			inset-inline-end: 8px;
+		}
 	}
 	/* A narrow chart (Split beside the editor) has no room in the band for the selected task's
 	   line beside the chips and the view switcher: it floats over the foot of the chart, as on a
