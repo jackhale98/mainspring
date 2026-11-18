@@ -728,6 +728,7 @@ Every task runs in its own worktree. A task's report includes end-to-end evidenc
 | T22 | Perf (8.4) and accessibility (10) audit | `perf-a11y-auditor` | `workload-perf.spec.ts`, a11y specs, fixes | T14 to T18 |
 | T23 | CI changes (13.3) | `test-writer`; `engine-specialist` reviews golden and fidelity | `.github/workflows/*.yml`, `scripts/js-sizes.mjs` | As suites land |
 | T24 | Gate evidence | Main session; `test-runner` runs suites | `docs/phases/phase-3-gate.md` | All |
+| T25 | Shared UI primitives with owners and contract tests: Sheet, Menu, Select, Toolbar tiers, grid focus, Popover (ADR-0016 #3) | `ui-builder`; `test-writer` for the contract specs | `src/components/ui/**`, `src/lib/ui/**`, `tests/e2e/primitives/**` | ADR-0016 #1 |
 
 ### 14.1 Waves (at most three tracks at once)
 
@@ -1080,3 +1081,17 @@ Where the built T18 settles what 9.1, 9.2, 9.3, 9.7, 10 and the bundle rules (8.
 6. Phase 3 health set H1 to H9 with the defaults in 18.8.
 
 *Consequences.* There is one schema bump and one re-record (provisional on Ruby 3.3.6). The serializer reads the resource scoreboard after scheduling. Explanations can say "the schedule does not show why".
+
+## 26. Amendment: the UI hardening pass (user, 2026-11-18; ADR-0016)
+
+The user approved ADR-0016 as written. It amends this spec:
+
+1. 8.4 and 13.3: the desktop frame caps and full-speed animation checks move to a non-blocking
+   timing tier (`@timing`, one worker, on every push to `main` and nightly, with a trend); a gross
+   regression (over twice the budget in all three runs) is treated as a bug. Budgets are unchanged.
+2. 13.2: every end-to-end spec runs on iPhone 14 (WebKit), except a short allowlist with reasons
+   (`tests/e2e/lib/webkit-allowlist.ts`, at most 6 entries).
+3. T25 is added (shared UI primitives with contract tests). T21 takes ADR-0016 #2 and #4, T22 the
+   timing tier, T23 the workflow changes and `npm run setup:webkit`.
+4. The pass runs before any open workload items and before T24; its "done when" list is part of
+   the gate evidence.

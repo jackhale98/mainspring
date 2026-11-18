@@ -1,6 +1,8 @@
 # ADR-0016: UI hardening pass at the end of Phase 3
 
-Status: proposed, 2026-11-18. Needs the user's approval: this is work outside the Phase 3 task list.
+Status: accepted by the user, 2026-11-18, as written, with the four plan changes under "Conflicts
+ with the plan" (the frame caps become a non-blocking timing tier; every e2e row runs on iPhone 14;
+ this pass runs before any open workload items; T25 is added).
 Source: CI history and the user's iPhone reports of 2026-11-17 and 2026-11-18; `docs/phases/phase-3.md`
 8.4, 13 and 14 (T21 to T23) and 22.y; `docs/phases/phase-2-polish.md` rows 18 and 19; ADR-0009 #7.
 (Number 0015 is held for the schedule-result caching proposal, still open.)

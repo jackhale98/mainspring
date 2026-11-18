@@ -104,6 +104,9 @@ away because work was split or delegated too early. These rules refine the loop 
   ADR-0014). Priority (user, 2026-11-16): the workload work (T7, T9 and what follows) comes
   first; new polish requests go on the list and wait unless they are bugs. Goldens are
   provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
+- UI hardening pass approved (user, 2026-11-18; ADR-0016): runs at the end of Phase 3 before the gate,
+  ahead of open workload items; adds T25 (shared UI primitives). Frame-rate and full-speed animation
+  checks are a non-blocking timing tier; every e2e spec runs on iPhone 14 except an allowlist.
 - The user approved moving into Phase 3 as soon as Phase 2 is done (2026-11-13). Record the gate
   evidence in `docs/phases/phase-2-gate.md` as usual, then start Phase 3 without waiting. Show the
   user the Phase 3 spec when it is written. Polish (`docs/phases/phase-2-polish.md`) runs in
