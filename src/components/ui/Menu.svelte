@@ -127,8 +127,9 @@
 		const el = list;
 		const anchor = button();
 		if (!anchor) return;
+		const r = anchor.getBoundingClientRect();
 		const at = placeBeside(
-			anchor.getBoundingClientRect(),
+			r,
 			{ width: el.offsetWidth, height: el.scrollHeight + 2 },
 			{ width: innerWidth, height: innerHeight },
 			{ align },
@@ -136,7 +137,11 @@
 		el.style.left = `${at.left}px`;
 		el.style.top = `${at.top}px`;
 		el.style.maxBlockSize = `${Math.max(120, at.maxHeight)}px`;
-		void tick().then(() => buttons()[0]?.focus());
+		// The list is fixed and already placed on screen, so the focus must not scroll anything: a
+		// page that is briefly taller than the view (a sheet that has just closed) would scroll, and
+		// a scroll that is not the list's own closes the menu.
+		placedBeside = { left: r.left, top: r.top };
+		void tick().then(() => buttons()[0]?.focus({ preventScroll: true }));
 	});
 
 	function pick(item: MenuItem): void {
@@ -179,9 +184,20 @@
 		e.preventDefault();
 		all[next]?.focus();
 	}
-	/** A scroll that is not the list's own (a view under it) takes the popover's place away. */
+	/** Where the button was when the list was placed beside it. */
+	let placedBeside: { left: number; top: number } | null = null;
+	/**
+	 * A scroll that is not the list's own (a view under it) takes the popover's place away, if it
+	 * moved the button: a scroll somewhere else (a late scroll event from before the menu opened)
+	 * leaves the list where it belongs.
+	 */
 	function onscroll(e: Event): void {
-		if (open && !asSheet && !(e.target instanceof Node && list?.contains(e.target))) close(false);
+		if (!open || asSheet || (e.target instanceof Node && list?.contains(e.target))) return;
+		const now = button()?.getBoundingClientRect();
+		const was = placedBeside;
+		if (!now || !was || Math.abs(now.left - was.left) > 1 || Math.abs(now.top - was.top) > 1) {
+			close(false);
+		}
 	}
 	function onwindowdown(e: PointerEvent): void {
 		if (open && !asSheet && e.target instanceof Node && !host?.contains(e.target)) close(false);

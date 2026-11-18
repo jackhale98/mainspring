@@ -66,12 +66,14 @@ const { title = strings.appName, description = strings.tagline, shell = false } 
 	 * The app shell behaves like a native app (phase-2.md 9.2): the page never scrolls or
 	 * rubber-bands, the shell is exactly the viewport, and only the panels inside scroll. Chrome
 	 * (bars, buttons, tabs) is not text to select and has no tap flash; the editor, inputs and
-	 * the documentation keep normal selection.
+	 * the documentation keep normal selection. `clip`, not `hidden`: a hidden overflow can still be
+	 * scrolled by the browser itself (a focus, a scroll into view), and was, by 69 px on a desktop,
+	 * shifting the whole shell up and closing an open menu (2026-11-18).
 	 */
 	html[data-shell],
 	html[data-shell] body {
 		block-size: 100%;
-		overflow: hidden;
+		overflow: clip;
 		overscroll-behavior: none;
 	}
 	html[data-shell] body {
