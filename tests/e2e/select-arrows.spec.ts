@@ -11,7 +11,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { openCalendar, showDay, tapDay } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
-import { LICENSE_TASK, openHealthPanel } from './lib/select-states';
+import { openSmallHealthPanel } from './lib/select-states';
 import { openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
 import { ready } from './lib/sheet-rig';
 
@@ -115,7 +115,7 @@ for (const scheme of ['dark', 'light'] as const) {
 		});
 
 		test('a heatmap cell’s details (the move menus)', async ({ page }, info) => {
-			await openHeatmap(page, info);
+			await openHeatmap(page, info, 'ui-people');
 			const result = await resultOf(page);
 			if (!result) throw new Error('no result');
 			const o = oracle(result);
@@ -161,9 +161,9 @@ for (const scheme of ['dark', 'light'] as const) {
 		});
 
 		test('a health finding’s replace-person list', async ({ page }, info) => {
-			const row = await openHealthPanel(page, info);
+			const row = await openSmallHealthPanel(page, info);
 			await expect(row.locator('select[data-fix="replace-person"]')).toBeVisible();
-			await expectArrows(page, `health finding ${LICENSE_TASK}`);
+			await expectArrows(page, 'health finding (held by people)');
 		});
 
 		test('the file switcher (a phone: tabs elsewhere)', async ({ page }, info) => {
