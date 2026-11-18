@@ -12,3 +12,5 @@ public/engine/
 .DS_Store
 # Claude Code agent worktrees
 .claude/worktrees/
+# Local WebKit for the iPhone specs (npm run setup:webkit)
+.cache/

@@ -18,6 +18,19 @@ npm run dev
 
 Then open <http://localhost:4321/app>.
 
+To run the end-to-end specs on an iPhone 14 emulation (WebKit), install its browser once, then build
+and run a spec (the preview serves `dist/`, so rebuild after a source change):
+
+```sh
+npm run setup:webkit   # WebKit into PLAYWRIGHT_BROWSERS_PATH, else .cache/pw-webkit; checks its system libraries
+npx astro build        # MAINSPRING_DEV_PAGES=1 as well for the specs that open the dev pages
+npm run test:e2e:iphone -- tests/e2e/gantt-undo.spec.ts
+```
+
+On Linux, `setup:webkit` runs `npx playwright install-deps webkit` when it may (as root, or with
+`--deps`) and otherwise prints the command. Only `tests/e2e/lib/webkit-allowlist.ts` may skip a test
+on WebKit; `node scripts/ci/webkit-skips.mjs` (run by the `check` job) fails on any other skip.
+
 A public preview of `main` runs on GitHub Pages: <https://jackhale98.github.io/mainspring/>
 (ADR-0006). It is built with `MAINSPRING_BASE=/mainspring/`; `npm run test:base-path` checks
 that build locally.
