@@ -35,7 +35,7 @@
 	The logic that can stand alone is already in lib/gantt (columns, grid, grid-nav).
 -->
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { COLUMN_ORDER, COLUMN_REM, widthOf, type ColumnId } from '../../lib/gantt/columns';
 	import { describeRow } from '../../lib/gantt/describe';
 	import { gridCells, spokenText, type GridRowInput } from '../../lib/gantt/grid';
@@ -44,6 +44,7 @@
 	import type { OutlineNode } from '../../lib/state/outline';
 	import { ALL_KEYS, SHORTCUTS } from '../../lib/gantt/keys';
 	import { gestureStrings, strings } from '../../lib/strings';
+	import { RovingGrid } from '../../lib/ui/roving-grid';
 	import NameCell from './NameCell.svelte';
 	import RowDropMarks from './RowDropMarks.svelte';
 	import type { RowDrag } from './row-drag.svelte';
@@ -240,11 +241,23 @@
 		return w === null ? undefined : `${w}rem`;
 	};
 
+	/**
+	 * The focus kept across a rebuild (lib/ui/roving-grid.ts): a row that is mounted again (a window
+	 * moved, a rebuild) gets it back; a row that is gone for good is `lastFocus`' business.
+	 */
+	const roving = new RovingGrid<string>({
+		root: () => grid,
+		keyOf: (t) =>
+			t instanceof Element ? (t.closest('[data-key]')?.getAttribute('data-key') ?? null) : null,
+		find: (r, k) => r.querySelector<HTMLElement>(`[role="row"][data-key="${CSS.escape(k)}"]`),
+	});
+
 	/** Where the focus last was inside the grid, to find it a place if its row goes away. */
 	let lastFocus: { el: Element; row: GanttRow; index: number } | null = null;
 
 	/** Whichever row or cell gets the focus, by any means, is the one kept mounted. */
 	function onfocusin(event: FocusEvent): void {
+		roving.focusin(event);
 		const t = event.target;
 		if (!(t instanceof Element)) return;
 		const key = t.closest('[data-key]')?.getAttribute('data-key');
@@ -263,7 +276,8 @@
 	/** Focus that leaves the grid lets go of the pinned row. */
 	function onfocusout(event: FocusEvent): void {
 		const to = event.relatedTarget;
-		if (!(to instanceof Node) || !grid?.contains(to)) {
+		const left = roving.focusout(event);
+		if (left) {
 			focusKey = null;
 			focusCol = null;
 			onfocusrow?.(null);
@@ -282,9 +296,14 @@
 	$effect(() => {
 		const rowOf = model.rowOf;
 		const gone = lastFocus;
-		if (gone === null || rowOf.has(gone.row.key) || gone.el.isConnected) return;
+		if (gone === null || gone.el.isConnected) return;
 		const active = document.activeElement;
 		if (active !== null && active !== document.body) return;
+		// The row is still there under a new element: the focus goes back to it.
+		if (rowOf.has(gone.row.key)) {
+			void tick().then(() => roving.restore(gone.row.key));
+			return;
+		}
 		lastFocus = null;
 		let target = -1;
 		for (let p = gone.row.node.parent; p !== null && target < 0;) {
