@@ -14,13 +14,13 @@
 // Consumers whose specs run on every change here: sheet-states, phone-bugfixes, inspector,
 // calendar-sheet, picker-phone, gantt-phone-polish, picker and docs sheets (shell).
 import { expect, test, type Page } from '@playwright/test';
+import { animationsDone, panelSettled } from '../lib/settle';
 import { box, openPrimitives, viewport } from '../lib/primitives-rig';
 import {
 	nonDecreasing,
 	nonIncreasing,
 	record,
 	recorded,
-	settleMs,
 	slowSheets,
 	steps,
 	stopRecording,
@@ -51,12 +51,12 @@ test.describe('heights and the grabber', () => {
 		await page.getByTestId('open-details').click();
 		const dialog = page.locator(DETAILS);
 		await expect(dialog).toHaveAttribute('data-detent', 'half');
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		const half = await box(dialog);
 		const grab = dialog.getByRole('button', { name: /Details height/ });
 		await grab.click();
 		await expect(dialog).toHaveAttribute('data-detent', 'full');
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		const full = await box(dialog);
 		expect(full.height).toBeGreaterThan(half.height + 40);
 		const vp = await viewport(page);
@@ -64,7 +64,7 @@ test.describe('heights and the grabber', () => {
 		await grab.focus();
 		await page.keyboard.press('Enter');
 		await expect(dialog).toHaveAttribute('data-detent', 'half');
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		expect((await box(dialog)).height).toBeCloseTo(half.height, -1);
 	});
 
@@ -73,7 +73,7 @@ test.describe('heights and the grabber', () => {
 	}) => {
 		await page.getByTestId('open-details').click();
 		const dialog = page.locator(DETAILS);
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		const want = await restingBottom(page);
 		const at = async () => {
 			const b = await box(dialog);
@@ -81,21 +81,21 @@ test.describe('heights and the grabber', () => {
 		};
 		expect(Math.abs((await at()) - want), 'half').toBeLessThanOrEqual(1.5);
 		await dialog.getByRole('button', { name: /Details height/ }).click();
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		expect(Math.abs((await at()) - want), 'full').toBeLessThanOrEqual(1.5);
 	});
 
 	test('a sheet that shrinks keeps its bottom edge: no gap opens under it', async ({ page }) => {
 		await page.getByTestId('open-details').click();
 		const dialog = page.locator(DETAILS);
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		const grab = dialog.getByRole('button', { name: /Details height/ });
 		await grab.click();
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		const want = await restingBottom(page);
 		await record(page, DETAILS);
 		await grab.click();
-		await page.waitForTimeout(settleMs());
+		await animationsDone(page);
 		const rec = await recorded(page);
 		await stopRecording(page);
 		// The bottom edge may go below its place while the top comes down, never above it.
@@ -120,7 +120,8 @@ test.describe('motion', () => {
 		}, MODAL);
 		await record(page, PANEL);
 		await page.getByTestId('open-modal').click();
-		await page.waitForTimeout(settleMs());
+		await expect(page.locator(MODAL)).toBeVisible();
+		await animationsDone(page);
 		const rec = await recorded(page);
 		const tops = await stopRecording(page);
 		const vp = await viewport(page);
@@ -147,12 +148,12 @@ test.describe('motion', () => {
 
 	test('sliding away: only transform moves, in many steps, downwards', async ({ page }) => {
 		await page.getByTestId('open-modal').click();
-		await page.waitForTimeout(settleMs());
+		await panelSettled(page.locator(PANEL));
 		await record(page, PANEL);
 		await page.keyboard.press('Escape');
 		// Marked as closing while the dialog is still open: the panel is still on screen, sliding.
 		await expect(page.locator(MODAL)).toHaveAttribute('data-closing', '');
-		await page.waitForTimeout(settleMs());
+		await animationsDone(page);
 		const rec = await recorded(page);
 		const tops = await stopRecording(page);
 		expect(rec.props.filter((p) => p !== 'transform')).toEqual([]);
@@ -164,11 +165,12 @@ test.describe('motion', () => {
 		page,
 	}) => {
 		await page.getByTestId('open-details').click();
-		await page.waitForTimeout(settleMs());
+		await panelSettled(page.locator(DETAILS));
 		await page.locator(DETAILS).getByLabel('A field').focus();
 		await record(page, DETAILS);
 		await page.keyboard.press('Escape');
-		await page.waitForTimeout(settleMs());
+		await expect(page.locator(DETAILS)).toHaveAttribute('data-closing', '');
+		await animationsDone(page);
 		const rec = await recorded(page);
 		const tops = await stopRecording(page);
 		expect(rec.props.filter((p) => p !== 'transform')).toEqual([]);
@@ -192,8 +194,7 @@ test.describe('every way to close it', () => {
 
 	test('Escape', async ({ page }) => {
 		await page.getByTestId('open-modal').click();
-		await expect(page.locator(MODAL)).toBeVisible();
-		await page.waitForTimeout(300);
+		await panelSettled(page.locator(PANEL));
 		await page.keyboard.press('Escape');
 		await closed(page, MODAL);
 		await expect(page.getByTestId('sheet-closed-by')).toHaveText('modal');
@@ -202,8 +203,7 @@ test.describe('every way to close it', () => {
 
 	test('a press on the backdrop (the empty part above the panel)', async ({ page }) => {
 		await page.getByTestId('open-modal').click();
-		await expect(page.locator(MODAL)).toBeVisible();
-		await page.waitForTimeout(300);
+		await panelSettled(page.locator(PANEL));
 		// The dialog fills the screen and the panel is pinned to its foot: the top is the backdrop.
 		await page.mouse.click(6, 6);
 		await closed(page, MODAL);
@@ -214,7 +214,7 @@ test.describe('every way to close it', () => {
 	test('a drag down on the grabber from half height', async ({ page }) => {
 		await page.getByTestId('open-details').click();
 		const dialog = page.locator(DETAILS);
-		await page.waitForTimeout(settleMs());
+		await panelSettled(dialog);
 		const grab = await box(dialog.getByRole('button', { name: /Details height/ }));
 		const x = grab.x + grab.width / 2;
 		const y = grab.y + grab.height / 2;
@@ -230,8 +230,7 @@ test.describe('every way to close it', () => {
 		page,
 	}) => {
 		await page.getByTestId('open-modal').click();
-		await expect(page.locator(MODAL)).toBeVisible();
-		await page.waitForTimeout(300);
+		await panelSettled(page.locator(PANEL));
 		await page.evaluate(() =>
 			(window as unknown as { __primitives: { closeAll(): void } }).__primitives.closeAll(),
 		);
@@ -244,8 +243,7 @@ test.describe('every way to close it', () => {
 		page,
 	}) => {
 		await page.getByTestId('open-details').click();
-		await expect(page.locator(DETAILS)).toBeVisible();
-		await page.waitForTimeout(300);
+		await panelSettled(page.locator(DETAILS));
 		await page.locator(DETAILS).getByLabel('A field').focus();
 		await page.keyboard.press('Escape');
 		await closed(page, DETAILS);
@@ -258,8 +256,7 @@ test.describe('every way to close it', () => {
 	}) => {
 		await page.getByTestId('open-drawer').click();
 		const dialog = page.locator('dialog[data-testid="sheet-drawer"]');
-		await expect(dialog).toBeVisible();
-		await page.waitForTimeout(300);
+		await panelSettled(dialog);
 		await page.keyboard.press('Escape');
 		await closed(page, 'dialog[data-testid="sheet-drawer"]');
 		await expect(page.getByTestId('open-drawer')).toBeFocused();
@@ -271,7 +268,7 @@ test('a sheet that opens while a touch keyboard is up does not leave a field hal
 }) => {
 	// The field of the modal sheet takes the focus as it opens; nothing of the panel is above the screen.
 	await page.getByTestId('open-modal').click();
-	await page.waitForTimeout(settleMs());
+	await panelSettled(page.locator(PANEL));
 	const vp = await viewport(page);
 	const panel = await box(page.locator(PANEL));
 	expect(panel.y).toBeGreaterThanOrEqual(0);
