@@ -23,6 +23,7 @@
 	import { workloadStrings as W } from '../../lib/strings-workload';
 	import type { BucketKind, Thresholds } from '../../lib/workload/types';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import SegmentTabs from '../people/SegmentTabs.svelte';
 	import LanesLegend from '../resources/LanesLegend.svelte';
 	import BandLegend from './BandLegend.svelte';
@@ -86,11 +87,12 @@
 
 <div
 	class="chips"
+	data-toolbar="workload"
 	role="group"
 	aria-label={heat ? W.toolbar : L.toolbar}
 	data-testid="{id}-toolbar"
 >
-	<span class="zoom-radios">
+	<span class="zoom-radios" data-narrow="own">
 		<SegmentTabs
 			items={ZOOMS}
 			value={zoom}
@@ -100,20 +102,18 @@
 			kind="radios"
 		/>
 	</span>
-	<label class="chip select zoom-select">
+	<label class="chip select zoom-select" data-narrow="fixed">
 		<span class="sr-only">{W.zoom}</span>
-		<select
-			data-own-caret
+		<Select
+			variant="inline"
 			value={zoom}
 			aria-label={W.zoom}
-			onchange={(e) => onzoom(e.currentTarget.value as BucketKind)}
-		>
-			{#each ZOOMS as z (z.id)}<option value={z.id}>{z.label}</option>{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
+			options={ZOOMS.map((z) => ({ value: z.id, label: z.label }))}
+			onchange={(v) => onzoom(v as BucketKind)}
+		/>
 	</label>
 	{#if heat}
-		<span class="unit-radios">
+		<span class="unit-radios" data-narrow="own">
 			<SegmentTabs
 				items={UNITS}
 				value={unit}
@@ -127,6 +127,7 @@
 		<button
 			type="button"
 			class="chip unit-toggle"
+			data-narrow="fixed"
 			data-testid="heat-unit-toggle"
 			aria-label="{unit === 'hours' ? W.unitHours : W.unitPercent}: {unit === 'hours'
 				? W.unitHint.percent
@@ -140,6 +141,7 @@
 	<button
 		type="button"
 		class="chip today"
+		data-narrow="icon"
 		onclick={ontoday}
 		disabled={!hasToday}
 		aria-label={hasToday ? W.today : W.todayOff}
@@ -209,29 +211,12 @@
 		cursor: default;
 	}
 	.chip:focus-visible,
-	.chip:has(select:focus-visible) {
+	.chip:has(:global(select:focus-visible)) {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}
 	.select {
 		padding-inline-end: 26px;
-	}
-	select {
-		appearance: none;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		outline: none;
-		padding: 0;
-	}
-	.caret {
-		position: absolute;
-		inset-inline-end: 10px;
-		display: grid;
-		color: var(--color-gantt-text-muted);
-		pointer-events: none;
 	}
 	.zoom-select,
 	.unit-toggle {
@@ -338,14 +323,6 @@
 			display: none;
 		}
 	}
-	@container (max-width: 859px) {
-		.today .lbl {
-			display: none;
-		}
-		.today {
-			padding-inline: 9px;
-		}
-	}
 	/* A phone: one compact row; the line floats at the foot of the heatmap (Workload.svelte). */
 	@media (max-width: 599px) {
 		.zoom-radios,
@@ -359,14 +336,6 @@
 		}
 		.zoom-select {
 			display: inline-flex;
-		}
-		.today {
-			padding-inline: 0;
-			justify-content: center;
-			min-inline-size: var(--size-tap);
-		}
-		.today .lbl {
-			display: none;
 		}
 		.legend {
 			display: none;

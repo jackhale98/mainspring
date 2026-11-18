@@ -1,0 +1,63 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * The Toolbar primitive's tier rules (ADR-0016 #3), in one place: what each narrow form of
+ * lib/ui/toolbar-tiers.ts does at each tier. Components declare a form with `data-narrow`; they do
+ * not write a tier rule for a control. The widths are the TIERS of that module (a unit test reads
+ * this file and checks them). The container queries are unnamed: they ask the nearest container,
+ * which is the toolbar's own view (the Gantt, the Workload and Lanes views, the Calendar).
+ *
+ * The selectors repeat `[data-narrow]` on purpose: a component's own class rule is scoped
+ * (`.chip.svelte-x`, specificity 0,2,0) and must not beat these, whichever stylesheet comes last.
+ */
+
+/* icon: the label goes at the narrow tier and on a phone; the control is its icon. */
+@container (max-width: 899px) {
+	[data-narrow='icon'][data-narrow][data-narrow] .lbl.lbl {
+		display: none;
+	}
+	[data-narrow='icon'][data-narrow][data-narrow] {
+		justify-content: center;
+		min-inline-size: var(--gantt-chip-height, 2rem);
+		padding-inline: 0;
+	}
+}
+/* The Plan tab and a phone's chips have no container around them: the viewport decides. */
+@media (max-width: 599px) {
+	[data-narrow='icon'][data-narrow][data-narrow] .lbl.lbl,
+	[data-narrow='icon-phone'][data-narrow][data-narrow] .lbl.lbl {
+		display: none;
+	}
+	[data-narrow='icon'][data-narrow][data-narrow],
+	[data-narrow='icon-phone'][data-narrow][data-narrow] {
+		justify-content: center;
+		min-inline-size: var(--gantt-chip-height, 2rem);
+		padding-inline: 0;
+	}
+}
+/* A finger: the icon is 44 px. */
+@media (pointer: coarse) {
+	@container (max-width: 899px) {
+		[data-narrow='icon'][data-narrow][data-narrow] {
+			min-inline-size: var(--size-tap);
+		}
+	}
+	@media (max-width: 599px) {
+		[data-narrow='icon'][data-narrow][data-narrow],
+		[data-narrow='icon-phone'][data-narrow][data-narrow] {
+			min-inline-size: var(--size-tap);
+		}
+	}
+}
+
+/* shrink: the text is cut rather than push a chip off the row (a phone's zoom select). */
+@media (max-width: 599px) {
+	[data-narrow='shrink'][data-narrow] select {
+		max-inline-size: 5.5rem;
+		text-overflow: ellipsis;
+	}
+}
+@media (max-width: 399px) {
+	[data-narrow='shrink'][data-narrow] select {
+		max-inline-size: 4.75rem;
+	}
+}

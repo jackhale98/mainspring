@@ -2,9 +2,10 @@
 <!--
 	The Calendar's toolbar (phase-3.md 9.2, 9.5, 18.6): whose leave is shown (Everyone, or a person),
 	the mode (Select, Paint, Erase), the leave type to paint, and the way between months (previous,
-	next, today). A desktop and a tablet have it in a row above the months; a phone has it in a bar
-	of two rows above the tab bar, with the months' own title row on top ("Paint bar above the tab
-	bar", 9.2). It holds no state: the Calendar owns the choices.
+	next, today). A wide desktop has it in one row above the months (from about 1024 px); a narrower
+	view wraps it to two rows, and a phone has it in a bar of three rows above the tab bar: the months,
+	the mode, then whose and what ("Paint bar above the tab bar", 9.2). The four groups cannot share
+	360 px, so the toolbar contract spec (tests/e2e/primitives/toolbar.spec.ts) allows these rows. It holds no state: the Calendar owns the choices.
 
 	The type picker offers `annual`, `special`, `sick`, `unpaid` and `unemployed` for a person, and
 	`holiday` for Everyone (`typesFor`). The mode and the type are announced when they change (the
@@ -16,6 +17,7 @@
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 	import type { CalendarMode } from './calendar-state.svelte';
 
 	interface Person {
@@ -67,14 +69,19 @@
 	const types = $derived(typesFor(scope.kind === 'global'));
 	const scopeValue = $derived(scope.kind === 'global' ? '' : scope.resource);
 
-	function pickScope(e: Event): void {
-		const v = (e.currentTarget as HTMLSelectElement).value;
+	function pickScope(v: string): void {
 		onscope(v === '' ? { kind: 'global' } : { kind: 'resource', resource: v });
 	}
 </script>
 
-<div class="bar {placement}" role="group" aria-label={C.toolbar} data-testid="cal-bar-{placement}">
-	<div class="months" role="group" aria-label={C.months}>
+<div
+	class="bar {placement}"
+	role="group"
+	aria-label={C.toolbar}
+	data-toolbar="calendar"
+	data-testid="cal-bar-{placement}"
+>
+	<div class="months" role="group" aria-label={C.months} data-narrow="fixed">
 		<button
 			type="button"
 			class="chip icon"
@@ -104,10 +111,10 @@
 			<Icon name="today" size={14} /><span class="lbl">{C.today}</span>
 		</button>
 	</div>
-	<label class="chip select scope">
+	<label class="chip select scope" data-narrow="own">
 		<span class="cap">{C.scope}</span>
-		<select
-			data-own-caret
+		<Select
+			variant="inline"
 			value={scopeValue}
 			onchange={pickScope}
 			aria-label={C.scope}
@@ -117,10 +124,9 @@
 			{#each people as p (p.id)}
 				<option value={p.id}>{'  '.repeat(p.level - 1)}{p.name}</option>
 			{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
+		</Select>
 	</label>
-	<div class="modes" role="radiogroup" aria-label={C.mode}>
+	<div class="modes" role="radiogroup" aria-label={C.mode} data-narrow="own">
 		{#each MODES as m (m.id)}
 			<label class:on={mode === m.id}>
 				<input
@@ -135,20 +141,16 @@
 			</label>
 		{/each}
 	</div>
-	<label class="chip select type">
+	<label class="chip select type" data-narrow="own">
 		<span class="cap">{C.type}</span>
-		<select
-			data-own-caret
+		<Select
+			variant="inline"
 			value={leaveType}
 			aria-label={C.type}
-			onchange={(e) => ontype(e.currentTarget.value as LeaveType)}
+			onchange={(v) => ontype(v as LeaveType)}
 			data-testid="cal-type"
-		>
-			{#each types as t (t)}
-				<option value={t}>{L.type[t]}</option>
-			{/each}
-		</select>
-		<span class="caret"><Icon name="chevronDown" size={12} /></span>
+			options={types.map((t) => ({ value: t, label: L.type[t] }))}
+		/>
 	</label>
 	<p class="hint" data-testid="cal-hint">{hint}</p>
 </div>
@@ -211,7 +213,7 @@
 		cursor: default;
 	}
 	.chip:focus-visible,
-	.chip:has(select:focus-visible) {
+	.chip:has(:global(select:focus-visible)) {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
 	}
@@ -219,33 +221,16 @@
 	.select {
 		padding-inline: 12px 0;
 	}
-	.select select {
+	.select :global(select) {
 		/* Over the chip's own 1 px edge too, so a finger's target is the whole 44 px. */
 		align-self: stretch;
 		margin-block: -1px;
 		padding-inline-end: 26px;
+		max-inline-size: 11rem;
+		font-weight: 600;
 	}
 	.cap {
 		color: var(--color-gantt-text-muted);
-	}
-	select {
-		appearance: none;
-		max-inline-size: 11rem;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		font-weight: 600;
-		cursor: pointer;
-		outline: none;
-		padding: 0;
-	}
-	.caret {
-		position: absolute;
-		inset-inline-end: 10px;
-		display: grid;
-		color: var(--color-gantt-text-muted);
-		pointer-events: none;
 	}
 	/* The mode switch: the look of the toolbar's pills (SegmentTabs), as native radios. */
 	.modes {
@@ -308,7 +293,7 @@
 			min-inline-size: var(--size-tap);
 		}
 	}
-	/* A phone: two rows above the tab bar: the months and the mode, then whose and what. */
+	/* A phone: three rows above the tab bar: the months, the mode, then whose and what. */
 	@container calendar (max-width: 599px) {
 		.bar {
 			gap: var(--space-2);
@@ -334,7 +319,7 @@
 			flex: 1 1 0;
 			min-inline-size: 0;
 		}
-		.bar select {
+		.bar :global(select) {
 			min-inline-size: 0;
 			max-inline-size: 100%;
 			text-overflow: ellipsis;

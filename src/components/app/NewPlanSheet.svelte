@@ -16,6 +16,7 @@
 	import { deviceZone, isoDate, zoneChoices } from '../../lib/tjp/new-plan-defaults';
 	import { MAX_YEAR, MIN_YEAR, newPlanProblem, type NewPlanProblem } from '../../lib/tjp/new-plan';
 	import Sheet from '../Sheet.svelte';
+	import Select from '../ui/Select.svelte';
 
 	interface Props {
 		app: AppState;
@@ -129,19 +130,18 @@
 			</div>
 			<div class="field">
 				<label for={ids.zone}>{N.zone}</label>
-				<select
+				<Select
 					id={ids.zone}
-					bind:this={zoneField}
-					bind:value={zone}
-					class="input"
+					bind:el={zoneField}
+					value={zone}
+					onchange={(v) => (zone = v)}
 					aria-invalid={zoneProblem !== null}
 					aria-describedby={zoneProblem ? `${ids.zone}-error` : undefined}
-				>
-					<option value="">{N.zoneNone}</option>
-					{#each zones as z (z)}
-						<option value={z}>{z}</option>
-					{/each}
-				</select>
+					options={[
+						{ value: '', label: N.zoneNone },
+						...zones.map((z) => ({ value: z, label: z })),
+					]}
+				/>
 				{#if zoneProblem}
 					<p class="error" id="{ids.zone}-error" role="alert">{N.errors.zone}</p>
 				{/if}

@@ -19,7 +19,7 @@
 	import { getInspector } from './context';
 	import Field from './Field.svelte';
 	import CommitInput from './CommitInput.svelte';
-	import Select from './Select.svelte';
+	import Select from '../ui/Select.svelte';
 	import Stepper from './Stepper.svelte';
 
 	let { d }: { d: TaskDetails } = $props();
@@ -97,7 +97,7 @@
 						{options}
 						disabled={disabled || locked}
 						onchange={changeKind}
-						describedby={undefined}
+						aria-describedby={undefined}
 					/>
 				{/snippet}
 			</Field>

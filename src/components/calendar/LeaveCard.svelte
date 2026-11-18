@@ -19,6 +19,7 @@
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import type { LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
+	import Select from '../ui/Select.svelte';
 
 	interface Props {
 		item: PaintItem;
@@ -96,13 +97,13 @@
 		<div class="fields">
 			<label>
 				<span>{D.typeLabel}</span>
-				<select
+				<Select
+					size="sm"
 					value={draft.type}
-					onchange={(e) => commit({ type: e.currentTarget.value as LeaveType })}
+					onchange={(v) => commit({ type: v as LeaveType })}
 					data-testid="cal-leave-type"
-				>
-					{#each types as t (t)}<option value={t}>{L.type[t]}</option>{/each}
-				</select>
+					options={types.map((t) => ({ value: t, label: L.type[t] }))}
+				/>
 			</label>
 			<label>
 				<span>{D.name}</span>
@@ -186,7 +187,6 @@
 		color: var(--color-text-muted);
 		font-size: var(--text-xs);
 	}
-	select,
 	input {
 		box-sizing: border-box;
 		inline-size: 100%;
@@ -199,7 +199,6 @@
 		font: inherit;
 		font-size: var(--text-sm);
 	}
-	select:focus-visible,
 	input:focus-visible,
 	.remove:focus-visible {
 		outline: 3px solid var(--color-focus);

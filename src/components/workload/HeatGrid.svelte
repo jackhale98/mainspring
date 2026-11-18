@@ -14,7 +14,9 @@
 	The lanes (T15) use it too, with their own label and test ids (`kind="lane"`): both views can be
 	mounted at once.
 
-	Roving focus: one cell has tabindex 0 (the focus cell, or the first of the window); the arrow
+	Roving focus (lib/ui/roving-grid.ts, shared with the outline and the calendar): one cell has
+	tabindex 0 (the focus cell, or the first of the window), and the focus survives a rebuild of the
+	mirror; the arrow
 	keys, Home, End, PageUp, PageDown and T move it (the parent decides where, heat-mirror.ts
 	`moveFocus`); Enter and Space open the cell's details. The 3 px focus ring is drawn on the
 	canvas, by the parent, while the grid has the focus.
@@ -28,6 +30,7 @@
 	import { workloadStrings as W } from '../../lib/strings-workload';
 	import type { Cell, HeatLayout } from '../../lib/workload/heat-layout';
 	import type { Mirror } from '../../lib/workload/heat-mirror';
+	import { RovingGrid, tabStop } from '../../lib/ui/roving-grid';
 
 	interface Props {
 		mirror: Mirror;
@@ -49,10 +52,11 @@
 	/** The cell with tabindex 0: the focus cell when it is in the window, else the window's first. */
 	const active = $derived.by<Cell | null>(() => {
 		const r = mirror.range;
-		if (focus && focus.row >= r.r0 && focus.row < r.r1 && focus.col >= r.c0 && focus.col < r.c1) {
-			return focus;
-		}
-		return mirror.rows[0]?.cells[0] ? { row: r.r0, col: r.c0 } : null;
+		return tabStop(
+			focus,
+			(c) => c.row >= r.r0 && c.row < r.r1 && c.col >= r.c0 && c.col < r.c1,
+			mirror.rows[0]?.cells[0] ? { row: r.r0, col: r.c0 } : null,
+		);
 	});
 
 	function cellOf(el: EventTarget | null): Cell | null {
@@ -62,24 +66,18 @@
 		return { row: Number(c.dataset['row']), col: Number(c.dataset['col']) };
 	}
 
-	// The focus is in the grid and should stay there when a rebuild of the mirror (a zoom, the
-	// demand arriving, a resize) replaces the focused cell's element: the browser then drops the
-	// focus to the body, and it goes back to the focus cell. A focus the person moved elsewhere
-	// (focusout with a target outside the grid) is left alone.
-	let holding = false;
+	// The focus stays in the grid when a rebuild of the mirror (a zoom, the demand arriving, a resize)
+	// replaces the focused cell's element, unless the person moved it elsewhere (roving-grid.ts).
+	const roving = new RovingGrid<Cell>({
+		root: () => root,
+		keyOf: cellOf,
+		find: (r, c) => r.querySelector<HTMLElement>(`[data-row="${c.row}"][data-col="${c.col}"]`),
+	});
 	$effect(() => {
 		void mirror;
 		const f = focus;
-		if (!holding || !f) return;
-		void tick().then(() => {
-			if (!holding || !root) return;
-			const active = document.activeElement;
-			if (active && active !== document.body && root.contains(active)) return;
-			if (active && active !== document.body) return;
-			root
-				.querySelector<HTMLElement>(`[data-row="${f.row}"][data-col="${f.col}"]`)
-				?.focus({ preventScroll: true });
-		});
+		if (!f) return;
+		void tick().then(() => roving.restore(f));
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -90,9 +88,7 @@
 		if (n === seen || !f) return;
 		seen = n;
 		void tick().then(() => {
-			root
-				?.querySelector<HTMLElement>(`[data-row="${f.row}"][data-col="${f.col}"]`)
-				?.focus({ preventScroll: true });
+			roving.focusCell(f);
 		});
 	});
 </script>
@@ -111,23 +107,9 @@
 		const c = cellOf(e.target);
 		if (c) onkey(e, c);
 	}}
-	onfocusin={(e) => {
-		holding = true;
-		onfocuschange(true, cellOf(e.target));
-	}}
+	onfocusin={(e) => onfocuschange(true, roving.focusin(e))}
 	onfocusout={(e) => {
-		if (!(e.relatedTarget instanceof Node) || !root?.contains(e.relatedTarget)) {
-			// A focus moved to another element, or dropped by a click on nothing (its element still in
-			// the page), is let go; one lost because a rebuild removed its element is held for the
-			// effect above.
-			const from = e.target;
-			if (e.relatedTarget instanceof Node) holding = false;
-			else
-				setTimeout(() => {
-					if (from instanceof Node && from.isConnected) holding = false;
-				}, 0);
-			onfocuschange(false, null);
-		}
+		if (roving.focusout(e)) onfocuschange(false, null);
 	}}
 >
 	<div role="row" aria-rowindex="1" class="hrow">

@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// A <select> draws like the inputs beside it, with an arrow, in every browser (Base.astro): WebKit's
-// native grey fill and white arrow are turned off (`appearance: none`) and the arrow is drawn as a
-// background image. A component's own `background` or `padding` shorthand must not take it away
-// (it did for the inspector's, the health panel's, the time zone's and the move menus' selects), so
-// every visible select without `data-own-caret` that has `appearance: none` is checked for a
-// non-`none` background image and room on its end for it, in each state that has one: the task
-// details, the new-plan sheet, the calendar's day details, a heatmap cell's details, a health
-// finding, and the file switcher. Desktop, Pixel 7 and iPhone 14; light and dark.
+// A <select> draws like the inputs beside it, with an arrow, in every browser: the Select primitive
+// (components/ui/Select.svelte) turns WebKit's native grey fill and white arrow off (`appearance:
+// none`) and draws the arrow as an element of its own, which a component's `background` or `padding`
+// shorthand cannot take away (a global background-image rule lost to those in seven selects). Every
+// visible select that has `appearance: none` must therefore sit in a Select (`[data-select]`) whose
+// arrow is on screen, or be the invisible overlay variant over a chip that draws its own glyph, in
+// each state that has one: the task details, the new-plan sheet, the calendar's day details, a
+// heatmap cell's details, a health finding, and the file switcher. Desktop, Pixel 7 and iPhone 14;
+// light and dark. tests/e2e/primitives/select.spec.ts is the contract of the primitive itself.
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { openCalendar, showDay, tapDay } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
-import { LICENSE_TASK, openHealthPanel } from './lib/select-states';
+import { openSmallHealthPanel } from './lib/select-states';
 import { openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
 import { ready } from './lib/sheet-rig';
 
@@ -27,13 +28,36 @@ async function arrows(page: Page): Promise<Found> {
 		const bad: string[] = [];
 		let checked = 0;
 		for (const el of document.querySelectorAll<HTMLSelectElement>('select')) {
-			if (el.hasAttribute('data-own-caret') || el.getClientRects().length === 0) continue;
+			if (el.getClientRects().length === 0) continue;
 			const cs = getComputedStyle(el);
-			if (cs.appearance !== 'none') continue;
-			checked++;
 			const name = el.getAttribute('aria-label') ?? el.id ?? el.className;
-			if (cs.backgroundImage === 'none') bad.push(`${name}: no arrow`);
-			if (parseFloat(cs.paddingRight) < 24) bad.push(`${name}: padding-right ${cs.paddingRight}`);
+			const box = el.closest<HTMLElement>('[data-select]');
+			if (!box) {
+				bad.push(`${name}: not a Select`);
+				continue;
+			}
+			// The overlay variant is invisible over a chip that draws the glyph itself.
+			if (box.dataset['variant'] === 'overlay') continue;
+			checked++;
+			const caret = box.querySelector<HTMLElement>('.caret');
+			const at = caret?.getBoundingClientRect();
+			if (!at || at.width === 0 || getComputedStyle(caret as HTMLElement).display === 'none') {
+				// Forced colors: the browser draws the select, arrow included.
+				if (cs.appearance === 'none') bad.push(`${name}: no arrow`);
+				continue;
+			}
+			// An inline select's arrow is the chip's (its owner draws the box): it must be inside the chip.
+			// The others' is inside the select. Either way the text box (the select less its end
+			// padding) must end before the arrow: the room for it, which a padding shorthand took away.
+			const sel = el.getBoundingClientRect();
+			const outer = box.dataset['variant'] === 'inline' ? (el.closest('label') ?? el) : el;
+			const out = outer.getBoundingClientRect();
+			if (at.right > out.right + 1 || at.left < out.left)
+				bad.push(`${name}: the arrow is outside the select`);
+			const textRight = sel.right - parseFloat(cs.paddingRight);
+			if (textRight > at.left + 1)
+				bad.push(`${name}: no room for the arrow (text ends at ${textRight}, arrow at ${at.left})`);
+			if (cs.appearance !== 'none') bad.push(`${name}: native appearance`);
 		}
 		return { checked, bad };
 	});
@@ -91,7 +115,7 @@ for (const scheme of ['dark', 'light'] as const) {
 		});
 
 		test('a heatmap cell’s details (the move menus)', async ({ page }, info) => {
-			await openHeatmap(page, info);
+			await openHeatmap(page, info, 'ui-people');
 			const result = await resultOf(page);
 			if (!result) throw new Error('no result');
 			const o = oracle(result);
@@ -137,9 +161,9 @@ for (const scheme of ['dark', 'light'] as const) {
 		});
 
 		test('a health finding’s replace-person list', async ({ page }, info) => {
-			const row = await openHealthPanel(page, info);
+			const row = await openSmallHealthPanel(page, info);
 			await expect(row.locator('select[data-fix="replace-person"]')).toBeVisible();
-			await expectArrows(page, `health finding ${LICENSE_TASK}`);
+			await expectArrows(page, 'health finding (held by people)');
 		});
 
 		test('the file switcher (a phone: tabs elsewhere)', async ({ page }, info) => {

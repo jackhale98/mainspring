@@ -1,5 +1,11 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
+	Owner: ui-builder (ADR-0016 #3). Contract spec: tests/e2e/primitives/sheet.spec.ts, on the dev page
+	/dev/primitives (heights, motion shape, every way to close, focus return, no scroll on open, no gap above
+	the tab bar). Consumers, whose specs run on every change here: the task details and the docs, project,
+	source, history, new-plan and health sheets, the calendar's day details, the resource actions and the
+	outline drawer (sheet-states, phone-bugfixes, inspector, calendar-sheet, picker-phone, shell).
+
 	A sheet on the native <dialog>. It slides in from the start edge (the outline drawer on tablets)
 	or the bottom (the docs, project and source sheets, and the task details on tablets and phones).
 
@@ -81,6 +87,8 @@
 		/** Gives the bottom sheet a fixed height and a grabber; bind it to remember the height. */
 		detent?: Detent | undefined;
 		focusOnOpen?: boolean;
+		/** A `data-testid` for the dialog (the contract specs name a sheet by it). */
+		testid?: string | undefined;
 		/**
 		 * The person closed the sheet: set the owner's `open` to false. It is called as the slide
 		 * away begins, not at its end. When the dialog closes without the person having closed it (the
@@ -112,6 +120,7 @@
 		modal = true,
 		detent,
 		focusOnOpen = true,
+		testid,
 		onclose,
 		onleft,
 		ondetent,
@@ -377,6 +386,7 @@
 <dialog
 	bind:this={dialog}
 	class="sheet"
+	data-testid={testid}
 	data-side={side}
 	data-modal={modal}
 	data-detent={closing ? heldDetent : detent}

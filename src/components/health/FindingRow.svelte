@@ -24,6 +24,7 @@
 	import { healthStrings as H } from '../../lib/strings-health-panel';
 	import type { ResourceId } from '../../lib/tjp/index';
 	import StatusGlyph from '../app/StatusGlyph.svelte';
+	import Select from '../ui/Select.svelte';
 
 	interface Props {
 		finding: Finding;
@@ -103,9 +104,11 @@
 		}
 	}
 
-	async function choose(fix: Extract<Fix, { kind: 'replace-person' }>, e: Event): Promise<void> {
-		const select = e.currentTarget as HTMLSelectElement;
-		const to = select.value;
+	async function choose(
+		fix: Extract<Fix, { kind: 'replace-person' }>,
+		to: string,
+		select: HTMLSelectElement,
+	): Promise<void> {
 		select.value = '';
 		if (to === '' || busy) return;
 		busy = true;
@@ -149,10 +152,17 @@
 					{#if fix.disabled === null && others.length > 0}
 						<label class="pick">
 							<span class="sr-only">{named(fixLabel(fix, text))}</span>
-							<select disabled={busy} data-fix="replace-person" onchange={(e) => choose(fix, e)}>
-								<option value="">{fixLabel(fix, text)}</option>
-								{#each others as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
-							</select>
+							<Select
+								variant="pill"
+								value=""
+								disabled={busy}
+								data-fix="replace-person"
+								onchange={(v, select) => choose(fix, v, select)}
+								options={[
+									{ value: '', label: fixLabel(fix, text) },
+									...others.map((p) => ({ value: p.id, label: p.name })),
+								]}
+							/>
 						</label>
 					{:else}
 						<button type="button" class="fix" disabled data-fix="replace-person"
@@ -264,8 +274,7 @@
 		flex-wrap: wrap;
 		gap: var(--space-1) var(--space-2);
 	}
-	.fix,
-	.pick select {
+	.fix {
 		min-block-size: 32px;
 		padding-inline: var(--space-3);
 		border: 1px solid var(--color-border-strong);
@@ -276,15 +285,10 @@
 		font-size: var(--text-xs);
 		cursor: pointer;
 	}
-	.pick select {
-		max-inline-size: 12rem;
-	}
-	.fix:hover:not(:disabled),
-	.pick select:hover:not(:disabled) {
+	.fix:hover:not(:disabled) {
 		background: var(--color-row-hover);
 	}
-	.fix:disabled,
-	.pick select:disabled {
+	.fix:disabled {
 		color: var(--color-text-muted);
 		cursor: default;
 	}
@@ -295,7 +299,6 @@
 	}
 	.task:focus-visible,
 	.fix:focus-visible,
-	.pick select:focus-visible,
 	.gap input:focus-visible {
 		outline: 3px solid var(--color-focus);
 		outline-offset: 2px;
@@ -328,7 +331,6 @@
 	}
 	@media (pointer: coarse) {
 		.fix,
-		.pick select,
 		.gap input {
 			min-block-size: var(--size-tap);
 		}

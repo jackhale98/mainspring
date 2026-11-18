@@ -47,6 +47,7 @@
 		type LeaveFields,
 	} from '../../lib/calendar/leave-edit';
 	import { moveDay } from '../../lib/calendar/nav';
+	import { RovingGrid } from '../../lib/ui/roving-grid';
 	import type { LeavePaint, PaintScope } from '../../lib/calendar/paint';
 	import type { PaintItem } from '../../lib/calendar/paint-items';
 	import { runIntent, runStroke } from '../../lib/calendar/run';
@@ -274,6 +275,24 @@
 	}
 
 	// --- Focus and moving between months
+	// A rebuild of the month (the facts changing, a resize) replaces the day that has the focus: it
+	// goes back to the day (lib/ui/roving-grid.ts), unless the person moved it elsewhere.
+	const roving = new RovingGrid<number>({
+		root: () => scroller,
+		keyOf: (t) => {
+			const d =
+				t instanceof Element ? t.closest<HTMLElement>('[data-day]')?.dataset['day'] : undefined;
+			return d === undefined ? null : Number(d);
+		},
+		find: (r, d) => r.querySelector<HTMLElement>(`[data-day="${d}"]`),
+	});
+	$effect(() => {
+		void grid;
+		void topMonth;
+		const f = untrack(() => cal.focus);
+		if (f === null || f === undefined) return;
+		void tick().then(() => roving.restore(f));
+	});
 	async function focusDay(i: number): Promise<void> {
 		cal.focus = i;
 		cal.month = grid.monthOf(i);
@@ -592,7 +611,9 @@
 				pressing = true;
 				setTimeout(() => (pressing = false), 0);
 			}}
+			onfocusout={(e) => void roving.focusout(e)}
 			onfocusin={(e) => {
+				roving.focusin(e);
 				const d = (e.target as Element).closest<HTMLElement>('[data-day]')?.dataset['day'];
 				if (d === undefined) return;
 				// Focus that did not come from our own keys starts a new selection run. A press's focus

@@ -22,13 +22,23 @@ const DURATIONS = path.join(ROOT, 'tests/e2e/durations.json');
 /** Spec files that playwright.config.ts never runs in the merge tier (testIgnore). */
 const NOT_IN_MERGE_TIER = new Set(['engine-responsiveness.spec.ts', 'text-mode-perf.spec.ts']);
 
-/** The spec files of the merge tier, as repository paths, sorted. */
+/**
+ * The spec files of the merge tier, as repository paths, sorted: every `*.spec.ts` under tests/e2e,
+ * in its subdirectories too (tests/e2e/primitives), except the helper folder `lib/`.
+ */
 export function specFiles(root = ROOT) {
-	return fs
-		.readdirSync(path.join(root, 'tests/e2e'))
-		.filter((f) => f.endsWith('.spec.ts') && !NOT_IN_MERGE_TIER.has(f))
-		.sort()
-		.map((f) => `tests/e2e/${f}`);
+	const out = [];
+	const walk = (dir) => {
+		for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+			if (e.isDirectory()) {
+				if (e.name !== 'lib') walk(`${dir}/${e.name}`);
+			} else if (e.name.endsWith('.spec.ts') && !NOT_IN_MERGE_TIER.has(e.name)) {
+				out.push(`${dir}/${e.name}`);
+			}
+		}
+	};
+	walk('tests/e2e');
+	return out.sort();
 }
 
 const median = (xs) => {
