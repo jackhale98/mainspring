@@ -3,9 +3,13 @@
 	The Calendar's toolbar (phase-3.md 9.2, 9.5, 18.6): whose leave is shown (Everyone, or a person),
 	the mode (Select, Paint, Erase), the leave type to paint, and the way between months (previous,
 	next, today). A wide desktop has it in one row above the months (from about 1024 px); a narrower
-	view wraps it to two rows, and a phone has it in a bar of three rows above the tab bar: the months,
-	the mode, then whose and what ("Paint bar above the tab bar", 9.2). The four groups cannot share
-	360 px, so the toolbar contract spec (tests/e2e/primitives/toolbar.spec.ts) allows these rows. It holds no state: the Calendar owns the choices.
+	view wraps it to two rows. A phone (up to 599 px) has it in a bar of two rows above the tab bar
+	("Paint bar above the tab bar", 9.2; compact, user 2026-11-18): the months (previous, a short
+	title, next) and the mode as three icons; then Today as an icon, whose and what. The five groups
+	cannot share 360 px in one row, so the toolbar contract spec (tests/e2e/primitives/toolbar.spec.ts)
+	allows two rows there. The icons and the short title are the toolbar's narrow forms
+	(`icon-phone`, `.ico-stand`, `.lbl-short`: src/styles/toolbar.css), not rules of this file. It holds
+	no state: the Calendar owns the choices.
 
 	The type picker offers `annual`, `special`, `sick`, `unpaid` and `unemployed` for a person, and
 	`holiday` for Everyone (`typesFor`). The mode and the type are announced when they change (the
@@ -32,6 +36,8 @@
 		leaveType: LeaveType;
 		/** The month in view, for the buttons' names. */
 		title: string;
+		/** The title where there is little room (a phone): "Nov 2026". */
+		shortTitle?: string;
 		hasToday: boolean;
 		onscope: (scope: PaintScope) => void;
 		onmode: (mode: CalendarMode) => void;
@@ -50,6 +56,7 @@
 		mode,
 		leaveType,
 		title,
+		shortTitle,
 		hasToday,
 		onscope,
 		onmode,
@@ -62,9 +69,9 @@
 	}: Props = $props();
 
 	const MODES = [
-		{ id: 'select' as const, label: C.modes.select },
-		{ id: 'paint' as const, label: C.modes.paint },
-		{ id: 'erase' as const, label: C.modes.erase },
+		{ id: 'select' as const, label: C.modes.select, icon: 'pointer' as const },
+		{ id: 'paint' as const, label: C.modes.paint, icon: 'brush' as const },
+		{ id: 'erase' as const, label: C.modes.erase, icon: 'eraser' as const },
 	];
 	const types = $derived(typesFor(scope.kind === 'global'));
 	const scopeValue = $derived(scope.kind === 'global' ? '' : scope.resource);
@@ -91,7 +98,10 @@
 		>
 			<Icon name="chevronLeft" size={14} />
 		</button>
-		<span class="title" aria-hidden="true">{title}</span>
+		<span class="title" aria-hidden="true"
+			><span class="lbl-long">{title}</span><span class="lbl-short">{shortTitle ?? title}</span
+			></span
+		>
 		<button
 			type="button"
 			class="chip icon"
@@ -101,16 +111,18 @@
 		>
 			<Icon name="chevronRight" size={14} />
 		</button>
-		<button
-			type="button"
-			class="chip today"
-			onclick={ontoday}
-			disabled={!hasToday}
-			aria-label={hasToday ? C.today : C.todayOff}
-		>
-			<Icon name="today" size={14} /><span class="lbl">{C.today}</span>
-		</button>
 	</div>
+	<button
+		type="button"
+		class="chip today"
+		data-narrow="icon-phone"
+		onclick={ontoday}
+		disabled={!hasToday}
+		aria-label={hasToday ? C.today : C.todayOff}
+		title={hasToday ? C.today : C.todayOff}
+	>
+		<Icon name="today" size={14} /><span class="lbl">{C.today}</span>
+	</button>
 	<label class="chip select scope" data-narrow="own">
 		<span class="cap">{C.scope}</span>
 		<Select
@@ -128,16 +140,18 @@
 	</label>
 	<div class="modes" role="radiogroup" aria-label={C.mode} data-narrow="own">
 		{#each MODES as m (m.id)}
-			<label class:on={mode === m.id}>
+			<label class:on={mode === m.id} data-narrow="icon-phone">
 				<input
 					type="radio"
 					name="cal-mode-{placement}"
 					value={m.id}
 					checked={mode === m.id}
+					aria-label={m.label}
 					onchange={() => onmode(m.id)}
 					data-testid="cal-mode-{m.id}"
 				/>
-				<span>{m.label}</span>
+				<span class="ico-stand"><Icon name={m.icon} size={18} /></span>
+				<span class="lbl">{m.label}</span>
 			</label>
 		{/each}
 	</div>
@@ -152,6 +166,7 @@
 			options={types.map((t) => ({ value: t, label: L.type[t] }))}
 		/>
 	</label>
+	<span class="rowbreak" aria-hidden="true"></span>
 	<p class="hint" data-testid="cal-hint">{hint}</p>
 </div>
 
@@ -199,6 +214,14 @@
 		font-weight: 500;
 		white-space: nowrap;
 		cursor: pointer;
+	}
+	/* Beside the months group, at the 4 px gap that Today had inside it (it is a sibling now, so
+	   that a phone can put it in the second row). */
+	.today {
+		margin-inline-start: calc(var(--space-1) - var(--space-2));
+	}
+	.rowbreak {
+		display: none;
 	}
 	.chip.icon {
 		justify-content: center;
@@ -293,15 +316,20 @@
 			min-inline-size: var(--size-tap);
 		}
 	}
-	/* A phone: three rows above the tab bar: the months, the mode, then whose and what. */
+	/* A pane narrower than 600 px on a wide screen (Split mode beside the editor): three rows, the
+	   months and Today, the mode, then whose and what. A phone's two rows are the block below. */
 	@container calendar (max-width: 599px) {
 		.bar {
 			gap: var(--space-2);
 		}
 		.bar .months {
 			order: 1;
-			flex: 1 1 100%;
+			flex: 1 1 0;
+			min-inline-size: 0;
 			justify-content: space-between;
+		}
+		.bar .today {
+			order: 1;
 		}
 		.bar .modes {
 			order: 2;
@@ -334,6 +362,60 @@
 			block-size: 1px;
 			overflow: hidden;
 			clip-path: inset(50%);
+		}
+	}
+	/*
+	   A phone (the viewport, as the other toolbars' narrow forms): two rows above the tab bar, so that
+	   the month keeps the screen (user, 2026-11-18). Row one: the months (previous, short title, next)
+	   and the mode as three icons. Row two: Today as an icon, whose leave and what type. The icons and
+	   the short title come from toolbar.css (data-narrow="icon-phone", .ico-stand, .lbl-short). This
+	   follows the container block above, which still serves a narrow pane on a wide screen.
+	*/
+	@media (max-width: 599px) {
+		.bar {
+			column-gap: var(--space-2);
+			/* The row break is a line of its own, so the second row's own top margin is the gap. */
+			row-gap: 0;
+			padding-block: var(--space-1);
+		}
+		.bar .months {
+			order: 1;
+			flex: 1 1 0;
+			min-inline-size: 0;
+			justify-content: space-between;
+		}
+		.bar .modes {
+			order: 2;
+			display: inline-flex;
+			flex: none;
+			gap: 0;
+			padding: 1px;
+		}
+		.bar .modes label {
+			flex: none;
+		}
+		.bar .rowbreak {
+			display: block;
+			order: 3;
+			flex: 1 0 100%;
+			block-size: 0;
+		}
+		.bar .today {
+			order: 4;
+			margin-inline-start: 0;
+		}
+		.bar .scope,
+		.bar .type {
+			order: 5;
+		}
+		.bar .today,
+		.bar .scope,
+		.bar .type {
+			margin-block-start: var(--space-1);
+		}
+		.bar .title {
+			flex: 1 1 0;
+			min-inline-size: 0;
 		}
 	}
 </style>

@@ -112,11 +112,17 @@ Pixel 7 and iPhone 14, and are in the CI shards (`scripts/ci/shard-plan.mjs` wal
 | Grid focus | `src/lib/ui/roving-grid.ts`                                         | `tests/e2e/primitives/grid-focus.spec.ts` |
 | Popover    | `src/components/ui/Popover.svelte`                                  | `tests/e2e/primitives/popover.spec.ts` |
 
-**Exception: the Calendar bar wraps.** The one-row check from 360 to 1600 px holds for the Gantt's
-chips and for the Workload and Lanes bar. The Calendar's bar has four groups (months, person, mode,
-type) that cannot share 360 px, so it is three rows on a phone (up to 600 px), two rows up to about
-1000 px, and one row from 1024 px. `toolbar.spec.ts` allows exactly that (`calendarRows`) and still
-fails on any clipped control. Making it one row on a phone would be a redesign of the bar.
+**Exception: the Calendar bar wraps, in two rows on a phone.** The one-row check from 360 to 1600 px
+holds for the Gantt's chips and for the Workload and Lanes bar. The Calendar's bar has five groups
+(months, Today, person, mode, type) that cannot share 360 px. After the compact pass (user,
+2026-11-18, "Make the controls more compact") it is two rows on a phone (up to 599 px; it was three),
+two rows from 600 to about 1000 px (three at exactly 600 px in a narrow pane on a wide screen, the
+Split layout, which is unchanged), and one row from 1024 px. Row one is the months (previous, "Nov
+2026", next) and the mode as three icons (Select, Paint, Erase); row two is Today as an icon, the
+person and the leave type. They use the toolbar's narrow forms (`icon-phone`, plus the `.ico-stand`
+and `.lbl-short` hooks added to `toolbar.css`). Measured at 105 px high (it was 175): the month shows
+five full weeks at 390x664 (iPhone 14; four before) and at 360x640 (three before).
+`toolbar.spec.ts` allows exactly that (`calendarRows`) and still fails on any clipped control.
 
 **First-load JS (gzip, `js-sizes.mjs --serve`), before and after T25.** Both stay under their caps.
 

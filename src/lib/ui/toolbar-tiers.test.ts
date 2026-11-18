@@ -31,6 +31,16 @@ describe('toolbar.css', () => {
 	});
 });
 
+describe('toolbar.css stand-ins for a label', () => {
+	it('draws a stand-in icon and a short label only where the tiers say', () => {
+		// Hidden by default, shown at the narrow tier (`icon`) and on a phone (`icon`, `icon-phone`).
+		expect(css).toMatch(/\[data-narrow\] \.ico-stand\s*\{\s*display: none/);
+		expect(css).toMatch(/\.lbl-short\s*\{\s*display: none/);
+		expect(css).toMatch(/\[data-narrow='icon-phone'\]\[data-narrow\]\[data-narrow\] \.ico-stand/);
+		expect(css).toMatch(/\.lbl-long\s*\{\s*display: none/);
+	});
+});
+
 describe('declaring a narrow form', () => {
 	it('knows the forms', () => {
 		for (const f of NARROW_FORMS) expect(isNarrowForm(f)).toBe(true);

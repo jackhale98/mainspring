@@ -61,3 +61,37 @@
 		max-inline-size: 4.75rem;
 	}
 }
+
+/*
+ * Stand-ins for a label (the Calendar's compact bar, 2026-11-18). Two hooks that need no form of
+ * their own:
+ * - `.ico-stand`: an icon drawn only where the control's label (`.lbl`) is hidden, for a control that
+ *   has no icon at a wide width (the Calendar's mode switch: Select, Paint, Erase). It follows the
+ *   same tiers as the form around it: `icon` at the narrow tier and on a phone, `icon-phone` on a
+ *   phone.
+ * - `.lbl-long` and `.lbl-short`: a label with a shorter spelling ("November 2026", "Nov 2026"); the
+ *   short one is drawn on a phone.
+ */
+[data-narrow] .ico-stand {
+	display: none;
+}
+.lbl-short {
+	display: none;
+}
+@container (max-width: 899px) {
+	[data-narrow='icon'][data-narrow][data-narrow] .ico-stand {
+		display: inline-flex;
+	}
+}
+@media (max-width: 599px) {
+	[data-narrow='icon'][data-narrow][data-narrow] .ico-stand,
+	[data-narrow='icon-phone'][data-narrow][data-narrow] .ico-stand {
+		display: inline-flex;
+	}
+	.lbl-long {
+		display: none;
+	}
+	.lbl-short {
+		display: inline;
+	}
+}

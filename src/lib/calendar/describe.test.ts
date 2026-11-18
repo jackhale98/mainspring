@@ -10,6 +10,7 @@ import {
 	dayExtra,
 	leavePhrase,
 	monthTitle,
+	monthTitleShort,
 	rangeLabel,
 	typeName,
 	weekdayName,
@@ -23,6 +24,7 @@ const L = 'en-US';
 describe('names', () => {
 	it('titles a month and names the weekdays', () => {
 		expect(monthTitle(2026, 11, L)).toBe('November 2026');
+		expect(monthTitleShort(2026, 11, L)).toBe('Nov 2026');
 		expect(weekdayName(1, false, L)).toBe('Mon');
 		expect(weekdayName(0, true, L)).toBe('Sunday');
 	});

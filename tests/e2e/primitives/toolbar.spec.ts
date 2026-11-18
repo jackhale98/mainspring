@@ -15,12 +15,15 @@ import { openPrimitives } from '../lib/primitives-rig';
 const WIDTHS = [360, 375, 390, 412, 480, 599, 600, 700, 768, 899, 900, 1024, 1280, 1366, 1600];
 /**
  * How many rows a toolbar may take at a width. The Gantt's chips and the Workload and Lanes bar are one
- * row everywhere. The Calendar's bar has four groups (the months, the person, the mode, the type) that
- * cannot share 360 px, so it wraps by design (CalendarBar.svelte: three rows on a phone, two up to
- * about 1000 px) and is one row from 1024 px; it is never cut off.
+ * row everywhere. The Calendar's bar has five groups (the months, Today, the person, the mode, the
+ * type) that cannot share 360 px, so it wraps by design (CalendarBar.svelte: two rows on a phone,
+ * from 360 px to 599 px, and from about 600 to 1000 px) and is one row from 1024 px; it is never cut
+ * off.
  */
 const oneRow = (): number => 1;
-const calendarRows = (w: number): number => (w <= 600 ? 3 : w <= 1000 ? 2 : 1);
+// 600 px: not a phone, but the demo host is 598 px wide, so the bar is in the narrow-pane layout of a
+// Split Calendar (three rows, as before).
+const calendarRows = (w: number): number => (w <= 599 ? 2 : w === 600 ? 3 : w <= 1000 ? 2 : 1);
 const TOOLBARS = [
 	{ id: 'toolbar-gantt', name: 'the Gantt chips', rows: oneRow },
 	{ id: 'toolbar-workload', name: 'the Workload bar', rows: oneRow },

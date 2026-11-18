@@ -17,7 +17,19 @@ describe('icons', () => {
 	});
 
 	it('keeps the shapes the mode switch and the toggles need', () => {
-		for (const name of ['code', 'split', 'visual', 'undo', 'redo', 'sun', 'moon', 'system']) {
+		for (const name of [
+			'code',
+			'split',
+			'visual',
+			'undo',
+			'redo',
+			'sun',
+			'moon',
+			'system',
+			'pointer',
+			'brush',
+			'eraser',
+		]) {
 			expect(ICONS).toHaveProperty(name);
 		}
 	});
