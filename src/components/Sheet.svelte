@@ -81,6 +81,8 @@
 		/** Gives the bottom sheet a fixed height and a grabber; bind it to remember the height. */
 		detent?: Detent | undefined;
 		focusOnOpen?: boolean;
+		/** A `data-testid` for the dialog (the contract specs name a sheet by it). */
+		testid?: string | undefined;
 		/**
 		 * The person closed the sheet: set the owner's `open` to false. It is called as the slide
 		 * away begins, not at its end. When the dialog closes without the person having closed it (the
@@ -112,6 +114,7 @@
 		modal = true,
 		detent,
 		focusOnOpen = true,
+		testid,
 		onclose,
 		onleft,
 		ondetent,
@@ -377,6 +380,7 @@
 <dialog
 	bind:this={dialog}
 	class="sheet"
+	data-testid={testid}
 	data-side={side}
 	data-modal={modal}
 	data-detent={closing ? heldDetent : detent}
