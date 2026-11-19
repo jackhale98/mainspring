@@ -2,7 +2,10 @@
 /**
  * Leave intents (phase-1.md 7.1 `addLeave`, `updateLeave`, `removeLeave`). A `LeaveRef` is a
  * leave item's range as `LeaveSite.items` gives it: a `leaves` item, or one interval of a
- * `vacation` (TaskJuggler reads a vacation as `holiday` leaves and throws its name away).
+ * `vacation` (TaskJuggler reads a vacation as `holiday` leaves and throws its name away), and the
+ * version it was read in. A ref read in another version than the index's is refused
+ * `target-changed` (ADR-0018 decision 6): the dispatcher maps a ref to the text now before it gets
+ * here, so this is the safety net for a direct caller.
  *
  * - `addLeave` appends `, <leave>` to the scope's last `leaves` list (global scope: the last
  *   file-level list; the project scope means the same, as TaskJuggler has no `leaves` in the
@@ -55,6 +58,7 @@ import {
 	type EditOp,
 	type IntentOf,
 	type IntentPlan,
+	type LeaveRef,
 	type LeaveSpec,
 	type Refused,
 } from './types';
@@ -166,8 +170,9 @@ export function planAddLeave(ctx: EditContext, intent: IntentOf<'addLeave'>): In
 /** The site holding a leave item, and the item, or a refusal. */
 function findItem(
 	ctx: EditContext,
-	ref: SourceRange,
+	{ item: ref, basedOn }: LeaveRef,
 ): { site: LeaveSite; index: number } | Refused {
+	if (basedOn !== ctx.index.version) return refused('target-changed', [ref]);
 	for (const site of ctx.index.leaves) {
 		const i = site.items.findIndex((it) => sameRange(it, ref));
 		if (i < 0) continue;
@@ -184,7 +189,7 @@ function findItem(
 }
 
 export function planUpdateLeave(ctx: EditContext, intent: IntentOf<'updateLeave'>): IntentPlan {
-	const found = findItem(ctx, intent.leave.item);
+	const found = findItem(ctx, intent.leave);
 	if (isRefused(found)) return found;
 	const { site } = found;
 	const ref = intent.leave.item;
@@ -217,7 +222,7 @@ export function planUpdateLeave(ctx: EditContext, intent: IntentOf<'updateLeave'
 }
 
 export function planRemoveLeave(ctx: EditContext, intent: IntentOf<'removeLeave'>): IntentPlan {
-	const found = findItem(ctx, intent.leave.item);
+	const found = findItem(ctx, intent.leave);
 	if (isRefused(found)) return found;
 	const { site, index } = found;
 	const file = fileOf(ctx, site.attr.statement);

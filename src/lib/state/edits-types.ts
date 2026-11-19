@@ -191,4 +191,9 @@ export type Job = {
 			readonly source: ActionSource;
 			readonly o: ActionDispatchOptions;
 	  }
+	| {
+			readonly kind: 'plan';
+			readonly plan: ViewPlanner;
+			readonly o: Omit<DispatchOptions, 'label'>;
+	  }
 );

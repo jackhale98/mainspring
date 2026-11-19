@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * Step 1 of the edit dispatcher (edits.svelte.ts): a fresh index, the plan (a Gantt action through
- * `planAction`, or the intent as given) and the edit API's dry run, all on the current snapshot,
- * or on a given one (a coalesced gesture's base, for a dry run only). Pure apart from
- * `ensureIndex`, which may derive the index now (it does not publish).
+ * `planAction`, a view planner on the text now, or the intent as given), the checks of the targets
+ * against the version they were read in (ADR-0018, edits-rebase.ts) and the edit API's dry run, all
+ * on the current snapshot, or on a given one (a coalesced gesture's base, for a dry run only). Pure
+ * apart from `ensureIndex`, which may derive the index now (it does not publish).
+ *
+ * The checks run on an intent or a Gantt action's plan, not on a planner's (it planned on the text
+ * now), and only on a gesture's first call: its later calls plan on the gesture's base.
  *
  * `stale` (the index or the text moved under the plan) asks to plan again. Every other refusal,
  * `needs-schedule` included, is final: planning again at once would give the same answer.
@@ -26,7 +30,8 @@ import { applyIntent } from '../tjp/edit/apply';
 import type { EditIntent, EditOptions, SourceRange, TjpEdit } from '../tjp/edit/types';
 import type { SymbolIndex, TaskId, TextOnlyReason } from '../tjp/index';
 import type { HistoryIntent } from '../workspace/history-steps';
-import type { WorkspaceSnapshot } from '../workspace/workspace';
+import type { ChangeOrigin, WorkspaceSnapshot } from '../workspace/workspace';
+import { rebase, rebaser, type Kept } from './edits-rebase';
 import type { Located } from './edits-settle';
 import type {
 	ActionSource,
@@ -34,6 +39,7 @@ import type {
 	DispatchRefusal,
 	EditDispatcherDeps,
 	Job,
+	ViewPlanned,
 } from './edits-types';
 
 export type Prepared =
@@ -62,21 +68,49 @@ export interface Base {
 /** Working time per result, so a burst of actions on one result builds it once. */
 const workingTimes = new WeakMap<ScheduleResult, WorkingTime | null>();
 
-export function prepare(d: Deps, job: Job, on?: Base): Prepared {
+const unprepared = (e: unknown): Prepared => {
+	report(e);
+	return { status: 'done', outcome: refused('unprepared', [], toastStrings.unprepared) };
+};
+
+export function prepare(d: Deps, kept: Kept, job: Job, on?: Base): Prepared {
 	let index: SymbolIndex;
 	try {
 		index = on?.index ?? d.runner.ensureIndex();
 	} catch (e) {
-		report(e);
-		return { status: 'done', outcome: refused('unprepared', [], toastStrings.unprepared) };
+		return unprepared(e);
 	}
 	const snap = on?.snap ?? d.workspace.snapshot();
 	const at = (r: readonly SourceRange[]): { at?: Located } =>
 		r[0] ? { at: { ...r[0], version: snap.version } } : {};
+	// A gesture's later call and its dry run plan on the gesture's base: not checked (ADR-0018).
+	const rb = rebaser(
+		d.workspace,
+		kept,
+		snap,
+		index,
+		on || job.gesture?.base ? Infinity : job.basedOn,
+	);
 	let intent: EditIntent;
 	let label: ToastLabel;
 	let constraint: boolean;
-	if (job.kind === 'action') {
+	if (job.kind === 'plan') {
+		let p: ViewPlanned;
+		try {
+			p = job.plan(rb);
+		} catch (e) {
+			return unprepared(e);
+		}
+		if (p.status === 'unchanged') {
+			const message = p.message ?? ganttActionStrings.noop['already-set'];
+			return { status: 'done', outcome: { status: 'noop', reason: 'already-set', message } };
+		}
+		if (p.status === 'not-possible') {
+			return { status: 'done', outcome: refused('planner', p.at, p.message), ...at(p.at) };
+		}
+		({ intent, label } = p);
+		constraint = p.constraint ?? false;
+	} else if (job.kind === 'action') {
 		// A gesture plans every call on the schedule its first call saw (coalesce.ts).
 		const source = job.gesture?.source ?? job.source;
 		const planned = planAction(job.action, contextOf(d, source, index));
@@ -92,6 +126,17 @@ export function prepare(d: Deps, job: Job, on?: Base): Prepared {
 		intent = job.intent;
 		label = job.o.label;
 		constraint = job.o.constraint ?? false;
+	}
+	if (job.kind !== 'plan') {
+		const now = rebase(intent, rb);
+		if (!now) {
+			const ref =
+				intent.type === 'updateLeave' || intent.type === 'removeLeave' ? intent.leave : null;
+			const outcome = refused('target-changed', [], refusalMessage('target-changed'));
+			// "Show in text" goes to where the old range is now.
+			return { status: 'done', outcome, ...(ref && { at: { ...ref.item, version: ref.basedOn } }) };
+		}
+		intent = now;
 	}
 	const stale = refused('stale', [], refusalMessage('stale'));
 	if (index.version !== snap.version) return { status: 'replan', outcome: stale };
@@ -186,6 +231,23 @@ export function renamedBy(i: HistoryIntent): readonly [TaskId, TaskId] | null {
 	const to = dot < 0 ? i.id : `${i.task.slice(0, dot)}.${i.id}`;
 	return to === i.task ? null : [i.task, to];
 }
+
+/** Changes that can change ids (ADR-0018 decision 2), besides a `renamedBy` one. */
+const ID_CHANGES = new Set([
+	'text',
+	'addTask',
+	'deleteTask',
+	'addResource',
+	'deleteResource',
+	'gapToTask',
+]);
+
+/**
+ * Whether a workspace change can change ids: typing, a change of no known intent, and those intents.
+ * An undo or redo is classified by its entry's intent (the history applies it as the change's edit).
+ */
+export const changesIds = (origin: ChangeOrigin, i?: { readonly type: string }): boolean =>
+	origin !== 'format' && (!i || ID_CHANGES.has(i.type) || renamedBy(i as HistoryIntent) !== null);
 
 /**
  * A gesture's total of zero (`size-step` by 0, `move` by 0 days): back to where the gesture began.

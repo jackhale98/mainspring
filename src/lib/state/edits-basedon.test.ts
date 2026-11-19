@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The dispatcher's `basedOn` interface (ADR-0018, T27a): a call is stamped with the published index
 // version unless it names its own, and the two outcomes that ask before a call is made again carry
-// it back. `dispatchPlan` is declared but not implemented until T27b. The checks themselves are
-// T27b's (edits-rebase.test.ts).
+// it back. The checks themselves are in edits-rebase.test.ts, `dispatchPlan` in
+// edits-dispatch-plan.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditIntent } from '../tjp/edit/types';
 import { harness, manipulationHarness, type Harness } from './edits-testing';
@@ -96,11 +96,5 @@ describe('basedOn', () => {
 		vi.advanceTimersByTime(400);
 		expect(await deferred).toMatchObject({ status: 'confirm-shared', basedOn: shown });
 		expect(await held).toMatchObject({ status: 'confirm-shared', basedOn: shown });
-	});
-
-	// T27b replaces this test with the planner's own (it implements dispatchPlan).
-	it('declares dispatchPlan, which T27b implements', () => {
-		h = harness(SHARED);
-		expect(() => h.edits.dispatchPlan(() => ({ status: 'unchanged' }))).toThrow(/T27b/);
 	});
 });

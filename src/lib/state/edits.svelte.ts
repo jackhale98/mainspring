@@ -19,8 +19,7 @@
  * - **Check an action** with `check(action, source)`: a dry run for gestures; null: no answer yet.
  * - **Dispatch an edit intent** (the inspector's fields): `dispatch(intent, { label }, preview?)`;
  *   pass `constraint: true` when it adds a `start` or `end` the task did not have.
- * - **Dispatch a relative command** (ADR-0018 decision 3; T27b, no caller yet): `dispatchPlan(plan,
- *   opts?, preview?)`. `plan` is a pure `ViewPlanner` that reads only the `PlanBase` it is given
+ * - **Dispatch a relative command** (ADR-0018 decision 3): `dispatchPlan(plan, opts?, preview?)`. `plan` is a pure `ViewPlanner` that reads only the `PlanBase` it is given
  *   (the text now and its index) and the plain data it was made from. The dispatcher calls it on
  *   the fresh index on every plan of the call, and on the gesture's base for a later call of a
  *   coalesced gesture; its `intent` then goes through the edit API as `dispatch` does. The other
@@ -33,7 +32,8 @@
  *   targets in; it defaults to the published `indexVersion` when `dispatch*` is called (the stamp,
  *   enough for id intents). A drop passes `outline.version`, a `LeaveRef` its `PaintItem.version`,
  *   and a call made again after `confirm-shared` or `ask-move-preference` that outcome's
- *   `basedOn`. From T27b, a target the text now no longer holds is refused as `target-changed`.
+ *   `basedOn`. A target the text now no longer holds is refused as `target-changed` (the checks
+ *   are in edits-rebase.ts; the dispatcher keeps the last 4 published indexes for them).
  * - `preview` is the dragged item's geometry (`PendingMark`). It shows at once in `pending.byTask`
  *   (state `preview`), becomes `pending` once applied, and is dropped when the result that
  *   includes the edit schedules, so the bar animates to the engine's dates. When that result does
@@ -84,8 +84,8 @@
  *
  * 0. A later call of a gesture whose edit is in the text: dry-run the total on the gesture's base;
  *    if it is refused, refuse and keep the edit; otherwise undo the edit (after the Android gate).
- * 1. A fresh index (`ensureIndex`; if it throws, `unprepared`), the plan and `applyIntent` on the
- *    current snapshot (edits-plan.ts). `stale` plans again.
+ * 1. A fresh index (`ensureIndex`; if it throws, `unprepared`), the plan, the checks of the targets
+ *    (ADR-0018) and `applyIntent` on the current snapshot (edits-plan.ts). `stale` plans again.
  * 2. The Android gate: if a file the edit changes is the one the editor shows and CodeMirror
  *    holds an Android key there, wait (16 ms steps, about 500 ms at most; tjp/cm/android-key.ts).
  * 3. If the workspace moved meanwhile (typing), plan again from 1: a stale patch is never applied
@@ -115,7 +115,16 @@ import type { RunnerState } from '../workspace/run-types';
 import { Coalescer, type Gesture } from './coalesce';
 import { afterPaint } from './edits-yield';
 import { emptiesPlan } from './empty-plan';
-import { checkOn, isZeroTotal, prepare, refused, renamedBy, type Prepared } from './edits-plan';
+import {
+	changesIds,
+	checkOn,
+	isZeroTotal,
+	prepare,
+	refused,
+	renamedBy,
+	type Prepared,
+} from './edits-plan';
+import { Kept } from './edits-rebase';
 import { errorIdsOf, rangeNow, type Located } from './edits-settle';
 import type {
 	ActionDispatchOptions,
@@ -161,6 +170,8 @@ export class EditDispatcher {
 	readonly #timers: KeyTimers;
 	readonly #co: Coalescer<Job, DispatchOutcome>;
 	readonly #off: Array<() => void>;
+	/** The last published indexes, for the checks (edits-rebase.ts). */
+	readonly #kept: Kept;
 	#state: RunnerState | null = null;
 	#chain: Promise<unknown> = Promise.resolve();
 	#seq = 0;
@@ -174,9 +185,14 @@ export class EditDispatcher {
 		this.#toasts = new Toasts(this.#timers, (t) => this.#ledger.closed(t.id));
 		this.#ledger = new Ledger(this.#toasts, () => deps.onEmptied?.());
 		this.#co = new Coalescer(this.#timers, COALESCE_MS, (key) => this.#dispatchHeld(key));
+		const kept = (this.#kept = new Kept(deps.workspace.snapshot().version));
 		this.#off = [
+			deps.workspace.subscribe((snap, origin, info) =>
+				kept.changed(snap.version, changesIds(origin, info.edit?.intent)),
+			),
 			deps.runner.subscribe((s) => {
 				this.#state = s;
+				kept.publish(s.index);
 				this.#ledger.onRunner(s);
 			}),
 			deps.history.subscribe(() => this.#onHistory()),
@@ -227,16 +243,20 @@ export class EditDispatcher {
 		return this.#enqueue({ seq: ++this.#seq, basedOn, preview, kind: 'action', action, source, o });
 	}
 
-	/**
-	 * A relative command planned on the text now by `plan` (the contract; ADR-0018 decision 3).
-	 * Interface only (T27a): it throws until T27b implements it, and no view calls it yet.
-	 */
+	/** A relative command planned on the text now by `plan` (the contract; ADR-0018 decision 3). */
 	dispatchPlan(
-		_plan: ViewPlanner,
-		_o?: Omit<DispatchOptions, 'label'>,
-		_preview?: PendingMark,
+		plan: ViewPlanner,
+		o: Omit<DispatchOptions, 'label'> = {},
+		preview?: PendingMark,
 	): Promise<DispatchOutcome> {
-		throw new Error('dispatchPlan: not implemented (T27b)');
+		return this.#enqueue({
+			seq: ++this.#seq,
+			basedOn: this.#stamp(o),
+			preview,
+			kind: 'plan',
+			plan,
+			o,
+		});
 	}
 
 	/** A dry run on the current text (no edit, toast or history), for gestures; null: not ready. */
@@ -355,7 +375,7 @@ export class EditDispatcher {
 		let last: Extract<Prepared, { status: 'replan' }> | null = null;
 		for (let plans = 0; plans < MAX_PLANS; plans++) {
 			if (this.#disposed) return this.#done(job, CANCELLED);
-			const p = prepare(this.#d, job);
+			const p = prepare(this.#d, this.#kept, job);
 			if (p.status === 'replan') {
 				last = p;
 				continue;
@@ -386,7 +406,7 @@ export class EditDispatcher {
 		const top = this.#d.history.top();
 		if (!top || top.id !== g.applied || !g.base) return broken();
 		const zero = isZeroTotal(job);
-		const dry = zero ? null : prepare(this.#d, job, g.base);
+		const dry = zero ? null : prepare(this.#d, this.#kept, job, g.base);
 		const back = zero || (dry?.status === 'done' && dry.outcome.status === 'noop');
 		if (dry && dry.status !== 'ready' && !back) {
 			return this.#done(job, dry.outcome, dry.status === 'done' ? dry.at : undefined);
