@@ -1,7 +1,8 @@
 # ADR-0018: Edits planned on an old index: resolve in the dispatcher, or refuse
 
-Status: Proposed, 2026-11-19. On 2026-11-19 the user chose the direction: fix edits planned on a stale
-index in the shared edit layer, not in each component. This ADR is for approval before any code.
+Status: Accepted, 2026-11-19 (approved by the user as written, to run now as task T27, ahead of the
+workload items). On 2026-11-19 the user chose the direction: fix edits planned on a stale index in
+the shared edit layer, not in each component.
 Source: the read-only audit of 2026-11-19 and the reviewer's recommendation, both checked against
 the tree on `claude/new-session-6tly46`; ADR-0008; `docs/phases/phase-2.md` 6.8;
 `docs/phases/phase-3.md` 6.6, 6.8, 7.1.
