@@ -7,7 +7,7 @@
 -->
 <script lang="ts">
 	import { sourceBlock } from '../../lib/inspector/source';
-	import { inspectorStrings as S } from '../../lib/strings';
+	import { sourceSheetStrings as S } from '../../lib/strings-source-sheet';
 	import Sheet from '../Sheet.svelte';
 	import { getInspector } from './context';
 
@@ -36,19 +36,19 @@
 <Sheet
 	open={id !== null}
 	side="bottom"
-	title={S.source.title(name)}
+	title={S.title(name)}
 	onclose={() => (app.inspector.source = null)}
 >
 	{#if block}
-		<p class="file">{S.source.file(block.at.file)}</p>
+		<p class="file">{S.file(block.at.file)}</p>
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-		<pre class="code" role="region" tabindex="0" aria-label={S.source.region}><code
+		<pre class="code" role="region" tabindex="0" aria-label={S.region}><code
 				>{#each block.segments as seg, n (n)}<span class={seg.cls}>{seg.text}</span>{/each}</code
 			></pre>
-		{#if block.cut}<p class="cut">{S.source.cut(block.lines)}</p>{/if}
-		<button type="button" class="button" onclick={openInText}>{S.source.openInText}</button>
+		{#if block.cut}<p class="cut">{S.cut(block.lines)}</p>{/if}
+		<button type="button" class="button" onclick={openInText}>{S.openInText}</button>
 	{:else}
-		<p class="file">{S.source.none}</p>
+		<p class="file">{S.none}</p>
 	{/if}
 </Sheet>
 

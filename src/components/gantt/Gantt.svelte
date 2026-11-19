@@ -102,7 +102,7 @@
 	import { gestureStrings, strings } from '../../lib/strings';
 	import { ctrlWheel } from './ctrl-wheel';
 	import { createManipulation } from './manipulation.svelte';
-	import { installGanttHook } from './test-hook';
+	import { installHookLazily } from '../../lib/state/hook-params';
 	import type { MoveKind } from '../../lib/gantt/intents';
 	import LazyMount from '../app/LazyMount.svelte';
 	import { ZoomPreview } from './zoom-preview';
@@ -436,16 +436,22 @@
 				: strings.gantt.filter.note(filterSummary, filterView?.matched.size ?? null),
 	);
 
-	onMount(() =>
-		installGanttHook(new URLSearchParams(location.search), () => ({
-			model,
-			result,
-			layout,
-			origin: plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
-			pxPerDay,
-			scroller,
-		})),
-	);
+	// End-to-end tests only, with ?hooks=gantt: the hook's module is fetched only then (test-hook.ts).
+	onMount(() => {
+		const params = new URLSearchParams(location.search);
+		return installHookLazily(params, 'gantt', () =>
+			import('./test-hook').then((m) =>
+				m.installGanttHook(params, () => ({
+					model,
+					result,
+					layout,
+					origin: plotCell?.getBoundingClientRect() ?? { left: 0, top: 0 },
+					pxPerDay,
+					scroller,
+				})),
+			),
+		);
+	});
 
 	function onscroll(): void {
 		if (!scroller) return;
