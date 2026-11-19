@@ -30,6 +30,18 @@ test.describe('gantt screenshots', () => {
 		await pictureReady(page);
 	}
 
+	// Anchored on the name cell: a row's text also holds the names of its links (the Predecessors
+	// and Successors columns), so a plain text filter finds the row that points at the task. The
+	// click lands on the name itself: the middle of a row can fall on its drag grip, which does
+	// not select.
+	const selectTask = (page: Page, name: string) =>
+		page
+			.locator('[role="row"][data-key]')
+			.filter({ has: page.locator('[data-col="name"] .label', { hasText: name }) })
+			.first()
+			.locator('[data-col="name"] .label')
+			.click();
+
 	const shot = (page: Page, name: string) => page.screenshot({ path: path.join(DIR, name) });
 
 	for (const scheme of ['light', 'dark'] as const) {
@@ -86,11 +98,7 @@ test.describe('gantt screenshots', () => {
 			await page.setViewportSize({ width: 1440, height: 860 });
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page, TUTORIAL, 'visual');
-			await page
-				.locator('[role="row"][data-key]')
-				.filter({ hasText: 'Graphical User Interface' })
-				.first()
-				.click();
+			await selectTask(page, 'Graphical User Interface');
 			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
 			await pictureReady(page);
 			await shot(page, `gantt-critical-desktop-${scheme}.png`);
@@ -100,11 +108,7 @@ test.describe('gantt screenshots', () => {
 			test.skip(info.project.name !== 'pixel-7');
 			await page.emulateMedia({ colorScheme: scheme });
 			await open(page, TUTORIAL);
-			await page
-				.locator('[role="row"][data-key]')
-				.filter({ hasText: 'Graphical User Interface' })
-				.first()
-				.click();
+			await selectTask(page, 'Graphical User Interface');
 			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
 			// The phone shows a few weeks: scroll to the critical stretch (March 2002).
 			await page.getByTestId('gantt').evaluate((g) => {
@@ -128,11 +132,7 @@ test.describe('gantt screenshots', () => {
 				s.scrollLeft = s.scrollWidth * 0.915 - s.clientWidth / 2;
 			});
 			await pictureReady(page);
-			await page
-				.locator('[role="row"][data-key]')
-				.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Item 386' }) })
-				.first()
-				.click();
+			await selectTask(page, 'Item 386');
 			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
 		};
 		for (const sample of ['gantt-500', 'upstream-fedora-20']) {
