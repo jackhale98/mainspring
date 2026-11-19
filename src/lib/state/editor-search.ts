@@ -5,14 +5,33 @@
  * need, so the keymap here has the same keys as its `searchKeymap` and fetches the package on the
  * first press: Mod-F opens the panel as it did, a moment later on that first use. The package adds
  * its own state and panel when a command first runs (`openSearchPanel` appends its extensions), so
- * nothing else changes. Nothing preloads it: a first load fetches it only when asked for.
+ * nothing else changes. A first load does not fetch it; pressing Ctrl or Cmd alone in the editor
+ * (the first half of the shortcut) starts the fetch, so the panel is usually there by the time F
+ * is down and keys typed after the shortcut go into the panel, not the plan text.
+ *
+ * A failed fetch (offline before the chunk was ever cached: there is no service worker yet) opens
+ * nothing; the next press tries again. When the service worker lands, this chunk belongs in its
+ * precache list (BUILD_PLAN.md "Offline and caching").
  */
-import type { Command, KeyBinding } from '@codemirror/view';
+import { EditorView, type Command, type KeyBinding } from '@codemirror/view';
 
 type SearchModule = typeof import('@codemirror/search');
 
 let loaded: SearchModule | null = null;
 let loading: Promise<SearchModule> | null = null;
+
+/** Starts the fetch (the Ctrl or Cmd key alone); a failure is left for the next press to retry. */
+export function warmSearch(): void {
+	if (!loaded) load().catch(() => undefined);
+}
+
+/** Warms the package when Ctrl or Cmd goes down in the editor, before the rest of a shortcut. */
+export const warmSearchOnModifier = EditorView.domEventHandlers({
+	keydown: (e) => {
+		if (e.key === 'Control' || e.key === 'Meta') warmSearch();
+		return false;
+	},
+});
 
 function load(): Promise<SearchModule> {
 	loading ??= import('@codemirror/search').then(

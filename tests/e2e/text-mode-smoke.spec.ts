@@ -84,15 +84,12 @@ test.describe('text mode', () => {
 	});
 
 	test('Mod-F opens find and replace, which loads on first use', async ({ page, browserName }) => {
-		// Checked on the unchanged build too: Playwright's WebKit does not deliver this shortcut to the editor.
-		test.skip(
-			browserName === 'webkit',
-			'the find shortcut does not reach the page in Playwright WebKit',
-		);
 		await openApp(page);
 		await editor(page).click();
 		await expect(page.locator('.cm-search')).toHaveCount(0);
-		await page.keyboard.press('ControlOrMeta+f');
+		// The editor reads Mod as Cmd on iOS (CodeMirror takes the iPhone for a Mac); Playwright's
+		// ControlOrMeta follows the host, Linux here, and would send Ctrl. So the iPhone presses Cmd.
+		await page.keyboard.press(browserName === 'webkit' ? 'Meta+f' : 'ControlOrMeta+f');
 		await expect(page.locator('.cm-search')).toBeVisible();
 		await expect(page.locator('.cm-search input[name="search"]')).toBeFocused();
 		await page.keyboard.press('Escape');

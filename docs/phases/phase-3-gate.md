@@ -203,6 +203,10 @@ App bugs found on the way, open:
   or a person can land in the wrong place; leave edits and removes are refused when the wait runs
   out. Fixed per component so far: the resource table's step (105eb230) and the leave card (1a914cc5,
   dc4cbf85).
+- **Find and replace offline on first use** (first-load savings review, 2026-11-19): the search
+  package loads on the first Ctrl/Cmd press; offline before it was ever cached, the shortcut opens
+  nothing and says nothing (the next press retries). It needs a short status, and the chunk belongs
+  in the service worker's precache list when that lands.
 - **On Safari the first "Try again" after a failed chunk cannot succeed**: WebKit remembers the
   failed import, so the slot's Reload step is always needed there (B3 review).
 
