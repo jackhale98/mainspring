@@ -14,7 +14,7 @@ export const WASI_SHIM_PACKAGE = '@bjorn3/browser_wasi_shim';
 /** Fixed gzip OS byte (255, "unknown"), so the platform's zlib build cannot change the bytes. */
 export const GZIP_OS_UNKNOWN = 255;
 /** Hashed engine assets, current or stale: `<name>.<hash12>.<ext>.gz`. */
-export const HASHED_ASSET_RE = /^(?:ruby|tj-bundle)\.[0-9a-f]{12}\.(?:wasm|json)\.gz$/;
+export const HASHED_ASSET_RE = /^(?:ruby|tj-bundle|tj-docs)\.[0-9a-f]{12}\.(?:wasm|json)\.gz$/;
 
 /**
  * @param {Uint8Array} bytes
@@ -145,6 +145,25 @@ export function buildOutputs(input) {
 		['manifest.json', enc.encode(canonicalJson(manifest))],
 		['NOTICES.txt', enc.encode(input.notices)],
 	]);
+	return { files, manifest };
+}
+
+/**
+ * `outputs` (from buildOutputs) with the keyword docs asset (ADR-0017): `tj-docs.<hash12>.json.gz`
+ * holding `docsJson`, the SyntaxDocs JSON that the engine built from those outputs returns from
+ * `syntax()`, and its AssetRef in the manifest as the optional `docs` (schemaVersion stays 1; a
+ * manifest without it means the app has only the committed keyword table). manifest.json is
+ * written again; nothing else changes.
+ * @param {{ files: Map<string, Uint8Array>, manifest: Record<string, unknown> }} outputs
+ * @param {string} docsJson
+ */
+export function withDocs(outputs, docsJson) {
+	const enc = new TextEncoder();
+	const docs = hashedAsset('tj-docs', 'json', enc.encode(docsJson));
+	const manifest = { ...outputs.manifest, docs: docs.ref };
+	const files = new Map(outputs.files);
+	files.set(docs.path, docs.gz);
+	files.set('manifest.json', enc.encode(canonicalJson(manifest)));
 	return { files, manifest };
 }
 

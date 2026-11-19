@@ -13,7 +13,11 @@ import { workspaceExtensions } from './index';
 import { engineDocs, PLAN, TABLE_ONLY, tjpState } from './testing';
 
 const table = (): KeywordDocsSource => TABLE_ONLY;
-const loaded = (): KeywordDocsSource => ({ table: TABLE_ONLY.table, engine: engineDocs() });
+const loaded = (): KeywordDocsSource => ({
+	table: TABLE_ONLY.table,
+	engine: engineDocs(),
+	loading: false,
+});
 
 describe('keyword hover', () => {
 	const doc = 'resource r "R" {\n  booking t 2026-01-05 +1d\n}\ntask t "T" {\n  effort 5d\n}\n';
@@ -47,6 +51,7 @@ describe('keyword hover', () => {
 		const other = (): KeywordDocsSource => ({
 			table: TABLE_ONLY.table,
 			engine: engineDocs('3.7.0'),
+			loading: false,
 		});
 		const info = hoverInfo(state, at('effort'), other);
 		if (info?.kind !== 'keyword') throw new Error('expected a keyword');

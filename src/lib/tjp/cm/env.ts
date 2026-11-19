@@ -29,7 +29,7 @@ export type FormatOutcome =
 
 export interface TjpEditorOptions {
 	readonly top: TopContext;
-	/** Keyword docs: the committed table, plus the engine's once `syntax()` resolves. */
+	/** Keyword docs: the committed table, plus the engine's once they have loaded (ADR-0017). */
 	readonly docs: () => KeywordDocsSource;
 	/** The file's workspace path; '' for an editor outside a workspace. */
 	readonly path?: WorkspacePath;
@@ -59,7 +59,7 @@ export interface TjpEnv {
 	readonly onFormat: (outcome: FormatOutcome) => void;
 }
 
-const TABLE_ONLY: KeywordDocsSource = { table: KEYWORDS, engine: null };
+const TABLE_ONLY: KeywordDocsSource = { table: KEYWORDS, engine: null, loading: false };
 
 export function envOf(opts: TjpEditorOptions): TjpEnv {
 	return {

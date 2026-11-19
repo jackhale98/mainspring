@@ -27,7 +27,11 @@ import { PENDING_BATCHES } from './webkit-skips.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DURATIONS = path.join(ROOT, 'tests/e2e/durations.json');
 /** Spec files that playwright.config.ts never runs in the merge tier (testIgnore). */
-const NOT_IN_MERGE_TIER = new Set(['engine-responsiveness.spec.ts', 'text-mode-perf.spec.ts']);
+const NOT_IN_MERGE_TIER = new Set([
+	'engine-responsiveness.spec.ts',
+	'text-mode-perf.spec.ts',
+	'engine-cost.spec.ts',
+]);
 
 /**
  * The spec files of the merge tier, as repository paths, sorted: every `*.spec.ts` under tests/e2e,

@@ -38,6 +38,11 @@
  * editor first mounts and then gives each workspace its editor support, so a Visual-first load
  * does not fetch them (phase-2.md 11.3).
  *
+ * Keyword docs (ADR-0017): the full docs come from the engine build's static asset, which
+ * `ensureEditor` starts loading once (editor-bundle.ts `engineDocsLoader`). The app never asks the
+ * engine for them (`client.syntax()`), so the worker runs only schedules and "Engine: Ready" follows
+ * the first result. A Visual-only session never fetches the docs.
+ *
  * Over 400 lines: one class holds the app state and its derived views so the runes stay in one
  * reactive graph; splitting it would spread the effects that keep them in step.
  */
@@ -46,7 +51,8 @@ import type { EditorView } from '@codemirror/view';
 import { createTimeZoneHost } from '../../engine/timezone';
 import { createEngineClient, type EngineClient } from '../../engine/client';
 import type { EngineState } from '../../engine/client';
-import type { EngineVersions, SyntaxDocs, WorkspacePath } from '../../engine/protocol';
+import type { EngineDocsLoader } from '../../engine/docs-asset';
+import type { EngineVersions, WorkspacePath } from '../../engine/protocol';
 import { editorStrings, strings } from '../strings';
 import type { FormatOutcome, HoverContent } from '../tjp/cm';
 import { NEW_PLAN_ID, SAMPLES, type Sample, type SampleWorkspace } from '../workspace/samples';
@@ -133,6 +139,8 @@ export interface AppStateOptions {
 	confirm?: (message: string) => boolean;
 	/** Where the undo and redo keys are bound outside the editor; default the window, null for none. */
 	keyTarget?: EventTarget | null;
+	/** The keyword docs loader; default the editor bundle's (`engineDocsLoader`), made by `ensureEditor`. */
+	docs?: EngineDocsLoader;
 }
 
 /** How long a format message stays in the toolbar. */
@@ -240,11 +248,13 @@ export class AppState {
 	#runner: ScheduleRunner | null = null;
 	#editorBundle: typeof import('./editor-bundle') | null = null;
 	#editorLoading: Promise<void> | null = null;
+	/** The keyword docs, from the editor bundle; null until `ensureEditor` has loaded it. */
+	#docs: EngineDocsLoader | null = null;
+	readonly #docsOption: EngineDocsLoader | null;
 	#history: WorkspaceHistory | null = null;
 	readonly #offKeys: () => void;
 	#unsubscribe: Array<() => void> = [];
 	#current: { ws: Workspace; runner: ScheduleRunner } | null = null;
-	#docs: SyntaxDocs | null = null;
 	#nonce = 0;
 	#token = 0;
 	/** The selection's mark has not been shown yet (its task is not in the index yet). */
@@ -261,15 +271,9 @@ export class AppState {
 		this.client = opts.client ?? createEngineClient();
 		this.samples = opts.samples ?? SAMPLES;
 		this.#confirm = opts.confirm ?? ((m) => globalThis.confirm(m));
+		this.#docsOption = opts.docs ?? null;
 		this.engine = this.client.state;
-		let last = this.engine;
-		this.#offClient = this.client.onState((s) => {
-			this.engine = s;
-			// Full keyword docs need a booted engine; ask once it is ready, and again after a restart.
-			if (s === 'idle' && last !== 'idle' && this.#docs === null) this.#fetchDocs();
-			last = s;
-		});
-		if (this.engine === 'idle') this.#fetchDocs();
+		this.#offClient = this.client.onState((s) => (this.engine = s));
 		// Only the strip's text depends on it: a boot that fails shows no version, and says so elsewhere.
 		this.client.ready().then(
 			(v) => (this.engineVersions = v),
@@ -286,13 +290,6 @@ export class AppState {
 		this.#offKeys = keys ? bindHistoryKeys(keys, this.history) : () => undefined;
 		const first = this.samples.find((s) => s.id === opts.initial) ?? this.samples[0];
 		if (first) void this.#load(first, null);
-	}
-
-	#fetchDocs(): void {
-		this.client.syntax().then(
-			(docs) => (this.#docs = docs),
-			() => undefined,
-		);
 	}
 
 	/** The open plan's name as the chooser and the phone's header show it. */
@@ -397,11 +394,15 @@ export class AppState {
 	/**
 	 * Loads the editor packages (once) and gives the open workspace its editor support. The editor
 	 * panel calls this before it creates a view; a workspace opened later gets the support at once.
+	 * Once the support is attached it starts loading the keyword docs (once; module comment).
 	 */
 	ensureEditor(): Promise<void> {
 		this.#editorLoading ??= import('./editor-bundle').then((bundle) => {
+			const docs = this.#docsOption ?? bundle.engineDocsLoader();
+			this.#docs = docs;
 			this.#editorBundle = bundle;
 			this.#attachEditor();
+			void docs.load();
 		});
 		return this.#editorLoading;
 	}
@@ -414,11 +415,12 @@ export class AppState {
 	#attachEditor(): void {
 		const bundle = this.#editorBundle;
 		const current = this.#current;
-		if (!bundle || !current) return;
+		const docs = this.#docs;
+		if (!bundle || !current || !docs) return;
 		const { ws, runner } = current;
 		ws.attachEditor(
 			bundle.editorSupport({
-				engineDocs: () => this.#docs,
+				docs,
 				history: this.history,
 				workspace: () => ws,
 				index: () => runner.state.index ?? null,

@@ -14,7 +14,9 @@
 // Outputs in --out (relative to the current directory):
 //   ruby.<hash12>.wasm.gz        the Ruby interpreter
 //   tj-bundle.<hash12>.json.gz   { "files": { "/tj/...": text }, "schemaVersion": 1 }
-//   manifest.json                EngineManifest (not hashed)
+//   tj-docs.<hash12>.json.gz     the keyword docs: the SyntaxDocs JSON that `syntax()` of the engine
+//                                built from the two files above returns (ADR-0017)
+//   manifest.json                EngineManifest (not hashed), with the docs as the optional `docs`
 //   NOTICES.txt                  licenses of everything above and of the worker's JS libraries
 // The bundle keeps the source layout the bridge's require_relative calls need:
 //   /tj/lib/** (TaskJuggler), /tj/stubs/**, /tj/bridge/** with /tj/bridge/wasm/**, /tj/COPYING.
@@ -22,7 +24,13 @@
 // what the manifest's sha256 covers (the worker verifies after gunzip). Hashed assets from
 // earlier builds are removed. Any input that is not UTF-8 fails the build.
 //
-// --check rebuilds in memory and exits 1 if --out differs (missing, different or stale files).
+// To write the docs, the build boots the bundle it has just built in Node (bootNodeEngine, from the
+// files in memory, before anything is written) and asks it for `syntax()`; a bundle that does not
+// boot fails the build. So the docs and the bundle they describe come from one build and cannot
+// drift apart.
+//
+// --check rebuilds in memory (the docs included) and exits 1 if --out differs (missing, different
+// or stale files).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,7 +43,9 @@ import {
 	buildOutputs,
 	compareOutputs,
 	decodeUtf8Strict,
+	withDocs,
 } from './bundle-lib.mjs';
+import { bootNodeEngine, syntaxDocsProblems } from './golden/run-wasm.mjs';
 
 const ENGINE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(ENGINE, '..');
@@ -110,6 +120,11 @@ tj-bundle.*.json.gz
   /tj/bridge/wasm/tj_wasm_jumps.rb and /tj/bridge/fast_path_procs.rb, which
   are GPL-2.0-only because they re-implement TaskJuggler code.
 
+tj-docs.*.json.gz
+  TaskJuggler's keyword documentation, as the engine in tj-bundle.*.json.gz
+  gives it: TaskJuggler ${TJ_VERSION}, the same copyright and license (GNU General
+  Public License version 2 only) as above.
+
 ruby.*.wasm.gz
   CRuby 3.4 compiled to WebAssembly by ruby.wasm (${RUBY_WASM_PACKAGE}
   ${rubyWasmVersion}, file ${RUBY_WASM_FILE}). ruby.wasm is MIT licensed; the
@@ -141,7 +156,24 @@ function presentOutputs(out, expected) {
 	return present;
 }
 
-function main() {
+/**
+ * The SyntaxDocs JSON of the engine in `files` (built, not yet written): boots it in Node and asks
+ * for `syntax()`. Throws when it does not boot or the docs look wrong.
+ * @param {ReadonlyMap<string, Uint8Array>} files
+ */
+async function engineDocs(files) {
+	/** @type {string[]} */
+	const lines = [];
+	const engine = await bootNodeEngine({ files, log: (stream, line) => lines.push(`[${stream}] ${line}`) });
+	const docs = engine.syntax();
+	const problems = syntaxDocsProblems(docs, TJ_VERSION);
+	if (problems.length) {
+		throw new Error(`the built engine's syntax() looks wrong: ${problems.join('; ')}\n${lines.join('\n')}`);
+	}
+	return JSON.stringify(docs);
+}
+
+async function main() {
 	const { values } = parseArgs({
 		options: { out: { type: 'string', default: 'public/engine' }, check: { type: 'boolean', default: false } },
 	});
@@ -153,7 +185,7 @@ function main() {
 		throw new Error(`@ruby/wasm-wasi ${rubyRuntime} differs from ${RUBY_WASM_PACKAGE} ${rubyWasmVersion}`);
 	}
 	const commit = tjCommit();
-	const { files, manifest } = buildOutputs({
+	const built = buildOutputs({
 		rubyWasm: fs.readFileSync(path.join(REPO, 'node_modules', RUBY_WASM_PACKAGE, RUBY_WASM_FILE)),
 		bundleFiles: bundleFiles(),
 		tjCommit: commit,
@@ -161,6 +193,7 @@ function main() {
 		wasiShimVersion,
 		notices: notices({ commit, rubyWasmVersion, wasiShimVersion }),
 	});
+	const { files, manifest } = withDocs(built, await engineDocs(built.files));
 
 	const present = presentOutputs(out, files);
 	const rel = path.relative(process.cwd(), out) || '.';
@@ -176,15 +209,14 @@ function main() {
 	fs.mkdirSync(out, { recursive: true });
 	for (const name of present.keys()) if (!files.has(name)) fs.rmSync(path.join(out, name));
 	for (const [name, bytes] of files) fs.writeFileSync(path.join(out, name), bytes);
-	for (const ref of [manifest.ruby, manifest.bundle]) {
+	for (const ref of [manifest.ruby, manifest.bundle, manifest.docs]) {
 		console.log(`${rel}/${ref.path}: ${ref.bytes} bytes (${ref.rawBytes} raw), sha256 ${ref.sha256}`);
 	}
 	console.log(`${rel}/manifest.json, ${rel}/NOTICES.txt written`);
 }
 
-try {
-	main();
-} catch (error) {
-	console.error(`build-bundle: ${error instanceof Error ? error.message : String(error)}`);
+main().catch((error) => {
+	const detail = error instanceof Error ? `${error.message}${error.detail ? `\n${error.detail}` : ''}` : String(error);
+	console.error(`build-bundle: ${detail}`);
 	process.exit(1);
-}
+});

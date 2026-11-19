@@ -24,7 +24,7 @@ let host: HTMLElement;
 beforeEach(() => {
 	host = document.createElement('div');
 	document.body.appendChild(host);
-	const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null }) });
+	const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null, loading: false }) });
 	ws = createWorkspace(
 		{ entry: 'plan.tjp', files: { 'plan.tjp': PLAN + 'include "b.tji"\n', 'b.tji': INCLUDED } },
 		{ extensions: (path, top) => [ext(path, top), editorSetup(path)] },
@@ -171,7 +171,7 @@ describe('following the workspace with view.update (phase-2.md 6.8)', () => {
 			return { update: (u) => void updates.push(u.transactions.length) };
 		});
 		ctl.destroy();
-		const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null }) });
+		const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null, loading: false }) });
 		ws = createWorkspace(
 			{ entry: 'plan.tjp', files: { 'plan.tjp': PLAN + 'include "b.tji"\n', 'b.tji': INCLUDED } },
 			{ extensions: (path, top) => [ext(path, top), editorSetup(path), probe] },
@@ -193,7 +193,7 @@ describe('following the workspace with view.update (phase-2.md 6.8)', () => {
 
 	it('falls back to setState when the transactions do not chain (a reconfiguration)', async () => {
 		const setState = vi.spyOn(ctl.view, 'setState');
-		const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null }) });
+		const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null, loading: false }) });
 		ws.attachEditor({ extensions: (path, top) => [ext(path, top), editorSetup(path)] });
 		ctl.sync();
 		expect(setState).toHaveBeenCalledTimes(1);

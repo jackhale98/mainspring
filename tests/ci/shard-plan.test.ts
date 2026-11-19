@@ -131,8 +131,10 @@ describe('shard-plan', () => {
 			}
 		};
 		walk('tests/e2e');
-		// The two files that playwright.config.ts ignores in the merge tier.
-		const merge = found.filter((f) => !/(engine-responsiveness|text-mode-perf)\.spec\.ts$/.test(f));
+		// The files that playwright.config.ts ignores in the merge tier.
+		const merge = found.filter(
+			(f) => !/(engine-responsiveness|text-mode-perf|engine-cost)\.spec\.ts$/.test(f),
+		);
 		expect(merge.some((f) => f.startsWith('tests/e2e/primitives/'))).toBe(true);
 		expect([...sp.specFiles(ROOT)].sort()).toEqual([...merge].sort());
 		for (const [project, n] of Object.entries(counts) as [string, number][]) {

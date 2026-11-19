@@ -6,7 +6,9 @@
 //
 //   1. the JS a first load fetches in Visual mode (330,000 bytes gzip) and in Text mode (440,000),
 //      measured in a browser against a preview: enforced (exit 1). The code-split CodeMirror chunk
-//      is fetched in Text and Split, never in Visual: enforced too;
+//      is fetched in Text and Split, never in Visual: enforced too. So is the keyword docs asset
+//      (`engine/tj-docs.*.json.gz`, ADR-0017): a Visual-first load never requests it (a Text-first
+//      load does, after the editor mounts; that is reported, not enforced);
 //   2. the total gzip of every script in dist/_astro: a guard of 650,000 bytes against accidents,
 //      enforced;
 //   3. each named lazy chunk (CHUNK_CAPS, matched by file name): its own cap, enforced.
@@ -147,6 +149,10 @@ export function distScripts(dir) {
 async function firstLoad(browser, base, query, viewChunks) {
 	const page = await browser.newPage();
 	const seen = new Map();
+	const docs = [];
+	page.on('request', (req) => {
+		if (/\/tj-docs\.[0-9a-f]{12}\.json\.gz(\?|$)/.test(req.url())) docs.push(req.url());
+	});
 	page.on('response', async (res) => {
 		const url = res.url();
 		if (!/\.js(\?|$)/.test(url) || !url.startsWith(base)) return;
@@ -171,6 +177,7 @@ async function firstLoad(browser, base, query, viewChunks) {
 		rawBytes: list.reduce((n, f) => n + f.raw, 0),
 		loadsEditorChunk: list.some((f) => f.file.startsWith('editor-controller')),
 		loadsPeopleChunk: list.some((f) => isViewChunk(f.file) || viewChunks.has(f.file)),
+		loadsDocs: docs.length > 0,
 	};
 }
 
@@ -210,7 +217,7 @@ const kb = (n) => `${(n / 1000).toFixed(1)} KB`;
 /**
  * The budget problems of a measurement (empty when it is within every budget). `loads` is absent
  * with --dist-only. Pure, so it is unit-tested (tests/scripts/js-sizes.test.ts).
- * @param {{ files: { file: string, gzip: number }[], loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean } } }} m
+ * @param {{ files: { file: string, gzip: number }[], loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean } } }} m
  * @returns {string[]}
  */
 export function checkBudgets({ files, loads }) {
@@ -235,6 +242,11 @@ export function checkBudgets({ files, loads }) {
 			);
 		if (v.loadsEditorChunk)
 			problems.push('a Visual-first load fetched the CodeMirror chunk (it must stay split off)');
+		// Only an editor needs the full keyword docs (ADR-0017).
+		if (v.loadsDocs)
+			problems.push(
+				'a Visual-first load requested the keyword docs asset (only an editor loads it)',
+			);
 		if (!t.loadsEditorChunk)
 			problems.push('a Text-first load did not fetch the CodeMirror chunk (the split moved?)');
 		// The People views load when one opens, never with a Gantt-first load (phase-3.md 8.3).
@@ -284,9 +296,10 @@ async function main() {
 		`Total of \`dist/_astro\`: **${kb(total)}** of the ${kb(TOTAL_CAP)} guard (${files.length} files).`,
 	];
 	if (result.visualFirst) {
+		const docs = (l) => (l.loadsDocs ? 'requested' : 'not requested');
 		lines.push(
-			`First load, Visual mode: **${kb(result.visualFirst.gzipBytes)}** of ${kb(VISUAL_FIRST_CAP)}.`,
-			`First load, Text mode: **${kb(result.textFirst.gzipBytes)}** of ${kb(TEXT_FIRST_CAP)}.`,
+			`First load, Visual mode: **${kb(result.visualFirst.gzipBytes)}** of ${kb(VISUAL_FIRST_CAP)}; keyword docs ${docs(result.visualFirst)}.`,
+			`First load, Text mode: **${kb(result.textFirst.gzipBytes)}** of ${kb(TEXT_FIRST_CAP)}; keyword docs ${docs(result.textFirst)}.`,
 		);
 	}
 	for (const c of result.chunkCaps)

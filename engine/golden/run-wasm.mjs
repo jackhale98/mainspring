@@ -19,8 +19,9 @@
 // its golden, any token stream fails its check or any edge case differs from the table. Build
 // the engine first: npm run build:engine.
 //
-// Exports bootNodeEngine (a NodeEngine, with the token oracle), loadCorpus, planRequest and
-// compareWithGolden for other Node tools.
+// Exports bootNodeEngine (a NodeEngine, with the token oracle), syntaxDocsProblems, loadCorpus,
+// planRequest and compareWithGolden for other Node tools (engine/build-bundle.mjs boots the engine
+// it has just built with bootNodeEngine to write the keyword docs asset, ADR-0017).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,23 +35,56 @@ const GOLDEN = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(GOLDEN, '..', '..');
 
 /**
- * Boots the engine from a directory holding manifest.json and the hashed assets. `progressMs` is
- * passed on (runtime.ts BootOptions).
- * @param {{ dir?: string, log?: (stream: 'stdout' | 'stderr', line: string) => void, progressMs?: number }} [opts]
+ * Boots the engine from a directory holding manifest.json and the hashed assets, or from `files`
+ * (published name to bytes, as engine/build-bundle.mjs holds them before it writes them; `dir` is
+ * then ignored). `progressMs` is passed on (runtime.ts BootOptions).
+ * @param {{ dir?: string, files?: ReadonlyMap<string, Uint8Array>, log?: (stream: 'stdout' | 'stderr', line: string) => void, progressMs?: number }} [opts]
  * @returns {Promise<import('../../src/engine/runtime.ts').NodeEngine>}
  */
 export async function bootNodeEngine(opts = {}) {
-	const dir = path.resolve(REPO, opts.dir ?? 'public/engine');
-	if (!fs.existsSync(path.join(dir, 'manifest.json'))) {
-		throw new Error(`${dir}/manifest.json not found; run npm run build:engine first`);
+	/** @type {(name: string) => Promise<Uint8Array>} */
+	let load;
+	const files = opts.files;
+	if (files) {
+		load = async (name) => {
+			const bytes = files.get(name);
+			if (!bytes) throw new Error(`${name} is not among the built engine files`);
+			return bytes;
+		};
+	} else {
+		const dir = path.resolve(REPO, opts.dir ?? 'public/engine');
+		if (!fs.existsSync(path.join(dir, 'manifest.json'))) {
+			throw new Error(`${dir}/manifest.json not found; run npm run build:engine first`);
+		}
+		load = async (name) => new Uint8Array(await fs.promises.readFile(path.join(dir, name)));
 	}
-	/** @param {string} name */
-	const load = async (name) => new Uint8Array(await fs.promises.readFile(path.join(dir, name)));
 	return bootEngineForNode({
 		load,
 		log: opts.log ?? ((stream, line) => console.error(`[${stream}] ${line}`)),
 		...(opts.progressMs === undefined ? {} : { progressMs: opts.progressMs }),
 	});
+}
+
+/**
+ * What is wrong with a `syntax()` result (empty when nothing): it names TaskJuggler `tj`, has at
+ * least 200 keywords, sorted and unique, and each has its syntax, doc, summary, contexts and see
+ * also.
+ * @param {{ tjVersion?: unknown, keywords?: unknown }} docs
+ * @param {string} tj
+ * @returns {string[]}
+ */
+export function syntaxDocsProblems(docs, tj) {
+	const problems = [];
+	if (docs.tjVersion !== tj) problems.push(`tjVersion ${JSON.stringify(docs.tjVersion)}, expected ${tj}`);
+	const keywords = Array.isArray(docs.keywords) ? docs.keywords : [];
+	const names = keywords.map((/** @type {{keyword: string}} */ k) => k.keyword);
+	if (names.length < 200) problems.push(`${names.length} keywords, expected at least 200`);
+	if (new Set(names).size !== names.length) problems.push('keywords are not unique');
+	if (names.join('\n') !== [...names].sort().join('\n')) problems.push('keywords are not sorted');
+	const bad = keywords.filter((/** @type {Record<string, unknown>} */ k) =>
+		!k.syntax || !k.doc || !k.summary || !Array.isArray(k.contexts) || !Array.isArray(k.seeAlso));
+	if (bad.length) problems.push(`${bad.length} incomplete keyword(s)`);
+	return problems;
 }
 
 /**
@@ -156,13 +190,8 @@ async function main() {
 		const t = performance.now();
 		const docs = engine.syntax();
 		console.log(`syntax: ${docs.keywords.length} keywords in ${fmt(performance.now() - t)} ms`);
-		const names = docs.keywords.map((/** @type {{keyword: string}} */ k) => k.keyword);
-		const bad = docs.keywords.filter((/** @type {Record<string, unknown>} */ k) =>
-			!k.syntax || !k.doc || !k.summary || !Array.isArray(k.contexts) || !Array.isArray(k.seeAlso));
-		if (docs.tjVersion !== v.tj || names.length < 200 || new Set(names).size !== names.length ||
-			names.join('\n') !== [...names].sort().join('\n') || bad.length) {
-			throw new Error(`syntax docs look wrong (${bad.length} incomplete keyword(s))`);
-		}
+		const problems = syntaxDocsProblems(docs, v.tj);
+		if (problems.length) throw new Error(`syntax docs look wrong: ${problems.join('; ')}`);
 	}
 
 	const tokenFailures = values.tokens ? checkTokens(engine, corpus) : 0;

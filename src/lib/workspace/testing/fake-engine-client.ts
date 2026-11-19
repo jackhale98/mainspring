@@ -100,6 +100,8 @@ export class FakeEngineClient implements EngineClient {
 	state: EngineState = 'idle';
 	readonly requests: ScheduleRequest[] = [];
 	readonly cancelled: Revision[] = [];
+	/** How many times `syntax()` was called (the app never calls it, ADR-0017). */
+	syntaxCalls = 0;
 	readonly #open = new Map<Revision, (o: ScheduleOutcome) => void>();
 	readonly #listeners = new Set<(s: EngineState) => void>();
 	#last: Revision | null = null;
@@ -109,6 +111,7 @@ export class FakeEngineClient implements EngineClient {
 	}
 
 	syntax(): Promise<SyntaxDocs> {
+		this.syntaxCalls++;
 		return Promise.resolve({ tjVersion: '3.8.4', keywords: [] });
 	}
 

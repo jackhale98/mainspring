@@ -125,6 +125,11 @@ jobs:
       - run: npx vitest run src/engine/progress.engine.test.ts
         env:
           ENGINE_PROGRESS: '1'
+      # The keyword docs asset (ADR-0017) equals this engine's syntax(), its name and the manifest's
+      # sha256 match its bytes, and --check fails when it is missing or stale. Fails without the engine.
+      - run: npx vitest run tests/engine/docs-asset.engine.test.ts
+        env:
+          ENGINE_DOCS: '1'
       # The committed keyword table (src/lib/tjp/syntax/keywords.generated.ts) must match this
       # engine's syntax() and pinned TaskJuggler commit (phase-1 spec 6.3, 14.12). A different
       # engine build hash alone (bridge-only changes) prints a note and passes.

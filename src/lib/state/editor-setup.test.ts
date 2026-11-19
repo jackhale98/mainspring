@@ -45,7 +45,10 @@ describe('editorSetup', () => {
 			{ entry: 'plan.tjp', files: { 'plan.tjp': 'project p "P" 2026-01-05 +1m\n' } },
 			{
 				extensions: (path, top) => [
-					workspaceExtensions({ docs: () => ({ table: [], engine: null }) })(path, top),
+					workspaceExtensions({ docs: () => ({ table: [], engine: null, loading: false }) })(
+						path,
+						top,
+					),
 					editorSetup(path),
 				],
 			},
