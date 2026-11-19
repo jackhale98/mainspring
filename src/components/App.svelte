@@ -33,7 +33,7 @@
 <script lang="ts">
 	import { onDestroy, untrack, type Component } from 'svelte';
 	import { AppState } from '../lib/state/app.svelte';
-	import { installEditHooks } from '../lib/state/edit-hooks';
+	import { installHookLazily } from '../lib/state/hook-params';
 	import { LayoutState } from '../lib/state/layout.svelte';
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { PeopleViewState } from '../lib/state/people-view.svelte';
@@ -74,8 +74,10 @@
 	// A newer deployed build offers a reload (ADR-0012).
 	const updates = new AppUpdates({ url: sitePath('version.json'), visibility: document });
 	updates.start();
-	// End-to-end tests only, with ?hooks=edits (edit-hooks.ts).
-	const offHooks = installEditHooks(app, params);
+	// End-to-end tests only, with ?hooks=edits: the hook's module is fetched only then (edit-hooks.ts).
+	const offHooks = installHookLazily(params, 'edits', () =>
+		import('../lib/state/edit-hooks').then((m) => m.installEditHooks(app, params)),
+	);
 	onDestroy(() => {
 		updates.stop();
 		offHooks();
