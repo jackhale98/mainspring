@@ -17,12 +17,27 @@
  * - **Refusals** are the edit API's, through the dispatcher: a macro or a leave in a shared
  *   declaration. This only refuses what cannot be written: a last day before the first, or dates
  *   outside 1970 to 2035.
+ * - **On the text now** (ADR-0018 decision 5): `leaveEditPlan(ref, fields, ctx)` and
+ *   `leaveRemovePlan(ref, ctx)` are view planners for `dispatchPlan`. The dispatcher calls them on
+ *   the text now; they map `ref` there (`mapRange`, the untouched-span rule) and plan against the
+ *   item as the fresh index reads it, so "unchanged" and the written forms are judged against the
+ *   text now. An item that was touched since `ref.basedOn`, or that the index no longer reads, is
+ *   refused with the edit API's `target-changed` sentence; a field error with its own sentence
+ *   (`C.details.errors`). After an applied edit the item is the edit's `select`, at the outcome's
+ *   version.
  */
 import type { Minutes, ProjectInfo } from '../../engine/protocol';
 import type { ToastLabel } from '../gantt/intents';
 import { dateText, displayDate } from '../schedule/date-text';
+import type { PlanBase, ViewPlanner } from '../state/edits-types';
+import { refusalStrings } from '../strings';
 import { calendarStrings as C, leavePaintStrings as L } from '../strings-calendar';
-import type { EditIntent, LeaveSpec, LeaveType as EditLeaveType } from '../tjp/edit/types';
+import type {
+	EditIntent,
+	LeaveRef,
+	LeaveSpec,
+	LeaveType as EditLeaveType,
+} from '../tjp/edit/types';
 import type { SymbolIndex } from '../tjp/index';
 import {
 	civilFromDays,
@@ -32,7 +47,7 @@ import {
 } from '../tjp/values/civil';
 import type { LeaveType } from '../tjp/values';
 import { writtenSpec } from './paint';
-import type { PaintItem } from './paint-items';
+import { scopeItems, type PaintItem } from './paint-items';
 
 /** The types the edit API writes. */
 export const EDIT_TYPES: readonly EditLeaveType[] = [
@@ -202,4 +217,56 @@ export function planLeaveRemove(
 export interface CommitResult {
 	readonly error?: 'empty' | 'dates' | 'range';
 	readonly applied?: boolean;
+}
+
+/** The item `ref` names, in the text now, or null when it was touched or is no longer read. */
+export function itemNow(
+	on: PlanBase,
+	ref: LeaveRef,
+	project: Pick<ProjectInfo, 'start'>,
+): PaintItem | null {
+	const r = on.mapRange(ref.item, ref.basedOn);
+	if (!r) return null;
+	const at = (x: { file: string; from: number; to: number }): boolean =>
+		x.file === r.file && x.from === r.from && x.to === r.to;
+	const site = on.index.leaves.find((l) => l.items.some(at));
+	const scope = site?.scope;
+	if (!scope || (scope.kind === 'resource' && scope.resource === null)) return null;
+	const items = scopeItems(
+		on.index,
+		scope.kind === 'global' ? scope : { kind: 'resource', resource: scope.resource as string },
+		Math.round(Date.parse(project.start) / 1000),
+	);
+	return items.find((i) => at(i.range)) ?? null;
+}
+
+const changed = {
+	status: 'not-possible',
+	message: refusalStrings['target-changed'],
+	at: [],
+} as const;
+
+/** A leave card's commit, planned on the text now (module comment). */
+export function leaveEditPlan(
+	ref: LeaveRef,
+	f: LeaveFields,
+	ctx: Omit<EditContext, 'index'>,
+): ViewPlanner {
+	return (on) => {
+		const item = itemNow(on, ref, ctx.project);
+		if (!item) return changed;
+		const p = planLeaveEdit(item, f, { ...ctx, index: on.index });
+		if (p.status === 'invalid') {
+			return { status: 'not-possible', message: C.details.errors[p.reason], at: [item.range] };
+		}
+		return p.status === 'unchanged' ? { status: 'unchanged' } : p;
+	};
+}
+
+/** A leave card's Remove, planned on the text now (module comment). */
+export function leaveRemovePlan(ref: LeaveRef, ctx: Pick<EditContext, 'project'>): ViewPlanner {
+	return (on) => {
+		const item = itemNow(on, ref, ctx.project);
+		return item ? planLeaveRemove(item, { ...ctx, index: on.index }) : changed;
+	};
 }

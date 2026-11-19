@@ -13,6 +13,10 @@
  *   dispatcher's own outcome, already shown.
  * - **A shared declaration** (`confirm-shared`) asks once through `confirm`, then sends again with
  *   `confirmShared`: a leave of a resource in a `.tji` several files read changes all of them.
+ * - **`paintPlan`** (ADR-0018 decision 3) is a stroke as a view planner for `dispatchPlan`: the
+ *   dispatcher runs `planLeavePaint` on the text now, so a stroke never merges into an item read
+ *   from an index that lags the text. Its refusals keep the sentences above; a person whose id now
+ *   names another declaration is refused with the edit API's `target-changed` sentence.
  */
 import type { PaintPlanned } from './paint';
 import {
@@ -21,12 +25,14 @@ import {
 	type LeavePaint,
 	type LeavePaintContext,
 } from './paint';
+import type { ScheduleResult } from '../../engine/protocol';
 import type { ToastLabel } from '../gantt/intents';
-import type { DispatchOptions, DispatchOutcome } from '../state/edits.svelte';
-import { inspectorStrings } from '../strings';
+import type { DispatchOptions, DispatchOutcome, ViewPlanner } from '../state/edits.svelte';
+import { inspectorStrings, refusalStrings } from '../strings';
 import { calendarStrings as C } from '../strings-calendar';
 import type { EditIntent } from '../tjp/edit/types';
 import type { SourceRange } from '../tjp/index';
+import type { ZoneOffsets } from '../tjp/values/civil';
 
 /** The part of the dispatcher the Calendar uses. */
 export interface LeaveEdits {
@@ -79,4 +85,28 @@ export async function runStroke(
 	}
 	// `ask-move-preference` is the Gantt's and never comes from a leave stroke.
 	return { status: 'unavailable', message: '' };
+}
+
+/** A paint or erase stroke, planned by the dispatcher on the text now (module comment). */
+export function paintPlan(
+	stroke: LeavePaint,
+	result: ScheduleResult,
+	zones: ZoneOffsets,
+): ViewPlanner {
+	return (on) => {
+		const s = stroke.scope;
+		if (s.kind === 'resource' && on.index.resources.has(s.resource)) {
+			if (!on.isSame('resource', s.resource)) {
+				return { status: 'not-possible', message: refusalStrings['target-changed'], at: [] };
+			}
+		}
+		const p = planLeavePaint(stroke, { index: on.index, result, zones });
+		if (p.status === 'intent') return { status: 'intent', intent: p.intent, label: p.label };
+		if (p.status === 'not-possible') {
+			const message = p.reason === 'text-only' ? C.textOnly : leavePaintMessage(p);
+			return { status: 'not-possible', message, at: p.at };
+		}
+		// `ask-move-preference` is the Gantt's and never comes from a leave stroke.
+		return { status: 'unchanged' };
+	};
 }

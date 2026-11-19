@@ -3,13 +3,21 @@
 // intent a change of them becomes and the exact text the edit API writes for it (a dry run with
 // `applyIntent`), the form each bound keeps, the dates that cannot be written, and the types a
 // scope offers.
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTimeZoneHost } from '../../engine/timezone';
+import { harness, type Harness } from '../state/edits-testing';
+import type { DispatchOutcome } from '../state/edits.svelte';
+import { world } from '../state/rebase-testing';
+import { refusalStrings } from '../strings';
+import { calendarStrings as C } from '../strings-calendar';
 import { applyIntent } from '../tjp/edit/apply';
 import { textsAfter } from '../tjp/edit/testing';
 import { workloadPlan, type Plan } from '../workload/rebalance-testing';
 import {
 	itemFields,
+	itemNow,
+	leaveEditPlan,
+	leaveRemovePlan,
 	planLeaveEdit,
 	planLeaveRemove,
 	typesFor,
@@ -225,5 +233,104 @@ describe('types', () => {
 		// A global annual leave can be put back to annual in the same way.
 		const g = onePerson('', 'leaves annual "Closure" 2026-01-12\n');
 		expect(typesOfItem(itemOf(g, null, 'Closure'))).toEqual(['holiday', 'annual']);
+	});
+});
+
+describe('leaveEditPlan and leaveRemovePlan (ADR-0018 decision 5)', () => {
+	const p = workloadPlan('leave-types');
+	const text = p.text('plan.tjp');
+	const item = itemOf(p, 'p2', 'Holiday');
+	const fields = fieldsOf(p, item);
+	const ref = { item: item.range, basedOn: p.index.version };
+	const { project } = ctxOf(p);
+	const files = (): Record<string, string> => {
+		const out: Record<string, string> = {};
+		for (const [path, f] of p.snap.files) out[path] = f.text.toString();
+		return out;
+	};
+	/** The plan's text with `before` typed at the start, and the base a call on the first text gets. */
+	const moved = (edit: (w: ReturnType<typeof world>) => void) => {
+		const w = world({ entry: p.snap.entry, files: files() });
+		const v0 = w.version();
+		edit(w);
+		return { w, on: w.base(v0) };
+	};
+
+	it('maps the ref to the text now and plans against the item there', () => {
+		const { w, on } = moved((x) => x.type(0, 0, '# a note\n'));
+		const now = itemNow(on, { ...ref, basedOn: 0 }, project);
+		expect(now?.range.from).toBe(item.range.from + '# a note\n'.length);
+		const planned = leaveEditPlan(
+			{ ...ref, basedOn: 0 },
+			{ ...fields, type: 'sick' },
+			{ project, zones },
+		)(on);
+		expect(planned).toMatchObject({
+			status: 'intent',
+			intent: { type: 'updateLeave', leave: { item: now?.range, basedOn: w.version() } },
+		});
+		expect(leaveRemovePlan({ ...ref, basedOn: 0 }, { project })(on)).toMatchObject({
+			status: 'intent',
+			intent: { type: 'removeLeave', leave: { item: now?.range, basedOn: w.version() } },
+		});
+	});
+
+	it('refuses a touched item with the target-changed sentence', () => {
+		const { on } = moved((x) => x.type(item.range.from, item.range.from + 6, 'sick  '));
+		const changed = { status: 'not-possible', message: refusalStrings['target-changed'], at: [] };
+		expect(leaveEditPlan({ ...ref, basedOn: 0 }, fields, { project, zones })(on)).toEqual(changed);
+		expect(leaveRemovePlan({ ...ref, basedOn: 0 }, { project })(on)).toEqual(changed);
+	});
+
+	it('judges unchanged against the text now, and says a field error in its own words', () => {
+		const { on } = moved((x) => x.type(0, 0, '#\n'));
+		const plan = (f: LeaveFields) =>
+			leaveEditPlan({ ...ref, basedOn: 0 }, f, { project, zones })(on);
+		expect(plan(fields)).toEqual({ status: 'unchanged' });
+		expect(plan({ ...fields, end: '2026-01-07' })).toMatchObject({
+			status: 'not-possible',
+			message: C.details.errors.dates,
+		});
+	});
+
+	describe('through the dispatcher, with the index lagging', () => {
+		let h: Harness;
+		afterEach(() => {
+			h.dispose();
+			vi.useRealTimers();
+		});
+		const applied = (o: DispatchOutcome) => {
+			if (o.status !== 'applied') throw new Error(`expected applied, got ${JSON.stringify(o)}`);
+			return o;
+		};
+
+		it('a leave edit then its reverse at once leave the original text', async () => {
+			vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			h = harness({ entry: p.snap.entry, files: files() }, { zones });
+			await h.finish();
+			const shown = h.runner.state.indexVersion;
+			const first = applied(
+				await h.edits.dispatchPlan(
+					leaveEditPlan(ref, { ...fields, end: '2026-01-14' }, { project, zones }),
+				),
+			);
+			expect(h.text()).toContain('annual "Holiday" 2026-01-08 - 2026-01-15');
+			// The card follows its own edit: the rewritten item is the edit's select, at its version.
+			const select = first.edit.select;
+			if (!select) throw new Error('no select');
+			applied(
+				await h.edits.dispatchPlan(
+					leaveEditPlan({ item: select, basedOn: first.version }, fields, { project, zones }),
+				),
+			);
+			expect(h.runner.state.indexVersion).toBe(shown);
+			expect(h.text()).toBe(text);
+			// The first ref is no longer the same characters: refused, nothing written.
+			await expect(h.edits.dispatchPlan(leaveRemovePlan(ref, { project }))).resolves.toMatchObject({
+				status: 'refused',
+				reason: 'planner',
+			});
+			expect(h.text()).toBe(text);
+		});
 	});
 });

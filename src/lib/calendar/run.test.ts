@@ -10,7 +10,10 @@ import { plan as resultOf } from '../schedule/testing';
 import { planFrom, workloadPlan } from '../workload/rebalance-testing';
 import { resourceResult, withPeople } from '../workload/testing';
 import { ctxOf, day, onePerson, paint, person } from './paint-testing';
-import { runIntent, runStroke, type LeaveEdits } from './run';
+import { world } from '../state/rebase-testing';
+import { refusalStrings } from '../strings';
+import { planLeavePaint } from './paint';
+import { paintPlan, runIntent, runStroke, type LeaveEdits } from './run';
 
 const applied = { status: 'applied' } as unknown as DispatchOutcome;
 
@@ -161,5 +164,59 @@ describe('runIntent', () => {
 		} as DispatchOutcome;
 		const o = await runIntent(edits([refused]), intent, label, () => true);
 		expect(o).toBe(refused);
+	});
+});
+
+describe('paintPlan (ADR-0018 decision 3)', () => {
+	const p = workloadPlan('leave-types');
+	const files = (): Record<string, string> => {
+		const out: Record<string, string> = {};
+		for (const [path, f] of p.snap.files) out[path] = f.text.toString();
+		return out;
+	};
+	const { result, zones } = ctxOf(p);
+
+	it('plans the stroke on the text now, as planLeavePaint does there', () => {
+		const w = world({ entry: p.snap.entry, files: files() });
+		const v0 = w.version();
+		w.type(0, 0, '# note\n');
+		const on = w.base(v0);
+		const stroke = paint(person('p2'), day(5), day(7), 'annual', 'Holiday');
+		const planned = paintPlan(stroke, result, zones)(on);
+		const direct = planLeavePaint(stroke, { index: on.index, result, zones });
+		if (direct.status !== 'intent') throw new Error(direct.status);
+		expect(planned).toEqual({ status: 'intent', intent: direct.intent, label: direct.label });
+		// A merge rewrites the item as the text has it now.
+		expect(planned).toMatchObject({
+			intent: { type: 'updateLeave', leave: { basedOn: w.version() } },
+		});
+	});
+
+	it('keeps the planner’s sentences for its refusals', () => {
+		const w = world({ entry: p.snap.entry, files: files() });
+		const on = w.base(w.version());
+		expect(
+			paintPlan(paint(person('p2'), day(3), day(5), 'annual'), result, zones)(on),
+		).toMatchObject({
+			status: 'not-possible',
+			message: expect.stringMatching(/already covers those days/),
+		});
+	});
+
+	it('refuses a person whose id now names another declaration', () => {
+		const w = world({ entry: p.snap.entry, files: files() });
+		const v0 = w.version();
+		const text = w.text();
+		const p1 = text.indexOf('resource p1 ') + 'resource '.length;
+		w.type(p1, p1 + 2, 'px');
+		const p2 = w.text().indexOf('resource p2 ') + 'resource '.length;
+		w.type(p2, p2 + 2, 'p1');
+		expect(
+			paintPlan(paint(person('p1'), day(14), day(16), 'sick'), result, zones)(w.base(v0)),
+		).toEqual({
+			status: 'not-possible',
+			message: refusalStrings['target-changed'],
+			at: [],
+		});
 	});
 });
