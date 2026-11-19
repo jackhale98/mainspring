@@ -329,21 +329,31 @@ test('refusal: an allocation with alternatives cannot be edited here, and says s
 		dee: 'Dee',
 		eli: 'Eli',
 	};
+	// The workload hook can still hold the result from before the edit for a moment after the view
+	// shows the new one: take the person only once the hook and the heatmap's cell agree.
 	let who = '';
-	for (const id of Object.keys(names)) {
-		const tasks = await page.evaluate(
-			([p, c]) =>
-				(
-					window as unknown as {
-						__mainspringWorkload: {
-							tasks(p: string, c: number): Array<{ task: string; kind: string }>;
-						};
-					}
-				).__mainspringWorkload.tasks(p as string, c as number),
-			[id, 0] as const,
-		);
-		if (tasks.some((t) => t.task === 'discover.survey' && t.kind === 'booked')) who = id;
-	}
+	await expect(async () => {
+		who = '';
+		for (const id of Object.keys(names)) {
+			const tasks = await page.evaluate(
+				([p, c]) =>
+					(
+						window as unknown as {
+							__mainspringWorkload: {
+								tasks(p: string, c: number): Array<{ task: string; kind: string }>;
+							};
+						}
+					).__mainspringWorkload.tasks(p as string, c as number),
+				[id, 0] as const,
+			);
+			if (tasks.some((t) => t.task === 'discover.survey' && t.kind === 'booked')) who = id;
+		}
+		expect(who).not.toBe('');
+		const cell = page
+			.getByRole('gridcell', { name: new RegExp(`^${names[who]}, week of `) })
+			.first();
+		await expect(cell).not.toHaveAccessibleName(/: 0 of /, { timeout: 1_000 });
+	}).toPass({ timeout: 30_000 });
 	expect(who, 'someone is booked on Survey in the first week').not.toBe('');
 	const details = await openCell(page, info, who, 0);
 	await taskIn(details, 'discover.survey')
