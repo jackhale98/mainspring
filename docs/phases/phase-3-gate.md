@@ -189,6 +189,18 @@ every newly turned-on spec at 0, and every test boots the engine and schedules i
    schedule is not under test, or the schedule cache of ADR-0015): an ADR for the user first.
 5. Then B4 (Health; a WIP branch) and B5 (Text mode; done on a branch, held).
 
+T27 (ADR-0018) so far, recorded for the user:
+- **First-load bytes over the ADR's target.** T27a and T27b add about 1,360 bytes gzip to each
+  first load (Visual-first 328,668 of 330,000, Text-first 435,202 of 440,000, measured the CI way),
+  against the ADR's target of 700 for all of T27. The caps hold and no cap changed; the two reviews
+  found nothing that can go without losing a check. Open for the user to accept, or to ask for the
+  ADR's fallback (the range and position checks moved into the lazy views' planners).
+- **Deviations from the ADR, by the implementation and its review:** no call through
+  `dispatchPlan`, and no `updateLeave` or `removeLeave`, is ever coalesced (a planner's range maps
+  to the text now, not to a gesture's base); siblings and macro-declared or shared declarations
+  also fail the id check once ids may have moved (cases the review reproduced), so an inspector edit
+  of a shared declaration right after typing is refused until the index catches up.
+
 App bugs found on the way, open:
 - **The windowed Health list jumps on WebKit** (B4, 2026-11-18). WebKit has no scroll anchoring:
   as rows mount, the groups above the viewport are measured and re-windowed, and the content moves
