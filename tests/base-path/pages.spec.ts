@@ -82,7 +82,7 @@ test('the app boots, schedules a sample and requests nothing outside the base pa
 	expect(
 		paths.filter((p) => p.startsWith(`${base}engine/`) && p.endsWith('.wasm.gz')),
 	).toHaveLength(1);
-	// One engine bundle; the keyword docs (ADR-0017) come only when the editor opens, from the same
+	// One engine tj-bundle file; the keyword docs (ADR-0017) come only when the editor opens, from the same
 	// directory (every request was checked to be under the base above).
 	expect(
 		paths.filter((p) => p.startsWith(`${base}engine/tj-bundle.`) && p.endsWith('.json.gz')),
@@ -90,7 +90,8 @@ test('the app boots, schedules a sample and requests nothing outside the base pa
 	expect(
 		paths.filter(
 			(p) =>
-				p.endsWith('.json.gz') && !/\/engine\/tj-(bundle|docs)\.[0-9a-f]{12}\.json\.gz$/.test(p),
+				p.endsWith('.json.gz') &&
+				!/\/engine\/(?:tj-bundle|tj-docs)\.[0-9a-f]{12}\.json\.gz$/.test(p),
 		),
 		'no other gzipped JSON',
 	).toEqual([]);
