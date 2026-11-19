@@ -92,6 +92,8 @@ describe('planLeaveEdit', () => {
 			status: 'intent',
 			intent: {
 				type: 'updateLeave',
+				// The ref carries the version its range was read in (ADR-0018).
+				leave: { item: item.range, basedOn: item.version },
 				to: { type: 'sick', name: 'Holiday', start: '2026-01-08', end: '2026-01-10' },
 			},
 		});
@@ -193,7 +195,10 @@ describe('planLeaveRemove', () => {
 	it('removes the item, with the days in the label', () => {
 		const item = itemOf(p, 'p2', 'Holiday');
 		const plan = planLeaveRemove(item, ctxOf(p));
-		expect(plan.intent).toEqual({ type: 'removeLeave', leave: { item: item.range } });
+		expect(plan.intent).toEqual({
+			type: 'removeLeave',
+			leave: { item: item.range, basedOn: p.index.version },
+		});
 		expect(plan.label.text).toMatch(/^Annual leave for P2 removed: /);
 		expect(after(p, plan.intent)).not.toContain('"Holiday"');
 	});

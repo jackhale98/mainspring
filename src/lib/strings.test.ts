@@ -30,7 +30,7 @@ describe('strings', () => {
 	});
 
 	it('has a capitalised sentence for each refusal reason, failure kind and text-only reason', () => {
-		expect(Object.keys(refusalStrings)).toHaveLength(16);
+		expect(Object.keys(refusalStrings)).toHaveLength(17);
 		for (const text of [
 			...Object.values(refusalStrings),
 			...Object.values(engineFailureStrings),

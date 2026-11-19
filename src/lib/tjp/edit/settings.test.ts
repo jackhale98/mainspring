@@ -19,7 +19,10 @@ describe('project and calendar wrappers', () => {
 	it('build each intent and apply it', () => {
 		const s = setup(PLAN);
 		const text = (r: EditResult): string | undefined => textsAfter(s.snap, r)['plan.tjp'];
-		const item = { file: 'plan.tjp', ...span(s.file(), 'holiday 2026-01-12') };
+		const leave = {
+			item: { file: 'plan.tjp', ...span(s.file(), 'holiday 2026-01-12') },
+			basedOn: s.index.version,
+		};
 		expect(text(setProjectHeader(s.snap, s.index, { name: 'Q', end: '+3m' }))).toContain(
 			'project p "Q" 2026-01-05 +3m {',
 		);
@@ -36,8 +39,8 @@ describe('project and calendar wrappers', () => {
 			text(addLeave(s.snap, s.index, { kind: 'global' }, { type: 'sick', start: '2026-01-13' })),
 		).toContain('leaves holiday 2026-01-12, sick 2026-01-13\n');
 		expect(
-			text(updateLeave(s.snap, s.index, { item }, { type: 'holiday', start: '2026-01-19' })),
+			text(updateLeave(s.snap, s.index, leave, { type: 'holiday', start: '2026-01-19' })),
 		).toContain('leaves holiday 2026-01-19\n');
-		expect(text(removeLeave(s.snap, s.index, { item }))).not.toContain('leaves');
+		expect(text(removeLeave(s.snap, s.index, leave))).not.toContain('leaves');
 	});
 });

@@ -169,9 +169,11 @@ function draw(type: string, f: Facts, rng: Rng): Drawn | null {
 	if (all.length === 0) return null;
 	const l = rng.pick(all);
 	const item = { file: l.item.range.file, from: l.item.range.from, to: l.item.range.to };
-	if (type === 'removeLeave') return { intent: { type, leave: { item } } };
+	// A case runs on a freshly loaded workspace, whose version is 0 (harness.ts).
+	const ref = { item, basedOn: 0 };
+	if (type === 'removeLeave') return { intent: { type, leave: ref } };
 	const to = spec(f, rng, l.scope === 'global');
-	return to ? { intent: { type: 'updateLeave', leave: { item }, to } } : null;
+	return to ? { intent: { type: 'updateLeave', leave: ref, to } } : null;
 }
 
 export const calendarFamily: Family = {

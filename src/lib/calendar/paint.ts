@@ -280,7 +280,7 @@ export const planLeavePaint: PlanLeavePaintFn = (stroke, ctx) => {
 	};
 	const merged = daysLabel(project, Math.min(item.from, p.from), Math.max(item.to, p.to));
 	return planned(
-		{ type: 'updateLeave', leave: { item: item.range }, to },
+		{ type: 'updateLeave', leave: { item: item.range, basedOn: item.version }, to },
 		S.label.merge(type, who, merged),
 	);
 };

@@ -54,12 +54,15 @@ export interface Outline {
 	readonly tasks: readonly OutlineNode[];
 	readonly resources: readonly OutlineNode[];
 	readonly byKey: ReadonlyMap<string, OutlineNode>;
+	/** The index version it was built from (`SymbolIndex.version`; ADR-0018, a drop's `basedOn`). */
+	readonly version: number;
 }
 
 /** Reads the text of a range, for the written name of an unresolved declaration. */
 export type TextOf = (range: SourceRange) => string | null;
 
-export const EMPTY_OUTLINE: Outline = { tasks: [], resources: [], byKey: new Map() };
+/** No index yet: version -1, which no index has. */
+export const EMPTY_OUTLINE: Outline = { tasks: [], resources: [], byKey: new Map(), version: -1 };
 
 /** Above this many visible rows the view renders only the rows in view. */
 export const WINDOW_THRESHOLD = 200;
@@ -196,7 +199,7 @@ export function buildOutline(index: SymbolIndex, textOf: TextOf = () => null): O
 	const byKey = new Map<string, OutlineNode>();
 	for (const n of tasks) byKey.set(n.key, n);
 	for (const n of resources) byKey.set(n.key, n);
-	return { tasks, resources, byKey };
+	return { tasks, resources, byKey, version: index.version };
 }
 
 export interface OutlineRow {

@@ -80,7 +80,9 @@ export function prepare(d: Deps, job: Job, on?: Base): Prepared {
 		// A gesture plans every call on the schedule its first call saw (coalesce.ts).
 		const source = job.gesture?.source ?? job.source;
 		const planned = planAction(job.action, contextOf(d, source, index));
-		if (planned.status === 'ask-move-preference') return { status: 'done', outcome: planned };
+		if (planned.status === 'ask-move-preference') {
+			return { status: 'done', outcome: { ...planned, basedOn: job.basedOn } };
+		}
 		if (planned.status === 'not-possible') {
 			const outcome = refused(planned.reason, planned.at, refusalMessage(planned.reason));
 			return { status: 'done', outcome, ...at(planned.at) };
@@ -106,7 +108,8 @@ export function prepare(d: Deps, job: Job, on?: Base): Prepared {
 	const outcome = refused(r.reason, r.at, refusalMessage(r.reason), r.textOnly);
 	if (r.reason === 'stale') return { status: 'replan', outcome, ...at(r.at) };
 	if (r.reason === 'shared-declaration' && !confirmShared) {
-		return { status: 'done', outcome: { status: 'confirm-shared', affects: r.affects ?? [] } };
+		const affects = r.affects ?? [];
+		return { status: 'done', outcome: { status: 'confirm-shared', affects, basedOn: job.basedOn } };
 	}
 	return { status: 'done', outcome, ...at(r.at) };
 }

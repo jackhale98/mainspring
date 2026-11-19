@@ -35,7 +35,11 @@ describe('moves', () => {
 	it('asks for the move preference once, then moves with it and warns once', async () => {
 		const move = { type: 'move', task: 'spike', days: 1 } as const;
 		const ask = await h.edits.dispatchAction(move, source);
-		expect(ask).toEqual({ status: 'ask-move-preference', suggested: 'start' });
+		expect(ask).toEqual({
+			status: 'ask-move-preference',
+			suggested: 'start',
+			basedOn: h.runner.state.indexVersion,
+		});
 		expect(h.edits.toasts).toEqual([]);
 		h.edits.setMovePreference('start');
 		expect(h.storage.map.get(MOVE_KEY)).toBe('start');

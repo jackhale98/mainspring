@@ -158,7 +158,10 @@ describe.skipIf(!REQUIRED && !fs.existsSync(ENGINE))('settings intents still sch
 		);
 		const back = scheduleEdit(engine, leaves, {
 			type: 'removeLeave',
-			leave: { item: sick?.items[0] ?? { file: '', from: 0, to: 0 } },
+			leave: {
+				item: sick?.items[0] ?? { file: '', from: 0, to: 0 },
+				basedOn: leaves.index.version,
+			},
 		});
 		expect(back.ok).toBe(true);
 		expect(task(back, 'calendar.build')?.end ?? 0).toBeLessThan(build?.end ?? 0);

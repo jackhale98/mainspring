@@ -34,7 +34,7 @@ describe('GanttActor.run', () => {
 
 	it('asks the move question once, stores the answer, and sends the action again', async () => {
 		const { actor, dispatchAction, setMovePreference } = setup([
-			{ status: 'ask-move-preference', suggested: 'gap' },
+			{ status: 'ask-move-preference', suggested: 'gap', basedOn: 1 },
 			applied,
 		]);
 		const p = actor.run(move);
@@ -47,7 +47,7 @@ describe('GanttActor.run', () => {
 	});
 
 	it('shares one question between calls made while it is open', async () => {
-		const ask: DispatchOutcome = { status: 'ask-move-preference', suggested: 'start' };
+		const ask: DispatchOutcome = { status: 'ask-move-preference', suggested: 'start', basedOn: 1 };
 		const { actor, setMovePreference } = setup([ask, ask, applied, applied]);
 		const a = actor.run(move);
 		const b = actor.run({ ...move, days: 3 });
@@ -60,7 +60,7 @@ describe('GanttActor.run', () => {
 
 	it('is cancelled, and changes nothing, when the question is cancelled', async () => {
 		const { actor, setMovePreference } = setup([
-			{ status: 'ask-move-preference', suggested: 'gap' },
+			{ status: 'ask-move-preference', suggested: 'gap', basedOn: 1 },
 		]);
 		const p = actor.run(move);
 		await vi.waitFor(() => expect(actor.ask).not.toBeNull());
@@ -70,7 +70,7 @@ describe('GanttActor.run', () => {
 	});
 
 	it('confirms shared text, then sends again with confirmShared; no is cancelled', async () => {
-		const shared: DispatchOutcome = { status: 'confirm-shared', affects: ['a', 'b'] };
+		const shared: DispatchOutcome = { status: 'confirm-shared', affects: ['a', 'b'], basedOn: 1 };
 		const yes = setup([shared, applied]);
 		expect(await yes.actor.run(move)).toBe(applied);
 		expect(yes.dispatchAction).toHaveBeenLastCalledWith(

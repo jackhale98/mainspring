@@ -77,6 +77,8 @@ describe('paint (W3)', () => {
 		expect(planned).toMatchObject({
 			intent: {
 				type: 'updateLeave',
+				// The merged item's range, with the version it was read in (ADR-0018).
+				leave: { basedOn: p.index.version },
 				to: { type: 'annual', name: 'Holiday', start: '2026-01-08', end: '2026-01-13' },
 			},
 		});

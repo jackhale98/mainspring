@@ -25,8 +25,10 @@ import { LEAVE_TYPES } from '../tjp/values/leave';
 
 export interface PaintItem {
 	readonly site: LeaveSite;
-	/** The item, as `LeaveSite.items` gives it (a `LeaveRef`). */
+	/** The item, as `LeaveSite.items` gives it (a `LeaveRef`'s `item`). */
 	readonly range: SourceRange;
+	/** The index version `range` is in (`SymbolIndex.version`; a `LeaveRef`'s `basedOn`). */
+	readonly version: number;
 	readonly type: LeaveType;
 	readonly name: string | null;
 	readonly interval: Interval;
@@ -69,7 +71,7 @@ function readSite(index: SymbolIndex, site: LeaveSite, startEpoch: number): Pain
 		const r = resolveInterval(leave.interval, c);
 		if (!r.ok) continue;
 		const [from, to] = r.value.map((e) => (e - startEpoch) / 60) as [number, number];
-		out.push({ site, range, ...leave, from, to });
+		out.push({ site, range, version: index.version, ...leave, from, to });
 	}
 	return out;
 }

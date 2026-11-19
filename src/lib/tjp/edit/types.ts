@@ -2,7 +2,9 @@
 /**
  * Types of the edit API (phase-1.md 6.5). Additions to the spec's interface, for T11 and Phase 2:
  *
- * - `LeaveRef` names a leave by its item range (`LeaveSite.items`), which the spec leaves open.
+ * - `LeaveRef` names a leave by its item range (`LeaveSite.items`), which the spec leaves open,
+ *   and the workspace version that range was read in (ADR-0018; `target-changed` when it is not
+ *   the index's version).
  * - RefusalReason gains `stale` (the index was not built from this snapshot) and
  *   `shared-declaration` (the target lies in a file TaskJuggler reads in several include visits,
  *   so one text change edits several engine ids; 15.8, 15.15). The refusal lists those ids in
@@ -54,9 +56,11 @@ export interface LeaveSpec {
 	/** A date, or a duration such as '+2d'. */
 	end?: string;
 }
-/** A leave item, by its range as `LeaveSite.items` gives it. */
+/** A leave item, by its range as `LeaveSite.items` gives it (ADR-0018). */
 export interface LeaveRef {
 	readonly item: SourceRange;
+	/** The workspace version `item` was read in (the index's `version`). Required. */
+	readonly basedOn: number;
 }
 
 export type EditIntent =
@@ -152,7 +156,13 @@ export type RefusalReason =
 	| 'syntax-error'
 	| 'unsupported-form'
 	| 'stale'
-	| 'shared-declaration';
+	| 'shared-declaration'
+	/**
+	 * ADR-0018: the target was read in an older version and the text now no longer holds the same
+	 * logical target (a touched range, another declaration under the id, a changed child list).
+	 * Unlike `stale`, planning again does not help.
+	 */
+	| 'target-changed';
 export type NoopReason = 'already-set' | 'already-linked' | 'not-present';
 
 export interface TjpEdit extends WorkspaceEdit {

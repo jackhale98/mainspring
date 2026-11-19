@@ -8,14 +8,15 @@ import type { ActionRefusal, GanttAction, MoveKind, ToastLabel } from '../gantt/
 import type { DrivingAnalysis } from '../schedule/critical';
 import type { KeyTimers } from '../tjp/cm/android-key';
 import type { EditIntent, NoopReason, SourceRange, TjpEdit } from '../tjp/edit/types';
-import type { TaskId, TextOnlyReason } from '../tjp/index';
+import type { SymbolIndex, TaskId, TextOnlyReason } from '../tjp/index';
 import type { ZoneOffsets } from '../tjp/values/civil';
 import type { WorkspaceHistory } from '../workspace/history';
 import type { WorkspacePath } from '../workspace/paths';
 import type { ScheduleRunner } from '../workspace/run-types';
-import type { Workspace } from '../workspace/workspace';
+import type { Workspace, WorkspaceSnapshot } from '../workspace/workspace';
 import type { Gesture } from './coalesce';
 import type { Settlement } from './edits-settle';
+import type { Outline } from './outline';
 import type { PrefStorage } from './storage';
 
 /** The dragged item's preview geometry, in minutes since the project start (from the gesture). */
@@ -65,15 +66,24 @@ export interface DispatchOptions {
 	readonly constraint?: boolean;
 	/** A drop: the preview mark is set now, and the edit is planned after the next frame (7.3). */
 	readonly defer?: boolean;
+	/**
+	 * The index version the view read its targets in (ADR-0018). Default: the published
+	 * `indexVersion` when `dispatch*` is called. A call made again after an answer passes the
+	 * outcome's `basedOn`.
+	 */
+	readonly basedOn?: number;
 }
 
 export type ActionDispatchOptions = Pick<
 	DispatchOptions,
-	'coalesceKey' | 'confirmShared' | 'defer'
+	'coalesceKey' | 'confirmShared' | 'defer' | 'basedOn'
 >;
 
-/** `unprepared`: the index could not be built (an error in the app, never the text's fault). */
-export type DispatchRefusal = ActionRefusal | 'unprepared';
+/**
+ * `unprepared`: the index could not be built (an error in the app, never the text's fault).
+ * `planner`: a view planner (`dispatchPlan`) threw (an error in the app, ADR-0018).
+ */
+export type DispatchRefusal = ActionRefusal | 'unprepared' | 'planner';
 
 export type DispatchOutcome =
 	| {
@@ -94,9 +104,55 @@ export type DispatchOutcome =
 			readonly textOnly?: TextOnlyReason;
 	  }
 	| { readonly status: 'noop'; readonly reason: NoopReason; readonly message: string }
-	| { readonly status: 'confirm-shared'; readonly affects: readonly string[] }
-	| { readonly status: 'ask-move-preference'; readonly suggested: MoveKind }
+	/** Ask, then call again with `confirmShared: true` and this `basedOn` (ADR-0018). */
+	| {
+			readonly status: 'confirm-shared';
+			readonly affects: readonly string[];
+			readonly basedOn: number;
+	  }
+	/** Ask, then call again with this `basedOn` (ADR-0018). */
+	| {
+			readonly status: 'ask-move-preference';
+			readonly suggested: MoveKind;
+			readonly basedOn: number;
+	  }
 	| { readonly status: 'cancelled' };
+
+/**
+ * What a view planner reads (ADR-0018 decision 3): the text now and its index
+ * (`index.version === snap.version`). The only state a planner gets.
+ */
+export interface PlanBase {
+	readonly snap: WorkspaceSnapshot;
+	readonly index: SymbolIndex;
+	/** The outline of `index`, built at most once per index. */
+	outline(): Outline;
+	/** `r`, read in version `basedOn`, in the text now; null when touched (ADR-0018 decision 2). */
+	mapRange(r: SourceRange, basedOn: number): SourceRange | null;
+	/** Whether `id` names the same declaration as in the call's `basedOn` (ADR-0018 decision 2). */
+	isSame(kind: 'task' | 'resource', id: string): boolean;
+}
+
+/** A view planner's answer: an intent to check and apply, or why there is nothing to apply. */
+export type ViewPlanned =
+	| {
+			readonly status: 'intent';
+			readonly intent: EditIntent;
+			readonly label: ToastLabel;
+			readonly constraint?: boolean;
+	  }
+	| { readonly status: 'unchanged'; readonly message?: string }
+	| {
+			readonly status: 'not-possible';
+			readonly message: string;
+			readonly at: readonly SourceRange[];
+	  };
+
+/**
+ * A relative command planned on the text now (`dispatchPlan`, ADR-0018 decision 3). Pure: reads
+ * only `on` and the plain data it was made from. Called on every plan of the call.
+ */
+export type ViewPlanner = (on: PlanBase) => ViewPlanned;
 
 export interface EditDispatcherDeps {
 	readonly workspace: Workspace;
@@ -121,6 +177,8 @@ export interface EditDispatcherDeps {
 /** One call, as queued. */
 export type Job = {
 	readonly seq: number;
+	/** `o.basedOn`, else the published `indexVersion` when the call was made (ADR-0018). */
+	readonly basedOn: number;
 	readonly preview: PendingMark | undefined;
 	/** The coalesced gesture the call belongs to (coalesce.ts). */
 	readonly gesture?: Gesture;

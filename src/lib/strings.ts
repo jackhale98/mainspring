@@ -185,6 +185,8 @@ export const refusalStrings = {
 	stale: 'The plan changed in the meantime. Try again.',
 	'shared-declaration':
 		'This part of a file is used in more than one place, so it is edited as text.',
+	'target-changed':
+		'That part of the plan changed before this edit was made. Nothing was changed; check it and try again.',
 } as const satisfies Record<RefusalReason, string>;
 
 /** Why the scheduler stopped, by `EngineError.kind`. */
