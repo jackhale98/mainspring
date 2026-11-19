@@ -8,7 +8,8 @@
 // - on `gantt-manipulation` (small, and it has the shapes): a drag of a bar to another person (W1)
 //   and along its lane (W2) are exact patches, one undo step each (Undo restores the bytes, Redo the
 //   patch), with a mouse on desktop and a long-press and drag on the phone; a bar whose allocation
-//   is inherited is refused with its toast and "Show in text"; a text-only task shows its badge and
+//   is inherited is refused with its toast and "Show in text", and so is a bar dropped on a group's
+//   lane (`not-a-person`); a text-only task shows its badge and
 //   does not drag; the keyboard's Alt+arrows in the details do W1;
 // - axe passes in light and dark.
 // Over 400 lines on purpose: one spec file for one view, each test a user path.
@@ -396,6 +397,21 @@ test('a refusal: an allocation that comes from a parent says so, with "Show in t
 	// The button reveals the place in the text (the dispatcher's own reveal, as for every refusal);
 	// pressing it edits nothing.
 	await show.click();
+	expect(await rig.text()).toBe(before);
+});
+
+test('a refusal: a bar dropped on a group lane says work moves to a person, and nothing changes', async ({
+	page,
+}, info) => {
+	// `ui-people` has the Team group; Ana's Interviews bar is dragged onto the group's lane.
+	const rig = await LanesRig.openLanes(page, info, 'ui-people');
+	const before = await rig.text();
+	const from = await rig.barPoint('ana', 'discover.interviews', 0, 12);
+	const to = await rig.lane('team', from.x);
+	await rig.drag(from, to, { hold: rig.hold, steps: 8 });
+	await expect(
+		page.getByTestId('toast').filter({ hasText: 'Work moves to a person, not to a group.' }),
+	).toBeVisible({ timeout: 30_000 });
 	expect(await rig.text()).toBe(before);
 });
 

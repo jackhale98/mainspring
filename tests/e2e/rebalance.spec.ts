@@ -10,7 +10,7 @@
 // - the drags (a mouse, a long-press and drag with a finger): a cell with two movable tasks asks
 //   "Move which task?" and the drop is the chosen task's one patch; a drag along the row is W2;
 // - the refusals: `via-group` (the task is booked through the group), `not-a-person` (a drop on
-//   a group row) and `unsupported-form` (an allocation with alternatives, written in Text first).
+//   a group row, which shows the refusal toast) and `unsupported-form` (an allocation with alternatives, written in Text first).
 // The lanes' W1 and W2 are in lanes.spec.ts, from a bar. The pictures are in
 // phase3-screenshots.spec.ts. Over 400 lines on purpose: one spec for one gesture family.
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
@@ -256,7 +256,7 @@ async function refused(page: Page, sentence: string, before: string): Promise<vo
 	expect(await text(page)).toBe(before);
 }
 
-test('refusals: a task booked through a group, and a drop on a group row that is no ask', async ({
+test('refusals: a task booked through a group, and a drop on a group row', async ({
 	page,
 }, info) => {
 	await open(page, info);
@@ -276,13 +276,14 @@ test('refusals: a task booked through a group, and a drop on a group row that is
 			.locator('option', { hasText: /^Team$/ }),
 	).toHaveCount(0);
 	await page.getByRole('button', { name: 'Close' }).first().click();
-	// A drop on the Team row is not an ask at all: the ghost says so while it is over the row, and
-	// the drop changes nothing and starts no edit.
+	// A drop on the Team row goes through the same planner as any drop: the standard refusal toast
+	// says work moves to a person, and the drop changes nothing and starts no edit.
 	const rev = await revisionOf(page);
 	await dragCell(page, info, { person: 'ana', col: 0 }, (a, _w, h) => ({ x: a.x, y: a.y - h }), {
 		person: 'team',
 		col: 0,
 	});
+	await refused(page, 'Work moves to a person, not to a group.', before);
 	await quietAfter(page);
 	expect(await text(page)).toBe(before);
 	expect(await revisionOf(page)).toBe(rev);

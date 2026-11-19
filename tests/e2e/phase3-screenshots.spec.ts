@@ -27,8 +27,13 @@ test.describe('phase 3 pictures (T21)', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 3);
 	test.use({ actionTimeout: 20_000 });
 
-	async function shoot(page: Page, device: string, what: string): Promise<void> {
-		for (const scheme of ['light', 'dark'] as const) {
+	async function shoot(
+		page: Page,
+		device: string,
+		what: string,
+		schemes: readonly ('light' | 'dark')[] = ['light', 'dark'],
+	): Promise<void> {
+		for (const scheme of schemes) {
 			await page.emulateMedia({ colorScheme: scheme });
 			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `t21-${what}-${device}-${scheme}.png`) });
@@ -141,5 +146,19 @@ test.describe('phase 3 pictures (T21)', () => {
 			timeout: 30_000,
 		});
 		await shoot(page, device, 'rebalance-refused');
+	});
+
+	test('rebalance: a drop on a group row is refused with the planner’s sentence', async ({
+		page,
+	}, info) => {
+		await openHeatmap(page, info, 'ui-people');
+		await dragCell(page, info, { person: 'ana', col: 0 }, (a, _w, h) => ({ x: a.x, y: a.y - h }), {
+			person: 'team',
+			col: 0,
+		});
+		await expect(
+			page.getByTestId('toast').filter({ hasText: 'Work moves to a person, not to a group.' }),
+		).toBeVisible({ timeout: 30_000 });
+		await shoot(page, deviceName(info), 'rebalance-group-drop', ['light']);
 	});
 });

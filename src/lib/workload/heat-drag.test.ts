@@ -109,7 +109,13 @@ describe('what a drop asks for', () => {
 	});
 
 	it('refuses a group row and its own cell, with a label that says so', () => {
+		// The group drop still carries its action, so the planner's own refusal reaches the toast.
 		expect(dragPlan(model, labels, 'a', from, { row: row('team'), col: 0 })).toEqual({
+			action: { type: 'reassign', task: 'a', from: 'dev1', to: 'team' },
+			ok: false,
+			label: 'Drop on a person, not a group',
+		});
+		expect(dragPlan(model, labels, null, from, { row: row('team'), col: 0 })).toEqual({
 			action: null,
 			ok: false,
 			label: 'Drop on a person, not a group',
