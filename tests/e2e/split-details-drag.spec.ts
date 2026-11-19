@@ -8,6 +8,13 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import {
+	animationsDone,
+	appSettled,
+	frames as drawn,
+	ganttSettled,
+	settledValue,
+} from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
@@ -22,7 +29,29 @@ async function open(page: Page): Promise<void> {
 		timeout: READY_TIMEOUT_MS,
 	});
 	await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
-	await page.waitForTimeout(500);
+	await appSettled(page);
+}
+
+/**
+ * The details panel and the divider hold still: the panel's mode and box and the divider's value are
+ * the same for several frames, and no animation runs. What follows a release or a lost capture.
+ */
+async function panelHolds(page: Page): Promise<void> {
+	await settledValue(
+		page,
+		() => {
+			const aside = document.querySelector<HTMLElement>('aside[data-testid="inspector"]');
+			const b = aside?.getBoundingClientRect();
+			const sep = document.querySelector('[role="separator"][data-axis="col"]');
+			return [
+				aside ? (aside.hasAttribute('data-drawer') ? 'drawer' : 'docked') : 'none',
+				b ? [b.x, b.y, b.width, b.height].map((v) => v.toFixed(1)).join(',') : '-',
+				sep?.getAttribute('aria-valuenow'),
+			].join('|');
+		},
+		6,
+	);
+	await animationsDone(page, 2);
 }
 
 const divider = (page: Page) => page.locator('[role="separator"][data-axis="col"]').first();
@@ -91,7 +120,7 @@ async function drag(
 		() => (window as unknown as { __frames: Frame[] }).__frames.length,
 	);
 	await page.mouse.up();
-	await page.waitForTimeout(400);
+	await panelHolds(page);
 	const all = await stopSampling(page);
 	return { during: all.slice(0, mark), after: all.slice(mark), all };
 }
@@ -177,7 +206,8 @@ test.describe('the details while the Split divider moves', () => {
 			timeout: READY_TIMEOUT_MS,
 		});
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
-		await page.waitForTimeout(700);
+		await appSettled(page);
+		await ganttSettled(page);
 		await expect(page.getByRole('button', { name: 'Show details' })).toBeVisible();
 		await expect(page.locator('aside[data-testid="inspector"]')).toHaveCount(0);
 
@@ -185,7 +215,9 @@ test.describe('the details while the Split divider moves', () => {
 		await expect(page.locator('#panel-gantt')).toBeHidden();
 		await page.getByRole('button', { name: 'Split', exact: true }).click();
 		await expect(page.locator('#panel-gantt')).toBeVisible();
-		await page.waitForTimeout(700);
+		// A positive sync point for the "no drawer" check: the layout holds still, then some frames.
+		await ganttSettled(page);
+		await drawn(page, 8);
 		await expect(page.getByRole('button', { name: 'Show details' })).toBeVisible();
 		await expect(page.locator('aside[data-testid="inspector"]')).toHaveCount(0);
 	});
@@ -248,7 +280,11 @@ test.describe('the details while the Split divider moves', () => {
 		);
 		// (Chrome delivers the lost capture with the next pointer event.)
 		await page.mouse.move(x + 2, y);
-		await page.waitForTimeout(400);
+		await expect(page.locator('aside[data-testid="inspector"]')).toHaveAttribute(
+			'data-drawer',
+			/.*/,
+		);
+		await panelHolds(page);
 		const after = await stopSampling(page);
 		expect(after.every((f) => f.open)).toBe(true);
 		expect(changes(after), 'settles once').toBe(1);

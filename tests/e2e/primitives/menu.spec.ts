@@ -16,6 +16,7 @@
 // phone-bugfixes, people-shell, new-plan, resources.
 import { expect, test, type Page } from '@playwright/test';
 import { isTouch } from '../lib/gantt-rig';
+import { boxStable } from '../lib/settle';
 import {
 	activeName,
 	box,
@@ -126,7 +127,8 @@ test('stays on screen at 360 px: the button at the right edge, and the one low o
 	page,
 }) => {
 	await page.setViewportSize({ width: 360, height: 640 });
-	await page.waitForTimeout(100);
+	// The layout follows the resize: the trigger holds still (a phone's layout width is not 360).
+	await boxStable(page.getByTestId('menu-start'), 4);
 	for (const id of ['menu-start', 'menu-end', 'menu-low']) {
 		await open(page, id);
 		const vp = await viewport(page);
@@ -140,7 +142,7 @@ test('stays on screen at 360 px: the button at the right edge, and the one low o
 test('opens above the button when there is no room below', async ({ page }) => {
 	await page.setViewportSize({ width: 360, height: 420 });
 	await page.getByTestId('menu-low').evaluate((el) => el.scrollIntoView({ block: 'center' }));
-	await page.waitForTimeout(100);
+	await boxStable(page.getByTestId('menu-low'), 4);
 	const trigger = await box(page.getByTestId('menu-low'));
 	await page.getByTestId('menu-low').click();
 	const m = await box(menu(page));

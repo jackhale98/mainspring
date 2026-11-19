@@ -9,6 +9,7 @@ import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
 import { holdFinger, openHistoryFromUndo } from './lib/finger';
 import { isTouch } from './lib/gantt-rig';
+import { animationsDone } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join('docs', 'phases', 'screenshots', 'phase-2');
@@ -57,7 +58,7 @@ async function shot(page: Page, name: string): Promise<void> {
 	if (process.env['SCREENSHOTS'] !== '1') return;
 	for (const scheme of ['light', 'dark'] as const) {
 		await page.emulateMedia({ colorScheme: scheme });
-		await page.waitForTimeout(300);
+		await animationsDone(page, 3);
 		await page.screenshot({ path: path.join(DIR, `phone-undo-${name}-${scheme}.png`) });
 	}
 	await page.emulateMedia({ colorScheme: 'light' });

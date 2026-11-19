@@ -8,13 +8,15 @@
 // Every assertion on the plan is on its text, which only the picker's own edits may change.
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig } from './lib/gantt-rig';
+import { boxStable, ganttSettled, quietAfter } from './lib/settle';
 
 const CONTAINER_MESSAGE =
 	'People are booked on subtasks. Drop them on a subtask, or assign them in the text.';
 
 /** The toolbar is one row: it does not scroll, nothing is cut off, and the controls share a line. */
 async function fitsOneRow(page: Page, state: string, maxHeight = 64): Promise<number> {
-	await page.waitForTimeout(150);
+	await boxStable(page.locator('[data-testid="gantt"] .bar'));
+	await ganttSettled(page);
 	const m = await page.getByTestId('gantt').evaluate((el) => {
 		const bar = el.querySelector('.bar') as HTMLElement;
 		const r = bar.getBoundingClientRect();
@@ -405,7 +407,7 @@ test.describe('the people picker', () => {
 			{ x: scroller.x + scroller.width - 30, y: scroller.y + scroller.height - 12 },
 			{ x: scroller.x + scroller.width - 60, y: scroller.y + scroller.height - 12 },
 		);
-		await page.waitForTimeout(300);
+		await quietAfter(page);
 		expect(await rig.text()).toBe(text);
 	});
 
@@ -459,7 +461,7 @@ test.describe('the people picker', () => {
 				await page.keyboard.press('Escape');
 			},
 		});
-		await page.waitForTimeout(300);
+		await quietAfter(page);
 		expect(await rig.text()).toBe(before);
 		await expect(page.getByTestId('assign-mode')).toContainText('Assigning Dev 3');
 		await expect(page.getByTestId('assign-button')).toBeFocused();

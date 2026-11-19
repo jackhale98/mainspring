@@ -6,6 +6,7 @@
 // (the Gantt and Text tabs). Mode shortcuts and their persistence are in modes-layout.spec.ts.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { lineAt } from './lib/editor-lines';
+import { appSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 type Info = { project: { name: string } };
@@ -47,7 +48,7 @@ test.describe('selection sync across files', () => {
 			timeout: READY_TIMEOUT_MS,
 		});
 		await expect(row(page, 'Research')).toBeVisible();
-		await page.waitForTimeout(500);
+		await appSettled(page);
 
 		// Gantt to text: the task is declared in the included file.
 		await row(page, 'Write code').click();

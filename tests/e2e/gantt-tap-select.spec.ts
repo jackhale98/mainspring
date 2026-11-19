@@ -11,6 +11,7 @@ import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, deviceName, isTouch, minute } from './lib/gantt-rig';
+import { animationsDone, panelSettled } from './lib/settle';
 
 const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 
@@ -21,10 +22,10 @@ async function shoot(page: Page, info: TestInfo, what: string): Promise<void> {
 	const device = deviceName(info);
 	await page.screenshot({ path: path.join(SHOTS, `${what}-${device}-light.png`) });
 	await page.emulateMedia({ colorScheme: 'dark' });
-	await page.waitForTimeout(250);
+	await animationsDone(page, 3);
 	await page.screenshot({ path: path.join(SHOTS, `${what}-${device}-dark.png`) });
 	await page.emulateMedia({ colorScheme: 'light' });
-	await page.waitForTimeout(150);
+	await animationsDone(page, 3);
 }
 
 test.describe('tap to select, tap again to open (sheet layouts)', () => {
@@ -60,7 +61,7 @@ test.describe('tap to select, tap again to open (sheet layouts)', () => {
 		await rig.tap((await rig.peek('design.research')).body);
 		await expect(sheet(page)).toBeVisible();
 		await expect(sheet(page).getByLabel('Name', { exact: true })).toHaveValue('Research');
-		await page.waitForTimeout(500);
+		await panelSettled(sheet(page));
 		await shoot(page, info, 'tap-select-open');
 	});
 
@@ -84,6 +85,8 @@ test.describe('tap to select, tap again to open (sheet layouts)', () => {
 		await rig.row('task:design.review').click();
 		await expect(rig.row('task:design.review')).toHaveAttribute('aria-selected', 'true');
 		await expect(sheet(page)).toHaveCount(0);
+		// The pause is the input: longer than a double tap (300 ms on the gesture machine's clock), so
+		// that the second tap is a second tap and not half of a double tap.
 		await page.waitForTimeout(600);
 		await rig.row('task:design.review').click();
 		await expect(sheet(page).getByLabel('Name', { exact: true })).toHaveValue('Review');

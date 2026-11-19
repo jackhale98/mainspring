@@ -12,7 +12,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { swipeOn } from './lib/finger';
-import { panelSettled } from './lib/settle';
+import { animationsDone, appSettled, panelSettled, quietAfter } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
@@ -39,7 +39,7 @@ async function open(page: Page): Promise<void> {
 	});
 	await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
 	await expect.poll(() => revision(page)).not.toBeNull();
-	await page.waitForTimeout(500);
+	await appSettled(page);
 }
 
 /** The details: the side panel on a desktop, the bottom sheet on a phone. */
@@ -431,10 +431,11 @@ test.describe('dependency picker screenshots', () => {
 			await searchFor(page, 'successor').fill('s');
 			await expect(options(page).first()).toBeVisible();
 			await options(page).first().scrollIntoViewIfNeeded();
-			await page.waitForTimeout(400);
+			await animationsDone(page, 3);
 			await shot('picker');
 			await optionFor(page, 'design.review').click({ force: true });
-			await page.waitForTimeout(600);
+			await quietAfter(page);
+			await animationsDone(page, 3);
 			await shot('added');
 		});
 	}

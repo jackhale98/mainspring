@@ -12,6 +12,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { openHistoryFromUndo } from './lib/finger';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { animationsDone, engineIdle, idleTurns } from './lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -60,10 +61,10 @@ test.describe('the id follows the first name', () => {
 			await expect(page.getByRole('dialog', { name: /Task details/ })).toBeVisible();
 			if (process.env['SCREENSHOTS']) {
 				await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-				await page.waitForTimeout(600);
+				await animationsDone(page, 4);
 				for (const scheme of ['light', 'dark'] as const) {
 					await page.emulateMedia({ colorScheme: scheme });
-					await page.waitForTimeout(400);
+					await animationsDone(page, 3);
 					await page.screenshot({
 						path: path.join(DIR, `polish-15-id-follows-name-pixel-7-${scheme}.png`),
 					});
@@ -155,8 +156,10 @@ test.describe('the id follows the first name', () => {
 		// The details never said the task was gone while the index caught up with the new id.
 		expect(await gone()).toBe(false);
 		await expect(kind).toBeFocused();
-		// Long after the index has caught up, the focus is still on the same field.
-		await page.waitForTimeout(3000);
+		// After the index has caught up (its idle tasks have all had their turns), the focus is still on
+		// the same field. The engine is idle first: the edit has been sent and answered.
+		await engineIdle(page);
+		await idleTurns(page, 30);
 		await expect(kind).toBeFocused();
 		expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('SELECT');
 	});

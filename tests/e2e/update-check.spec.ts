@@ -3,6 +3,7 @@
 // here the server is made to answer with another id, as after a deploy.
 import { expect, test } from '@playwright/test';
 import path from 'node:path';
+import { frames } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join('docs', 'phases', 'screenshots', 'phase-2');
@@ -15,11 +16,17 @@ test.describe('update check', () => {
 		expect(res.ok()).toBe(true);
 		const own = (await res.json()) as { id: string };
 		expect(own.id).toMatch(/^[0-9a-z]+-\d{12}$/);
+		const checked = page.waitForResponse((r) => /version\.json/.test(r.url()), {
+			timeout: READY_TIMEOUT_MS,
+		});
 		await page.goto('app?sample=upstream-tutorial');
 		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		await page.waitForTimeout(4_000);
+		// The app's first check runs a few seconds after it starts (FIRST_CHECK_MS): wait for that
+		// request, then for its answer to have been handled.
+		await checked;
+		await frames(page, 8);
 		await expect(page.getByTestId('update-reload')).toHaveCount(0);
 	});
 

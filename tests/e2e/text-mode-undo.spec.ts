@@ -57,7 +57,8 @@ test.describe('unified undo', () => {
 		await page.keyboard.press('Backspace');
 		await page.keyboard.insertText('5d');
 		await expect(page.locator('.cm-activeLine')).toHaveText(/effort 5d$/);
-		// A pause, so the typo is a group of its own: "x", then Backspace.
+		// A pause, so the typo is a group of its own: "x", then Backspace. The pause is the input: the
+		// editor's history groups edits that come within its delay (500 ms, the page's clock).
 		await page.waitForTimeout(800);
 		const t1 = await doc(page);
 		await page.keyboard.insertText('x');

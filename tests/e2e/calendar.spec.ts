@@ -22,6 +22,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
+import { frames } from './lib/settle';
 import {
 	CROWD,
 	FEBRUARY_PLAN,
@@ -500,17 +501,19 @@ test('desktop: a wheel swipe turns the month once; a pause and another turns it 
 	await showDay(page, '2026-12-10');
 	await swipe(page, 200);
 	await expect.poll(month).toBe('2027-1');
-	// Exactly one month for the whole swipe: look again after the inertia would have run.
+	// Exactly one month for the whole swipe: look again after the inertia would have run. The wait
+	// is the input (the wheel's stillness, 180 ms, is the app's clock; nothing shows it has passed).
 	await page.waitForTimeout(500);
 	expect(await month()).toBe('2027-1');
 	// A pause longer than the wheel's stillness (180 ms), then the swipe back.
 	await swipe(page, -200);
 	await expect.poll(month).toBe('2026-12');
+	// The same wait: the stillness before the next gesture, then a look at the month.
 	await page.waitForTimeout(500);
 	expect(await month()).toBe('2026-12');
 	// A nudge is not enough, and a notch in lines is a full step.
 	await swipe(page, 15, 3);
-	await page.waitForTimeout(500);
+	await frames(page, 8);
 	expect(await month()).toBe('2026-12');
 	await page.getByTestId('cal-scroller').evaluate((el) => {
 		el.dispatchEvent(new WheelEvent('wheel', { deltaY: 3, deltaMode: 1, bubbles: true }));

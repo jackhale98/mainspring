@@ -9,6 +9,7 @@
 // gantt-treegrid, gantt-a11y, calendar.
 import { expect, test, type Page } from '@playwright/test';
 import { openPrimitives } from '../lib/primitives-rig';
+import { frames } from '../lib/settle';
 
 const cell = (page: Page, r: number, c: number) =>
 	page.locator(`[data-testid="roving-cell"][data-row="${r}"][data-col="${c}"]`);
@@ -78,7 +79,9 @@ test('a focus the person moved elsewhere is not taken back by a rebuild', async 
 test('a click on nothing is not undone by a rebuild', async ({ page }) => {
 	await cell(page, 2, 2).focus();
 	await page.evaluate(() => (document.activeElement as HTMLElement).blur());
-	await page.waitForTimeout(50);
+	await expect(page.locator('body')).toBeFocused();
+	// The grid's focusout handling has run (it may defer to a frame) before the rebuild.
+	await frames(page, 3);
 	await page.evaluate(() =>
 		(document.querySelector('[data-testid="roving-rebuild"]') as HTMLElement).click(),
 	);

@@ -10,6 +10,7 @@ import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { animationsDone } from './lib/settle';
 
 const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 const TJI = 'lib/build.tji';
@@ -41,10 +42,10 @@ test.describe('adding, deleting and the included file', () => {
 		const device = isTouch(info) ? 'pixel-7' : 'desktop';
 		await page.screenshot({ path: path.join(SHOTS, `gesture-${what}-${device}-light.png`) });
 		await page.emulateMedia({ colorScheme: 'dark' });
-		await page.waitForTimeout(250);
+		await animationsDone(page, 3);
 		await page.screenshot({ path: path.join(SHOTS, `gesture-${what}-${device}-dark.png`) });
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(150);
+		await animationsDone(page, 3);
 	}
 	/** A finger has no keys: select the row (a first tap opens no sheet) and press the row menu's item. */
 	async function menu(page: Page, rig: Rig, key: string, item: string): Promise<void> {

@@ -99,11 +99,18 @@ export async function walkGrid(page: Page): Promise<Map<string, MirrorCell>> {
 				(window as unknown as Win).__mainspringWorkload.scrollTo(p as string, c as number),
 			[person, col] as const,
 		);
-		await page.waitForTimeout(60);
-		const cells = await mirrorCells(page);
+		// The mirror follows the scroll: wait for it to hold the cell that was scrolled to.
+		let cells: MirrorCell[] = [];
+		await expect
+			.poll(
+				async () => {
+					cells = await mirrorCells(page);
+					return cells.some((c) => c.person === person && c.col === col);
+				},
+				{ message: `the mirror holds ${person} column ${col}`, timeout: 20_000 },
+			)
+			.toBe(true);
 		for (const c of cells) seen.set(key(c.person, c.col), c);
-		if (!seen.has(key(person, col)))
-			throw new Error(`the mirror never held ${person} column ${col}`);
 	}
 	throw new Error('the grid walk did not finish');
 }

@@ -17,6 +17,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { day, openCalendar, openDetails, setMode, showDay, tapDay } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
+import { panelSettled, settledValue } from './lib/settle';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
 test.beforeEach(({ browserName: _b }, info) => {
@@ -37,7 +38,18 @@ const settle = async (page: Page): Promise<void> => {
 	await page
 		.locator(SHEET)
 		.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
-	await page.waitForTimeout(450);
+	// The sheet is at rest, and the calendar has scrolled the day clear of it.
+	await panelSettled(page.locator(SHEET));
+	await settledValue(
+		page,
+		() =>
+			[
+				document.querySelector('[data-testid="cal-scroller"]')?.scrollTop,
+				document.querySelector('dialog.sheet[data-modal="false"][open]')?.getBoundingClientRect()
+					.top,
+			].join('|'),
+		6,
+	);
 };
 const scrollTop = (page: Page): Promise<number> =>
 	page.getByTestId('cal-scroller').evaluate((el) => el.scrollTop);
@@ -244,6 +256,7 @@ test('frames of the slide up and down (the pictures)', async ({ page }, info) =>
 	await page.evaluate(() => document.documentElement.style.setProperty('--sheet-out-ms', '1600'));
 	await tapDay(page, info, d);
 	await page.waitForSelector(SHEET);
+	// The waits here are the input: pictures of a slowed slide at set times (SCREENSHOTS only).
 	for (const [i, ms] of [60, 250, 500].entries()) {
 		await page.waitForTimeout(ms);
 		await shot(page, `up-${i + 1}`, info);

@@ -10,6 +10,7 @@
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import type { EngineLeaveType, ScheduleResult } from '../../../src/engine/protocol';
 import { READY_TIMEOUT_MS, Rig, isTouch, type Point } from './gantt-rig';
+import { frames, settledValue } from './settle';
 
 export interface BarInfo {
 	task: string;
@@ -139,13 +140,17 @@ export class LanesRig extends Rig {
 			[person, minute] as const,
 		);
 		if (!first) throw new Error(`no lane for ${person}`);
-		await this.page.waitForTimeout(250);
-		// The scroll moved the plot: ask again for where the minute is now.
-		const at = await this.page.evaluate(
+		// The scroll moves the plot: ask again (it is the same scroll, so it converges) until the
+		// minute is at the same place on the frames in a row.
+		const at = await settledValue(
+			this.page,
 			([p, m]) =>
 				(window as unknown as Win).__mainspringLanes.revealMinute(p as string, m as number),
+			4,
 			[person, minute] as const,
 		);
+		// The canvas is drawn for the scroll a frame or two after it (a pixel read follows).
+		await frames(this.page, 3);
 		return at ?? first;
 	}
 
@@ -160,8 +165,9 @@ export class LanesRig extends Rig {
 				),
 			[person, task, nth] as const,
 		);
-		await this.page.waitForTimeout(250);
-		const at = await this.page.evaluate(
+		// The reveal scrolls: the bar is where to press once it holds still.
+		const at = await settledValue(
+			this.page,
 			([p, t, n, i]) =>
 				(window as unknown as Win).__mainspringLanes.barPoint(
 					p as string,
@@ -169,6 +175,7 @@ export class LanesRig extends Rig {
 					n as number,
 					i === null ? undefined : (i as number),
 				),
+			4,
 			[person, task, nth, inset ?? null] as const,
 		);
 		if (!at) throw new Error(`the bar of ${task} on ${person} is not on the screen`);
@@ -215,9 +222,10 @@ export class LanesRig extends Rig {
 	/** The point of a lane at a viewport x (the same x as a bar, to drop it on another person). */
 	async lane(person: string, x: number): Promise<Point> {
 		await this.revealPerson(person);
-		await this.page.waitForTimeout(150);
-		const at = await this.page.evaluate(
+		const at = await settledValue(
+			this.page,
 			(p) => (window as unknown as Win).__mainspringLanes.lanePoint(p, 0),
+			4,
 			person,
 		);
 		if (!at) throw new Error(`no lane for ${person}`);

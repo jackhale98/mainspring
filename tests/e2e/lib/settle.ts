@@ -189,3 +189,27 @@ export async function quietAfter(page: Page, n = 8): Promise<void> {
 	await engineIdle(page, 15_000);
 	await frames(page, n);
 }
+
+/**
+ * The page's idle work has had its turns: `n` idle callbacks in a row (a frame, where the browser has
+ * no `requestIdleCallback`: WebKit), each asked for after the last has run, with a short cap each so that a
+ * busy page still moves on. For what the app does in idle time and shows nowhere (the text index
+ * and its checks run as a chain of idle tasks, schedule-runner.ts): a "nothing changes while the
+ * index catches up" check waits for this, not for a time, then reads. It counts turns, so a slow
+ * runner (whose idle turns come later) waits longer, and a fast one does not.
+ */
+export const idleTurns = (page: Page, n = 20): Promise<void> =>
+	page.evaluate(
+		(count) =>
+			new Promise<void>((resolve) => {
+				let left = count;
+				const turn = (): void => {
+					if (left-- <= 0) resolve();
+					else if (typeof requestIdleCallback === 'function')
+						requestIdleCallback(turn, { timeout: 120 });
+					else requestAnimationFrame(turn);
+				};
+				turn();
+			}),
+		n,
+	);

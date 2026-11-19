@@ -10,6 +10,7 @@
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './gantt-rig';
 import { modKey } from './keys';
+import { boxStable, frames } from './settle';
 
 type Win = { __mainspringEdits: { text(path?: string): string | null } };
 
@@ -65,7 +66,11 @@ export async function showDay(page: Page, date: string): Promise<Locator> {
 		const [sy, sm] = (shown ?? '').split('-').map(Number) as [number, number];
 		const forward = y * 12 + m > sy * 12 + sm;
 		await page.getByTestId(forward ? 'cal-next' : 'cal-prev').click();
-		await page.waitForTimeout(80);
+		// The next read must be of the new month, not of the one that is leaving.
+		await expect(page.locator('[data-testid="cal-month"]').first()).not.toHaveAttribute(
+			'data-month',
+			shown ?? '',
+		);
 	}
 	await expect(target).toBeVisible();
 	return target;
@@ -87,7 +92,7 @@ export async function setType(page: Page, label: string): Promise<void> {
 async function centre(l: Locator): Promise<{ x: number; y: number }> {
 	// Centred in the list, clear of its edges (a drag near an edge scrolls it).
 	await l.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
-	await l.page().waitForTimeout(120);
+	await boxStable(l, 3);
 	const b = await l.boundingBox();
 	if (!b) throw new Error('no box');
 	return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
@@ -165,7 +170,9 @@ export async function caughtUp(page: Page): Promise<void> {
 	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 		timeout: READY_TIMEOUT_MS,
 	});
-	await page.waitForTimeout(250);
+	// The status may still read "Scheduled" from before the edit (the edit goes out after a defer
+	// and a paint), so the frames give the dispatch its turn.
+	await frames(page, 8);
 }
 
 /**
