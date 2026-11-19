@@ -127,9 +127,16 @@ test.describe('the inspector', () => {
 		const effort = panel.getByRole('group', { name: 'Effort' });
 		await expect(effort.getByRole('textbox')).toHaveValue('3d');
 		const more = effort.getByRole('button', { name: 'Increase Effort' });
-		await more.click();
-		await more.click();
-		await more.click();
+		// Three presses in one task: a slow runner cannot space them past the stepper's 1.2 s pause.
+		await more.evaluate((b: HTMLElement) => {
+			b.click();
+			b.click();
+			b.click();
+		});
+		await expect(effort, 'one burst: the three presses did not straddle the pause').toHaveAttribute(
+			'data-phase',
+			'active',
+		);
 		await expect(effort.getByRole('textbox')).toHaveValue('6d');
 		const rev0 = await revision(page);
 		await expect.poll(() => text(page)).toBe(original.replace('effort 3d', 'effort 6d'));
@@ -346,9 +353,8 @@ test.describe('the details on a phone and in a narrow Split', () => {
 		await more.click();
 		// The burst ends by its pause (1.2 s) and its edit is in the text.
 		await expect.poll(() => text(page)).toBe(original.replace('effort 3d', 'effort 4d'));
-		// The stepper's burst ends after a pause of 1.2 s (Stepper.svelte PAUSE_MS) and it shows no state
-		// while it waits: the test is of a press after that pause, so the wait is the input.
-		await page.waitForTimeout(1700);
+		// The burst ends after its pause (1.2 s) and the plan shows the value: the stepper is idle again.
+		await expect(effort).toHaveAttribute('data-phase', 'idle');
 		await more.click();
 		await expect(effort.getByRole('textbox')).toHaveValue('5d');
 		await expect.poll(() => text(page)).toBe(original.replace('effort 3d', 'effort 5d'));
@@ -539,13 +545,15 @@ test.describe('inspector screenshots', () => {
 				await panel.getByRole('button', { name: /Details height/ }).click();
 			}
 			await panel.getByRole('button', { name: 'Show source' }).click();
+			// The sheet is a lazy chunk: it exists once it is visible, then its slide is waited for.
+			const source = page.getByRole('dialog', { name: 'Source of Research' });
+			await expect(source).toBeVisible();
 			await animationsDone(page, 3);
 			await shot('source-sheet');
-			await page
-				.getByRole('dialog', { name: 'Source of Research' })
-				.getByRole('button', { name: 'Close' })
-				.click();
+			await source.getByRole('button', { name: 'Close' }).click();
+			await expect(source).toBeHidden();
 			await page.locator('header').getByRole('button', { name: 'Project settings' }).click();
+			await expect(page.getByRole('dialog', { name: /Project/ })).toBeVisible();
 			await animationsDone(page, 3);
 			await shot('project-sheet');
 		});

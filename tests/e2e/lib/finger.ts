@@ -20,6 +20,7 @@ export async function holdFinger(page: Page, target: Locator, ms = 700): Promise
 			const at = { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 };
 			const init = { pointerId: 7, pointerType: 'touch', isPrimary: true, bubbles: true, ...at };
 			el.dispatchEvent(new PointerEvent('pointerdown', { ...init, buttons: 1 }));
+			// The hold is the input (see the DevTools branch below): a time on the page clock.
 			await new Promise((done) => setTimeout(done, hold));
 			el.dispatchEvent(new PointerEvent('pointerup', { ...init, buttons: 0 }));
 			el.dispatchEvent(new MouseEvent('click', { ...at, bubbles: true, cancelable: true }));

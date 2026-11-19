@@ -107,6 +107,7 @@ test.describe('1. the task details sheet slides to full height and away', () => 
 				await panel.getByRole('button', { name: 'Close' }).click();
 				// Marked as closing while it is still open and sliding: the picture is of the slide.
 				await expect(page.locator(SHEET)).toHaveAttribute('data-closing', '');
+				await frames(page, 3);
 				await shot(page, 'details-closing', info);
 				await animationsDone(page);
 				const away = await stopRecording(page);
@@ -454,6 +455,11 @@ test.describe('5. each People segment starts right under the tabs', () => {
 			for (const name of order) {
 				await seg(page, name);
 				// The segment is the one shown: its chunk is in (no loading line) and it has been drawn.
+				await expect(page.getByTestId('people-host')).toHaveAttribute(
+					'data-content',
+					{ Load: 'workload', Lanes: 'resources', Team: 'team', Calendar: 'calendar' }[name] ??
+						name,
+				);
 				await expect(page.getByTestId('people-host')).toHaveAttribute('data-state', 'content');
 				await expect(page.getByTestId('people-view-loading')).toHaveCount(0);
 				await animationsDone(page, 3);
@@ -631,6 +637,11 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 		await goPeople(page, info, 'Load');
 		const heat = '[data-testid="workload"]';
 		await expect(page.locator(heat)).toBeVisible();
+		await expect
+			.poll(async () => (await lightShare(page, heat)).opaque, {
+				message: 'the heatmap is painted',
+			})
+			.toBeGreaterThan(50);
 		expect((await lightShare(page, heat)).share).toBeLessThan(0.1);
 		await goGantt(page, info);
 		await page.evaluate(() => {
@@ -644,6 +655,11 @@ test.describe('6. the Gantt keeps its colours after the People views', () => {
 		expect(back.share, 'heatmap').toBeLessThan(0.1);
 		await goPeople(page, info, 'Lanes');
 		await expect(page.locator('[data-testid="lanes"]')).toBeVisible();
+		await expect
+			.poll(async () => (await lightShare(page, '[data-testid="lanes"]')).opaque, {
+				message: 'the lanes are painted',
+			})
+			.toBeGreaterThan(50);
 		const lanes = await lightShare(page, '[data-testid="lanes"]');
 		expect(lanes.share, 'lanes').toBeLessThan(0.1);
 	});

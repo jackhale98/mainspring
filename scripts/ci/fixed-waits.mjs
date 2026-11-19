@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// A ratchet on fixed waits in the e2e tests (`page.waitForTimeout(ms)`). A fixed wait passes on a
+// A ratchet on fixed waits in the e2e tests (`page.waitForTimeout(ms)` and a bare `setTimeout(`). A fixed wait passes on a
 // fast machine and fails on a slower one (CI's WebKit runs a median 3 times the Pixel 7's time),
 // and most of the red CI runs of 2026-11-18 were one (user, 2026-11-18: fix the tests, not the
 // symptoms). A test waits for a state instead: `expect(...).toHave...`, `expect.poll`, or a frame
@@ -18,7 +18,7 @@ const BASELINE = join(ROOT, 'tests/e2e/fixed-waits.json');
 
 /** The number of fixed waits in one file's source. */
 export function countWaits(src) {
-	return (src.match(/\bwaitForTimeout\s*\(/g) ?? []).length;
+	return (src.match(/(?:\bwaitForTimeout|(?<![\w.])setTimeout)\s*\(/g) ?? []).length;
 }
 
 /** Every .ts file under tests/e2e with its count of fixed waits (files with none left out). */
@@ -66,7 +66,7 @@ function main(argv) {
 			process.exit(1);
 		}
 		const note =
-			'Fixed waits (page.waitForTimeout) per e2e file; scripts/ci/fixed-waits.mjs. The numbers only go down.';
+			'Fixed waits (page.waitForTimeout, setTimeout) per e2e file; scripts/ci/fixed-waits.mjs. The numbers only go down.';
 		writeFileSync(BASELINE, `${JSON.stringify({ note, files: now }, null, '\t')}\n`);
 		return;
 	}

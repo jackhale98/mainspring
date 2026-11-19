@@ -105,7 +105,10 @@ export class Rig {
 	async layoutSettled(): Promise<void> {
 		await settledValue(this.page, () => {
 			const g = (window as unknown as Win).__mainspringGantt;
-			return [g.x(0), g.x(1440), JSON.stringify(g.scroller())].join('|');
+			const sc = document.querySelector('[data-testid="gantt"] .scroller');
+			return [g.x(0), g.x(1440), JSON.stringify(g.scroller()), sc?.scrollLeft, sc?.scrollTop].join(
+				'|',
+			);
 		});
 	}
 
