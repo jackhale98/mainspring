@@ -7,6 +7,7 @@
 // then the Gantt tab). The keys go to the page's own binding, with the focus on the task list.
 import { expect, test } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { frames } from './lib/settle';
 
 test.describe('one history for typing and visual edits', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -24,7 +25,7 @@ test.describe('one history for typing and visual edits', () => {
 		const line = page.locator('.cm-content .cm-line').filter({ hasText: 'effort 3d' }).first();
 		for (let i = 0; i < 60 && (await line.count()) === 0; i++) {
 			await page.locator('.cm-scroller').evaluate((e) => void (e.scrollTop += e.clientHeight / 2));
-			await page.waitForTimeout(40);
+			await frames(page, 2);
 		}
 		await line.scrollIntoViewIfNeeded({ timeout: 5000 });
 		await line.click();

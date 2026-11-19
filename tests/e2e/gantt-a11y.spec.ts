@@ -12,13 +12,14 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { openHistoryFromUndo } from './lib/finger';
+import { animationsDone, appSettled, frames, panelSettled } from './lib/settle';
 import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 async function axe(page: Page, state: string): Promise<void> {
-	// A moment for the transitions of a sheet or a popover to end (contrast is read mid-fade otherwise).
-	await page.waitForTimeout(500);
+	// The transitions of a sheet or a popover have ended (contrast is read mid-fade otherwise).
+	await animationsDone(page, 3);
 	const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 	const detail = r.violations.map(
 		(v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
@@ -361,11 +362,12 @@ test.describe('target sizes on a coarse pointer', () => {
 	}, info) => {
 		const rig = await Rig.open(page, info);
 		const probe = async (state: string): Promise<void> => {
-			// Two samples, a moment apart: a sheet or a font still settling (on a loaded runner) is not a
-			// target that is too small.
-			await page.waitForTimeout(500);
+			// Two samples, some frames apart: a sheet or a font still settling (on a loaded runner) is not
+			// a target that is too small.
+			await animationsDone(page, 3);
+			await page.evaluate(() => document.fonts.ready.then(() => undefined));
 			const first = await smallTargets(page, 44);
-			await page.waitForTimeout(500);
+			await frames(page, 6);
 			const second = new Set((await smallTargets(page, 44)).map((t) => t.what));
 			const small = first
 				.filter((t) => second.has(t.what))
@@ -466,7 +468,9 @@ test.describe('reduced motion', () => {
 		expect.soft(await moving(), 'row menu').toEqual([]);
 		await page.keyboard.press('Escape');
 		await page.locator('header').getByRole('button', { name: 'Project settings' }).click();
-		await page.waitForTimeout(400);
+		const project = page.getByRole('dialog', { name: 'Project' });
+		await expect(project).toBeVisible();
+		await panelSettled(project);
 		expect.soft(await moving(), 'project sheet').toEqual([]);
 		// The Today button scrolls at once, not by a smooth scroll.
 		await page
@@ -585,7 +589,7 @@ test.describe('a11y screenshots', () => {
 		test(`header and Gantt tab, ${scheme}`, async ({ page }, info) => {
 			await page.emulateMedia({ colorScheme: scheme });
 			await Rig.open(page, info);
-			await page.waitForTimeout(500);
+			await appSettled(page);
 			await page.screenshot({
 				path: `docs/phases/screenshots/phase-2/a11y-header-${info.project.name}-${scheme}.png`,
 			});

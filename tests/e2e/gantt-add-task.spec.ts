@@ -8,6 +8,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openHistoryFromUndo } from './lib/finger';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { quietAfter } from './lib/settle';
 
 test.describe('Add task (+)', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -149,7 +150,8 @@ test.describe('Add task (+)', () => {
 			b.click();
 		});
 		await expectNameReady(page, 'task:new_task');
-		await page.waitForTimeout(1000);
+		// The second press has had its turn (it would add its task by now) before the text is read.
+		await quietAfter(page);
 		const text = (await rig.text()) + (await rig.text('lib/build.tji'));
 		expect(text.match(/task new_task/g)).toHaveLength(1);
 		await expect(rig.row('task:new_task2')).toHaveCount(0);
@@ -326,7 +328,8 @@ test.describe('Add task (+) on the Plan tab', () => {
 		await planAdd(page).tap();
 		await page.getByRole('tab', { name: 'Text', exact: true }).tap();
 		await rig.rescheduled(rev);
-		await page.waitForTimeout(1000);
+		// A pull back to the Gantt would come after the edit has settled: look after that.
+		await quietAfter(page);
 		await expect(page.getByRole('tab', { name: 'Text', exact: true })).toHaveAttribute(
 			'aria-selected',
 			'true',

@@ -17,6 +17,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { reloadFromFailure, trackFailedChunks } from './lib/chunk-failure';
 import { isWebKit } from './lib/finger';
+import { animationsDone, appSettled, idleTurns } from './lib/settle';
 import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -107,7 +108,7 @@ async function newPlan(page: Page, touch: boolean): Promise<void> {
 }
 
 async function axe(page: Page, state: string): Promise<void> {
-	await page.waitForTimeout(400);
+	await animationsDone(page, 3);
 	const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 	const detail = r.violations.map(
 		(v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
@@ -394,7 +395,10 @@ test.describe('the view switcher (desktop and tablet)', () => {
 		});
 		await open(page);
 		await expect(page.getByTestId('gantt')).toBeVisible();
-		await page.waitForTimeout(1500);
+		// Nothing is fetched in the idle time that follows the first paint either: the app has settled
+		// and its idle work has had its turns before the list is read.
+		await appSettled(page);
+		await idleTurns(page, 30);
 		expect(chunks).toEqual([]);
 		await chooseView(page, 'Workload');
 		await expect(page.getByTestId('people-host')).toBeVisible({ timeout: READY_TIMEOUT_MS });
@@ -588,7 +592,8 @@ test.describe('the phone People tab', () => {
 			if (CHUNK.test(r.url())) chunks.push(r.url());
 		});
 		await open(page);
-		await page.waitForTimeout(1500);
+		await appSettled(page);
+		await idleTurns(page, 30);
 		expect(chunks).toEqual([]);
 		await peopleTab(page).tap();
 		await expect(page.getByTestId('people-host')).toBeVisible({ timeout: READY_TIMEOUT_MS });

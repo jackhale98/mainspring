@@ -10,6 +10,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { animationsDone } from './lib/settle';
 
 const SHOTS = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
 
@@ -46,10 +47,10 @@ test.describe('an edit that stops the plan scheduling', () => {
 			const device = isTouch(info) ? 'pixel-7' : 'desktop';
 			await page.screenshot({ path: path.join(SHOTS, `not-scheduled-${device}-light.png`) });
 			await page.emulateMedia({ colorScheme: 'dark' });
-			await page.waitForTimeout(250);
+			await animationsDone(page, 3);
 			await page.screenshot({ path: path.join(SHOTS, `not-scheduled-${device}-dark.png`) });
 			await page.emulateMedia({ colorScheme: 'light' });
-			await page.waitForTimeout(150);
+			await animationsDone(page, 3);
 		}
 
 		// Undo: the text is back, and the engine schedules it again.

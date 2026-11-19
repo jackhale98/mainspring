@@ -4,6 +4,7 @@
 // end-to-end suite is T20's (tests/e2e/text-mode.spec.ts).
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { settledValue } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const SAMPLE = 'syn-18-structure-include-macro';
@@ -139,7 +140,7 @@ test.describe('text mode', () => {
 		await tree.getByRole('treeitem', { name: /^Go/ }).click();
 		await expect(page.locator('.cm-activeLine')).toContainText('task go');
 		// A scroll restore after the reveal used to leave the declaration off screen.
-		await page.waitForTimeout(300);
+		await settledValue(page, () => document.querySelector('.cm-scroller')?.scrollTop, 12);
 		expect(await visibleActiveLine()).toBe(true);
 	});
 

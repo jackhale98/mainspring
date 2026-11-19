@@ -9,6 +9,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { animationsDone } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -131,7 +132,7 @@ test.describe('a visual edit through the dispatcher', () => {
 		if (process.env['SCREENSHOTS'] === '1') {
 			await page.screenshot({ path: path.join(DIR, `toast-${info.project.name}-light.png`) });
 			await page.emulateMedia({ colorScheme: 'dark' });
-			await page.waitForTimeout(150);
+			await animationsDone(page, 3);
 			await page.screenshot({ path: path.join(DIR, `toast-${info.project.name}-dark.png`) });
 			await page.emulateMedia({ colorScheme: 'light' });
 		}

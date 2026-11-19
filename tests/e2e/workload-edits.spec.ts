@@ -175,6 +175,8 @@ test('a long-press on a finger opens the cell details; a tap selects, a second t
 	const rig = new Rig(page, info);
 	try {
 		await rig.touches('touchStart', [at]);
+		// The hold is the input: a long-press is a time on the page's clock; nothing shows it before
+		// it ends.
 		await page.waitForTimeout(550);
 		await rig.touches('touchEnd', []);
 	} finally {

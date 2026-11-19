@@ -14,6 +14,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { isTouch } from '../lib/gantt-rig';
+import { animationsDone } from '../lib/settle';
 import { box, openPrimitives } from '../lib/primitives-rig';
 
 const SELECTS = [
@@ -157,7 +158,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		});
 
 		test('has no axe violations (every select has a name)', async ({ page }) => {
-			await page.waitForTimeout(200);
+			await animationsDone(page, 3);
 			const r = await new AxeBuilder({ page })
 				.include('[data-testid="prim-select"]')
 				.withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])

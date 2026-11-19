@@ -24,7 +24,7 @@ import { buildIndex, hintsFromResult } from '../../src/lib/tjp/index';
 import { golden } from '../../src/lib/tjp/index/testing';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { mirrorCells, openHeatmap, resultOf, shape, walkGrid } from './lib/workload-rig';
-import { busyCell, chooseUnit, chooseZoom, pointOf, type Win } from './lib/workload-heat';
+import { busyCell, chooseUnit, chooseZoom, pointOf } from './lib/workload-heat';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
@@ -161,6 +161,8 @@ test('zoom: the toolbar, + and -, and Ctrl+wheel step day, week and month', asyn
 	await page.keyboard.down('Control');
 	await page.mouse.wheel(0, 120);
 	await expect(root).toHaveAttribute('data-zoom', 'month');
+	// The pause is the input: the zoom wheel starts a new count after 300 ms without a notch (the
+	// app's clock, Workload.svelte), and nothing shows that it has.
 	await page.waitForTimeout(400);
 	await page.mouse.wheel(0, -120);
 	await expect(root).toHaveAttribute('data-zoom', 'week');
@@ -175,7 +177,7 @@ test('zoom keeps the week in view', async ({ page }, info) => {
 	const wanted = (await mirrorCells(page)).find((c) => c.person === person && c.col === col);
 	expect(wanted).toBeTruthy();
 	await chooseZoom(page, 'Day');
-	await page.waitForTimeout(300);
+	await expect.poll(async () => (await mirrorCells(page)).length).toBeGreaterThan(10);
 	const days = await mirrorCells(page);
 	// The visible day cells belong to the same stretch of the plan: their names say the month.
 	expect(days.length).toBeGreaterThan(10);
@@ -201,15 +203,7 @@ test('held and unmet work (T10) shows in the cells: over, with the reason in the
 	const cell = found as { person: string; col: number; name: string };
 	expect(cell.name).toMatch(/, over,/);
 	// The details say why: the clause from overCauses.
-	await page.evaluate(
-		([p, c]) => (window as unknown as Win).__mainspringWorkload.scrollTo(p as string, c as number),
-		[cell.person, cell.col] as const,
-	);
-	await page.waitForTimeout(150);
-	const at = await page.evaluate(
-		([p, c]) => (window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
-		[cell.person, cell.col] as const,
-	);
+	const at = await pointOf(page, cell.person, cell.col);
 	await page.mouse.click(at?.x ?? 0, at?.y ?? 0);
 	const details = page.getByTestId('cell-details');
 	await expect(details).toContainText(/tasks? runs? without/);
