@@ -84,15 +84,25 @@ test.describe('text mode', () => {
 	});
 
 	test('Mod-F opens find and replace, which loads on first use', async ({ page, browserName }) => {
-		// Checked on the unchanged build too: Playwright's WebKit does not deliver this shortcut to the editor.
-		test.skip(
-			browserName === 'webkit',
-			'the find shortcut does not reach the page in Playwright WebKit',
-		);
 		await openApp(page);
 		await editor(page).click();
 		await expect(page.locator('.cm-search')).toHaveCount(0);
-		await page.keyboard.press('ControlOrMeta+f');
+		if (browserName === 'webkit') {
+			// Playwright's WebKit does not deliver Cmd+F to the page (checked on the build before the lazy
+			// search too), so the key is dispatched to the editor as the hardware keyboard would send it:
+			// the editor's keymap reads keydown events, and this one goes through it.
+			await editor(page).evaluate((el) =>
+				el.dispatchEvent(
+					new KeyboardEvent('keydown', {
+						key: 'f',
+						code: 'KeyF',
+						metaKey: true,
+						bubbles: true,
+						cancelable: true,
+					}),
+				),
+			);
+		} else await page.keyboard.press('ControlOrMeta+f');
 		await expect(page.locator('.cm-search')).toBeVisible();
 		await expect(page.locator('.cm-search input[name="search"]')).toBeFocused();
 		await page.keyboard.press('Escape');
