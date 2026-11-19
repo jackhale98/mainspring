@@ -45,6 +45,8 @@
 		leaveType: LeaveType;
 		ontype: (t: LeaveType) => void;
 		fieldsOf: (item: PaintItem) => LeaveFields | null;
+		/** The index has not been read again since the text changed (`LeaveCard`). */
+		stale?: boolean;
 		oncommit: (item: PaintItem, f: LeaveFields) => Promise<CommitResult>;
 		onremove: (item: PaintItem) => void;
 		onadd: (name: string) => void;
@@ -65,6 +67,7 @@
 		leaveType,
 		ontype,
 		fieldsOf,
+		stale = false,
 		oncommit,
 		onremove,
 		onadd,
@@ -160,6 +163,7 @@
 					<LeaveCard
 						item={e.item}
 						fields={fieldsOf(e.item)}
+						{stale}
 						types={typesOfItem(e.item)}
 						{oncommit}
 						{onremove}

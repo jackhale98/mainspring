@@ -11,6 +11,12 @@
 	The fields are a draft of what the text says now: when the item changes (the text changed, an
 	undo) they are read again. A leave that does not run over whole days, or a project leave, has no
 	fields: "Edit as text".
+
+	An item names its place in the text, so it can only be edited while it is the text's: after an
+	applied edit, and while the owner says the index lags the text (`stale`, as when the text is
+	being typed), a change waits and goes out on the item as it then is. The time-out that ends the
+	wait after an applied edit whose fields did not change never ends it while `stale` (the index
+	of a busy browser can take longer than the time-out).
 -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
@@ -33,24 +39,26 @@
 		 */
 		oncommit: (item: PaintItem, f: LeaveFields) => Promise<CommitResult>;
 		onremove: (item: PaintItem) => void;
+		/** The index has not been read again since the text changed: `item` is older than the text. */
+		stale?: boolean;
 	}
-	let { item, fields, types, oncommit, onremove }: Props = $props();
+	let { item, fields, types, oncommit, onremove, stale = false }: Props = $props();
 
 	const D = C.details;
 	let draft = $state<LeaveFields | null>(null);
 	let error = $state<'empty' | 'dates' | 'range' | null>(null);
 	/** An edit was sent and the text has not been read again: no second edit on a stale item. */
 	let busy = $state(false);
-	/** Changes made while busy: the latest of each field, sent once the text has been read again. */
+	/** Changes made while busy or stale: the latest of each field, sent once the item is the text's. */
 	let queued = $state.raw<Partial<LeaveFields> | null>(null);
+	/** The time-out after an applied edit has passed: the wait ends as soon as the item is current. */
+	let lapsed = $state(false);
 	let wait: ReturnType<typeof setTimeout> | null = null;
 	const settle = (): void => {
 		busy = false;
+		lapsed = false;
 		if (wait !== null) clearTimeout(wait);
 		wait = null;
-		const q = queued;
-		queued = null;
-		if (q) void commit(q);
 	};
 	onMount(() => () => {
 		queued = null;
@@ -67,27 +75,39 @@
 			settle();
 		});
 	});
+	// The time-out only ends the wait on an item that is current.
+	$effect(() => {
+		if (lapsed && !stale) untrack(settle);
+	});
+	// A change that waited goes out on the item as it now is.
+	$effect(() => {
+		if (busy || stale || queued === null) return;
+		const q = queued;
+		queued = null;
+		untrack(() => void commit(q));
+	});
 
 	const title = $derived(C.leave(L.type[item.type], item.name));
 	const fixed = $derived(item.type === 'project');
 
 	/**
 	 * Writes a field into the draft and commits it. While an edit waits for the text to be read
-	 * again the change is queued (and shown as waiting), then sent on the new text: it is not lost
-	 * and the item it names is not stale.
+	 * again, or the item is older than the text, the change is queued (and shown as waiting), then
+	 * sent on the new text: it is not lost and the item it names is not stale.
 	 */
 	async function commit(patch: Partial<LeaveFields> = {}): Promise<void> {
 		if (!draft) return;
 		draft = { ...draft, ...patch };
-		if (busy) {
+		if (busy || stale) {
 			queued = { ...queued, ...patch };
 			return;
 		}
 		busy = true;
 		const r = await oncommit(item, draft);
 		error = r.error ?? null;
-		if (r.applied) wait = setTimeout(settle, 2500);
-		else settle();
+		if (r.applied) {
+			wait = setTimeout(() => (stale ? (lapsed = true) : settle()), 2500);
+		} else settle();
 	}
 </script>
 
@@ -141,7 +161,7 @@
 			</label>
 		</div>
 		{#if error}<p class="error" role="alert">{D.errors[error]}</p>{/if}
-		{#if busy && queued}<p class="note" role="status" data-testid="cal-leave-waiting">
+		{#if (busy || stale) && queued}<p class="note" role="status" data-testid="cal-leave-waiting">
 				{D.waiting}
 			</p>{/if}
 		<button
