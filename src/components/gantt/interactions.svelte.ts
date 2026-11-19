@@ -409,7 +409,7 @@ export class GanttInteractions {
 	/** Adds a task after the row (Insert, the row menu), placed by the dispatcher on the text now. */
 	async add(key: string): Promise<void> {
 		const id = this.#tree.get(key)?.id;
-		if (!id) return;
+		if (!id) return this.#h.announce(gestureStrings.live.noAddPlace);
 		await this.actor.runPlan(addTaskPlan(id, 'after', gestureStrings.row.newTask));
 	}
 

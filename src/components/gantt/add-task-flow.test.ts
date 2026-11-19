@@ -248,6 +248,23 @@ describe('addTaskFlow', () => {
 		await expect(addTaskFlow(again.env, 'after')).resolves.toBe('task:new_task');
 	});
 
+	it('names the anchor from a selected key the outline does not have yet (the index lags)', async () => {
+		// A task just renamed or typed: the key is not in the outline, the dispatcher decides.
+		const r = rig('task:fresh', OK, HEADER, node('task:new_task', null));
+		await addTaskFlow(r.env, 'after');
+		expect(r.calls).toEqual([{ anchor: 'fresh', mode: 'after', name: 'New task' }]);
+	});
+
+	it('sends nothing for a selected row with no id, rather than adding at the end', async () => {
+		const r = rig('task:a', OK, HEADER, null);
+		r.out.byKey.set('task:a', { ...node('task:a', null), id: null } as unknown as OutlineNode);
+		await expect(addTaskFlow(r.env, 'after')).resolves.toBeNull();
+		const u = rig('task:unresolved:0', OK, HEADER, null);
+		await expect(addTaskFlow(u.env, 'after')).resolves.toBeNull();
+		expect(r.calls).toEqual([]);
+		expect(u.calls).toEqual([]);
+	});
+
 	it('works in an empty plan', async () => {
 		const r = rig(null, OK, HEADER, node('task:new_task', null));
 		r.out.tasks.length = 0;

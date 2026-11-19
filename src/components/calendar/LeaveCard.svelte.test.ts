@@ -127,6 +127,20 @@ describe('LeaveCard', () => {
 		expect(p.calls[1]?.f).toEqual({ ...BASE, type: 'sick', name: 'Beach' });
 	});
 
+	it('sends no merged change after a refusal: one action gives one message', async () => {
+		const p = pending();
+		open(p.oncommit);
+		choose('sick');
+		await tick();
+		rename('Beach');
+		await tick();
+		p.settle[0]?.({ refused: true });
+		await tick();
+		await tick();
+		expect(p.calls).toHaveLength(1);
+		expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('false');
+	});
+
 	it('goes on from the item its last edit wrote while the index has not read it', async () => {
 		// The edit is in the text; the owner still gives the card the old item (the index lags).
 		const oncommit = vi.fn<Commit>(async () => ({ applied: true, ref: wrote(10, 5) }));

@@ -9,8 +9,9 @@
  * Nothing here changes the plan itself.
  *
  * - The place is worked out by the dispatcher on the text now (`addTaskPlan`); the flow only
-  checks the shown tree for a place at all (a subtask of a task with no id has none).
-- The new task is named from the applied edit (the header text its `select` range covers), never
+ *   names the anchor, from the selected key (`task:<id>`, also when the outline does not have the
+ *   key yet: the dispatcher decides whether it is gone), and says no place for a row with no id.
+ * - The new task is named from the applied edit (the header text its `select` range covers), never
  *   by comparing the outline with an earlier snapshot: the outline lags the text (a task typed a
  *   moment before, a drag still pending).
  * - One flow runs at a time (a second press meanwhile is ignored), and it gives up quietly when
@@ -86,18 +87,28 @@ export async function addTaskFlow(env: AddFlowEnv, mode: AddMode): Promise<strin
 async function run(env: AddFlowEnv, mode: AddMode): Promise<string | null> {
 	const app = env.app;
 	const plan = env.plan();
-	const spot = addSpot(
-		app.outline.byKey,
-		rootsOf(
+	const sel = app.selectedTask;
+	const node = sel === null ? undefined : app.outline.byKey.get(sel);
+	// The anchor is the selected task, never a guess: a row with no id has no place, and a key the
+	// outline lacks (renamed or typed while the index lags) is the dispatcher's to resolve.
+	const id = node ? node.id : (sel?.match(/^task:(?!unresolved:)(.+)$/)?.[1] ?? null);
+	if (sel !== null ? id === null : mode === 'subtask') return null;
+	// The shown tree can say there is no place at all (a subtask of a task with no id).
+	if (
+		node &&
+		!addSpot(
 			app.outline.byKey,
-			app.outline.tasks.map((n) => n.key),
-		),
-		app.selectedTask,
-		mode,
-	);
-	if (!spot) return null;
-	const anchor =
-		app.selectedTask === null ? null : (app.outline.byKey.get(app.selectedTask)?.id ?? null);
+			rootsOf(
+				app.outline.byKey,
+				app.outline.tasks.map((n) => n.key),
+			),
+			sel,
+			mode,
+		)
+	) {
+		return null;
+	}
+	const anchor = id;
 	const o = await env.add({ anchor, mode, name: gestureStrings.row.newTask });
 	if (o.status !== 'applied' || env.plan() !== plan) return null;
 	const header = env.headerOf(o.edit);

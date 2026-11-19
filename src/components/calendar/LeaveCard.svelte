@@ -104,7 +104,7 @@
 				if (r.applied) {
 					known = f;
 					if (r.ref) wrote = r.ref;
-				}
+				} else if (r.refused || r.error) break; // one action, one message
 			} while (queued && draft);
 		} finally {
 			busy = false;

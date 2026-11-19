@@ -17,7 +17,7 @@
  * - The table never waits for the index (ADR-0018): the dispatcher resolves every target.
  */
 import { stepTarget, rootsOf, type Step } from '../../lib/gantt/reorder';
-import { runIntent } from '../../lib/calendar/run';
+import { runIntent, runPlan } from '../../lib/calendar/run';
 import { addResourceFlow } from '../../lib/resources/add';
 import { deleteEdit, renameEdit } from '../../lib/resources/person-edit';
 import { addResourcePlan, stepResourcePlan } from '../../lib/resources/plans';
@@ -183,7 +183,7 @@ export class ResourceTable {
 			this.announcement = R.table.nowhere(step);
 			return false;
 		}
-		const o = await edits.dispatchPlan(stepResourcePlan(node.id, step));
+		const o = await runPlan(edits, stepResourcePlan(node.id, step), this.#confirm);
 		if (o.status === 'applied') {
 			const made = o.edit.intent;
 			if (made.type === 'moveResource' && made.parent !== null)

@@ -113,6 +113,13 @@ describe('moveTo (a row drop)', () => {
 });
 
 describe('add', () => {
+	it('says there is no place for a row with no id, and sends nothing', async () => {
+		const r = rig();
+		await r.i.add('task:unresolved:0');
+		expect(r.said).toEqual([gestureStrings.live.noAddPlace]);
+		expect(r.edits.dispatchPlan).not.toHaveBeenCalled();
+	});
+
 	it('sends a planner for a task after the row, not a place from the shown tree', async () => {
 		const r = rig();
 		await r.i.add('task:a');

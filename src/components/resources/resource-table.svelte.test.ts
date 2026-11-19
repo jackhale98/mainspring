@@ -178,6 +178,21 @@ describe('W6 regroup', () => {
 		expect(dispatchPlan).toHaveBeenCalledTimes(1);
 	});
 
+	it('asks about a shared declaration when a step edits one, then sends the step again', async () => {
+		const { app, table } = fake();
+		const dp = (app.edits as unknown as { dispatchPlan: ReturnType<typeof vi.fn> }).dispatchPlan;
+		dp.mockReset();
+		dp.mockResolvedValueOnce({ status: 'confirm-shared', affects: ['a.tji'], basedOn: 3 });
+		dp.mockResolvedValueOnce({
+			status: 'applied',
+			toast: 1,
+			edit: { intent: { type: 'moveResource', resource: 'rev', parent: 'dev', index: 2 } },
+		});
+		expect(await table.step('resource:rev', 'indent')).toBe(true);
+		expect(dp).toHaveBeenCalledTimes(2);
+		expect(dp.mock.calls[1]?.[1]).toEqual({ confirmShared: true, basedOn: 3 });
+	});
+
 	it('says there is nowhere to go, without sending', async () => {
 		const { table, sent } = fake();
 		expect(await table.step('resource:dev', 'up')).toBe(false);

@@ -305,7 +305,7 @@ describe('runLeaveEdit and runLeaveRemove (ADR-0018 decision 5)', () => {
 	it('answers {} when nothing was applied, and when there is no dispatcher or context', async () => {
 		const refused = { status: 'refused', reason: 'planner', at: [], message: 'm' };
 		const e = { ...edits(), dispatchPlan: vi.fn(async () => refused as DispatchOutcome) };
-		expect(await runLeaveEdit(e, ref, f, ctx, () => true)).toEqual({});
+		expect(await runLeaveEdit(e, ref, f, ctx, () => true)).toEqual({ refused: true });
 		expect(await runLeaveEdit(null, ref, f, ctx, () => true)).toEqual({});
 		expect(await runLeaveEdit(edits(), ref, f, null, () => true)).toEqual({});
 	});

@@ -111,6 +111,7 @@ export async function runLeaveEdit(
 	if (error) return { error };
 	if (!edits || !ctx) return {};
 	const o = await runPlan(edits, leaveEditPlan(ref, f, ctx), confirm);
+	if (o.status === 'refused') return { refused: true };
 	if (o.status !== 'applied') return {};
 	return {
 		applied: true,

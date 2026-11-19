@@ -75,8 +75,19 @@
 
 	// Every change goes out at once on the item's range and the index version it was read in; the
 	// dispatcher finds the item in the text now (ADR-0018), however far the index lags.
-	const commit = (ref: LeaveRef, f: LeaveFields): Promise<CommitResult> =>
-		runLeaveEdit(app.edits, ref, f, project ? { project, zones } : null, confirm);
+	// The item as the last applied edit of its card wrote it, by the item's place: the row's Remove
+	// names it while the index has not read that edit (a card's own Remove goes through the card).
+	const wrote = new Map<string, LeaveRef>();
+	const placeOf = (item: PaintItem): string => `${item.range.file}:${item.range.from}`;
+	const targetOf = (item: PaintItem): LeaveRef => {
+		const w = wrote.get(placeOf(item));
+		return w && w.basedOn > item.version ? w : refOf(item);
+	};
+	async function commit(item: PaintItem, ref: LeaveRef, f: LeaveFields): Promise<CommitResult> {
+		const r = await runLeaveEdit(app.edits, ref, f, project ? { project, zones } : null, confirm);
+		if (r.ref) wrote.set(placeOf(item), r.ref);
+		return r;
+	}
 
 	async function remove(ref: LeaveRef): Promise<void> {
 		editing = null;
@@ -103,7 +114,7 @@
 						<button
 							type="button"
 							aria-label="{D.remove}: {summary(item)}"
-							onclick={() => remove(refOf(item))}>{D.remove}</button
+							onclick={() => remove(targetOf(item))}>{D.remove}</button
 						>
 					</div>
 					{#if editing === n}
@@ -112,7 +123,7 @@
 								{item}
 								fields={fieldsOf(item)}
 								types={typesOfItem(item)}
-								oncommit={commit}
+								oncommit={(ref, f) => commit(item, ref, f)}
 								onremove={remove}
 							/>
 						</ul>

@@ -235,6 +235,8 @@ export function planLeaveRemove(
 export interface CommitResult {
 	readonly error?: FieldError;
 	readonly applied?: boolean;
+	/** The dispatcher or the edit API refused it (its toast is up): the card sends no merged change after it. */
+	readonly refused?: boolean;
 	readonly ref?: LeaveRef;
 }
 
