@@ -306,9 +306,13 @@ test('refusal: an allocation with alternatives cannot be edited here, and says s
 	else await page.getByRole('button', { name: 'Text', exact: true }).click();
 	const editor = page.getByRole('textbox', { name: /^Editor for / });
 	await editor.click();
+	const rev = await revisionOf(page);
 	await page.keyboard.press(`${await modKey(page)}+A`);
 	await page.keyboard.insertText(edited);
 	await expect.poll(async () => (await text(page)).split('\n--\n')[0]).toBe(edited);
+	// "Scheduled" still shows the result before the edit until its schedule starts: wait for the
+	// result of the edited text itself.
+	await expect.poll(() => revisionOf(page), { timeout: READY_TIMEOUT_MS }).toBeGreaterThan(rev);
 	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 		timeout: READY_TIMEOUT_MS,
 	});
