@@ -27,7 +27,7 @@
 	import { typesOfItem, type LeaveFields } from '../../lib/calendar/leave-edit';
 	import type { PaintItem } from '../../lib/calendar/paint-items';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
-	import type { LeaveType } from '../../lib/tjp/edit/types';
+	import type { LeaveRef, LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
 	import Select from '../ui/Select.svelte';
 	import type { CommitResult } from '../../lib/calendar/leave-edit';
@@ -45,10 +45,8 @@
 		leaveType: LeaveType;
 		ontype: (t: LeaveType) => void;
 		fieldsOf: (item: PaintItem) => LeaveFields | null;
-		/** The index has not been read again since the text changed (`LeaveCard`). */
-		stale?: boolean;
-		oncommit: (item: PaintItem, f: LeaveFields) => Promise<CommitResult>;
-		onremove: (item: PaintItem) => void;
+		oncommit: (ref: LeaveRef, f: LeaveFields) => Promise<CommitResult>;
+		onremove: (ref: LeaveRef) => Promise<void> | void;
 		onadd: (name: string) => void;
 		onclear: () => void;
 		onmilestone: (task: string) => void;
@@ -67,7 +65,6 @@
 		leaveType,
 		ontype,
 		fieldsOf,
-		stale = false,
 		oncommit,
 		onremove,
 		onadd,
@@ -163,7 +160,6 @@
 					<LeaveCard
 						item={e.item}
 						fields={fieldsOf(e.item)}
-						{stale}
 						types={typesOfItem(e.item)}
 						{oncommit}
 						{onremove}

@@ -6,7 +6,8 @@
  * stands (its draft goes back to the plan's value when the outcome is not `applied`).
  *
  * - `confirm-shared` (the change edits text that several tasks read) asks, then dispatches again
- *   with `confirmShared`. The asking is `confirm`, so a test can answer it.
+ *   with `confirmShared` and the first outcome's `basedOn` (ADR-0018: both calls read the same text).
+ *   The asking is `confirm`, so a test can answer it.
  * - `coalesceKey` names a stepper or typing gesture: every call sends the cumulative total, and
  *   `flush(key)` ends the gesture on blur or Enter (one undo step for the burst).
  * - The source of a Gantt action is the pair the Gantt shows (`GanttView`), as a gesture would send.
@@ -49,7 +50,7 @@ export class InspectorActions {
 		const first = await edits.dispatch(e.intent, o);
 		if (first.status !== 'confirm-shared') return first;
 		if (!this.#ask(S.confirmShared(first.affects.join(', ')))) return NOTHING;
-		return edits.dispatch(e.intent, { ...o, confirmShared: true });
+		return edits.dispatch(e.intent, { ...o, confirmShared: true, basedOn: first.basedOn });
 	}
 
 	/** Dispatches a Gantt action (rename, assign, size steps, unlink), as a gesture would. */
@@ -62,7 +63,7 @@ export class InspectorActions {
 		const first = await edits.dispatchAction(a, source, o);
 		if (first.status !== 'confirm-shared') return first;
 		if (!this.#ask(S.confirmShared(first.affects.join(', ')))) return NOTHING;
-		return edits.dispatchAction(a, source, { ...o, confirmShared: true });
+		return edits.dispatchAction(a, source, { ...o, confirmShared: true, basedOn: first.basedOn });
 	}
 
 	/** Ends a coalesced gesture: dispatches the held call now (blur, Enter, a pause). */

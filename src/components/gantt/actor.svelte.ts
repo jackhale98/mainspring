@@ -19,7 +19,9 @@ import type {
 	ActionDispatchOptions,
 	ActionSource,
 	DispatchOutcome,
+	EditDispatcher,
 	PendingMark,
+	ViewPlanner,
 } from '../../lib/state/edits.svelte';
 import { inspectorStrings } from '../../lib/strings';
 
@@ -55,26 +57,46 @@ export class GanttActor {
 	}
 
 	/** Dispatches an action; the outcome says what became of it (`applied`, `refused`, ...). */
-	async run(
+	run(
 		action: GanttAction,
 		opts: ActionDispatchOptions = {},
 		preview?: PendingMark,
 	): Promise<DispatchOutcome> {
+		const source = this.#env.shown();
+		return this.#ask((edits, o) => edits.dispatchAction(action, source, o, preview), opts);
+	}
+
+	/**
+	 * Dispatches a relative command, planned by the dispatcher on the text now (`dispatchPlan`,
+	 * ADR-0018): a step or an add reads the tree the text has, not the one the Gantt shows.
+	 */
+	runPlan(
+		plan: ViewPlanner,
+		opts: ActionDispatchOptions = {},
+		preview?: PendingMark,
+	): Promise<DispatchOutcome> {
+		return this.#ask((edits, o) => edits.dispatchPlan(plan, o, preview), opts);
+	}
+
+	async #ask(
+		send: (edits: EditDispatcher, o: ActionDispatchOptions) => Promise<DispatchOutcome>,
+		opts: ActionDispatchOptions,
+	): Promise<DispatchOutcome> {
 		const edits = this.#env.app.edits;
 		if (!edits) return CANCELLED;
-		const source = this.#env.shown();
-		let o = await edits.dispatchAction(action, source, opts, preview);
-		// The dispatcher asks at most two things of one action: the move question, and shared text.
+		let o = await send(edits, opts);
+		// The dispatcher asks at most two things of one call: the move question, and shared text.
+		// A call made again reads its targets in the same version as the first (`basedOn`).
 		for (let i = 0; i < 2; i++) {
 			if (o.status === 'ask-move-preference') {
 				const kind = await this.#question(o.suggested);
 				if (kind === null) return CANCELLED;
 				edits.setMovePreference(kind);
-				o = await edits.dispatchAction(action, source, opts, preview);
+				o = await send(edits, { ...opts, basedOn: o.basedOn });
 			} else if (o.status === 'confirm-shared') {
 				const ask = this.#env.confirm ?? ((m: string) => globalThis.confirm(m));
 				if (!ask(inspectorStrings.confirmShared(o.affects.join(', ')))) return CANCELLED;
-				o = await edits.dispatchAction(action, source, { ...opts, confirmShared: true }, preview);
+				o = await send(edits, { ...opts, confirmShared: true, basedOn: o.basedOn });
 			} else break;
 		}
 		return o;

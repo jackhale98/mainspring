@@ -10,7 +10,8 @@
 	The calendar never changes the schedule or the text. It reads the newest good result and the
 	symbol index (lib/calendar/facts.ts) and sends intents: a stroke of Paint or Erase (a drag, or a
 	tap on a day), the type picker's Enter, Delete, and the details' fields become a `LeavePaint`
-	for T12's planner or a `planLeaveEdit` for the edit API, through run.ts to the dispatcher. So each
+	for T12's planner or a `leaveEditPlan` for the edit API, planned by the dispatcher on the text now
+	(ADR-0018), through run.ts. So each
 	is one undo step with a toast, and a resource in a shared `.tji` asks first. While a newer
 	schedule runs the days dim.
 
@@ -47,26 +48,23 @@
 	import { buildGrid } from '../../lib/calendar/grid';
 	import {
 		itemFields,
-		planLeaveEdit,
-		planLeaveRemove,
 		typesFor,
+		type CommitResult,
 		type LeaveFields,
 	} from '../../lib/calendar/leave-edit';
 	import { moveDay } from '../../lib/calendar/nav';
 	import { RovingGrid } from '../../lib/ui/roving-grid';
 	import type { LeavePaint, PaintScope } from '../../lib/calendar/paint';
-	import type { PaintItem } from '../../lib/calendar/paint-items';
-	import { runIntent, runStroke } from '../../lib/calendar/run';
+	import { runLeaveEdit, runLeaveRemove, runStroke } from '../../lib/calendar/run';
 	import { createWheelPager, wheelPx } from '../../lib/calendar/wheel';
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
-	import type { LeaveType } from '../../lib/tjp/edit/types';
+	import type { LeaveRef, LeaveType } from '../../lib/tjp/edit/types';
 	import Mark from '../app/Mark.svelte';
 	import CalendarBar from './CalendarBar.svelte';
 	import { sameScope, type CalendarMode, type CalendarState } from './calendar-state.svelte';
 	import { CalendarGestures } from './calendar-gestures.svelte';
 	import DayDetails from './DayDetails.svelte';
-	import type { CommitResult } from '../../lib/calendar/leave-edit';
 	import MonthView from './MonthView.svelte';
 	import TypePicker from './TypePicker.svelte';
 	import Sheet from '../Sheet.svelte';
@@ -120,8 +118,6 @@
 	const result = $derived(app.run?.lastGood?.result ?? null);
 	const project = $derived(result?.project ?? null);
 	const dimmed = $derived(app.run?.outdated ?? false);
-	/** The index has not been read again since the text changed: its items are older than the text. */
-	const lags = $derived(app.run ? app.run.indexVersion !== app.run.version : false);
 	const grid = $derived(buildGrid(project, zones));
 	const facts = $derived(
 		result && app.index ? prepareFacts({ result, index: app.index, scope: cal.scope, grid }) : null,
@@ -216,14 +212,6 @@
 	}
 
 	// --- Edits: strokes through the planner, fields through the edit API
-	/** Waits for the index to be read from the text now (an edit just applied), up to ~1.5 s. */
-	async function fresh(): Promise<void> {
-		for (let i = 0; i < 50; i++) {
-			const v = app.workspace?.snapshot().version;
-			if (app.index === null || v === undefined || app.index.version === v) return;
-			await new Promise((r) => setTimeout(r, 30));
-		}
-	}
 	const confirm = (m: string): boolean => globalThis.confirm(m);
 
 	async function apply(op: 'paint' | 'erase', lo: number, hi: number, name = ''): Promise<void> {
@@ -231,9 +219,6 @@
 		const b = grid.days[hi];
 		if (!a || !b) return;
 		select(lo, hi);
-		await fresh();
-		const index = app.index;
-		if (!result || !index) return;
 		const scope = cal.scope;
 		const stroke: LeavePaint =
 			op === 'erase'
@@ -246,31 +231,16 @@
 						leave: cal.leaveType,
 						...(name === '' ? {} : { name }),
 					};
-		const r = await runStroke(app.edits, stroke, { index, result, zones }, confirm);
+		const r = await runStroke(app.edits, stroke, result, zones, confirm);
 		note = r.status === 'refused' ? r.message : '';
 	}
 
-	async function commitLeave(item: PaintItem, f: LeaveFields): Promise<CommitResult> {
-		const edits = app.edits;
-		if (!edits || !project) return {};
-		await fresh();
-		const index = app.index;
-		if (!index) return {};
-		const plan = planLeaveEdit(item, f, { index, project, zones });
-		if (plan.status === 'invalid') return { error: plan.reason };
-		if (plan.status === 'unchanged') return {};
-		const o = await runIntent(edits, plan.intent, plan.label, confirm);
-		return { applied: o.status === 'applied' };
-	}
-
-	async function removeLeave(item: PaintItem): Promise<void> {
-		const edits = app.edits;
-		await fresh();
-		const index = app.index;
-		if (!edits || !project || !index) return;
-		const plan = planLeaveRemove(item, { index, project });
-		await runIntent(edits, plan.intent, plan.label, confirm);
-	}
+	// A leave card's commit and Remove go out at once on the item's range and the index version it
+	// was read in; the dispatcher finds the item in the text now (ADR-0018), however far the index lags.
+	const commitLeave = (ref: LeaveRef, f: LeaveFields): Promise<CommitResult> =>
+		runLeaveEdit(app.edits, ref, f, project ? { project, zones } : null, confirm);
+	const removeLeave = (ref: LeaveRef): Promise<void> =>
+		runLeaveRemove(app.edits, ref, project ? { project } : null, confirm);
 
 	/** "+N more" on a day: select it and open its details, with the focus there (as Enter does). */
 	function openMore(day: number): void {
@@ -556,7 +526,6 @@
 		leaveType={cal.leaveType}
 		ontype={(t) => (cal.leaveType = t)}
 		fieldsOf={(item) => (project ? itemFields(item, project, zones) : null)}
-		stale={lags}
 		oncommit={commitLeave}
 		onremove={removeLeave}
 		onadd={(name) => selected && apply('paint', selected[0], selected[1], name)}

@@ -6,11 +6,8 @@
 // keyboard, menu, drag or card, and asserts on the text (`__mainspringEdits.text()`), not on copy.
 // Desktop Chrome, Pixel 7 and iPhone 14 (a finger uses the row menu and the Undo and Redo keys).
 //
-// Until T27d (the views plan on the text now) these cases FAIL on purpose: each is marked
-// `test.fail` (the `t27d` helper) with the reason (ADR-0018 "Context"), so the merge tier stays
-// green and CI flags the case when it starts to pass. Remove the mark with T27d.
-// STALE_INDEX_REPRO=1 runs the cases unmarked, to see each failing assertion. A case that already
-// passes today has no mark.
+// Every case passes since T27d: the views send planners and versioned targets, and the dispatcher
+// resolves them on the text now (a case the text no longer allows is refused, never misdirected).
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
@@ -27,12 +24,6 @@ import {
 import { openResources, row, selectRow } from './lib/resources-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
-
-/**
- * Marks the case as failing until T27d (`test.fail`: a pass before then is reported, so the mark
- * gets removed). STALE_INDEX_REPRO=1 runs the cases unmarked, to see the failing assertions.
- */
-const t27d = (why: string): void => test.fail(process.env['STALE_INDEX_REPRO'] !== '1', why);
 
 /** How long a wanted text change may take; a case that must stay unchanged fails by assertion, not by this. */
 const CHANGE_MS = 10_000;
@@ -111,8 +102,6 @@ test.describe('the Gantt on an index that lags', () => {
 	test('Alt+Shift+Up right after Redo ends one place above where the text had it', async ({
 		page,
 	}, info) => {
-		// T27d: the step is planned on the shown outline (the order before the Undo and Redo).
-		t27d('T27d: reorder plans on app.outline, which lags (ADR-0018 position targets)');
 		const rig = await Rig.open(page, info);
 		const before = await rig.text();
 		expect(topLevel(before)).toEqual(['design', 'spike', 'launch', 'support']);
@@ -133,7 +122,6 @@ test.describe('the Gantt on an index that lags', () => {
 	});
 
 	test('three quick presses make three places', async ({ page }, info) => {
-		t27d('T27d: the 2nd and 3rd press plan on the outline from before the 1st');
 		const rig = await Rig.open(page, info);
 		expect(designChildren(await rig.text())).toEqual([
 			'research',
@@ -211,7 +199,6 @@ const resourceIds = (t: string): string[] =>
 test('Alt+Shift+Up in the resource table right after an Undo moves what the text has', async ({
 	page,
 }, info) => {
-	t27d('T27d: the table steps on the shown outline (ADR-0018 position targets)');
 	await openResources(page, info);
 	const before = await text(page);
 	expect(resourceIds(before)).toEqual(['dev', 'rev']);
@@ -343,7 +330,6 @@ test.describe('a leave card on an index that lags', () => {
 	test('an edit after a rename rewrites the item it shows, and that one only', async ({
 		page,
 	}, info) => {
-		t27d('T27d: the card plans on a stale range, which names another item (or waits)');
 		await openLeaves(page, info);
 		const shift = LEAVE_PLAN.indexOf(ITEM2) - LEAVE_PLAN.indexOf(ITEM1);
 		expect(shift).toBe(ITEM1.length + 2);
@@ -358,7 +344,6 @@ test.describe('a leave card on an index that lags', () => {
 	});
 
 	test('two quick changes to one leave both land', async ({ page }, info) => {
-		t27d('T27d: the card holds changes while the index lags, and drops a queued one');
 		await openLeaves(page, info);
 		await openDetails(page, info, '2026-12-21');
 		await page.getByTestId('cal-leave-type').first().selectOption({ label: 'Sick leave' });
@@ -369,7 +354,6 @@ test.describe('a leave card on an index that lags', () => {
 	});
 
 	test('Remove removes the right item while the index lags', async ({ page }, info) => {
-		t27d('T27d: Remove is disabled while the index lags, and a stale range is refused');
 		await openLeaves(page, info);
 		// The first item gets a longer type word, so the second moves one character right.
 		await openDetails(page, info, '2026-12-14');

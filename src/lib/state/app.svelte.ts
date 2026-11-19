@@ -225,11 +225,12 @@ export class AppState {
 	readonly localDiagnostics = $derived(this.diagnostics.filter((d) => d.source !== 'engine'));
 	readonly outline = $derived(
 		this.index
-			? buildOutline(
-					this.index,
-					(r) =>
-						this.workspace?.snapshot().files.get(r.file)?.text.sliceString(r.from, r.to) ?? null,
-				)
+			? buildOutline(this.index, (r) => {
+					// The index lags the text: its ranges are read in the text now (ADR-0018 finding 6).
+					const ws = this.workspace;
+					const at = ws ? currentRange(ws, this.index?.version, r) : r;
+					return ws?.snapshot().files.get(at.file)?.text.sliceString(at.from, at.to) ?? null;
+				})
 			: EMPTY_OUTLINE,
 	);
 	/** Error counts per outline node, for the badges. */

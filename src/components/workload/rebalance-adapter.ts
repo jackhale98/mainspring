@@ -95,20 +95,25 @@ export class Rebalancer {
 		}
 		const coalesce = o.coalesceKey === undefined ? {} : { coalesceKey: o.coalesceKey };
 		let confirmShared = false;
+		// A call made again after a question reads its targets in the first outcome's version (ADR-0018).
+		let basedOn: { basedOn?: number } = {};
 		for (let i = 0; i < 3; i++) {
+			const o = { confirmShared, ...basedOn, ...coalesce };
 			const outcome =
 				plan.status === 'intent'
-					? await edits.dispatch(plan.intent, { label: plan.label, confirmShared, ...coalesce })
-					: await edits.dispatchAction(plan.action, env.source(), { confirmShared, ...coalesce });
+					? await edits.dispatch(plan.intent, { label: plan.label, ...o })
+					: await edits.dispatchAction(plan.action, env.source(), o);
 			if (outcome.status === 'ask-move-preference') {
 				const kind = await env.askMove(outcome.suggested);
 				if (kind === null) return { status: 'sent', outcome: { status: 'cancelled' } };
 				edits.setMovePreference(kind);
+				basedOn = { basedOn: outcome.basedOn };
 			} else if (outcome.status === 'confirm-shared') {
 				if (!env.confirm(inspectorStrings.confirmShared(outcome.affects.join(', ')))) {
 					return { status: 'sent', outcome: { status: 'cancelled' } };
 				}
 				confirmShared = true;
+				basedOn = { basedOn: outcome.basedOn };
 			} else return { status: 'sent', outcome };
 		}
 		return { status: 'sent', outcome: { status: 'cancelled' } };

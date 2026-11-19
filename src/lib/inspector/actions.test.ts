@@ -47,6 +47,8 @@ describe('InspectorActions', () => {
 		expect(e.c).toHaveBeenCalledWith(expect.stringContaining('a, b'));
 		expect(e.dispatch).toHaveBeenCalledTimes(2);
 		expect(e.dispatch.mock.calls[1]?.[1]).toMatchObject({ confirmShared: true });
+		// The call made again reads the text as the first did (ADR-0018).
+		expect(e.dispatch.mock.calls[1]?.[1]).toMatchObject({ basedOn: shared.basedOn });
 		expect(o).toBe(noop);
 	});
 

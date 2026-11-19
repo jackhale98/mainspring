@@ -1,16 +1,14 @@
 // @vitest-environment jsdom
 // SPDX-License-Identifier: GPL-2.0-or-later
-// A leave's card in the day details (LeaveCard.svelte, W5): a change commits at once; a second change
-// made while the first waits to be read back is queued, shown as waiting, and sent on the new text
-// rather than dropped (T16 review). While the index lags the text (`stale`) the item is older than the
-// text: a change waits for it, and the time-out after an applied edit does not send it on the old item
-// (CI: a rename, then a new last day before a busy browser had read the text again, was refused as "That
-// item no longer exists").
+// A leave's card in the day details (LeaveCard.svelte, W5; ADR-0018 decision 5): every change goes out
+// at once on a reference to its item (range and index version); only while the card's own edit is
+// in flight are changes merged, and they go out when its outcome arrives, on the item as the edit
+// wrote it. Nothing waits for the index, so a card that is remounted or a lagging index loses nothing.
 import { flushSync, mount, tick, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CommitResult, LeaveFields } from '../../lib/calendar/leave-edit';
 import type { PaintItem } from '../../lib/calendar/paint-items';
-import type { LeaveType } from '../../lib/tjp/edit/types';
+import type { LeaveRef, LeaveType } from '../../lib/tjp/edit/types';
 import LeaveCard from './LeaveCard.svelte';
 
 const item = {
@@ -18,31 +16,31 @@ const item = {
 	name: 'Trip',
 	site: { scope: { kind: 'resource', resource: 'dev' } },
 	range: { file: 'plan.tjp', from: 10, to: 40 },
+	version: 4,
 } as unknown as PaintItem;
+const REF: LeaveRef = { item: item.range, basedOn: 4 };
 const TYPES: LeaveType[] = ['annual', 'special', 'sick'];
 const BASE: LeaveFields = { type: 'annual', name: 'Trip', start: '2026-01-08', end: '2026-01-09' };
 
+type Commit = (ref: LeaveRef, f: LeaveFields) => Promise<CommitResult>;
 const mounted: Array<ReturnType<typeof mount>> = [];
 afterEach(() => {
 	for (const m of mounted.splice(0)) void unmount(m);
 	document.body.innerHTML = '';
 });
 
-function open(
-	oncommit: (i: PaintItem, f: LeaveFields) => Promise<CommitResult>,
-	onremove: (i: PaintItem) => void = () => {},
-) {
+function open(oncommit: Commit, onremove: (r: LeaveRef) => Promise<void> | void = () => {}) {
 	const props = $state({
 		item,
 		fields: BASE as LeaveFields | null,
 		types: TYPES,
 		oncommit,
 		onremove,
-		stale: false,
 	});
-	mounted.push(mount(LeaveCard, { target: document.body, props }));
+	const m = mount(LeaveCard, { target: document.body, props });
+	mounted.push(m);
 	flushSync();
-	return props;
+	return { props, unmount: () => void unmount(m) };
 }
 const q = <T extends Element>(sel: string): T => {
 	const el = document.querySelector<T>(sel);
@@ -64,133 +62,195 @@ const rename = (value: string): void => {
 	i.value = value;
 	i.dispatchEvent(new FocusEvent('blur'));
 };
+/** A commit the test settles itself. */
+function pending() {
+	const calls: Array<{ ref: LeaveRef; f: LeaveFields }> = [];
+	const settle: Array<(r: CommitResult) => void> = [];
+	const oncommit: Commit = (ref, f) => {
+		calls.push({ ref, f });
+		return new Promise((res) => settle.push(res));
+	};
+	return { calls, settle, oncommit };
+}
+const wrote = (from: number, basedOn: number): LeaveRef => ({
+	item: { file: 'plan.tjp', from, to: from + 32 },
+	basedOn,
+});
 
 describe('LeaveCard', () => {
-	it('commits a change at once, with the fields as they now are', async () => {
-		const oncommit = vi.fn(async (_i: PaintItem, _f: LeaveFields): Promise<CommitResult> => ({
-			applied: true,
-		}));
+	it('commits a change at once, on the item as the index read it, with the fields as they now are', async () => {
+		const oncommit = vi.fn<Commit>(async () => ({ applied: true }));
 		open(oncommit);
 		choose('sick');
 		await tick();
 		expect(oncommit).toHaveBeenCalledTimes(1);
+		expect(oncommit.mock.calls[0]?.[0]).toEqual(REF);
 		expect(oncommit.mock.calls[0]?.[1]).toEqual({ ...BASE, type: 'sick' });
 	});
 
-	it('queues a second change while the first is read back, shows it, and sends it after', async () => {
-		const oncommit = vi.fn(async (_i: PaintItem, _f: LeaveFields) => ({ applied: true }));
-		const props = open(oncommit);
+	it('merges a change made while its own edit is in flight, and sends it on the item the edit wrote', async () => {
+		const p = pending();
+		open(p.oncommit);
 		choose('sick');
 		await tick();
+		rename('Beach');
+		setEnd('2026-01-10');
+		await tick();
+		// Nothing more goes out while the first is in flight; there is no "waiting" note.
+		expect(p.calls).toHaveLength(1);
+		expect(document.querySelector('[data-testid="cal-leave-waiting"]')).toBeNull();
+		expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('true');
+		// The edit is applied: the merged change goes out on the rewritten item, at the edit's version.
+		p.settle[0]?.({ applied: true, ref: wrote(10, 5) });
+		await tick();
+		await tick();
+		expect(p.calls).toHaveLength(2);
+		expect(p.calls[1]?.ref).toEqual(wrote(10, 5));
+		expect(p.calls[1]?.f).toEqual({ ...BASE, type: 'sick', name: 'Beach', end: '2026-01-10' });
+		p.settle[1]?.({ applied: true, ref: wrote(10, 6) });
+		await tick();
+		await tick();
+		expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('false');
+	});
+
+	it('sends a merged change on the card’s own item when its edit was not applied', async () => {
+		const p = pending();
+		open(p.oncommit);
+		choose('sick');
 		await tick();
 		rename('Beach');
 		await tick();
-		// Not sent yet, and said to be waiting; the card is busy.
-		expect(oncommit).toHaveBeenCalledTimes(1);
-		expect(document.querySelector('[data-testid="cal-leave-waiting"]')).not.toBeNull();
-		expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('true');
-		// The text is read again: the new fields arrive and the queued change goes out on them.
-		props.fields = { ...BASE, type: 'sick' };
+		p.settle[0]?.({});
 		await tick();
 		await tick();
-		expect(oncommit).toHaveBeenCalledTimes(2);
-		expect(oncommit.mock.calls[1]?.[1]).toEqual({ ...BASE, type: 'sick', name: 'Beach' });
-		expect(document.querySelector('[data-testid="cal-leave-waiting"]')).toBeNull();
+		expect(p.calls[1]?.ref).toEqual(REF);
+		expect(p.calls[1]?.f).toEqual({ ...BASE, type: 'sick', name: 'Beach' });
 	});
 
-	it('does not hold a change that was not applied (a refused field)', async () => {
-		const oncommit = vi.fn(async (_i: PaintItem, _f: LeaveFields): Promise<CommitResult> => ({
-			error: 'dates',
-		}));
+	it('sends no merged change after a refusal: one action gives one message', async () => {
+		const p = pending();
+		open(p.oncommit);
+		choose('sick');
+		await tick();
+		rename('Beach');
+		await tick();
+		p.settle[0]?.({ refused: true });
+		await tick();
+		await tick();
+		expect(p.calls).toHaveLength(1);
+		expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('false');
+	});
+
+	it('goes on from the item its last edit wrote while the index has not read it', async () => {
+		// The edit is in the text; the owner still gives the card the old item (the index lags).
+		const oncommit = vi.fn<Commit>(async () => ({ applied: true, ref: wrote(10, 5) }));
+		open(oncommit);
+		choose('sick');
+		await tick();
+		await tick();
+		setEnd('2026-01-10');
+		await tick();
+		await tick();
+		expect(oncommit.mock.calls[0]?.[0]).toEqual(REF);
+		expect(oncommit.mock.calls[1]?.[0]).toEqual(wrote(10, 5));
+		// The index catches up past the edit: the card names its own item again.
+	});
+
+	it('names its own item again once the index has read what the card wrote', async () => {
+		const oncommit = vi.fn<Commit>(async () => ({ applied: true, ref: wrote(10, 5) }));
+		const { props } = open(oncommit);
+		choose('sick');
+		await tick();
+		await tick();
+		const moved = {
+			...item,
+			range: { file: 'plan.tjp', from: 10, to: 42 },
+			version: 5,
+		} as unknown as PaintItem;
+		props.item = moved;
+		props.fields = { ...BASE, type: 'sick' };
+		await tick();
+		setEnd('2026-01-10');
+		await tick();
+		await tick();
+		expect(oncommit.mock.calls[1]?.[0]).toEqual({ item: moved.range, basedOn: 5 });
+		expect(oncommit.mock.calls[1]?.[1]).toEqual({ ...BASE, type: 'sick', end: '2026-01-10' });
+	});
+
+	it('does not send a field that is what the card already has', async () => {
+		const oncommit = vi.fn<Commit>(async () => ({ applied: true }));
+		open(oncommit);
+		rename('Trip');
+		setEnd(BASE.end);
+		await tick();
+		expect(oncommit).not.toHaveBeenCalled();
+		// An applied change is then the card's fields: sending it again is nothing.
+		choose('sick');
+		await tick();
+		await tick();
+		choose('sick');
+		await tick();
+		expect(oncommit).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not drop a merged change when the card is removed from the page meanwhile', async () => {
+		const p = pending();
+		const { unmount: gone } = open(p.oncommit);
+		choose('sick');
+		await tick();
+		rename('Beach');
+		await tick();
+		// The list was rebuilt (another item changed length, so this card's key moved): a new card.
+		gone();
+		p.settle[0]?.({ applied: true, ref: wrote(10, 5) });
+		await tick();
+		await tick();
+		expect(p.calls).toHaveLength(2);
+		expect(p.calls[1]?.ref).toEqual(wrote(10, 5));
+		expect(p.calls[1]?.f).toEqual({ ...BASE, type: 'sick', name: 'Beach' });
+	});
+
+	it('shows why a field cannot be written, and goes on after it', async () => {
+		const oncommit = vi.fn<Commit>(async () => ({ error: 'dates' }));
 		open(oncommit);
 		choose('special');
 		await tick();
 		await tick();
 		expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('false');
+		expect(document.querySelector('[role="alert"]')).not.toBeNull();
 		rename('Beach');
 		await tick();
 		expect(oncommit).toHaveBeenCalledTimes(2);
 	});
 
-	describe('while the index lags the text', () => {
-		afterEach(() => vi.useRealTimers());
-		const moved = {
-			...item,
-			range: { file: 'plan.tjp', from: 10, to: 52 },
-		} as unknown as PaintItem;
-
-		it('does not send a queued change on the old item when the time-out passes', async () => {
-			vi.useFakeTimers();
-			const oncommit = vi.fn(async (_i: PaintItem, _f: LeaveFields) => ({ applied: true }));
-			const props = open(oncommit);
-			rename('Ski trip');
-			await vi.advanceTimersByTimeAsync(0);
-			expect(oncommit).toHaveBeenCalledTimes(1);
-			// The edit is in the text and the index has not been read again; a new last day is typed.
-			props.stale = true;
-			await vi.advanceTimersByTimeAsync(0);
-			setEnd('2026-01-10');
-			await vi.advanceTimersByTimeAsync(0);
-			expect(document.querySelector('[data-testid="cal-leave-waiting"]')).not.toBeNull();
-			// The card's time-out passes with the index still behind: nothing goes out on the old item.
-			await vi.advanceTimersByTimeAsync(10_000);
-			expect(oncommit).toHaveBeenCalledTimes(1);
-			expect(document.querySelector('[data-testid="cal-leave-waiting"]')).not.toBeNull();
-			// The index catches up: the item and its fields are the text's, and the change goes out on them.
-			props.item = moved;
-			props.fields = { ...BASE, name: 'Ski trip' };
-			props.stale = false;
-			await vi.advanceTimersByTimeAsync(0);
-			expect(oncommit).toHaveBeenCalledTimes(2);
-			expect(oncommit.mock.calls[1]?.[0]?.range).toEqual(moved.range);
-			expect(oncommit.mock.calls[1]?.[1]).toEqual({ ...BASE, name: 'Ski trip', end: '2026-01-10' });
-			expect(document.querySelector('[data-testid="cal-leave-waiting"]')).toBeNull();
+	describe('Remove', () => {
+		it('works while the index lags: it names the item as the index read it', async () => {
+			const onremove = vi.fn<(r: LeaveRef) => Promise<void>>(async () => {});
+			open(async () => ({ applied: true }), onremove);
+			const remove = q<HTMLButtonElement>('[data-testid="cal-leave-remove"]');
+			expect(remove.disabled).toBe(false);
+			remove.click();
+			await tick();
+			expect(onremove).toHaveBeenCalledWith(REF);
 		});
 
-		it('ends the wait after the time-out as soon as the index has caught up', async () => {
-			vi.useFakeTimers();
-			const oncommit = vi.fn(async (_i: PaintItem, _f: LeaveFields) => ({ applied: true }));
-			const props = open(oncommit);
-			rename('Ski trip');
-			await vi.advanceTimersByTimeAsync(0);
-			props.stale = true;
-			await vi.advanceTimersByTimeAsync(10_000);
-			expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('true');
-			// The applied edit left the fields as they were (no key change), and the index is current.
-			props.stale = false;
-			await vi.advanceTimersByTimeAsync(0);
-			expect(q('[data-testid="cal-leave"]').getAttribute('aria-busy')).toBe('false');
-		});
-
-		it('holds a change made on a lagging index, though no edit of the card is waiting', async () => {
-			const oncommit = vi.fn(async (_i: PaintItem, _f: LeaveFields) => ({ applied: true }));
-			const props = open(oncommit);
-			props.stale = true;
-			await tick();
-			setEnd('2026-01-10');
-			await tick();
-			expect(oncommit).not.toHaveBeenCalled();
-			props.stale = false;
-			await tick();
-			await tick();
-			expect(oncommit).toHaveBeenCalledTimes(1);
-			expect(oncommit.mock.calls[0]?.[1]).toEqual({ ...BASE, end: '2026-01-10' });
-		});
-
-		it('does not remove by an old range: Remove is disabled while the index lags', async () => {
-			const onremove = vi.fn();
-			const props = open(async () => ({ applied: true }), onremove);
-			props.stale = true;
+		it('is disabled only while a dispatch of the card is in flight, and then names what the edit wrote', async () => {
+			const p = pending();
+			const onremove = vi.fn<(r: LeaveRef) => Promise<void>>(async () => {});
+			open(p.oncommit, onremove);
+			choose('sick');
 			await tick();
 			const remove = q<HTMLButtonElement>('[data-testid="cal-leave-remove"]');
 			expect(remove.disabled).toBe(true);
 			remove.click();
 			expect(onremove).not.toHaveBeenCalled();
-			props.stale = false;
+			p.settle[0]?.({ applied: true, ref: wrote(10, 5) });
+			await tick();
 			await tick();
 			expect(remove.disabled).toBe(false);
 			remove.click();
-			expect(onremove).toHaveBeenCalledTimes(1);
+			await tick();
+			expect(onremove).toHaveBeenCalledWith(wrote(10, 5));
 		});
 	});
 });

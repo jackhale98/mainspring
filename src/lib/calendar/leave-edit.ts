@@ -124,7 +124,7 @@ export type LeaveEditPlan =
 	| { readonly status: 'intent'; readonly intent: EditIntent; readonly label: ToastLabel }
 	/** Nothing to write: the fields are what the item already says. */
 	| { readonly status: 'unchanged' }
-	| { readonly status: 'invalid'; readonly reason: 'empty' | 'dates' | 'range' };
+	| { readonly status: 'invalid'; readonly reason: FieldError };
 
 export interface EditContext {
 	readonly index: SymbolIndex;
@@ -148,16 +148,30 @@ const shown = (n: number): string => {
 	);
 };
 
+export type FieldError = 'empty' | 'dates' | 'range';
+
+/**
+ * Why the fields cannot be written whatever the item is, or null: a day that is not a date, a last
+ * day before the first, a date outside 1970 to 2035. The card says it under the fields before it
+ * sends anything.
+ */
+export function fieldError(f: LeaveFields): FieldError | null {
+	const first = dayNumber(f.start);
+	const last = dayNumber(f.end);
+	if (first === null || last === null) return 'empty';
+	if (last < first) return 'dates';
+	return inRange(first) && inRange(last + 1) ? null : 'range';
+}
+
 /** The intent that changes `item` to `f`, or why it cannot. */
 export function planLeaveEdit(item: PaintItem, f: LeaveFields, ctx: EditContext): LeaveEditPlan {
 	const orig = itemFields(item, ctx.project, ctx.zones);
 	const written = writtenSpec(item);
 	if (!orig || !written) return { status: 'invalid', reason: 'range' };
-	const first = dayNumber(f.start);
-	const last = dayNumber(f.end);
-	if (first === null || last === null) return { status: 'invalid', reason: 'empty' };
-	if (last < first) return { status: 'invalid', reason: 'dates' };
-	if (!inRange(first) || !inRange(last + 1)) return { status: 'invalid', reason: 'range' };
+	const bad = fieldError(f);
+	if (bad) return { status: 'invalid', reason: bad };
+	const first = dayNumber(f.start) as number;
+	const last = dayNumber(f.end) as number;
 	const name = f.name.trim();
 	if (f.type === orig.type && name === orig.name && f.start === orig.start && f.end === orig.end) {
 		return { status: 'unchanged' };
@@ -213,11 +227,21 @@ export function planLeaveRemove(
 	};
 }
 
-/** What a leave card's commit came to: a field error, or whether the edit was applied (W5). */
+/**
+ * What a leave card's commit came to: a field error, or whether the edit was applied (W5). After an
+ * applied edit, `ref` names the item as the edit wrote it (its `select`, at the outcome's version):
+ * the card goes on from it while the index has not read the text again (ADR-0018 decision 5).
+ */
 export interface CommitResult {
-	readonly error?: 'empty' | 'dates' | 'range';
+	readonly error?: FieldError;
 	readonly applied?: boolean;
+	/** The dispatcher or the edit API refused it (its toast is up): the card sends no merged change after it. */
+	readonly refused?: boolean;
+	readonly ref?: LeaveRef;
 }
+
+/** `item` as a target: its range and the index version it was read in. */
+export const refOf = (item: PaintItem): LeaveRef => ({ item: item.range, basedOn: item.version });
 
 /** The item `ref` names, in the text now, or null when it was touched or is no longer read. */
 export function itemNow(

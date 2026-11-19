@@ -8,6 +8,9 @@
  * second undo step (18.11 e). A refusal or a no-op has already been shown by the dispatcher.
  * Nothing here changes the plan itself.
  *
+ * - The place is worked out by the dispatcher on the text now (`addTaskPlan`); the flow only
+ *   names the anchor, from the selected key (`task:<id>`, also when the outline does not have the
+ *   key yet: the dispatcher decides whether it is gone), and says no place for a row with no id.
  * - The new task is named from the applied edit (the header text its `select` range covers), never
  *   by comparing the outline with an earlier snapshot: the outline lags the text (a task typed a
  *   moment before, a drag still pending).
@@ -19,6 +22,7 @@ import { addSpot, newTaskKeyFromHeader, type AddMode } from '../../lib/gantt/add
 import { rootsOf } from '../../lib/gantt/reorder';
 import type { AppState } from '../../lib/state/app.svelte';
 import type { OutlineNode } from '../../lib/state/outline';
+import type { TaskId } from '../../lib/tjp/index';
 import type { TjpEdit } from '../../lib/tjp/edit/types';
 import { gestureStrings } from '../../lib/strings';
 
@@ -37,8 +41,11 @@ export interface AddFlowEnv {
 	readonly app: AddFlowApp;
 	/** The open plan (its dispatcher): the flow gives up when this is no longer the same one. */
 	plan(): unknown;
-	/** Sends the `addTask` edit through the dispatcher. */
-	add(at: { parent: string | null; index: number; name: string }): Promise<DispatchOutcome>;
+	/**
+	 * Sends the add through the dispatcher as `addTaskPlan(anchor, mode, name)`: the place is worked
+	 * out on the text now (ADR-0018), not on the outline the flow read.
+	 */
+	add(a: { anchor: TaskId | null; mode: AddMode; name: string }): Promise<DispatchOutcome>;
 	/** The text of the edit's new task header, as the text is right after the edit. */
 	headerOf(edit: TjpEdit): string | null;
 	/** Scrolls the new task's row into view, once it has one. */
@@ -80,24 +87,36 @@ export async function addTaskFlow(env: AddFlowEnv, mode: AddMode): Promise<strin
 async function run(env: AddFlowEnv, mode: AddMode): Promise<string | null> {
 	const app = env.app;
 	const plan = env.plan();
-	const spot = addSpot(
-		app.outline.byKey,
-		rootsOf(
+	const sel = app.selectedTask;
+	const node = sel === null ? undefined : app.outline.byKey.get(sel);
+	// The anchor is the selected task, never a guess: a row with no id has no place, and a key the
+	// outline lacks (renamed or typed while the index lags) is the dispatcher's to resolve.
+	const id = node ? node.id : (sel?.match(/^task:(?!unresolved:)(.+)$/)?.[1] ?? null);
+	if (sel !== null ? id === null : mode === 'subtask') return null;
+	// The shown tree can say there is no place at all (a subtask of a task with no id).
+	if (
+		node &&
+		!addSpot(
 			app.outline.byKey,
-			app.outline.tasks.map((n) => n.key),
-		),
-		app.selectedTask,
-		mode,
-	);
-	if (!spot) return null;
-	const o = await env.add({
-		parent: spot.parent,
-		index: spot.index,
-		name: gestureStrings.row.newTask,
-	});
+			rootsOf(
+				app.outline.byKey,
+				app.outline.tasks.map((n) => n.key),
+			),
+			sel,
+			mode,
+		)
+	) {
+		return null;
+	}
+	const anchor = id;
+	const o = await env.add({ anchor, mode, name: gestureStrings.row.newTask });
 	if (o.status !== 'applied' || env.plan() !== plan) return null;
 	const header = env.headerOf(o.edit);
-	const key = header === null ? null : newTaskKeyFromHeader(header, spot.parent);
+	// The new task's key is named from the edit as it was made: its parent is the edit's, which
+	// the dispatcher worked out on the text now (not `spot`, from the outline that can lag it).
+	const made = o.edit.intent;
+	const key =
+		header === null || made.type !== 'addTask' ? null : newTaskKeyFromHeader(header, made.parent);
 	if (key === null) return null;
 	// The details need the task in the schedule's model: wait for the result that includes the edit.
 	const s = await o.settled;

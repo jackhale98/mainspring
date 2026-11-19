@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Sample } from '../workspace/samples';
 import { FakeEngineClient, flush, message, task } from '../workspace/testing/fake-engine-client';
 import { AppState } from './app.svelte';
+import { createIndexGate } from './edit-hooks';
 
 const PLAN = [
 	'project p "P" 2026-01-05 +1m',
@@ -240,6 +241,34 @@ describe('visual to text', () => {
 		app.selectTask('task:nobody');
 		expect(app.selectedTask).toBe('task:nobody');
 		expect(app.sourceMark).toBeNull();
+	});
+
+	it('reads the written name of a declaration the index cannot name in the text now', async () => {
+		// ADR-0018 finding 6: the index lags the text, so its range is mapped before it is read.
+		const gate = createIndexGate();
+		const client = new FakeEngineClient();
+		app = new AppState({
+			client,
+			samples: [SAMPLE, MACRO, NEST],
+			initial: 'macro',
+			keyTarget: null,
+			idle: Promise.resolve(gate.timers),
+		});
+		await flush();
+		client.done(1, { tasks: [] });
+		await vi.waitFor(() => expect(app?.status?.kind).toBe('ok'));
+		gate.hold();
+		const ws = app.workspace;
+		if (!ws) throw new Error('no workspace');
+		ws.commit(
+			'plan.tjp',
+			ws.state('plan.tjp').update({ changes: { from: 0, insert: '# a longer first line\n' } }),
+			'typing',
+		);
+		expect(app.run?.indexVersion).not.toBe(app.run?.version);
+		const node = app.outline.tasks.find((n) => n.id === null);
+		expect(node?.name).toBe('M');
+		gate.release();
 	});
 
 	it('forgets the selection and the mark when another plan opens', async () => {

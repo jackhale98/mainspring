@@ -13,14 +13,21 @@ const shown = { result: null, analysis: null };
 
 function setup(answers: DispatchOutcome[], confirm = () => true) {
 	const dispatchAction = vi.fn(async () => answers.shift() ?? applied);
+	const dispatchPlan = vi.fn(async () => answers.shift() ?? applied);
 	const setMovePreference = vi.fn();
-	const edits = { dispatchAction, setMovePreference, flush: vi.fn(), check: vi.fn(() => null) };
+	const edits = {
+		dispatchAction,
+		dispatchPlan,
+		setMovePreference,
+		flush: vi.fn(),
+		check: vi.fn(() => null),
+	};
 	const actor = new GanttActor({
 		app: { edits } as never,
 		shown: () => shown,
 		confirm,
 	});
-	return { actor, edits, dispatchAction, setMovePreference };
+	return { actor, edits, dispatchAction, dispatchPlan, setMovePreference };
 }
 
 describe('GanttActor.run', () => {
@@ -76,7 +83,7 @@ describe('GanttActor.run', () => {
 		expect(yes.dispatchAction).toHaveBeenLastCalledWith(
 			move,
 			shown,
-			{ confirmShared: true },
+			{ confirmShared: true, basedOn: 1 },
 			undefined,
 		);
 		const no = setup([shared], () => false);
@@ -84,10 +91,53 @@ describe('GanttActor.run', () => {
 		expect(no.dispatchAction).toHaveBeenCalledTimes(1);
 	});
 
+	it('sends the first outcome’s basedOn again after the move question (ADR-0018)', async () => {
+		const { actor, dispatchAction } = setup([
+			{ status: 'ask-move-preference', suggested: 'gap', basedOn: 7 },
+			applied,
+		]);
+		const p = actor.run(move, { defer: true, basedOn: 7 });
+		await vi.waitFor(() => expect(actor.ask).not.toBeNull());
+		actor.answer('gap');
+		await p;
+		expect(dispatchAction).toHaveBeenLastCalledWith(
+			move,
+			shown,
+			{ defer: true, basedOn: 7 },
+			undefined,
+		);
+	});
+
 	it('is cancelled without a dispatcher, and flush and check do nothing', async () => {
 		const actor = new GanttActor({ app: { edits: null } as never, shown: () => shown });
 		expect(await actor.run(move)).toEqual({ status: 'cancelled' });
 		expect(actor.check(move)).toBeNull();
 		expect(() => actor.flush('k')).not.toThrow();
+	});
+});
+
+describe('GanttActor.runPlan', () => {
+	const plan = () => ({ status: 'unchanged' as const });
+
+	it('sends the planner to the dispatcher, with the options and the preview mark', async () => {
+		const { actor, dispatchPlan } = setup([applied]);
+		expect(await actor.runPlan(plan, { defer: true })).toBe(applied);
+		expect(dispatchPlan).toHaveBeenCalledWith(plan, { defer: true }, undefined);
+	});
+
+	it('confirms shared text, then sends the planner again with confirmShared and the same basedOn', async () => {
+		const shared: DispatchOutcome = { status: 'confirm-shared', affects: ['a'], basedOn: 9 };
+		const { actor, dispatchPlan } = setup([shared, applied]);
+		expect(await actor.runPlan(plan)).toBe(applied);
+		expect(dispatchPlan).toHaveBeenLastCalledWith(
+			plan,
+			{ confirmShared: true, basedOn: 9 },
+			undefined,
+		);
+	});
+
+	it('is cancelled without a dispatcher', async () => {
+		const actor = new GanttActor({ app: { edits: null } as never, shown: () => shown });
+		expect(await actor.runPlan(plan)).toEqual({ status: 'cancelled' });
 	});
 });
