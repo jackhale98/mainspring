@@ -12,14 +12,16 @@
  *   text now. The ref's own `basedOn` is the version mapped from.
  * - **Subject ids** (`subjectsOf`, every id an intent acts on except a `parent`): when a change
  *   that can change ids was made after the call's `basedOn` (`Kept.ids`), an id passes only when its
- *   declaration's `block.from` in the shown index maps exactly onto the fresh declaration's (the
- *   character there not deleted). An id the fresh index lacks passes to the edit API, which refuses
- *   it `unknown-target` as before; one the shown index lacks passes (it came from an outcome). A
- *   declaration only a macro makes, or one whose text gives several ids (`sharedWith`), fails it:
+ *   declaration's `block.from` in the shown index maps exactly onto the fresh declaration's, and,
+ *   when the character there was deleted (a declaration deleted or moved), it has the same name.
+ *   An id the fresh index lacks passes to the edit API, which refuses it `unknown-target` as
+ *   before; one the shown index lacks passes (it came from an outcome). A declaration only a
+ *   macro makes, or one whose text gives several ids (`sharedWith`), fails it:
  *   its block cannot tell the ids apart.
  * - **Positions** (`parent`, `index` of `addTask`, `moveTask`, `addResource`, `moveResource`): the
  *   parent passes the id check, and its children as the edit API counts them (resolved ids, the
- *   moved item left out) are the same in the shown and the fresh index, each passing the id check.
+ *   moved item left out) are the same in the shown and the fresh index, each passing the id check
+ *   or keeping the name the view showed (a reordered sibling's block cannot be followed).
  * - **The shown index** is one of the last `KEEP` published versions (`Kept`); a check that needs one no
  *   longer kept refuses, and so does a version whose changes the workspace no longer keeps
  *   (`changesSince` throws), or below 0 (`EMPTY_OUTLINE`).
@@ -134,9 +136,16 @@ export function rebaser(
 		// include visits gives several ids one block: the block cannot tell them apart.
 		if (now.expandedOnly || was.expandedOnly || now.sharedWith.length > 0) return false;
 		const b = was.decl.block;
-		const cs = changes(basedOn);
-		const at = cs ? (cs.get(b.file)?.mapPos(b.from, 1, MapMode.TrackAfter) ?? b.from) : null;
-		return b.file === now.decl.block.file && at === now.decl.block.from;
+		const all = changes(basedOn);
+		if (!all || b.file !== now.decl.block.file) return false;
+		const c = all.get(b.file);
+		// Where the start maps; when the text there was deleted (a task deleted or moved, another in
+		// its place), only a declaration with the name the view showed is taken for the same one.
+		const intact = !c || c.mapPos(b.from, 1, MapMode.TrackAfter) !== null;
+		return (
+			(c ? c.mapPos(b.from, 1) : b.from) === now.decl.block.from &&
+			(intact || was.name === now.name)
+		);
 	};
 	return {
 		snap,
@@ -168,10 +177,12 @@ export function rebaser(
 			if (!shown || (parent !== null && !same(kind, parent))) return false;
 			const was = kids(shown, kind, parent, moved);
 			// The same ids in the same order, each still the same declaration (siblings can swap
-			// declarations and keep their ids).
+			// declarations and keep their ids), or one with the name the view showed: a sibling moved
+			// within the parent has its text deleted and written again, which the block cannot follow.
+			const name = (i: SymbolIndex, id: string) => table(i, kind).get(id)?.name;
 			return (
 				was.join(' ') === kids(fresh, kind, parent, moved).join(' ') &&
-				was.every((id) => same(kind, id))
+				was.every((id) => same(kind, id) || name(shown, id) === name(fresh, id))
 			);
 		},
 	};

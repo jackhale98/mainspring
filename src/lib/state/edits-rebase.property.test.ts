@@ -17,9 +17,7 @@
 // (some of them the length of an item and its ", ", which moves an item onto the old range of
 // another).
 //
-// MARK (T27c): `it.fails` until T27b lands. The leave and id calls are refused as `unknown-target`
-// as soon as typing moved the text, so the liveness property fails today. When T27b is merged,
-// change `it.fails` to `it` in this file; the examples below stay (the rename shift, the id chain).
+// The examples below stay (the rename shift, the id chain).
 import fc from 'fast-check';
 import type { ChangeSet } from '@codemirror/state';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -142,7 +140,9 @@ const topMarkers = (text: string): string[] =>
 	[...text.matchAll(/^task \w+ "(T\d)"/gm)].map((m) => m[1] ?? '');
 const leaveRe = (k: number): RegExp =>
 	new RegExp(`annual "L${k}" \\d{4}-\\d\\d-\\d\\d - \\d{4}-\\d\\d-\\d\\d`);
-const blockRe = (t: number): RegExp => new RegExp(`task \\w+ "T${t}" \\{\\n  effort (\\S+)\\n\\}`);
+// Typed comment lines (`# c`) can land inside a block, before its effort or its brace.
+const blockRe = (t: number): RegExp =>
+	new RegExp(`task \\w+ "T${t}" \\{\\n(?:# c\\n)*  effort (\\S+)\\n(?:# c\\n)*\\}`);
 
 function leaveRange(text: string, k: number): SourceRange | null {
 	const m = leaveRe(k).exec(text);
@@ -400,12 +400,7 @@ const examples: Array<[Scenario]> = [
 ];
 
 describe('a call planned on an old index (ADR-0018)', () => {
-	// `it.fails` until T27b: see the header.
-	it.fails(
-		'refuses or resolves to the same logical target; resolves when nothing touched it',
-		async () => {
-			await fc.assert(prop(), { numRuns: RUNS, examples, ...SEED });
-		},
-		120_000,
-	);
+	it('refuses or resolves to the same logical target; resolves when nothing touched it', async () => {
+		await fc.assert(prop(), { numRuns: RUNS, examples, ...SEED });
+	}, 120_000);
 });

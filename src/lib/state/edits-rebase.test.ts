@@ -143,6 +143,22 @@ describe('subject ids', () => {
 		expect(w.base(v0).isSame('task', 'b')).toBe(false);
 	});
 
+	it('refuses a task deleted and another renamed into its place, passes one moves went past', () => {
+		const w = world(TASKS);
+		const v0 = w.version();
+		w.apply({ type: 'deleteTask', task: 'a' });
+		w.apply({ type: 'renameTask', task: 'b', name: 'B', id: 'a' });
+		expect(rebase(effort('a'), w.base(v0))).toBeNull();
+		// Its siblings moved past it (their text deleted and written again around it), then typing:
+		// its start still maps onto it.
+		const m = world(TASKS);
+		const v1 = m.version();
+		m.apply({ type: 'moveTask', task: 'g.x', parent: 'g', index: 2 });
+		m.apply({ type: 'moveTask', task: 'g.y', parent: 'g', index: 2 });
+		m.type(0, 0, '# note\n');
+		expect(rebase(effort('g.z'), m.base(v1))).toEqual(effort('g.z'));
+	});
+
 	it('refuses it when undo and redo make the chain too', () => {
 		const w = world(TASKS);
 		w.apply({ type: 'renameTask', task: 'a', name: 'C', id: 'c' });
