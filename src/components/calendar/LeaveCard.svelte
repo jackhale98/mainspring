@@ -16,7 +16,8 @@
 	applied edit, and while the owner says the index lags the text (`stale`, as when the text is
 	being typed), a change waits and goes out on the item as it then is. The time-out that ends the
 	wait after an applied edit whose fields did not change never ends it while `stale` (the index
-	of a busy browser can take longer than the time-out).
+	of a busy browser can take longer than the time-out). Remove is disabled while `busy` or `stale`,
+	so it cannot remove by an old range.
 -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
@@ -168,7 +169,10 @@
 			type="button"
 			class="remove"
 			aria-label={D.removeNamed(title)}
-			onclick={() => onremove(item)}
+			disabled={busy || stale}
+			onclick={() => {
+				if (!busy && !stale) onremove(item);
+			}}
 			data-testid="cal-leave-remove"
 		>
 			<Icon name="close" size={14} />{D.remove}

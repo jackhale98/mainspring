@@ -28,13 +28,16 @@ afterEach(() => {
 	document.body.innerHTML = '';
 });
 
-function open(oncommit: (i: PaintItem, f: LeaveFields) => Promise<CommitResult>) {
+function open(
+	oncommit: (i: PaintItem, f: LeaveFields) => Promise<CommitResult>,
+	onremove: (i: PaintItem) => void = () => {},
+) {
 	const props = $state({
 		item,
 		fields: BASE as LeaveFields | null,
 		types: TYPES,
 		oncommit,
-		onremove: () => {},
+		onremove,
 		stale: false,
 	});
 	mounted.push(mount(LeaveCard, { target: document.body, props }));
@@ -172,6 +175,22 @@ describe('LeaveCard', () => {
 			await tick();
 			expect(oncommit).toHaveBeenCalledTimes(1);
 			expect(oncommit.mock.calls[0]?.[1]).toEqual({ ...BASE, end: '2026-01-10' });
+		});
+
+		it('does not remove by an old range: Remove is disabled while the index lags', async () => {
+			const onremove = vi.fn();
+			const props = open(async () => ({ applied: true }), onremove);
+			props.stale = true;
+			await tick();
+			const remove = q<HTMLButtonElement>('[data-testid="cal-leave-remove"]');
+			expect(remove.disabled).toBe(true);
+			remove.click();
+			expect(onremove).not.toHaveBeenCalled();
+			props.stale = false;
+			await tick();
+			expect(remove.disabled).toBe(false);
+			remove.click();
+			expect(onremove).toHaveBeenCalledTimes(1);
 		});
 	});
 });
