@@ -15,7 +15,7 @@ import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { editorStrings } from '../../src/lib/strings';
 import { SUMMARIES } from '../../src/lib/tjp/syntax/summaries.generated';
-import { boxStable, engineIdle, panelSettled } from './lib/settle';
+import { boxStable, engineIdle, panelSettled, resultAfter, resultRevision } from './lib/settle';
 import {
 	MULTI_FILE_SAMPLE,
 	READY_TIMEOUT_MS,
@@ -98,7 +98,7 @@ test.describe('keyword docs without the docs asset', () => {
 			asked.push(route.request().url());
 			return route.abort();
 		});
-		await openApp(page);
+		await openApp(page, MULTI_FILE_SAMPLE, true);
 		expect(summary()).not.toBe('');
 
 		const shown = await showEffortDocs(page, hasTouch);
@@ -109,11 +109,13 @@ test.describe('keyword docs without the docs asset', () => {
 
 		// The editor still edits and the engine still schedules.
 		await cursorAtEndOf(page, effortLine(page));
+		const rev = await resultRevision(page);
 		await page.keyboard.press('Backspace');
 		await page.keyboard.press('Backspace');
 		await page.keyboard.insertText('3d');
 		await expect(page.locator('.cm-activeLine')).toHaveText(/^\s*effort 3d$/);
 		await settled(page);
+		await resultAfter(page, rev, READY_TIMEOUT_MS);
 		await expect(strip(page)).toContainText('No problems');
 		await expect(strip(page)).toContainText('Scheduled');
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready');

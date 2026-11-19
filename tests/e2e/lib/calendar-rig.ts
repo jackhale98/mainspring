@@ -10,7 +10,7 @@
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './gantt-rig';
 import { modKey } from './keys';
-import { boxStable, frames } from './settle';
+import { boxStable, frames, resultAfter, resultRevision } from './settle';
 
 type Win = { __mainspringEdits: { text(path?: string): string | null } };
 
@@ -240,7 +240,10 @@ export async function appendText(
 	await editor.click();
 	const mod = await modKey(page);
 	await page.keyboard.press(replace ? `${mod}+A` : `${mod}+End`);
+	const rev = await resultRevision(page);
 	await page.keyboard.insertText(snippet);
+	// "Scheduled" still shows the plan before the edit until its run starts.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await caughtUp(page);
 	if (phone) {
 		await page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' }).tap();

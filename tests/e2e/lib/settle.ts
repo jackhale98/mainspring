@@ -123,12 +123,41 @@ export async function panelSettled(panel: Locator, n = 3): Promise<void> {
 	await animationsDone(page, 0);
 }
 
-/** The engine is ready and the plan shows as scheduled: nothing is being computed. */
+/**
+ * The engine is ready and the plan shows as scheduled. Right after an edit this may still be the
+ * result BEFORE it: wait for `resultAfter` first when the edit's result is read.
+ */
 export async function engineIdle(page: Page, timeout = 120_000): Promise<void> {
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', { timeout });
 	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 		timeout,
 	});
+}
+
+/**
+ * The revision of the newest good schedule result (the `edits` hook, so the page needs
+ * `hooks=edits`; 0 without it). Read it BEFORE an edit and pass it to `resultAfter`.
+ */
+export const resultRevision = (page: Page): Promise<number> =>
+	page.evaluate(
+		() =>
+			(
+				window as unknown as { __mainspringEdits?: { revision(): number | null } }
+			).__mainspringEdits?.revision() ?? 0,
+	);
+
+/**
+ * The result of an edit is in: a good schedule newer than `rev`, the revision read before the edit.
+ * "Scheduled" and "Engine: Ready" are not that: they still show the result BEFORE the edit until its
+ * run starts (the debounce of typing, or the defer and paint of a dispatched edit), so a read of
+ * the schedule, the heatmap, the findings or the cells after them may be of the old result. Use this
+ * before reading anything the schedule derives. Its limit: only a good result counts, so an edit
+ * that leaves the plan unschedulable never satisfies it (wait for the strip's own error then).
+ */
+export async function resultAfter(page: Page, rev: number, timeout = 120_000): Promise<void> {
+	await expect
+		.poll(() => resultRevision(page), { timeout, message: `a schedule result newer than ${rev}` })
+		.toBeGreaterThan(rev);
 }
 
 /**

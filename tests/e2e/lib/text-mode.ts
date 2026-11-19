@@ -11,8 +11,13 @@ export const READY_TIMEOUT_MS = 120_000;
 /** Plan 18: three files, an include from a subfolder, a macro and a supplement. */
 export const MULTI_FILE_SAMPLE = 'syn-18-structure-include-macro';
 
-export async function openApp(page: Page, sample = MULTI_FILE_SAMPLE): Promise<void> {
-	await page.goto(`/app?sample=${sample}&mode=text`);
+/** `hooks` installs the `edits` hook, for `resultRevision` and `resultAfter` (lib/settle.ts). */
+export async function openApp(
+	page: Page,
+	sample = MULTI_FILE_SAMPLE,
+	hooks = false,
+): Promise<void> {
+	await page.goto(`/app?sample=${sample}&mode=text${hooks ? '&hooks=edits' : ''}`);
 	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 		timeout: READY_TIMEOUT_MS,
 	});

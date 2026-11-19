@@ -16,7 +16,7 @@ import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
 import { openHealth } from './lib/health-rig';
-import { panelSettled } from './lib/settle';
+import { panelSettled, resultAfter, resultRevision } from './lib/settle';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
 test.use({ actionTimeout: 20_000 });
@@ -36,6 +36,7 @@ async function setPlan(page: Page, info: TestInfo, source: string): Promise<void
 	else await page.getByRole('button', { name: 'Text', exact: true }).click();
 	const editor = page.getByRole('textbox', { name: /^Editor for / });
 	await editor.click();
+	const rev = await resultRevision(page);
 	await page.keyboard.press(`${await modKey(page)}+A`);
 	await page.keyboard.insertText(source);
 	await expect
@@ -47,6 +48,8 @@ async function setPlan(page: Page, info: TestInfo, source: string): Promise<void
 			),
 		)
 		.toBe(source);
+	// "Scheduled" still shows the plan before this one until its run starts.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 		timeout: READY_TIMEOUT_MS,
 	});

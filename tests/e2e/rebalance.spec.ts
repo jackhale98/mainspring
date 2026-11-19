@@ -18,7 +18,7 @@ import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
 import { dragCell, openCell, taskIn } from './lib/rebalance-rig';
 import { redo } from './lib/calendar-rig';
-import { quietAfter } from './lib/settle';
+import { quietAfter, resultAfter, resultRevision } from './lib/settle';
 import { pointOf, text } from './lib/workload-heat';
 import { mirrorCells, openHeatmap, oracle, resultOf } from './lib/workload-rig';
 
@@ -49,15 +49,6 @@ async function becomes(page: Page, expected: string): Promise<void> {
 		)
 		.toBe(expected);
 }
-
-/** The newest good result's revision (the `edits` hook). */
-const revisionOf = (page: Page): Promise<number> =>
-	page.evaluate(
-		() =>
-			(
-				window as unknown as { __mainspringEdits: { revision(): number | null } }
-			).__mainspringEdits.revision() ?? 0,
-	);
 
 /** The oracle's booked minutes of a person in a column, from the live result. */
 async function bookedOf(page: Page, person: string, col: number): Promise<number> {
@@ -90,11 +81,16 @@ async function undoRedo(
 	after: string,
 	cells: ReadonlyArray<readonly [string, number]>,
 ): Promise<void> {
+	// Each step is compared with the result of its own text, not with the one before it.
+	const afterEdit = await resultRevision(page);
 	await page.getByRole('button', { name: 'Undo' }).first().click();
 	await expect.poll(() => text(page)).toBe(before);
+	await resultAfter(page, afterEdit, READY_TIMEOUT_MS);
 	await matchesEngine(page, cells);
+	const afterUndo = await resultRevision(page);
 	await redo(page);
 	await expect.poll(() => text(page)).toBe(after);
+	await resultAfter(page, afterUndo, READY_TIMEOUT_MS);
 	await matchesEngine(page, cells);
 }
 
@@ -107,6 +103,7 @@ test('W1 from the details: Move to person… is one exact patch; Undo, Redo, and
 }, info) => {
 	await open(page, info);
 	const before = await text(page);
+	const rev = await resultRevision(page);
 	const was = await bookedOf(page, 'ana', 0);
 	expect(was).toBeGreaterThan(0);
 	const details = await openCell(page, info, 'ana', 0);
@@ -116,6 +113,8 @@ test('W1 from the details: Move to person… is one exact patch; Undo, Redo, and
 	// Interviews is `allocate ana`, written once: the one id token changes, nothing else.
 	const after = swap(before, INTERVIEWS, INTERVIEWS.replace('allocate ana', 'allocate ben'));
 	await becomes(page, after);
+	// The status still shows the result before the edit: the heatmap is compared with its own.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await matchesEngine(page, [
 		['ana', 0],
 		['ben', 0],
@@ -136,6 +135,7 @@ test('W1 by the keys: Alt+Down twice and Enter is one cumulative edit, one undo 
 	test.skip(isTouch(info), 'the keys of a keyboard');
 	await open(page, info);
 	const before = await text(page);
+	const rev = await resultRevision(page);
 	const details = await openCell(page, info, 'ana', 0);
 	const task = taskIn(details, 'discover.interviews');
 	await task.focus();
@@ -145,6 +145,8 @@ test('W1 by the keys: Alt+Down twice and Enter is one cumulative edit, one undo 
 	await page.keyboard.press('Enter');
 	const after = swap(before, INTERVIEWS, INTERVIEWS.replace('allocate ana', 'allocate cy'));
 	await becomes(page, after);
+	// The status still shows the result before the edit: the heatmap is compared with its own.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await matchesEngine(page, [
 		['ana', 0],
 		['cy', 0],
@@ -160,11 +162,14 @@ test('W2 from the details: Move to week… asks the preference once, then writes
 }, info) => {
 	await open(page, info);
 	const before = await text(page);
+	const rev = await resultRevision(page);
 	const details = await openCell(page, info, 'dee', 0);
 	await taskIn(details, 'discover.survey').getByRole('combobox').nth(1).selectOption('2');
 	// Monday 2 March to Monday 16 March: ten working days later, written as `start` above the effort.
 	const after = swap(before, SURVEY, 'task survey "Survey" {\n    start 2026-03-16\n    effort 4d');
 	await becomes(page, after);
+	// The status still shows the result before the edit: the heatmap is compared with its own.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	// Answered once: the question is gone.
 	await expect(page.getByTestId('move-question')).toBeHidden();
 	await matchesEngine(page, [
@@ -185,6 +190,7 @@ test('W2 by the keys: Alt+Right twice and Enter is one edit, one undo step', asy
 	test.skip(isTouch(info), 'the keys of a keyboard');
 	await open(page, info);
 	const before = await text(page);
+	const rev = await resultRevision(page);
 	const details = await openCell(page, info, 'dee', 0);
 	const task = taskIn(details, 'discover.survey');
 	await task.focus();
@@ -193,6 +199,8 @@ test('W2 by the keys: Alt+Right twice and Enter is one edit, one undo step', asy
 	await page.keyboard.press('Enter');
 	const after = swap(before, SURVEY, 'task survey "Survey" {\n    start 2026-03-16\n    effort 4d');
 	await becomes(page, after);
+	// The status still shows the result before the edit: the heatmap is compared with its own.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await matchesEngine(page, [
 		['dee', 0],
 		['dee', 2],
@@ -208,6 +216,7 @@ test('W1 by a drag: a cell with two tasks asks "Move which task?", the choice is
 }, info) => {
 	await open(page, info);
 	const before = await text(page);
+	const rev = await resultRevision(page);
 	// Ana's second week has Findings and Interviews, both movable: the drop asks which.
 	await dragCell(page, info, { person: 'ana', col: 1 }, (a, _w, h) => ({ x: a.x, y: a.y + h }));
 	const which = page.getByTestId('which-task');
@@ -221,6 +230,8 @@ test('W1 by a drag: a cell with two tasks asks "Move which task?", the choice is
 	await which.locator('button[data-task="discover.findings"]').click();
 	const after = swap(before, FINDINGS, 'allocate ben, dee');
 	await becomes(page, after);
+	// The status still shows the result before the edit: the heatmap is compared with its own.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await matchesEngine(page, [
 		['ana', 1],
 		['ben', 1],
@@ -236,9 +247,12 @@ test('W2 by a drag: along the row two weeks is the same patch as the menu', asyn
 }, info) => {
 	await open(page, info);
 	const before = await text(page);
+	const rev = await resultRevision(page);
 	await dragCell(page, info, { person: 'dee', col: 0 }, (a, w) => ({ x: a.x + 2 * w, y: a.y }));
 	const after = swap(before, SURVEY, 'task survey "Survey" {\n    start 2026-03-16\n    effort 4d');
 	await becomes(page, after);
+	// The status still shows the result before the edit: the heatmap is compared with its own.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await matchesEngine(page, [
 		['dee', 0],
 		['dee', 2],
@@ -278,7 +292,7 @@ test('refusals: a task booked through a group, and a drop on a group row', async
 	await page.getByRole('button', { name: 'Close' }).first().click();
 	// A drop on the Team row goes through the same planner as any drop: the standard refusal toast
 	// says work moves to a person, and the drop changes nothing and starts no edit.
-	const rev = await revisionOf(page);
+	const rev = await resultRevision(page);
 	await dragCell(page, info, { person: 'ana', col: 0 }, (a, _w, h) => ({ x: a.x, y: a.y - h }), {
 		person: 'team',
 		col: 0,
@@ -286,7 +300,7 @@ test('refusals: a task booked through a group, and a drop on a group row', async
 	await refused(page, 'Work moves to a person, not to a group.', before);
 	await quietAfter(page);
 	expect(await text(page)).toBe(before);
-	expect(await revisionOf(page)).toBe(rev);
+	expect(await resultRevision(page)).toBe(rev);
 });
 
 test('refusal: an allocation with alternatives cannot be edited here, and says so', async ({
@@ -306,13 +320,13 @@ test('refusal: an allocation with alternatives cannot be edited here, and says s
 	else await page.getByRole('button', { name: 'Text', exact: true }).click();
 	const editor = page.getByRole('textbox', { name: /^Editor for / });
 	await editor.click();
-	const rev = await revisionOf(page);
+	const rev = await resultRevision(page);
 	await page.keyboard.press(`${await modKey(page)}+A`);
 	await page.keyboard.insertText(edited);
 	await expect.poll(async () => (await text(page)).split('\n--\n')[0]).toBe(edited);
 	// "Scheduled" still shows the result before the edit until its schedule starts: wait for the
 	// result of the edited text itself.
-	await expect.poll(() => revisionOf(page), { timeout: READY_TIMEOUT_MS }).toBeGreaterThan(rev);
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
 	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 		timeout: READY_TIMEOUT_MS,
 	});

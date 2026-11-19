@@ -8,7 +8,7 @@
 // Every assertion on the plan is on its text, which only the picker's own edits may change.
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig } from './lib/gantt-rig';
-import { boxStable, ganttSettled, quietAfter } from './lib/settle';
+import { boxStable, ganttSettled, quietAfter, resultAfter, resultRevision } from './lib/settle';
 
 const CONTAINER_MESSAGE =
 	'People are booked on subtasks. Drop them on a subtask, or assign them in the text.';
@@ -480,7 +480,9 @@ test.describe('the people picker', () => {
 			await page.keyboard.press('ControlOrMeta+a');
 			await page.keyboard.insertText(text);
 		};
+		const rev = await resultRevision(page);
 		await edit(PLAN('resource r2 "R Two"\n'));
+		await resultAfter(page, rev, READY_TIMEOUT_MS);
 		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
 			timeout: READY_TIMEOUT_MS,
 		});
