@@ -475,3 +475,72 @@ desktop.
    `select-arrows.spec.ts` passes on all three and the global select rule is gone.
 4. CI meets the time target: not yet.
 5. The status line is at the top of this file: done (this file).
+
+## T21: end-to-end specs, the gate spec and pictures (2026-11-19)
+
+Inventory of phase-3.md 13.2 against the specs (13.2 names `authoring`, `rebalance`, `health` and
+`a11y` files that were never written under those names; the behaviours were covered under others).
+"Added" is what T21 wrote.
+
+| 13.2 bullet and behaviour | Covered by | State |
+| --- | --- | --- |
+| authoring: + on an empty new plan; + after selected; Add subtask; name focused | `gantt-add-task.spec.ts` (Add task (+), on the Plan tab), `new-plan.spec.ts` (empty plan) | covered |
+| authoring: undo of each | `gantt-add-task.spec.ts` (name and add are two undo steps; Undo on each path) | covered |
+| authoring: redo of each | `authoring.spec.ts` (three tests: Undo bytes, Redo same text) | added |
+| authoring: New plan form; switching away from an edited plan asks | `new-plan.spec.ts` | covered |
+| authoring: New plan by keyboard; axe of the sheet and empty state; 44 px | `authoring.spec.ts` | added |
+| authoring: empty states on each layout | `new-plan.spec.ts` (desktop Split and Visual, phone Plan tab); tablet width in `authoring.spec.ts` | tablet added |
+| authoring: axe of the details with the name focused and of the + menu | `authoring.spec.ts` has the place for them | BLOCKED by app bug 1 below |
+| rebalance W1/W2 from a lane bar, refusal `inherited`, text-only | `lanes.spec.ts` (exact patch, Undo bytes, Redo, lanes follow the engine) | covered |
+| rebalance W1/W2 from a heatmap cell | `workload-edits.spec.ts` was loose (any of applied/refused, no exact text, no Redo, no engine check, chooser optional) | PARTIAL, now `rebalance.spec.ts`: details menus, keys (cumulative, one undo step), drags with mouse and finger, exact text, Undo, Redo, mirror cell equals the oracle after each |
+| rebalance: "Move which task?" chooser | `rebalance.spec.ts` (two options asserted, choice is one patch) | added |
+| rebalance refusals `via-group`, `unsupported-form` (alternatives) | `rebalance.spec.ts` (alternatives written in Text first) | added |
+| rebalance refusal `not-a-person` | unit only; the details menu lists people only and a drop on a group row is refused by the ghost, with no toast (observation 2) | `rebalance.spec.ts` asserts the drop changes nothing |
+| calendar W3 to W5, global and per person, merge, erase, split, type change, text-only leave | `calendar.spec.ts` (Undo bytes, Redo), `calendar-sheet.spec.ts`, `calendar-narrow.spec.ts` | covered |
+| resources W6 to W8, working-hours editor, project sheet | `resources.spec.ts` (`undoRedo` on each step), `stale-index.spec.ts` | covered |
+| health: each fix button, patch, undoable | `health-fixes.spec.ts` (H1, H3, H5 x2, H8; Undo bytes) | covered |
+| health: Why here? causes, badge count, phone status path | `why-here.spec.ts`, `health.spec.ts` | covered |
+| health: H1 and H7 pass/fail pairs in the app match the unit results (16.2) | none | added: `health-fixtures.spec.ts` |
+| workload-gate (16.1) | `workload-gate.spec.ts` existed; parity with the golden was left to the golden job | PARTIAL, now compares the live result with `engine/golden/expected/fedora-res.json` too, writes `test-results/workload-gate.json` |
+| gantt-filter: person, flag, both, nothing, cleared state | `gantt-filter.spec.ts` | covered |
+| a11y: axe in every new state, both schemes | workload-edits, lanes, calendar, resources, health, why-here, gantt-filter, people-shell, authoring | covered except the blocked states |
+| a11y: 44 px probes | the same specs, on a finger | covered |
+| a11y: reduced motion | Gantt and sheets only | PARTIAL, now `phase3-a11y.spec.ts` (heatmap, details, lanes, calendar, team) |
+| a11y: keyboard walkthrough W1 to W12 | W1/W2 `rebalance` and `lanes`; W3/W4 `calendar`; W5 `calendar`; W6/W7/W8 `resources`; W9 `gantt-add-task`; W11 `authoring`; W12 `workload`, `calendar`, `lanes` | W10 (a fix by Enter) was MISSING, added to `phase3-a11y.spec.ts` (desktop only) |
+| screenshots | see the matrix below | desktop and phone covered; tablet missing, added |
+
+Screenshots. There is no tablet project in `playwright.config.ts` (desktop, pixel-7, iphone-14). The
+existing tablet pictures use the desktop project at 820 x 1180, so T21 does the same
+(`phase3-screenshots.spec.ts`, `SCREENSHOTS=1`, files `t21-*`). Before T21, light and dark at desktop
+and phone existed for every view and state except: tablet (only the Gantt switcher, Add task split
+and the Health sheet in light); phone dark for `t13-people-tab-calendar`, the Health finding shots and
+`t25-app-health-pill`, `t25-app-heat-move-pills`; phone for `t16-paint-drag`, `t16-type-picker`,
+`t17-drag-row`, `t14-over/percent/thresholds`, `t19-empty/flag/panel-*`; heatmap rebalance states.
+T21 added 40 pictures: tablet 820 (heatmap, heatmap details, Resources view, person details,
+calendar, day details, Health sheet, Gantt filter, New plan sheet, empty state, No people; light and
+dark) and the heatmap rebalance question, result and refusal on desktop, Pixel 7 and iPhone 14 (light
+and dark). The phone gaps listed above remain and are not added: those states are desktop-only
+controls or one-shot light shots already.
+
+Gate spec result (`workload-gate.spec.ts`, all three projects): 28 rows x 88 weeks = 2464 cells
+compared with the oracle, 0 differences; the live result equals the golden with one field set aside,
+`/project/now`: the app schedules as of the wall clock, which the worker reads and a page cannot pin,
+and the golden was recorded as of 2013-09-02. Nothing else differs. Worker memory of the result is
+recorded (112.9 MB); worker heap growth over the spec is not measured (one result only). The spec text
+says the Fedora view shows "No people in this plan yet"; the view's title is "No people yet" and the
+test checks that.
+
+App bugs and observations (no app code changed):
+1. `HealthButton` at count 0 shows "0" with the name "Plan health: no problems": axe reports
+   `label-content-name-mismatch` (WCAG 2.5.3) on `.health-button`. Reproduction: open `?sample=poc-sample`,
+   New plan, Create, press Add task, then run axe on the page. Blocks the axe scans of the details with
+   the name focused and of the + menu in `authoring.spec.ts`.
+2. A drop of a heatmap cell on a group row does nothing and says nothing after the drop (the ghost
+   label says "Drop on a person, not a group" during the drag). 7.1 lists `not-a-person` as a W1
+   refusal; the planner has it, no UI path reaches it.
+
+Runs: desktop, pixel-7 and iphone-14 (`--repeat-each=2` on iPhone) for `authoring`, `rebalance`,
+`health-fixtures`, `phase3-a11y`, `workload-gate`: all pass (the tablet test and keyboard tests skip on
+phones). `tsc`, prettier, `vitest run tests/ci`, `webkit-skips`, `fixed-waits` (32 in 15 files,
+unchanged) and `shard-plan check` pass. New spec files have no entry in `durations.json`: the
+estimate stands.

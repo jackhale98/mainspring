@@ -10,16 +10,30 @@
 // The rows are checked against the oracle's, not the view's own: the set of rows the view shows
 // equals the set of resources of the result (every person and every group, with the groups
 // expanded, the ones with no bookings included), so a person the view drops cannot pass.
-// "The live result equals the committed golden" (16.1 step 3's parity) is the golden parity job's
-// (`npm run test:golden`, which runs the fedora-res golden through the browser engine); this spec
-// takes the live result as the engine's data and does not compare it with the golden file again.
+// "The live result equals the committed golden" (16.1's parity) is checked here too: the live
+// result the page holds (revision and timings aside, as the golden parity job leaves them, and the
+// wall clock `project.now`, see below) is
+// compared with engine/golden/expected/fedora-res.json by the job's own comparison, so the cells
+// are compared against an engine result that is the committed one. The counts go to
+// test-results/workload-gate.json (phase-3.md 17), one entry per project.
 // The plan upstream-fedora-20 itself declares no resources: the view says so (zero cells, zero
 // differences, which is stated, not counted as evidence).
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { compareWithGolden, type GoldenLike } from '../golden/compare';
+import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { openHeatmap, oracle, resultOf, shape, walkGrid } from './lib/workload-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 3);
+
+const OUT = path.join(REPO, 'test-results', 'workload-gate.json');
+function record(key: string, value: unknown): void {
+	fs.mkdirSync(path.dirname(OUT), { recursive: true });
+	const old = fs.existsSync(OUT) ? (JSON.parse(fs.readFileSync(OUT, 'utf8')) as object) : {};
+	fs.writeFileSync(OUT, JSON.stringify({ ...old, [key]: value }, null, 2));
+}
 
 test('fedora-res: every person and week cell equals the hours of the result bookings', async ({
 	page,
@@ -31,6 +45,24 @@ test('fedora-res: every person and week cell equals the hours of the result book
 	if (!result) throw new Error('no result');
 	const o = oracle(result);
 	expect(s?.cols).toBe(o.weeks);
+
+	// Parity: the live result is the committed golden's (the zero-difference criterion is then about
+	// the engine's recorded data, not about whatever the page happens to hold).
+	const golden = JSON.parse(
+		fs.readFileSync(path.join(REPO, 'engine', 'golden', 'expected', 'fedora-res.json'), 'utf8'),
+	) as GoldenLike;
+	// One input differs by design: the app schedules as of the wall clock (`project.now`, which the
+	// worker reads and a page cannot pin), the golden as of 2013-09-02 12:00 UTC. It is the clock, not
+	// an engine result, and nothing else in the result depends on it for this plan; it is set to the
+	// golden's before the comparison, and any other difference fails.
+	const liveNow = result.project?.now;
+	const parity = compareWithGolden(
+		golden,
+		result.project
+			? { ...result, project: { ...result.project, now: golden.result.project?.now ?? '' } }
+			: result,
+	);
+	expect(parity.diffs, 'the live result differs from the committed golden').toEqual([]);
 
 	// Every resource of the result is a row, and nothing else is.
 	expect(new Set(s?.rows)).toEqual(new Set(result.resources.map((r) => r.id)));
@@ -58,6 +90,18 @@ test('fedora-res: every person and week cell equals the hours of the result book
 	console.log(
 		`workload gate (${info.project.name}): ${people} rows x ${o.weeks} weeks = ${people * o.weeks} cells compared, ${differences} differences`,
 	);
+	record(info.project.name, {
+		plan: 'fedora-res',
+		zoom: 'week',
+		rows: people,
+		weeks: o.weeks,
+		cellsCompared: people * o.weeks,
+		differences,
+		goldenParityDiffs: parity.diffs.length,
+		goldenParityIgnored: ['/project/now'],
+		liveNow,
+		workerMemoryBytes: result.timings?.memoryBytes ?? null,
+	});
 	expect(wrong).toEqual([]);
 	expect(differences).toBe(0);
 	expect(people).toBeGreaterThan(20);
