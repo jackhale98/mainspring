@@ -8,6 +8,9 @@ on:
     paths-ignore: ['**/*.md']
   pull_request:
     paths-ignore: ['**/*.md']
+  # A manual start on a branch, for ADR-0016's "five reruns of the merge tier on one commit" (user,
+  # 2026-11-19). It runs the same jobs as a push to that branch.
+  workflow_dispatch:
 
 # A new push cancels the run in progress on a branch, never on main (ADR-0016 section 5). Batch
 # pushes, and do not push within about 5 minutes of a run finishing.

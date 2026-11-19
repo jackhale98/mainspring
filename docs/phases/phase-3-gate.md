@@ -544,3 +544,11 @@ Runs: desktop, pixel-7 and iphone-14 (`--repeat-each=2` on iPhone) for `authorin
 phones). `tsc`, prettier, `vitest run tests/ci`, `webkit-skips`, `fixed-waits` (32 in 15 files,
 unchanged) and `shard-plan check` pass. New spec files have no entry in `durations.json`: the
 estimate stands.
+
+**Decisions (user, 2026-11-19).** "Tablet" in 13.2's screenshot rule is the desktop project at
+820 x 1180; no tablet project is added. The gate spec's comparison with the committed golden sets
+only `/project/now` aside (the app schedules as of the wall clock). The Health button's zero name is
+fixed (`Plan health: 0 problems`, WCAG 2.5.3), so the authoring axe test scans the details with the
+name focused and the + menu too. A drop on a group row in the heatmap is being given the planner's
+`not-a-person` refusal toast. The five merge-tier reruns of done-when item 1 use the new manual
+start of `ci.yml` (`workflow_dispatch`).
