@@ -61,10 +61,13 @@ const row = (page: Page, name: string) =>
  * on the first tap and opens the sheet on a tap on the selected row (a second one here).
  */
 async function select(page: Page, info: { project: { name: string } }, name: string) {
-	await row(page, name).click();
+	// On the name: the middle of a row can fall on its drag grip (at 1440 wide it does), which does
+	// not select.
+	const label = row(page, name).locator('[data-col="name"] .label');
+	await label.click();
 	if (phone(info) && (await details(page, info).count()) === 0) {
 		await expect(row(page, name)).toHaveAttribute('aria-selected', 'true');
-		await row(page, name).click();
+		await label.click();
 	}
 	const panel = details(page, info);
 	await expect(panel.getByLabel('Name', { exact: true })).toHaveValue(name);

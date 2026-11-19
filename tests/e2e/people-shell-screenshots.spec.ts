@@ -69,7 +69,8 @@ test.describe('people shell screenshots', () => {
 		await open(page);
 		await shoot(page, device, 'view-switcher-gantt');
 		await chooseView(page, 'Workload');
-		await expect(page.getByTestId('resource-table').first()).toBeVisible({
+		// The Workload view is the heatmap (T14); the resource table belongs to Resources.
+		await expect(page.getByTestId('workload')).toBeVisible({
 			timeout: READY_TIMEOUT_MS,
 		});
 		await shoot(page, device, 'view-switcher-workload');
@@ -85,7 +86,8 @@ test.describe('people shell screenshots', () => {
 		await open(page);
 		await light(page, 't13-view-switcher-gantt-1500-light.png');
 		await chooseView(page, 'Workload');
-		await expect(page.getByTestId('resource-table').first()).toBeVisible({
+		// The Workload view is the heatmap (T14); the resource table belongs to Resources.
+		await expect(page.getByTestId('workload')).toBeVisible({
 			timeout: READY_TIMEOUT_MS,
 		});
 		await light(page, 't13-view-switcher-workload-1500-light.png');

@@ -42,6 +42,13 @@ const RUNS = 3;
 /** The 18.7 pass definition: this share of frames on time, and none over MAX_FRAME_MS. */
 const PASS_ON_TIME_PCT = 95;
 const TASK = 'p0.p0k0.t1';
+/**
+ * How far the second, short drag pulls the size handle back (5). Three working days at week zoom is
+ * 48 px, and a drag that short only sometimes ends on another working day than it began on, so the
+ * drop sometimes makes no edit and no result arrives (on desktop and phone alike, and before the
+ * T27 work too). 120 px (about seven days) made an edit every time it was tried.
+ */
+const DROP_PX = 120;
 
 type Win = { __drop?: { at: number; paint: number; resched: number } };
 
@@ -520,7 +527,7 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 			let times = { dropToPaintMs: 0, dropToRescheduleMs: 0 };
 			try {
 				const m = await scrolled(page, 'scroll with a result', { x: 0, y: -4000 }, async () => {
-					times = await pacedDrag(rig, handle2, 300, -48, async () => {
+					times = await pacedDrag(rig, handle2, 300, -DROP_PX, async () => {
 						await gesture(cdp, picked.source, at, 0, -4000, 3000);
 					});
 				});
