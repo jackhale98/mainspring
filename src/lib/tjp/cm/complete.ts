@@ -31,7 +31,7 @@ import { keywordDoc, type KeywordDocsSource, type KeywordDocView } from '../synt
 import { keywordsInContext, type KeywordEntry } from '../syntax/keywords';
 import { enclosingStatement, statementHead } from '../tree';
 import { contextAt, inOpaqueToken, leafAt, treeAt } from './context';
-import { docsWithin, hasEngineDocs } from './docs-wait';
+import { docsWithin, waitsForDocs } from './docs-wait';
 import { tjpEnv } from './env';
 import { lastCodeBefore } from './indent';
 
@@ -61,8 +61,9 @@ export function keywordInfoNode(view: KeywordDocView | null, doc: Document): Nod
 }
 
 /**
- * A keyword option. Its info is the full doc once the engine's docs are in; before that it is a
- * function that waits for them at most `DOCS_WAIT_MS` (docs-wait.ts, ADR-0017) and then gives the
+ * A keyword option. Its info is the full doc once the engine's docs are in (the summary while the
+ * loader rests after a failure, so CodeMirror links it with `aria-describedby`); before that it is
+ * a function that waits for them at most `DOCS_WAIT_MS` (docs-wait.ts, ADR-0017) and then gives the
  * full doc, or the summary with the loading note (`keywordInfoNode`).
  */
 function keywordOption(
@@ -73,7 +74,7 @@ function keywordOption(
 ): Completion {
 	const base: Completion = { label: e.name, type: 'keyword', detail: e.syntax };
 	const full = keywordDoc(src, e.keyword);
-	if (!full || hasEngineDocs(src)) return { ...base, ...infoOf(full?.doc ?? full?.summary) };
+	if (!full || !waitsForDocs(src)) return { ...base, ...infoOf(full?.doc ?? full?.summary) };
 	return {
 		...base,
 		info: () =>

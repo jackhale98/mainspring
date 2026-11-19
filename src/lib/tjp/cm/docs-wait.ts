@@ -9,18 +9,25 @@
  * - past the bound the committed table's syntax line and summary show, with the loading note
  *   while the load is still running (`KeywordDocView.loading`);
  * - when the docs are unavailable (offline before the first fetch, an old manifest, a failed
- *   check) the load settles as failed, the summary shows with no note, and the next hover starts a
- *   new load (the loader retries after a failure).
+ *   check, a stalled fetch) the load settles as failed, the summary shows with no note, and a
+ *   hover after the loader's cooldown starts a new load.
  *
- * Once the docs have loaded nothing waits: the source is read as it is.
+ * Once the docs have loaded nothing waits: the source is read as it is. Nor does anything wait
+ * while the loader rests after a failed load (`KeywordDocsSource.coolingDown`, a few seconds,
+ * engine/docs-asset.ts): a look then shows the summary at once and starts no load.
  */
 import type { KeywordDocsSource } from '../syntax/docs';
 
 /** How long a hover, a completion info or the docs command waits for the engine's docs. */
 export const DOCS_WAIT_MS = 300;
 
-/** Whether the engine's docs are in, so there is nothing to wait for. */
-export const hasEngineDocs = (src: KeywordDocsSource): boolean => src.engine !== null;
+/**
+ * Whether a look should start or join a load of the engine's docs and wait for it: not once they
+ * are in, and not while the loader rests after a failed load (`coolingDown`), when it would give
+ * null at once anyway.
+ */
+export const waitsForDocs = (src: KeywordDocsSource): boolean =>
+	src.engine === null && src.coolingDown !== true;
 
 /**
  * The docs source once the engine's docs have loaded or failed, or once `bound` ms have passed,
@@ -32,7 +39,7 @@ export function docsWithin(
 	bound: number = DOCS_WAIT_MS,
 ): Promise<KeywordDocsSource> {
 	const now = docs();
-	if (hasEngineDocs(now)) return Promise.resolve(now);
+	if (!waitsForDocs(now)) return Promise.resolve(now);
 	return new Promise((resolve) => {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const done = (): void => {

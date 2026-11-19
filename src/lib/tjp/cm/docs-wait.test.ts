@@ -19,6 +19,14 @@ describe('docsWithin', () => {
 		expect(load).not.toHaveBeenCalled();
 	});
 
+	it('neither waits nor loads while the loader rests after a failure', async () => {
+		const resting: KeywordDocsSource = { ...TABLE_ONLY, coolingDown: true };
+		const load = vi.fn(() => Promise.resolve());
+		expect(await docsWithin(() => resting, load)).toBe(resting);
+		expect(load).not.toHaveBeenCalled();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
 	it('waits for a load that ends within the bound', async () => {
 		const fake = slowDocs(120);
 		const got = docsWithin(fake.docs, fake.loadDocs);
@@ -33,7 +41,7 @@ describe('docsWithin', () => {
 		await vi.advanceTimersByTimeAsync(DOCS_WAIT_MS - 1);
 		expect(done).toBeNull();
 		await vi.advanceTimersByTimeAsync(1);
-		expect(done).toEqual({ ...TABLE_ONLY, loading: true });
+		expect(done).toEqual({ ...TABLE_ONLY, loading: true, coolingDown: false });
 		expect(vi.getTimerCount()).toBe(1); // only the load's own timer is left
 	});
 

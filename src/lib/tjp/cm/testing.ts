@@ -30,14 +30,18 @@ export function engineDocs(tjVersion = '3.8.4'): SyntaxDocs {
 }
 
 /**
- * A stand-in for the engine's docs loader (engine/docs-asset.ts, ADR-0017), as the editor env sees
- * it: `docs` and `loadDocs`. A load runs for `ms` (by `setTimeout`, so fake timers drive it) and ends
- * with the docs or as unavailable; one load at a time, and a load after a failure starts again.
+ * A stand-in for the engine's docs loader (engine/docs-asset.ts, ADR-0017), as the editor env
+ * sees it: `docs` and `loadDocs`. A load runs for `ms` (by `setTimeout`, so fake timers drive it)
+ * and ends with the docs or as unavailable; one load at a time. After a failure the loader rests
+ * for `coolMs` (`coolingDown`, by `Date.now()`, which fake timers move too): a load then starts
+ * nothing.
  */
-export function slowDocs(ms: number, outcome: 'loaded' | 'unavailable' = 'loaded') {
+export function slowDocs(ms: number, outcome: 'loaded' | 'unavailable' = 'loaded', coolMs = 0) {
 	let status: 'idle' | 'loading' | 'loaded' | 'unavailable' = 'idle';
+	let retryAt = 0;
 	let running: Promise<void> | null = null;
 	const engine = engineDocs();
+	const cooling = (): boolean => status === 'unavailable' && Date.now() < retryAt;
 	const fake = {
 		/** How many loads have started. */
 		loads: 0,
@@ -45,15 +49,17 @@ export function slowDocs(ms: number, outcome: 'loaded' | 'unavailable' = 'loaded
 			table: KEYWORDS,
 			engine: status === 'loaded' ? engine : null,
 			loading: status === 'loading',
+			coolingDown: cooling(),
 		}),
 		loadDocs: (): Promise<void> => {
-			if (status === 'loaded') return Promise.resolve();
+			if (status === 'loaded' || cooling()) return Promise.resolve();
 			if (!running) {
 				fake.loads++;
 				status = 'loading';
 				running = new Promise((resolve) =>
 					setTimeout(() => {
 						status = outcome;
+						retryAt = Date.now() + coolMs;
 						running = null;
 						resolve();
 					}, ms),

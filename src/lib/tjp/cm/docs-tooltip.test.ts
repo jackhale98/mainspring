@@ -97,6 +97,18 @@ describe('docs at the cursor before the docs arrive (ADR-0017)', () => {
 		expect(moved.state.field(docsTooltipField)).toBeNull();
 	});
 
+	it('drops a show that is still waiting when Escape closes the docs', async () => {
+		const view = new View(tjpState(marked, slowDocs(100)));
+		expect(showDocsCommand(view.asView())).toBe(true);
+		// Nothing is open yet, so Escape keeps its usual work, but the pending show is dropped.
+		expect(hideDocsCommand(view.asView())).toBe(false);
+		await vi.advanceTimersByTimeAsync(100);
+		expect(view.state.field(docsTooltipField)).toBeNull();
+		// A new request after that shows again.
+		showDocsCommand(view.asView());
+		expect(view.state.field(docsTooltipField)?.content.body).toBe('Full documentation of effort.');
+	});
+
 	it('is bound to Mod-k Mod-i, Escape closes', () => {
 		expect(tjpKeymap.find((k) => k.run === showDocsCommand)?.key).toBe('Mod-k Mod-i');
 		expect(tjpKeymap.find((k) => k.run === hideDocsCommand)?.key).toBe('Escape');

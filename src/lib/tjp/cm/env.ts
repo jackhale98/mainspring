@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * What the TJP editor extensions know about the file they edit (phase-1.md 6.7): its workspace
- * path and top context, the keyword docs (and how to load the engine's), and optionally the workspace and the symbol index.
- * `tjp(opts)` (cm/index.ts) puts it in a facet, so completion, hover, the format command and the
- * lint layer read it from the state. The workspace reconfigures the facet with the rest of the
- * extensions when the file's parse context changes (workspace.ts, §15.7).
+ * path and top context, the keyword docs (and how to load the engine's), and optionally the
+ * workspace and the symbol index. `tjp(opts)` (cm/index.ts) puts it in a facet, so completion,
+ * hover, the format command and the lint layer read it from the state. The workspace reconfigures
+ * the facet with the rest of the extensions when the file's parse context changes (workspace.ts,
+ * §15.7).
  */
 import { Facet, type EditorState } from '@codemirror/state';
 import type { WorkspacePath } from '../../../engine/protocol';

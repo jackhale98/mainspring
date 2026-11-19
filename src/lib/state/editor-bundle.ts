@@ -39,7 +39,8 @@ export function engineDocsLoader(): EngineDocsLoader {
 
 /**
  * What hover, completion and the docs sheet read: the committed table, the engine's docs once the
- * loader has them, and whether it is still fetching them.
+ * loader has them, whether it is still fetching them, and whether it rests after a failed load
+ * (no look starts a load or waits then).
  */
 export function docsSource(loader: EngineDocsLoader): KeywordDocsSource {
 	const s = loader.state;
@@ -47,6 +48,7 @@ export function docsSource(loader: EngineDocsLoader): KeywordDocsSource {
 		table: KEYWORDS,
 		engine: s.status === 'loaded' ? s.docs : null,
 		loading: s.status === 'loading',
+		coolingDown: s.status === 'unavailable' && Date.now() < s.retryAt,
 	};
 }
 

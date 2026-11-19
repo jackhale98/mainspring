@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { gunzipSync } from 'node:zlib';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildOutputs, withDocs } from '../../engine/bundle-lib.mjs';
 import { TJ_VERSION } from '../lib/tjp/syntax/keywords';
-import { createEngineDocsLoader } from './docs-asset';
+import { createEngineDocsLoader, DOCS_RETRY_AFTER_MS, DOCS_TIMEOUT_MS } from './docs-asset';
 import type { SyntaxDocs } from './protocol';
 
 const MANIFEST_URL = new URL('https://example.test/base/engine/manifest.json');
@@ -107,7 +107,7 @@ describe('createEngineDocsLoader', () => {
 		const s = server(published({ ...DOCS, tjVersion: '3.7.0' }));
 		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: s.fetch });
 		expect(await loader.load()).toBeNull();
-		expect(loader.state).toEqual({ status: 'unavailable' });
+		expect(loader.state).toMatchObject({ status: 'unavailable' });
 	});
 
 	it.each([
@@ -118,9 +118,13 @@ describe('createEngineDocsLoader', () => {
 		const s = server(files);
 		const path = docsPath(files);
 		s.fail.set(path, failure);
-		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: s.fetch });
+		const loader = createEngineDocsLoader({
+			manifestUrl: MANIFEST_URL,
+			fetch: s.fetch,
+			retryAfterMs: 0,
+		});
 		expect(await loader.load()).toBeNull();
-		expect(loader.state).toEqual({ status: 'unavailable' });
+		expect(loader.state).toMatchObject({ status: 'unavailable' });
 		s.fail.delete(path);
 		expect(await loader.load()).toEqual(DOCS);
 		expect(loader.state.status).toBe('loaded');
@@ -130,7 +134,11 @@ describe('createEngineDocsLoader', () => {
 	it('gives unavailable when the manifest itself cannot be read, and retries', async () => {
 		const s = server(published(DOCS));
 		s.fail.set('manifest.json', 'network');
-		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: s.fetch });
+		const loader = createEngineDocsLoader({
+			manifestUrl: MANIFEST_URL,
+			fetch: s.fetch,
+			retryAfterMs: 0,
+		});
 		expect(await loader.load()).toBeNull();
 		s.fail.delete('manifest.json');
 		expect(await loader.load()).toEqual(DOCS);
@@ -140,7 +148,7 @@ describe('createEngineDocsLoader', () => {
 		const s = server(published(null));
 		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: s.fetch });
 		expect(await loader.load()).toBeNull();
-		expect(loader.state).toEqual({ status: 'unavailable' });
+		expect(loader.state).toMatchObject({ status: 'unavailable' });
 		expect(s.calls.map((c) => c.path)).toEqual(['/base/engine/manifest.json']);
 	});
 
@@ -151,7 +159,7 @@ describe('createEngineDocsLoader', () => {
 		files.set(path, other.get(docsPath(other)) ?? new Uint8Array());
 		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: server(files).fetch });
 		expect(await loader.load()).toBeNull();
-		expect(loader.state).toEqual({ status: 'unavailable' });
+		expect(loader.state).toMatchObject({ status: 'unavailable' });
 	});
 
 	it('takes an asset that the server already decompressed (Content-Encoding: gzip)', async () => {
@@ -160,5 +168,57 @@ describe('createEngineDocsLoader', () => {
 		files.set(path, new Uint8Array(gunzipSync(files.get(path) ?? new Uint8Array())));
 		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: server(files).fetch });
 		expect(await loader.load()).toEqual(DOCS);
+	});
+});
+
+describe('createEngineDocsLoader after a failure (T26 review)', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('rests after a failed load: loads within the cooldown fetch nothing, one after it fetches', async () => {
+		vi.useFakeTimers();
+		const files = published(DOCS);
+		const s = server(files);
+		const path = docsPath(files);
+		s.fail.set(path, 404);
+		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: s.fetch });
+		expect(await loader.load()).toBeNull();
+		const state = loader.state;
+		expect(state).toEqual({ status: 'unavailable', retryAt: Date.now() + DOCS_RETRY_AFTER_MS });
+		const fetches = s.calls.length;
+		for (let i = 0; i < 10; i++) expect(await loader.load()).toBeNull();
+		await vi.advanceTimersByTimeAsync(DOCS_RETRY_AFTER_MS - 1);
+		expect(await loader.load()).toBeNull();
+		expect(s.calls).toHaveLength(fetches);
+		expect(loader.state).toBe(state);
+
+		await vi.advanceTimersByTimeAsync(1);
+		s.fail.delete(path);
+		expect(await loader.load()).toEqual(DOCS);
+		expect(s.calls.length).toBeGreaterThan(fetches);
+		expect(loader.state.status).toBe('loaded');
+	});
+
+	it('ends a stalled load as unavailable after the timeout, with its fetch aborted', async () => {
+		vi.useFakeTimers();
+		const signals: AbortSignal[] = [];
+		// Never answers, and ignores the abort: the loader must end the load on its own.
+		const stalled = ((_: RequestInfo | URL, init?: RequestInit) => {
+			if (init?.signal) signals.push(init.signal);
+			return new Promise<Response>(() => undefined);
+		}) as typeof globalThis.fetch;
+		const loader = createEngineDocsLoader({ manifestUrl: MANIFEST_URL, fetch: stalled });
+		let result: unknown = 'pending';
+		void loader.load().then((r) => (result = r));
+		await vi.advanceTimersByTimeAsync(DOCS_TIMEOUT_MS - 1);
+		expect(result).toBe('pending');
+		expect(loader.state).toEqual({ status: 'loading' });
+		await vi.advanceTimersByTimeAsync(1);
+		expect(result).toBeNull();
+		expect(loader.state).toMatchObject({ status: 'unavailable' });
+		expect(signals).toHaveLength(1);
+		expect(signals[0]?.aborted).toBe(true);
+		expect(vi.getTimerCount()).toBe(0);
 	});
 });

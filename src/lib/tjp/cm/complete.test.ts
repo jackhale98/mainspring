@@ -195,6 +195,18 @@ describe('completion info before the docs arrive (ADR-0017)', () => {
 		void effort.info();
 		expect(fake.loads).toBe(2);
 	});
+
+	it('gives the summary as a plain string while the loader rests after a failure', async () => {
+		const fake = slowDocs(50, 'unavailable', 5_000);
+		const pane = effortWith(fake).info();
+		await vi.advanceTimersByTimeAsync(50);
+		await pane;
+		// A string info: CodeMirror shows it at once and links it with aria-describedby.
+		for (let i = 0; i < 5; i++) expect(effortWith(fake).option.info).toBe(summary);
+		expect(fake.loads).toBe(1);
+		await vi.advanceTimersByTimeAsync(5_000);
+		expect(typeof effortWith(fake).option.info).toBe('function');
+	});
 });
 
 describe('idCompletionSource', () => {

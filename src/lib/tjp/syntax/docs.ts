@@ -11,8 +11,16 @@ import type { KeywordEntry } from './types';
 export interface KeywordDocsSource {
 	table: readonly KeywordEntry[];
 	engine: SyntaxDocs | null;
-	/** The engine's docs are being fetched (ADR-0017): they may still come. False once they have, or failed to. */
+	/**
+	 * The engine's docs are being fetched (ADR-0017): they may still come. False once they have,
+	 * or failed to.
+	 */
 	loading: boolean;
+	/**
+	 * A load failed a moment ago and the loader will not try again yet (engine/docs-asset.ts
+	 * `retryAt`): hover and completion neither start a load nor wait. Omitted: false.
+	 */
+	coolingDown?: boolean;
 }
 
 export type KeywordDocView = KeywordEntry & {
@@ -20,7 +28,10 @@ export type KeywordDocView = KeywordEntry & {
 	summary: string;
 	doc: string | null;
 	seeAlso: readonly string[];
-	/** `doc` is null because the engine's docs are still being fetched (they may come); false once they failed. */
+	/**
+	 * `doc` is null because the engine's docs are still being fetched (they may come); false once
+	 * they failed.
+	 */
 	loading: boolean;
 };
 

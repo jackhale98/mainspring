@@ -11,7 +11,7 @@ import { NO_HINTS } from '../index/hints';
 import type { SymbolIndex } from '../index/types';
 import type { KeywordDocsSource } from '../syntax/docs';
 import { DOCS_WAIT_MS } from './docs-wait';
-import { hoverContent, hoverInfo, keywordAtCursor, keywordHoverSource } from './hover';
+import { hoverContent, hoverInfo, keywordAtCursor, keywordHoverSource, renderHover } from './hover';
 import { workspaceExtensions } from './index';
 import { engineDocs, PLAN, slowDocs, TABLE_ONLY, tjpState } from './testing';
 
@@ -238,6 +238,37 @@ describe('keyword hover before the docs arrive (ADR-0017)', () => {
 		expect(fake.loads).toBe(2);
 		await vi.advanceTimersByTimeAsync(50);
 		expect(hover.parts(await next).notes).not.toContain(S.hover.docsLoading);
+	});
+
+	it('neither waits nor loads while the loader rests after a failure; after the rest it retries', async () => {
+		const fake = slowDocs(50, 'unavailable', 5_000);
+		const hover = hoverWith(fake);
+		const first = hover.at(effort);
+		await vi.advanceTimersByTimeAsync(50);
+		await first;
+		for (let i = 0; i < 5; i++) {
+			const look = hover.at(effort);
+			expect(look).not.toBeInstanceOf(Promise);
+			const shown = hover.parts(look as Tooltip | null);
+			expect(shown.body).toBe(summary);
+			expect(shown.notes).not.toContain(S.hover.docsLoading);
+		}
+		expect(fake.loads).toBe(1);
+		await vi.advanceTimersByTimeAsync(5_000);
+		expect(hover.at(effort)).toBeInstanceOf(Promise);
+		expect(fake.loads).toBe(2);
+	});
+
+	it('puts the loading note last, after the summary and the other notes', () => {
+		const info = hoverInfo(tjpState(doc), effort, fetching);
+		if (info?.kind !== 'keyword') throw new Error('expected a keyword');
+		const c = hoverContent(info);
+		expect(c.notes.at(-1)).toBe(S.hover.docsLoading);
+		expect(c.notes).toContain(S.hover.scenarioSpecific);
+		const dom = renderHover(c, document);
+		const order = [...dom.children].map((e) => e.className);
+		expect(order.indexOf('cm-tjp-hover-body')).toBeLessThan(order.lastIndexOf('cm-tjp-hover-note'));
+		expect(dom.lastElementChild?.textContent).toBe(S.hover.docsLoading);
 	});
 
 	it('neither waits nor loads where there is no keyword', () => {

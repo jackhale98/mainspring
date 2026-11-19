@@ -339,15 +339,44 @@ First-load JS, gzip (`node scripts/js-sizes.mjs --serve`, `MAINSPRING_DEV_PAGES=
 Visual-first 329,095 and 329,115 (cap 330,000; no `tj-docs` request); Text-first 435,625 and
 435,994 (cap 440,000); total 606,744 and 607,117; editor chunk 102,950 and 103,279 (cap 118,000).
 
-e2e (`text-mode`, `engine-docs`, `engine-docs-fallback`, local, built with `MAINSPRING_DEV_PAGES=1`):
-desktop and Pixel 7, 23 passed and 1 skipped (the hover test on touch, by design); iPhone 14, 11
-passed and 1 skipped (the same). In an earlier iPhone run with three WebKit workers,
-`text-mode.spec.ts` "changing an effort updates the finish date" failed once at its undo (the
-finish date was not restored). That test is untouched here and showed no docs. It passed twice
-alone and in the final run.
+Review round (same day), on top of 222bf7d0:
 
-Unit: `npx vitest run`, 503 files passed (7,282 tests); `tsc`, `svelte-check` (0 errors) and prettier
-are clean; `fixed-waits.mjs` and `webkit-skips.mjs` pass.
+- The loader rests after a failed load (`retryAfterMs`, 5 s, `src/engine/docs-asset.ts`;
+  `unavailable` carries `retryAt`). Within the rest `load()` gives null at once with no fetch, the
+  docs source says `coolingDown`, and hover, completion info and the docs command neither load nor
+  wait: completion info is a plain string again, so CodeMirror sets `aria-describedby`. A look after
+  the rest tries again. One load is ended after `timeoutMs` (20 s: its fetches aborted, and it ends
+  even if a step ignores the signal) as `unavailable`, so a stalled fetch no longer keeps the note
+  and the 300 ms wait for the whole session.
+- `openDocs` also drops its result when the editor went away during the wait (Visual mode, another
+  plan). Unit tests in `app-docs.svelte.test.ts`: the docs within the bound give the full doc, past
+  it the summary and the note, of two quick calls only the later shows, and no sheet once the editor
+  is gone. Each fails when its guard (the ticket, the editor check, the wait) is taken out
+  (checked).
+- Escape within the keyboard command's wait drops the pending tooltip (`hideDocsCommand` bumps a
+  per-view counter). Unit-tested.
+- The loading note is last in hover, completion info and now the Docs sheet (the sheet shows the
+  notes after the body, in the hover's order). Screenshots retaken.
+- e2e: the held-back test opens the plan in Visual first, then Text, so the load (and its 20 s
+  timeout) starts when the editor mounts; after the asset is let through it waits for its
+  `requestfinished` and then looks again with `toPass` until the full doc shows (the body is read,
+  gunzipped and parsed after the request ends).
+
+First-load JS, gzip (`node scripts/js-sizes.mjs --serve`, `MAINSPRING_DEV_PAGES=1`): Visual-first
+329,115 (no `tj-docs` request), Text-first 436,198, total 607,321, editor chunk 103,329.
+
+e2e (`text-mode`, `engine-docs`, `engine-docs-fallback`, local, after `build:engine` and the dev-pages
+build): desktop and Pixel 7, 23 passed and 1 skipped (the hover test on touch, by design); iPhone 14,
+10 passed, 1 skipped (the same) and 1 failed: `text-mode.spec.ts` "changing an effort updates the
+finish date", which this task does not touch and which shows no docs. Its trace ends with the line
+reading `effort 2` and a lint error: under load the two Backspaces and the insert landed in more
+than one undo group, so one undo left an error and the strip kept the last good finish. It failed
+the same way in one earlier iPhone run of the first round, and passed alone (three times in all).
+A pre-existing, load-dependent flake for whoever owns the undo specs.
+
+Unit: `npx vitest run`, 502 of 503 files passed (7,292 tests); the one failure was
+`edits-rebase.property.test.ts` (ADR-0018, not touched here), which passed when run alone. `tsc`, `svelte-check` (0 errors) and prettier are clean;
+`fixed-waits.mjs` (139 in 33 files, unchanged) and `webkit-skips.mjs` pass.
 
 Screenshots (`SCREENSHOTS=1`, the held-back test): `docs/phases/screenshots/phase-3/t26-loading-note-*`
 and `t26-full-doc-*` for desktop (hover popup), Pixel 7 and iPhone 14 (Docs sheet; hover is off on

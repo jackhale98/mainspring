@@ -4,8 +4,9 @@
 // `tj-docs.*` asset, then show the committed table's syntax line and summary:
 // - with the asset blocked (`page.route` aborts it), the summary shows with no loading note, and
 //   the plan still schedules, before and after an edit;
-// - with the asset held back, the first look shows the summary with "Loading the full
-//   documentation…"; once the asset is let through, the next look shows the full doc.
+// - with the asset held back (the plan opened in Visual, then Text, so the load starts when the
+//   editor mounts), the first look shows the summary with "Loading the full documentation…" last;
+//   once the asset is let through and its request has finished, a look shows the full doc.
 // A mouse gets the hover popup; a phone (touch, where hover is off) gets the Docs sheet, which
 // shows the same content. With SCREENSHOTS=1 the held-back test saves the loading note and the full
 // doc to docs/phases/screenshots/phase-3/t26-*.png.
@@ -14,8 +15,9 @@ import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { editorStrings } from '../../src/lib/strings';
 import { SUMMARIES } from '../../src/lib/tjp/syntax/summaries.generated';
-import { boxStable, panelSettled } from './lib/settle';
+import { boxStable, engineIdle, panelSettled } from './lib/settle';
 import {
+	MULTI_FILE_SAMPLE,
 	READY_TIMEOUT_MS,
 	cursorAtEndOf,
 	engineKeyword,
@@ -72,6 +74,16 @@ async function hideEffortDocs(page: Page, shown: Shown, touch: boolean): Promise
 	await expect(shown.root).toBeHidden();
 }
 
+/** Opens the plan in Visual, waits for its schedule, then shows the text (the editor mounts). */
+async function openVisualThenText(page: Page, touch: boolean): Promise<void> {
+	await page.goto(`/app?sample=${MULTI_FILE_SAMPLE}&mode=visual`);
+	await engineIdle(page, READY_TIMEOUT_MS);
+	if (touch) await page.getByRole('tab', { name: 'Text', exact: true }).click();
+	else
+		await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Text' }).click();
+	await expect(effortLine(page)).toBeVisible({ timeout: READY_TIMEOUT_MS });
+}
+
 const summary = (): string => generatedKeyword('effort').summary ?? SUMMARIES['effort'] ?? '';
 
 test.describe('keyword docs without the docs asset', () => {
@@ -118,7 +130,9 @@ test.describe('keyword docs without the docs asset', () => {
 			await route.continue();
 		});
 		const engine = await engineKeyword('effort');
-		await openApp(page);
+		// Visual first, so the docs load starts only when Text mode mounts the editor: the loader
+		// gives up on a load after 20 s (docs-asset.ts), and a slow open must not use that up.
+		await openVisualThenText(page, hasTouch);
 		const shoot = async (name: string): Promise<void> => {
 			if (!process.env['SCREENSHOTS']) return;
 			fs.mkdirSync(DIR, { recursive: true });
@@ -128,15 +142,27 @@ test.describe('keyword docs without the docs asset', () => {
 		const loading = await showEffortDocs(page, hasTouch);
 		await expect(loading.body).toHaveText(summary());
 		await expect(loading.notes.filter({ hasText: LOADING })).toHaveCount(1);
+		await expect(loading.notes.last()).toHaveText(LOADING);
 		await shoot('loading-note');
 		await hideEffortDocs(page, loading, hasTouch);
 
-		const arrived = page.waitForResponse((r) => r.url().includes('/tj-docs.'));
+		const finished = page.waitForEvent('requestfinished', (r) => r.url().includes('/tj-docs.'));
 		release();
-		expect((await arrived).ok()).toBe(true);
-		const full = await showEffortDocs(page, hasTouch);
-		await expect(full.body).toHaveText(engine.doc);
-		await expect(full.notes.filter({ hasText: LOADING })).toHaveCount(0);
+		await finished;
+		// The body is read, gunzipped and parsed after the request ends: look again until the
+		// full doc shows (the look after the docs arrive is the behaviour under test).
+		await expect(async () => {
+			const full = await showEffortDocs(page, hasTouch);
+			try {
+				await expect(full.body).toHaveText(engine.doc, { timeout: 1_000 });
+			} catch (e) {
+				await hideEffortDocs(page, full, hasTouch);
+				throw e;
+			}
+		}).toPass({ timeout: 15_000 });
+		await expect(
+			page.locator('.cm-tjp-hover-note, [role="dialog"] .note').filter({ hasText: LOADING }),
+		).toHaveCount(0);
 		await shoot('full-doc');
 	});
 });

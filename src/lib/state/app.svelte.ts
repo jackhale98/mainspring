@@ -830,7 +830,8 @@ export class AppState {
 		if (!editor || !bundle) return;
 		const ticket = ++this.#docsTicket;
 		const content = await bundle.docsAtCursorWithin(editor.state);
-		if (ticket !== this.#docsTicket) return;
+		// A later call won, or the editor went away meanwhile (Visual mode, another plan).
+		if (ticket !== this.#docsTicket || this.editor !== editor) return;
 		this.docsContent = content;
 		this.docsOpen = true;
 	}
