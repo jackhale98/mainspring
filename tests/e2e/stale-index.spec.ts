@@ -167,7 +167,8 @@ test.describe('the Gantt on an index that lags', () => {
 	test('a row drop right after an Undo that reordered its parent is refused', async ({
 		page,
 	}, info) => {
-		t27d('T27d: moveTo passes the slot of the shown tree with no guard');
+		// No mark since T27b: the dispatcher's position check refuses the drop (its parent's
+		// children changed), though moveTo still passes the shown tree's slot.
 		const rig = await Rig.open(page, info);
 		await undoneWhileShown(
 			rig,
