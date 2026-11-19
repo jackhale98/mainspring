@@ -196,6 +196,13 @@ App bugs found on the way, open:
   tapped row is unmounted; at the end of the panel the layout keeps cycling every 100 ms. A real
   iPhone user scrolling and tapping findings hits it. A group's height depends on which rows have
   been measured, and a row mounted and unmounted between ResizeObserver deliveries is never measured.
+- **Edits planned on a stale index** (audit, 2026-11-19; ADR-0018 in progress, user's direction: fix
+  it in the edit layer). The index lags the text (up to about 4 s on a slow WebKit runner), and views
+  read targets from it: the Gantt's Alt+Shift moves and row menu (`interactions.svelte.ts` reorder)
+  and its row drop (`moveTo`) can apply a wrong edit right after Undo, Redo or typing; adding a task
+  or a person can land in the wrong place; leave edits and removes are refused when the wait runs
+  out. Fixed per component so far: the resource table's step (105eb230) and the leave card (1a914cc5,
+  dc4cbf85).
 - **On Safari the first "Try again" after a failed chunk cannot succeed**: WebKit remembers the
   failed import, so the slot's Reload step is always needed there (B3 review).
 
