@@ -17,6 +17,7 @@ export function statements(
 	res: string[],
 	flags: string[],
 	scenarios: boolean,
+	partTime: ReadonlySet<string> = new Set(),
 ): void {
 	const order = new Map(all.map((t, i) => [t, i]));
 	for (const t of all) {
@@ -119,7 +120,56 @@ export function statements(
 			...s.filter((x) => x.scenario !== null),
 		);
 		t.oneLine = leaf && s.length <= 3 && s.every((x) => !x.lead && !x.wrap) && rng.chance(0.25);
+		// A fixed end needs a full-time resource (firstOfAll); without one the task stays ASAP.
+		const end = s.findIndex((x) => x.key === 'end' && x.scenario === null);
+		if (kind === 'effort' && end >= 0) {
+			if (fullTime(t, partTime)) firstOfAll(t);
+			else s.splice(end, 1);
+		}
 	}
+}
+
+/** Whether a resource the task is allocated (its own or inherited `allocate`: they add up) works full time. */
+function fullTime(t: MTask, partTime: ReadonlySet<string>): boolean {
+	return [t, ...ancestors(t)].some((x) =>
+		x.stmts.some(
+			(y) =>
+				y.key === 'allocate' &&
+				y.scenario === null &&
+				(y.items ?? []).some((i) => !partTime.has(i.target)),
+		),
+	);
+}
+
+/** Whether `t` is an effort leaf with a hard end: its own `end`, or a `precedes` (see firstOfAll). */
+const hardEnd = (t: MTask): boolean =>
+	t.kids.length === 0 &&
+	t.stmts.some((x) => x.key === 'effort' && x.scenario === null) &&
+	t.stmts.some((x) => (x.key === 'end' || x.key === 'precedes') && x.scenario === null);
+
+/**
+ * Gives an effort leaf with a hard end (a fixed `end`, or a `precedes` of a task with a fixed start)
+ * the top priority, 1000, in every scenario and supplement; drawn priorities are 1 to 999. Such a task
+ * is ALAP and must fit between the project start and its end. TaskJuggler schedules the leaves one
+ * whole task at a time, the highest priority first among those ready (Project.rb:1185-1220), and an
+ * ALAP task with a known end is ready at once, so with a lower priority the ASAP work could book its
+ * resources up to that end first and leave it no room: sched_runaway in the generated plan (nightly
+ * 2026-11-18, regressions.json). At 1000 it books first. Its effort is at most 3 days (`hours`, or the
+ * LEN macro), and the end leaves at least 10 working days (`end` at 30 to 70 days; `precedes` a start
+ * at least 14 days in), so the task also needs a full-time resource: one with `workinghours
+ * fri 9:00 - 15:00` alone has 12 hours in two weeks.
+ */
+function firstOfAll(t: MTask): void {
+	let own = false;
+	for (const x of [...t.stmts, ...t.supp]) {
+		if (x.key !== 'priority' || x.macro) continue;
+		x.value = '1000';
+		if (x.scenario === null) own = true;
+	}
+	if (own) return;
+	// Before the other scenarios' statements, which always come last (statements, 15.20).
+	const at = t.stmts.findIndex((x) => x.scenario !== null);
+	t.stmts.splice(at < 0 ? t.stmts.length : at, 0, mk('priority', '1000'));
 }
 
 const pickSizing = (rng: Rng): string =>
@@ -153,8 +203,10 @@ export function supplements(rng: Rng, all: MTask[], res: string[], flags: string
 				['note', 'priority', 'flags', 'responsible', 'complete'].includes(key) && rng.chance(0.6);
 			if (t.stmts.some((x) => x.key === key && x.scenario === null) && !dup) continue;
 			if (key === 'note') t.supp.push(mk('note', '"added in a supplement"'));
-			else if (key === 'priority') t.supp.push(mk('priority', String(rng.int(1, 999))));
-			else if (key === 'complete' && leaf && t.stmts.some((x) => x.key === 'effort'))
+			else if (key === 'priority') {
+				const p = String(rng.int(1, 999));
+				t.supp.push(mk('priority', hardEnd(t) ? '1000' : p));
+			} else if (key === 'complete' && leaf && t.stmts.some((x) => x.key === 'effort'))
 				t.supp.push(mk('complete', '30'));
 			else if (key === 'flags' && flags.length > 0) t.supp.push(list('flags', [rng.pick(flags)]));
 			else if (key === 'responsible') t.supp.push(list('responsible', [rng.pick(res)]));
@@ -320,8 +372,9 @@ export function purges(rng: Rng, all: MTask[], scenarios: boolean): void {
 /**
  * `precedes`: an effort task ends before a task with a fixed start well into the project. It makes the
  * task ALAP, so it needs no start, end or dependency of its own, and the later task must not start at once.
+ * The task gets the top priority (firstOfAll), so that the work before it cannot take its room.
  */
-export function precedes(rng: Rng, all: MTask[]): void {
+export function precedes(rng: Rng, all: MTask[], partTime: ReadonlySet<string> = new Set()): void {
 	const startOf = (t: MTask): number | null => {
 		const v = t.stmts.find((x) => x.key === 'start' && x.scenario === null)?.value;
 		return v ? Date.parse(`${v.slice(0, 10)}T00:00:00Z`) : null;
@@ -334,6 +387,7 @@ export function precedes(rng: Rng, all: MTask[]): void {
 			['start', 'end', 'depends', 'scheduling', 'precedes'].includes(x.key),
 		);
 		if (!free || busy || t.stmts.some((x) => x.macro) || !rng.chance(0.12)) continue;
+		if (!fullTime(t, partTime)) continue;
 		const i = all.indexOf(t);
 		const late = all.slice(i + 1).filter((x) => {
 			const d = startOf(x);
@@ -344,6 +398,9 @@ export function precedes(rng: Rng, all: MTask[]): void {
 			);
 		});
 		const x = late.length > 0 ? rng.pick(late) : null;
-		if (x) t.stmts.push(list('precedes', [x.id]));
+		if (x) {
+			t.stmts.push(list('precedes', [x.id]));
+			firstOfAll(t);
+		}
 	}
 }

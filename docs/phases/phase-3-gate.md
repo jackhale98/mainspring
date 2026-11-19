@@ -385,6 +385,24 @@ Screenshots (`SCREENSHOTS=1`, the held-back test): `docs/phases/screenshots/phas
 and `t26-full-doc-*` for desktop (hover popup), Pixel 7 and iPhone 14 (Docs sheet; hover is off on
 touch), light.
 
+## Open bugs: patch fidelity nightly, P4 (2026-11-19)
+
+The nightly `Patch fidelity` shards (`continue-on-error`) failed P4 on three nights. Each case was
+replayed with its `FIDELITY_CASE` (fails before the fix, passes after) and is now in
+`tests/fidelity/regressions.json`, so it replays on every CI run. None was an edit-API bug.
+
+| Case | Class | Cause and fix |
+| --- | --- | --- |
+| `generated:1414162176:renameTask:@0`, renameTask `plan` to id `x` (2026-11-18) | Oracle bug in the suite | The engine results of the old and the new plan are equal apart from the id (TaskJuggler orders work by priority, path criticalness and declaration order, `Project.rb:1185-1187`, never by id). P4 read the old result under the new id by replacing `"plan"` in the JSON text, which also renamed the default scenario `plan`. The id is now applied field by field (`tests/fidelity/p4-compare.ts`, with unit tests). |
+| `generated:527909175:setAttr:@0` (2026-11-18) | Generator bug in the suite | The base plan did not schedule (`sched_runaway`): an ALAP effort task with `precedes` and priority 89 found its only resource booked up to its end by ASAP work of higher priority (TaskJuggler schedules ready tasks whole, highest priority first, `Project.rb:1185-1220`). Effort leaves with a hard end (`precedes`, or a fixed `end`) now get priority 1000 in every site and need a full-time resource (`gen/model-attrs.ts` `firstOfAll`, `gen/model.test.ts`); the same plan with priority 1000 schedules cleanly. Regression seed 379 drew another intent after this, so it was re-recorded as 385@6, which fails P4 (`not_scheduled`) with the anchor check taken out. |
+| `corpus:1583755989:setProjectAttr:syn-22-tz-kathmandu-resolution`, `now 2026-02-19-09:00` (2026-11-16) | Harness bug in the suite | The suite built its indexes without the time-zone data the app gives the index (`run-types.ts` `zones`), so the zone checks were skipped as uncheckable. In +05:45 that `now` is 03:15Z, off the 60 min resolution (`misaligned_date`). With the zone data (`harness.ts` `INDEX_OPTIONS`), the edit API refuses it `invalid-value`, as it does in the app, where the Project sheet's `now` field is free text. |
+
+Checks: `npm run test:fidelity` at merge-CI size, 36 of 36 passed. P4 at nightly size, shard 0/4, passed
+with each of the fresh seeds 4242, 777001 and 31337 (about 1,280 edited cases each, no new error ids,
+about 30 min each). Before the fix, 15,000 generated base plans (attempt 0) scheduled cleanly, so the
+generator bug shows up in fewer than 1 plan in 15,000. `tsc`, prettier and `tests/ci` are clean.
+Nothing in `src/` or `engine/` changed, so golden parity was not rerun.
+
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five

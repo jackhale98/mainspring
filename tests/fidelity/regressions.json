@@ -3,17 +3,17 @@
 	"cases": [
 		{
 			"source": "generated",
-			"seed": 379,
+			"seed": 385,
 			"type": "removeAttr",
-			"attempt": 4,
+			"attempt": 6,
 			"intent": {
 				"type": "removeAttr",
-				"task": "demo.docs.polish.setup",
+				"task": "test.api.design",
 				"attr": "start"
 			},
 			"status": "refused",
 			"answer": "conflicting-attribute",
-			"reason": "Edit API bug, found by P4 and fixed (dep-anchors.ts): removeAttr start on a task that another task's `precedes` names leaves it without an anchor, so the engine deadlocks (not_scheduled, ok true to false). It is now refused conflicting-attribute. Pinned to its plan attempt, so it replays on the old API too (checked: fails P4 on 5b4dbfb2).",
+			"reason": "Edit API bug, found by P4 and fixed (dep-anchors.ts): removeAttr start on a task that another task's `precedes` names leaves it without an anchor, so the engine deadlocks (not_scheduled, ok true to false). It is now refused conflicting-attribute. Pinned to its plan attempt, so it replays on the old API too. Re-recorded 2026-11-19: seed 379 attempt 4 draws another intent since the generator gives hard-end ALAP tasks priority 1000; this case fails P4 with not_scheduled when the check is taken out of task-attrs-timing.ts (checked).",
 			"found": "2026-11-12"
 		},
 		{
@@ -116,6 +116,49 @@
 			},
 			"reason": "Oracle bug in the suite, fixed (nightly, shard 3): Todolist's tasks have automatic ids (`_Task_5`), which the engine renumbers when a task is added, so the hints taken from the golden result name other tasks after the edit (15.24, no text names them). After a task tree intent on a hinted plan only literal ids are compared.",
 			"found": "2026-11-13"
+		},
+		{
+			"source": "generated",
+			"seed": 1414162176,
+			"type": "renameTask",
+			"attempt": 0,
+			"intent": {
+				"type": "renameTask",
+				"task": "plan",
+				"name": "x",
+				"id": "x"
+			},
+			"reason": "Oracle bug in the suite, fixed (nightly, 2026-11-18): P4 read the old result under the new id by replacing `\"plan\"` in its JSON text, which also renamed the default scenario `plan` (the scenario keys of every task), so a correct rename of a task `plan` looked like a schedule change. The engine results of the old and the new plan are equal apart from the id: TaskJuggler orders its work by priority, path criticalness and declaration order (Project.rb:1185-1187), not by id. The id is now applied field by field (p4-compare.ts).",
+			"found": "2026-11-18"
+		},
+		{
+			"source": "generated",
+			"seed": 527909175,
+			"type": "setAttr",
+			"attempt": 0,
+			"intent": {
+				"type": "setAttr",
+				"task": "data",
+				"attr": "start",
+				"value": "2026-02-05"
+			},
+			"reason": "Generator bug in the suite, fixed (nightly, 2026-11-18): the old plan did not schedule (sched_runaway). An ALAP effort task with `precedes` and priority 89 found its only resource booked up to its end by higher-priority ASAP work, because TaskJuggler schedules ready tasks whole, the highest priority first (Project.rb:1185-1220). Effort leaves with a hard end (`precedes` or a fixed `end`) now get priority 1000 and a full-time resource (gen/model-attrs.ts firstOfAll); the same plan with priority 1000 on that task schedules cleanly.",
+			"found": "2026-11-18"
+		},
+		{
+			"source": "corpus",
+			"seed": 1583755989,
+			"type": "setProjectAttr",
+			"plan": "syn-22-tz-kathmandu-resolution",
+			"intent": {
+				"type": "setProjectAttr",
+				"attr": "now",
+				"value": "2026-02-19-09:00"
+			},
+			"status": "refused",
+			"answer": "invalid-value",
+			"reason": "Harness bug in the suite, fixed (nightly, 2026-11-16): the suite built its indexes without the time-zone data the app gives its index (run-types.ts `zones`), so the zone-dependent value checks were skipped as uncheckable and the edit API made an edit the app refuses: `now 2026-02-19-09:00` in Asia/Kathmandu (+05:45) is 03:15Z, off the 60 min resolution in force at the `now` statement (misaligned_date, line 8). With the zone data (harness.ts INDEX_OPTIONS) it is refused invalid-value, as in the app.",
+			"found": "2026-11-16"
 		}
 	]
 }

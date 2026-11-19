@@ -14,6 +14,7 @@ import type { ScheduleResult } from '../../src/engine/protocol';
 import { REPO } from '../golden/corpus';
 import { CONFIG, plannedCases, type PlannedCase } from './config';
 import { runCase, type Case, type Outcome } from './harness';
+import { normalized, withTaskId } from './p4-compare';
 import { percentile, writePart, type P4Part } from './stats';
 import {
 	buildCase,
@@ -58,29 +59,6 @@ const errorsOf = (r: ScheduleResult): Map<string, number> => {
 function newErrors(before: ScheduleResult, after: ScheduleResult): string[] {
 	const b = errorsOf(before);
 	return [...errorsOf(after)].filter(([k, n]) => n > (b.get(k) ?? 0)).map(([k]) => k);
-}
-
-/** The result without what a rename or a format may change: names, source lines, timings. */
-function normalized(r: ScheduleResult, names: boolean): string {
-	const { revision: _r, timings: _t, ...rest } = r;
-	const copy = JSON.parse(JSON.stringify(rest)) as {
-		tasks: Array<{ name: string; source: { line: number | null; column: number | null } | null }>;
-		resources: Array<{
-			name: string;
-			source: { line: number | null; column: number | null } | null;
-		}>;
-		messages: Array<{ line?: number | null; column?: number | null; text?: string }>;
-	};
-	for (const x of [...copy.tasks, ...copy.resources]) {
-		if (x.source) x.source = { ...x.source, line: null, column: null };
-		if (names) x.name = '';
-	}
-	for (const m of copy.messages) {
-		delete m.line;
-		delete m.column;
-		delete m.text;
-	}
-	return JSON.stringify(copy);
 }
 
 let engine: Engine;
@@ -160,13 +138,14 @@ function checkP4(c: Case, o: Outcome): string[] {
 		intent.type === 'format'
 	) {
 		const names = intent.type !== 'format';
-		// A rename that sets the id (polish item 15): the task is read under its new id.
-		const want = normalized(before, names);
-		const was =
+		// A rename that sets the id (polish item 15; leaves only): the task is read under its new id.
+		// TaskJuggler orders the work by priority, path criticalness and declaration order
+		// (Project.rb:1185-1187), never by id, so nothing else may change.
+		const renamed =
 			intent.type === 'renameTask' && intent.id !== undefined
-				? want.replaceAll(`"${intent.task}"`, `"${intent.task.replace(/[^.]*$/, intent.id)}"`)
-				: want;
-		if (was !== normalized(after, names)) {
+				? withTaskId(before, intent.task, intent.task.replace(/[^.]*$/, intent.id))
+				: before;
+		if (normalized(renamed, names) !== normalized(after, names)) {
 			bad.push('the schedule changed (compared apart from names, source lines and timings)');
 		}
 	}

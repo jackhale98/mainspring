@@ -10,7 +10,7 @@ import type { EditIntent, IntentType } from '../../src/lib/tjp/edit/types';
 import { buildIndex } from '../../src/lib/tjp/index';
 import { createWorkspace } from '../../src/lib/workspace/workspace';
 import { loadCorpus as loadGoldens, REPO } from '../golden/corpus';
-import { realApply, type Case } from './harness';
+import { INDEX_OPTIONS, realApply, type Case } from './harness';
 import type { Drawn } from './families/types';
 import type { Aim } from './families/types';
 import { ENFORCED, familyOf } from './families';
@@ -41,7 +41,7 @@ export const TEXT_ONLY_TYPES: readonly IntentType[] = [
 /** Whether the edit API makes an edit of this intent on these files (a probe for `generatedCase`). */
 function edits(entry: string, files: Record<string, string>, intent: EditIntent): boolean {
 	const snap = createWorkspace({ entry, files }).snapshot();
-	return realApply(snap, buildIndex(snap, undefined, { cache: null }), intent).status === 'edit';
+	return realApply(snap, buildIndex(snap, undefined, INDEX_OPTIONS), intent).status === 'edit';
 }
 
 /**
@@ -132,7 +132,7 @@ export function corpusPlan(id: string): CorpusPlan | null {
 		files[f] = decoder.decode(fs.readFileSync(path.join(REPO, plan.root, f)));
 	const snap = createWorkspace({ entry: golden.entry, files }).snapshot();
 	const hints = goldenHints(golden.result, snap);
-	const facts = factsFromIndex(snap, buildIndex(snap, hints, { cache: null }));
+	const facts = factsFromIndex(snap, buildIndex(snap, hints, INDEX_OPTIONS));
 	const out =
 		facts.tasks.length === 0
 			? null

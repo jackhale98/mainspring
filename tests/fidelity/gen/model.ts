@@ -62,8 +62,15 @@ export function genPlan(rng: Rng, opts: PlanOpts = {}): MPlan {
 		resourceLeaves: leafRes,
 	};
 	resourceStatements(rng, plan);
-	statements(rng, all, leafRes, declared, plan.scenarios);
-	precedes(rng, all);
+	// Resources with restricted working hours (resourceStatements): an ALAP task with a hard end needs
+	// one that works full time (model-attrs.ts firstOfAll).
+	const partTime = new Set(
+		flatten(resources, (r) => r.kids)
+			.filter((r) => r.stmts.some((x) => x.key === 'workinghours'))
+			.map((r) => r.id),
+	);
+	statements(rng, all, leafRes, declared, plan.scenarios, partTime);
+	precedes(rng, all, partTime);
 	if (rich || rng.chance(0.25)) supplements(rng, all, leafRes, declared);
 	if (rich || rng.chance(0.3)) macros(rng, plan, all);
 	if (opts.purge) purges(rng, all, plan.scenarios);

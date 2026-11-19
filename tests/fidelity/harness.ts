@@ -16,6 +16,7 @@ import { canonSem, semOf, type Facts, type Rg, type Sem } from './gen/facts';
 import type { Change, Drawn, Family } from './families/types';
 import { factsFromIndex, goldenHints } from './oracle';
 import type { ScheduleResult } from '../../src/engine/protocol';
+import { createTimeZoneHost } from '../../src/engine/timezone';
 
 /** The edit API as the property tests call it; mutation.test.ts wraps it with faulty versions. */
 export type ApplyFn = (
@@ -23,6 +24,14 @@ export type ApplyFn = (
 	index: ReturnType<typeof buildIndex>,
 	intent: EditIntent,
 ) => EditResult;
+/**
+ * The options every index of the suite is built with: no cache, and the time-zone data the app gives
+ * its index (run-types.ts `zones`; the engine's Intl-backed host). Without it the index skips the
+ * zone-dependent value checks as uncheckable, so the edit API offered edits the app refuses, such as a
+ * `now` that a +05:45 zone puts off the timing resolution (nightly 2026-11-16, regressions.json).
+ */
+export const INDEX_OPTIONS = { cache: null, zones: createTimeZoneHost() } as const;
+
 export const realApply: ApplyFn = (snap, index, intent) =>
 	intent.type === 'format' ? formatFile(snap, intent.file) : applyIntent(snap, index, intent);
 
@@ -146,9 +155,11 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 	const fail = (p: string, msg: string): void => void failures.push(`${p}: ${msg}`);
 	const ws = load(c);
 	const snap0 = ws.snapshot();
-	const index0 = buildIndex(snap0, c.result ? goldenHints(c.result, snap0) : undefined, {
-		cache: null,
-	});
+	const index0 = buildIndex(
+		snap0,
+		c.result ? goldenHints(c.result, snap0) : undefined,
+		INDEX_OPTIONS,
+	);
 	const before = texts(snap0);
 	const r = apply(snap0, index0, c.drawn.intent);
 	const done = (after: Record<string, string> | null, changes = 0): Outcome => ({
@@ -232,7 +243,7 @@ function runChecks(c: Case, apply: ApplyFn, load: typeof loadWorkspace): Outcome
 	const index1 = buildIndex(
 		snap1,
 		c.result ? goldenHints(c.result, snap0, { snap: snap1, changes: edit.changes }) : undefined,
-		{ cache: null },
+		INDEX_OPTIONS,
 	);
 	// Automatic ids (`_Task_12`) count declarations, so the engine renumbers them when a task is added,
 	// deleted or moved (15.24): no text names them, so after such an edit only literal ids are compared.
