@@ -201,6 +201,31 @@ T27 (ADR-0018) so far, recorded for the user:
   also fail the id check once ids may have moved (cases the review reproduced), so an inspector edit
   of a shared declaration right after typing is refused until the index catches up.
 
+- **T27e, the reproduction (2026-11-19).** `tests/e2e/stale-index.spec.ts` on desktop Chromium, on
+  b9b30348 (the hold hook and the spec, without T27b or T27d; run unmarked with
+  `STALE_INDEX_REPRO=1`) and on T27d:
+
+  | Case | Before | After |
+  | --- | --- | --- |
+  | Alt+Shift+Up right after Redo (Gantt) | fails: wrong order | passes |
+  | Three quick presses | fails: `gate` misplaced | passes |
+  | A drop after an Undo that reordered its parent is refused | fails: the drop applied | passes |
+  | A drop after an Undo elsewhere lands in the shown slot (control) | passes | passes |
+  | Resource table Alt+Shift+Up right after Undo | fails: `rev` went into the group | passes |
+  | A leave edit after a rename, index held | fails: the edit never written | passes |
+  | Two quick changes to one leave both land | fails: the second lost | passes |
+  | Remove while the index lags | fails: Remove disabled | passes |
+
+  After: 8 of 8 on desktop and Pixel 7; iPhone 14 by the author's run and CI. The property test
+  (`edits-rebase.property.test.ts`) passed at `REBASE_RUNS=2000` twice; fidelity 33 of 33.
+- **T27d's deviations:** field errors are checked in the leave card before it dispatches (they stay
+  inline, no refusal toast); a commit equal to what the card last sent or read is not sent; the
+  resource table's step announcement is read from the applied toast; DayDetails still keys cards by
+  `file:from` (a remount while the index lags means the next commit is refused, never misdirected:
+  keying by item identity would remount every card on every publish); `App.svelte` imports
+  `gantt/rows-plan.ts`, so one planner factory is on the first load (+361 bytes Visual-first, within
+  the accepted budget), where the ADR placed the factories in lazy chunks.
+
 App bugs found on the way, open:
 - **The windowed Health list jumps on WebKit** (B4, 2026-11-18). WebKit has no scroll anchoring:
   as rows mount, the groups above the viewport are measured and re-windowed, and the content moves
