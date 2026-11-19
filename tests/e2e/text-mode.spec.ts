@@ -52,8 +52,10 @@ test.describe('text mode', () => {
 		const before = await finish(page).getAttribute('datetime');
 		const line = page.locator('.cm-line', { hasText: /^\s*effort 2d$/ }).first();
 		await cursorAtEndOf(page, line);
-		await page.keyboard.press('Backspace');
-		await page.keyboard.press('Backspace');
+		// Type over a selection: one change, so one undo reverts it. Two Backspaces and an insert are
+		// one undo step only within CodeMirror's 500 ms grouping, which a loaded WebKit runner misses.
+		await page.keyboard.press('Shift+ArrowLeft');
+		await page.keyboard.press('Shift+ArrowLeft');
 		await page.keyboard.insertText('40d');
 		await expect(page.locator('.cm-activeLine')).toHaveText('    effort 40d');
 		await settled(page);
