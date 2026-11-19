@@ -7,9 +7,8 @@
 // - the empty state on a tablet width (Visual and Split), where the layout differs from both the
 //   desktop and the phone;
 // - the keyboard path of the New plan sheet (type, Tab, Enter creates; Escape cancels);
-// - axe in light and dark on the New plan sheet, the empty state, the + menu and the details with
-//   the name focused, and 44 px targets on a finger for the sheet and the empty state (the details and
-//   the + menu are blocked by a Health button bug, see the test).
+// - axe in light and dark on the New plan sheet, the empty state, the details with the name focused
+//   and the + menu, and 44 px targets on a finger for the sheet and the empty state.
 // The mouse and the finger run the same steps (a click or a tap); the keyboard test runs on the
 // desktop only (a phone has no keyboard to walk).
 import AxeBuilder from '@axe-core/playwright';
@@ -207,7 +206,9 @@ test('keyboard: the New plan sheet is filled, Enter creates, Escape cancels', as
 });
 
 for (const scheme of ['light', 'dark'] as const) {
-	test(`axe: the New plan sheet and the empty state (${scheme})`, async ({ page }, info) => {
+	test(`axe: the New plan sheet, the empty state, the details and the + menu (${scheme})`, async ({
+		page,
+	}, info) => {
 		const touch = isTouch(info);
 		await page.emulateMedia({ colorScheme: scheme });
 		const scan = async (state: string): Promise<void> => {
@@ -240,8 +241,14 @@ for (const scheme of ['light', 'dark'] as const) {
 			const small = (await smallTargets(page)).filter((t) => /Add task/i.test(t.what));
 			expect(small.map((t) => `${t.what} ${t.width}x${t.height}`)).toEqual([]);
 		}
-		// BLOCKED (T21 report, app bug): once the plan has a task the Health button reads "0" with the name
-		// "Plan health: no problems", which axe reports as label-content-name-mismatch (WCAG 2.5.3). The
-		// scans of the details with the name focused and of the + menu go here once that is fixed.
+		// The first task: the details open with its name focused.
+		await tap(touch, page.getByTestId('empty-add-task'));
+		await expect(nameField(page)).toBeFocused({ timeout: READY_TIMEOUT_MS });
+		await scan('the details with the name focused');
+		// The + menu, with that task selected.
+		await page.keyboard.press('Escape');
+		await tap(touch, add(page));
+		await expect(page.getByRole('menuitem', { name: 'Add task after' })).toBeVisible();
+		await scan('the + menu');
 	});
 }

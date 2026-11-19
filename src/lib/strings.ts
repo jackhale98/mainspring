@@ -1115,12 +1115,15 @@ export const strings = {
 		tab: 'Health',
 		detailsTab: 'Details',
 		tabs: 'Panel',
-		/** The Health button: "Plan health: 12 problems"; before the first result, just the name. */
+		/**
+		 * The Health button: "Plan health: 12 problems"; before the first result, just the name. Zero
+		 * says "0" as the badge shows it (WCAG 2.5.3: the visible text is part of the name).
+		 */
 		button: (n: number | null): string =>
 			n === null
 				? 'Plan health'
 				: n === 0
-					? 'Plan health: no problems'
+					? 'Plan health: 0 problems'
 					: `Plan health: ${plural(n, 'problem', 'problems')}`,
 		/** The phone status card's row. */
 		cardRow: (n: number | null): string => (n === null ? 'Plan health' : `Plan health: ${n}`),
