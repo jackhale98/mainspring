@@ -5,41 +5,42 @@ import {
 	AUTOSCROLL_ARM_PX,
 	AUTOSCROLL_MAX_PX_PER_S,
 	NO_HOLD,
-	autoScrollVelocity,
+	AxisScroll,
+	bandVelocity,
 	heldVelocity,
 	holdAt,
 } from './autoscroll';
 
-describe('autoScrollVelocity', () => {
+describe('bandVelocity', () => {
 	it('is zero away from the edges', () => {
-		expect(autoScrollVelocity(300, 0, 600)).toBe(0);
-		expect(autoScrollVelocity(48, 0, 600)).toBe(0);
-		expect(autoScrollVelocity(552, 0, 600)).toBe(0);
+		expect(bandVelocity(300, 0, 600)).toBe(0);
+		expect(bandVelocity(48, 0, 600)).toBe(0);
+		expect(bandVelocity(552, 0, 600)).toBe(0);
 	});
 	it('ramps up toward each edge and caps at 600 px/s', () => {
-		expect(autoScrollVelocity(24, 0, 600)).toBe(-300);
-		expect(autoScrollVelocity(576, 0, 600)).toBe(300);
-		expect(autoScrollVelocity(0, 0, 600)).toBe(-600);
-		expect(autoScrollVelocity(600, 0, 600)).toBe(600);
-		expect(autoScrollVelocity(-500, 0, 600)).toBe(-600);
-		expect(autoScrollVelocity(900, 0, 600)).toBe(600);
+		expect(bandVelocity(24, 0, 600)).toBe(-300);
+		expect(bandVelocity(576, 0, 600)).toBe(300);
+		expect(bandVelocity(0, 0, 600)).toBe(-600);
+		expect(bandVelocity(600, 0, 600)).toBe(600);
+		expect(bandVelocity(-500, 0, 600)).toBe(-600);
+		expect(bandVelocity(900, 0, 600)).toBe(600);
 	});
 	it('works for a viewport that does not start at zero', () => {
-		expect(autoScrollVelocity(110, 100, 700)).toBeLessThan(0);
-		expect(autoScrollVelocity(400, 100, 700)).toBe(0);
+		expect(bandVelocity(110, 100, 700)).toBeLessThan(0);
+		expect(bandVelocity(400, 100, 700)).toBe(0);
 	});
 	it('a viewport too small for two bands splits it, and an empty one does not scroll', () => {
-		expect(autoScrollVelocity(10, 0, 40)).toBeLessThan(0);
-		expect(autoScrollVelocity(30, 0, 40)).toBeGreaterThan(0);
-		expect(autoScrollVelocity(5, 10, 10)).toBe(0);
+		expect(bandVelocity(10, 0, 40)).toBeLessThan(0);
+		expect(bandVelocity(30, 0, 40)).toBeGreaterThan(0);
+		expect(bandVelocity(5, 10, 10)).toBe(0);
 	});
 	it('never exceeds the cap and is monotonic toward the edges', () => {
 		fc.assert(
 			fc.property(fc.integer({ min: -200, max: 800 }), (p) => {
-				const v = autoScrollVelocity(p, 0, 600);
+				const v = bandVelocity(p, 0, 600);
 				expect(Math.abs(v)).toBeLessThanOrEqual(AUTOSCROLL_MAX_PX_PER_S);
-				if (p < 300) expect(autoScrollVelocity(p - 1, 0, 600)).toBeLessThanOrEqual(v);
-				else expect(autoScrollVelocity(p + 1, 0, 600)).toBeGreaterThanOrEqual(v);
+				if (p < 300) expect(bandVelocity(p - 1, 0, 600)).toBeLessThanOrEqual(v);
+				else expect(bandVelocity(p + 1, 0, 600)).toBeGreaterThanOrEqual(v);
 			}),
 		);
 	});
@@ -70,7 +71,7 @@ describe('a drag that begins inside an edge band', () => {
 		const hold = holdAt(570, 0, 600);
 		expect(heldVelocity(hold, 570 + AUTOSCROLL_ARM_PX - 1, 0, 600).velocity).toBe(0);
 		const r = heldVelocity(hold, 570 + AUTOSCROLL_ARM_PX, 0, 600);
-		expect(r.velocity).toBe(autoScrollVelocity(582, 0, 600));
+		expect(r.velocity).toBe(bandVelocity(582, 0, 600));
 		expect(r.velocity).toBeGreaterThan(0);
 		expect(r.hold).toEqual(NO_HOLD);
 		// Armed for good: moving back inside the band scrolls on.
@@ -92,9 +93,35 @@ describe('a drag that begins inside an edge band', () => {
 		expect(heldVelocity(left.hold, 10, 0, 600).velocity).toBeLessThan(0);
 	});
 
-	it('an unheld drag scrolls exactly as autoScrollVelocity says', () => {
+	it('an unheld drag scrolls exactly as bandVelocity says', () => {
 		for (const pos of [-20, 0, 30, 300, 560, 600, 700]) {
-			expect(heldVelocity(NO_HOLD, pos, 0, 600).velocity).toBe(autoScrollVelocity(pos, 0, 600));
+			expect(heldVelocity(NO_HOLD, pos, 0, 600).velocity).toBe(bandVelocity(pos, 0, 600));
 		}
+	});
+});
+
+describe('AxisScroll', () => {
+	it('holds the band the drag began in, frame by frame, and scrolls once it goes toward the edge', () => {
+		const a = new AxisScroll();
+		a.begin(570, 0, 600);
+		for (const pos of [570, 560, 556]) expect(a.velocity(pos, 0, 600)).toBe(0);
+		expect(a.velocity(570 + AUTOSCROLL_ARM_PX, 0, 600)).toBeGreaterThan(0);
+		// Armed: back in the band, it scrolls.
+		expect(a.velocity(565, 0, 600)).toBeGreaterThan(0);
+	});
+
+	it('a drag that began in the middle scrolls at the edges as ever', () => {
+		const a = new AxisScroll();
+		a.begin(300, 0, 600);
+		expect(a.velocity(590, 0, 600)).toBe(bandVelocity(590, 0, 600));
+		expect(a.velocity(5, 0, 600)).toBe(bandVelocity(5, 0, 600));
+	});
+
+	it('begins afresh for the next drag', () => {
+		const a = new AxisScroll();
+		a.begin(570, 0, 600);
+		a.velocity(300, 0, 600);
+		a.begin(575, 0, 600);
+		expect(a.velocity(570, 0, 600)).toBe(0);
 	});
 });

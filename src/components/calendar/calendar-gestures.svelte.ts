@@ -25,7 +25,7 @@
  *
  * Nothing here changes the plan.
  */
-import { autoScrollVelocity } from '../../lib/gesture/autoscroll';
+import { AxisScroll } from '../../lib/gesture/autoscroll';
 import { createGestureMachine } from '../../lib/gesture/machine';
 import type {
 	GestureInput,
@@ -87,6 +87,9 @@ export class CalendarGestures {
 	readonly #machine: GestureMachine;
 	#el: HTMLElement | null = null;
 	#pointer: Pointer | null = null;
+	/** Where the primary pointer pressed: an edge it pressed near does not scroll until it moves toward it. */
+	#press: { readonly y: number } | null = null;
+	readonly #edge = new AxisScroll();
 	#from = -1;
 	#last = -1;
 	#liftedAt = -1;
@@ -188,6 +191,7 @@ export class CalendarGestures {
 		const kind = (
 			e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse'
 		) as PointerKind;
+		if (type === 'down' && e.isPrimary) this.#press = { y: e.clientY };
 		this.#pointer = {
 			id: e.pointerId,
 			kind,
@@ -334,6 +338,8 @@ export class CalendarGestures {
 			const r = list.getBoundingClientRect();
 			this.#box = { top: r.top, bottom: Math.max(r.top, r.bottom - (this.#h.covered?.() ?? 0)) };
 		} else this.#box = null;
+		if (this.#box && this.#press) this.#edge.begin(this.#press.y, this.#box.top, this.#box.bottom);
+		else this.#edge.reset();
 		if (this.#raf !== 0) return;
 		this.#lastFrame = performance.now();
 		const frame = (now: number): void => {
@@ -345,7 +351,7 @@ export class CalendarGestures {
 			const sc = this.#h.scroller();
 			const r = this.#box;
 			if (p && sc && r) {
-				const v = autoScrollVelocity(p.clientY, r.top, r.bottom);
+				const v = this.#edge.velocity(p.clientY, r.top, r.bottom);
 				if (v !== 0) {
 					sc.scrollTop += (v * dt) / 1000;
 					// A synthetic move keeps the machine's lost-release check satisfied.

@@ -27,7 +27,7 @@
  *
  * Nothing here changes the plan.
  */
-import { autoScrollVelocity } from '../../lib/gesture/autoscroll';
+import { AxisScroll } from '../../lib/gesture/autoscroll';
 import { createGestureMachine } from '../../lib/gesture/machine';
 import type {
 	GestureInput,
@@ -149,6 +149,10 @@ export class HeatGestures {
 	#el: HTMLElement | null = null;
 	#session: Session | null = null;
 	#pointer: Pointer | null = null;
+	/** Where the primary pointer pressed: an edge it pressed near does not scroll until it moves toward it. */
+	#press: { readonly x: number; readonly y: number } | null = null;
+	readonly #edgeX = new AxisScroll();
+	readonly #edgeY = new AxisScroll();
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#raf = 0;
 	#lastFrame = 0;
@@ -286,6 +290,7 @@ export class HeatGestures {
 		const kind = (
 			e.pointerType === 'touch' || e.pointerType === 'pen' ? e.pointerType : 'mouse'
 		) as PointerKind;
+		if (type === 'down' && e.isPrimary) this.#press = { x: e.clientX, y: e.clientY };
 		this.#pointer = {
 			id: e.pointerId,
 			kind,
@@ -551,6 +556,15 @@ export class HeatGestures {
 	// --- edge auto-scroll --------------------------------------------------------------------
 
 	#pump(): void {
+		const press = this.#press;
+		const v0 = this.#h.visible();
+		if (press) {
+			this.#edgeX.begin(press.x, v0.x, v0.x + v0.w);
+			this.#edgeY.begin(press.y, v0.y, v0.y + v0.h);
+		} else {
+			this.#edgeX.reset();
+			this.#edgeY.reset();
+		}
 		if (this.#raf !== 0) return;
 		this.#lastFrame = performance.now();
 		const frame = (now: number): void => {
@@ -562,8 +576,8 @@ export class HeatGestures {
 			const sc = this.#h.scroller();
 			if (p && sc) {
 				const v = this.#h.visible();
-				const vx = autoScrollVelocity(p.clientX, v.x, v.x + v.w);
-				const vy = autoScrollVelocity(p.clientY, v.y, v.y + v.h);
+				const vx = this.#edgeX.velocity(p.clientX, v.x, v.x + v.w);
+				const vy = this.#edgeY.velocity(p.clientY, v.y, v.y + v.h);
 				if (vx !== 0 || vy !== 0) {
 					sc.scrollLeft += (vx * dt) / 1000;
 					sc.scrollTop += (vy * dt) / 1000;

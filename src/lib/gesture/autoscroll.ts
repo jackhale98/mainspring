@@ -11,9 +11,10 @@ export const AUTOSCROLL_EDGE_PX = 48;
 /**
  * Signed velocity in px/s for a pointer at `pos` in a viewport spanning [`min`, `max`] on one axis:
  * negative toward `min`, positive toward `max`, zero in the middle. A pointer past the edge
- * scrolls at the full speed.
+ * scrolls at the full speed. Not for a drag: it scrolls toward an edge the drag began near even while
+ * the pointer moves away from it. Drags use `AxisScroll` (the held form, below).
  */
-export function autoScrollVelocity(
+export function bandVelocity(
 	pos: number,
 	min: number,
 	max: number,
@@ -67,7 +68,7 @@ export function holdAt(
 }
 
 /**
- * The velocity for a pointer now (as `autoScrollVelocity`, except that a band that holds is quiet)
+ * The velocity for a pointer now (as `bandVelocity`, except that a band that holds is quiet)
  * and the holds after it. A hold ends when the pointer leaves its band, or goes `AUTOSCROLL_ARM_PX`
  * toward its edge from where the drag began; after that the band scrolls as any other.
  */
@@ -83,7 +84,32 @@ export function heldVelocity(
 	const lo = hold.min !== null && pos < min + band && pos > hold.min - AUTOSCROLL_ARM_PX;
 	const hi = hold.max !== null && pos > max - band && pos < hold.max + AUTOSCROLL_ARM_PX;
 	const next: AxisHold = { min: lo ? hold.min : null, max: hi ? hold.max : null };
-	const v = autoScrollVelocity(pos, min, max, edge, maxSpeed);
+	const v = bandVelocity(pos, min, max, edge, maxSpeed);
 	const quiet = (v < 0 && next.min !== null) || (v > 0 && next.max !== null);
 	return { velocity: quiet ? 0 : v, hold: next };
+}
+
+/**
+ * The edge auto-scroll of one axis of one drag: what every drag in the app goes through. `begin`
+ * with the pointer where it pressed (before any slop), then `velocity` each frame with the pointer
+ * and the visible range. Without a `begin` nothing is held.
+ */
+export class AxisScroll {
+	#hold: AxisHold = NO_HOLD;
+
+	begin(pos: number, min: number, max: number): void {
+		this.#hold = holdAt(pos, min, max);
+	}
+
+	/** Nothing held (a drag with no known press point). */
+	reset(): void {
+		this.#hold = NO_HOLD;
+	}
+
+	/** Signed px/s for the pointer at `pos` now; zero in a band the drag began in and has not left toward the edge. */
+	velocity(pos: number, min: number, max: number): number {
+		const r = heldVelocity(this.#hold, pos, min, max);
+		this.#hold = r.hold;
+		return r.velocity;
+	}
 }

@@ -422,10 +422,24 @@ desktop.
   (0 of 12). On desktop the handle is 125 px from the edge and was never affected (24 of 24); with
   a 1030 px wide window it is 24 px inside the band and 4 of 6 tries edited.
 - **Fix.** A drag that begins inside a band holds that band: no scroll toward the edge until the
-  pointer goes 12 px toward it (`heldVelocity`, `holdAt`, `AUTOSCROLL_ARM_PX`; `edgeHoldAt` and
-  `heldEdgeVelocity` in `lib/gantt/viewport.ts`). Leaving the band ends the hold. Unit tests sit
-  beside both modules. The row drag, the workload heat and the calendar use `autoScrollVelocity`
-  directly and have the same flaw in principle; they are not changed (not part of this bug).
+  pointer goes 12 px toward it; leaving the band ends the hold (`lib/gesture/autoscroll.ts`:
+  `holdAt`, `heldVelocity`, `AUTOSCROLL_ARM_PX`). Every caller goes through `AxisScroll` (`begin`
+  with the press point, then `velocity` each frame); the unheld function is now `bandVelocity` and
+  only `AxisScroll` and `heldVelocity` call it. The callers, each with a unit test beside it that
+  fails with the hold taken out (jsdom, fake frames: `lib/gesture/dom-testing.ts`):
+  the Gantt chart (`gestures.svelte.ts`, both axes; the vertical axis only for a row or link drag),
+  the task list's row drag (`row-drag.svelte.ts`, also the People table's), the workload plot
+  (`heat-gestures.svelte.ts`, each axis held alone) and the Calendar month
+  (`calendar-gestures.svelte.ts`). `edgeVelocity` in `lib/gantt/viewport.ts` was removed.
+- **E2E for the other callers** (`tests/e2e/edge-scroll-drags.spec.ts`): the pointer presses 20 px
+  inside the edge band, moves 8 to 14 px away from it (still inside the band), is held for 30
+  frames, and the scroll position must not have changed; the drop is where the pointer began, so
+  the row, the cell or the day is dropped in place and nothing is edited (row drag and workload
+  cell). Rows: gantt-500, bottom band. Workload: fedora-res, left band beside the names column.
+  Calendar: a short view (a month that fits has nothing to scroll), top band. Each fails with the
+  caller's hold taken out, on desktop and on the Pixel 7 (scroll position 811 to 952, 736 to 595 and
+  221 to 148 on desktop; 704 to 875, 574 to 413 and 165 to 0 on the Pixel 7), and passes with it on
+  desktop, Pixel 7 and iPhone 14.
 - **Checks.** After the fix: 12 of 12 on the Pixel 7 and 12 of 12 on the narrow desktop window.
   `tests/e2e/gantt-resize-near-edge.spec.ts` (8 drags of -48 px from 24 px inside the edge, each must
   write what the same drag writes in the middle of the chart; and a drag toward the edge still

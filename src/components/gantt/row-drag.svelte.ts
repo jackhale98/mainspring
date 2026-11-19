@@ -13,6 +13,7 @@
  * nothing here paints, and nothing changes the plan before the drop.
  */
 import {
+	AxisScroll,
 	calendarDragSnapper,
 	createGestureController,
 	type GestureController,
@@ -30,7 +31,6 @@ import {
 	type Tree,
 } from '../../lib/gantt/reorder';
 import type { Box } from '../../lib/gantt/viewport';
-import { autoScrollVelocity } from '../../lib/gesture';
 import { gestureStrings } from '../../lib/strings';
 
 export interface RowDragHost {
@@ -88,6 +88,7 @@ export class RowDrag {
 	/** The version of the tree `#drop` was read from. */
 	#shown: number | undefined;
 	#dx = 0;
+	readonly #edge = new AxisScroll();
 	#last: { id: number; kind: PointerKind; x: number; y: number; m: Modifiers } | null = null;
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#open: { key: string; timer: ReturnType<typeof setTimeout> } | null = null;
@@ -147,6 +148,9 @@ export class RowDrag {
 			window.removeEventListener('blur', reset);
 		};
 		this.#event('down', e, row);
+		// Where it pressed: the edge it pressed near does not scroll until it moves toward it.
+		const box = this.#h.visible();
+		this.#edge.begin(e.clientY, box.top, box.bottom);
 	}
 
 	#event(type: 'down' | 'move' | 'up' | 'cancel', e: PointerEvent, row?: number): void {
@@ -298,7 +302,7 @@ export class RowDrag {
 			const sc = this.#h.scroller();
 			if (p && sc) {
 				const box = this.#h.visible();
-				const v = autoScrollVelocity(p.y, box.top, box.bottom);
+				const v = this.#edge.velocity(p.y, box.top, box.bottom);
 				if (v !== 0) {
 					sc.scrollTop += (v * dt) / 1000;
 					const index = this.#h.rows().findIndex((r) => r.key === this.#key);

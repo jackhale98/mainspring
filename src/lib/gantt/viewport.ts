@@ -4,16 +4,8 @@
  * 9.3). The scroll container reaches under the frozen task column and, while the details are open,
  * under a bottom sheet (tablet, phone) or a drawer over the chart's right edge (a narrow desktop
  * Split). Edge auto-scroll must not wait for a pointer to reach an edge that is covered, so it is
- * measured against what is left. Pure: boxes in, a box and velocities out.
+ * measured against what is left. Pure: boxes in, a box out.
  */
-import {
-	NO_HOLD,
-	heldVelocity,
-	holdAt,
-	autoScrollVelocity,
-	type AxisHold,
-} from '../gesture/autoscroll';
-
 export interface Box {
 	readonly left: number;
 	readonly top: number;
@@ -45,48 +37,6 @@ export function visibleChart(
 	const left = scroller.left + chartLeft;
 	const top = scroller.top + headerHeight;
 	return { left, top, right: Math.max(left, right), bottom: Math.max(top, bottom) };
-}
-
-export interface Velocity {
-	readonly x: number;
-	readonly y: number;
-}
-
-/** px/s to scroll by for a pointer (viewport px); `vertical` is off for drags that only move in time. */
-export function edgeVelocity(x: number, y: number, box: Box, vertical: boolean): Velocity {
-	return {
-		x: autoScrollVelocity(x, box.left, box.right),
-		y: vertical ? autoScrollVelocity(y, box.top, box.bottom) : 0,
-	};
-}
-
-/** The holds of both axes (autoscroll.ts `AxisHold`). */
-export interface EdgeHold {
-	readonly x: AxisHold;
-	readonly y: AxisHold;
-}
-
-export const NO_EDGE_HOLD: EdgeHold = { x: NO_HOLD, y: NO_HOLD };
-
-/** The holds of a drag that began with the pointer at (`x`, `y`) in `box`. */
-export function edgeHoldAt(x: number, y: number, box: Box): EdgeHold {
-	return { x: holdAt(x, box.left, box.right), y: holdAt(y, box.top, box.bottom) };
-}
-
-/**
- * `edgeVelocity` for a drag with holds: an edge that the drag began near does not scroll while the
- * pointer moves away from it. Returns the holds as they are after this pointer position.
- */
-export function heldEdgeVelocity(
-	hold: EdgeHold,
-	x: number,
-	y: number,
-	box: Box,
-	vertical: boolean,
-): Velocity & { readonly hold: EdgeHold } {
-	const hx = heldVelocity(hold.x, x, box.left, box.right);
-	const hy = heldVelocity(hold.y, y, box.top, box.bottom);
-	return { x: hx.velocity, y: vertical ? hy.velocity : 0, hold: { x: hx.hold, y: hy.hold } };
 }
 
 /** A sheet of `height` px that ends at the viewport's bottom has its top this far down. */
