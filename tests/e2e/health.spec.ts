@@ -15,6 +15,7 @@ import { healthStrings } from '../../src/lib/strings-health-panel';
 import { CHECK_IDS, DEFAULT_HEALTH_SETTINGS } from '../../src/lib/health/types';
 import { withCheck, withLinkMilestones } from '../../src/lib/health/settings';
 import { READY_TIMEOUT_MS } from './lib/gantt-rig';
+import { panelSettled } from './lib/settle';
 import {
 	SETTINGS_KEY,
 	TAGS,
@@ -446,10 +447,13 @@ test.describe('accessibility', () => {
 			await openPlan(page, info, scheme);
 			const panel = await openHealth(page, info);
 			await expect(findings(panel, 'no-predecessor').first()).toBeVisible();
+			// A phone's sheet still sliding in lies partly over the toolbar: scan it at rest.
+			await panelSettled(panel);
 			const scan = () => new AxeBuilder({ page }).withTags(TAGS).analyze();
 			expect((await scan()).violations).toEqual([]);
 			await panel.getByTestId('health-settings-button').click();
 			await expect(panel.getByTestId('health-settings')).toBeVisible();
+			await panelSettled(panel);
 			expect((await scan()).violations).toEqual([]);
 			// The panel as it is named: a region with its title.
 			await expect(panelOf(page, info)).toBeVisible();
