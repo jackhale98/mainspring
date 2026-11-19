@@ -10,7 +10,8 @@
 -->
 <script lang="ts">
 	import type { MoveKind } from '../../lib/gantt/intents';
-	import { ganttActionStrings, gestureStrings } from '../../lib/strings';
+	import { ganttActionStrings } from '../../lib/strings';
+	import { moveQuestionStrings } from '../../lib/strings-move-dialog';
 
 	interface Props {
 		/** The suggestion while the question is open, else null. */
@@ -69,12 +70,12 @@
 				</label>
 			{/each}
 		</fieldset>
-		<p class="remember">{gestureStrings.moveQuestion.remember}</p>
+		<p class="remember">{moveQuestionStrings.remember}</p>
 		<div class="buttons">
 			<button type="button" class="secondary" onclick={() => onanswer(null)}>
-				{gestureStrings.moveQuestion.cancel}
+				{moveQuestionStrings.cancel}
 			</button>
-			<button type="submit" class="primary">{gestureStrings.moveQuestion.confirm}</button>
+			<button type="submit" class="primary">{moveQuestionStrings.confirm}</button>
 		</div>
 	</form>
 </dialog>

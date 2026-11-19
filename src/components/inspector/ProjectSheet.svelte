@@ -23,6 +23,7 @@
 		weekStartEdit,
 	} from '../../lib/resources/project-edit';
 	import { inspectorStrings as S } from '../../lib/strings';
+	import { projectSheetStrings as P } from '../../lib/strings-project-sheet';
 	import { projectFrameStrings as F } from '../../lib/strings-resources';
 	import Sheet from '../Sheet.svelte';
 	import CommitInput from './CommitInput.svelte';
@@ -32,7 +33,6 @@
 	import WorkingHoursEditor from './WorkingHoursEditor.svelte';
 
 	const { app, actions, showInText } = getInspector();
-	const P = S.project;
 	const uid = $props.id();
 
 	const open = $derived(app.inspector.projectOpen);
