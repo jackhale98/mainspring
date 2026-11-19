@@ -2,6 +2,8 @@
 /**
  * Helpers for tests of the DOM pointer wiring (jsdom): a pointer event with the fields the wiring
  * reads, and a scroll container whose geometry is set by the test (jsdom has no layout).
+ * Test-only (imported by *.test.ts alone), so it has no test of its own. Its pointer events are
+ * primary; a second-pointer path needs its own event.
  */
 
 export interface PointerInit {

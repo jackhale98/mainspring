@@ -125,3 +125,26 @@ describe('AxisScroll', () => {
 		expect(a.velocity(570, 0, 600)).toBe(0);
 	});
 });
+
+describe('a press nearer its edge than the arming distance', () => {
+	it('arms when the pointer reaches the edge, on either side', () => {
+		const right = heldVelocity(holdAt(595, 0, 600), 599, 0, 600);
+		expect(right.velocity).toBeGreaterThan(0);
+		expect(right.hold).toEqual(NO_HOLD);
+		const left = heldVelocity(holdAt(5, 0, 600), 1, 0, 600);
+		expect(left.velocity).toBeLessThan(0);
+		expect(left.hold).toEqual(NO_HOLD);
+	});
+	it('stays held while the pointer moves away from the edge', () => {
+		const hold = holdAt(595, 0, 600);
+		for (const pos of [596, 594, 590, 580, 570]) {
+			expect(heldVelocity(hold, pos, 0, 600).velocity).toBe(0);
+		}
+		expect(heldVelocity(holdAt(5, 0, 600), 10, 0, 600).velocity).toBe(0);
+	});
+	it('a press at the edge itself stays held until the pointer goes past it', () => {
+		const hold = holdAt(599.5, 0, 600);
+		expect(heldVelocity(hold, 599, 0, 600).velocity).toBe(0);
+		expect(heldVelocity(hold, 590, 0, 600).velocity).toBe(0);
+	});
+});

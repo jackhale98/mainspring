@@ -34,6 +34,8 @@ export function bandVelocity(
  * the band scrolls (CSS px). Past the press slop of every pointer kind, so a wobble does not arm it.
  */
 export const AUTOSCROLL_ARM_PX = 12;
+/** How near its edge, in px, a held press's pointer counts as at the edge (it then arms). */
+const EDGE_REACH_PX = 2;
 
 /**
  * Where a drag began inside each band of one axis, or null where it did not (that band is armed).
@@ -70,7 +72,8 @@ export function holdAt(
 /**
  * The velocity for a pointer now (as `bandVelocity`, except that a band that holds is quiet)
  * and the holds after it. A hold ends when the pointer leaves its band, or goes `AUTOSCROLL_ARM_PX`
- * toward its edge from where the drag began; after that the band scrolls as any other.
+ * toward its edge from where the drag began (or reaches the edge, for a press nearer it than that);
+ * after that the band scrolls as any other.
  */
 export function heldVelocity(
 	hold: AxisHold,
@@ -81,8 +84,19 @@ export function heldVelocity(
 	maxSpeed: number = AUTOSCROLL_MAX_PX_PER_S,
 ): { readonly velocity: number; readonly hold: AxisHold } {
 	const band = bandOf(min, max, edge);
-	const lo = hold.min !== null && pos < min + band && pos > hold.min - AUTOSCROLL_ARM_PX;
-	const hi = hold.max !== null && pos > max - band && pos < hold.max + AUTOSCROLL_ARM_PX;
+	// A press closer than the arming distance to its edge arms once the pointer is at that edge
+	// (within EDGE_REACH_PX), so that a drag can still reach what is beyond it; a pointer moving away
+	// from the edge never arms.
+	const loArm =
+		hold.min === null
+			? 0
+			: Math.max(hold.min - AUTOSCROLL_ARM_PX, Math.min(hold.min - 1, min + EDGE_REACH_PX));
+	const hiArm =
+		hold.max === null
+			? 0
+			: Math.min(hold.max + AUTOSCROLL_ARM_PX, Math.max(hold.max + 1, max - EDGE_REACH_PX));
+	const lo = hold.min !== null && pos < min + band && pos > loArm;
+	const hi = hold.max !== null && pos > max - band && pos < hiArm;
 	const next: AxisHold = { min: lo ? hold.min : null, max: hi ? hold.max : null };
 	const v = bandVelocity(pos, min, max, edge, maxSpeed);
 	const quiet = (v < 0 && next.min !== null) || (v > 0 && next.max !== null);

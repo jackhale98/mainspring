@@ -436,8 +436,11 @@ desktop.
   pointer goes 12 px toward it; leaving the band ends the hold (`lib/gesture/autoscroll.ts`:
   `holdAt`, `heldVelocity`, `AUTOSCROLL_ARM_PX`). Every caller goes through `AxisScroll` (`begin`
   with the press point, then `velocity` each frame); the unheld function is now `bandVelocity` and
-  only `AxisScroll` and `heldVelocity` call it. The callers, each with a unit test beside it that
-  fails with the hold taken out (jsdom, fake frames: `lib/gesture/dom-testing.ts`):
+  only `AxisScroll` and `heldVelocity` call it. A press nearer its edge than 12 px arms when the
+  pointer reaches the edge (review, 2026-11-19), so a drag can still reach what is beyond it. The
+  callers (row drag, workload and calendar each with a unit test beside it that fails with the hold
+  taken out, jsdom and fake frames via `lib/gesture/dom-testing.ts`; the Gantt chart's wiring is
+  covered by the e2e specs below):
   the Gantt chart (`gestures.svelte.ts`, both axes; the vertical axis only for a row or link drag),
   the task list's row drag (`row-drag.svelte.ts`, also the People table's), the workload plot
   (`heat-gestures.svelte.ts`, each axis held alone) and the Calendar month
@@ -457,6 +460,11 @@ desktop.
   scrolls) failed on try 1 on desktop and Pixel 7 before the fix, and passes on desktop (3 runs),
   Pixel 7 (3 runs) and iPhone 14. `gantt-perf.spec.ts` drags 48 px again and passed on the Pixel 7
   profile. Screenshots: `docs/phases/screenshots/phase-3/gantt-resize-near-edge-*`.
+- **Left open (review nits).** The press point is the last DOM-primary down, not looked up by the
+  dragging pointer's id: after a cancelled touch drag with a finger still down, or a mouse press
+  between a touch press and its long-press, the hold can use the wrong press (rare). On desktop with
+  the details drawer open, a drag past the chart's visible box to the window edge does not scroll
+  (the same before this change).
 
 ## Done when (ADR-0016): recorded as each item is met
 
