@@ -33,7 +33,7 @@
 <script lang="ts">
 	import { onDestroy, untrack, type Component } from 'svelte';
 	import { AppState } from '../lib/state/app.svelte';
-	import { installEditHooks } from '../lib/state/edit-hooks';
+	import { createIndexGate, installEditHooks } from '../lib/state/edit-hooks';
 	import { LayoutState } from '../lib/state/layout.svelte';
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { PeopleViewState } from '../lib/state/people-view.svelte';
@@ -63,7 +63,9 @@
 	import type { SourceRange } from '../lib/tjp/index';
 
 	const params = new URLSearchParams(location.search);
-	const app = new AppState({ initial: params.get('sample') });
+	// End-to-end tests only: with ?hooks=edits the index can be held (edit-hooks.ts); else null.
+	const gate = createIndexGate(params);
+	const app = new AppState({ initial: params.get('sample'), idle: gate?.timers });
 	const theme = new ThemeState();
 	const linked = modeFromParam(params.get('mode'));
 	const modes = new ModeState({ linked });
@@ -75,7 +77,7 @@
 	const updates = new AppUpdates({ url: sitePath('version.json'), visibility: document });
 	updates.start();
 	// End-to-end tests only, with ?hooks=edits (edit-hooks.ts).
-	const offHooks = installEditHooks(app, params);
+	const offHooks = installEditHooks(app, params, undefined, gate);
 	onDestroy(() => {
 		updates.stop();
 		offHooks();

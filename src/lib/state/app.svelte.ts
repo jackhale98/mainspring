@@ -62,6 +62,7 @@ import {
 	type RunnerState,
 	type ScheduleRunner,
 } from '../workspace/schedule-runner';
+import type { Timers } from '../workspace/run-types';
 import { afterAndroidKey } from '../tjp/cm/android-key';
 import { createHistory, type HistoryOutcome, type WorkspaceHistory } from '../workspace/history';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
@@ -141,6 +142,8 @@ export interface AppStateOptions {
 	keyTarget?: EventTarget | null;
 	/** The keyword docs loader; default the editor bundle's (`engineDocsLoader`), made by `ensureEditor`. */
 	docs?: EngineDocsLoader;
+	/** The runner's idle timers; set only by the end-to-end hook (`createIndexGate`), never in production. */
+	idle?: Pick<Timers, 'requestIdle' | 'cancelIdle'>;
 }
 
 /** How long a format message stays in the toolbar. */
@@ -251,6 +254,7 @@ export class AppState {
 	/** The keyword docs, from the editor bundle; null until `ensureEditor` has loaded it. */
 	#docs: EngineDocsLoader | null = null;
 	readonly #docsOption: EngineDocsLoader | null;
+	readonly #idle: Pick<Timers, 'requestIdle' | 'cancelIdle'> | undefined;
 	#history: WorkspaceHistory | null = null;
 	readonly #offKeys: () => void;
 	#unsubscribe: Array<() => void> = [];
@@ -272,6 +276,7 @@ export class AppState {
 		this.samples = opts.samples ?? SAMPLES;
 		this.#confirm = opts.confirm ?? ((m) => globalThis.confirm(m));
 		this.#docsOption = opts.docs ?? null;
+		this.#idle = opts.idle;
 		this.engine = this.client.state;
 		this.#offClient = this.client.onState((s) => (this.engine = s));
 		// Only the strip's text depends on it: a boot that fails shows no version, and says so elsewhere.
@@ -348,6 +353,7 @@ export class AppState {
 			workspace: ws,
 			client: this.client,
 			zones: this.#zones,
+			...(this.#idle && { timers: this.#idle }),
 		});
 		// First subscriber, so it sees every change in order (history.ts).
 		this.#history = createHistory(ws);
