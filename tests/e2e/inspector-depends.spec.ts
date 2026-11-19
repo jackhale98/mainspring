@@ -12,6 +12,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { swipeOn } from './lib/finger';
+import { panelSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
@@ -399,6 +400,10 @@ test.describe('the dependency picker is accessible', () => {
 			await addFollowedBy(panel).click();
 			await searchFor(page, 'successor').fill('s');
 			await expect(options(page).first()).toBeVisible();
+			// On a phone the sheet goes to its full height as the picker opens; axe measures target sizes
+			// and overlaps, so it runs on the settled layout, not mid-slide (a slow runner read the
+			// toolbar's Today button half covered by the sliding sheet).
+			await panelSettled(panel);
 			const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 			expect(r.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual(
 				[],
