@@ -308,6 +308,80 @@ B4 on the iPhone 14 (WebKit, one run on a loaded 4-core machine): see the run ev
 `ci.yml` has 18 iPhone shards instead of 16: the four files were 0 s on the iPhone in the plan, and
 about 4 worker minutes of specs more run there now, until the next `shard-plan.mjs measure` from a CI run.
 
+## T26 part 2: hover, completion and the Docs sheet wait for the docs asset (ADR-0017, 2026-11-19)
+
+What changed (part 1 moved the docs to the engine build's `tj-docs.*` asset; this is "Before the docs
+arrive"):
+
+- `src/lib/tjp/cm/docs-wait.ts`: `docsWithin` waits at most `DOCS_WAIT_MS` (300 ms) for the docs
+  loader, and not at all once the docs are in. The editor env has a `loadDocs` option
+  (`env.ts`); the editor bundle passes the loader's `load()`, so the CM layer reaches the loader
+  through the env, not a global.
+- Hover is an async `hoverTooltip` source for a keyword while the docs are not in (an id, or a
+  keyword once they are, is answered at once). Completion `info` is a function that returns a
+  promise until the docs are in. The keyboard docs command and `AppState.openDocs` (the Docs sheet)
+  wait the same way. Past the bound: the table's syntax line and summary, with "Loading the full
+  documentation…" only while the load runs; unavailable: the summary, no note, and the next look
+  starts a new load.
+- Unit tests (fake timers): `hover.test.ts`, `complete.test.ts`, `docs-tooltip.test.ts`,
+  `docs-wait.test.ts`, `editor-bundle.test.ts` (the env carries the loader's `load`).
+- e2e: `engine-docs-fallback.spec.ts` (new, all three projects): with the asset aborted by
+  `page.route`, hover (desktop) or the Docs sheet (phones) shows the summary with no note and an
+  edit still schedules; with the asset held back, the first look shows the summary and the loading
+  note, and once it is let through the next look shows the full doc. `text-mode.spec.ts`: the
+  re-hover `toPass` loop and the Docs sheet's re-open loop are gone; the first hover, the first
+  completion info and the first Docs sheet must show the full doc (the sheet test runs on iPhone 14).
+  No new fixed waits (139 in 33 files, unchanged).
+- `summaries.generated.ts` was already lazy: in the built app its text is only in the editor chunk
+  (`editor-controller.*.js`), so making it lazy gains nothing for the Visual-first load.
+
+First-load JS, gzip (`node scripts/js-sizes.mjs --serve`, `MAINSPRING_DEV_PAGES=1`), before and after:
+Visual-first 329,095 and 329,115 (cap 330,000; no `tj-docs` request); Text-first 435,625 and
+435,994 (cap 440,000); total 606,744 and 607,117; editor chunk 102,950 and 103,279 (cap 118,000).
+
+Review round (same day), on top of 222bf7d0:
+
+- The loader rests after a failed load (`retryAfterMs`, 5 s, `src/engine/docs-asset.ts`;
+  `unavailable` carries `retryAt`). Within the rest `load()` gives null at once with no fetch, the
+  docs source says `coolingDown`, and hover, completion info and the docs command neither load nor
+  wait: completion info is a plain string again, so CodeMirror sets `aria-describedby`. A look after
+  the rest tries again. One load is ended after `timeoutMs` (20 s: its fetches aborted, and it ends
+  even if a step ignores the signal) as `unavailable`, so a stalled fetch no longer keeps the note
+  and the 300 ms wait for the whole session.
+- `openDocs` also drops its result when the editor went away during the wait (Visual mode, another
+  plan). Unit tests in `app-docs.svelte.test.ts`: the docs within the bound give the full doc, past
+  it the summary and the note, of two quick calls only the later shows, and no sheet once the editor
+  is gone. Each fails when its guard (the ticket, the editor check, the wait) is taken out
+  (checked).
+- Escape within the keyboard command's wait drops the pending tooltip (`hideDocsCommand` bumps a
+  per-view counter). Unit-tested.
+- The loading note is last in hover, completion info and now the Docs sheet (the sheet shows the
+  notes after the body, in the hover's order). Screenshots retaken.
+- e2e: the held-back test opens the plan in Visual first, then Text, so the load (and its 20 s
+  timeout) starts when the editor mounts; after the asset is let through it waits for its
+  `requestfinished` and then looks again with `toPass` until the full doc shows (the body is read,
+  gunzipped and parsed after the request ends).
+
+First-load JS, gzip (`node scripts/js-sizes.mjs --serve`, `MAINSPRING_DEV_PAGES=1`): Visual-first
+329,115 (no `tj-docs` request), Text-first 436,198, total 607,321, editor chunk 103,329.
+
+e2e (`text-mode`, `engine-docs`, `engine-docs-fallback`, local, after `build:engine` and the dev-pages
+build): desktop and Pixel 7, 23 passed and 1 skipped (the hover test on touch, by design); iPhone 14,
+10 passed, 1 skipped (the same) and 1 failed: `text-mode.spec.ts` "changing an effort updates the
+finish date", which this task does not touch and which shows no docs. Its trace ends with the line
+reading `effort 2` and a lint error: under load the two Backspaces and the insert landed in more
+than one undo group, so one undo left an error and the strip kept the last good finish. It failed
+the same way in one earlier iPhone run of the first round, and passed alone (three times in all).
+A pre-existing, load-dependent flake for whoever owns the undo specs.
+
+Unit: `npx vitest run`, 502 of 503 files passed (7,292 tests); the one failure was
+`edits-rebase.property.test.ts` (ADR-0018, not touched here), which passed when run alone. `tsc`, `svelte-check` (0 errors) and prettier are clean;
+`fixed-waits.mjs` (139 in 33 files, unchanged) and `webkit-skips.mjs` pass.
+
+Screenshots (`SCREENSHOTS=1`, the held-back test): `docs/phases/screenshots/phase-3/t26-loading-note-*`
+and `t26-full-doc-*` for desktop (hover popup), Pixel 7 and iPhone 14 (Docs sheet; hover is off on
+touch), light.
+
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five

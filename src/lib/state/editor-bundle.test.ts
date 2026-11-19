@@ -3,8 +3,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EngineDocsLoader, EngineDocsState } from '../../engine/docs-asset';
 import type { SyntaxDocs } from '../../engine/protocol';
+import { EditorState } from '@codemirror/state';
+import { tjpEnv } from '../tjp/cm';
 import { KEYWORDS, TJ_VERSION } from '../tjp/syntax/keywords';
-import { docsSource, engineDocsLoader } from './editor-bundle';
+import { docsSource, editorSupport, engineDocsLoader } from './editor-bundle';
 
 const DOCS: SyntaxDocs = { tjVersion: TJ_VERSION, keywords: [] };
 
@@ -16,30 +18,49 @@ const withState = (state: EngineDocsState): EngineDocsLoader => ({
 afterEach(() => vi.restoreAllMocks());
 
 describe('docsSource', () => {
+	const source = (engine: SyntaxDocs | null, loading: boolean, coolingDown = false) => ({
+		table: KEYWORDS,
+		engine,
+		loading,
+		coolingDown,
+	});
+
 	it('gives the table alone, loading, while the docs are fetched', () => {
-		expect(docsSource(withState({ status: 'idle' }))).toEqual({
-			table: KEYWORDS,
-			engine: null,
-			loading: false,
-		});
-		expect(docsSource(withState({ status: 'loading' }))).toEqual({
-			table: KEYWORDS,
-			engine: null,
-			loading: true,
-		});
+		expect(docsSource(withState({ status: 'idle' }))).toEqual(source(null, false));
+		expect(docsSource(withState({ status: 'loading' }))).toEqual(source(null, true));
 	});
 
 	it('gives the docs once loaded, and the table alone when they are unavailable', () => {
-		expect(docsSource(withState({ status: 'loaded', docs: DOCS }))).toEqual({
-			table: KEYWORDS,
-			engine: DOCS,
-			loading: false,
+		expect(docsSource(withState({ status: 'loaded', docs: DOCS }))).toEqual(source(DOCS, false));
+		const later = Date.now() + 60_000;
+		expect(docsSource(withState({ status: 'unavailable', retryAt: later }))).toEqual(
+			source(null, false, true),
+		);
+		// Past the cooldown a look may load again.
+		const past = Date.now() - 1;
+		expect(docsSource(withState({ status: 'unavailable', retryAt: past }))).toEqual(
+			source(null, false, false),
+		);
+	});
+});
+
+describe('editorSupport', () => {
+	it("gives the editor the loader's docs and its load through the env", async () => {
+		const loader = { ...withState({ status: 'idle' }), load: vi.fn(() => Promise.resolve(null)) };
+		const support = editorSupport({
+			docs: loader,
+			history: { undo: () => false, redo: () => false },
 		});
-		expect(docsSource(withState({ status: 'unavailable' }))).toEqual({
+		const state = EditorState.create({ extensions: support.extensions('plan.tjp', 'global') });
+		const env = state.facet(tjpEnv);
+		expect(env.docs()).toEqual({
 			table: KEYWORDS,
 			engine: null,
 			loading: false,
+			coolingDown: false,
 		});
+		await env.loadDocs();
+		expect(loader.load).toHaveBeenCalledTimes(1);
 	});
 });
 

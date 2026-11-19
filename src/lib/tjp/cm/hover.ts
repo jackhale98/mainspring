@@ -2,10 +2,12 @@
 /**
  * Hover for TJP (phase-1.md 6.7, 8.2).
  *
- * - On a statement keyword: its syntax line and summary from the committed table at once, and
- *   the engine's full documentation and "see also" once `syntax()` has resolved (and its version
- *   matches the table, `engineDocsMatch`). The keyword is resolved in its statement's context,
- *   so `booking` in a resource body shows 'booking.resource'.
+ * - On a statement keyword: the engine's full documentation and "see also" once its docs asset
+ *   has loaded (and its version matches the table, `engineDocsMatch`); before that the popup waits
+ *   for the docs at most `DOCS_WAIT_MS` (docs-wait.ts, ADR-0017) and then shows the committed
+ *   table's syntax line and summary, with a note while the docs are still loading. The keyword
+ *   is resolved in its statement's context, so `booking` in a resource body shows
+ *   'booking.resource'.
  * - On a task or resource id (a declaration header, `depends`, `allocate`, `responsible`,
  *   `managers`, `supplement`) or a macro name: what the index says it is, with the declaration's
  *   file, line and header text. Only while the index describes the text the editor shows
@@ -25,6 +27,7 @@ import { keywordDoc, type KeywordDocsSource, type KeywordDocView } from '../synt
 import type { KeywordEntry } from '../syntax/keywords';
 import { enclosingStatement, statementHead } from '../tree';
 import { keywordEntryOf, keywordNodeAt, treeAt } from './context';
+import { docsWithin, waitsForDocs } from './docs-wait';
 import { currentIndex, tjpEnv } from './env';
 
 export interface Declaration {
@@ -278,21 +281,38 @@ const notePointer = EditorView.domEventHandlers({
 	},
 });
 
-/** The hover's source: null for touch (`touchPointer`), else the keyword or id popup. */
+function tooltipOf(view: EditorView, info: HoverInfo): Tooltip {
+	const content = hoverContent(info);
+	return {
+		pos: info.from,
+		end: info.to,
+		above: true,
+		create: () => ({ dom: renderHover(content, view.dom.ownerDocument) }),
+	};
+}
+
+/**
+ * The hover's source: null for touch (`touchPointer`), else the keyword or id popup. An id, or a
+ * keyword once the engine's docs are in (or while the loader rests after a failure), is answered
+ * at once. A keyword before then is answered
+ * with a promise that waits at most `DOCS_WAIT_MS` for the docs (docs-wait.ts): the full doc when
+ * they come in time, else the table's summary (with the loading note while they load).
+ * CodeMirror drops a pending hover when the pointer moves off the word or the view updates, and
+ * asks again after an update, so the state read here is still the view's when the promise is used.
+ */
 export function keywordHoverSource(
 	docs: () => KeywordDocsSource,
-): (view: EditorView, pos: number) => Tooltip | null {
-	return (view: EditorView, pos: number): Tooltip | null => {
+): (view: EditorView, pos: number) => Tooltip | null | Promise<Tooltip | null> {
+	return (view, pos) => {
 		if (touchPointer(view)) return null;
-		const info = hoverInfo(view.state, pos, docs);
+		const state = view.state;
+		const info = hoverInfo(state, pos, docs);
 		if (!info) return null;
-		const content = hoverContent(info);
-		return {
-			pos: info.from,
-			end: info.to,
-			above: true,
-			create: () => ({ dom: renderHover(content, view.dom.ownerDocument) }),
-		};
+		if (info.kind !== 'keyword' || !waitsForDocs(docs())) return tooltipOf(view, info);
+		return docsWithin(docs, state.facet(tjpEnv).loadDocs).then((src) => {
+			const settled = hoverInfo(state, pos, () => src);
+			return settled ? tooltipOf(view, settled) : null;
+		});
 	};
 }
 

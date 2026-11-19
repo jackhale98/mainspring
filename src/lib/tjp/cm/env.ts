@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * What the TJP editor extensions know about the file they edit (phase-1.md 6.7): its workspace
- * path and top context, the keyword docs, and optionally the workspace and the symbol index.
- * `tjp(opts)` (cm/index.ts) puts it in a facet, so completion, hover, the format command and the
- * lint layer read it from the state. The workspace reconfigures the facet with the rest of the
- * extensions when the file's parse context changes (workspace.ts, §15.7).
+ * path and top context, the keyword docs (and how to load the engine's), and optionally the
+ * workspace and the symbol index. `tjp(opts)` (cm/index.ts) puts it in a facet, so completion,
+ * hover, the format command and the lint layer read it from the state. The workspace reconfigures
+ * the facet with the rest of the extensions when the file's parse context changes (workspace.ts,
+ * §15.7).
  */
 import { Facet, type EditorState } from '@codemirror/state';
 import type { WorkspacePath } from '../../../engine/protocol';
@@ -31,6 +32,13 @@ export interface TjpEditorOptions {
 	readonly top: TopContext;
 	/** Keyword docs: the committed table, plus the engine's once they have loaded (ADR-0017). */
 	readonly docs: () => KeywordDocsSource;
+	/**
+	 * Starts the load of the engine's keyword docs, or joins the one in flight (ADR-0017; the
+	 * editor bundle passes the docs loader's `load`). Hover, completion info and the docs command
+	 * wait for it at most `DOCS_WAIT_MS` (docs-wait.ts). It settles when the docs have loaded or
+	 * failed, and a call after a failure tries again. Default: nothing to load, the table only.
+	 */
+	readonly loadDocs?: () => Promise<unknown>;
 	/** The file's workspace path; '' for an editor outside a workspace. */
 	readonly path?: WorkspacePath;
 	/**
@@ -53,6 +61,7 @@ export interface TjpEnv {
 	readonly top: TopContext;
 	readonly path: WorkspacePath;
 	readonly docs: () => KeywordDocsSource;
+	readonly loadDocs: () => Promise<unknown>;
 	readonly workspace: () => Workspace | null;
 	readonly index: () => SymbolIndex | null;
 	readonly ids: boolean;
@@ -66,6 +75,7 @@ export function envOf(opts: TjpEditorOptions): TjpEnv {
 		top: opts.top,
 		path: opts.path ?? '',
 		docs: opts.docs,
+		loadDocs: opts.loadDocs ?? (() => Promise.resolve()),
 		workspace: opts.workspace ?? (() => null),
 		index: opts.index ?? (() => null),
 		ids: opts.ids ?? true,

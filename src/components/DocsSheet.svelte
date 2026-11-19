@@ -2,7 +2,8 @@
 <!--
 	The documentation for the keyword or id at the editor's cursor, in a bottom sheet. Hover does
 	not exist on touch, so every width has the Docs button; this is what it opens. The content is
-	the same `docsAtCursor` the keyboard command shows as a tooltip.
+	the same `docsAtCursor` the keyboard command shows as a tooltip, in the hover's order: the syntax
+	line, the documentation (or the summary), then the notes, the loading note last (ADR-0017).
 -->
 <script lang="ts">
 	import type { AppState } from '../lib/state/app.svelte';
@@ -22,8 +23,8 @@
 	{#if doc}
 		<h3 class="heading">{doc.title}</h3>
 		{#if doc.code}<pre class="code"><code>{doc.code}</code></pre>{/if}
-		{#each doc.notes as note (note)}<p class="note">{note}</p>{/each}
 		{#if doc.body}<p class="body">{doc.body}</p>{/if}
+		{#each doc.notes as note (note)}<p class="note">{note}</p>{/each}
 		{#if doc.seeAlso.length > 0}
 			<p class="see">
 				{editorStrings.hover.seeAlso(doc.seeAlso)}

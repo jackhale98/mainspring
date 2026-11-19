@@ -12,7 +12,12 @@
  */
 import { createEngineDocsLoader, type EngineDocsLoader } from '../../engine/docs-asset';
 import { engineDirUrl } from '../../engine/engine-url';
-import { docsAtCursor, workspaceExtensions, type WorkspaceExtensionOptions } from '../tjp/cm';
+import {
+	docsAtCursor,
+	docsAtCursorWithin,
+	workspaceExtensions,
+	type WorkspaceExtensionOptions,
+} from '../tjp/cm';
 import type { KeywordDocsSource } from '../tjp/syntax/docs';
 import { KEYWORDS } from '../tjp/syntax/keywords';
 import type { EditorSupport } from '../workspace/workspace';
@@ -20,7 +25,7 @@ import { editorSetup } from './editor-setup';
 import type { HistoryCommands } from './history-keys';
 
 export { EditorController } from './editor-controller';
-export { docsAtCursor };
+export { docsAtCursor, docsAtCursorWithin };
 export type { EngineDocsLoader };
 
 /**
@@ -34,7 +39,8 @@ export function engineDocsLoader(): EngineDocsLoader {
 
 /**
  * What hover, completion and the docs sheet read: the committed table, the engine's docs once the
- * loader has them, and whether it is still fetching them.
+ * loader has them, whether it is still fetching them, and whether it rests after a failed load
+ * (no look starts a load or waits then).
  */
 export function docsSource(loader: EngineDocsLoader): KeywordDocsSource {
 	const s = loader.state;
@@ -42,11 +48,16 @@ export function docsSource(loader: EngineDocsLoader): KeywordDocsSource {
 		table: KEYWORDS,
 		engine: s.status === 'loaded' ? s.docs : null,
 		loading: s.status === 'loading',
+		coolingDown: s.status === 'unavailable' && Date.now() < s.retryAt,
 	};
 }
 
-export interface EditorSupportOptions extends Omit<WorkspaceExtensionOptions, 'docs'> {
-	/** The keyword docs (ADR-0017); `AppState.ensureEditor` starts its `load()`. */
+export interface EditorSupportOptions extends Omit<WorkspaceExtensionOptions, 'docs' | 'loadDocs'> {
+	/**
+	 * The keyword docs (ADR-0017); `AppState.ensureEditor` starts its `load()`. The editor reads
+	 * them through its env (`docs`, `loadDocs`): hover, completion info and the docs command wait
+	 * for `load()` briefly before they show the table's summary (tjp/cm/docs-wait.ts).
+	 */
 	docs: EngineDocsLoader;
 	/** The workspace history that Mod-Z and the browser's undo inputs call (history-keys.ts). */
 	history: HistoryCommands;
@@ -55,6 +66,10 @@ export interface EditorSupportOptions extends Omit<WorkspaceExtensionOptions, 'd
 /** What `Workspace.attachEditor` needs: the TJP extensions and the editor setup (with the undo keys). */
 export function editorSupport(opts: EditorSupportOptions): EditorSupport {
 	const { docs, history, ...rest } = opts;
-	const tjp = workspaceExtensions({ ...rest, docs: () => docsSource(docs) });
+	const tjp = workspaceExtensions({
+		...rest,
+		docs: () => docsSource(docs),
+		loadDocs: () => docs.load(),
+	});
 	return { extensions: (path, top) => [tjp(path, top), editorSetup(path, history)] };
 }

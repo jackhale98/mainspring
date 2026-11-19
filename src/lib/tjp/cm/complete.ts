@@ -5,8 +5,10 @@
  * `keywordCompletionSource` offers, at the start of a statement (the first word of a line, after
  * a `{` or `}`, or after a scenario prefix), the keywords valid in the context there
  * (`contextAt`), from the committed table, so it works before the engine boots. Each option shows
- * the keyword, its syntax line as detail and its summary as info; the info becomes the full
- * documentation once the engine's docs have loaded (`KeywordDocsSource.engine`). After a scenario
+ * the keyword, its syntax line as detail and its documentation as info: the full documentation
+ * once the engine's docs have loaded (`KeywordDocsSource.engine`); before that the info waits for
+ * them at most `DOCS_WAIT_MS` (docs-wait.ts, ADR-0017), then shows the summary, with the loading
+ * note while they are still being fetched. After a scenario
  * prefix (`plan:`) only scenario-specific keywords are listed; where scenario-specific keywords
  * are valid, the scenarios of the index are offered as prefixes too. Nothing is offered inside
  * strings, comments and macro bodies, in bodies whose context is unknown, or on a line that
@@ -25,10 +27,11 @@ import type {
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { editorStrings as S } from '../../strings';
-import { keywordDoc, type KeywordDocsSource } from '../syntax/docs';
+import { keywordDoc, type KeywordDocsSource, type KeywordDocView } from '../syntax/docs';
 import { keywordsInContext, type KeywordEntry } from '../syntax/keywords';
 import { enclosingStatement, statementHead } from '../tree';
 import { contextAt, inOpaqueToken, leafAt, treeAt } from './context';
+import { docsWithin, waitsForDocs } from './docs-wait';
 import { tjpEnv } from './env';
 import { lastCodeBefore } from './indent';
 
@@ -41,13 +44,41 @@ function infoOf(text: string | null | undefined): { info?: string } {
 	return text ? { info: text } : {};
 }
 
-function keywordOption(src: KeywordDocsSource, e: KeywordEntry): Completion {
+/**
+ * A keyword's info pane, from its docs view: the full doc, else the summary, with the loading
+ * note while the engine's docs are still being fetched (as the hover shows it). Null when empty.
+ */
+export function keywordInfoNode(view: KeywordDocView | null, doc: Document): Node | null {
+	const body = view?.doc ?? view?.summary ?? '';
+	if (!view || view.doc !== null || !view.loading) return body ? doc.createTextNode(body) : null;
+	const root = doc.createElement('div');
+	if (body) root.appendChild(doc.createTextNode(body));
+	const note = doc.createElement('div');
+	note.className = 'cm-tjp-hover-note';
+	note.textContent = S.hover.docsLoading;
+	root.appendChild(note);
+	return root;
+}
+
+/**
+ * A keyword option. Its info is the full doc once the engine's docs are in (the summary while the
+ * loader rests after a failure, so CodeMirror links it with `aria-describedby`); before that it is
+ * a function that waits for them at most `DOCS_WAIT_MS` (docs-wait.ts, ADR-0017) and then gives the
+ * full doc, or the summary with the loading note (`keywordInfoNode`).
+ */
+function keywordOption(
+	src: KeywordDocsSource,
+	e: KeywordEntry,
+	docs: () => KeywordDocsSource,
+	load: () => Promise<unknown>,
+): Completion {
+	const base: Completion = { label: e.name, type: 'keyword', detail: e.syntax };
 	const full = keywordDoc(src, e.keyword);
+	if (!full || !waitsForDocs(src)) return { ...base, ...infoOf(full?.doc ?? full?.summary) };
 	return {
-		label: e.name,
-		type: 'keyword',
-		detail: e.syntax,
-		...infoOf(full?.doc ?? full?.summary),
+		...base,
+		info: () =>
+			docsWithin(docs, load).then((now) => keywordInfoNode(keywordDoc(now, e.keyword), document)),
 	};
 }
 
@@ -91,7 +122,7 @@ export function keywordCompletionSource(docs: () => KeywordDocsSource): Completi
 		if (ctx === null) return null;
 		const src = docs();
 		const entries = keywordsInContext(ctx, { scenarioSpecificOnly: head.prefix !== null });
-		const options = entries.map((e) => keywordOption(src, e));
+		const options = entries.map((e) => keywordOption(src, e, docs, env.loadDocs));
 		if (head.prefix === null && entries.some((e) => e.scenarioSpecific)) {
 			for (const sc of env.index()?.scenarios ?? []) {
 				options.push({
