@@ -17,6 +17,7 @@ import { expect, test } from '@playwright/test';
 import type { EngineLeaveType, ScheduleResult } from '../../src/engine/protocol';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { LanesRig, bookedOf, near } from './lib/lanes-rig';
+import { animationsDone, panelSettled, quietAfter } from './lib/settle';
 import { smallTargets } from './lib/targets';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -250,7 +251,6 @@ test('fedora-res: the canvas draws the bars, the leave hatch, the over strip and
 	const annual = (await rig.leaves('desk04')).find((l) => l.type === 'annual')?.runs[0];
 	if (!annual) throw new Error('no annual leave');
 	const mid = await rig.minutePoint('desk04', Math.round((annual.from + annual.to) / 2));
-	await page.waitForTimeout(300);
 	const grid = (cx: number, cy: number) =>
 		Array.from({ length: 36 }, (_, i) => ({
 			x: cx - 20 + (i % 12) * 3.5,
@@ -259,7 +259,6 @@ test('fedora-res: the canvas draws the bars, the leave hatch, the over strip and
 	const hatched = (await rig.pixels(grid(mid.x, mid.y))).filter((p) => differs(p, surface)).length;
 	expect(hatched, 'hatch pixels in the leave block').toBeGreaterThan(5);
 	const empty = await rig.minutePoint('desk04', annual.to + 60 * 24 * 7 * 6);
-	await page.waitForTimeout(300);
 	const bare = (await rig.pixels(grid(empty.x - 60, empty.y))).filter((p) =>
 		differs(p, surface),
 	).length;
@@ -301,7 +300,6 @@ test('fedora-res: the canvas draws the bars, the leave hatch, the over strip and
 		.toBe(true);
 	const o = over as unknown as { person: string; col: number };
 	const op = await rig.minutePoint(o.person, (bounds[o.col] ?? 0) + 3000);
-	await page.waitForTimeout(300);
 	// The strip is the last 6 px of the row: the lane's bar zone is 34 px, its centre 17 down.
 	const strip = Array.from({ length: 12 }, (_, i) => ({ x: op.x - 20 + i * 3, y: op.y + 17 + 3 }));
 	const red = (await rig.pixels(strip)).filter(
@@ -426,7 +424,7 @@ test('a text-only task shows its badge and does not drag', async ({ page }, info
 	const w = shape?.cell.w ?? 112;
 	const down = await rig.lane('dev1', inside.x);
 	await rig.drag(inside, down, { hold: rig.hold, steps: 8 });
-	await page.waitForTimeout(500);
+	await quietAfter(page);
 	// A finger's long-press on a text-only bar opens its details (the next test), and the sheet
 	// then covers the bar: close it, so that the next press is on the lane.
 	const details = rig.root.getByTestId('cell-details');
@@ -436,7 +434,7 @@ test('a text-only task shows its badge and does not drag', async ({ page }, info
 	}
 	const along = await rig.barPoint('ops1', 'build.check_unit', 0, 5);
 	await rig.drag(along, { x: along.x + w, y: along.y }, { hold: rig.hold, steps: 8 });
-	await page.waitForTimeout(700);
+	await quietAfter(page);
 	expect(await rig.text()).toBe(before);
 	expect(await rig.revision()).toBe(rev);
 	await expect(page.getByTestId('toast')).toHaveCount(0);
@@ -518,7 +516,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		const rig = await LanesRig.openLanes(page, info, 'gantt-manipulation', scheme);
 		await rig.revealPerson('ops1');
 		const run = async (state: string): Promise<void> => {
-			await page.waitForTimeout(400);
+			await animationsDone(page, 3);
 			const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 			expect
 				.soft(
@@ -532,6 +530,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		await rig.tap(at);
 		if (rig.touch) await rig.tap(at);
 		await expect(rig.root.getByTestId('cell-details')).toBeVisible();
+		await panelSettled(rig.root.getByTestId('cell-details'));
 		await run(`details (${scheme})`);
 	});
 }

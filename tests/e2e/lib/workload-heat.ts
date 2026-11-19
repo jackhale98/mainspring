@@ -5,6 +5,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import { isTouch } from './gantt-rig';
+import { animationsDone, settledValue } from './settle';
 import { oracle, resultOf, shape } from './workload-rig';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -120,22 +121,14 @@ export async function pointOf(page: Page, person: string, col: number) {
 		[person, col] as const,
 	);
 	// A little into the cell, clear of the name column and the header. The scroll has settled when
-	// two reads 120 ms apart agree (a fixed wait was short on a loaded machine: the tap missed).
-	const read = () =>
-		page.evaluate(
-			([p, c]) => (window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
-			[person, col] as const,
-		);
-	let at = await read();
-	let settled = false;
-	for (let i = 0; i < 40 && at && !settled; i++) {
-		await page.waitForTimeout(120);
-		const next = await read();
-		settled = !!next && next.x === at.x && next.y === at.y;
-		at = next;
-	}
+	// the cell is where it was on the frames before (a tap on a cell that still moves misses).
+	const at = await settledValue(
+		page,
+		([p, c]) => (window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
+		6,
+		[person, col] as const,
+	);
 	if (!at) throw new Error('no such cell');
-	if (!settled) throw new Error(`the cell ${person} ${col} kept moving after the scroll`);
 	return at;
 }
 
@@ -156,7 +149,7 @@ export async function chooseUnit(page: Page, name: 'Hours' | '%'): Promise<void>
 }
 
 export async function axe(page: Page, state: string): Promise<void> {
-	await page.waitForTimeout(400);
+	await animationsDone(page, 3);
 	const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 	const detail = r.violations.map(
 		(v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,

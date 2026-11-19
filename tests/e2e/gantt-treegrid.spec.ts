@@ -9,6 +9,7 @@ import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { animationsDone, appSettled, frames, ganttSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -37,7 +38,7 @@ async function open(page: Page, sample = 'upstream-tutorial', mode = 'visual'): 
 	});
 	await expect(page.getByTestId('gantt-treegrid')).toBeVisible();
 	await expect(rows(page).first()).toBeVisible();
-	await page.waitForTimeout(500);
+	await appSettled(page);
 }
 
 const grid = (page: Page) => page.getByTestId('gantt-treegrid');
@@ -155,7 +156,7 @@ test.describe('the treegrid', () => {
 		const left = async () => (await grid(page).boundingBox())?.x ?? 0;
 		const before = await left();
 		await scroller.evaluate((el) => el.scrollTo({ left: 300, behavior: 'instant' }));
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		expect(await left()).toBeCloseTo(before, 0);
 	});
 
@@ -375,20 +376,20 @@ for (const scheme of ['light', 'dark'] as const) {
 			if (!phone(info)) await page.setViewportSize({ width: 1440, height: 860 });
 			await open(page);
 			await row(page, 'Graphical User Interface').click();
-			await page.waitForTimeout(300);
+			await animationsDone(page, 3);
 			await page.screenshot({ path: path.join(DIR, `treegrid-${device}-${scheme}.png`) });
 			if (!phone(info)) {
 				await row(page, 'Specification').focus();
 				await page.keyboard.press('ArrowRight');
 				await page.keyboard.press('ArrowRight');
-				await page.waitForTimeout(200);
+				await frames(page, 4);
 				await page.screenshot({
 					path: path.join(DIR, `treegrid-desktop-cell-focus-${scheme}.png`),
 				});
 			}
 			await engineButton(page, info).click();
 			await expect(page.getByTestId('engine-info-details')).toBeVisible();
-			await page.waitForTimeout(300);
+			await animationsDone(page, 3);
 			await page.screenshot({ path: path.join(DIR, `engine-info-${device}-${scheme}.png`) });
 		});
 	});

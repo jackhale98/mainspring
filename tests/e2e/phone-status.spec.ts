@@ -7,6 +7,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
+import { animationsDone } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join('docs', 'phases', 'screenshots', 'phase-2');
@@ -47,7 +48,7 @@ async function typePlan(page: Page, text: string): Promise<void> {
 }
 
 async function shot(page: Page, name: string): Promise<void> {
-	await page.waitForTimeout(300);
+	await animationsDone(page, 3);
 	await page.screenshot({ path: path.join(DIR, `phone-status-${name}.png`) });
 }
 

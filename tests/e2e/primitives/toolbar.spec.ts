@@ -11,6 +11,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { NARROW_FORMS } from '../../../src/lib/ui/toolbar-tiers';
 import { openPrimitives } from '../lib/primitives-rig';
+import { settledValue } from '../lib/settle';
 
 const WIDTHS = [360, 375, 390, 412, 480, 599, 600, 700, 768, 899, 900, 1024, 1280, 1366, 1600];
 /**
@@ -49,6 +50,34 @@ interface Measured {
 	undeclared: string[];
 	badForm: string[];
 	controls: number;
+}
+
+/**
+ * A toolbar holds still: its box, its children's boxes and the narrow form each declares are the same
+ * for several frames (a resize, or a change of the host's width, re-lays it out a frame or two later).
+ */
+function toolbarSettled(page: Page, id: string): Promise<string> {
+	return settledValue(
+		page,
+		(testid) => {
+			const host = document.querySelector<HTMLElement>(`[data-testid="${testid}"]`);
+			const row = host?.querySelector<HTMLElement>('[data-toolbar]');
+			const box = (e: Element): string => {
+				const b = e.getBoundingClientRect();
+				return [b.x, b.y, b.width, b.height].map((v) => v.toFixed(1)).join(',');
+			};
+			if (!host || !row) return '-';
+			return [
+				box(host),
+				...[...row.children].map(
+					(c) =>
+						`${box(c)}:${c.getAttribute('data-narrow') ?? c.querySelector('[data-narrow]')?.getAttribute('data-narrow') ?? ''}`,
+				),
+			].join('|');
+		},
+		4,
+		id,
+	);
 }
 
 /** The controls of a toolbar's row: its visible children that are or hold a button, select or field. */
@@ -111,7 +140,7 @@ test.describe('toolbars: one row from 360 to 1600 px', () => {
 						).__primitives.picker(!narrow),
 					w <= 599,
 				);
-				await page.waitForTimeout(120);
+				await toolbarSettled(page, t.id);
 				const m = await measure(page, t.id, NARROW_FORMS);
 				expect(m.controls, `${t.name} at ${w} px has controls`).toBeGreaterThan(1);
 				if (m.rows > t.rows(w)) problems.push(`${w} px: ${m.rows} rows`);
@@ -133,8 +162,8 @@ test.describe('toolbars: one row from 360 to 1600 px', () => {
 					).__primitives.hostWidth(v),
 				w,
 			);
-			await page.waitForTimeout(120);
 			for (const t of TOOLBARS) {
+				await toolbarSettled(page, t.id);
 				const m = await measure(page, t.id, NARROW_FORMS);
 				if (m.rows > t.containerRows(w)) problems.push(`${t.name} in ${w} px: ${m.rows} rows`);
 				if (m.clipped.length > 0)
@@ -151,7 +180,7 @@ test.describe('toolbars: every control declares its narrow form', () => {
 			await openPrimitives(page);
 			for (const w of [360, 900, 1600]) {
 				await page.setViewportSize({ width: w, height: 800 });
-				await page.waitForTimeout(100);
+				await toolbarSettled(page, t.id);
 				const m = await measure(page, t.id, NARROW_FORMS);
 				expect(m.undeclared, `${t.name} at ${w} px: controls with no data-narrow`).toEqual([]);
 				expect(m.badForm, `${t.name} at ${w} px: unknown forms`).toEqual([]);

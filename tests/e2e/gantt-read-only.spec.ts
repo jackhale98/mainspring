@@ -4,6 +4,7 @@
 // the text, and passes axe in every view and both colour schemes. Desktop Chrome and Pixel 7.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { animationsDone, frames, ganttSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const TUTORIAL = 'upstream-tutorial';
@@ -244,7 +245,9 @@ test.describe('gantt', () => {
 		const row = (await rows(page).nth(1).boundingBox())?.height ?? 40;
 		if (!box) throw new Error('no plot');
 		await page.mouse.move(box.x + 60, box.y + row * 1.5);
-		await page.waitForTimeout(200);
+		// The hover is the app's state (the toolbar's hover line shows it), then the canvas is drawn.
+		await expect(page.locator('.task.hover')).toBeVisible();
+		await frames(page, 3);
 		// The middle of the bar, away from its outline: nothing is painted over it.
 		const alpha = await overlay.evaluate(
 			(c, at) => {
@@ -407,7 +410,8 @@ test.describe('gantt', () => {
 			} else {
 				await expect(page.getByText('Showing the last good schedule')).toBeVisible();
 			}
-			await page.waitForTimeout(300);
+			await animationsDone(page, 3);
+			await ganttSettled(page);
 			await check('dimmed last good schedule');
 		});
 	}

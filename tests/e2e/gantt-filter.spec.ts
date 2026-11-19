@@ -19,6 +19,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { ScheduleResult } from '../../src/engine/protocol';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { animationsDone, boxStable, ganttSettled } from './lib/settle';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -683,7 +684,7 @@ test.describe('the keyboard', () => {
 });
 
 async function axe(page: Page, state: string): Promise<void> {
-	await page.waitForTimeout(500);
+	await animationsDone(page, 3);
 	const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 	const detail = r.violations.map(
 		(v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
@@ -750,7 +751,8 @@ test.describe('accessibility', () => {
 test.describe('the toolbar', () => {
 	/** One row: nothing scrolls and nothing is cut off at the right edge of the chart. */
 	async function oneRow(page: Page, state: string): Promise<void> {
-		await page.waitForTimeout(150);
+		await boxStable(page.locator('[data-testid="gantt"] .chips'));
+		await ganttSettled(page);
 		const m = await page.getByTestId('gantt').evaluate((el) => {
 			const chart = el.getBoundingClientRect();
 			const chips = [...(el.querySelector('.chips')?.children ?? [])].flatMap((c) => {

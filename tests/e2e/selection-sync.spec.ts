@@ -11,6 +11,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { lineAt } from './lib/editor-lines';
 import { REPO } from '../golden/corpus';
 import { modKey } from './lib/keys';
+import { animationsDone, appSettled, ganttSettled } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -41,7 +42,7 @@ async function open(page: Page, info: Info, sample = 'gantt-manipulation', mode 
 	});
 	await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
 	await expect.poll(() => revision(page)).not.toBeNull();
-	await page.waitForTimeout(500);
+	await appSettled(page);
 }
 
 /** A phone shows one panel at a time: the Text tab for the editor, the Gantt tab for the rows. */
@@ -281,17 +282,17 @@ test.describe('selection sync', () => {
 			await pick(page, 'Write docs');
 			await tab(page, info, 'Text');
 			await expect.poll(async () => (await litText(page)).length).toBe(6);
-			await page.waitForTimeout(400);
+			await animationsDone(page, 3);
 			const name = info.project.name === 'desktop' ? 'desktop' : 'pixel7';
 			await page.screenshot({ path: path.join(DIR, `selection-${name}-light.png`) });
 			await page.emulateMedia({ colorScheme: 'dark' });
-			await page.waitForTimeout(200);
+			await animationsDone(page, 3);
 			await page.screenshot({ path: path.join(DIR, `selection-${name}-dark.png`) });
 			await page.emulateMedia({ colorScheme: 'light' });
 			if (phone(info)) {
 				// The Gantt tab with the same task selected.
 				await tab(page, info, 'Gantt');
-				await page.waitForTimeout(200);
+				await ganttSettled(page);
 				await page.screenshot({ path: path.join(DIR, `selection-${name}-gantt-light.png`) });
 			}
 		});
