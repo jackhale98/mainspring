@@ -216,6 +216,7 @@ export class ResourceTable {
 		const app = this.#app;
 		if (kind === null) return false;
 		const spot = addSpot(this.nodes, this.selectedKey, kind, app.index);
+		if (!spot) return false;
 		const id = await addResourceFlow(
 			{
 				plan: () => app.edits,

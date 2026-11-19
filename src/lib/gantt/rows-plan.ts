@@ -72,7 +72,7 @@ export function addTaskPlan(anchor: TaskId | null, mode: AddMode, name: string):
 		if (gone) return gone;
 		const { tree, roots } = treeOf(on);
 		const spot = addSpot(tree, roots, anchor === null ? null : `task:${anchor}`, mode);
-		if (!spot) return { status: 'unchanged', message: gestureStrings.live.noPlace };
+		if (!spot) return { status: 'not-possible', message: gestureStrings.live.noAddPlace, at: [] };
 		return {
 			status: 'intent',
 			intent: { type: 'addTask', parent: spot.parent, index: spot.index, name },

@@ -38,6 +38,8 @@ export const resourceStrings = {
 		selectHint: 'Select a person to see and change their details.',
 		deleted: (name: string) => `${name} deleted`,
 		changedMeanwhile: 'The plan changed while you were moving. Nothing was moved; try again.',
+		/** The + finds no place: the selected row is in a group a macro declares. */
+		addNowhere: 'That row is in a group written with a macro. Add the person in the text.',
 		nowhere: (step: string) =>
 			({
 				up: 'Already the first in its group.',

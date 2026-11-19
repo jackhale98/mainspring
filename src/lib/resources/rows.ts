@@ -103,13 +103,16 @@ export interface AddSpot {
 const resolved = (tree: Tree, keys: readonly string[]): number =>
 	keys.filter((k) => tree.get(k)?.id != null).length;
 
-/** Where "Add person" and "Add group" put a new resource (module comment). */
+/**
+ * Where "Add person" and "Add group" put a new resource (module comment); null when the selection
+ * sits under a parent the index could not name (no place the edit API can name, never the end).
+ */
 export function addSpot(
 	nodes: readonly OutlineNode[],
 	selected: string | null,
 	kind: 'person' | 'group',
 	index: SymbolIndex | null,
-): AddSpot {
+): AddSpot | null {
 	const tree = treeOf(nodes);
 	const roots = rootsOf(
 		tree,
@@ -121,8 +124,9 @@ export function addSpot(
 	if (kind === 'person' && node.children.length > 0 && index !== null && canTake(index, node.id)) {
 		return { parent: node.id, index: resolved(tree, node.children) };
 	}
+	if (node.parent !== null && tree.get(node.parent)?.id == null) return null;
 	const place = placeNow(tree, node.key, roots);
-	return place ? { parent: place.parent, index: place.index + 1 } : end;
+	return place && { parent: place.parent, index: place.index + 1 };
 }
 
 /** The table mounts only the rows in view above this many rows (phase-3.md 8.2). */

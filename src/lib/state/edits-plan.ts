@@ -73,7 +73,11 @@ const unprepared = (e: unknown): Prepared => {
 	return { status: 'done', outcome: refused('unprepared', [], toastStrings.unprepared) };
 };
 
-export function prepare(d: Deps, kept: Kept, job: Job, on?: Base): Prepared {
+/**
+ * `later`: the call replaces its gesture's applied edit (a later call, after the unwind); it plans
+ * on the gesture's base, as a dry run on `on` does, and is not checked.
+ */
+export function prepare(d: Deps, kept: Kept, job: Job, on?: Base, later = false): Prepared {
 	let index: SymbolIndex;
 	try {
 		index = on?.index ?? d.runner.ensureIndex();
@@ -84,13 +88,7 @@ export function prepare(d: Deps, kept: Kept, job: Job, on?: Base): Prepared {
 	const at = (r: readonly SourceRange[]): { at?: Located } =>
 		r[0] ? { at: { ...r[0], version: snap.version } } : {};
 	// A gesture's later call and its dry run plan on the gesture's base: not checked (ADR-0018).
-	const rb = rebaser(
-		d.workspace,
-		kept,
-		snap,
-		index,
-		on || job.gesture?.base ? Infinity : job.basedOn,
-	);
+	const rb = rebaser(d.workspace, kept, snap, index, on || later ? Infinity : job.basedOn);
 	let intent: EditIntent;
 	let label: ToastLabel;
 	let constraint: boolean;
@@ -232,22 +230,55 @@ export function renamedBy(i: HistoryIntent): readonly [TaskId, TaskId] | null {
 	return to === i.task ? null : [i.task, to];
 }
 
-/** Changes that can change ids (ADR-0018 decision 2), besides a `renamedBy` one. */
-const ID_CHANGES = new Set([
-	'text',
-	'addTask',
-	'deleteTask',
-	'addResource',
-	'deleteResource',
-	'gapToTask',
-]);
+/**
+ * Per history intent, whether it can change ids (ADR-0018 decision 2): 1, or 0 when only a
+ * `renamedBy` one does (a `moveTask` to another parent, a `renameTask` with `id`). Exhaustive, so a
+ * new intent type must be classified here; a type not listed (none compiles) counts as 1.
+ */
+export const ID_CHANGES = {
+	text: 1,
+	addTask: 1,
+	deleteTask: 1,
+	addResource: 1,
+	deleteResource: 1,
+	gapToTask: 1,
+	moveTask: 0,
+	renameTask: 0,
+	setAttr: 0,
+	removeAttr: 0,
+	addDepends: 0,
+	removeDepends: 0,
+	setDependsGap: 0,
+	allocate: 0,
+	addAllocation: 0,
+	removeAllocation: 0,
+	replaceAllocation: 0,
+	moveResource: 0,
+	renameResource: 0,
+	setResourceAttr: 0,
+	removeResourceAttr: 0,
+	setProjectHeader: 0,
+	setProjectAttr: 0,
+	removeProjectAttr: 0,
+	setWorkingHours: 0,
+	addLeave: 0,
+	updateLeave: 0,
+	removeLeave: 0,
+	clearLeave: 0,
+	declareFlag: 0,
+	format: 0,
+} as const satisfies Record<HistoryIntent['type'], 0 | 1>;
 
 /**
- * Whether a workspace change can change ids: typing, a change of no known intent, and those intents.
- * An undo or redo is classified by its entry's intent (the history applies it as the change's edit).
+ * Whether a workspace change can change ids: typing, a change of no known intent, and the intents
+ * above. An undo or redo is classified by its entry's intent (the history applies it as the
+ * change's edit).
  */
 export const changesIds = (origin: ChangeOrigin, i?: { readonly type: string }): boolean =>
-	origin !== 'format' && (!i || ID_CHANGES.has(i.type) || renamedBy(i as HistoryIntent) !== null);
+	origin !== 'format' &&
+	(!i ||
+		(ID_CHANGES as Partial<Record<string, 0 | 1>>)[i.type] !== 0 ||
+		renamedBy(i as HistoryIntent) !== null);
 
 /**
  * A gesture's total of zero (`size-step` by 0, `move` by 0 days): back to where the gesture began.

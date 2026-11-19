@@ -14,11 +14,13 @@
  *   that can change ids was made after the call's `basedOn` (`Kept.ids`), an id passes only when its
  *   declaration's `block.from` in the shown index maps exactly onto the fresh declaration's (the
  *   character there not deleted). An id the fresh index lacks passes to the edit API, which refuses
- *   it `unknown-target` as before; one the shown index lacks passes (it came from an outcome).
+ *   it `unknown-target` as before; one the shown index lacks passes (it came from an outcome). A
+ *   declaration only a macro makes, or one whose text gives several ids (`sharedWith`), fails it:
+ *   its block cannot tell the ids apart.
  * - **Positions** (`parent`, `index` of `addTask`, `moveTask`, `addResource`, `moveResource`): the
  *   parent passes the id check, and its children as the edit API counts them (resolved ids, the
- *   moved item left out) are the same in the shown and the fresh index.
- * - **The shown index** is one of the last `KEEP` published ones (`Kept`); a check that needs one no
+ *   moved item left out) are the same in the shown and the fresh index, each passing the id check.
+ * - **The shown index** is one of the last `KEEP` published versions (`Kept`); a check that needs one no
  *   longer kept refuses, and so does a version whose changes the workspace no longer keeps
  *   (`changesSince` throws), or below 0 (`EMPTY_OUTLINE`).
  * - A `basedOn` at or past the fresh index's version needs no check, and neither does any id or
@@ -46,8 +48,17 @@ export class Kept {
 		this.#ids = version;
 	}
 
+	/**
+	 * Keeps `index`, one per version: a result republishes the version it has with new engine hints
+	 * (run-derive.ts rebuilds the index at the same version), and the newer one replaces it. A view
+	 * may have read the older one; ids only the hints give can then differ between the two, which
+	 * the checks do not see (engine-named declarations are text only, so the edit API refuses most
+	 * edits of them anyway).
+	 */
 	publish(index: SymbolIndex): void {
-		if (this.#ring[0] !== index && this.#ring.unshift(index) > KEEP) this.#ring.pop();
+		const r = this.#ring;
+		if (r[0]?.version === index.version) r[0] = index;
+		else if (r.unshift(index) > KEEP) r.pop();
 	}
 
 	/** A workspace change produced `version`; `ids` when it can change ids. */
@@ -77,7 +88,12 @@ export interface Rebaser extends PlanBase {
 const table = (index: SymbolIndex, kind: Kind) => (kind === 'task' ? index.tasks : index.resources);
 
 /** `parent`'s children as the edit API counts them: resolved ids, without `moved`. */
-function kids(index: SymbolIndex, kind: Kind, parent: string | null, moved: string | null): string {
+function kids(
+	index: SymbolIndex,
+	kind: Kind,
+	parent: string | null,
+	moved: string | null,
+): string[] {
 	const t = table(index, kind);
 	const all =
 		parent === null
@@ -85,7 +101,7 @@ function kids(index: SymbolIndex, kind: Kind, parent: string | null, moved: stri
 				? index.taskRoots
 				: index.resourceRoots
 			: (t.get(parent)?.children ?? []);
-	return all.filter((id) => id !== moved && t.has(id)).join(' ');
+	return all.filter((id) => id !== moved && t.has(id));
 }
 
 /** A planner's outline, built at most once per index. */
@@ -114,6 +130,9 @@ export function rebaser(
 		if (!shown) return false;
 		const was = table(shown, kind).get(id);
 		if (!was) return true;
+		// A declaration a macro makes shares the call site's block, and one text read in several
+		// include visits gives several ids one block: the block cannot tell them apart.
+		if (now.expandedOnly || was.expandedOnly || now.sharedWith.length > 0) return false;
 		const b = was.decl.block;
 		const cs = changes(basedOn);
 		const at = cs ? (cs.get(b.file)?.mapPos(b.from, 1, MapMode.TrackAfter) ?? b.from) : null;
@@ -144,11 +163,17 @@ export function rebaser(
 		},
 		isSame: (kind, id) => table(fresh, kind).has(id) && same(kind, id),
 		same,
-		place: (kind, parent, moved) =>
-			off ||
-			(!!shown &&
-				(parent === null || same(kind, parent)) &&
-				kids(shown, kind, parent, moved) === kids(fresh, kind, parent, moved)),
+		place(kind, parent, moved) {
+			if (off) return true;
+			if (!shown || (parent !== null && !same(kind, parent))) return false;
+			const was = kids(shown, kind, parent, moved);
+			// The same ids in the same order, each still the same declaration (siblings can swap
+			// declarations and keep their ids).
+			return (
+				was.join(' ') === kids(fresh, kind, parent, moved).join(' ') &&
+				was.every((id) => same(kind, id))
+			);
+		},
 	};
 }
 

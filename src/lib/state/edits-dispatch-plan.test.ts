@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // `dispatchPlan` (ADR-0018 decision 3) and the checks through the dispatcher: a view planner runs
-// on the fresh text on every plan of a call and on a gesture's base for a later call, its answers
+// on the fresh text on every plan of a call and is never coalesced (nor is a leave ref), its answers
 // map to outcomes as the contract says, its call carries the stamp and round-trips `basedOn`, and a
 // target the text now no longer holds is refused `target-changed` while the published index lags.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ganttActionStrings, refusalStrings, toastStrings } from '../strings';
 import type { EditIntent } from '../tjp/edit/types';
 import { harness, type Harness } from './edits-testing';
-import { COALESCE_MS, type DispatchOutcome, type PlanBase, type ViewPlanner } from './edits.svelte';
+import { type DispatchOutcome, type PlanBase, type ViewPlanner } from './edits.svelte';
 
 const effort = (task: string, value: string): EditIntent => ({
 	type: 'setAttr',
@@ -126,21 +126,15 @@ describe('what a planner answers', () => {
 		]);
 	});
 
-	it('runs a later call of a gesture on its base for the dry run, then on the text now', async () => {
-		const first = recording('b', '3d');
-		const later = recording('b', '4d');
-		const a = h.edits.dispatchPlan(first.plan, { coalesceKey: 'k' });
-		await vi.advanceTimersByTimeAsync(COALESCE_MS);
+	it('never coalesces a planner’s call or a leave ref: each goes at once, one undo step each', async () => {
+		const a = h.edits.dispatchPlan(recording('b', '3d').plan, { coalesceKey: 'k' });
+		const b = h.edits.dispatchPlan(recording('b', '4d').plan, { coalesceKey: 'k' });
+		// Nothing is held for 300 ms, and the first call is not cancelled by the second.
 		applied(await a);
-		const base = first.seen[0] as PlanBase;
-		const b = h.edits.dispatchPlan(later.plan, { coalesceKey: 'k' });
-		await vi.advanceTimersByTimeAsync(COALESCE_MS);
 		applied(await b);
-		expect(later.seen[0]?.index).toBe(base.index);
-		expect(later.seen[1]?.snap.version).toBeGreaterThan(base.snap.version);
 		expect(h.text()).toContain('effort 4d');
 		h.history.undo();
-		expect(h.text()).toContain('task b "B" {\n  effort 2d\n}');
+		expect(h.text()).toContain('effort 3d');
 	});
 });
 
@@ -173,7 +167,9 @@ describe('basedOn on a planned call', () => {
 		);
 		expect(h.text('t.tji')).toContain('effort 2d');
 		expect(again.version).toBe(h.ws.snapshot().version);
-		expect(seen).toEqual([true, true]);
+		// Typing since the stamp can change ids, and a shared declaration's block cannot tell its
+		// ids apart: isSame says no (the planner here goes on regardless).
+		expect(seen).toEqual([false, false]);
 	});
 });
 
@@ -245,5 +241,27 @@ describe('target-changed through the dispatcher, while the published index lags'
 		});
 		const into: EditIntent = { type: 'addTask', parent: 'g', index: 0, name: 'N' };
 		applied(await h.edits.dispatch(into, { label, basedOn: shown }));
+	});
+});
+
+describe('a leave ref is never coalesced', () => {
+	it('dispatches an updateLeave with a coalesceKey at once', async () => {
+		h.dispose();
+		const text = 'project p "P" 2026-01-05 +1m\nresource r "R" {\n  leaves annual 2026-01-12\n}\n';
+		h = harness({ entry: 'plan.tjp', files: { 'plan.tjp': text } });
+		await h.finish();
+		const from = text.indexOf('annual 2026-01-12');
+		const item = { file: 'plan.tjp', from, to: from + 'annual 2026-01-12'.length };
+		const basedOn = h.runner.state.indexVersion;
+		const o = await h.edits.dispatch(
+			{
+				type: 'updateLeave',
+				leave: { item, basedOn },
+				to: { type: 'sick', start: '2026-01-12' },
+			},
+			{ label, coalesceKey: 'leave' },
+		);
+		applied(o);
+		expect(h.text()).toContain('leaves sick 2026-01-12');
 	});
 });

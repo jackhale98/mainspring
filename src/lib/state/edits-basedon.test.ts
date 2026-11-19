@@ -23,6 +23,8 @@ const effort: EditIntent = {
 	value: '2d',
 };
 const label = { label: { text: 'E', approx: false } };
+/** Moves the text without changing an id. */
+const rename: EditIntent = { type: 'renameTask', task: 'g1', name: 'Group one' };
 
 let h: Harness;
 
@@ -45,8 +47,9 @@ describe('basedOn', () => {
 			status: 'confirm-shared',
 			basedOn: shown,
 		});
-		// Typing moves the text; the index catches up only in the runner's idle tasks.
-		h.type('# note\n');
+		// An edit moves the text; the index catches up only in the runner's idle tasks. (Not typing:
+		// after typing, ids may have moved, and a shared declaration is refused target-changed.)
+		expect((await h.edits.dispatch(rename, label)).status).toBe('applied');
 		expect(h.runner.state.indexVersion).toBe(shown);
 		expect(h.ws.snapshot().version).toBeGreaterThan(shown);
 		expect(await h.edits.dispatch(effort, label)).toMatchObject({
@@ -85,12 +88,11 @@ describe('basedOn', () => {
 		// the index move on meanwhile, and the stamp must still be the version the view read.
 		const deferred = h.edits.dispatch(effort, { ...label, defer: true });
 		const held = h.edits.dispatch(effort, { ...label, coalesceKey: 'k' });
-		h.type('# note\n');
-		// The runner's idle tasks publish the index of the typed text.
+		void h.edits.dispatch(rename, label);
+		// The runner's idle tasks publish the index of the renamed text.
 		for (let i = 0; i < 10 && h.runner.state.indexVersion === shown; i++) {
-			vi.advanceTimersByTime(20);
+			await vi.advanceTimersByTimeAsync(20);
 			h.idle.run();
-			await Promise.resolve();
 		}
 		expect(h.runner.state.indexVersion).toBeGreaterThan(shown);
 		vi.advanceTimersByTime(400);

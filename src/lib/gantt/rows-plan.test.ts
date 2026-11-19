@@ -91,6 +91,14 @@ describe('addTaskPlan', () => {
 		expect(addTaskPlan(null, 'after', 'New')(on())).toEqual(add(null, 3));
 	});
 
+	it('refuses a subtask with no task to put it under', () => {
+		expect(addTaskPlan(null, 'subtask', 'New')(on())).toEqual({
+			status: 'not-possible',
+			message: gestureStrings.live.noAddPlace,
+			at: [],
+		});
+	});
+
 	it('refuses a gone anchor instead of adding at the end of the plan', () => {
 		expect(addTaskPlan('gone', 'after', 'New')(on())).toEqual({
 			status: 'not-possible',

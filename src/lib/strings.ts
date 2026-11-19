@@ -440,6 +440,8 @@ export const gestureStrings = {
 		noToday: 'Today is not on the chart.',
 		nothingToDo: 'Nothing to do there.',
 		noPlace: 'It cannot move that way.',
+		/** An add found no place: a subtask with no task to put it under. */
+		noAddPlace: 'Select a task to add a subtask to it.',
 		/** The drop line, while a row is dragged. */
 		rowDrop: (parent: string | null, position: number) =>
 			parent === null

@@ -126,6 +126,13 @@ describe('addSpot', () => {
 		expect(addSpot([], null, 'person', ix)).toEqual({ parent: null, index: 0 });
 	});
 
+	it('has no place for a selection under a parent the index cannot name (never the end)', () => {
+		// The outline as it would be if Team were declared by a macro: a node with no id.
+		const hidden = nodes.map((n) => (n.key === 'resource:team' ? { ...n, id: null } : n));
+		expect(addSpot(hidden, 'resource:a', 'group', ix)).toBeNull();
+		expect(addSpot(hidden, 'resource:c', 'group', ix)).toEqual({ parent: null, index: 1 });
+	});
+
 	it('does not count the roots it cannot name', () => {
 		const tree = treeOf(nodes);
 		expect(

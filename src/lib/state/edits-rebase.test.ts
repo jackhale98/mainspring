@@ -6,8 +6,8 @@
 import { describe, expect, it } from 'vitest';
 import type { EditIntent, IntentOf, SourceRange } from '../tjp/edit/types';
 import type { SymbolIndex } from '../tjp/index';
-import { changesIds, prepare } from './edits-plan';
-import { KEEP, Kept, rebase, subjectsOf } from './edits-rebase';
+import { changesIds, ID_CHANGES, prepare } from './edits-plan';
+import { KEEP, Kept, rebase, rebaser, subjectsOf } from './edits-rebase';
 import type { Job } from './edits-types';
 import { world, type World } from './rebase-testing';
 
@@ -203,6 +203,38 @@ describe('subject ids', () => {
 		expect(rebase(effort('a'), w.base(w.version()))).toEqual(effort('a'));
 	});
 
+	it('fails declarations a block cannot tell apart once ids may have moved', () => {
+		const SHARED = {
+			entry: 'plan.tjp',
+			files: {
+				'plan.tjp':
+					'project p "P" 2026-01-05 +1m\ntask g1 "G1"\ntask g2 "G2"\n' +
+					'include "t.tji" { taskprefix g1 }\ninclude "t.tji" { taskprefix g2 }\n',
+				't.tji': 'task t "T" {\n  effort 1d\n}\n',
+			},
+		};
+		const w = world(SHARED);
+		const v0 = w.version();
+		expect(w.fresh().tasks.get('g1.t')?.sharedWith).toEqual(['g2.t']);
+		w.apply({ type: 'renameTask', task: 'g1', name: 'Group one' });
+		expect(rebase(effort('g1.t'), w.base(v0))).toEqual(effort('g1.t'));
+		w.type(0, 0, '# note\n');
+		expect(rebase(effort('g1.t'), w.base(v0))).toBeNull();
+		// A task only a macro declares (with engine hints) has the call site as its block.
+		const m = world(TASKS);
+		const v1 = m.version();
+		m.type(0, 0, '# note\n');
+		const real = m.fresh();
+		const a = real.tasks.get('a');
+		if (!a) throw new Error('no a');
+		const tasks = new Map(real.tasks).set('a', { ...a, expandedOnly: true });
+		const fake = { ...real, tasks };
+		expect(rebase(effort('a'), rebaser(m.ws, m.kept, m.ws.snapshot(), fake, v1))).toBeNull();
+		expect(rebase(effort('a'), rebaser(m.ws, m.kept, m.ws.snapshot(), real, v1))).toEqual(
+			effort('a'),
+		);
+	});
+
 	it('names every id an intent acts on, but not a parent', () => {
 		expect(subjectsOf({ type: 'replaceAllocation', task: 't', from: 'r1', to: 'r2' })).toEqual([
 			['t'],
@@ -246,6 +278,21 @@ describe('positions: the parent and its children', () => {
 		w2.apply({ type: 'moveTask', task: 'g.y', parent: 'g', index: 0 });
 		const again: EditIntent = { type: 'moveTask', task: 'g.y', parent: 'g', index: 2 };
 		expect(rebase(again, w2.base(v1))).toEqual(again);
+	});
+
+	it('refuses siblings that swapped declarations but kept their ids and order', () => {
+		const w = world(TASKS);
+		const v0 = w.version();
+		// y before x, then typed: the first becomes x and the second y again.
+		w.apply({ type: 'moveTask', task: 'g.y', parent: 'g', index: 0 });
+		const y = w.text().indexOf('task y') + 5;
+		w.type(y, y + 1, 'x');
+		const x = w.text().indexOf('task x', y + 1) + 5;
+		w.type(x, x + 1, 'y');
+		expect(w.fresh().tasks.get('g')?.children).toEqual(['g.x', 'g.y', 'g.z']);
+		expect(w.fresh().tasks.get('g.x')?.name).toBe('Y');
+		const add: EditIntent = { type: 'addTask', parent: 'g', index: 1, name: 'N' };
+		expect(rebase(add, w.base(v0))).toBeNull();
 	});
 
 	it('refuses a reordered or renamed sibling, or an added one', () => {
@@ -315,6 +362,27 @@ describe('what can change ids', () => {
 		for (const type of ['addTask', 'deleteTask', 'addResource', 'deleteResource', 'gapToTask']) {
 			expect(changesIds('intent', { type })).toBe(true);
 		}
+		// A type the table does not know (a future intent) counts as one that can change ids.
+		expect(changesIds('intent', { type: 'someNewIntent' })).toBe(true);
+	});
+
+	it('classifies every intent type, exhaustively', () => {
+		const ids = new Set([
+			'text',
+			'addTask',
+			'deleteTask',
+			'addResource',
+			'deleteResource',
+			'gapToTask',
+		]);
+		const types = Object.keys(ID_CHANGES);
+		// Every EditIntent type and `text` (the table's type checks that none is missing).
+		expect(types).toHaveLength(31);
+		for (const type of types) {
+			const plain = type === 'moveTask' || type === 'renameTask' ? false : ids.has(type);
+			const i = type === 'moveTask' ? { type, task: 'g.x', parent: 'g' } : { type };
+			expect([type, changesIds('history', i)]).toEqual([type, plain]);
+		}
 	});
 
 	it('keeps the last KEEP published indexes', () => {
@@ -323,6 +391,10 @@ describe('what can change ids', () => {
 		const all = [0, 1, 2, 3, 4, 5].map(idx);
 		for (const i of all) kept.publish(i);
 		kept.publish(all[5] as SymbolIndex);
+		// A result republishes version 5 with new hints: it replaces the one kept, one per version.
+		const again = idx(5);
+		kept.publish(again);
+		expect(kept.shown(5)).toBe(again);
 		expect([0, 1, 2, 3, 4, 5].map((v) => kept.shown(v)?.version)).toEqual([
 			undefined,
 			undefined,
@@ -360,7 +432,13 @@ describe('prepare checks a gesture’s first call only', () => {
 			outcome: { status: 'refused', reason: 'target-changed' },
 		});
 		const base = { snap: w.ws.snapshot(), index: fresh };
-		expect(prepare(deps, w.kept, job({ base, applied: null, broken: false })).status).toBe('ready');
+		const g = { base, applied: null, broken: false };
+		// A gesture whose edit was taken out to be replaced: a later call (#run passes `later`).
+		expect(prepare(deps, w.kept, job(g), undefined, true).status).toBe('ready');
+		// Its dry run on the gesture's base.
+		expect(prepare(deps, w.kept, job(g), base).status).toBe('ready');
+		// A gesture with a base but nothing of it in the text (back at zero): checked again.
+		expect(prepare(deps, w.kept, job(g)).status).toBe('done');
 	});
 
 	it('locates a refused leave at its old range, in the version it was read in', () => {

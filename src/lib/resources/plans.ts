@@ -8,7 +8,8 @@
  *   `unchanged` with the table's sentence (`R.table.nowhere`), and the planner's refusals
  *   (`not-a-group`, `into-itself`, `same-place`) keep their own sentences.
  * - `addResourcePlan(selected, kind, name)`: W7's + (Add person, Add group). The place is
- *   `addSpot`'s; `selected` null is the end of the list. `name` is the trimmed name the flow checked
+ *   `addSpot`'s; `selected` null is the end of the list; a selection under a parent the index
+ *   cannot name has no place and is refused. `name` is the trimmed name the flow checked
  *   (`usableName`).
  * - A resource that is gone, or whose id now names another declaration (`isSame`), is refused with
  *   the edit API's sentence for it; a gone `selected` never falls back to the end of the list.
@@ -65,6 +66,7 @@ export function addResourcePlan(
 		if (g) return g;
 		const key = selected === null ? null : `resource:${selected}`;
 		const spot = addSpot(on.outline().resources, key, kind, on.index);
+		if (!spot) return { status: 'not-possible', message: R.table.addNowhere, at: [] };
 		const e = addEdit(spot.parent, spot.index, name, kind);
 		return { status: 'intent', intent: e.intent, label: e.label };
 	};

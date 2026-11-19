@@ -19,15 +19,19 @@
  * - **Check an action** with `check(action, source)`: a dry run for gestures; null: no answer yet.
  * - **Dispatch an edit intent** (the inspector's fields): `dispatch(intent, { label }, preview?)`;
  *   pass `constraint: true` when it adds a `start` or `end` the task did not have.
- * - **Dispatch a relative command** (ADR-0018 decision 3): `dispatchPlan(plan, opts?, preview?)`. `plan` is a pure `ViewPlanner` that reads only the `PlanBase` it is given
- *   (the text now and its index) and the plain data it was made from. The dispatcher calls it on
- *   the fresh index on every plan of the call, and on the gesture's base for a later call of a
- *   coalesced gesture; its `intent` then goes through the edit API as `dispatch` does. The other
- *   answers map to outcomes as follows (so that no view guesses): `unchanged` is `noop` with
+ * - **Dispatch a relative command** (ADR-0018 decision 3): `dispatchPlan(plan, opts?, preview?)`.
+ *   `plan` is a pure `ViewPlanner` that reads only the `PlanBase` it is given (the text now and
+ *   its index) and the plain data it was made from. The dispatcher calls it on the fresh index on
+ *   every plan of the call; its `intent` then goes through the edit API as `dispatch` does. The
+ *   other answers map to outcomes as follows (so that no view guesses): `unchanged` is `noop` with
  *   reason `already-set` and the planner's message (the usual noop copy when it gives none);
  *   `not-possible` is `refused` with reason `planner`, the planner's own `message` (its view's
  *   sentence, e.g. a gone anchor) and its `at`; a planner that throws is `refused` as `unprepared`
  *   (an error in the app, with that reason's copy).
+ * - **Never coalesced:** a `dispatchPlan` call and an intent with a `LeaveRef` (`updateLeave`,
+ *   `removeLeave`). Their `coalesceKey` is ignored and each call is its own undo step: a ref and a
+ *   planner's `mapRange` map to the text now, not to a gesture's base, so after a gesture's edit
+ *   is taken out every later call would be refused.
  * - **Targets carry their version** (ADR-0018): `basedOn` is the index version the view read its
  *   targets in; it defaults to the published `indexVersion` when `dispatch*` is called (the stamp,
  *   enough for id intents). A drop passes `outline.version`, a `LeaveRef` its `PaintItem.version`,
@@ -337,7 +341,12 @@ export class EditDispatcher {
 	#enqueue(job: Job): Promise<DispatchOutcome> {
 		if (this.#disposed) return Promise.resolve(CANCELLED);
 		if (job.preview) this.#ledger.bar(job.preview, 'preview', job.seq);
-		const key = job.o.coalesceKey;
+		const i = job.kind === 'intent' ? job.intent.type : null;
+		// Never coalesced (the contract): a planner's call, and an intent with a `LeaveRef`.
+		const key =
+			job.kind === 'plan' || i === 'updateLeave' || i === 'removeLeave'
+				? undefined
+				: job.o.coalesceKey;
 		if (key === undefined) return this.#serial(job);
 		const gesture = this.#co.gesture(key);
 		if (job.kind === 'action') gesture.source ??= job.source;
@@ -364,6 +373,8 @@ export class EditDispatcher {
 	async #run(job: Job): Promise<DispatchOutcome> {
 		const g = job.gesture;
 		if (g?.broken) return this.#done(job, CANCELLED);
+		// A later call replaces the gesture's edit and plans on its base: not checked (ADR-0018).
+		const later = !!g?.applied;
 		if (g?.applied) {
 			const r = await this.#unwind(job, g);
 			if (r) return r;
@@ -375,7 +386,7 @@ export class EditDispatcher {
 		let last: Extract<Prepared, { status: 'replan' }> | null = null;
 		for (let plans = 0; plans < MAX_PLANS; plans++) {
 			if (this.#disposed) return this.#done(job, CANCELLED);
-			const p = prepare(this.#d, this.#kept, job);
+			const p = prepare(this.#d, this.#kept, job, undefined, later);
 			if (p.status === 'replan') {
 				last = p;
 				continue;
