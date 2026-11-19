@@ -454,12 +454,6 @@ export const gestureStrings = {
 		cancel: 'Cancel',
 		cancelLabel: 'Cancel linking',
 	},
-	moveQuestion: {
-		/** The dialog's buttons; the options and the warning are `ganttActionStrings.movePreference`. */
-		confirm: 'Move',
-		cancel: 'Cancel',
-		remember: 'Mainspring asks this once. Project settings changes it later.',
-	},
 	palette: {
 		region: 'People',
 		/** The toolbar control that opens the searchable list of people (polish item 17). */
@@ -758,39 +752,6 @@ export const inspectorStrings = {
 		`This part of the plan is read in more than one place (${ids}), so the change applies to all of them. Change anyway?`,
 	link: {
 		between: (pred: string, succ: string) => `${succ} waits for ${pred}`,
-	},
-	project: {
-		title: 'Project',
-		description:
-			'The plan’s frame and the status date. Changes go to the text of the project header.',
-		name: 'Name',
-		start: 'Start',
-		end: 'End',
-		endHint: 'A date, or a length such as +17w.',
-		now: 'Status date',
-		nowHint: 'The date the plan is measured from. Leave empty to use the clock.',
-		timezone: 'Time zone',
-		timezoneHint: 'A name such as Europe/Berlin, or UTC.',
-		noHeader: 'This plan has no project header.',
-		clear: (what: string) => `Clear ${what}`,
-		move: {
-			title: 'When you move a task',
-			description:
-				'Moving a task in the chart changes the plan in one of two ways. The answer is remembered in this browser.',
-			ask: 'Ask me next time',
-			gap: 'Add a gap after the task it waits for',
-			start: 'Give the task a fixed start date',
-			note: 'A task scheduled as late as possible always gets a fixed end instead.',
-		},
-	},
-	source: {
-		title: (name: string) => `Source of ${name}`,
-		file: (path: string) => `In ${path}`,
-		openInText: 'Open in text',
-		cut: (lines: number) =>
-			`Showing the first part of ${lines} lines. Open it in the text to read the rest.`,
-		none: 'The source of this task cannot be shown.',
-		region: 'Plan text',
 	},
 } as const;
 

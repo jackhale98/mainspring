@@ -72,8 +72,7 @@ describe('the index gate', () => {
 	});
 
 	it('queues idle tasks while held and runs them on release; a cancelled one never runs', () => {
-		const gate = createIndexGate(new URLSearchParams('hooks=edits'));
-		if (!gate) throw new Error('no gate');
+		const gate = createIndexGate();
 		const ran: string[] = [];
 		gate.hold();
 		gate.timers.requestIdle(() => ran.push('a'), 100);
@@ -91,7 +90,7 @@ describe('the index gate', () => {
 	});
 
 	it('holds and releases through the installed hook', () => {
-		const gate = createIndexGate(new URLSearchParams('hooks=edits'));
+		const gate = createIndexGate();
 		const target: Record<string, unknown> = {};
 		installEditHooks(
 			{ edits: null, run: null, workspace: null },

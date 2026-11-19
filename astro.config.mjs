@@ -50,7 +50,7 @@ export default defineConfig({
 							},
 							{
 								name: 'core-shared',
-								test: /[\\/]src[\\/](lib[\\/](report|gantt[\\/](analysis|describe|grid|ticks|intents-facts)|schedule[\\/](working-time|float|graph|critical|finish|date-text|duration-text)|inspector[\\/](task|actions|field)|tjp[\\/]edit[\\/]dep-(orphans|loops|graph)|state[\\/]storage)\.ts|tjp[\\/]values[\\/]|engine[\\/]timezone\.ts)/,
+								test: /[\\/]src[\\/](lib[\\/](report|gantt[\\/](analysis|describe|grid|handles|ticks|intents-facts)|schedule[\\/](working-time|float|graph|critical|finish|date-text|duration-text)|inspector[\\/](task|actions|field)|tjp[\\/]edit[\\/]dep-(orphans|loops|graph)|state[\\/]storage)\.ts|tjp[\\/]values[\\/]|engine[\\/]timezone\.ts)/,
 							},
 							{
 								name: 'health-checks',

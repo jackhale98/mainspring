@@ -33,7 +33,7 @@
 <script lang="ts">
 	import { onDestroy, untrack, type Component } from 'svelte';
 	import { AppState } from '../lib/state/app.svelte';
-	import { createIndexGate, installEditHooks } from '../lib/state/edit-hooks';
+	import { hookAsked, installHookLazily } from '../lib/state/hook-params';
 	import { LayoutState } from '../lib/state/layout.svelte';
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { PeopleViewState } from '../lib/state/people-view.svelte';
@@ -63,9 +63,13 @@
 	import type { SourceRange } from '../lib/tjp/index';
 
 	const params = new URLSearchParams(location.search);
-	// End-to-end tests only: with ?hooks=edits the index can be held (edit-hooks.ts); else null.
-	const gate = createIndexGate(params);
-	const app = new AppState({ initial: params.get('sample'), idle: gate?.timers });
+	// End-to-end tests only: with ?hooks=edits the hook's module is fetched at once, and the runner
+	// is built on its idle timers, which the hook can hold (edit-hooks.ts). Otherwise nothing loads.
+	const editHooks = hookAsked(params, 'edits') ? import('../lib/state/edit-hooks') : null;
+	const app = new AppState({
+		initial: params.get('sample'),
+		idle: editHooks?.then((m) => m.indexGate.timers),
+	});
 	const theme = new ThemeState();
 	const linked = modeFromParam(params.get('mode'));
 	const modes = new ModeState({ linked });
@@ -76,8 +80,10 @@
 	// A newer deployed build offers a reload (ADR-0012).
 	const updates = new AppUpdates({ url: sitePath('version.json'), visibility: document });
 	updates.start();
-	// End-to-end tests only, with ?hooks=edits (edit-hooks.ts).
-	const offHooks = installEditHooks(app, params, undefined, gate);
+	// End-to-end tests only, with ?hooks=edits: the hook's module is fetched only then (edit-hooks.ts).
+	const offHooks = installHookLazily(params, 'edits', () =>
+		editHooks!.then((m) => m.installEditHooks(app, params, undefined, m.indexGate)),
+	);
 	onDestroy(() => {
 		updates.stop();
 		offHooks();

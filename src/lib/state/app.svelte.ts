@@ -143,7 +143,7 @@ export interface AppStateOptions {
 	/** The keyword docs loader; default the editor bundle's (`engineDocsLoader`), made by `ensureEditor`. */
 	docs?: EngineDocsLoader;
 	/** The runner's idle timers; set only by the end-to-end hook (`createIndexGate`), never in production. */
-	idle?: Pick<Timers, 'requestIdle' | 'cancelIdle'>;
+	idle?: Promise<Pick<Timers, 'requestIdle' | 'cancelIdle'>>;
 }
 
 /** How long a format message stays in the toolbar. */
@@ -254,7 +254,7 @@ export class AppState {
 	/** The keyword docs, from the editor bundle; null until `ensureEditor` has loaded it. */
 	#docs: EngineDocsLoader | null = null;
 	readonly #docsOption: EngineDocsLoader | null;
-	readonly #idle: Pick<Timers, 'requestIdle' | 'cancelIdle'> | undefined;
+	readonly #idle: AppStateOptions['idle'];
 	#history: WorkspaceHistory | null = null;
 	readonly #offKeys: () => void;
 	#unsubscribe: Array<() => void> = [];
@@ -347,13 +347,15 @@ export class AppState {
 			return false;
 		}
 		if (token !== this.#token) return false;
+		const idle = await this.#idle;
+		if (token !== this.#token) return false;
 		this.#teardown();
 		const ws = createWorkspace(seed);
 		const runner = createScheduleRunner({
 			workspace: ws,
 			client: this.client,
 			zones: this.#zones,
-			...(this.#idle && { timers: this.#idle }),
+			...(idle && { timers: idle }),
 		});
 		// First subscriber, so it sees every change in order (history.ts).
 		this.#history = createHistory(ws);

@@ -16,9 +16,6 @@ import type { RunnerState, Timers } from '../workspace/run-types';
 export const EDIT_HOOKS_PARAM = 'hooks';
 export const EDIT_HOOKS_KEY = '__mainspringEdits';
 
-const asks = (params: URLSearchParams) =>
-	(params.get(EDIT_HOOKS_PARAM) ?? '').split(',').some((x) => x.trim() === 'edits');
-
 export interface IndexGate {
 	/** The runner's idle timers: they queue while held, else they are the platform's. */
 	readonly timers: Pick<Timers, 'requestIdle' | 'cancelIdle'>;
@@ -27,12 +24,11 @@ export interface IndexGate {
 }
 
 /**
- * For `?hooks=edits` only (null otherwise, so production builds the runner with its own timers):
+ * For `?hooks=edits` only (this module is fetched only then, so production builds the runner with its own timers):
  * idle tasks (the index and its checks, run-types.ts) wait while held, so a test sees the index lag
  * the text for as long as it likes. `ensureIndex` does not use them and stays current.
  */
-export function createIndexGate(params: URLSearchParams): IndexGate | null {
-	if (!asks(params)) return null;
+export function createIndexGate(): IndexGate {
 	type Entry = { fn: () => void; ms: number; h?: unknown };
 	const ric = typeof requestIdleCallback === 'function';
 	const queue = new Set<Entry>();
@@ -62,6 +58,9 @@ export function createIndexGate(params: URLSearchParams): IndexGate | null {
 		},
 	};
 }
+
+/** The one gate of the page; the app builds its runner on it and the hook holds it. */
+export const indexGate = createIndexGate();
 
 /** What the hook gives back: the outcome without its promise, so a test page can return it. */
 export type HookOutcome = Omit<DispatchOutcome, 'settled' | 'edit'> & { readonly status: string };
@@ -99,7 +98,8 @@ export function installEditHooks(
 	gate: IndexGate | null = null,
 ): () => void {
 	// `?hooks=edits`, or a list with it (`edits,gantt`: the Gantt's geometry hook is another).
-	if (!asks(params)) return () => undefined;
+	const asked = (params.get(EDIT_HOOKS_PARAM) ?? '').split(',').map((x) => x.trim());
+	if (!asked.includes('edits')) return () => undefined;
 	const hooks: EditHooks = {
 		settled: null,
 		async action(a) {
