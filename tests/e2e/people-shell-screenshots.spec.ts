@@ -7,6 +7,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -17,11 +18,11 @@ test.describe('people shell screenshots', () => {
 	async function shoot(page: Page, device: string, what: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {
 			await page.emulateMedia({ colorScheme: scheme });
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `t13-${what}-${device}-${scheme}.png`) });
 		}
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 	}
 
 	async function open(page: Page, plan = 'upstream-tutorial'): Promise<void> {
@@ -56,7 +57,7 @@ test.describe('people shell screenshots', () => {
 		page.getByRole('tablist', { name: 'Panels' }).getByRole('tab', { name: 'People' });
 	const light = async (page: Page, file: string): Promise<void> => {
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(400);
+		await pictureReady(page);
 		await page.screenshot({ path: path.join(DIR, file) });
 	};
 

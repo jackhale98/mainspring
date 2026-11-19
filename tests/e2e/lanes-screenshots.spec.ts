@@ -9,6 +9,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { READY_TIMEOUT_MS, deviceName } from './lib/gantt-rig';
 import { LanesRig } from './lib/lanes-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(process.cwd(), 'docs/phases/screenshots/phase-3');
 
@@ -19,7 +20,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		fs.mkdirSync(DIR, { recursive: true });
 		const device = deviceName(info);
 		const shot = async (name: string): Promise<void> => {
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `t15-${name}-${device}-${scheme}.png`) });
 		};
 

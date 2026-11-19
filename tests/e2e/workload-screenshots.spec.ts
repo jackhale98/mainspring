@@ -8,6 +8,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
 import { openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -25,11 +26,11 @@ test.describe('workload screenshots', () => {
 	async function shoot(page: Page, device: string, what: string, only?: 'light'): Promise<void> {
 		for (const scheme of only ? (['light'] as const) : (['light', 'dark'] as const)) {
 			await page.emulateMedia({ colorScheme: scheme });
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `t14-${what}-${device}-${scheme}.png`) });
 		}
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 	}
 
 	/** A person with booked time, a column a few weeks in, and the cell's place on the screen. */
@@ -52,7 +53,7 @@ test.describe('workload screenshots', () => {
 				(window as unknown as Win).__mainspringWorkload.scrollTo(p as string, c as number),
 			[person, col] as const,
 		);
-		await page.waitForTimeout(250);
+		await pictureReady(page);
 		const at = await page.evaluate(
 			([p, c]) => (window as unknown as Win).__mainspringWorkload.cell(p as string, c as number),
 			[person, col] as const,
@@ -67,7 +68,7 @@ test.describe('workload screenshots', () => {
 		await page.evaluate(() =>
 			(window as unknown as Win).__mainspringWorkload.scrollTo('desk01', 0),
 		);
-		await page.waitForTimeout(400);
+		await pictureReady(page);
 		await shoot(page, device, 'heatmap-week');
 		if (isTouch(info)) {
 			const { person, col } = await busy(page);
@@ -92,7 +93,7 @@ test.describe('workload screenshots', () => {
 		await page.getByLabel('Over above', { exact: true }).fill('90');
 		await page.getByLabel('Over above', { exact: true }).press('Enter');
 		await page.keyboard.press('Escape');
-		await page.waitForTimeout(400);
+		await pictureReady(page);
 		await shoot(page, device, 'over');
 		await page.getByRole('radiogroup', { name: 'Unit' }).getByRole('radio', { name: '%' }).click();
 		await shoot(page, device, 'percent');
@@ -102,7 +103,7 @@ test.describe('workload screenshots', () => {
 		test.skip(info.project.name !== 'pixel-7');
 		await page.setViewportSize({ width: 360, height: 740 });
 		await openHeatmap(page, info);
-		await page.waitForTimeout(500);
+		await pictureReady(page);
 		await shoot(page, '360', 'heatmap-week', 'light');
 	});
 });

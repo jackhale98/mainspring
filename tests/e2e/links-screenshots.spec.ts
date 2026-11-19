@@ -6,6 +6,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { pictureReady } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -35,7 +36,7 @@ test.describe('link screenshots', () => {
 		});
 		await expect(page.getByTestId('gantt')).toBeVisible();
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
-		await page.waitForTimeout(800);
+		await pictureReady(page);
 	}
 
 	for (const scheme of ['light', 'dark'] as const) {
@@ -52,7 +53,7 @@ test.describe('link screenshots', () => {
 						const s = g.querySelector('.scroller');
 						if (s) s.scrollLeft = (s.scrollWidth - s.clientWidth) * f;
 					}, fraction);
-					await page.waitForTimeout(600);
+					await pictureReady(page);
 					await gantt.screenshot({ path: path.join(DIR, `${name}-scrolled${TAG}.png`) });
 				});
 			}

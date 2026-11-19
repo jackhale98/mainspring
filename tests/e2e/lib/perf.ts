@@ -333,6 +333,8 @@ export async function measure(page: Page, run: () => Promise<void>): Promise<Mea
 			w.__recording = false;
 			return { frames: w.__frames.slice(1), loaf: w.__loaf, parts: w.__loafParts };
 		}));
+		// Part of the trace, not of the page: the tracer has no signal for "the run's last events are
+		// buffered", so it is given a moment before it is stopped. Frames and loaf are read above.
 		await page.waitForTimeout(300);
 	} finally {
 		raw = await browser.stopTracing();

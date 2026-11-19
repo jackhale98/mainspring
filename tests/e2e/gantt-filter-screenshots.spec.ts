@@ -9,6 +9,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { ScheduleResult } from '../../src/engine/protocol';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -20,11 +21,11 @@ test.describe('gantt filter screenshots', () => {
 	async function shoot(page: Page, device: string, what: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {
 			await page.emulateMedia({ colorScheme: scheme });
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `t19-${what}-${device}-${scheme}.png`) });
 		}
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 	}
 
 	/** A person with a few tasks, from the result's `allocated` lists. */

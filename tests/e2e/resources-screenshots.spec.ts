@@ -11,6 +11,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
 import { caughtUp, openPerson, openResources, row, selectRow } from './lib/resources-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(process.cwd(), 'docs/phases/screenshots/phase-3');
 
@@ -21,7 +22,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		fs.mkdirSync(DIR, { recursive: true });
 		const device = deviceName(info);
 		const shot = async (name: string): Promise<void> => {
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `t17-${name}-${device}-${scheme}.png`) });
 		};
 		await openResources(page, info, { scheme });
@@ -81,10 +82,10 @@ for (const scheme of ['light', 'dark'] as const) {
 		const sheet = page.getByRole('dialog', { name: 'Project' });
 		await expect(sheet).toBeVisible();
 		await sheet.getByTestId('working-hours').scrollIntoViewIfNeeded();
-		await page.waitForTimeout(500);
+		await pictureReady(page);
 		await page.screenshot({ path: path.join(DIR, `t17-project-sheet-${device}-${scheme}.png`) });
 		await sheet.getByRole('switch', { name: 'Weeks start on Monday' }).scrollIntoViewIfNeeded();
-		await page.waitForTimeout(300);
+		await pictureReady(page);
 		await page.screenshot({
 			path: path.join(DIR, `t17-project-sheet-frame-${device}-${scheme}.png`),
 		});

@@ -213,3 +213,20 @@ export const idleTurns = (page: Page, n = 20): Promise<void> =>
 			}),
 		n,
 	);
+
+/**
+ * A picture can be taken: the fonts are in (a canvas drawn before them is drawn again), every
+ * finite animation and transition has ended, and the Gantt layout (when the page shows one; a
+ * page without one reads the same dashes) and scroll positions hold still for a few frames, and no
+ * schedule is being computed (where the page has a plan status). What
+ * the screenshot specs waited 150 to 1000 ms for after a scheme change, a scroll or a tap.
+ */
+export async function pictureReady(page: Page): Promise<void> {
+	await page.evaluate(() => document.fonts.ready.then(() => undefined));
+	// A schedule that is being computed (an edit just made) is not a picture: its numbers are about to change.
+	const state = page.getByRole('group', { name: 'Plan status' }).locator('.state');
+	if ((await state.count()) > 0)
+		await expect(state).not.toHaveAttribute('data-kind', 'scheduling', { timeout: 120_000 });
+	await animationsDone(page, 2);
+	await ganttSettled(page);
+}

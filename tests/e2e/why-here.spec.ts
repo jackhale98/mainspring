@@ -18,6 +18,7 @@ import { explainTask } from '../../src/lib/schedule/explain-task';
 import { goldenContext } from '../../src/lib/schedule/explain-testing';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { expected, openHealth, openPlan, rowOf, selectionOf, TAGS } from './lib/health-rig';
+import { settledValue } from './lib/settle';
 import { oracle, openHeatmap, resultOf, shape } from './lib/workload-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -207,7 +208,18 @@ async function openCell(page: Page, info: TestInfo, person: string, col: number)
 			).__mainspringWorkload.scrollTo(p as string, c as number),
 		[person, col] as const,
 	);
-	await page.waitForTimeout(150);
+	// The scroll has landed: the cell's point holds still for a few frames.
+	await settledValue(
+		page,
+		([p, c]) =>
+			(
+				window as unknown as {
+					__mainspringWorkload: { cell(p: string, c: number): { x: number; y: number } | null };
+				}
+			).__mainspringWorkload.cell(p as string, c as number),
+		4,
+		[person, col] as const,
+	);
 	const at = await page.evaluate(
 		([p, c]) =>
 			(
@@ -220,7 +232,8 @@ async function openCell(page: Page, info: TestInfo, person: string, col: number)
 	if (!at) throw new Error('no cell point');
 	if (isTouch(info)) {
 		await page.touchscreen.tap(at.x, at.y);
-		await page.waitForTimeout(150);
+		// The first tap has selected the cell (its line reads hours), so the second is a second tap.
+		await expect(page.getByTestId('heat-line')).toContainText('hours');
 		await page.touchscreen.tap(at.x, at.y);
 	} else {
 		await page.mouse.click(at.x, at.y);

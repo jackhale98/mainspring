@@ -6,6 +6,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { pictureReady } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -26,7 +27,7 @@ test.describe('gantt screenshots', () => {
 		await expect(page.getByTestId('gantt')).toBeVisible();
 		// Bars appear with the first result; let the fonts and the first paint settle.
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
-		await page.waitForTimeout(700);
+		await pictureReady(page);
 	}
 
 	const shot = (page: Page, name: string) => page.screenshot({ path: path.join(DIR, name) });
@@ -46,7 +47,7 @@ test.describe('gantt screenshots', () => {
 					})
 					.first()
 					.click();
-				await page.waitForTimeout(300);
+				await pictureReady(page);
 				await shot(page, `gantt-desktop-split-${scheme}.png`);
 			});
 
@@ -62,7 +63,7 @@ test.describe('gantt screenshots', () => {
 				for (const level of ['day', 'month', 'quarter']) {
 					await zoom.selectOption(level);
 					await expect(gantt).toHaveAttribute('data-zoom', level);
-					await page.waitForTimeout(300);
+					await pictureReady(page);
 					await shot(page, `gantt-zoom-${level}.png`);
 				}
 			});
@@ -75,7 +76,7 @@ test.describe('gantt screenshots', () => {
 			await open(page, TUTORIAL);
 			await shot(page, `gantt-tablet-${scheme}.png`);
 			await page.getByRole('button', { name: 'Split' }).click();
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await shot(page, `gantt-tablet-split-${scheme}.png`);
 		});
 
@@ -91,7 +92,7 @@ test.describe('gantt screenshots', () => {
 				.first()
 				.click();
 			await expect(page.getByRole('status').filter({ hasText: '(estimate)' })).toBeVisible();
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await shot(page, `gantt-critical-desktop-${scheme}.png`);
 		});
 
@@ -110,7 +111,7 @@ test.describe('gantt screenshots', () => {
 				const scroller = g.querySelector('.scroller');
 				if (scroller) scroller.scrollLeft = (scroller.scrollWidth - scroller.clientWidth) * 0.55;
 			});
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await shot(page, `gantt-critical-pixel7-${scheme}.png`);
 		});
 
@@ -126,7 +127,7 @@ test.describe('gantt screenshots', () => {
 				// Package 10.2, the end of the path, sits at about 91% of the frame's width.
 				s.scrollLeft = s.scrollWidth * 0.915 - s.clientWidth / 2;
 			});
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await page
 				.locator('[role="row"][data-key]')
 				.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Item 386' }) })
@@ -145,7 +146,7 @@ test.describe('gantt screenshots', () => {
 					'true',
 				);
 				await toPath(page, sample);
-				await page.waitForTimeout(400);
+				await pictureReady(page);
 				await shot(page, `gantt-critical-${sample}-desktop-${scheme}.png`);
 			});
 
@@ -158,7 +159,7 @@ test.describe('gantt screenshots', () => {
 					'true',
 				);
 				await toPath(page, sample);
-				await page.waitForTimeout(400);
+				await pictureReady(page);
 				await shot(page, `gantt-critical-${sample}-pixel7-${scheme}.png`);
 			});
 		}
@@ -169,7 +170,7 @@ test.describe('gantt screenshots', () => {
 			await open(page, TUTORIAL);
 			await shot(page, `gantt-pixel7-${scheme}.png`);
 			await page.locator('[role="row"][data-key]').nth(2).click();
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await shot(page, `gantt-pixel7-selected-${scheme}.png`);
 		});
 	}

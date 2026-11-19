@@ -187,6 +187,7 @@ const revision = (page: Page): Promise<number> =>
 /** Waits (in Node, up to two minutes) for the box's one-minute load to fall to ENGINE_COST_MAX_LOAD. */
 async function waitQuiet(): Promise<void> {
 	const max = Number(process.env['ENGINE_COST_MAX_LOAD'] ?? '0');
+	// A pause between looks at the machine's load, which only the clock changes: no page state stands in for it.
 	const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 	for (let i = 0; max > 0 && i < 24 && os.loadavg()[0]! > max; i++) await sleep(5000);
 }

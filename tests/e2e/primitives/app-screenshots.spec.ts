@@ -12,6 +12,7 @@ import { READY_TIMEOUT_MS, deviceName, isTouch } from '../lib/gantt-rig';
 import { openHealthPanel } from '../lib/select-states';
 import { ready } from '../lib/sheet-rig';
 import { openHeatmap, oracle, resultOf, shape } from '../lib/workload-rig';
+import { pictureReady } from '../lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 test.setTimeout(READY_TIMEOUT_MS * 3);
@@ -35,15 +36,15 @@ for (const scheme of ['light', 'dark'] as const) {
 				.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Research' }) })
 				.first();
 			await expect(row).toBeVisible();
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await row.click();
 			const panel = page.getByRole('dialog', { name: /Task details/ });
 			if ((await panel.count()) === 0) await row.click();
 			await expect(panel.getByLabel('Name', { exact: true })).toHaveValue('Research');
-			await page.waitForTimeout(600);
+			await pictureReady(page);
 			// Full height shows the selects (Size, scheduling, responsible).
 			await panel.getByRole('button', { name: /Details height/ }).click();
-			await page.waitForTimeout(600);
+			await pictureReady(page);
 			await panel
 				.getByLabel('Scheduling')
 				.scrollIntoViewIfNeeded()
@@ -59,11 +60,11 @@ for (const scheme of ['light', 'dark'] as const) {
 				.filter({ has: page.locator('[data-col="name"] .label', { hasText: 'Research' }) })
 				.first();
 			await expect(row).toBeVisible();
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await row.click();
 			await page.getByTestId('row-menu').tap();
 			await expect(page.getByRole('menu')).toBeVisible();
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await page.screenshot({ path: file('row-menu', info, scheme) });
 		});
 
@@ -72,13 +73,13 @@ for (const scheme of ['light', 'dark'] as const) {
 			await ready(page);
 			await page.getByTestId('status-button').tap();
 			await expect(page.getByTestId('engine-info-details')).toBeVisible();
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await page.screenshot({ path: file('engine-popover', info, scheme) });
 		});
 
 		test('the calendar bar’s arrow', async ({ page }, info) => {
 			await openCalendar(page, info);
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({ path: file('calendar-bar', info, scheme) });
 		});
 
@@ -122,13 +123,13 @@ for (const scheme of ['light', 'dark'] as const) {
 					[person, col] as const,
 				);
 			await hook();
-			await page.waitForTimeout(200);
+			await pictureReady(page);
 			const at = await hook();
 			if (!at) throw new Error('no cell');
 			await page.touchscreen.tap(at.x, at.y);
 			await page.touchscreen.tap(at.x, at.y);
 			await expect(page.getByTestId('cell-details')).toBeVisible();
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({ path: file('heat-move-pills', info, scheme) });
 		});
 
@@ -137,7 +138,7 @@ for (const scheme of ['light', 'dark'] as const) {
 			await ready(page);
 			await page.getByLabel('Sample plan').selectOption({ label: 'New plan…' });
 			await expect(page.getByRole('dialog', { name: /New plan/ })).toBeVisible();
-			await page.waitForTimeout(600);
+			await pictureReady(page);
 			await page.screenshot({ path: file('new-plan-zone', info, scheme) });
 		});
 	});

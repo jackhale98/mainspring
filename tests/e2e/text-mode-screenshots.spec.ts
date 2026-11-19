@@ -4,6 +4,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { pictureReady } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-1');
@@ -19,7 +20,7 @@ test.describe('text mode screenshots', () => {
 		});
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready');
 		// Let the web fonts and the first paint settle.
-		await page.waitForTimeout(500);
+		await pictureReady(page);
 	}
 
 	async function breakPlan(page: Page): Promise<void> {
@@ -64,7 +65,7 @@ test.describe('text mode screenshots', () => {
 			await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready');
 			await page.getByRole('button', { name: 'Outline' }).click();
 			await expect(page.getByRole('dialog', { name: 'Outline' })).toBeVisible();
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, 'app-tablet-drawer.png') });
 		});
 	});
@@ -79,7 +80,7 @@ test.describe('text mode screenshots', () => {
 		await page.locator('.cm-line', { hasText: /^project / }).click({ position: { x: 4, y: 4 } });
 		await page.getByRole('button', { name: 'Docs' }).click();
 		await expect(page.getByRole('dialog', { name: 'Documentation' })).toBeVisible();
-		await page.waitForTimeout(400);
+		await pictureReady(page);
 		await page.screenshot({ path: path.join(DIR, 'app-phone-docs.png') });
 	});
 

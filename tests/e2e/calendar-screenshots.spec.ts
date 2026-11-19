@@ -23,6 +23,7 @@ import {
 	setType,
 	showDay,
 } from './lib/calendar-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -33,11 +34,11 @@ test.describe('calendar screenshots', () => {
 	async function shoot(page: Page, device: string, what: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {
 			await page.emulateMedia({ colorScheme: scheme });
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `t16-${what}-${device}-${scheme}.png`) });
 		}
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 	}
 
 	test('the month list or month, a painted leave and its details, the type picker', async ({
@@ -57,7 +58,7 @@ test.describe('calendar screenshots', () => {
 		if (!touch) {
 			// Before the drop: the run being painted, still only a selection.
 			await day(page, '2026-12-14').evaluate((el) => el.scrollIntoView({ block: 'center' }));
-			await page.waitForTimeout(150);
+			await pictureReady(page);
 			const a = await day(page, '2026-12-14').boundingBox();
 			const b = await day(page, '2026-12-16').boundingBox();
 			if (!a || !b) throw new Error('no days');
@@ -74,7 +75,7 @@ test.describe('calendar screenshots', () => {
 		await caughtUp(page);
 		await setMode(page, 'select');
 		await openDetails(page, info, '2026-12-14');
-		await page.waitForTimeout(400);
+		await pictureReady(page);
 		await shoot(page, device, 'details');
 
 		if (!touch) {
@@ -94,13 +95,13 @@ test.describe('calendar screenshots', () => {
 	async function shootMonth(page: Page, what: string, size: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {
 			await page.emulateMedia({ colorScheme: scheme });
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({
 				path: path.join(DIR, `calendar-month-${what}-${size}-${scheme}.png`),
 			});
 		}
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 	}
 
 	for (const [w, h] of [
@@ -119,12 +120,12 @@ test.describe('calendar screenshots', () => {
 			await shootMonth(page, 'november', `${w}x${h}`);
 			// A day with several leaves: "+N more" where they do not fit; its details docked.
 			await showDay(page, SAM_DAY);
-			await page.waitForTimeout(150);
+			await pictureReady(page);
 			await shootMonth(page, 'december-leaves', `${w}x${h}`);
 			const crowd = day(page, SAM_DAY);
 			await crowd.click();
 			await expect(page.getByTestId('cal-details')).toBeVisible();
-			await page.waitForTimeout(450);
+			await pictureReady(page);
 			await shootMonth(page, 'details-docked', `${w}x${h}`);
 		});
 	}
@@ -135,7 +136,7 @@ test.describe('calendar screenshots', () => {
 		await showDay(page, '2026-11-26');
 		await shootMonth(page, 'month', deviceName(info));
 		await openDetails(page, info, '2026-11-26');
-		await page.waitForTimeout(500);
+		await pictureReady(page);
 		await shootMonth(page, 'details', deviceName(info));
 	});
 });

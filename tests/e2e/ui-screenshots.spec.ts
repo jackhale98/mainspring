@@ -6,6 +6,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { pictureReady } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -27,13 +28,13 @@ test.describe('ui screenshots', () => {
 		});
 		if (text) {
 			await expect(page.getByRole('textbox', { name: /^Editor for / })).toBeVisible();
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			return;
 		}
 		await expect(page.getByTestId('gantt')).toBeVisible();
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
 		// Bars appear with the first result; let the fonts and the first paint settle.
-		await page.waitForTimeout(800);
+		await pictureReady(page);
 	}
 
 	const shot = (page: Page, name: string) => page.screenshot({ path: path.join(DIR, name) });
@@ -53,7 +54,7 @@ test.describe('ui screenshots', () => {
 					})
 					.first()
 					.click();
-				await page.waitForTimeout(300);
+				await pictureReady(page);
 				await shot(page, `ui-desktop-split-${scheme}.png`);
 			});
 
@@ -85,7 +86,7 @@ test.describe('ui screenshots', () => {
 			await expect(
 				page.getByRole('separator', { name: 'Resize the editor and the chart' }),
 			).toBeVisible();
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await shot(page, `ui-tablet-split-${scheme}.png`);
 		});
 
@@ -95,14 +96,14 @@ test.describe('ui screenshots', () => {
 			await open(page, TUTORIAL);
 			await shot(page, `ui-pixel7-gantt-${scheme}.png`);
 			await page.locator('[role="row"][data-key]').nth(2).click();
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await shot(page, `ui-pixel7-gantt-selected-${scheme}.png`);
 			await page.getByRole('tab', { name: 'Text', exact: true }).click();
 			await expect(page.getByRole('textbox', { name: /^Editor for / })).toBeVisible();
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await shot(page, `ui-pixel7-text-${scheme}.png`);
 			await page.getByRole('tab', { name: 'Plan', exact: true }).click();
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await shot(page, `ui-pixel7-plan-${scheme}.png`);
 		});
 	}
@@ -113,7 +114,7 @@ test.describe('ui screenshots', () => {
 		await page.emulateMedia({ colorScheme: 'light' });
 		await open(page, 'gantt-manipulation', 'text');
 		await expect(page.getByRole('textbox', { name: /^Editor for / })).toBeVisible();
-		await page.waitForTimeout(400);
+		await pictureReady(page);
 		await shot(page, 'sample-picker-phone-pixel7-light.png');
 	});
 });

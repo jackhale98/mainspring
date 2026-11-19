@@ -127,6 +127,7 @@ function startTyping(page: Page): () => Promise<void> {
 		await page.focus('[data-testid="probe"]');
 		while (!stopped) {
 			await page.keyboard.press('a').catch(() => undefined);
+			// The typing pace is what is measured against the engine's work: a key every TYPE_INTERVAL_MS.
 			await new Promise((r) => setTimeout(r, TYPE_INTERVAL_MS));
 		}
 	})();

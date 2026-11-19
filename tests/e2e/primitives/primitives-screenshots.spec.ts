@@ -8,6 +8,7 @@ import { test, type Locator, type Page } from '@playwright/test';
 import { REPO } from '../../golden/corpus';
 import { deviceName } from '../lib/gantt-rig';
 import { openPrimitives } from '../lib/primitives-rig';
+import { pictureReady } from '../lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -29,7 +30,7 @@ for (const scheme of ['light', 'dark'] as const) {
 
 		test('sheet', async ({ page }) => {
 			await page.getByTestId('open-details').click();
-			await page.waitForTimeout(700);
+			await pictureReady(page);
 			await shot(page, file(page, 'sheet'));
 		});
 
@@ -37,9 +38,9 @@ for (const scheme of ['light', 'dark'] as const) {
 			const touch = deviceName(info) !== 'desktop';
 			const id = touch ? 'menu-sheet-trigger' : 'menu-end';
 			await page.getByTestId(id).evaluate((el) => el.scrollIntoView({ block: 'center' }));
-			await page.waitForTimeout(150);
+			await pictureReady(page);
 			await page.getByTestId(id).click();
-			await page.waitForTimeout(600);
+			await pictureReady(page);
 			await shot(page, file(page, 'menu'));
 		});
 
@@ -52,9 +53,9 @@ for (const scheme of ['light', 'dark'] as const) {
 			await page
 				.getByTestId('pop-anchor-button')
 				.evaluate((el) => el.scrollIntoView({ block: 'center' }));
-			await page.waitForTimeout(150);
+			await pictureReady(page);
 			await page.getByTestId('pop-anchor-button').click();
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await shot(page, file(page, 'popover'));
 		});
 
@@ -65,7 +66,7 @@ for (const scheme of ['light', 'dark'] as const) {
 				);
 			});
 			await page.getByTestId('prim-toolbar').scrollIntoViewIfNeeded();
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await shot(page.getByTestId('prim-toolbar'), file(page, 'toolbar'));
 		});
 

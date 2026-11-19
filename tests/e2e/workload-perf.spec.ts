@@ -14,6 +14,7 @@ import { expect, test, type CDPSession, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { installProbe, measure, withinDesktopCaps, type Measure } from './lib/perf';
+import { animationsDone, frames, settledValue } from './lib/settle';
 import { skipOnWebKitIfAllowlisted } from './lib/webkit-allowlist';
 import { openHeatmap } from './lib/workload-rig';
 
@@ -71,7 +72,9 @@ async function wheel(cdp: CDPSession, at: { x: number; y: number }, dx: number, 
 
 async function chooseZoom(page: Page, name: string): Promise<void> {
 	await page.getByRole('radiogroup', { name: 'Zoom' }).getByRole('radio', { name }).click();
-	await page.waitForTimeout(300);
+	// The zoom is drawn: the canvas has had its frames and nothing animates.
+	await frames(page, 4);
+	await animationsDone(page, 0);
 }
 
 test(
@@ -97,7 +100,11 @@ test(
 					const dy = axis === 'rows' ? m0.h - m0.vh : 0;
 					const dx = axis === 'frame' ? m0.w - m0.vw : 0;
 					await scrollTo(page, 0, 0);
-					await page.waitForTimeout(250);
+					// The scroller is back at the origin and has stopped: its offsets hold still.
+					await settledValue(page, () => {
+						const s = document.querySelector('[data-testid="workload"] .scroller');
+						return [s?.scrollTop, s?.scrollLeft].join('|');
+					});
 					// Out and back, four times for the rows (28 rows are only 840 px: a few dozen frames).
 					const laps = axis === 'rows' ? 4 : 1;
 					const m = await measure(page, async () => {
@@ -111,6 +118,7 @@ test(
 					expect(Math.abs(end.top) + Math.abs(end.left)).toBeLessThan(80);
 					runs.push(m);
 					if (withinDesktopCaps(m)) break;
+					// A cool-down before the retry: the pause itself is what the retry is for.
 					await page.waitForTimeout(3000);
 				}
 				const best = [...runs].sort(
@@ -177,9 +185,11 @@ test(
 				await touch('touchStart', mid);
 				for (let i = 1; i <= 8; i++) {
 					await touch('touchMove', { x: mid.x - i * 24, y: mid.y - i * 8 });
+					// One frame between two moves: the finger's pace is part of the gesture being measured.
 					await page.waitForTimeout(16);
 				}
 				await touch('touchEnd');
+				// The pause between two swipes is part of the measured script: a finger lifts and lands again.
 				await page.waitForTimeout(120);
 			}
 		});

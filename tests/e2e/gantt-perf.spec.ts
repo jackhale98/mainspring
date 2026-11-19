@@ -24,6 +24,7 @@ import path from 'node:path';
 import { expect, test, type CDPSession, type Page, type TestInfo } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, isTouch, type Point } from './lib/gantt-rig';
+import { appSettled, ganttSettled, idleTurns } from './lib/settle';
 import { skipOnWebKitIfAllowlisted } from './lib/webkit-allowlist';
 import {
 	EXTRA_RUN_PAUSE_MS,
@@ -52,6 +53,7 @@ type Win = { __drop?: { at: number; paint: number; resched: number } };
 async function waitQuiet(page: Page): Promise<void> {
 	const max = Number(process.env['PERF_MAX_LOAD'] ?? '0');
 	if (!max) return;
+	// A pause between looks at the machine load, which only the clock changes: no page state stands in for it.
 	for (let i = 0; i < 24 && os.loadavg()[0]! > max; i++) await page.waitForTimeout(5000);
 }
 
@@ -175,6 +177,7 @@ async function gesture(
 					? { x: start.x + sign * perMove * i, y: start.y }
 					: { x: start.x, y: start.y + sign * perMove * i },
 			);
+			// One frame between two moves: the pace of the finger is part of the gesture being measured.
 			await new Promise((r) => setTimeout(r, 16));
 		}
 		await touch('touchEnd');
@@ -188,8 +191,8 @@ async function pickInput(page: Page, cdp: CDPSession, phone: boolean, at: Point)
 	for (const source of (phone ? ['touch', 'mouse'] : ['mouse']) as Source[]) {
 		await setScroll(page, 0, 0);
 		await gesture(cdp, source, at, 0, -400, 2000);
-		await page.waitForTimeout(300);
-		await page.waitForTimeout(source === 'touch' ? 1200 : 0);
+		// The scroll, and the fling of a touch, has run out: the scroll position of the chart holds still.
+		await ganttSettled(page);
 		const moved = (await scrollMetrics(page)).top;
 		tried.push(`${source}: ${moved} px`);
 		await setScroll(page, 0, 0);
@@ -234,7 +237,7 @@ async function scrollRun(
 	const s = await scrollMetrics(page);
 	const down = Math.min(s.height - s.view - 50, 40_000);
 	await setScroll(page, 0, 0);
-	await page.waitForTimeout(300);
+	await ganttSettled(page);
 	// All rows and back, as one window (18.7: "a scripted 500-row scroll").
 	let farthest = 0;
 	const t0 = Date.now();
@@ -295,6 +298,7 @@ async function pacedDrag(
 		await rig.touches('touchStart', [from]);
 		for (let i = 1; i <= frames; i++) {
 			await rig.touches('touchMove', [at(i)]);
+			// One frame between two moves: the pace of the finger is part of the gesture being measured.
 			await page.waitForTimeout(16);
 		}
 		await rig.touches('touchEnd', []);
@@ -303,6 +307,7 @@ async function pacedDrag(
 		await page.mouse.down();
 		for (let i = 1; i <= frames; i++) {
 			await page.mouse.move(at(i).x, at(i).y);
+			// One frame between two moves: the pace of the pointer is part of the gesture being measured.
 			await page.waitForTimeout(16);
 		}
 		await page.mouse.up();
@@ -359,8 +364,9 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 		const throttle = phone ? 4 : 1;
 		await installProbe(page);
 		const rig = await Rig.open(page, info, 'day', 'visual', 'gantt-500');
-		// The engine has the plan; let the first paint, the analysis and the idle work settle.
-		await page.waitForTimeout(3000);
+		// The engine has the plan; the first paint, the analysis and the idle work are over.
+		await appSettled(page);
+		await idleTurns(page);
 		const cdp = await page.context().newCDPSession(page);
 		if (phone) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
 		const result: Record<string, unknown> = { ...(await environment(page, info, throttle)) };
@@ -383,7 +389,7 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 		const extra: Record<string, Measure[]> = {};
 		for (const zoom of ['day', 'week'] as const) {
 			await rig.zoom(zoom);
-			await page.waitForTimeout(500);
+			await ganttSettled(page);
 			scroll[zoom] = [];
 			for (let i = 0; i < RUNS; i++) {
 				scroll[zoom]!.push(
@@ -401,6 +407,7 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 				i < MAX_EXTRA_RUNS && !phone && !scroll[zoom]!.concat(extra[zoom]!).some(capOk);
 				i++
 			) {
+				// A cool-down between runs: the pause itself is what the retry is for.
 				await page.waitForTimeout(EXTRA_RUN_PAUSE_MS);
 				extra[zoom]!.push(
 					await scrollRun(page, cdp, picked.source, at, `scroll ${zoom} extra #${i + 1}`),
@@ -423,11 +430,11 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 		console.log(new Date().toISOString(), 'step 2.');
 		// 2. A horizontal pan across the frame, at week zoom.
 		await rig.zoom('day');
-		await page.waitForTimeout(500);
+		await ganttSettled(page);
 		const wide = await scrollMetrics(page);
 		const pan = Math.min(wide.width - wide.viewW - 50, 12_000);
 		await setScroll(page, 0, 0);
-		await page.waitForTimeout(300);
+		await ganttSettled(page);
 		result['pan'] = await scrolled(page, 'pan', { x: -pan, y: 0 }, async () => {
 			await gesture(cdp, picked.source, at, -pan, 0, 4000);
 		});
@@ -457,9 +464,11 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 							type: 'touchMove',
 							touchPoints: pair(60 - (50 * i) / 20),
 						});
+						// One frame between two moves: the pace of the fingers is part of the gesture being measured.
 						await page.waitForTimeout(16);
 					}
 					await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+					// The pause between two pinches is part of the measured script: fingers lift and land again.
 					await page.waitForTimeout(150);
 				}
 			} else {
@@ -467,6 +476,7 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 				await page.keyboard.down('Control');
 				for (let i = 0; i < 60; i++) {
 					await page.mouse.wheel(0, 40);
+					// One notch a frame: the pace of the wheel is part of the gesture being measured.
 					await page.waitForTimeout(16);
 				}
 				await page.keyboard.up('Control');
@@ -476,7 +486,7 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 		const zoomed = (await level()) !== 'day';
 		// The drag runs at week zoom, where the whole bar is within the chart beside the panel.
 		await rig.zoom('week');
-		await page.waitForTimeout(800);
+		await ganttSettled(page);
 
 		console.log(new Date().toISOString(), 'step 4.');
 		// 4. A 3 s drag of a bar's size handle (the pointer moves are paced over 3 s).
@@ -500,7 +510,7 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 		await page.keyboard.press('ControlOrMeta+z');
 		await rig.rescheduled(rev);
-		await page.waitForTimeout(800);
+		await ganttSettled(page);
 		const handle2 = (await selectBar(rig)).endEdge;
 		// On the phone the details sheet covers the lower half of the chart: the finger scrolls above it.
 		const fullBox = chartBox;
@@ -627,7 +637,8 @@ test.describe('gantt perf (gantt-500)', { tag: '@timing' }, () => {
 			}
 			const rig = await Rig.open(page, info, 'week', 'visual', 'gantt-500');
 			void rig;
-			await page.waitForTimeout(3000);
+			await appSettled(page);
+			await idleTurns(page);
 			const cdp = await page.context().newCDPSession(page);
 			await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 			const box = await page.locator(SCROLLER).boundingBox();

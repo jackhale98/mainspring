@@ -15,6 +15,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
 import { openHealth, openPlan, rowOf, scrollList, selectionOf } from './lib/health-rig';
 import { openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(process.cwd(), 'docs/phases/screenshots/phase-3');
 
@@ -27,7 +28,7 @@ const LICENSE = 'f20.supplement_wallpaper.supplement_license_review';
 function shooter(page: Page, info: TestInfo, scheme: string) {
 	fs.mkdirSync(DIR, { recursive: true });
 	return async (name: string): Promise<void> => {
-		await page.waitForTimeout(500);
+		await pictureReady(page);
 		await page.screenshot({
 			path: path.join(DIR, `t18-${name}-${deviceName(info)}-${scheme}.png`),
 		});
@@ -142,7 +143,7 @@ for (const scheme of ['light', 'dark'] as const) {
 				).__mainspringWorkload.scrollTo(p as string, c as number),
 			[pick.person, pick.col] as const,
 		);
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 		const at = await page.evaluate(
 			([p, c]) =>
 				(
@@ -155,7 +156,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		if (!at) throw new Error('no cell point');
 		if (isTouch(info)) {
 			await page.touchscreen.tap(at.x, at.y);
-			await page.waitForTimeout(200);
+			await pictureReady(page);
 			await page.touchscreen.tap(at.x, at.y);
 		} else await page.mouse.click(at.x, at.y);
 		const cell = page.getByTestId('cell-details');
@@ -200,7 +201,7 @@ test('a tablet gets the bottom sheet from the Health button (light)', async ({ p
 	await expect(sheet.getByTestId('health-summary')).toContainText('241 problems', {
 		timeout: READY_TIMEOUT_MS,
 	});
-	await page.waitForTimeout(600);
+	await pictureReady(page);
 	await page.screenshot({ path: path.join(DIR, 't18-health-sheet-tablet-820-light.png') });
 	void shot;
 });

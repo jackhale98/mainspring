@@ -26,6 +26,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { frames, idleTurns } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const ROUNDS = 3;
@@ -104,6 +105,7 @@ async function typeAndObserve(page: Page, gap: number): Promise<Samples & { repo
 			'keydown',
 			(e) => {
 				const start = e.timeStamp;
+				// A timer in the page, after the frame: the measurement of when the key's frame was shown.
 				requestAnimationFrame(() =>
 					setTimeout(() => perf.frames.push(performance.now() - start), 0),
 				);
@@ -114,15 +116,19 @@ async function typeAndObserve(page: Page, gap: number): Promise<Samples & { repo
 	// A new comment line at the end, so the typing never makes a syntax error.
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.insertText('\n# ');
-	await page.waitForTimeout(1500);
+	// What the new line starts (the index and its checks, in idle time) has run before the keys are timed.
+	await frames(page, 4);
+	await idleTurns(page);
 	await page.evaluate(() => {
 		if (window.__perf) window.__perf.interactions = {};
 	});
 	for (let i = 0; i < KEYS; i++) {
 		await page.keyboard.press(i % 7 === 6 ? 'Space' : 'KeyA');
+		// The gap between two keys is the typing pace being measured (a typist, not a burst).
 		await page.waitForTimeout(gap);
 	}
-	await page.waitForTimeout(500);
+	// The last key's frame has been drawn and timed.
+	await frames(page, 4);
 	const perf = await page.evaluate(
 		() => window.__perf ?? { interactions: {}, frames: [], longTasks: [] },
 	);
@@ -206,9 +212,10 @@ async function keystrokes(
 async function coldLoad(context: BrowserContext) {
 	const page = await context.newPage();
 	const js: Array<{ url: string; raw: number; gzip: number }> = [];
+	const bodies: Array<Promise<void>> = [];
 	page.on('response', (res) => {
 		if (!/\.m?js(\?|$)/.test(res.url())) return;
-		void res
+		const read = res
 			.body()
 			.then((b) => {
 				js.push({
@@ -218,6 +225,7 @@ async function coldLoad(context: BrowserContext) {
 				});
 			})
 			.catch(() => {});
+		bodies.push(read);
 	});
 	await page.addInitScript(() => {
 		const marks: Record<string, number> = {};
@@ -248,7 +256,9 @@ async function coldLoad(context: BrowserContext) {
 			scheduledAt: performance.now(),
 		};
 	});
-	await page.waitForTimeout(300);
+	// Every script's body has been read, and the page's idle work has had its turns.
+	await Promise.all(bodies);
+	await idleTurns(page, 10);
 	await context.close();
 	return { ...t, js };
 }

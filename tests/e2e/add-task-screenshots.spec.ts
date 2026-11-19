@@ -8,6 +8,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig } from './lib/gantt-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -18,11 +19,11 @@ test.describe('add task screenshots', () => {
 	async function shoot(page: Page, device: string, what: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {
 			await page.emulateMedia({ colorScheme: scheme });
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `add-task-${what}-${device}-${scheme}.png`) });
 		}
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 	}
 
 	async function run(page: Page, info: Parameters<typeof Rig.open>[1], device: string) {
@@ -46,7 +47,7 @@ test.describe('add task screenshots', () => {
 		await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused({
 			timeout: READY_TIMEOUT_MS,
 		});
-		await page.waitForTimeout(600);
+		await pictureReady(page);
 		await shoot(page, device, 'details');
 	}
 
@@ -59,7 +60,7 @@ test.describe('add task screenshots', () => {
 			const rig = await Rig.open(page, info, undefined, 'split');
 			await rig.row('task:launch').locator('.label').click();
 			await expect(rig.row('task:launch')).toHaveAttribute('aria-selected', 'true');
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await page.screenshot({
 				path: path.join(DIR, 'add-task-toolbar-tablet-split-820-light.png'),
 			});
@@ -79,7 +80,7 @@ test.describe('add task screenshots', () => {
 			const rig = await Rig.open(page, info);
 			await rig.row('task:launch').locator('.label').tap();
 			await expect(rig.row('task:launch')).toHaveAttribute('aria-selected', 'true');
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, 'add-task-toolbar-phone-360-light.png') });
 		});
 

@@ -182,6 +182,9 @@ every newly turned-on spec at 0, and every test boots the engine and schedules i
    `alike`); fixed waits may only go down (`scripts/ci/fixed-waits.mjs`, 339 in 73 files at the
    start). Done 2026-11-18.
 2. Replace the fixed waits with waits for state, starting with the rigs and the files with the most.
+   Slice 3 (2026-11-19): 139 in 33 files down to 32 in 15 files. What is left is input the page
+   measures on its own clock (a long-press, a wheel's stillness, a finger's pace) and the pauses
+   that are part of a perf measurement; each has a comment saying so.
 3. Measure where an iPhone test's time goes (boot, first schedule, the test's own steps) and time
    the `fedora-res` schedule on a real iPhone.
 4. Stop every test paying the engine start-up (a booted page per worker, smaller plans where the

@@ -9,6 +9,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
+import { pictureReady } from './lib/settle';
 
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-3');
 
@@ -22,11 +23,11 @@ test.describe('new plan screenshots', () => {
 	async function shoot(page: Page, device: string, what: string): Promise<void> {
 		for (const scheme of ['light', 'dark'] as const) {
 			await page.emulateMedia({ colorScheme: scheme });
-			await page.waitForTimeout(400);
+			await pictureReady(page);
 			await page.screenshot({ path: path.join(DIR, `new-plan-${what}-${device}-${scheme}.png`) });
 		}
 		await page.emulateMedia({ colorScheme: 'light' });
-		await page.waitForTimeout(200);
+		await pictureReady(page);
 	}
 
 	async function open(page: Page): Promise<void> {
@@ -74,7 +75,7 @@ test.describe('new plan screenshots', () => {
 
 		await chooser(page).selectOption({ label: 'New plan…' });
 		await expect(sheet(page)).toBeVisible();
-		await page.waitForTimeout(500);
+		await pictureReady(page);
 		await sheet(page).getByLabel('Name', { exact: true }).fill('Website relaunch');
 		await sheet(page).getByLabel('Start').fill('2026-11-16');
 		await sheet(page).getByLabel('Time zone').selectOption({ label: 'Europe/Berlin' });
@@ -88,13 +89,13 @@ test.describe('new plan screenshots', () => {
 		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('No tasks yet', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		await page.waitForTimeout(1000);
+		await pictureReady(page);
 		await shoot(page, device, 'empty-state');
 		if (touch) {
 			// The phone's Plan tab shows the same empty state.
 			await page.getByRole('tab', { name: 'Plan', exact: true }).tap();
 			await expect(page.locator('#panel-plan').getByTestId('empty-state')).toBeVisible();
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await page.screenshot({
 				path: path.join(DIR, `new-plan-empty-plan-tab-${device}-light.png`),
 			});
@@ -124,7 +125,7 @@ test.describe('new plan screenshots', () => {
 				await open(page);
 				await chooser(page).selectOption({ label: 'New plan…' });
 				await expect(sheet(page)).toBeVisible();
-				await page.waitForTimeout(500);
+				await pictureReady(page);
 				await sheet(page).getByLabel('Name', { exact: true }).fill('Website relaunch');
 				await sheet(page).getByLabel('Start').fill('2026-11-16');
 				await sheet(page).getByLabel('Time zone').selectOption({ label: 'Europe/Berlin' });

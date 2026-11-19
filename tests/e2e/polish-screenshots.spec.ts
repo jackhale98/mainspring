@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { REPO } from '../golden/corpus';
+import { pictureReady, settledValue } from './lib/settle';
 
 const READY_TIMEOUT_MS = 120_000;
 const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-2');
@@ -38,7 +39,7 @@ test.describe('polish screenshots', () => {
 		});
 		await expect(page.getByTestId('gantt')).toBeVisible();
 		await expect(page.locator('[role="row"][data-key]').first()).toBeVisible();
-		await page.waitForTimeout(800);
+		await pictureReady(page);
 	}
 
 	const shot = async (target: Page | Locator, name: string): Promise<void> => {
@@ -82,7 +83,7 @@ test.describe('polish screenshots', () => {
 				await open(page, 'gantt-500', device);
 				// Items 9 and 10 (rows 11 and 12) start on Feb 26 and 27, 2026, by the status date line.
 				await scroll(page, device === 'desktop' ? 650 : 790, 400);
-				await page.waitForTimeout(500);
+				await pictureReady(page);
 				await shot(page.getByTestId('gantt'), `polish-2-marker-labels-${device}-${scheme}`);
 			});
 
@@ -94,7 +95,7 @@ test.describe('polish screenshots', () => {
 				const head = page.getByTestId('gantt-header');
 				for (const [i, left] of [0, 14, 40, 70].entries()) {
 					await scroll(page, left, 0);
-					await page.waitForTimeout(250);
+					await pictureReady(page);
 					const names = await page.getByTestId('gantt').locator('.names').boundingBox();
 					const band = await head.boundingBox();
 					if (!names || !band) continue;
@@ -115,7 +116,7 @@ test.describe('polish screenshots', () => {
 					const s = g.querySelector('.scroller');
 					if (s) s.scrollLeft = (s.scrollWidth - s.clientWidth) * 0.55;
 				});
-				await page.waitForTimeout(500);
+				await pictureReady(page);
 				await shot(page.getByTestId('gantt'), `polish-5-critical-edge-${device}-${scheme}`);
 				for (const [kind, matrix] of Object.entries(CVD)) {
 					await page.evaluate(
@@ -132,7 +133,7 @@ test.describe('polish screenshots', () => {
 						},
 						[kind, matrix] as const,
 					);
-					await page.waitForTimeout(300);
+					await pictureReady(page);
 					await shot(
 						page.getByTestId('gantt'),
 						`polish-5-critical-edge-${kind}-${device}-${scheme}`,
@@ -148,18 +149,22 @@ test.describe('polish screenshots', () => {
 			await open(page, 'gantt-500', 'pixel7');
 			const count = (): Promise<number> =>
 				page.evaluate(() => document.querySelectorAll('*').length);
+			// The count is read when the number of nodes holds still for a few frames.
+			const counted = (): Promise<number> =>
+				settledValue(page, () => document.querySelectorAll('*').length, 6);
 			const gantt = await count();
 			await page.getByRole('tab', { name: 'Plan' }).click();
-			await page.waitForTimeout(500);
-			const plan = await count();
+			await expect(page.getByRole('tree', { name: 'Tasks' })).toBeVisible();
+			const plan = await counted();
 			const tasks = page.getByRole('tree', { name: 'Tasks' }).locator('xpath=..');
 			await tasks.evaluate((el) => (el.scrollTop = 900));
-			await page.waitForTimeout(300);
+			await pictureReady(page);
 			await page.getByRole('tab', { name: 'Gantt' }).click();
-			await page.waitForTimeout(500);
-			const back = await count();
+			await expect(page.getByTestId('gantt')).toBeVisible();
+			const back = await counted();
 			await page.getByRole('tab', { name: 'Plan' }).click();
-			await page.waitForTimeout(500);
+			await expect(page.getByRole('tree', { name: 'Tasks' })).toBeVisible();
+			await pictureReady(page);
 			const top = await tasks.evaluate((el) => el.scrollTop);
 			await shot(page, `polish-6-plan-tab-pixel7-${scheme}`);
 			fs.writeFileSync(
@@ -188,7 +193,7 @@ test.describe('polish screenshots', () => {
 				'true',
 			);
 			await scroll(page, null, 1e7);
-			await page.waitForTimeout(500);
+			await pictureReady(page);
 			await shot(page, `polish-9-phone-pill-pixel7-${scheme}`);
 		});
 	}
