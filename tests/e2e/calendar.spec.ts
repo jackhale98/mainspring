@@ -22,7 +22,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
-import { frames } from './lib/settle';
+import { frames, panelSettled } from './lib/settle';
 import {
 	CROWD,
 	FEBRUARY_PLAN,
@@ -719,6 +719,8 @@ for (const scheme of ['light', 'dark'] as const) {
 		await tapDay(page, info, d);
 		if (isTouch(info)) await tapDay(page, info, d);
 		await expect(page.getByTestId('cal-details')).toBeVisible();
+		// A phone's sheet still sliding in lies partly over the month controls: scan it at rest.
+		await panelSettled(page.getByTestId('cal-details'));
 		await scan(`details (${scheme})`);
 	});
 }
