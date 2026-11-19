@@ -21,10 +21,14 @@ function outline(): Outline {
 	return { tasks, byKey: new Map(tasks.map((n) => [n.key, n])) };
 }
 
-const applied = (settled: Settlement | Promise<Settlement>): DispatchOutcome =>
+/** An applied add: its edit's intent names the parent the dispatcher worked out. */
+const applied = (
+	settled: Settlement | Promise<Settlement>,
+	parent: string | null = null,
+): DispatchOutcome =>
 	({
 		status: 'applied',
-		edit: {},
+		edit: { intent: { type: 'addTask', parent, index: 0, name: 'New task' } },
 		settled: Promise.resolve(settled),
 	}) as unknown as DispatchOutcome;
 
@@ -84,7 +88,7 @@ describe('addTaskFlow', () => {
 	it('adds after the selected task, then selects it, reveals it and focuses the name', async () => {
 		const r = rig('task:a', OK, HEADER, node('task:new_task', null));
 		await expect(addTaskFlow(r.env, 'after')).resolves.toBe('task:new_task');
-		expect(r.calls).toEqual([{ parent: null, index: 1, name: 'New task' }]);
+		expect(r.calls).toEqual([{ anchor: 'a', mode: 'after', name: 'New task' }]);
 		expect(r.picked).toEqual(['task:new_task']);
 		expect(r.events).toEqual(['select', 'reveal', 'focus']);
 	});
@@ -92,13 +96,18 @@ describe('addTaskFlow', () => {
 	it('adds at the end of the plan when nothing is selected', async () => {
 		const r = rig(null, OK, HEADER, node('task:new_task', null));
 		await addTaskFlow(r.env, 'after');
-		expect(r.calls[0]).toMatchObject({ parent: null, index: 2 });
+		expect(r.calls[0]).toMatchObject({ anchor: null, mode: 'after' });
 	});
 
 	it('adds a subtask as the last child of the selected task', async () => {
-		const r = rig('task:b', OK, 'task new_task "New task"', node('task:b.new_task', 'task:b'));
+		const r = rig(
+			'task:b',
+			applied({ status: 'scheduled' }, 'b'),
+			'task new_task "New task"',
+			node('task:b.new_task', 'task:b'),
+		);
 		await expect(addTaskFlow(r.env, 'subtask')).resolves.toBe('task:b.new_task');
-		expect(r.calls).toEqual([{ parent: 'b', index: 1, name: 'New task' }]);
+		expect(r.calls).toEqual([{ anchor: 'b', mode: 'subtask', name: 'New task' }]);
 	});
 
 	it('still selects the new task when the plan does not schedule with it', async () => {
@@ -109,6 +118,17 @@ describe('addTaskFlow', () => {
 			node('task:new_task', null),
 		);
 		await expect(addTaskFlow(r.env, 'after')).resolves.toBe('task:new_task');
+	});
+
+	it('names the new task by the parent the dispatcher chose, not the one the shown tree gave', async () => {
+		// The shown tree has `a` at the top level; the text now has it inside `b`, where the add went.
+		const r = rig(
+			'task:a',
+			applied({ status: 'scheduled' }, 'b'),
+			'task new_task "New task"',
+			node('task:b.new_task', 'task:b'),
+		);
+		await expect(addTaskFlow(r.env, 'after')).resolves.toBe('task:b.new_task');
 	});
 
 	it('picks the new task from the edit, not from what the outline gained: a task typed meanwhile', async () => {
@@ -233,6 +253,6 @@ describe('addTaskFlow', () => {
 		r.out.tasks.length = 0;
 		r.out.byKey.clear();
 		await expect(addTaskFlow(r.env, 'after')).resolves.toBe('task:new_task');
-		expect(r.calls).toEqual([{ parent: null, index: 0, name: 'New task' }]);
+		expect(r.calls).toEqual([{ anchor: null, mode: 'after', name: 'New task' }]);
 	});
 });

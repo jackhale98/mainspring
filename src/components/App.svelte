@@ -42,7 +42,8 @@
 	import { newOutlineView } from '../lib/state/outline';
 	import { effectiveMode, modeFromParam, phoneTabFor } from '../lib/state/view-mode';
 	import { canAddSubtask, type AddMode } from '../lib/gantt/add-task';
-	import { ganttActionStrings, strings } from '../lib/strings';
+	import { addTaskPlan } from '../lib/gantt/rows-plan';
+	import { strings } from '../lib/strings';
 	import LazyMount from './app/LazyMount.svelte';
 	import HealthLive from './health/HealthLive.svelte';
 	import { addTaskFlow, headerAfter } from './gantt/add-task-flow';
@@ -305,12 +306,9 @@
 				app,
 				plan: () => app.edits,
 				headerOf: (edit) => headerAfter(app, edit),
-				add: (at) =>
+				add: (a) =>
 					app.edits
-						? app.edits.dispatch(
-								{ type: 'addTask', ...at },
-								{ label: { text: ganttActionStrings.label.add(at.name), approx: false } },
-							)
+						? app.edits.dispatchPlan(addTaskPlan(a.anchor, a.mode, a.name))
 						: Promise.resolve({ status: 'cancelled' }),
 				reveal: () => undefined,
 				show: async (key) => {

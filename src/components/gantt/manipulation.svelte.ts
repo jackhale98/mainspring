@@ -40,6 +40,7 @@ import type { OutlineNode } from '../../lib/state/outline';
 import { gestureStrings } from '../../lib/strings';
 import type { AddMode } from '../../lib/gantt/add-task';
 import type { ZoneOffsets } from '../../lib/tjp/values/civil';
+import { addTaskPlan } from '../../lib/gantt/rows-plan';
 import { addTaskFlow, headerAfter } from './add-task-flow';
 import { AssignMode } from './assign-mode.svelte';
 import { ChipDrag } from './chip-drag.svelte';
@@ -213,7 +214,8 @@ export class Manipulation {
 			open: (k) => {
 				if (app.collapsed.has(k)) app.toggleNode(k);
 			},
-			move: (k, parent, index) => void this.interactions.moveTo(k, parent, index),
+			move: (k, parent, index, basedOn) => void this.interactions.moveTo(k, parent, index, basedOn),
+			version: () => app.outline.version,
 			announce: (t) => h.announce(t),
 		});
 
@@ -377,7 +379,7 @@ export class Manipulation {
 				app: h.app,
 				plan: () => h.app.edits,
 				headerOf: (edit) => headerAfter(h.app, edit),
-				add: (a) => this.interactions.actor.run({ type: 'add', ...a }),
+				add: (a) => this.interactions.actor.runPlan(addTaskPlan(a.anchor, a.mode, a.name)),
 				reveal: (key) => {
 					const row = h.model().rowOf.get(key);
 					if (row !== undefined) void h.revealRow(row);

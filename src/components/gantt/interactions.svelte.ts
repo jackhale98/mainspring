@@ -20,7 +20,6 @@
  * drag (WCAG 2.5.7).
  */
 import type { ScheduleResult } from '../../engine/protocol';
-import { addSpot } from '../../lib/gantt/add-task';
 import { clampPercent, snapPercent } from '../../lib/gantt/handles';
 import {
 	commandFor,
@@ -40,11 +39,12 @@ import {
 	resizeRef,
 	type MoveEnv,
 } from '../../lib/gantt/preview';
+import { addTaskPlan, stepTaskPlan } from '../../lib/gantt/rows-plan';
 import { rootsOf, stepTarget, type Step, type Tree } from '../../lib/gantt/reorder';
 import type { WorkingTime } from '../../lib/schedule/working-time';
 import type { AppState } from '../../lib/state/app.svelte';
 import type { ActionSource, DispatchOutcome } from '../../lib/state/edits.svelte';
-import { movedId } from '../../lib/state/edits.svelte';
+import { renamedBy } from '../../lib/state/edits.svelte';
 import { gestureStrings } from '../../lib/strings';
 import { earliestStart, latestEnd } from '../../lib/gantt/intents';
 import { GanttActor } from './actor.svelte';
@@ -342,27 +342,47 @@ export class GanttInteractions {
 
 	// --- R5, R8, extra: rows ------------------------------------------------------------------
 
-	/** One place up or down, one level in or out (the keys and the row menu). */
+	/**
+	 * One place up or down, one level in or out (the keys and the row menu). At an edge of the tree
+	 * the Gantt shows, it says so without dispatching; otherwise the dispatcher plans the step on
+	 * the text now (`stepTaskPlan`, ADR-0018), and the focus follows the move it made.
+	 */
 	async reorder(key: string, step: Step): Promise<DispatchOutcome | null> {
 		const node = this.#tree.get(key);
-		const place = stepTarget(this.#tree, key, step, this.#roots);
-		if (!node?.id || !place) {
+		if (!node?.id || !stepTarget(this.#tree, key, step, this.#roots)) {
 			this.#h.announce(gestureStrings.live.noPlace);
 			return null;
 		}
-		return this.moveTo(key, place.parent, place.index);
+		const o = await this.actor.runPlan(stepTaskPlan(node.id, step), { defer: true });
+		this.#focusMoved(o, node.id);
+		return o;
 	}
 
-	/** Dispatches a `reorder`, and gives the focus to the row under its new key. */
-	async moveTo(key: string, parent: string | null, index: number): Promise<DispatchOutcome | null> {
+	/**
+	 * Dispatches a row drop as a `reorder`, and gives the focus to the row under its new key. The
+	 * place was read from the outline of version `basedOn` (default: the one shown now): the
+	 * dispatcher refuses it when the text has since changed what that place means (`target-changed`).
+	 */
+	async moveTo(
+		key: string,
+		parent: string | null,
+		index: number,
+		basedOn: number = this.#h.app.outline.version,
+	): Promise<DispatchOutcome | null> {
 		const node = this.#tree.get(key);
 		if (!node?.id) return null;
 		const o = await this.actor.run(
 			{ type: 'reorder', task: node.id, parent, index },
-			{ defer: true },
+			{ defer: true, basedOn },
 		);
-		if (o.status === 'applied') this.#h.focusRowSoon(`task:${movedId(node.id, parent)}`);
+		this.#focusMoved(o, node.id);
 		return o;
+	}
+
+	/** After an applied move, the focus goes to the row under the id the edit gave it. */
+	#focusMoved(o: DispatchOutcome, task: string): void {
+		if (o.status !== 'applied') return;
+		this.#h.focusRowSoon(`task:${renamedBy(o.edit.intent)?.[1] ?? task}`);
 	}
 
 	startRename(key: string): void {
@@ -386,16 +406,11 @@ export class GanttInteractions {
 		if (key) this.#h.focusRowSoon(key);
 	}
 
+	/** Adds a task after the row (Insert, the row menu), placed by the dispatcher on the text now. */
 	async add(key: string): Promise<void> {
-		if (!this.#tree.has(key)) return;
-		const spot = addSpot(this.#tree, this.#roots, key, 'after');
-		if (!spot) return;
-		await this.actor.run({
-			type: 'add',
-			parent: spot.parent,
-			index: spot.index,
-			name: gestureStrings.row.newTask,
-		});
+		const id = this.#tree.get(key)?.id;
+		if (!id) return;
+		await this.actor.runPlan(addTaskPlan(id, 'after', gestureStrings.row.newTask));
 	}
 
 	/** Delete: the selected link when one is, else the task. */

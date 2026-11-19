@@ -46,8 +46,10 @@ export interface RowDragHost {
 	nameOf(key: string): string;
 	/** Opens a collapsed container. */
 	open(key: string): void;
-	/** The drop: `moveTask`. */
-	move(key: string, parent: string | null, index: number): void;
+	/** The drop: `moveTask`. `basedOn` is the version of the tree the place was read from. */
+	move(key: string, parent: string | null, index: number, basedOn?: number): void;
+	/** The index version of the tree the rows and the tree come from (ADR-0018: a drop's `basedOn`). */
+	version?(): number;
 	announce(text: string): void;
 }
 
@@ -83,6 +85,8 @@ export class RowDrag {
 	#key: string | null = null;
 	#grip: HTMLElement | null = null;
 	#drop: Drop | null = null;
+	/** The version of the tree `#drop` was read from. */
+	#shown: number | undefined;
 	#dx = 0;
 	#last: { id: number; kind: PointerKind; x: number; y: number; m: Modifiers } | null = null;
 	#timer: ReturnType<typeof setTimeout> | null = null;
@@ -212,8 +216,9 @@ export class RowDrag {
 				const key = this.#key;
 				const drop = this.#drop;
 				this.#clear();
-				if (key && drop && !drop.same) this.#h.move(key, drop.parent, drop.index);
-				else this.#h.announce(gestureStrings.live.cancelled);
+				if (key && drop && !drop.same) {
+					this.#h.move(key, drop.parent, drop.index, this.#shown);
+				} else this.#h.announce(gestureStrings.live.cancelled);
 				return;
 			}
 			case 'cancel':
@@ -243,6 +248,7 @@ export class RowDrag {
 			wantedDepth(own, dx),
 		);
 		this.#drop = drop;
+		this.#shown = this.#h.version?.();
 		if (!drop) {
 			this.view = null;
 			return;

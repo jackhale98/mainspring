@@ -8,7 +8,9 @@
  * second undo step (18.11 e). A refusal or a no-op has already been shown by the dispatcher.
  * Nothing here changes the plan itself.
  *
- * - The new task is named from the applied edit (the header text its `select` range covers), never
+ * - The place is worked out by the dispatcher on the text now (`addTaskPlan`); the flow only
+  checks the shown tree for a place at all (a subtask of a task with no id has none).
+- The new task is named from the applied edit (the header text its `select` range covers), never
  *   by comparing the outline with an earlier snapshot: the outline lags the text (a task typed a
  *   moment before, a drag still pending).
  * - One flow runs at a time (a second press meanwhile is ignored), and it gives up quietly when
@@ -19,6 +21,7 @@ import { addSpot, newTaskKeyFromHeader, type AddMode } from '../../lib/gantt/add
 import { rootsOf } from '../../lib/gantt/reorder';
 import type { AppState } from '../../lib/state/app.svelte';
 import type { OutlineNode } from '../../lib/state/outline';
+import type { TaskId } from '../../lib/tjp/index';
 import type { TjpEdit } from '../../lib/tjp/edit/types';
 import { gestureStrings } from '../../lib/strings';
 
@@ -37,8 +40,11 @@ export interface AddFlowEnv {
 	readonly app: AddFlowApp;
 	/** The open plan (its dispatcher): the flow gives up when this is no longer the same one. */
 	plan(): unknown;
-	/** Sends the `addTask` edit through the dispatcher. */
-	add(at: { parent: string | null; index: number; name: string }): Promise<DispatchOutcome>;
+	/**
+	 * Sends the add through the dispatcher as `addTaskPlan(anchor, mode, name)`: the place is worked
+	 * out on the text now (ADR-0018), not on the outline the flow read.
+	 */
+	add(a: { anchor: TaskId | null; mode: AddMode; name: string }): Promise<DispatchOutcome>;
 	/** The text of the edit's new task header, as the text is right after the edit. */
 	headerOf(edit: TjpEdit): string | null;
 	/** Scrolls the new task's row into view, once it has one. */
@@ -90,14 +96,16 @@ async function run(env: AddFlowEnv, mode: AddMode): Promise<string | null> {
 		mode,
 	);
 	if (!spot) return null;
-	const o = await env.add({
-		parent: spot.parent,
-		index: spot.index,
-		name: gestureStrings.row.newTask,
-	});
+	const anchor =
+		app.selectedTask === null ? null : (app.outline.byKey.get(app.selectedTask)?.id ?? null);
+	const o = await env.add({ anchor, mode, name: gestureStrings.row.newTask });
 	if (o.status !== 'applied' || env.plan() !== plan) return null;
 	const header = env.headerOf(o.edit);
-	const key = header === null ? null : newTaskKeyFromHeader(header, spot.parent);
+	// The new task's key is named from the edit as it was made: its parent is the edit's, which
+	// the dispatcher worked out on the text now (not `spot`, from the outline that can lag it).
+	const made = o.edit.intent;
+	const key =
+		header === null || made.type !== 'addTask' ? null : newTaskKeyFromHeader(header, made.parent);
 	if (key === null) return null;
 	// The details need the task in the schedule's model: wait for the result that includes the edit.
 	const s = await o.settled;
