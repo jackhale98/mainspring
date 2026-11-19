@@ -69,7 +69,9 @@ export interface DragPlan {
 /**
  * What dropping `task` from `from` on `to` asks for, and what to say about it. The action is the
  * planner's own drop rule (`dropAction`, with `toBucketEnd` filled in from the axis); the label is
- * a preview of the ask, and the dry run (`checkRebalance`) says whether the planner allows it.
+ * a preview of the ask, and the dry run (`checkRebalance`) says whether the planner allows it. A
+ * drop on a group row is such an ask with `ok` false: it carries its action so that the planner's
+ * `not-a-person` refusal reaches the dry run and the drop's toast.
  */
 export function dragPlan(
 	model: LoadModel,
@@ -84,12 +86,17 @@ export function dragPlan(
 	const axis: RebalanceAxis = to.row !== from.row ? 'person' : 'week';
 	const target = model.rows[to.row];
 	if (!target) return none('');
-	if (axis === 'person' && target.group) return none(W.rebalance.dropOnGroup);
+	const [origin, end] = [rebalanceCell(model, from), rebalanceCell(model, to)];
+	if (axis === 'person' && target.group) {
+		// A group is no target, but the drop still asks: the planner refuses it (`not-a-person`), so
+		// the dry run and the dispatcher give the same sentence and toast as any other refusal.
+		const action = task !== null && origin && end ? dropAction(task, origin, end, axis) : null;
+		return { action, ok: false, label: W.rebalance.dropOnGroup };
+	}
 	const label =
 		axis === 'person'
 			? W.rebalance.toPerson(target.name)
 			: W.rebalance.toPeriod(labels.period[to.col] ?? '');
-	const [origin, end] = [rebalanceCell(model, from), rebalanceCell(model, to)];
 	if (task === null || !origin || !end) return { action: null, ok: true, label };
 	return { action: dropAction(task, origin, end, axis), ok: true, label };
 }
