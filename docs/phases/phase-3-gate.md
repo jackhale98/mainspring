@@ -256,35 +256,57 @@ App bugs found on the way, open:
 Probe: `fedora-res`, the Health sheet on the iPhone 14 emulation (WebKit), the list scrolled by a
 script 100 px a frame to its end, then 90 idle frames. Per frame it reads every row's top, the
 scroller's `scrollHeight` and `scrollTop`; a jump is a row the finger sees that moved by more than 2 px
-beyond the scroll made. Before and after on the same machine and plan:
+beyond the scroll made. Before (`db0bded8`) and after, the same machine and plan:
 
 | | Before | After |
 | --- | --- | --- |
 | Frames with a visible jump | 69 of 174 | 0 of 444 |
-| Largest jump of a row in view | 984 px (always a multiple of 164 px, one row) | 1 px |
-| `scrollHeight` while scrolling | 9,246 to 44,562 | 44,562 to 44,721 |
-| Idle at the end: distinct `scrollHeight` in 90 frames | 10 (settles to 10,571, a collapsed list) | 1 (44,721) |
+| Largest jump of a row in view | 984 px (always a multiple of 164 px, one row) | 0 px |
+| `scrollHeight` while scrolling | 9,246 to 44,562 | 44,558 to 44,715 (rows below the view going from estimate to measured) |
+| Idle at the end: distinct `scrollHeight` in 90 frames | 10 (settles to 10,571, a collapsed list) | 1 (44,715) |
+
+Frame cost, Pixel 7 emulation at 4x CPU throttle (CDP), the same scroll with no per-frame probing,
+two runs each (the figures of the two runs agree within 5%): before, the list never settles even on
+Chromium (900 frames without reaching the end, `scrollHeight` alternating 10,063 and 9,281), frame
+interval median 53 ms, p95 92, max 213, 497 of 900 frames over 50 ms; page scripting 10.1 s, layout
+5.6 s, style recalculation 3.0 s (11 ms, 6 ms and 3 ms a frame). After: the end in 440 frames, median
+35 ms, p95 50 to 52, max 68 to 74, 21 to 35 of 440 over 50 ms; scripting 2.0 s, layout 0.78 s, style
+0.33 s (4.6, 1.8 and 0.8 ms a frame).
 
 The cause is in the list's own bookkeeping (`FindingGroup.svelte`): an unmeasured row was estimated at
 the average of the measured ones, so every row measured moved every unmeasured row above the view, and
 a row mounted and unmounted between two ResizeObserver deliveries was never measured, so a group
-swung between heights a row apart. Chromium hid it with scroll anchoring. The fix: rows are measured
-synchronously as they mount and kept by key; the estimate stops following the average after 8 rows
-(`estimateOf`); before the window changes the list notes the first row in view and after it scrolls by
-how far that row moved (`pickAnchor`, `anchorShift`), a row above the view that changes height does
-the same (`resizeShift`); Chromium's own anchoring is off for the panel (`overflow-anchor: none`) so
-the two do not add up. Pure parts are tested in `src/lib/health/anchor.test.ts` (including a loop of
-window, measure and anchor on an unmeasured list, which settles with the first row in view held) and
-`window.test.ts`. Screenshots: `docs/phases/screenshots/phase-3/t18-health-list-mid-scroll-*` and
-`t18-health-list-finding-tapped-*` (Pixel 7 and iPhone 14).
+swung between heights a row apart. Chromium hid the first with scroll anchoring. The fix:
+- rows are measured synchronously as they mount, with their fractional height (13 px text at a 1.5 line
+  height is 19.5 px a line; `offsetHeight` rounds, and the rounding error moved the first row in view
+  by 0.5 to 1 px on an ordinary scroll down), and kept by key; the estimate stops following the average
+  after 8 rows (`estimateOf`), and is dropped with the measurements when the list's width changes;
+- before the window changes the list notes the rows that reach the view and after it holds the first
+  of them that is still mounted where it was (`pickAnchor`, `anchorShift`); a row above the view that
+  changes height does the same (`resizeShift`, from the tops before the change);
+- while a finger or a fling scrolls (a touch is down, or a scroll event in the last 150 ms) it does not
+  write `scrollTop`, which stops a fling on iOS: it holds the row with a bias in the before-spacer
+  (`nextBias`), and when the scrolling stops the bias goes in one render that is held by scrolling;
+- Chromium's own anchoring is off for the panel (`overflow-anchor: none`), so the two do not add up;
+  the panel scrolls itself by what the "findings are from the last good schedule" note adds or takes
+  above the view; the window is the same object while nothing in it changed, so a scroll inside it
+  runs none of this.
 
-B4 on the iPhone 14 (WebKit, 2 workers, one run on a loaded 4-core machine): `health.spec.ts`,
-`health-fixes.spec.ts`, `health-screenshots.spec.ts` and `why-here.spec.ts` 28 passed and 5 skipped
-(the desktop-only and tablet cases, by `isTouch`, not by project); the same four on desktop and
-Pixel 7 59 passed, 7 skipped; `select-arrows` and `picker-phone` (they open a finding through
-`rowOf`) 16 passed on the iPhone and 26 on desktop and Pixel 7. The iPhone has about 4 more worker
-minutes of specs than the plan assumed (the four files were 0 s there), so `ci.yml` has 18 iPhone
-shards instead of 16 until the next `shard-plan.mjs measure` from a CI run.
+Pure parts are tested in `src/lib/health/anchor.test.ts` (a loop of window, measure and anchor on a
+list of fractional heights: no shift on a scroll down, held by scrolling or by the bias on a scroll up
+into rows never seen, the bias given back without a move, rounding heights makes shifts) and
+`window.test.ts`. End to end, `driveList` in `tests/e2e/lib/health-rig.ts` checks every frame that a row
+in view moved only by the scroll made, that the first row and `scrollHeight` hold, and counts the
+app's `scrollTop` writes; `health.spec.ts` ("the list holds still while it is scrolled", all three
+projects) and the screenshot test use it. On `db0bded8`'s app they fail on the iPhone 14 (a row moved
+164 px, then 3,979 px); on this branch they pass.
+Screenshots: `docs/phases/screenshots/phase-3/t18-health-list-mid-scroll-*` and
+`t18-health-list-finding-tapped-*` (Pixel 7 and iPhone 14), and the existing t18 screenshots on the
+iPhone 14 (`t18-*-iphone-14-*`; no Pixel 7 or desktop file is touched).
+
+B4 on the iPhone 14 (WebKit, one run on a loaded 4-core machine): see the run evidence of the commit;
+`ci.yml` has 18 iPhone shards instead of 16: the four files were 0 s on the iPhone in the plan, and
+about 4 worker minutes of specs more run there now, until the next `shard-plan.mjs measure` from a CI run.
 
 ## Done when (ADR-0016): recorded as each item is met
 

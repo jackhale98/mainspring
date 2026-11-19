@@ -33,6 +33,7 @@
 	import { healthStrings as H } from '../../lib/strings-health-panel';
 	import Icon from '../Icon.svelte';
 	import FindingGroup from './FindingGroup.svelte';
+	import { scrollerOf } from './scroller';
 	import HealthSettingsForm from './HealthSettingsForm.svelte';
 
 	interface Props {
@@ -64,6 +65,29 @@
 	);
 
 	let root: HTMLElement | undefined = $state();
+	let body: HTMLElement | undefined = $state();
+
+	// The note above the lists comes and goes around every reschedule. The panel turns the browser's
+	// scroll anchoring off (the lists hold the view themselves), so when the note changes above what
+	// the scroller shows, the panel scrolls by the height it added or took.
+	let bodyTop: number | null = null;
+	$effect.pre(() => {
+		void dimmed;
+		bodyTop = body ? body.getBoundingClientRect().top : null;
+	});
+	$effect(() => {
+		void dimmed;
+		const was = bodyTop;
+		bodyTop = null;
+		if (!body || was === null) return;
+		const scroller = scrollerOf(body);
+		const viewTop = scroller ? scroller.getBoundingClientRect().top : 0;
+		const by = body.getBoundingClientRect().top - was;
+		if (was < viewTop && Math.abs(by) >= 0.5) {
+			if (scroller) scroller.scrollTop += by;
+			else window.scrollBy(0, by);
+		}
+	});
 	let summary: HTMLElement | undefined = $state();
 
 	// Opened from the keyboard (the Health button has the focus ring): the focus moves in, on each
@@ -212,7 +236,7 @@
 
 	{#if dimmed && report !== null}<p class="note" role="note">{P.dimmed}</p>{/if}
 
-	<div id="{uid}-body" class="body">
+	<div id="{uid}-body" class="body" bind:this={body}>
 		{#if health.settingsOpen}
 			<button type="button" class="back" onclick={() => (health.settingsOpen = false)}>
 				<Icon name="chevronLeft" size={15} />{H.settings.back}

@@ -18,6 +18,8 @@ import { READY_TIMEOUT_MS } from './lib/gantt-rig';
 import {
 	SETTINGS_KEY,
 	TAGS,
+	driveList,
+	scrollStops,
 	expectTotal,
 	expected,
 	findings,
@@ -318,6 +320,47 @@ test.describe('a windowed list', () => {
 		expect(far).toBeGreaterThan(14);
 		// And the list never mounted the whole group.
 		expect(await findings(panel, 'no-predecessor').count()).toBeLessThan(26);
+	});
+});
+
+test.describe('the list holds still while it is scrolled', () => {
+	test.setTimeout(READY_TIMEOUT_MS * 3);
+
+	test('a swipe down the whole list moves no row beyond the scroll, and the app writes no scrollTop', async ({
+		page,
+	}, info) => {
+		await openPlan(page, info);
+		const panel = await openHealth(page, info);
+		// 90 px a frame to the end: each frame is checked inside driveList, and at the end the first
+		// row and the scroller's height hold for 12 frames (the end used to cycle on WebKit).
+		const end = await driveList(panel, 90, 600);
+		expect(end.key).not.toBe('');
+		// Rows are measured as they are, not rounded, so what is above never moves what is shown.
+		expect(end.writesDuring).toBe(0);
+	});
+
+	test('a swipe up into rows never seen, after "jump to a check", writes scrollTop only once it stops', async ({
+		page,
+	}, info) => {
+		await openPlan(page, info);
+		const panel = await openHealth(page, info);
+		// This plan's rows of one check are all about as tall, so an estimate is nearly right. Make
+		// some rows taller, by their place in the list and a fractional height: the rows above the
+		// view then change when they are mounted.
+		await page.addStyleTag({
+			content:
+				'[data-testid="finding"][data-i$="3"], [data-testid="finding"][data-i$="4"], [data-testid="finding"][data-i$="5"] { padding-block-end: 87.5px; }',
+		});
+		await panel.getByRole('list', { name: 'Findings' }).getByRole('button').last().click();
+		await scrollStops(panel);
+		// Up through the rows above the check, which were never mounted: their heights are estimates
+		// until they are, and the row in view must not move (checked every frame in driveList).
+		const up = await driveList(panel, -70, 40);
+		expect(up.writesDuring).toBe(0);
+		// What the list held with its spacer while the finger scrolled it gives back to the scroller
+		// in one step when the scrolling stops, with no row moving (driveList checks that frame too).
+		expect(up.writesAfter).toBeGreaterThan(0);
+		expect(up.writesAfter).toBeLessThanOrEqual(10);
 	});
 });
 
