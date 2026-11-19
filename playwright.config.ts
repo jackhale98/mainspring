@@ -14,10 +14,12 @@ export default defineConfig({
 	testDir: 'tests/e2e',
 	// Vitest unit tests live beside the helpers; responsiveness has its own config. The Text mode
 	// timings (about 8 minutes, serial) run only with E2E_PERF=1: nightly and `npm run test:e2e:perf`.
+	// The engine cost measurement (minutes per project) runs only with ENGINE_COST=1, by hand.
 	testIgnore: [
 		'**/*.test.ts',
 		'**/engine-responsiveness.spec.ts',
 		...(process.env['E2E_PERF'] === '1' ? [] : ['**/text-mode-perf.spec.ts']),
+		...(process.env['ENGINE_COST'] === '1' ? [] : ['**/engine-cost.spec.ts']),
 	],
 	fullyParallel: true,
 	forbidOnly: !!process.env['CI'],
