@@ -193,8 +193,8 @@ T27 (ADR-0018) so far, recorded for the user:
 - **First-load bytes over the ADR's target.** T27a and T27b add about 1,360 bytes gzip to each
   first load (Visual-first 328,668 of 330,000, Text-first 435,202 of 440,000, measured the CI way),
   against the ADR's target of 700 for all of T27. The caps hold and no cap changed; the two reviews
-  found nothing that can go without losing a check. Open for the user to accept, or to ask for the
-  ADR's fallback (the range and position checks moved into the lazy views' planners).
+  found nothing that can go without losing a check. Accepted by the user, 2026-11-19 ("the budget
+  increase is fine"); the caps are unchanged.
 - **Deviations from the ADR, by the implementation and its review:** no call through
   `dispatchPlan`, and no `updateLeave` or `removeLeave`, is ever coalesced (a planner's range maps
   to the text now, not to a gesture's base); siblings and macro-declared or shared declarations

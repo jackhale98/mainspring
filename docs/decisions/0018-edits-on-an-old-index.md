@@ -279,6 +279,8 @@ interface PaintItem { /* … */ readonly version: number } // the index version 
   position checks into the planners of the lazy views that produce those intents. The edit API's
   `basedOn` refusal stays as the safety net. The user is asked before any cap changes.
 - **Measured** with `js-sizes.mjs --serve`, before and after, in the gate file.
+- **Amendment (user, 2026-11-19):** T27a and T27b measured about 1,360 bytes gzip on each first load,
+  over the 700-byte target; the user accepted it. The caps are unchanged.
 
 ## Tests
 
