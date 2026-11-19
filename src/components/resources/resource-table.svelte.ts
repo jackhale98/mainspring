@@ -8,23 +8,21 @@
  *   what each shows (`tableRows`), and the tree the drag and the keys walk (`treeOf`).
  * - **Select** sets the shared selection (`selectResource`), so the right panel, the lanes and the
  *   text follow; a sheet layout opens the details on a second tap (`InspectorState.tap`).
- * - **Regroup** (W6) plans with `planRegroup` and sends the intent; a refusal of the planner is a
- *   toast with "Show in text", the edit API's refusals come back as the dispatcher's own.
- * - **Add** (W7) asks for the name first, then one `addResource` edit (add.ts says why).
+ * - **Regroup** (W6): a drop plans with `planRegroup` on the tree shown and sends the intent with the
+ *   outline's version, so the dispatcher refuses a place the text has since changed; a refusal of
+ *   the planner is a toast with "Show in text", the edit API's refusals come back as the
+ *   dispatcher's own. The keys and the menu send `stepResourcePlan`, planned on the text now.
+ * - **Add** (W7) asks for the name first, then one `addResource` edit (add.ts says why), placed by
+ *   `addResourcePlan` on the text now.
+ * - The table never waits for the index (ADR-0018): the dispatcher resolves every target.
  */
 import { stepTarget, rootsOf, type Step } from '../../lib/gantt/reorder';
 import { runIntent } from '../../lib/calendar/run';
 import { addResourceFlow } from '../../lib/resources/add';
 import { deleteEdit, renameEdit } from '../../lib/resources/person-edit';
+import { addResourcePlan, stepResourcePlan } from '../../lib/resources/plans';
 import { planRegroup } from '../../lib/resources/regroup';
-import {
-	addSpot,
-	dropRows,
-	openRows,
-	tableRows,
-	treeOf,
-	type TableRow,
-} from '../../lib/resources/rows';
+import { dropRows, openRows, tableRows, treeOf, type TableRow } from '../../lib/resources/rows';
 import { headerOfEdit } from '../../lib/people/add-person';
 import type { AppState } from '../../lib/state/app.svelte';
 import type { OutlineNode } from '../../lib/state/outline';
@@ -109,16 +107,6 @@ export class ResourceTable {
 		this.#app.inspector.focus();
 	}
 
-	/** Waits for the index to be read from the text now (an edit just applied), up to ~1.5 s. */
-	async #fresh(): Promise<void> {
-		for (let i = 0; i < 50; i++) {
-			const v = this.#app.workspace?.snapshot().version;
-			const index = this.#app.index;
-			if (index === null || v === undefined || index.version === v) return;
-			await new Promise((r) => setTimeout(r, 30));
-		}
-	}
-
 	async rename(key: string, typed: string): Promise<boolean> {
 		const node = this.tree.get(key);
 		const edits = this.#app.edits;
@@ -151,28 +139,21 @@ export class ResourceTable {
 	}
 
 	/**
-	 * W6: moves a resource to `index` among the children of `parentKey` (null: the top level).
-	 * `shownVersion` is the index version of the tree the place was read from (a drop): when the
-	 * text has moved on since, the place may mean something else, so the move is refused.
+	 * W6: moves a resource to `index` among the children of `parentKey` (null: the top level), the
+	 * place of a drop. It was read from the tree shown, whose index version (the outline's) is the
+	 * move's `basedOn`: when the text has since changed that place, the dispatcher refuses the move
+	 * (`target-changed`) and says so (ADR-0018).
 	 */
 	async regroup(
 		key: string,
 		parentKey: string | null,
 		index: number,
-		shownVersion?: number,
+		basedOn: number = this.#app.outline.version,
 	): Promise<boolean> {
 		const edits = this.#app.edits;
 		const node = this.tree.get(key);
-		if (!edits || !node || node.id === null) return false;
-		await this.#fresh();
 		const idx = this.#app.index;
-		if (!idx) return false;
-		if (shownVersion !== undefined && idx.version !== shownVersion) {
-			const message = R.table.changedMeanwhile;
-			edits.refuse(message, [], idx.version);
-			this.announcement = message;
-			return false;
-		}
+		if (!edits || !node || node.id === null || !idx) return false;
 		const parent = parentKey === null ? null : (this.tree.get(parentKey)?.id ?? null);
 		const plan = planRegroup(idx, node.id, parent, index);
 		if (plan.status === 'not-possible') {
@@ -180,26 +161,37 @@ export class ResourceTable {
 			this.announcement = plan.message;
 			return false;
 		}
-		const o = await runIntent(edits, plan.intent, plan.label, this.#confirm);
+		const o = await runIntent(edits, plan.intent, plan.label, this.#confirm, basedOn);
 		if (o.status === 'applied') {
 			if (parentKey !== null) this.open(parentKey);
 			this.focusKey = key;
 			this.announcement = plan.label.text;
-		}
+		} else if (o.status === 'refused') this.announcement = o.message;
 		return o.status === 'applied';
 	}
 
-	/** Alt+Shift+Arrow, and the menu's Up, Down, Indent and Outdent: one place along the tree. */
+	/**
+	 * Alt+Shift+Arrow, and the menu's Up, Down, Indent and Outdent: one place along the tree. At an
+	 * edge of the tree shown, it says so without sending; otherwise the dispatcher plans the step on
+	 * the text now (`stepResourcePlan`, ADR-0018), however far the shown tree lags it.
+	 */
 	async step(key: string, step: Step): Promise<boolean> {
-		// The place is read from the tree the text has now: after an Undo or a Redo the outline can
-		// lag the text, and a place found in the old tree names another row.
-		await this.#fresh();
-		const place = stepTarget(this.tree, key, step, this.roots);
-		if (!place) {
+		const node = this.tree.get(key);
+		const edits = this.#app.edits;
+		if (!edits || !node || node.id === null) return false;
+		if (!stepTarget(this.tree, key, step, this.roots)) {
 			this.announcement = R.table.nowhere(step);
 			return false;
 		}
-		return this.regroup(key, place.parentKey, place.index);
+		const o = await edits.dispatchPlan(stepResourcePlan(node.id, step));
+		if (o.status === 'applied') {
+			const made = o.edit.intent;
+			if (made.type === 'moveResource' && made.parent !== null)
+				this.open(`resource:${made.parent}`);
+			this.focusKey = key;
+			this.announcement = edits.toasts.find((t) => t.id === o.toast)?.text ?? '';
+		} else if (o.status === 'refused' || o.status === 'noop') this.announcement = o.message;
+		return o.status === 'applied';
 	}
 
 	startAdd(kind: AddKind): void {
@@ -215,24 +207,24 @@ export class ResourceTable {
 		const kind = this.adding;
 		const app = this.#app;
 		if (kind === null) return false;
-		const spot = addSpot(this.nodes, this.selectedKey, kind, app.index);
-		if (!spot) return false;
-		const id = await addResourceFlow(
+		const at = this.selectedKey === null ? null : (this.tree.get(this.selectedKey)?.id ?? null);
+		const added = await addResourceFlow(
 			{
 				plan: () => app.edits,
-				dispatch: (intent, o) =>
-					app.edits ? app.edits.dispatch(intent, o) : Promise.resolve({ status: 'cancelled' }),
+				add: (name, k) =>
+					app.edits
+						? app.edits.dispatchPlan(addResourcePlan(at, k, name))
+						: Promise.resolve({ status: 'cancelled' }),
 				headerOf: (edit) => headerOfEdit(app, edit),
 				select: (rid) => app.selection.selectResource(rid, 'visual'),
 			},
-			spot,
 			typed,
 			kind,
 		);
-		if (id === null) return false;
+		if (added === null) return false;
 		this.adding = null;
-		this.focusKey = `resource:${id}`;
-		if (spot.parent !== null) this.open(`resource:${spot.parent}`);
+		this.focusKey = `resource:${added.id}`;
+		if (added.parent !== null) this.open(`resource:${added.parent}`);
 		return true;
 	}
 }

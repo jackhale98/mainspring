@@ -9,23 +9,21 @@
  * placeholder id that would have to change later. (The empty state's "Add person" still makes
  * "New person", as T13 built it; the details rename it, and the id stays.)
  *
- * The new resource is selected from the applied edit's header text, as `addPersonFlow` does.
+ * The place is worked out by the dispatcher on the text now (`addResourcePlan`, ADR-0018), and the
+ * parent the new row went into is the applied edit's own. The new resource is selected from the
+ * applied edit's header text, as `addPersonFlow` does.
  */
 import type { DispatchOutcome } from '../state/edits.svelte';
-import type { EditIntent, TjpEdit } from '../tjp/edit/types';
+import type { TjpEdit } from '../tjp/edit/types';
 import type { ResourceId } from '../tjp/index';
 import { newResourceIdFromHeader } from '../people/add-person';
-import { addEdit } from './person-edit';
-import type { AddSpot } from './rows';
 
 /** What the flow reads and does; the component passes the app's. */
 export interface AddResourceEnv {
 	/** The open plan (its dispatcher): the flow gives up when this is no longer the same one. */
 	plan(): unknown;
-	dispatch(
-		intent: EditIntent,
-		o: { label: { text: string; approx: boolean } },
-	): Promise<DispatchOutcome>;
+	/** Sends the add as `addResourcePlan(selected, kind, name)`: the place is the text now's. */
+	add(name: string, kind: 'person' | 'group'): Promise<DispatchOutcome>;
 	/** The text of the edit's new header, as the text is right after the edit. */
 	headerOf(edit: TjpEdit): string | null;
 	select(id: ResourceId): void;
@@ -37,23 +35,28 @@ export const usableName = (typed: string): string | null => {
 	return t === '' ? null : t;
 };
 
-/** Adds a person or a group named `typed` at `spot`; the new id once selected, else null. */
+/** The new resource and the parent the edit put it under (null: the top level). */
+export interface Added {
+	readonly id: ResourceId;
+	readonly parent: ResourceId | null;
+}
+
+/** Adds a person or a group named `typed`; the new id and its parent once selected, else null. */
 export async function addResourceFlow(
 	env: AddResourceEnv,
-	spot: AddSpot,
 	typed: string,
 	kind: 'person' | 'group',
-): Promise<ResourceId | null> {
+): Promise<Added | null> {
 	const name = usableName(typed);
 	if (name === null) return null;
 	const plan = env.plan();
 	if (plan === null) return null;
-	const e = addEdit(spot.parent, spot.index, name, kind);
-	const o = await env.dispatch(e.intent, { label: e.label });
+	const o = await env.add(name, kind);
 	if (o.status !== 'applied' || env.plan() !== plan) return null;
 	const header = env.headerOf(o.edit);
 	const id = header === null ? null : newResourceIdFromHeader(header);
 	if (id === null) return null;
 	env.select(id);
-	return id;
+	const made = o.edit.intent;
+	return { id, parent: made.type === 'addResource' ? made.parent : null };
 }

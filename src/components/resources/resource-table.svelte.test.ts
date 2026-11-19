@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The resource table's commands (resource-table.svelte.ts): select and the sheet layouts' second tap,
 // W6 regroup through the planner (an intent, a refusal as a toast), W7 add (the name first), rename and
-// delete, with a fake dispatcher that records what is sent.
+// delete, with a fake dispatcher that records what is sent. Its `dispatchPlan` runs the planner on the
+// fake's own index (the text now) and answers as the dispatcher does (ADR-0018).
 import { describe, expect, it, vi } from 'vitest';
 import type { AppState } from '../../lib/state/app.svelte';
-import type { DispatchOutcome } from '../../lib/state/edits.svelte';
+import type {
+	DispatchOptions,
+	DispatchOutcome,
+	PlanBase,
+	ViewPlanner,
+} from '../../lib/state/edits.svelte';
 import { InspectorState } from '../../lib/state/inspector.svelte';
 import { buildOutline } from '../../lib/state/outline';
 import { SelectionState } from '../../lib/state/selection.svelte';
@@ -24,7 +30,7 @@ task t2 "Test" { effort 2d  allocate rev }
 
 function fake(over: Partial<{ outcome: DispatchOutcome }> = {}) {
 	const index = indexOf(TEXT);
-	const sent: Array<{ intent: EditIntent; label: string }> = [];
+	const sent: Array<{ intent: EditIntent; label: string; basedOn?: number }> = [];
 	const refused: Array<{ message: string }> = [];
 	const selection = new SelectionState();
 	const inspector = new InspectorState(selection);
@@ -43,11 +49,36 @@ function fake(over: Partial<{ outcome: DispatchOutcome }> = {}) {
 			}),
 		},
 		edits: {
-			dispatch: vi.fn(async (intent: EditIntent, o: { label: { text: string } }) => {
-				sent.push({ intent, label: o.label.text });
+			dispatch: vi.fn(async (intent: EditIntent, o: DispatchOptions) => {
+				sent.push({
+					intent,
+					label: o.label.text,
+					...(o.basedOn === undefined ? {} : { basedOn: o.basedOn }),
+				});
 				return outcome;
 			}),
+			dispatchPlan: vi.fn(async (plan: ViewPlanner) => {
+				const on = {
+					snap: { version: index.version },
+					index,
+					outline: () => buildOutline(index),
+					mapRange: (r: unknown) => r,
+					isSame: () => true,
+				} as unknown as PlanBase;
+				const planned = plan(on);
+				if (planned.status === 'intent') {
+					sent.push({ intent: planned.intent, label: planned.label.text });
+					return outcome.status === 'applied'
+						? ({ ...outcome, edit: { ...outcome.edit, intent: planned.intent } } as DispatchOutcome)
+						: outcome;
+				}
+				if (planned.status === 'unchanged') {
+					return { status: 'noop', reason: 'already-set', message: planned.message ?? '' };
+				}
+				return { status: 'refused', reason: 'planner', at: planned.at, message: planned.message };
+			}),
 			refuse: (message: string) => void refused.push({ message }),
+			toasts: [],
 		},
 	} as unknown as AppState;
 	return { app, sent, refused, selection, inspector, table: new ResourceTable(app, () => true) };
@@ -97,7 +128,7 @@ describe('W6 regroup', () => {
 		const { table, sent } = fake();
 		table.toggle('resource:dev');
 		expect(await table.regroup('resource:rev', 'resource:dev', 2)).toBe(true);
-		expect(sent).toEqual([
+		expect(sent).toMatchObject([
 			{
 				intent: { type: 'moveResource', resource: 'rev', parent: 'dev', index: 2 },
 				label: 'Reviewer moved into Developers',
@@ -105,6 +136,12 @@ describe('W6 regroup', () => {
 		]);
 		expect(table.collapsed.has('resource:dev')).toBe(false);
 		expect(table.announcement).toBe('Reviewer moved into Developers');
+	});
+
+	it('sends a drop with the version of the outline it read the place from (basedOn)', async () => {
+		const { app, table, sent } = fake();
+		await table.regroup('resource:rev', 'resource:dev', 2);
+		expect(sent[0]?.basedOn).toBe(app.outline.version);
 	});
 
 	it('refuses a drop on a person that tasks are allocated to, with its sentence, and sends nothing', async () => {
@@ -132,49 +169,13 @@ describe('W6 regroup', () => {
 		expect(sent.at(-1)?.intent).toMatchObject({ resource: 'jack', parent: null, index: 1 });
 	});
 
-	it('reads the place from the fresh tree: a step waits for the outline to catch up with the text', async () => {
-		// After a Redo the text has Reviewer inside Developers, but the index (and the outline built
-		// from it) still shows the old text for 60 ms. Up must swap Reviewer with Ana, not take it out.
-		const { app, sent, table } = fake();
-		const old = { index: app.index, outline: app.outline };
-		const next = indexOf(
-			TEXT.replace('resource rev "Reviewer"\n', '').replace(
-				'  resource ana "Ana"\n',
-				'  resource ana "Ana"\n  resource rev "Reviewer"\n',
-			),
-		);
-		Object.defineProperty(next, 'version', {
-			value: (old.index as { version: number }).version + 1,
-		});
-		let caughtUp = false;
-		Object.defineProperty(app, 'index', { get: () => (caughtUp ? next : old.index) });
-		Object.defineProperty(app, 'outline', {
-			get: () => (caughtUp ? buildOutline(next) : old.outline),
-		});
-		const ws = app.workspace as unknown as { snapshot: () => { version: number } };
-		ws.snapshot = () => ({ version: next.version });
-		setTimeout(() => (caughtUp = true), 60);
+	it('plans a step in the dispatcher, on the text now: no wait, no polling of the index', async () => {
+		// The table sends the planner; the text now (here the fake's index) is what it reads.
+		const { app, table } = fake();
+		const dispatchPlan = (app.edits as unknown as { dispatchPlan: ReturnType<typeof vi.fn> })
+			.dispatchPlan;
 		expect(await table.step('resource:rev', 'up')).toBe(true);
-		expect(sent.at(-1)?.intent).toEqual({
-			type: 'moveResource',
-			resource: 'rev',
-			parent: 'dev',
-			index: 1,
-		});
-	});
-
-	it('refuses a drop whose tree is older than the text, and sends nothing', async () => {
-		const { app, table, sent, refused } = fake();
-		const shown = (app.index as { version: number }).version - 1;
-		expect(await table.regroup('resource:rev', 'resource:dev', 2, shown)).toBe(false);
-		expect(sent).toEqual([]);
-		expect(refused[0]?.message).toBe(
-			'The plan changed while you were moving. Nothing was moved; try again.',
-		);
-		expect(table.announcement).toBe(refused[0]?.message);
-		// The same drop from the tree of the current version goes through.
-		const now = (app.index as { version: number }).version;
-		expect(await table.regroup('resource:rev', 'resource:dev', 2, now)).toBe(true);
+		expect(dispatchPlan).toHaveBeenCalledTimes(1);
 	});
 
 	it('says there is nowhere to go, without sending', async () => {
