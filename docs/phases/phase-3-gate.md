@@ -403,6 +403,36 @@ about 30 min each). Before the fix, 15,000 generated base plans (attempt 0) sche
 generator bug shows up in fewer than 1 plan in 15,000. `tsc`, prettier and `tests/ci` are clean.
 Nothing in `src/` or `engine/` changed, so golden parity was not rerun.
 
+## Open bugs: a short drag of a size handle near the chart edge made no edit (2026-11-19, fixed)
+
+Found while repairing `gantt-perf.spec.ts`, which then dragged 120 px to hide it. A 48 px drag of a
+bar's size handle (three days at week zoom) made an edit only now and then, on the Pixel 7 and on
+desktop.
+
+- **Cause.** Edge auto-scroll (`gestures.svelte.ts` `#pump`, `lib/gesture/autoscroll.ts`) scrolled
+  toward an edge whenever the pointer was in its 48 px band, even for a drag that began in the band
+  and moved away from the edge. The chart ran under the pointer toward the edge, the content x of the
+  pointer (`clientX` plus the scroll) barely changed, and the drop ended on the day it began on:
+  `controller.ts` ended the drag with `cancel: no-change`, with no edit and no toast. The edit
+  planner was not involved: every drop that reached `dispatchAction` was applied. Logged on the
+  failing tries: 14 to 15 autoscroll frames, then `cancel no-change`; on the passing ones a `resize`
+  drop at 16860 minutes, applied as `effort 63h`. How far the chart ran depends on the frame
+  timing, so the result is intermittent. On the Pixel 7 the end handle of the gantt-500 bar is at
+  x 379.7 in a chart whose right edge is 402, 22 px inside the band, so every try was swallowed
+  (0 of 12). On desktop the handle is 125 px from the edge and was never affected (24 of 24); with
+  a 1030 px wide window it is 24 px inside the band and 4 of 6 tries edited.
+- **Fix.** A drag that begins inside a band holds that band: no scroll toward the edge until the
+  pointer goes 12 px toward it (`heldVelocity`, `holdAt`, `AUTOSCROLL_ARM_PX`; `edgeHoldAt` and
+  `heldEdgeVelocity` in `lib/gantt/viewport.ts`). Leaving the band ends the hold. Unit tests sit
+  beside both modules. The row drag, the workload heat and the calendar use `autoScrollVelocity`
+  directly and have the same flaw in principle; they are not changed (not part of this bug).
+- **Checks.** After the fix: 12 of 12 on the Pixel 7 and 12 of 12 on the narrow desktop window.
+  `tests/e2e/gantt-resize-near-edge.spec.ts` (8 drags of -48 px from 24 px inside the edge, each must
+  write what the same drag writes in the middle of the chart; and a drag toward the edge still
+  scrolls) failed on try 1 on desktop and Pixel 7 before the fix, and passes on desktop (3 runs),
+  Pixel 7 (3 runs) and iPhone 14. `gantt-perf.spec.ts` drags 48 px again and passed on the Pixel 7
+  profile. Screenshots: `docs/phases/screenshots/phase-3/gantt-resize-near-edge-*`.
+
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five

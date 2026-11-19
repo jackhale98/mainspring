@@ -55,7 +55,13 @@ import type { GanttLayout } from '../../lib/gantt/layout';
 import type { GanttModel } from '../../lib/gantt/model';
 import { moveRef, resizeRef } from '../../lib/gantt/preview';
 import type { GestureLabel } from '../../lib/gantt/paint/gestures';
-import { edgeVelocity, type Box } from '../../lib/gantt/viewport';
+import {
+	NO_EDGE_HOLD,
+	edgeHoldAt,
+	heldEdgeVelocity,
+	type Box,
+	type EdgeHold,
+} from '../../lib/gantt/viewport';
 import { MAX_PX_PER_DAY, MIN_PX_PER_DAY } from '../../lib/gantt/scale';
 import type { WorkingTime } from '../../lib/schedule/working-time';
 import { gestureStrings } from '../../lib/strings';
@@ -138,6 +144,9 @@ export class GanttGestures {
 	#el: HTMLElement | null = null;
 	#session: Session | null = null;
 	#pointer: Pointer | null = null;
+	/** Where the primary pointer pressed, and the edges it pressed near (they do not scroll until it moves toward them). */
+	#press: { readonly x: number; readonly y: number } | null = null;
+	#hold: EdgeHold = NO_EDGE_HOLD;
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#raf = 0;
 	#lastFrame = 0;
@@ -330,6 +339,7 @@ export class GanttGestures {
 				return;
 			}
 		}
+		if (e.isPrimary) this.#press = { x: e.clientX, y: e.clientY };
 		this.#feed(this.#input('down', e));
 	}
 
@@ -612,6 +622,8 @@ export class GanttGestures {
 
 	/** Each frame of a drag: scroll toward a near edge of the visible chart, and move with it. */
 	#pump(): void {
+		const press = this.#press;
+		this.#hold = press ? edgeHoldAt(press.x, press.y, this.#h.visible()) : NO_EDGE_HOLD;
 		if (this.#raf !== 0) return;
 		this.#lastFrame = performance.now();
 		const frame = (now: number): void => {
@@ -623,7 +635,8 @@ export class GanttGestures {
 			const sc = this.#h.scroller();
 			if (p && sc) {
 				const vertical = this.#session === null;
-				const v = edgeVelocity(p.clientX, p.clientY, this.#h.visible(), vertical);
+				const v = heldEdgeVelocity(this.#hold, p.clientX, p.clientY, this.#h.visible(), vertical);
+				this.#hold = v.hold;
 				if (v.x !== 0 || v.y !== 0) {
 					sc.scrollLeft += (v.x * dt) / 1000;
 					sc.scrollTop += (v.y * dt) / 1000;
