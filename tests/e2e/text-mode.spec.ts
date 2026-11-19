@@ -6,6 +6,7 @@
 // Edits are small inserts (CDP insertText is slow for big ones on phones).
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { editorStrings } from '../../src/lib/strings';
 import {
 	READY_TIMEOUT_MS,
 	cursorAtEndOf,
@@ -85,8 +86,8 @@ test.describe('text mode', () => {
 			.filter({ has: page.locator('.cm-completionLabel', { hasText: /^effort$/ }) });
 		await expect(option).toHaveCount(1);
 		await expect(option.locator('.cm-completionDetail')).toHaveText(engine.syntax);
-		// Beside the list, the engine's full documentation (the summary until it has loaded).
-		await expect(page.locator('.cm-completionInfo')).toHaveText(engine.doc, { timeout: 10_000 });
+		// Beside the list, the engine's full documentation: the info waits for the docs asset.
+		await expect(page.locator('.cm-completionInfo')).toHaveText(engine.doc);
 		await page.keyboard.press('Escape');
 		await expect(list).toBeHidden();
 	});
@@ -101,13 +102,14 @@ test.describe('text mode', () => {
 		await line.scrollIntoViewIfNeeded();
 		const box = await wordBox(line, 'effort');
 		const tip = page.locator('.cm-tjp-hover');
-		// The docs may arrive just after the first tip; move away and back until the full text shows.
-		await expect(async () => {
-			await page.mouse.move(0, 0);
-			await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-			await expect(tip).toBeVisible({ timeout: 3_000 });
-			await expect(tip.locator('.cm-tjp-hover-body')).toHaveText(engine.doc, { timeout: 1_000 });
-		}).toPass({ timeout: 30_000 });
+		// The first hover shows the full doc: the hover waits for the docs asset (ADR-0017), which
+		// the editor started loading when it mounted.
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		await expect(tip).toBeVisible();
+		await expect(tip.locator('.cm-tjp-hover-body')).toHaveText(engine.doc);
+		await expect(
+			tip.locator('.cm-tjp-hover-note', { hasText: editorStrings.hover.docsLoading }),
+		).toHaveCount(0);
 		await expect(tip.locator('.cm-tjp-hover-title')).toHaveText(table.name);
 		await expect(tip.locator('.cm-tjp-hover-code')).toHaveText(engine.syntax);
 	});
@@ -120,10 +122,13 @@ test.describe('text mode', () => {
 		await openApp(page);
 		await cursorAtEndOf(page, page.locator('.cm-line', { hasText: /^\s*effort 2d$/ }).first());
 		const sheet = page.getByRole('dialog', { name: 'Documentation' });
-		await expect(async () => {
-			if (!(await sheet.isVisible())) await page.getByRole('button', { name: 'Docs' }).click();
-			await expect(sheet.locator('.body')).toHaveText(engine.doc, { timeout: 1_000 });
-		}).toPass({ timeout: 30_000 });
+		// The first open shows the full doc: the sheet waits for the docs asset as hover does.
+		await page.getByRole('button', { name: 'Docs' }).click();
+		await expect(sheet).toBeVisible();
+		await expect(sheet.locator('.body')).toHaveText(engine.doc);
+		await expect(sheet.locator('.note', { hasText: editorStrings.hover.docsLoading })).toHaveCount(
+			0,
+		);
 		await expect(sheet.getByRole('heading', { level: 3 })).toHaveText(table.name);
 		await expect(sheet.locator('.code')).toHaveText(engine.syntax);
 		await page.keyboard.press('Escape');

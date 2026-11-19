@@ -29,6 +29,42 @@ export function engineDocs(tjVersion = '3.8.4'): SyntaxDocs {
 	};
 }
 
+/**
+ * A stand-in for the engine's docs loader (engine/docs-asset.ts, ADR-0017), as the editor env sees
+ * it: `docs` and `loadDocs`. A load runs for `ms` (by `setTimeout`, so fake timers drive it) and ends
+ * with the docs or as unavailable; one load at a time, and a load after a failure starts again.
+ */
+export function slowDocs(ms: number, outcome: 'loaded' | 'unavailable' = 'loaded') {
+	let status: 'idle' | 'loading' | 'loaded' | 'unavailable' = 'idle';
+	let running: Promise<void> | null = null;
+	const engine = engineDocs();
+	const fake = {
+		/** How many loads have started. */
+		loads: 0,
+		docs: (): KeywordDocsSource => ({
+			table: KEYWORDS,
+			engine: status === 'loaded' ? engine : null,
+			loading: status === 'loading',
+		}),
+		loadDocs: (): Promise<void> => {
+			if (status === 'loaded') return Promise.resolve();
+			if (!running) {
+				fake.loads++;
+				status = 'loading';
+				running = new Promise((resolve) =>
+					setTimeout(() => {
+						status = outcome;
+						running = null;
+						resolve();
+					}, ms),
+				);
+			}
+			return running;
+		},
+	};
+	return fake;
+}
+
 /** Splits `a|b` into the text and the cursor offset (the end when there is no `|`). */
 export function cursorDoc(marked: string): { doc: string; pos: number } {
 	const pos = marked.indexOf('|');

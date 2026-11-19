@@ -7,7 +7,9 @@
  * - indentation by the format rules, with the file's indent unit (indent.ts);
  * - completion: keywords for the context at the cursor, scenario prefixes, and task and
  *   resource ids (ADR-0004; `ids: false` turns them off) (complete.ts);
- * - hover: keyword docs and id declarations (hover.ts), also by keyboard (docs-tooltip.ts);
+ * - hover: keyword docs and id declarations (hover.ts), also by keyboard (docs-tooltip.ts); before
+ *   the engine's keyword docs are in, hover, completion info and the docs command wait for them
+ *   briefly (`loadDocs`, docs-wait.ts, ADR-0017);
  * - lint: pushed diagnostics with a gutter (lint.ts);
  * - the editor keys: format, docs at the cursor, Enter in strings, lint (commands.ts);
  * - the selected-source highlight a visual selection draws (source-highlight.ts);
@@ -40,7 +42,14 @@ import { sourceHighlight } from './source-highlight';
 import { tjpTheme } from './theme';
 
 export { contextAt } from './context';
-export { docsAtCursor, docsTooltipField, hideDocsCommand, showDocsCommand } from './docs-tooltip';
+export {
+	docsAtCursor,
+	docsAtCursorWithin,
+	docsTooltipField,
+	hideDocsCommand,
+	showDocsCommand,
+} from './docs-tooltip';
+export { DOCS_WAIT_MS, docsWithin } from './docs-wait';
 export {
 	formatCommand,
 	formatTransaction,
@@ -49,7 +58,7 @@ export {
 	tjpOrigin,
 	workspaceDispatch,
 } from './commands';
-export { idCompletionSource, keywordCompletionSource } from './complete';
+export { idCompletionSource, keywordCompletionSource, keywordInfoNode } from './complete';
 export { currentIndex, tjpEnv, workspaceFile } from './env';
 export type { FormatOutcome, TjpEditorOptions, TjpEnv } from './env';
 export { hoverContent, hoverInfo, keywordAtCursor, keywordHover } from './hover';

@@ -3,8 +3,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EngineDocsLoader, EngineDocsState } from '../../engine/docs-asset';
 import type { SyntaxDocs } from '../../engine/protocol';
+import { EditorState } from '@codemirror/state';
+import { tjpEnv } from '../tjp/cm';
 import { KEYWORDS, TJ_VERSION } from '../tjp/syntax/keywords';
-import { docsSource, engineDocsLoader } from './editor-bundle';
+import { docsSource, editorSupport, engineDocsLoader } from './editor-bundle';
 
 const DOCS: SyntaxDocs = { tjVersion: TJ_VERSION, keywords: [] };
 
@@ -40,6 +42,21 @@ describe('docsSource', () => {
 			engine: null,
 			loading: false,
 		});
+	});
+});
+
+describe('editorSupport', () => {
+	it("gives the editor the loader's docs and its load through the env", async () => {
+		const loader = { ...withState({ status: 'idle' }), load: vi.fn(() => Promise.resolve(null)) };
+		const support = editorSupport({
+			docs: loader,
+			history: { undo: () => false, redo: () => false },
+		});
+		const state = EditorState.create({ extensions: support.extensions('plan.tjp', 'global') });
+		const env = state.facet(tjpEnv);
+		expect(env.docs()).toEqual({ table: KEYWORDS, engine: null, loading: false });
+		await env.loadDocs();
+		expect(loader.load).toHaveBeenCalledTimes(1);
 	});
 });
 

@@ -1,16 +1,19 @@
+// @vitest-environment jsdom
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorSelection, type EditorState } from '@codemirror/state';
-import { describe, expect, it } from 'vitest';
+import { EditorView, type Tooltip } from '@codemirror/view';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { editorStrings as S } from '../../strings';
 import { createWorkspace, type Workspace } from '../../workspace/workspace';
 import { buildIndex } from '../index/build';
 import { NO_HINTS } from '../index/hints';
 import type { SymbolIndex } from '../index/types';
 import type { KeywordDocsSource } from '../syntax/docs';
-import { hoverContent, hoverInfo, keywordAtCursor } from './hover';
+import { DOCS_WAIT_MS } from './docs-wait';
+import { hoverContent, hoverInfo, keywordAtCursor, keywordHoverSource } from './hover';
 import { workspaceExtensions } from './index';
-import { engineDocs, PLAN, TABLE_ONLY, tjpState } from './testing';
+import { engineDocs, PLAN, slowDocs, TABLE_ONLY, tjpState } from './testing';
 
 const table = (): KeywordDocsSource => TABLE_ONLY;
 const fetching = (): KeywordDocsSource => ({ ...TABLE_ONLY, loading: true });
@@ -153,5 +156,94 @@ describe('id hover', () => {
 		const info = hoverInfo(state(), at + 1, table);
 		expect(info).toMatchObject({ kind: 'unresolved', of: 'task', written: 'zz' });
 		if (info) expect(hoverContent(info).body).toBe(S.hover.unknownTarget('zz'));
+	});
+});
+
+describe('keyword hover before the docs arrive (ADR-0017)', () => {
+	const doc = 'task t "T" {\n  effort 5d\n}\n';
+	const effort = doc.indexOf('effort') + 2;
+	const summary = (() => {
+		const info = hoverInfo(tjpState(doc), effort, table);
+		if (info?.kind !== 'keyword') throw new Error('expected a keyword');
+		return info.doc.summary;
+	})();
+	let view: EditorView | null = null;
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		view?.destroy();
+		view = null;
+		vi.useRealTimers();
+	});
+
+	/** The hover source over `doc` with this loader, and the parts of the popup it gives. */
+	function hoverWith(fake: ReturnType<typeof slowDocs>) {
+		const v = new EditorView({
+			state: tjpState(doc, { docs: fake.docs, loadDocs: fake.loadDocs }),
+		});
+		view = v;
+		const source = keywordHoverSource(fake.docs);
+		return {
+			at: (pos: number) => source(v, pos),
+			parts(tip: Tooltip | null): { body: string | null; notes: string[] } {
+				if (!tip) throw new Error('expected a tooltip');
+				const dom = tip.create(v).dom;
+				const text = (sel: string) => [...dom.querySelectorAll(sel)].map((e) => e.textContent);
+				return { body: text('.cm-tjp-hover-body')[0] ?? null, notes: text('.cm-tjp-hover-note') };
+			},
+		};
+	}
+
+	it('shows the full doc on the first hover when the docs come within the bound', async () => {
+		const fake = slowDocs(DOCS_WAIT_MS - 100);
+		const hover = hoverWith(fake);
+		const pending = hover.at(effort);
+		expect(pending).toBeInstanceOf(Promise);
+		expect(fake.loads).toBe(1);
+		await vi.advanceTimersByTimeAsync(DOCS_WAIT_MS - 100);
+		const shown = hover.parts(await pending);
+		expect(shown.body).toBe('Full documentation of effort.');
+		expect(shown.notes).not.toContain(S.hover.docsLoading);
+		// Once the docs are in, the popup comes at once, with no wait and no new load.
+		const again = hover.at(effort);
+		expect(again).not.toBeInstanceOf(Promise);
+		expect(hover.parts(again as Tooltip | null).body).toBe('Full documentation of effort.');
+		expect(fake.loads).toBe(1);
+	});
+
+	it('shows the summary with the loading note past the bound', async () => {
+		const hover = hoverWith(slowDocs(5_000));
+		const pending = Promise.resolve(hover.at(effort));
+		let settled = false;
+		void pending.then(() => (settled = true));
+		await vi.advanceTimersByTimeAsync(DOCS_WAIT_MS - 1);
+		expect(settled).toBe(false);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(settled).toBe(true);
+		const shown = hover.parts(await pending);
+		expect(shown.body).toBe(summary);
+		expect(shown.notes).toContain(S.hover.docsLoading);
+	});
+
+	it('shows the summary with no note when the docs are unavailable; the next hover retries', async () => {
+		const fake = slowDocs(50, 'unavailable');
+		const hover = hoverWith(fake);
+		const first = hover.at(effort);
+		await vi.advanceTimersByTimeAsync(50);
+		const shown = hover.parts(await first);
+		expect(shown.body).toBe(summary);
+		expect(shown.notes).not.toContain(S.hover.docsLoading);
+		const next = hover.at(effort);
+		expect(fake.loads).toBe(2);
+		await vi.advanceTimersByTimeAsync(50);
+		expect(hover.parts(await next).notes).not.toContain(S.hover.docsLoading);
+	});
+
+	it('neither waits nor loads where there is no keyword', () => {
+		const fake = slowDocs(5_000);
+		const hover = hoverWith(fake);
+		expect(hover.at(doc.indexOf('5d') + 1)).toBeNull();
+		expect(fake.loads).toBe(0);
 	});
 });

@@ -1,16 +1,23 @@
+// @vitest-environment jsdom
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import {
+	CompletionContext,
+	type Completion,
+	type CompletionResult,
+} from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { editorStrings as S } from '../../strings';
+import { DOCS_WAIT_MS } from './docs-wait';
 import { buildIndex } from '../index/build';
 import { NO_HINTS } from '../index/hints';
 import { inline } from '../index/testing';
-import type { KeywordDocsSource } from '../syntax/docs';
+import { keywordDoc, type KeywordDocsSource } from '../syntax/docs';
 import { keywordsInContext } from '../syntax/keywords';
 import { idCompletionSource, keywordCompletionSource } from './complete';
 import { createWorkspace } from '../../workspace/workspace';
 import { tjpEnv, workspaceExtensions } from './index';
-import { engineDocs, PLAN, TABLE_ONLY, tjpState, type TestOptions } from './testing';
+import { engineDocs, PLAN, slowDocs, TABLE_ONLY, tjpState, type TestOptions } from './testing';
 
 function complete(
 	marked: string,
@@ -39,7 +46,8 @@ describe('keywordCompletionSource', () => {
 		const effort = r?.options.find((o) => o.label === 'effort');
 		expect(effort?.detail).toMatch(/^effort /);
 		expect(effort?.type).toBe('keyword');
-		expect(typeof effort?.info).toBe('string');
+		// Before the engine's docs are in, the info waits for them (ADR-0017; tested below).
+		expect(typeof effort?.info).toBe('function');
 	});
 
 	it('uses the top context and nested contexts', () => {
@@ -115,6 +123,77 @@ describe('keywordCompletionSource', () => {
 		);
 		const scenarioLimits = keywordsInContext('limits.task').some((k) => k.scenarioSpecific);
 		expect(inLimits.includes('delayed:')).toBe(scenarioLimits);
+	});
+});
+
+describe('completion info before the docs arrive (ADR-0017)', () => {
+	const marked = 'task a "A" {\n  ef|\n}\n';
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	/** The effort option offered with this loader, and its info pane once asked for. */
+	function effortWith(fake: ReturnType<typeof slowDocs>) {
+		const state = tjpState(marked, { docs: fake.docs, loadDocs: fake.loadDocs });
+		const option = keywordAt(state, false, fake.docs)?.options.find((o) => o.label === 'effort');
+		if (!option) throw new Error('expected effort');
+		return {
+			option,
+			info(): Promise<Node | null> {
+				const info = option.info;
+				if (typeof info !== 'function') throw new Error('expected an info function');
+				return Promise.resolve(info(option as Completion)).then((r) =>
+					r && 'nodeType' in r ? r : (r?.dom ?? null),
+				);
+			},
+		};
+	}
+	const notes = (n: Node | null): string[] =>
+		n instanceof Element
+			? [...n.querySelectorAll('.cm-tjp-hover-note')].map((e) => e.textContent ?? '')
+			: [];
+	const summary = keywordDoc(TABLE_ONLY, 'effort')?.summary ?? '';
+
+	it('gives the full doc on the first info when the docs come within the bound', async () => {
+		const fake = slowDocs(DOCS_WAIT_MS - 100);
+		const effort = effortWith(fake);
+		const pane = effort.info();
+		expect(fake.loads).toBe(1);
+		await vi.advanceTimersByTimeAsync(DOCS_WAIT_MS - 100);
+		const node = await pane;
+		expect(node?.textContent).toBe('Full documentation of effort.');
+		expect(notes(node)).toEqual([]);
+		// Offered again once the docs are in, the info is the full doc itself.
+		expect(effortWith(fake).option.info).toBe('Full documentation of effort.');
+	});
+
+	it('gives the summary with the loading note past the bound', async () => {
+		const effort = effortWith(slowDocs(5_000));
+		let settled = false;
+		const pane = effort.info().then((n) => ((settled = true), n));
+		await vi.advanceTimersByTimeAsync(DOCS_WAIT_MS - 1);
+		expect(settled).toBe(false);
+		await vi.advanceTimersByTimeAsync(1);
+		const node = await pane;
+		expect(notes(node)).toEqual([S.hover.docsLoading]);
+		expect(node?.firstChild?.textContent).toBe(summary);
+	});
+
+	it('gives the summary with no note when the docs are unavailable', async () => {
+		const fake = slowDocs(50, 'unavailable');
+		const effort = effortWith(fake);
+		const pane = effort.info();
+		await vi.advanceTimersByTimeAsync(50);
+		const node = await pane;
+		expect(node?.nodeType).toBe(Node.TEXT_NODE);
+		expect(node?.textContent).toBe(summary);
+		expect(notes(node)).toEqual([]);
+		// The next info asks again.
+		void effort.info();
+		expect(fake.loads).toBe(2);
 	});
 });
 

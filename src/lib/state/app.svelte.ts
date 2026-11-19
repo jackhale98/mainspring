@@ -254,6 +254,8 @@ export class AppState {
 	#editorLoading: Promise<void> | null = null;
 	/** The keyword docs, from the editor bundle; null until `ensureEditor` has loaded it. */
 	#docs: EngineDocsLoader | null = null;
+	/** Counts `openDocs` calls, so a slow one does not open the sheet after a later one. */
+	#docsTicket = 0;
 	readonly #docsOption: EngineDocsLoader | null;
 	readonly #idle: AppStateOptions['idle'];
 	#history: WorkspaceHistory | null = null;
@@ -816,11 +818,20 @@ export class AppState {
 		return true;
 	}
 
-	/** Opens the docs sheet for the keyword or id at the cursor (hover does not exist on touch). */
-	openDocs(): void {
+	/**
+	 * Opens the docs sheet for the keyword or id at the cursor (hover does not exist on touch).
+	 * Before the keyword docs are in it waits for them at most 300 ms, as hover does (ADR-0017,
+	 * tjp/cm/docs-wait.ts), then shows the table's summary if they have not come. Only the latest
+	 * call opens the sheet.
+	 */
+	async openDocs(): Promise<void> {
 		const bundle = this.#editorBundle;
-		if (!this.editor || !bundle) return;
-		this.docsContent = bundle.docsAtCursor(this.editor.state);
+		const editor = this.editor;
+		if (!editor || !bundle) return;
+		const ticket = ++this.#docsTicket;
+		const content = await bundle.docsAtCursorWithin(editor.state);
+		if (ticket !== this.#docsTicket) return;
+		this.docsContent = content;
 		this.docsOpen = true;
 	}
 

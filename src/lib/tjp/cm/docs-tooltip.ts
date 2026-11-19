@@ -4,12 +4,15 @@
  * tooltip for the cursor position (a keyword's docs or an id's declaration) or, when the cursor
  * is not on one, for the keyword that leads the statement around it, as the phone docs sheet
  * does (`keywordAtCursor`). The tooltip closes on Escape, on any edit and when the cursor moves.
- * With nothing to show it says so, so the key never seems dead.
+ * With nothing to show it says so, so the key never seems dead. Before the engine's keyword docs
+ * are in, the command and the docs sheet wait for them at most `DOCS_WAIT_MS`, as hover does
+ * (docs-wait.ts, ADR-0017).
  */
 import { StateEffect, StateField, type EditorState } from '@codemirror/state';
 import { showTooltip, type Command, type Tooltip } from '@codemirror/view';
 import { editorStrings as S } from '../../strings';
-import { keywordDoc } from '../syntax/docs';
+import { keywordDoc, type KeywordDocsSource } from '../syntax/docs';
+import { docsWithin, hasEngineDocs } from './docs-wait';
 import { tjpEnv } from './env';
 import { hoverContent, hoverInfo, keywordAtCursor, renderHover, type HoverContent } from './hover';
 
@@ -43,10 +46,12 @@ export const docsTooltipField = StateField.define<Shown | null>({
 		}),
 });
 
-/** What the docs command shows at the cursor (module comment). */
-export function docsAtCursor(state: EditorState): HoverContent {
+/** What the docs command shows at the cursor (module comment), from the docs as they are now. */
+export function docsAtCursor(
+	state: EditorState,
+	docs: () => KeywordDocsSource = state.facet(tjpEnv).docs,
+): HoverContent {
 	const head = state.selection.main.head;
-	const docs = state.facet(tjpEnv).docs;
 	const info = hoverInfo(state, head, docs) ?? hoverInfo(state, Math.max(0, head - 1), docs);
 	if (info) return hoverContent(info);
 	const entry = keywordAtCursor(state);
@@ -55,13 +60,31 @@ export function docsAtCursor(state: EditorState): HoverContent {
 	return { title: S.hover.noDocs, code: null, body: null, notes: [], seeAlso: [] };
 }
 
-/** Shows the docs tooltip at the cursor (needs `tjp()`, which holds the tooltip field). */
+/**
+ * `docsAtCursor` after waiting at most `DOCS_WAIT_MS` for the engine's docs (docs-wait.ts,
+ * ADR-0017), as hover does: what the phone docs sheet shows (`AppState.openDocs`). Never rejects.
+ */
+export function docsAtCursorWithin(state: EditorState): Promise<HoverContent> {
+	const env = state.facet(tjpEnv);
+	return docsWithin(env.docs, env.loadDocs).then((src) => docsAtCursor(state, () => src));
+}
+
+/**
+ * Shows the docs tooltip at the cursor (needs `tjp()`, which holds the tooltip field). Once the
+ * engine's docs are in it shows at once; before that it waits for them as hover does
+ * (`docsAtCursorWithin`), and shows nothing if the text or the cursor has moved meanwhile.
+ */
 export const showDocsCommand: Command = (view) => {
 	const state = view.state;
 	if (state.field(docsTooltipField, false) === undefined) return false;
-	view.dispatch({
-		effects: showDocs.of({ pos: state.selection.main.head, content: docsAtCursor(state) }),
-	});
+	const pos = state.selection.main.head;
+	const show = (content: HoverContent): void => {
+		const now = view.state;
+		if (now.doc !== state.doc || now.selection.main.head !== pos) return;
+		view.dispatch({ effects: showDocs.of({ pos, content }) });
+	};
+	if (hasEngineDocs(state.facet(tjpEnv).docs())) show(docsAtCursor(state));
+	else void docsAtCursorWithin(state).then(show);
 	return true;
 };
 
