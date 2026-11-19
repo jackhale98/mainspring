@@ -20,6 +20,8 @@ export type KeywordDocView = KeywordEntry & {
 	summary: string;
 	doc: string | null;
 	seeAlso: readonly string[];
+	/** `doc` is null because the engine's docs are still being fetched (they may come); false once they failed. */
+	loading: boolean;
 };
 
 const engineIndex = new WeakMap<SyntaxDocs, Map<string, KeywordDoc>>();
@@ -59,6 +61,6 @@ export function keywordDoc(src: KeywordDocsSource, keyword: string): KeywordDocV
 	if (!entry) return null;
 	const summary = entry.summary ?? SUMMARIES[keyword] ?? '';
 	const full = engineDoc(src.engine, keyword);
-	if (!full) return { ...entry, summary, doc: null, seeAlso: [] };
-	return { ...entry, summary, doc: full.doc || null, seeAlso: full.seeAlso };
+	if (!full) return { ...entry, summary, doc: null, seeAlso: [], loading: src.loading };
+	return { ...entry, summary, doc: full.doc || null, seeAlso: full.seeAlso, loading: false };
 }

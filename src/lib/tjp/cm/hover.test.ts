@@ -13,6 +13,7 @@ import { workspaceExtensions } from './index';
 import { engineDocs, PLAN, TABLE_ONLY, tjpState } from './testing';
 
 const table = (): KeywordDocsSource => TABLE_ONLY;
+const fetching = (): KeywordDocsSource => ({ ...TABLE_ONLY, loading: true });
 const loaded = (): KeywordDocsSource => ({
 	table: TABLE_ONLY.table,
 	engine: engineDocs(),
@@ -34,7 +35,14 @@ describe('keyword hover', () => {
 		expect(c.title).toBe('booking');
 		expect(c.code).toBe(info.doc.syntax);
 		expect(c.body).toBe(info.doc.summary);
-		expect(c.notes).toContain(S.hover.docsLoading);
+		// The docs are not being fetched (none yet, or unavailable): no note that they are coming.
+		expect(c.notes).not.toContain(S.hover.docsLoading);
+	});
+
+	it('says the full documentation is loading only while it is being fetched', () => {
+		const info = hoverInfo(state, at('booking'), fetching);
+		if (info?.kind !== 'keyword') throw new Error('expected a keyword');
+		expect(hoverContent(info).notes).toContain(S.hover.docsLoading);
 	});
 
 	it('shows the engine documentation once it has loaded', () => {

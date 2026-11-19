@@ -81,7 +81,11 @@ describe('keywordDoc', () => {
 			...entry,
 			doc: null,
 			seeAlso: [],
+			loading: false,
 		});
+		expect(keywordDoc({ table: [entry], engine: null, loading: true }, 'custom')?.loading).toBe(
+			true,
+		);
 		expect(keywordDoc({ table: [entry], engine: null, loading: false }, 'effort')).toBeNull();
 	});
 });

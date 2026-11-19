@@ -5,14 +5,15 @@
  * optional `docs` (engine/build-bundle.mjs). The app reads the full keyword docs from there, so it
  * never asks the worker for them and the worker runs only schedules.
  *
- * `load()` reads the manifest (in the HTTP cache since the worker booted), fetches the asset at low
+ * `load()` reads the manifest (revalidated, as the worker does, so it names this deploy's docs), fetches the asset at low
  * priority, gunzips it with DecompressionStream when it still is gzip, and checks its size against
  * the manifest. Docs for another TaskJuggler than the committed table's (`engineDocsMatch`) are not
  * used: nothing is mixed. Unlike the worker's assets, which run as code (manifest.ts `openAsset`),
- * the bytes get no SHA-256 check: the name carries the content hash, so a cached manifest can only
- * name the docs of its own build; and the check costs about 100 bytes gzip, where the Text-first
- * load had under 800 left below its cap (scripts/js-sizes.mjs). A garbled file fails gunzip, the
- * size check or JSON.parse.
+ * the bytes get no SHA-256 check: the name carries the content hash, so a manifest can only name the
+ * docs of its own build, and a garbled or truncated file fails gzip's CRC and length, the size check
+ * or JSON.parse (the T26 review probed each case: the table is used); a same-size rewrite would pass,
+ * but so would the manifest and the app's own code, which come from the same origin. The check would
+ * cost about 100 bytes gzip on the Text-first load, which is near its cap (scripts/js-sizes.mjs).
  *
  * One fetch at a time: a `load()` while one runs gets the same promise. It never rejects. It gives
  * null when the docs are unavailable (offline before the first fetch, a 404, a manifest from before
@@ -56,7 +57,7 @@ export function createEngineDocsLoader(opts: EngineDocsLoaderOptions): EngineDoc
 
 	async function attempt(): Promise<SyntaxDocs | null> {
 		try {
-			const ref = docsRef(await (await get(opts.manifestUrl)).json());
+			const ref = docsRef(await (await get(opts.manifestUrl, { cache: 'no-cache' })).json());
 			if (!ref) return null;
 			const fetched = await get(new URL(ref.path, opts.manifestUrl), { priority: 'low' });
 			let raw: Uint8Array = new Uint8Array(await fetched.arrayBuffer());

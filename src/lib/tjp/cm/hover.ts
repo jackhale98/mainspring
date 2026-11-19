@@ -206,7 +206,8 @@ export function hoverContent(info: HoverInfo): HoverContent {
 			const d = info.doc;
 			const notes: string[] = [];
 			if (d.scenarioSpecific) notes.push(S.hover.scenarioSpecific);
-			if (d.doc === null) notes.push(S.hover.docsLoading);
+			// Only while the docs may still come: when they are unavailable the summary is all there is.
+			if (d.doc === null && d.loading) notes.push(S.hover.docsLoading);
 			return {
 				title: d.name,
 				code: d.syntax,

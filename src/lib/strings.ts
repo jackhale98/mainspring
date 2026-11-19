@@ -89,7 +89,7 @@ export const editorStrings = {
 		symbolTitle: (kind: string, id: string, name: string | null) =>
 			name ? `${kind} ${id} “${name}”` : `${kind} ${id}`,
 		scenarioSpecific: 'Takes a scenario prefix, such as plan:',
-		docsLoading: 'The full documentation appears once the scheduler has started.',
+		docsLoading: 'Loading the full documentation…',
 		seeAlso: (keywords: readonly string[]) => `See also: ${keywords.join(', ')}`,
 		declaredAt: (file: string, line: number) => `Declared in ${file}, line ${line}`,
 		unknownTarget: (written: string) => `${written} is not declared.`,
