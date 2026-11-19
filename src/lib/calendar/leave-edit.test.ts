@@ -14,6 +14,7 @@ import { applyIntent } from '../tjp/edit/apply';
 import { textsAfter } from '../tjp/edit/testing';
 import { workloadPlan, type Plan } from '../workload/rebalance-testing';
 import {
+	fieldError,
 	itemFields,
 	itemNow,
 	leaveEditPlan,
@@ -194,6 +195,20 @@ describe('planLeaveEdit', () => {
 		if (plan.status !== 'intent') throw new Error('no intent');
 		expect(plan.label.text).toMatch(/^Holiday for Everyone changed: /);
 		expect(after(p, plan.intent)).toContain('holiday "Founders day" 2026-01-12 - 2026-01-14');
+	});
+});
+
+describe('fieldError', () => {
+	const f: LeaveFields = { type: 'annual', name: '', start: '2026-01-08', end: '2026-01-09' };
+
+	it('says why fields cannot be written, whatever the item is, and is null when they can', () => {
+		expect(fieldError(f)).toBeNull();
+		expect(fieldError({ ...f, end: '2026-01-08' })).toBeNull();
+		expect(fieldError({ ...f, end: '2026-01-07' })).toBe('dates');
+		expect(fieldError({ ...f, start: '' })).toBe('empty');
+		expect(fieldError({ ...f, end: '2026-02-30' })).toBe('empty');
+		expect(fieldError({ ...f, start: '1969-12-31' })).toBe('range');
+		expect(fieldError({ ...f, end: '2036-01-01' })).toBe('range');
 	});
 });
 

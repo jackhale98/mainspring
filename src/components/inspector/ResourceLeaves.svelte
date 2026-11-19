@@ -11,16 +11,16 @@
 <script lang="ts">
 	import {
 		itemFields,
-		planLeaveEdit,
-		planLeaveRemove,
+		refOf,
 		typesOfItem,
 		type CommitResult,
 		type LeaveFields,
 	} from '../../lib/calendar/leave-edit';
 	import { scopeItems, type PaintItem } from '../../lib/calendar/paint-items';
-	import { runIntent } from '../../lib/calendar/run';
+	import { runLeaveEdit, runLeaveRemove } from '../../lib/calendar/run';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
 	import { resourceStrings as R } from '../../lib/strings-resources';
+	import type { LeaveRef } from '../../lib/tjp/edit/types';
 	import type { ResourceId } from '../../lib/tjp/index';
 	import LeaveCard from '../calendar/LeaveCard.svelte';
 	import { getInspector } from './context';
@@ -39,8 +39,6 @@
 
 	const index = $derived(app.index);
 	const project = $derived((app.run?.lastGood?.result ?? null)?.project ?? null);
-	/** The index has not been read again since the text changed: its items are older than the text. */
-	const lags = $derived(app.run ? app.run.indexVersion !== app.run.version : false);
 	const startEpoch = $derived(project ? Math.round(Date.parse(project.start) / 1000) : 0);
 	const items = $derived(
 		index && project ? scopeItems(index, { kind: 'resource', resource: id }, startEpoch) : [],
@@ -75,35 +73,14 @@
 		return f ? D.item(type, L.days(shown(f.start), shown(f.end))) : type;
 	};
 
-	async function fresh(): Promise<void> {
-		for (let i = 0; i < 50; i++) {
-			const v = app.workspace?.snapshot().version;
-			if (app.index === null || v === undefined || app.index.version === v) return;
-			await new Promise((r) => setTimeout(r, 30));
-		}
-	}
+	// Every change goes out at once on the item's range and the index version it was read in; the
+	// dispatcher finds the item in the text now (ADR-0018), however far the index lags.
+	const commit = (ref: LeaveRef, f: LeaveFields): Promise<CommitResult> =>
+		runLeaveEdit(app.edits, ref, f, project ? { project, zones } : null, confirm);
 
-	async function commit(item: PaintItem, f: LeaveFields): Promise<CommitResult> {
-		const edits = app.edits;
-		if (!edits || !project) return {};
-		await fresh();
-		const ix = app.index;
-		if (!ix) return {};
-		const plan = planLeaveEdit(item, f, { index: ix, project, zones });
-		if (plan.status === 'invalid') return { error: plan.reason };
-		if (plan.status === 'unchanged') return {};
-		const o = await runIntent(edits, plan.intent, plan.label, confirm);
-		return { applied: o.status === 'applied' };
-	}
-
-	async function remove(item: PaintItem): Promise<void> {
-		const edits = app.edits;
-		await fresh();
-		const ix = app.index;
-		if (!edits || !project || !ix) return;
-		const plan = planLeaveRemove(item, { index: ix, project });
+	async function remove(ref: LeaveRef): Promise<void> {
 		editing = null;
-		await runIntent(edits, plan.intent, plan.label, confirm);
+		await runLeaveRemove(app.edits, ref, project ? { project } : null, confirm);
 	}
 </script>
 
@@ -126,7 +103,7 @@
 						<button
 							type="button"
 							aria-label="{D.remove}: {summary(item)}"
-							onclick={() => remove(item)}>{D.remove}</button
+							onclick={() => remove(refOf(item))}>{D.remove}</button
 						>
 					</div>
 					{#if editing === n}
@@ -134,7 +111,6 @@
 							<LeaveCard
 								{item}
 								fields={fieldsOf(item)}
-								stale={lags}
 								types={typesOfItem(item)}
 								oncommit={commit}
 								onremove={remove}

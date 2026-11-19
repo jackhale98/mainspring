@@ -187,14 +187,14 @@ describe('rebalance adapter', () => {
 			to: 'dev3',
 		});
 		expect(no).toMatchObject({ outcome: { status: 'cancelled' } });
-		const yes = fakeEdits([{ status: 'confirm-shared', affects: ['dev1'] }]);
+		const yes = fakeEdits([{ status: 'confirm-shared', affects: ['dev1'], basedOn: 6 }]);
 		await new Rebalancer(env(intentPlanner, yes.edits)).run({
 			type: 'reassign',
 			task: 'a',
 			from: 'dev1',
 			to: 'dev3',
 		});
-		expect(yes.calls[1]?.args[1]).toMatchObject({ confirmShared: true });
+		expect(yes.calls[1]?.args[1]).toMatchObject({ confirmShared: true, basedOn: 6 });
 	});
 });
 

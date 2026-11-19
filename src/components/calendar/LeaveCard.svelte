@@ -9,22 +9,26 @@
 	dispatcher's toast with "Show in text".
 
 	The fields are a draft of what the text says now: when the item changes (the text changed, an
-	undo) they are read again. A leave that does not run over whole days, or a project leave, has no
-	fields: "Edit as text".
+	undo) they are read again, except while this card's own edit is in flight. A leave that does not
+	run over whole days, or a project leave, has no fields: "Edit as text".
 
-	An item names its place in the text, so it can only be edited while it is the text's: after an
-	applied edit, and while the owner says the index lags the text (`stale`, as when the text is
-	being typed), a change waits and goes out on the item as it then is. The time-out that ends the
-	wait after an applied edit whose fields did not change never ends it while `stale` (the index
-	of a busy browser can take longer than the time-out). Remove is disabled while `busy` or `stale`,
-	so it cannot remove by an old range.
+	A commit goes out at once, on a reference to the item (its range and the index version it was
+	read in; the dispatcher maps it to the text now, ADR-0018), so nothing waits for the index to be
+	read again. Only while the card's own edit is in flight are changes merged; they go out when its
+	outcome arrives, on the item as that edit wrote it (`CommitResult.ref`) while the index is older
+	than that edit, else on the card's own item. Remove is disabled only while an edit is in flight.
 -->
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
-	import type { CommitResult, LeaveFields } from '../../lib/calendar/leave-edit';
+	import { untrack } from 'svelte';
+	import {
+		refOf,
+		type CommitResult,
+		type FieldError,
+		type LeaveFields,
+	} from '../../lib/calendar/leave-edit';
 	import type { PaintItem } from '../../lib/calendar/paint-items';
 	import { calendarStrings as C, leavePaintStrings as L } from '../../lib/strings-calendar';
-	import type { LeaveType } from '../../lib/tjp/edit/types';
+	import type { LeaveRef, LeaveType } from '../../lib/tjp/edit/types';
 	import Icon from '../Icon.svelte';
 	import Select from '../ui/Select.svelte';
 
@@ -35,80 +39,86 @@
 		/** The types the item can be changed to (`typesOfItem`): its scope's, and its own kind. */
 		types: readonly LeaveType[];
 		/**
-		 * Commits a change. The answer says why it cannot be written, or whether an edit was applied
-		 * (the card then waits for the text to be read again before it takes another).
+		 * Commits a change to the item `ref` names. The answer says why it cannot be written, or that
+		 * an edit was applied and where it wrote the item.
 		 */
-		oncommit: (item: PaintItem, f: LeaveFields) => Promise<CommitResult>;
-		onremove: (item: PaintItem) => void;
-		/** The index has not been read again since the text changed: `item` is older than the text. */
-		stale?: boolean;
+		oncommit: (ref: LeaveRef, f: LeaveFields) => Promise<CommitResult>;
+		onremove: (ref: LeaveRef) => Promise<void> | void;
 	}
-	let { item, fields, types, oncommit, onremove, stale = false }: Props = $props();
+	let { item, fields, types, oncommit, onremove }: Props = $props();
 
 	const D = C.details;
 	let draft = $state<LeaveFields | null>(null);
-	let error = $state<'empty' | 'dates' | 'range' | null>(null);
-	/** An edit was sent and the text has not been read again: no second edit on a stale item. */
+	let error = $state<FieldError | null>(null);
+	/** The card's own edit is in flight: the changes made meanwhile are merged into `queued`. */
 	let busy = $state(false);
-	/** Changes made while busy or stale: the latest of each field, sent once the item is the text's. */
-	let queued = $state.raw<Partial<LeaveFields> | null>(null);
-	/** The time-out after an applied edit has passed: the wait ends as soon as the item is current. */
-	let lapsed = $state(false);
-	let wait: ReturnType<typeof setTimeout> | null = null;
-	const settle = (): void => {
-		busy = false;
-		lapsed = false;
-		if (wait !== null) clearTimeout(wait);
-		wait = null;
+	let queued = false;
+	/** The fields as the card last sent them, or as the text had them: a commit of these is nothing. */
+	let known: LeaveFields | null = null;
+	/** The item as the card's last applied edit wrote it; newer than `item` until the index catches up. */
+	let wrote: LeaveRef | null = null;
+	const same = (a: LeaveFields, b: LeaveFields): boolean =>
+		a.type === b.type && a.name.trim() === b.name.trim() && a.start === b.start && a.end === b.end;
+	// The item to name now: the one the card's last edit wrote, until the index has read it.
+	const target = (): LeaveRef => {
+		const own = refOf(item);
+		return wrote && wrote.basedOn > own.basedOn ? wrote : own;
 	};
-	onMount(() => () => {
-		queued = null;
-		if (wait !== null) clearTimeout(wait);
-	});
 	// The draft follows the text: a new item, or the same one after an edit or an undo. It is read
-	// again when the fields change, not each time the owner builds them.
+	// again when the fields change, not each time the owner builds them, and not while an edit of
+	// this card is in flight (the draft then holds what was typed since).
 	const key = $derived(fields ? `${fields.type}|${fields.name}|${fields.start}|${fields.end}` : '');
 	$effect(() => {
 		void key;
 		untrack(() => {
+			if (busy) return;
 			draft = fields ? { ...fields } : null;
+			known = fields ? { ...fields } : null;
 			error = null;
-			settle();
 		});
-	});
-	// The time-out only ends the wait on an item that is current.
-	$effect(() => {
-		if (lapsed && !stale) untrack(settle);
-	});
-	// A change that waited goes out on the item as it now is.
-	$effect(() => {
-		if (busy || stale || queued === null) return;
-		const q = queued;
-		queued = null;
-		untrack(() => void commit(q));
 	});
 
 	const title = $derived(C.leave(L.type[item.type], item.name));
 	const fixed = $derived(item.type === 'project');
 
 	/**
-	 * Writes a field into the draft and commits it. While an edit waits for the text to be read
-	 * again, or the item is older than the text, the change is queued (and shown as waiting), then
-	 * sent on the new text: it is not lost and the item it names is not stale.
+	 * Writes a field into the draft and commits it at once. While the card's own edit is in flight
+	 * the change only joins the draft: it goes out when that outcome arrives, on the item as it wrote
+	 * it, so it is neither lost nor sent on an old range.
 	 */
 	async function commit(patch: Partial<LeaveFields> = {}): Promise<void> {
 		if (!draft) return;
 		draft = { ...draft, ...patch };
-		if (busy || stale) {
-			queued = { ...queued, ...patch };
+		if (busy) {
+			queued = true;
 			return;
 		}
 		busy = true;
-		const r = await oncommit(item, draft);
-		error = r.error ?? null;
-		if (r.applied) {
-			wait = setTimeout(() => (stale ? (lapsed = true) : settle()), 2500);
-		} else settle();
+		try {
+			do {
+				queued = false;
+				const f = { ...draft };
+				if (known && same(known, f)) break;
+				const r = await oncommit(target(), f);
+				error = r.error ?? null;
+				if (r.applied) {
+					known = f;
+					if (r.ref) wrote = r.ref;
+				}
+			} while (queued && draft);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function remove(): Promise<void> {
+		if (busy) return;
+		busy = true;
+		try {
+			await onremove(target());
+		} finally {
+			busy = false;
+		}
 	}
 </script>
 
@@ -162,17 +172,12 @@
 			</label>
 		</div>
 		{#if error}<p class="error" role="alert">{D.errors[error]}</p>{/if}
-		{#if (busy || stale) && queued}<p class="note" role="status" data-testid="cal-leave-waiting">
-				{D.waiting}
-			</p>{/if}
 		<button
 			type="button"
 			class="remove"
 			aria-label={D.removeNamed(title)}
-			disabled={busy || stale}
-			onclick={() => {
-				if (!busy && !stale) onremove(item);
-			}}
+			disabled={busy}
+			onclick={remove}
 			data-testid="cal-leave-remove"
 		>
 			<Icon name="close" size={14} />{D.remove}
