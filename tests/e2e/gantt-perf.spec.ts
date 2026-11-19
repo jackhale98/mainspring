@@ -43,12 +43,12 @@ const RUNS = 3;
 const PASS_ON_TIME_PCT = 95;
 const TASK = 'p0.p0k0.t1';
 /**
- * How far the second, short drag pulls the size handle back (5). Three working days at week zoom is
- * 48 px, and a drag that short only sometimes ends on another working day than it began on, so the
- * drop sometimes makes no edit and no result arrives (on desktop and phone alike, and before the
- * T27 work too). 120 px (about seven days) made an edit every time it was tried.
+ * How far the second, short drag pulls the size handle back (5): three days at week zoom. On the
+ * phone the end of the bar is inside the edge band, and until the edge auto-scroll was held back for a
+ * drag that moves away from the edge, a drag this short sometimes made no edit
+ * (gantt-resize-near-edge.spec.ts has the cases).
  */
-const DROP_PX = 120;
+const DROP_PX = 48;
 
 type Win = { __drop?: { at: number; paint: number; resched: number } };
 

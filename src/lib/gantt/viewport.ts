@@ -4,10 +4,8 @@
  * 9.3). The scroll container reaches under the frozen task column and, while the details are open,
  * under a bottom sheet (tablet, phone) or a drawer over the chart's right edge (a narrow desktop
  * Split). Edge auto-scroll must not wait for a pointer to reach an edge that is covered, so it is
- * measured against what is left. Pure: boxes in, a box and velocities out.
+ * measured against what is left. Pure: boxes in, a box out.
  */
-import { autoScrollVelocity } from '../gesture/autoscroll';
-
 export interface Box {
 	readonly left: number;
 	readonly top: number;
@@ -39,19 +37,6 @@ export function visibleChart(
 	const left = scroller.left + chartLeft;
 	const top = scroller.top + headerHeight;
 	return { left, top, right: Math.max(left, right), bottom: Math.max(top, bottom) };
-}
-
-export interface Velocity {
-	readonly x: number;
-	readonly y: number;
-}
-
-/** px/s to scroll by for a pointer (viewport px); `vertical` is off for drags that only move in time. */
-export function edgeVelocity(x: number, y: number, box: Box, vertical: boolean): Velocity {
-	return {
-		x: autoScrollVelocity(x, box.left, box.right),
-		y: vertical ? autoScrollVelocity(y, box.top, box.bottom) : 0,
-	};
 }
 
 /** A sheet of `height` px that ends at the viewport's bottom has its top this far down. */

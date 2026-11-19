@@ -414,6 +414,50 @@ about 30 min each). Before the fix, 15,000 generated base plans (attempt 0) sche
 generator bug shows up in fewer than 1 plan in 15,000. `tsc`, prettier and `tests/ci` are clean.
 Nothing in `src/` or `engine/` changed, so golden parity was not rerun.
 
+## Open bugs: a short drag of a size handle near the chart edge made no edit (2026-11-19, fixed)
+
+Found while repairing `gantt-perf.spec.ts`, which then dragged 120 px to hide it. A 48 px drag of a
+bar's size handle (three days at week zoom) made an edit only now and then, on the Pixel 7 and on
+desktop.
+
+- **Cause.** Edge auto-scroll (`gestures.svelte.ts` `#pump`, `lib/gesture/autoscroll.ts`) scrolled
+  toward an edge whenever the pointer was in its 48 px band, even for a drag that began in the band
+  and moved away from the edge. The chart ran under the pointer toward the edge, the content x of the
+  pointer (`clientX` plus the scroll) barely changed, and the drop ended on the day it began on:
+  `controller.ts` ended the drag with `cancel: no-change`, with no edit and no toast. The edit
+  planner was not involved: every drop that reached `dispatchAction` was applied. Logged on the
+  failing tries: 14 to 15 autoscroll frames, then `cancel no-change`; on the passing ones a `resize`
+  drop at 16860 minutes, applied as `effort 63h`. How far the chart ran depends on the frame
+  timing, so the result is intermittent. On the Pixel 7 the end handle of the gantt-500 bar is at
+  x 379.7 in a chart whose right edge is 402, 22 px inside the band, so every try was swallowed
+  (0 of 12). On desktop the handle is 125 px from the edge and was never affected (24 of 24); with
+  a 1030 px wide window it is 24 px inside the band and 4 of 6 tries edited.
+- **Fix.** A drag that begins inside a band holds that band: no scroll toward the edge until the
+  pointer goes 12 px toward it; leaving the band ends the hold (`lib/gesture/autoscroll.ts`:
+  `holdAt`, `heldVelocity`, `AUTOSCROLL_ARM_PX`). Every caller goes through `AxisScroll` (`begin`
+  with the press point, then `velocity` each frame); the unheld function is now `bandVelocity` and
+  only `AxisScroll` and `heldVelocity` call it. The callers, each with a unit test beside it that
+  fails with the hold taken out (jsdom, fake frames: `lib/gesture/dom-testing.ts`):
+  the Gantt chart (`gestures.svelte.ts`, both axes; the vertical axis only for a row or link drag),
+  the task list's row drag (`row-drag.svelte.ts`, also the People table's), the workload plot
+  (`heat-gestures.svelte.ts`, each axis held alone) and the Calendar month
+  (`calendar-gestures.svelte.ts`). `edgeVelocity` in `lib/gantt/viewport.ts` was removed.
+- **E2E for the other callers** (`tests/e2e/edge-scroll-drags.spec.ts`): the pointer presses 20 px
+  inside the edge band, moves 8 to 14 px away from it (still inside the band), is held for 30
+  frames, and the scroll position must not have changed; the drop is where the pointer began, so
+  the row, the cell or the day is dropped in place and nothing is edited (row drag and workload
+  cell). Rows: gantt-500, bottom band. Workload: fedora-res, left band beside the names column.
+  Calendar: a short view (a month that fits has nothing to scroll), top band. Each fails with the
+  caller's hold taken out, on desktop and on the Pixel 7 (scroll position 811 to 952, 736 to 595 and
+  221 to 148 on desktop; 704 to 875, 574 to 413 and 165 to 0 on the Pixel 7), and passes with it on
+  desktop, Pixel 7 and iPhone 14.
+- **Checks.** After the fix: 12 of 12 on the Pixel 7 and 12 of 12 on the narrow desktop window.
+  `tests/e2e/gantt-resize-near-edge.spec.ts` (8 drags of -48 px from 24 px inside the edge, each must
+  write what the same drag writes in the middle of the chart; and a drag toward the edge still
+  scrolls) failed on try 1 on desktop and Pixel 7 before the fix, and passes on desktop (3 runs),
+  Pixel 7 (3 runs) and iPhone 14. `gantt-perf.spec.ts` drags 48 px again and passed on the Pixel 7
+  profile. Screenshots: `docs/phases/screenshots/phase-3/gantt-resize-near-edge-*`.
+
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five
