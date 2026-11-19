@@ -20,6 +20,7 @@ import {
 import { genPlan } from './gen/model';
 import { printPlan } from './gen/print-plan';
 import { Rng } from './gen/rng';
+import { INDEX_OPTIONS } from './harness';
 
 const slice = (f: Facts, r: Rg): string => (f.texts[r.file] ?? '').slice(r.from, r.to);
 const plans = (n: number): Array<{ seed: number; files: Record<string, string>; facts: Facts }> =>
@@ -57,7 +58,7 @@ describe('the printer records what it wrote', () => {
 				[...snap.files.values()].flatMap((f) => syntaxIssues(f.tree, f.text)),
 				`${seed} parse`,
 			).toEqual([]);
-			const index = buildIndex(snap, undefined, { cache: null });
+			const index = buildIndex(snap, undefined, INDEX_OPTIONS);
 			const read = factsFromIndex(snap, index);
 			expect(JSON.stringify(canonSem(semOf(read))), `${seed} semantics`).toBe(
 				JSON.stringify(canonSem(semOf(facts))),
@@ -125,7 +126,7 @@ describe('the printer records what it wrote', () => {
 describe('zones follow 7.1 and 7.2', () => {
 	const facts = (text: string): Facts => {
 		const snap = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': text } }).snapshot();
-		return factsFromIndex(snap, buildIndex(snap, undefined, { cache: null }));
+		return factsFromIndex(snap, buildIndex(snap, undefined, INDEX_OPTIONS));
 	};
 	const text = [
 		'project p "P" 2026-01-05 +3m',

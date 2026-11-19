@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The statements of the random plan model: sizing, dependencies, allocations, other attributes,
 // scenario-prefixed statements, supplements and macros. Valid by construction (see model.ts).
+// Over 400 lines: every statement kind draws from one Rng in a fixed order that the recorded seeds
+// depend on, and keeping them in one file keeps that order readable in one place.
 import { COMMENTS, list, mk, type MPlan, type MRes, type MStmt, type MTask } from './model-types';
 import type { Rng } from './rng';
 
@@ -158,6 +160,9 @@ const hardEnd = (t: MTask): boolean =>
  * LEN macro), and the end leaves at least 10 working days (`end` at 30 to 70 days; `precedes` a start
  * at least 14 days in), so the task also needs a full-time resource: one with `workinghours
  * fri 9:00 - 15:00` alone has 12 hours in two weeks.
+ * Known gap: an attr or removeAttr edit can still lower such a task's priority (attr.ts draws 1 to
+ * 999), which can bring sched_runaway back in the edited plan; rare (a fraction of about 2% of tasks
+ * times that draw), and it shows as a P4 failure naming that edit.
  */
 function firstOfAll(t: MTask): void {
 	let own = false;

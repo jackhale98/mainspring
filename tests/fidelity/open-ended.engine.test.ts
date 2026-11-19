@@ -11,6 +11,7 @@ import { bootNodeEngine } from '../../engine/golden/run-wasm.mjs';
 import { applyIntent } from '../../src/lib/tjp/edit/apply';
 import { buildIndex } from '../../src/lib/tjp/index';
 import { createWorkspace } from '../../src/lib/workspace/workspace';
+import { INDEX_OPTIONS } from './harness';
 
 const HEAD = 'project p "P" 2026-01-05 +3m\nresource ana "Ana"\nresource bob "Bob"\n';
 const FIRST = 'task data "Data" {\n  effort 1d\n  allocate bob\n}\n';
@@ -39,7 +40,7 @@ describe('open-ended allocated work', () => {
 			entry: 'plan.tjp',
 			files: { 'plan.tjp': milestone },
 		}).snapshot();
-		const r = applyIntent(snap, buildIndex(snap, undefined, { cache: null }), {
+		const r = applyIntent(snap, buildIndex(snap, undefined, INDEX_OPTIONS), {
 			type: 'setAttr',
 			task: 'qa.ship',
 			attr: 'milestone',
