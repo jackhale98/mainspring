@@ -7,13 +7,13 @@ the full license texts of everything below.
 
 ## Shipped in the engine
 
-| Component                        | Version                              | Ships in                                                    | License                                         | GPL-2.0 compatible                                     |
-| -------------------------------- | ------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ |
-| TaskJuggler                      | 3.8.4, commit `3b36c79`              | `tj-bundle.*.json.gz` (`/tj/lib`, license at `/tj/COPYING`) | GPL-2.0-only                                    | Yes (the combined engine is distributed under GPL-2.0) |
-| ruby.wasm, `@ruby/3.4-wasm-wasi` | 2.10.1, file `dist/ruby+stdlib.wasm` | `ruby.*.wasm.gz`                                            | MIT                                             | Yes                                                    |
-| CRuby (inside that binary)       | 3.4.1                                | `ruby.*.wasm.gz`                                            | Ruby license or BSD-2-Clause (Ruby's `COPYING`) | Yes, taken under BSD-2-Clause                          |
-| `@ruby/wasm-wasi` (JS glue)      | 2.10.1                               | engine worker script                                        | MIT                                             | Yes                                                    |
-| `@bjorn3/browser_wasi_shim`      | 0.4.2                                | engine worker script                                        | MIT OR Apache-2.0                               | Yes, used under MIT                                    |
+| Component                        | Version                              | Ships in                                                                                         | License                                         | GPL-2.0 compatible                                     |
+| -------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------ |
+| TaskJuggler                      | 3.8.4, commit `3b36c79`              | `tj-bundle.*.json.gz` (`/tj/lib`, license at `/tj/COPYING`), keyword docs in `tj-docs.*.json.gz` | GPL-2.0-only                                    | Yes (the combined engine is distributed under GPL-2.0) |
+| ruby.wasm, `@ruby/3.4-wasm-wasi` | 2.10.1, file `dist/ruby+stdlib.wasm` | `ruby.*.wasm.gz`                                                                                 | MIT                                             | Yes                                                    |
+| CRuby (inside that binary)       | 3.4.1                                | `ruby.*.wasm.gz`                                                                                 | Ruby license or BSD-2-Clause (Ruby's `COPYING`) | Yes, taken under BSD-2-Clause                          |
+| `@ruby/wasm-wasi` (JS glue)      | 2.10.1                               | engine worker script                                                                             | MIT                                             | Yes                                                    |
+| `@bjorn3/browser_wasi_shim`      | 0.4.2                                | engine worker script                                                                             | MIT OR Apache-2.0                               | Yes, used under MIT                                    |
 
 `@ruby/wasm-wasi` depends on `tslib` (0BSD), but only its `browser.script` entry imports it; the
 engine worker does not, so `tslib` is not in the built site.

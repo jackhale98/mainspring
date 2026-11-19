@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { buildOutputs } from '../../engine/bundle-lib.mjs';
+import { buildOutputs, withDocs } from '../../engine/bundle-lib.mjs';
 import { EngineFailure } from './failure';
 import {
+	docsRef,
 	gunzip,
 	isGzip,
 	loadAsset,
@@ -91,6 +92,30 @@ describe('parseManifest', () => {
 		} catch (error) {
 			expect((error as EngineFailure).kind).toBe('boot');
 		}
+	});
+});
+
+describe('docsRef', () => {
+	const json = (files: Map<string, Uint8Array>): unknown =>
+		JSON.parse(new TextDecoder().decode(files.get('manifest.json')));
+
+	it('reads the keyword docs asset of a manifest that has one, which parseManifest ignores', () => {
+		const { files, manifest } = withDocs(published(), '{"keywords":[],"tjVersion":"3.8.4"}');
+		const ref = docsRef(json(files));
+		expect(ref).toEqual({ path: manifest.docs.path, rawBytes: manifest.docs.rawBytes });
+		expect(ref?.path).toMatch(/^tj-docs\.[0-9a-f]{12}\.json\.gz$/);
+		expect(parseManifest(json(files))).toEqual(published().manifest);
+	});
+
+	it.each([
+		['no docs (a manifest from before the asset)', published().manifest],
+		['a docs path with a directory', { ...published().manifest, docs: { ...published().manifest.bundle, path: '../x.gz' } }],
+		['docs that are not an asset', { ...published().manifest, docs: 'tj-docs.json.gz' }],
+		['docs with no size', { ...published().manifest, docs: { path: 'tj-docs.0123456789ab.json.gz' } }],
+		['another schema', { ...published().manifest, schemaVersion: 2, docs: published().manifest.bundle }],
+		['not an object', null],
+	])('gives null for %s', (_, manifest) => {
+		expect(docsRef(manifest)).toBeNull();
 	});
 });
 

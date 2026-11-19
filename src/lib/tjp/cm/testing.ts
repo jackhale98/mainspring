@@ -11,7 +11,7 @@ import { SUMMARIES } from '../syntax/summaries.generated';
 import type { KeywordDocsSource } from '../syntax/docs';
 import { tjp, type TjpExtensionOptions } from './index';
 
-export const TABLE_ONLY: KeywordDocsSource = { table: KEYWORDS, engine: null };
+export const TABLE_ONLY: KeywordDocsSource = { table: KEYWORDS, engine: null, loading: false };
 
 /** Engine docs for a few keywords, as `syntax()` would return them. */
 export function engineDocs(tjVersion = '3.8.4'): SyntaxDocs {

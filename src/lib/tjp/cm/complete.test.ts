@@ -88,14 +88,14 @@ describe('keywordCompletionSource', () => {
 	it('shows the full documentation once the engine docs have loaded', () => {
 		const docs = engineDocs();
 		const r = complete('task a "A" {\n  ef|\n}\n', {
-			docs: () => ({ table: TABLE_ONLY.table, engine: docs }),
+			docs: () => ({ table: TABLE_ONLY.table, engine: docs, loading: false }),
 		});
 		expect(r?.options.find((o) => o.label === 'effort')?.info).toBe(
 			'Full documentation of effort.',
 		);
 		const stale = engineDocs('3.7.0');
 		const r2 = complete('task a "A" {\n  ef|\n}\n', {
-			docs: () => ({ table: TABLE_ONLY.table, engine: stale }),
+			docs: () => ({ table: TABLE_ONLY.table, engine: stale, loading: false }),
 		});
 		expect(r2?.options.find((o) => o.label === 'effort')?.info).not.toBe(
 			'Full documentation of effort.',

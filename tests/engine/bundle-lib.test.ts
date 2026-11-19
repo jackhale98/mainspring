@@ -14,6 +14,7 @@ import {
 	gzipDeterministic,
 	hashedAsset,
 	sha256Hex,
+	withDocs,
 } from '../../engine/bundle-lib.mjs';
 
 const enc = new TextEncoder();
@@ -108,6 +109,36 @@ describe('buildOutputs', () => {
 				notices: '',
 			}),
 		).toThrow(/commit/);
+	});
+});
+
+describe('withDocs', () => {
+	it('adds the docs asset and its ref, and rewrites only the manifest', () => {
+		const built = outputs();
+		const json = '{"keywords":[],"tjVersion":"3.8.4"}';
+		const { files, manifest } = withDocs(built, json);
+		const docs = hashedAsset('tj-docs', 'json', enc.encode(json));
+		expect(manifest).toEqual({ ...built.manifest, docs: docs.ref });
+		expect(files.get(docs.path)).toEqual(docs.gz);
+		expect(HASHED_ASSET_RE.test(docs.path)).toBe(true);
+		expect(new TextDecoder().decode(gunzipSync(docs.gz))).toBe(json);
+		expect(new TextDecoder().decode(files.get('manifest.json'))).toBe(canonicalJson(manifest));
+		expect([...files.keys()].sort()).toEqual([...built.files.keys(), docs.path].sort());
+		for (const [name, bytes] of built.files) {
+			if (name !== 'manifest.json') expect(files.get(name)).toEqual(bytes);
+		}
+		// The input is left as it was.
+		expect(built.files.has(docs.path)).toBe(false);
+		expect('docs' in built.manifest).toBe(false);
+	});
+
+	it('reports a stale docs asset from an earlier build', () => {
+		const expected = withDocs(outputs(), '{"tjVersion":"3.8.4","keywords":[]}').files;
+		const present = new Map(withDocs(outputs(), '{"tjVersion":"3.8.4","keywords":[1]}').files);
+		const problems = compareOutputs(expected, present);
+		expect(problems).toContain('manifest.json: differs (' + present.get('manifest.json')?.length + ' bytes, expected ' + expected.get('manifest.json')?.length + ')');
+		expect(problems.filter((p) => /^tj-docs\.[0-9a-f]{12}\.json\.gz: missing$/.test(p))).toHaveLength(1);
+		expect(problems.filter((p) => /^tj-docs\.[0-9a-f]{12}\.json\.gz: stale/.test(p))).toHaveLength(1);
 	});
 });
 

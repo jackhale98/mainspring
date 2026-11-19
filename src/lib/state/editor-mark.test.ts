@@ -33,7 +33,7 @@ beforeEach(() => {
 	cursor = [];
 	host = document.createElement('div');
 	document.body.appendChild(host);
-	const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null }) });
+	const ext = workspaceExtensions({ docs: () => ({ table: [], engine: null, loading: false }) });
 	ws = createWorkspace(
 		{ entry: 'plan.tjp', files: { 'plan.tjp': PLAN, 'x.tji': 'task c "C" { effort 1d }\n' } },
 		{ extensions: (path, top) => [ext(path, top), editorSetup(path)] },

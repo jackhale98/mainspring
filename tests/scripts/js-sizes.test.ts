@@ -146,6 +146,18 @@ describe('checkBudgets', () => {
 		}
 	});
 
+	it('fails a Visual-first load that requests the keyword docs asset, not a Text-first one', () => {
+		const docs = (v: boolean, t: boolean) => ({
+			visualFirst: { ...load(290_000, false), loadsDocs: v },
+			textFirst: { ...load(400_000, true), loadsDocs: t },
+		});
+		expect(checkBudgets({ files: [], loads: docs(false, true) })).toEqual([]);
+		expect(checkBudgets({ files: [], loads: docs(false, false) })).toEqual([]);
+		expect(checkBudgets({ files: [], loads: docs(true, true) })).toEqual([
+			'a Visual-first load requested the keyword docs asset (only an editor loads it)',
+		]);
+	});
+
 	it('checks only the dist budgets without a browser measurement', () => {
 		expect(checkBudgets({ files: [{ file: 'a.js', gzip: 1 }] })).toEqual([]);
 	});

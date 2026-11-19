@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Keyword documentation for hover and the phone docs sheet (spec 6.3, 6.7): the committed table
-// alone before the engine boots, then the engine's full doc and "see also" once syntax() resolves.
+// alone until the engine's docs load, then its full doc and "see also". The engine's docs are its
+// `syntax()` result, which the engine build ships as a static asset (ADR-0017, engine/docs-asset.ts).
 import type { KeywordDoc, SyntaxDocs } from '../../../engine/protocol';
 import { KEYWORDS, keywordById, TJ_VERSION } from './keywords';
 import { SUMMARIES } from './summaries.generated';
 import type { KeywordEntry } from './types';
 
-/** Engine docs once syntax() resolves; the table alone before that. */
+/** The engine's docs once they have loaded; the table alone before that. */
 export interface KeywordDocsSource {
 	table: readonly KeywordEntry[];
 	engine: SyntaxDocs | null;
+	/** The engine's docs are being fetched (ADR-0017): they may still come. False once they have, or failed to. */
+	loading: boolean;
 }
 
 export type KeywordDocView = KeywordEntry & {

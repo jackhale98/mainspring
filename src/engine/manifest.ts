@@ -75,6 +75,23 @@ function versioned<P extends string>(v: unknown, pkg: P, what: string): { packag
 	return { package: pkg, version: v['version'] };
 }
 
+/** What the keyword docs loader reads of the manifest's `docs` (engine/docs-asset.ts). */
+export type DocsRef = Pick<AssetRef, 'path' | 'rawBytes'>;
+
+/**
+ * The keyword docs asset that parsed manifest JSON names in its optional `docs` (ADR-0017), or
+ * null when it names none or not a valid one: a manifest from before the docs asset, which means
+ * the app has only the committed keyword table. `parseManifest` ignores the field; the worker
+ * never reads the docs. Only what the loader uses is checked (a plain file name, so the asset
+ * stays in the engine directory, and the size), to keep the editor chunk small.
+ */
+export function docsRef(json: unknown): DocsRef | null {
+	const d = isRecord(json) && json['schemaVersion'] === 1 ? json['docs'] : null;
+	return isRecord(d) && typeof d['path'] === 'string' && FILE_NAME.test(d['path']) && isCount(d['rawBytes'])
+		? { path: d['path'], rawBytes: d['rawBytes'] }
+		: null;
+}
+
 /** Validates parsed manifest JSON; throws an `EngineFailure` of kind `boot`. */
 export function parseManifest(json: unknown): EngineManifest {
 	if (!isRecord(json) || json['schemaVersion'] !== 1) {
