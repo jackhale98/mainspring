@@ -361,3 +361,56 @@ jobs:
             test-results/e2e-results.json
           if-no-files-found: ignore
           retention-days: 90
+
+  # The screenshot-gated specs (SCREENSHOTS=1) run in no other job, so they could rot unseen
+  # (user, 2026-11-19: nightly, desktop and Pixel 7). Their assertions run; the pictures they write
+  # stay on the runner. Report only, like every nightly job; the main session reads the result daily.
+  gated:
+    name: Screenshot specs (shard ${{ matrix.shard }} of 2; desktop and Pixel 7)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+      - run: npm run build
+        env:
+          MAINSPRING_DEV_PAGES: '1'
+      - name: Screenshot specs
+        run: |
+          files=$(grep -rl "SCREENSHOTS" tests/e2e --include='*.spec.ts' | sort)
+          npx playwright test $files --grep-invert @timing --project=desktop --project=pixel-7 \
+            --workers=2 --shard=${{ matrix.shard }}/2 --trace off
+        env:
+          SCREENSHOTS: '1'
+      - name: List tests that passed only on retry
+        if: always()
+        run: node scripts/ci/flaky-summary.mjs test-results/e2e-results.json 'screenshots ${{ matrix.shard }}/2' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshot-specs-${{ matrix.shard }}-${{ github.run_number }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14

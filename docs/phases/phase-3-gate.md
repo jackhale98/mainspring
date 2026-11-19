@@ -253,6 +253,17 @@ App bugs found on the way, open:
   in the service worker's precache list when that lands.
 - **On Safari the first "Try again" after a failed chunk cannot succeed**: WebKit remembers the
   failed import, so the slot's Reload step is always needed there (B3 review).
+- **Gated specs rotted unseen** (2026-11-19): with SCREENSHOTS=1, 12 tests had broken over three
+  days (Gantt row lookups by any text after the Predecessors/Successors columns, 83174a48; the
+  Workload view's heatmap after T14, a83987e7); fixed in cb2b993b. A nightly job now runs every
+  SCREENSHOTS-gated spec on desktop and Pixel 7 in two shards (`nightly.yml` `gated`, user
+  2026-11-19), and the main session reads the nightly result daily (every nightly job is
+  continue-on-error, which hid three nights of patch-fidelity failures).
+- **A short Gantt handle drag sometimes makes no edit** (gantt-perf repair, 2026-11-19): -48 px (3
+  days at week zoom) writes nothing on some tries, desktop and Pixel 7, also on 4f39836e; -72 px
+  and more always edit. gantt-perf drags 120 px meanwhile. Being root-caused.
+- **The Gantt toolbar clips its last items at 1440 px wide** (an "F" chip and "Status da…" in
+  `inspector-desktop-light.png`): polish list.
 
 ## Health list on WebKit (B4, 2026-11-19)
 
