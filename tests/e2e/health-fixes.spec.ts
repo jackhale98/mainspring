@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The fixes of the health panel (phase-3.md 9.7, section 12; T18) on `fedora-res`, desktop Chrome and
-// the Pixel 7 emulation. Each kind of fix is pressed in the real panel and what it did is read from
+// The fixes of the health panel (phase-3.md 9.7, section 12; T18) on `fedora-res`, desktop Chrome, the
+// Pixel 7 emulation and the iPhone 14 (WebKit). Each kind of fix is pressed in the real panel and what it did is read from
 // the plan's text, exactly: the patch is the text before with one change, one Undo restores every
 // byte, and the finding goes and comes back with the schedule. The kinds:
 // - "Remove start" (H3): `removeAttr`; "Convert gap to task" and "Edit gap" (H5): `gapToTask`,
@@ -23,9 +23,6 @@ import {
 	undo,
 } from './lib/health-rig';
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T18)');
-});
 test.setTimeout(READY_TIMEOUT_MS * 3);
 test.use({ actionTimeout: 20_000 });
 

@@ -2,7 +2,15 @@
 // The health list's window (window.ts): what is mounted for a scroll position, with spacers that
 // keep the list's height, measured and estimated heights, the overscan, and the rows the focus keeps.
 import { describe, expect, it } from 'vitest';
-import { ESTIMATE, KEEP_AFTER, KEEP_BEFORE, OVERSCAN, windowOf } from './window';
+import {
+	ESTIMATE,
+	KEEP_AFTER,
+	KEEP_BEFORE,
+	OVERSCAN,
+	SAMPLE,
+	estimateOf,
+	windowOf,
+} from './window';
 
 const rows = (n: number, h?: number): Array<number | undefined> => new Array(n).fill(h);
 
@@ -64,5 +72,29 @@ describe('windowOf', () => {
 		const w = windowOf(rows(20, 100), 50_000, 50_500);
 		expect(w.end).toBe(20);
 		expect(w.start).toBeLessThan(20);
+	});
+
+	it('takes the given estimate for an unmeasured row, whatever the measured ones average', () => {
+		const h = [300, 300, ...rows(48)];
+		const w = windowOf(h, 0, 100, null, 90);
+		expect(w.after).toBe((50 - w.end) * 90);
+	});
+});
+
+describe('estimateOf', () => {
+	it('is the default before anything is measured, then the average of what is', () => {
+		expect(estimateOf([], null)).toEqual({ estimate: ESTIMATE, frozen: false });
+		expect(estimateOf([100, 200], null)).toEqual({ estimate: 150, frozen: false });
+	});
+
+	it('stops following the average once SAMPLE rows are measured, and keeps that value', () => {
+		const sample = new Array<number>(SAMPLE).fill(100);
+		const first = estimateOf(sample, null);
+		expect(first).toEqual({ estimate: 100, frozen: true });
+		// Rows measured later, however tall, do not move it: that would move every unmeasured row.
+		expect(estimateOf([...sample, 900, 900, 900], first.estimate)).toEqual({
+			estimate: 100,
+			frozen: true,
+		});
 	});
 });

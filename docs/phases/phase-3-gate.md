@@ -9,7 +9,7 @@ batch, before the push.
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Last green commit on main | `60680f74` (branch run 44360731949, 2026-11-18; main fast-forwarded): B2 (the Gantt edge specs on the iPhone) and its review fixes, on top of the iPhone CI times (`93c9b361`, run 44346394164, 14 min) |
 | Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
-| iPhone 14 skips left | B5 done (2026-11-19, merged after the T27 work): the Text mode a11y phone states and the Android Enter tests run on both phones (an iOS key path for Enter), nothing added to the allowlist. Left: B4 (health, health fixes, why-here, health screenshots), paused on an app bug (the windowed Health list jumps on WebKit). `node scripts/ci/webkit-skips.mjs` reports the 4 B4 skips as pending; `PENDING_BATCHES` lists B4 only. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`) |
+| iPhone 14 skips left | None outside the allowlist (2026-11-19): B4 is done (health, health fixes, why-here and the health screenshots run on the iPhone 14 once the windowed Health list held still on WebKit, `anchor.ts`), so `PENDING_BATCHES` in `scripts/ci/webkit-skips.mjs` is empty and the scan fails on any iPhone skip outside the allowlist in every spec. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`) |
 | CI wall time | 14.7 min (run 44371927138, B2 with 9 iPhone shards). B3's specs made the iPhone project about 103 worker-minutes (run 44382320872, whose shard 1/9 ran 49 min because they were estimated at zero), so it has 15 shards at 8 min or less by the plan, and `workload.spec.ts` is split in two (one file ran 9 min on the iPhone). The iPhone times are re-measured from the CI reports of each batch's first run (`shard-plan.mjs measure`); a push to `main` runs only the timing tier, and an e2e shard stops at 35 min. Target 12 min (ADR-0016 section 4); with 35 jobs against about 20 concurrent runners the wall time is expected above it, to be measured. The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble` |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
@@ -21,8 +21,7 @@ grep -lE "skip" tests/e2e/*.spec.ts | xargs grep -lE "iphone-14|isIphone|webkit"
 
 `tests/e2e/lib/webkit-allowlist.ts` now exists (ADR-0016 section 2): count its entries as well, and the
 `check` job's `node scripts/ci/webkit-skips.mjs` fails on a skip naming the iPhone or WebKit outside it,
-for every spec but those of the batches in its `PENDING_BATCHES` list (B4 is left; each batch
-empties its part of the list). Run the iPhone specs with `npm run setup:webkit` once, then
+for every spec (its `PENDING_BATCHES` list is empty since B4). Run the iPhone specs with `npm run setup:webkit` once, then
 `npm run test:e2e:iphone -- <spec>`.
 
 How the CI wall time is read: open the run of the `CI` workflow on the branch commit that `main` was
@@ -187,7 +186,7 @@ every newly turned-on spec at 0, and every test boots the engine and schedules i
    the `fedora-res` schedule on a real iPhone.
 4. Stop every test paying the engine start-up (a booted page per worker, smaller plans where the
    schedule is not under test, or the schedule cache of ADR-0015): an ADR for the user first.
-5. Then B4 (Health; a WIP branch) and B5 (Text mode; done on a branch, held).
+5. Then B4 (Health) and B5 (Text mode): both done (2026-11-19).
 
 T27 (ADR-0018) so far, recorded for the user:
 - **First-load bytes over the ADR's target.** T27a and T27b add about 1,360 bytes gzip to each
@@ -227,12 +226,17 @@ T27 (ADR-0018) so far, recorded for the user:
   the accepted budget), where the ADR placed the factories in lazy chunks.
 
 App bugs found on the way, open:
-- **The windowed Health list jumps on WebKit** (B4, 2026-11-18). WebKit has no scroll anchoring:
-  as rows mount, the groups above the viewport are measured and re-windowed, and the content moves
-  by thousands of px (a group at 395 px went to -4550 in two frames; `scrollHeight` 44k to 19k), so a
-  tapped row is unmounted; at the end of the panel the layout keeps cycling every 100 ms. A real
-  iPhone user scrolling and tapping findings hits it. A group's height depends on which rows have
-  been measured, and a row mounted and unmounted between ResizeObserver deliveries is never measured.
+- **The windowed Health list jumped on WebKit** (B4, 2026-11-18; fixed 2026-11-19, `FindingGroup.svelte`,
+  `lib/health/anchor.ts`). WebKit has no scroll anchoring: as rows mounted, the groups above the
+  viewport were measured and re-windowed, and the content moved by thousands of px (a group at 395 px
+  went to -4550 in two frames; `scrollHeight` 44k to 19k), so a tapped row was unmounted; at the end
+  of the panel the layout kept cycling every 100 ms. Cause: an unmeasured row was estimated at the
+  average of the measured ones, so each row measured moved every unmeasured row above the viewport,
+  and a row mounted and unmounted between ResizeObserver deliveries was never measured, so a group
+  alternated between two heights. Fix: rows are measured synchronously when they mount and kept by
+  key, the estimate stops following the average after 8 rows, and the list scrolls by the change
+  above the first row in view itself (Chromium's anchoring is off for the panel). Before and after
+  numbers: "Health list on WebKit" below.
 - **Edits planned on a stale index** (audit, 2026-11-19; ADR-0018 in progress, user's direction: fix
   it in the edit layer). The index lags the text (up to about 4 s on a slow WebKit runner), and views
   read targets from it: the Gantt's Alt+Shift moves and row menu (`interactions.svelte.ts` reorder)
@@ -247,11 +251,46 @@ App bugs found on the way, open:
 - **On Safari the first "Try again" after a failed chunk cannot succeed**: WebKit remembers the
   failed import, so the slot's Reload step is always needed there (B3 review).
 
+## Health list on WebKit (B4, 2026-11-19)
+
+Probe: `fedora-res`, the Health sheet on the iPhone 14 emulation (WebKit), the list scrolled by a
+script 100 px a frame to its end, then 90 idle frames. Per frame it reads every row's top, the
+scroller's `scrollHeight` and `scrollTop`; a jump is a row the finger sees that moved by more than 2 px
+beyond the scroll made. Before and after on the same machine and plan:
+
+| | Before | After |
+| --- | --- | --- |
+| Frames with a visible jump | 69 of 174 | 0 of 444 |
+| Largest jump of a row in view | 984 px (always a multiple of 164 px, one row) | 1 px |
+| `scrollHeight` while scrolling | 9,246 to 44,562 | 44,562 to 44,721 |
+| Idle at the end: distinct `scrollHeight` in 90 frames | 10 (settles to 10,571, a collapsed list) | 1 (44,721) |
+
+The cause is in the list's own bookkeeping (`FindingGroup.svelte`): an unmeasured row was estimated at
+the average of the measured ones, so every row measured moved every unmeasured row above the view, and
+a row mounted and unmounted between two ResizeObserver deliveries was never measured, so a group
+swung between heights a row apart. Chromium hid it with scroll anchoring. The fix: rows are measured
+synchronously as they mount and kept by key; the estimate stops following the average after 8 rows
+(`estimateOf`); before the window changes the list notes the first row in view and after it scrolls by
+how far that row moved (`pickAnchor`, `anchorShift`), a row above the view that changes height does
+the same (`resizeShift`); Chromium's own anchoring is off for the panel (`overflow-anchor: none`) so
+the two do not add up. Pure parts are tested in `src/lib/health/anchor.test.ts` (including a loop of
+window, measure and anchor on an unmeasured list, which settles with the first row in view held) and
+`window.test.ts`. Screenshots: `docs/phases/screenshots/phase-3/t18-health-list-mid-scroll-*` and
+`t18-health-list-finding-tapped-*` (Pixel 7 and iPhone 14).
+
+B4 on the iPhone 14 (WebKit, 2 workers, one run on a loaded 4-core machine): `health.spec.ts`,
+`health-fixes.spec.ts`, `health-screenshots.spec.ts` and `why-here.spec.ts` 28 passed and 5 skipped
+(the desktop-only and tablet cases, by `isTouch`, not by project); the same four on desktop and
+Pixel 7 59 passed, 7 skipped; `select-arrows` and `picker-phone` (they open a finding through
+`rowOf`) 16 passed on the iPhone and 26 on desktop and Pixel 7. The iPhone has about 4 more worker
+minutes of specs than the plan assumed (the four files were 0 s there), so `ci.yml` has 18 iPhone
+shards instead of 16 until the next `shard-plan.mjs measure` from a CI run.
+
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five
    reruns of the merge tier on one commit green, and three timing trend entries: not yet.
-2. iPhone skips down to the allowlist: not yet (B1, B2, B5 done; B3 and B4 paused).
+2. iPhone skips down to the allowlist: done (B1 to B5 done; `PENDING_BATCHES` is empty; 5 allowlist entries of at most 6).
 3. Contract specs for the six primitives: done (T25 above): pass on desktop, Pixel 7 and iPhone 14;
    `select-arrows.spec.ts` passes on all three and the global select rule is gone.
 4. CI meets the time target: not yet.

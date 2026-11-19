@@ -278,6 +278,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
+		/* The windowed lists keep the view still themselves (FindingGroup); a browser's own scroll
+		   anchoring on top of that would move it twice. */
+		overflow-anchor: none;
 	}
 	.health.dimmed :global(.findings) {
 		opacity: 0.7;

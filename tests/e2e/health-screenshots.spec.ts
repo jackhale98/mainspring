@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Screenshots of plan health (phase-3.md 9.7, 13.2; CLAUDE.md "mobile counts"): desktop and Pixel 7
-// emulation, light and dark, to docs/phases/screenshots/phase-3/t18-*.png, and a tablet's bottom
+// Screenshots of plan health (phase-3.md 9.7, 13.2; CLAUDE.md "mobile counts"): desktop, Pixel 7 and
+// iPhone 14 emulation, light and dark, to docs/phases/screenshots/phase-3/t18-*.png, and a tablet's bottom
 // sheet in light:
 // - the Health tab of the right panel (the findings by check, the filters), with Notes only, with
 //   the gap editor of "Edit gap" open, and the settings; the phone's status card with its "Plan
@@ -13,14 +13,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, deviceName, isTouch } from './lib/gantt-rig';
-import { openHealth, openPlan, rowOf } from './lib/health-rig';
+import { openHealth, openPlan, rowOf, scrollList, selectionOf } from './lib/health-rig';
 import { openHeatmap, oracle, resultOf, shape } from './lib/workload-rig';
 
 const DIR = path.join(process.cwd(), 'docs/phases/screenshots/phase-3');
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T18)');
-});
 test.setTimeout(READY_TIMEOUT_MS * 3);
 
 const WIKI = 'f20.PlanningPhase.clean_market_wiki';
@@ -206,4 +203,26 @@ test('a tablet gets the bottom sheet from the Health button (light)', async ({ p
 	await page.waitForTimeout(600);
 	await page.screenshot({ path: path.join(DIR, 't18-health-sheet-tablet-820-light.png') });
 	void shot;
+});
+
+test('the Health list mid-scroll holds still, and a tapped finding opens its task (phones, light)', async ({
+	page,
+}, info) => {
+	test.skip(!isTouch(info), 'the phones: a finger scrolls the list and a tap selects');
+	const shot = shooter(page, info, 'light');
+	await openPlan(page, info, 'light');
+	const panel = await openHealth(page, info);
+	// Down the list in swipe-sized steps, each one until the list holds still (the windowed list
+	// measures the rows it mounts; on WebKit, which has no scroll anchoring, it used to jump).
+	let at = { key: '', top: 0 };
+	for (let i = 0; i < 24; i++) at = await scrollList(panel, 320);
+	expect(at.key).not.toBe('');
+	await shot('health-list-mid-scroll');
+	// A tap on a row in view lands on that row: its task is selected, and the details open.
+	const row = panel.locator(`[data-testid="finding"][data-key="${at.key}"]`);
+	await expect(row).toBeVisible();
+	const task = await row.getAttribute('data-task');
+	await row.locator('button.task').tap();
+	await expect.poll(async () => (await selectionOf(page))?.id).toBe(task);
+	await shot('health-list-finding-tapped');
 });

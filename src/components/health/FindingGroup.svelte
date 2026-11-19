@@ -13,14 +13,29 @@
 	  find the next row, and a row that is scrolled to takes the window with it;
 	- the headings and the "jump to a check" buttons are outside the windows.
 	A list short enough to be mounted whole (the window covers it) behaves as an ordinary list.
+
+	Still while it is measured: a row's height is measured when it mounts (synchronously, so a row that
+	comes and goes within a frame is measured too) and kept by its key for good, and unmeasured rows
+	have one stable estimate (lib/health/window.ts, anchor.ts). Where the window or a height changes
+	above what the scroller shows, the list scrolls by the difference itself: WebKit has no scroll
+	anchoring, and Chromium's is turned off for the panel (HealthPanel) so that the two do not add up.
 -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import {
+		anchorShift,
+		pickAnchor,
+		remember,
+		resizeShift,
+		MEASURE_EPSILON,
+		type Anchor,
+		type RowBox,
+	} from '../../lib/health/anchor';
 	import { findingKey } from '../../lib/health/panel-model';
 	import type { FixEnv } from '../../lib/health/run-fix';
 	import type { TextContext } from '../../lib/health/text';
 	import type { Finding } from '../../lib/health/types';
-	import { windowOf } from '../../lib/health/window';
+	import { estimateOf, windowOf } from '../../lib/health/window';
 	import type { ResourceId } from '../../lib/tjp/index';
 	import FindingRow from './FindingRow.svelte';
 
@@ -51,9 +66,22 @@
 	let measured = $state.raw<ReadonlyMap<string, number>>(new Map());
 	let view = $state({ from: 0, to: typeof innerHeight === 'number' ? innerHeight : 800 });
 	let focused = $state<number | null>(null);
+	/** What an unmeasured row is taken to be: stable once enough rows are measured. */
+	let estimate = $state(estimateOf([], null).estimate);
+	let frozen: number | null = null;
 
 	const heights = $derived(keys.map((k) => measured.get(k)));
-	const win = $derived(windowOf(heights, view.from, view.to, focused));
+	const win = $derived(windowOf(heights, view.from, view.to, focused, estimate));
+
+	/** Takes new measurements in, and moves the estimate with them until it is stable. */
+	function learn(updates: Iterable<readonly [string, number]>): void {
+		const next = remember(measured, updates);
+		if (next === measured) return;
+		measured = next;
+		const e = estimateOf([...next.values()], frozen);
+		if (e.frozen) frozen = e.estimate;
+		estimate = e.estimate;
+	}
 
 	function scrollerOf(el: HTMLElement): HTMLElement | null {
 		for (let p = el.parentElement; p; p = p.parentElement) {
@@ -98,35 +126,88 @@
 		};
 	});
 
-	// Row heights: each mounted row is measured, and again when it changes (an editor opens).
+	/** Scrolls the scroller (or the page, when nothing else scrolls) by `by` px. */
+	function scrollBy(by: number): void {
+		if (Math.abs(by) < MEASURE_EPSILON || !list) return;
+		const scroller = scrollerOf(list);
+		if (scroller) scroller.scrollTop += by;
+		else window.scrollBy(0, by);
+	}
+
+	const mounted = (ul: HTMLElement): HTMLElement[] => [
+		...ul.querySelectorAll<HTMLElement>(':scope > li[data-key]'),
+	];
+	/** A row's height with the gap below it, as the window counts it. */
+	const gapOf = (el: HTMLElement): number => parseFloat(getComputedStyle(el).marginBlockEnd) || 0;
+
+	/** The mounted rows and the list, in px from the list's top, and where the scroller's top is. */
+	function boxes(ul: HTMLElement): { rows: RowBox[]; height: number; from: number } {
+		const at = ul.getBoundingClientRect();
+		const scroller = scrollerOf(ul);
+		const rows = mounted(ul).map((li) => {
+			const r = li.getBoundingClientRect();
+			return { key: li.dataset['key'] ?? '', top: r.top - at.top, bottom: r.bottom - at.top };
+		});
+		const viewTop = scroller ? scroller.getBoundingClientRect().top : 0;
+		return { rows, height: at.height, from: viewTop - at.top };
+	}
+
+	// Before the window is laid out again, note what the scroller shows; after, scroll back to it.
+	let anchor: Anchor | null = null;
+	$effect.pre(() => {
+		void win;
+		if (!list) return;
+		const b = boxes(list);
+		anchor = pickAnchor(b.rows, b.height, b.from);
+	});
+
+	// Row heights: each mounted row is measured as soon as it is laid out, and again when it changes
+	// (an editor opens, the panel is resized).
 	let rows: ResizeObserver | null = null;
 	onMount(() => {
-		const gap = (el: HTMLElement): number => parseFloat(getComputedStyle(el).marginBlockEnd) || 0;
 		rows = new ResizeObserver((entries) => {
-			let next: Map<string, number> | null = null;
+			const scroller = list ? scrollerOf(list) : null;
+			const viewTop = scroller ? scroller.getBoundingClientRect().top : 0;
+			const updates: Array<[string, number]> = [];
+			let shift = 0;
 			for (const e of entries) {
 				const el = e.target as HTMLElement;
 				const key = el.dataset['key'];
-				if (key === undefined) continue;
-				const h = el.offsetHeight + gap(el);
-				if (Math.abs((measured.get(key) ?? -9) - h) < 0.5) continue;
-				next ??= new Map(measured);
-				next.set(key, h);
+				if (key === undefined || !el.isConnected) continue;
+				const gap = gapOf(el);
+				const h = el.offsetHeight + gap;
+				if (h <= gap) continue;
+				updates.push([key, h]);
+				const was = measured.get(key);
+				if (was !== undefined && Math.abs(was - h) >= MEASURE_EPSILON)
+					shift += resizeShift(el.getBoundingClientRect().top + was - gap, viewTop, h - was);
 			}
-			if (next) measured = next;
+			learn(updates);
+			scrollBy(shift);
 		});
 		return () => rows?.disconnect();
 	});
 	$effect(() => {
 		void win;
 		const ul = list;
-		if (!ul || !rows) return;
-		const r = rows;
+		if (!ul) return;
 		untrack(() => {
-			for (const li of ul.querySelectorAll<HTMLElement>(':scope > li[data-key]')) r.observe(li);
+			if (anchor) {
+				const b = boxes(ul);
+				scrollBy(anchorShift(anchor, b.rows, b.height));
+				anchor = null;
+			}
+			const lis = mounted(ul);
+			const gap = lis[0] ? gapOf(lis[0]) : 0;
+			learn(
+				lis.flatMap((li): Array<[string, number]> =>
+					li.offsetHeight > 0 ? [[li.dataset['key'] ?? '', li.offsetHeight + gap]] : [],
+				),
+			);
+			if (rows) for (const li of lis) rows.observe(li);
 		});
 	});
-	// The list moves when what is above it changes size (a group above grows, a filter): look again.
+	// The list moves when what is above it changes size (a group above, a filter): look again.
 	$effect(() => {
 		void win.before;
 		void win.after;

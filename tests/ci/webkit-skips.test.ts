@@ -157,6 +157,10 @@ describe('the repository', () => {
 		expect(checkSpecs(e2e).failures).toEqual([]);
 	});
 
+	it('has no pending batch left: every spec is held to the allowlist', () => {
+		expect(PENDING_BATCHES).toEqual({});
+	});
+
 	it('lists pending files that exist, each in one batch only', () => {
 		const all = Object.values(PENDING_BATCHES).flat();
 		expect(new Set(all).size).toBe(all.length);

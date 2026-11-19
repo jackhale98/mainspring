@@ -232,22 +232,24 @@ jobs:
           - { project: pixel-7, shard: 4/6, browsers: chromium }
           - { project: pixel-7, shard: 5/6, browsers: chromium }
           - { project: pixel-7, shard: 6/6, browsers: chromium }
-          - { project: iphone-14, shard: 1/16, browsers: webkit }
-          - { project: iphone-14, shard: 2/16, browsers: webkit }
-          - { project: iphone-14, shard: 3/16, browsers: webkit }
-          - { project: iphone-14, shard: 4/16, browsers: webkit }
-          - { project: iphone-14, shard: 5/16, browsers: webkit }
-          - { project: iphone-14, shard: 6/16, browsers: webkit }
-          - { project: iphone-14, shard: 7/16, browsers: webkit }
-          - { project: iphone-14, shard: 8/16, browsers: webkit }
-          - { project: iphone-14, shard: 9/16, browsers: webkit }
-          - { project: iphone-14, shard: 10/16, browsers: webkit }
-          - { project: iphone-14, shard: 11/16, browsers: webkit }
-          - { project: iphone-14, shard: 12/16, browsers: webkit }
-          - { project: iphone-14, shard: 13/16, browsers: webkit }
-          - { project: iphone-14, shard: 14/16, browsers: webkit }
-          - { project: iphone-14, shard: 15/16, browsers: webkit }
-          - { project: iphone-14, shard: 16/16, browsers: webkit }
+          - { project: iphone-14, shard: 1/18, browsers: webkit }
+          - { project: iphone-14, shard: 2/18, browsers: webkit }
+          - { project: iphone-14, shard: 3/18, browsers: webkit }
+          - { project: iphone-14, shard: 4/18, browsers: webkit }
+          - { project: iphone-14, shard: 5/18, browsers: webkit }
+          - { project: iphone-14, shard: 6/18, browsers: webkit }
+          - { project: iphone-14, shard: 7/18, browsers: webkit }
+          - { project: iphone-14, shard: 8/18, browsers: webkit }
+          - { project: iphone-14, shard: 9/18, browsers: webkit }
+          - { project: iphone-14, shard: 10/18, browsers: webkit }
+          - { project: iphone-14, shard: 11/18, browsers: webkit }
+          - { project: iphone-14, shard: 12/18, browsers: webkit }
+          - { project: iphone-14, shard: 13/18, browsers: webkit }
+          - { project: iphone-14, shard: 14/18, browsers: webkit }
+          - { project: iphone-14, shard: 15/18, browsers: webkit }
+          - { project: iphone-14, shard: 16/18, browsers: webkit }
+          - { project: iphone-14, shard: 17/18, browsers: webkit }
+          - { project: iphone-14, shard: 18/18, browsers: webkit }
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

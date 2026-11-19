@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// "Why here?" and "Show in Gantt" (phase-3.md 9.3, 9.7, 20, 24; T18) on `fedora-res`, desktop Chrome
-// and the Pixel 7 emulation:
+// "Why here?" and "Show in Gantt" (phase-3.md 9.3, 9.7, 20, 24; T18) on `fedora-res`, desktop Chrome,
+// the Pixel 7 emulation and the iPhone 14 (WebKit):
 // - the task details' Schedule block lists the explainer's causes of the task as sentences, read
 //   here from `explainTask` and `whyText` on the golden (the live result equals it on this plan), and
 //   says less when the explainer cannot tell ("The schedule does not show why."); a cause links to
@@ -20,9 +20,6 @@ import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { expected, openHealth, openPlan, rowOf, selectionOf, TAGS } from './lib/health-rig';
 import { oracle, openHeatmap, resultOf, shape } from './lib/workload-rig';
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T18)');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 test.use({ actionTimeout: 20_000 });
 

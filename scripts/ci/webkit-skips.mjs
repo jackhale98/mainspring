@@ -18,15 +18,13 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Spec file names (paths under tests/e2e) whose WebKit skips a later batch removes. B1, B2 and B5
- * are done (B5's Android EditContext tests run on both phones with an iOS counterpart, so nothing
- * of it is allowlisted).
+ * Spec file names (paths under tests/e2e) whose WebKit skips a later batch removes. Empty: B1 to B5
+ * are done (B4, the Health specs, once the windowed Health list held still on WebKit; B5's Android
+ * EditContext tests run on both phones with an iOS counterpart, so nothing of it is allowlisted). A
+ * skip of the iPhone outside the allowlist fails the `check` job in every spec, with no exception.
  * @type {Record<string, string[]>}
  */
-export const PENDING_BATCHES = {
-	// B4: health, health fixes, why-here and the screenshot specs (paused, see the gate doc).
-	B4: ['health.spec.ts', 'health-fixes.spec.ts', 'health-screenshots.spec.ts', 'why-here.spec.ts'],
-};
+export const PENDING_BATCHES = {};
 
 /**
  * Spec files that run outside the three projects (their own config), so a Chromium-only skip there

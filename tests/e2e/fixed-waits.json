@@ -31,7 +31,6 @@
 		"tests/e2e/lib/calendar-rig.ts": 3,
 		"tests/e2e/lib/finger.ts": 2,
 		"tests/e2e/lib/gantt-rig.ts": 2,
-		"tests/e2e/lib/health-rig.ts": 1,
 		"tests/e2e/lib/lanes-rig.ts": 3,
 		"tests/e2e/lib/perf.ts": 1,
 		"tests/e2e/lib/workload-heat.ts": 2,

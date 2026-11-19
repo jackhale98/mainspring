@@ -8,8 +8,10 @@
  * the focus and the few after it, so that Tab and Shift+Tab find a mounted row).
  */
 
-/** What a row is taken to be before it is measured, in px. */
+/** What a row is taken to be before any is measured, in px. */
 export const ESTIMATE = 120;
+/** Measured rows after which the estimate for the rest stops following the average (`estimateOf`). */
+export const SAMPLE = 8;
 /** Rows mounted beyond the visible ones, each side. */
 export const OVERSCAN = 6;
 /** Rows kept after (and before) the one that has the focus. */
@@ -30,12 +32,14 @@ export interface Windowed {
  * @param from top of the visible part, in px from the list's top
  * @param to bottom of the visible part, in px from the list's top
  * @param focus index of the row that holds the focus, or null
+ * @param guess the height of an unmeasured row; the average of the measured ones when left out
  */
 export function windowOf(
 	heights: ReadonlyArray<number | undefined>,
 	from: number,
 	to: number,
 	focus: number | null = null,
+	guess?: number,
 ): Windowed {
 	const n = heights.length;
 	if (n === 0) return { start: 0, end: 0, before: 0, after: 0 };
@@ -47,8 +51,8 @@ export function windowOf(
 			known++;
 		}
 	}
-	const guess = known === 0 ? ESTIMATE : sum / known;
-	const at = (i: number): number => heights[i] ?? guess;
+	const unknown = guess ?? (known === 0 ? ESTIMATE : sum / known);
+	const at = (i: number): number => heights[i] ?? unknown;
 	// The first row that ends below `from`, and the first that starts at or below `to`.
 	let y = 0;
 	let first = n;
@@ -76,4 +80,22 @@ export function windowOf(
 	let after = 0;
 	for (let i = end; i < n; i++) after += at(i);
 	return { start, end, before, after };
+}
+
+/**
+ * What an unmeasured row is taken to be. It follows the average of the rows measured so far until
+ * `SAMPLE` are, then stays: an estimate that keeps moving with every row measured moves every
+ * unmeasured row above the scroller with it, and each move is a scroll correction (anchor.ts).
+ * @param measured the measured heights
+ * @param frozen the estimate once it stopped following, else null
+ * @returns the estimate, and whether it has stopped following
+ */
+export function estimateOf(
+	measured: readonly number[],
+	frozen: number | null,
+): { readonly estimate: number; readonly frozen: boolean } {
+	if (frozen !== null) return { estimate: frozen, frozen: true };
+	if (measured.length === 0) return { estimate: ESTIMATE, frozen: false };
+	const estimate = measured.reduce((n, h) => n + h, 0) / measured.length;
+	return { estimate, frozen: measured.length >= SAMPLE };
 }

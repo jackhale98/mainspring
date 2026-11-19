@@ -121,9 +121,18 @@ export async function undo(page: Page, info: TestInfo): Promise<void> {
 	else await page.getByTestId('toast').last().getByRole('button', { name: 'Undo' }).click();
 }
 
+/** Two frames: what a scroll showed is laid out and the windowed list has mounted its rows. */
+const frames = (page: Page): Promise<unknown> =>
+	page.evaluate(
+		() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+	);
+
 /**
  * A finding's row, scrolled to until it is mounted: the lists are windowed (FindingGroup), so a row
- * far down its check is not in the page until the panel has been scrolled to it.
+ * far down its check is not in the page until the panel has been scrolled to it. The list holds still
+ * while it is measured on every engine (lib/health/anchor.ts), so the row Playwright scrolls to is
+ * the row that is there when it gets to it. Each step waits for the frames the window needs to mount
+ * the next rows, not for a time.
  */
 export async function rowOf(panel: Locator, check: CheckId, task: string): Promise<Locator> {
 	const row = findings(panel, check, task);
@@ -139,9 +148,57 @@ export async function rowOf(panel: Locator, check: CheckId, task: string): Promi
 			while (p && !['auto', 'scroll'].includes(getComputedStyle(p).overflowY)) p = p.parentElement;
 			(p ?? document.scrollingElement)?.scrollBy(0, 400);
 		});
-		await panel.page().waitForTimeout(60);
+		await frames(panel.page());
 	}
 	throw new Error(`no row for ${task} in ${check}`);
+}
+
+/** Frames the first visible row has to hold still for `listHoldsStill`. */
+const STILL_FRAMES = 12;
+
+/**
+ * Scrolls the panel's list by `by` px with the finger's kind of scroll (a script on the scroller) and
+ * waits for the list to hold still: the first row about a task fully in view stays where it is for STILL_FRAMES
+ * frames. The app keeps what is shown where it is while rows are measured (lib/health/anchor.ts), on
+ * every engine, so this ends on its own. Returns that row's key and its distance from the scroller's top.
+ */
+export async function scrollList(
+	panel: Locator,
+	by: number,
+): Promise<{ key: string; top: number }> {
+	return panel.evaluate(
+		(root, args) =>
+			new Promise((done) => {
+				const scroller = ((): HTMLElement => {
+					for (let p = root.querySelector<HTMLElement>('[data-group] h3'); p; p = p.parentElement) {
+						if (['auto', 'scroll'].includes(getComputedStyle(p).overflowY)) return p;
+					}
+					return document.scrollingElement as HTMLElement;
+				})();
+				const first = (): { key: string; top: number } => {
+					const at = scroller.getBoundingClientRect().top;
+					for (const li of scroller.querySelectorAll<HTMLElement>(
+						'li[data-testid="finding"]:has(button.task)',
+					)) {
+						const r = li.getBoundingClientRect();
+						if (r.top >= at) return { key: li.dataset['key'] ?? '', top: r.top - at };
+					}
+					return { key: '', top: 0 };
+				};
+				scroller.scrollTop += args.by;
+				let same = 0;
+				let last = first();
+				const look = (): void => {
+					const now = first();
+					same = now.key === last.key && Math.abs(now.top - last.top) < 0.5 ? same + 1 : 0;
+					last = now;
+					if (same >= args.still) done(now);
+					else requestAnimationFrame(look);
+				};
+				requestAnimationFrame(look);
+			}),
+		{ by, still: STILL_FRAMES },
+	);
 }
 
 /** The size each check's list says it has (aria-setsize of its first mounted row), by check. */

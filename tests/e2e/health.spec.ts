@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The health panel (phase-3.md 9.2, 9.7, 10, 12; T18) on `fedora-res`, desktop Chrome and the Pixel 7
-// emulation:
+// The health panel (phase-3.md 9.2, 9.7, 10, 12; T18) on `fedora-res`, desktop Chrome, the Pixel 7
+// emulation and the iPhone 14 (WebKit):
 // - the findings are grouped by check and the counts per check are the health golden's (241 in all,
 //   milestones exempt: 26 without a predecessor, 61 without a successor);
 // - the severity filter; the settings (thresholds, each check, and milestones in H1 and H2), which
@@ -30,9 +30,6 @@ import {
 	storedSettings,
 } from './lib/health-rig';
 
-test.beforeEach(({ browserName: _b }, info) => {
-	test.skip(info.project.name === 'iphone-14', 'desktop and Pixel 7 (T18); iPhone is reported');
-});
 test.setTimeout(READY_TIMEOUT_MS * 2);
 test.use({ actionTimeout: 20_000 });
 
