@@ -87,22 +87,9 @@ test.describe('text mode', () => {
 		await openApp(page);
 		await editor(page).click();
 		await expect(page.locator('.cm-search')).toHaveCount(0);
-		if (browserName === 'webkit') {
-			// Playwright's WebKit does not deliver Cmd+F to the page (checked on the build before the lazy
-			// search too), so the key is dispatched to the editor as the hardware keyboard would send it:
-			// the editor's keymap reads keydown events, and this one goes through it.
-			await editor(page).evaluate((el) =>
-				el.dispatchEvent(
-					new KeyboardEvent('keydown', {
-						key: 'f',
-						code: 'KeyF',
-						metaKey: true,
-						bubbles: true,
-						cancelable: true,
-					}),
-				),
-			);
-		} else await page.keyboard.press('ControlOrMeta+f');
+		// The editor reads Mod as Cmd on iOS (CodeMirror takes the iPhone for a Mac); Playwright's
+		// ControlOrMeta follows the host, Linux here, and would send Ctrl. So the iPhone presses Cmd.
+		await page.keyboard.press(browserName === 'webkit' ? 'Meta+f' : 'ControlOrMeta+f');
 		await expect(page.locator('.cm-search')).toBeVisible();
 		await expect(page.locator('.cm-search input[name="search"]')).toBeFocused();
 		await page.keyboard.press('Escape');

@@ -26,7 +26,7 @@ import {
 } from '@codemirror/view';
 import type { WorkspacePath } from '../../engine/protocol';
 import { strings } from '../strings';
-import { lazySearchKeymap } from './editor-search';
+import { lazySearchKeymap, warmSearchOnModifier } from './editor-search';
 import { historyBindings, historyInput, type HistoryCommands } from './history-keys';
 
 const NO_HISTORY: HistoryCommands = { undo: () => false, redo: () => false };
@@ -47,6 +47,7 @@ export function editorSetup(path: WorkspacePath, history: HistoryCommands = NO_H
 			tabindex: '0',
 		}),
 		keymap.of([...historyBindings(history), ...defaultKeymap, ...foldKeymap, ...lazySearchKeymap]),
+		warmSearchOnModifier,
 		EditorView.domEventHandlers({
 			beforeinput(e) {
 				const command = historyInput(e.inputType);
