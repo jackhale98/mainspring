@@ -39,6 +39,8 @@
 
 	const index = $derived(app.index);
 	const project = $derived((app.run?.lastGood?.result ?? null)?.project ?? null);
+	/** The index has not been read again since the text changed: its items are older than the text. */
+	const lags = $derived(app.run ? app.run.indexVersion !== app.run.version : false);
 	const startEpoch = $derived(project ? Math.round(Date.parse(project.start) / 1000) : 0);
 	const items = $derived(
 		index && project ? scopeItems(index, { kind: 'resource', resource: id }, startEpoch) : [],
@@ -132,6 +134,7 @@
 							<LeaveCard
 								{item}
 								fields={fieldsOf(item)}
+								stale={lags}
 								types={typesOfItem(item)}
 								oncommit={commit}
 								onremove={remove}

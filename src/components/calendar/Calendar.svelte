@@ -120,6 +120,8 @@
 	const result = $derived(app.run?.lastGood?.result ?? null);
 	const project = $derived(result?.project ?? null);
 	const dimmed = $derived(app.run?.outdated ?? false);
+	/** The index has not been read again since the text changed: its items are older than the text. */
+	const lags = $derived(app.run ? app.run.indexVersion !== app.run.version : false);
 	const grid = $derived(buildGrid(project, zones));
 	const facts = $derived(
 		result && app.index ? prepareFacts({ result, index: app.index, scope: cal.scope, grid }) : null,
@@ -554,6 +556,7 @@
 		leaveType={cal.leaveType}
 		ontype={(t) => (cal.leaveType = t)}
 		fieldsOf={(item) => (project ? itemFields(item, project, zones) : null)}
+		stale={lags}
 		oncommit={commitLeave}
 		onremove={removeLeave}
 		onadd={(name) => selected && apply('paint', selected[0], selected[1], name)}
