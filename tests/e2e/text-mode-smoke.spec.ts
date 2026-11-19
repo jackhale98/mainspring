@@ -83,7 +83,12 @@ test.describe('text mode', () => {
 		await expect(strip).toContainText('No problems', { timeout: READY_TIMEOUT_MS });
 	});
 
-	test('Mod-F opens find and replace, which loads on first use', async ({ page }) => {
+	test('Mod-F opens find and replace, which loads on first use', async ({ page, browserName }) => {
+		// Checked on the unchanged build too: Playwright's WebKit does not deliver this shortcut to the editor.
+		test.skip(
+			browserName === 'webkit',
+			'the find shortcut does not reach the page in Playwright WebKit',
+		);
 		await openApp(page);
 		await editor(page).click();
 		await expect(page.locator('.cm-search')).toHaveCount(0);
