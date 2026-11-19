@@ -83,6 +83,17 @@ test.describe('text mode', () => {
 		await expect(strip).toContainText('No problems', { timeout: READY_TIMEOUT_MS });
 	});
 
+	test('Mod-F opens find and replace, which loads on first use', async ({ page }) => {
+		await openApp(page);
+		await editor(page).click();
+		await expect(page.locator('.cm-search')).toHaveCount(0);
+		await page.keyboard.press('ControlOrMeta+f');
+		await expect(page.locator('.cm-search')).toBeVisible();
+		await expect(page.locator('.cm-search input[name="search"]')).toBeFocused();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('.cm-search')).toHaveCount(0);
+	});
+
 	test('selecting an outline item puts the cursor on its declaration', async ({
 		page,
 		hasTouch,

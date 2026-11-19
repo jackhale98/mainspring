@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * The editor setup that `tjp()` leaves to the app (phase-1.md 6.7, 8.2): line numbers, folding,
- * active line, bracket matching, search, the standard keys, line wrapping (so that a phone never
+ * active line, bracket matching, search (loaded on first use, editor-search.ts), the standard keys, line wrapping (so that a phone never
  * scrolls sideways, WCAG 1.4.10) and an accessible name that includes the file.
  *
  * Undo (phase-2.md 6.7, ADR-0008): there is no CodeMirror history. Mod-Z, Mod-Shift-Z and Mod-Y
@@ -15,7 +15,6 @@
  */
 import { defaultKeymap } from '@codemirror/commands';
 import { bracketMatching, foldGutter, foldKeymap } from '@codemirror/language';
-import { searchKeymap } from '@codemirror/search';
 import type { Extension } from '@codemirror/state';
 import {
 	drawSelection,
@@ -27,6 +26,7 @@ import {
 } from '@codemirror/view';
 import type { WorkspacePath } from '../../engine/protocol';
 import { strings } from '../strings';
+import { lazySearchKeymap } from './editor-search';
 import { historyBindings, historyInput, type HistoryCommands } from './history-keys';
 
 const NO_HISTORY: HistoryCommands = { undo: () => false, redo: () => false };
@@ -46,7 +46,7 @@ export function editorSetup(path: WorkspacePath, history: HistoryCommands = NO_H
 			// axe does not count a contenteditable as focusable content of the scroller (WCAG 2.1.1).
 			tabindex: '0',
 		}),
-		keymap.of([...historyBindings(history), ...defaultKeymap, ...foldKeymap, ...searchKeymap]),
+		keymap.of([...historyBindings(history), ...defaultKeymap, ...foldKeymap, ...lazySearchKeymap]),
 		EditorView.domEventHandlers({
 			beforeinput(e) {
 				const command = historyInput(e.inputType);
