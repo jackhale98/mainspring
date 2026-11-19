@@ -82,9 +82,18 @@ test('the app boots, schedules a sample and requests nothing outside the base pa
 	expect(
 		paths.filter((p) => p.startsWith(`${base}engine/`) && p.endsWith('.wasm.gz')),
 	).toHaveLength(1);
+	// One engine bundle; the keyword docs (ADR-0017) come only when the editor opens, from the same
+	// directory (every request was checked to be under the base above).
 	expect(
-		paths.filter((p) => p.startsWith(`${base}engine/`) && p.endsWith('.json.gz')),
+		paths.filter((p) => p.startsWith(`${base}engine/tj-bundle.`) && p.endsWith('.json.gz')),
 	).toHaveLength(1);
+	expect(
+		paths.filter(
+			(p) =>
+				p.endsWith('.json.gz') && !/\/engine\/tj-(bundle|docs)\.[0-9a-f]{12}\.json\.gz$/.test(p),
+		),
+		'no other gzipped JSON',
+	).toEqual([]);
 	expect(paths.some((p) => p.startsWith(`${base}_astro/`) && p.endsWith('.woff2'))).toBe(true);
 
 	// Served as plain files, as Pages does: the app gunzips them itself.

@@ -16,7 +16,6 @@
 		"tests/e2e/gantt-name-id.spec.ts": 3,
 		"tests/e2e/gantt-people-picker.spec.ts": 3,
 		"tests/e2e/gantt-perf.spec.ts": 18,
-		"tests/e2e/gantt-phone-polish.spec.ts": 1,
 		"tests/e2e/gantt-read-only.spec.ts": 2,
 		"tests/e2e/gantt-schedule-fail.spec.ts": 2,
 		"tests/e2e/gantt-screenshots.spec.ts": 10,

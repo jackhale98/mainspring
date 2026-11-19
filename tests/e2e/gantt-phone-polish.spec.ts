@@ -93,14 +93,22 @@ test.describe('phone polish', () => {
 		// Nothing selected: the pill says the whole critical path is before the status date.
 		const pill = gantt.locator('p.task[role="status"]:not(.sr-only)');
 		await expect(pill).toBeVisible();
-		await gantt.evaluate((g) => {
-			const s = g.querySelector('.scroller');
-			if (s) s.scrollTop = s.scrollHeight;
-		});
-		await page.waitForTimeout(400);
-		const last = gantt.locator('[role="row"][data-key]').last();
-		const [row, box] = await Promise.all([last.boundingBox(), pill.boundingBox()]);
-		expect(row && box).toBeTruthy();
-		expect((row?.y ?? 0) + (row?.height ?? 0)).toBeLessThanOrEqual((box?.y ?? 0) + 1);
+		// Scrolled to the end, the last row's bottom is above the pill's top. The rows mount as the
+		// list scrolls (and the scroll height can grow as they do), so it scrolls to the end again and
+		// reads the last mounted row until that holds, instead of reading once after a fixed time.
+		const gap = (): Promise<number | null> =>
+			gantt.evaluate((g) => {
+				const s = g.querySelector<HTMLElement>('.scroller');
+				if (s) s.scrollTop = s.scrollHeight;
+				const rows = g.querySelectorAll('[role="row"][data-key]');
+				const row = rows[rows.length - 1]?.getBoundingClientRect();
+				const pill = g
+					.querySelector('p.task[role="status"]:not(.sr-only)')
+					?.getBoundingClientRect();
+				return row && pill ? pill.top + 1 - row.bottom : null;
+			});
+		await expect
+			.poll(gap, { message: 'the last row ends above the pill', timeout: 10_000 })
+			.toBeGreaterThanOrEqual(0);
 	});
 });
