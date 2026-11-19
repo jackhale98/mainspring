@@ -143,7 +143,7 @@ export interface AppStateOptions {
 	/** The keyword docs loader; default the editor bundle's (`engineDocsLoader`), made by `ensureEditor`. */
 	docs?: EngineDocsLoader;
 	/** The runner's idle timers; set only by the end-to-end hook (`createIndexGate`), never in production. */
-	idle?: Promise<Pick<Timers, 'requestIdle' | 'cancelIdle'>>;
+	idle?: Promise<Pick<Timers, 'requestIdle' | 'cancelIdle'>> | undefined;
 }
 
 /** How long a format message stays in the toolbar. */

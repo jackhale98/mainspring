@@ -14,8 +14,16 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
-import { quietAfter } from './lib/settle';
-import { caughtUp, openCalendar, openDetails, showCalendar, text } from './lib/calendar-rig';
+import { frames } from './lib/settle';
+import {
+	caughtUp,
+	openCalendar,
+	showCalendar,
+	setScope,
+	showDay,
+	tapDay,
+	text,
+} from './lib/calendar-rig';
 import { openResources, row, selectRow } from './lib/resources-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -56,6 +64,16 @@ const shownChildren = (rig: Rig): Promise<string[]> =>
 			rows.map((r) => (r.getAttribute('data-key') ?? '').replace('task:design.', '')),
 		);
 
+/** The top-level rows of the plan's own four tasks, as the screen shows them. */
+const shownTop = (rig: Rig): Promise<string[]> =>
+	rig.page
+		.locator('[role="row"][aria-level="1"]')
+		.evaluateAll((rows) =>
+			rows
+				.map((r) => (r.getAttribute('data-key') ?? '').replace('task:', ''))
+				.filter((k) => ['design', 'spike', 'launch', 'support'].includes(k)),
+		);
+
 /** One step up: Alt+Shift+Up on the focused row, or a finger's row menu. */
 async function stepUp(rig: Rig, key: string): Promise<void> {
 	const r = rig.row(`task:${key}`);
@@ -85,7 +103,8 @@ async function dropBefore(rig: Rig, key: string, target: string): Promise<void> 
 	const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
 	await rig.drag(from, { x: from.x, y: at.y + 3 }, { hold: rig.hold });
 	await rig.detach();
-	await quietAfter(rig.page);
+	// The runner's status stays pending while the index is held: wait for frames, not for "Scheduled".
+	await frames(rig.page, 20);
 }
 
 test.describe('the Gantt on an index that lags', () => {
@@ -154,12 +173,12 @@ test.describe('the Gantt on an index that lags', () => {
 			rig,
 			() => stepUp(rig, 'design.gate'),
 			() => shownChildren(rig),
-			['research', 'sketch', 'gate', 'review', 'docs'],
+			['research', 'sketch', 'review', 'gate', 'docs'],
 		);
 		const afterUndo = await rig.text();
-		// The screen still shows `gate` above `review`; the text has it last again. Drop `docs`
-		// before `sketch` (slot 1 of the shown children).
-		await dropBefore(rig, 'design.docs', 'design.sketch');
+		// The screen still shows `gate` above `docs`; the text has it last again. Drop `research`
+		// before `gate`: the shown neighbours are `review` and `gate`, the text's `docs` and `gate`.
+		await dropBefore(rig, 'design.research', 'design.gate');
 		expect(await rig.text()).toBe(afterUndo);
 	});
 
@@ -171,7 +190,7 @@ test.describe('the Gantt on an index that lags', () => {
 		await undoneWhileShown(
 			rig,
 			() => stepUp(rig, 'launch'),
-			async () => topLevel(await rig.text()),
+			() => shownTop(rig),
 			['design', 'launch', 'spike', 'support'],
 		);
 		expect(await rig.text()).toBe(before);
@@ -198,7 +217,7 @@ test('Alt+Shift+Up in the resource table right after an Undo moves what the text
 	if (isTouch(info)) {
 		await selectRow(page, info, 'rev');
 		await page.getByTestId('resource-menu').tap();
-		await page.getByRole('menuitem', { name: /^Indent/ }).tap();
+		await page.getByRole('menuitem', { name: /^Into the group above/ }).tap();
 	} else {
 		await row(page, 'rev').focus();
 		await page.keyboard.press('Alt+Shift+ArrowRight');
@@ -245,39 +264,76 @@ const LEAVE_PLAN = [
 	'',
 ].join('\n');
 
-/** Runs `typing` in the editor: beside the Calendar on a desktop, on the Text tab of a phone. */
+/**
+ * Runs `typing` in the editor (the Text tab of a phone, the Text mode of a desktop) and comes back
+ * to the Calendar.
+ */
 async function inEditor(
 	page: Page,
 	info: TestInfo,
 	typing: (mod: string) => Promise<void>,
 ): Promise<void> {
-	const phone = isTouch(info);
-	if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
+	if (isTouch(info)) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
+	else await page.getByRole('button', { name: 'Text', exact: true }).click();
 	await page.getByRole('textbox', { name: /^Editor for / }).click();
 	await typing(await modKey(page));
-	if (phone) await showCalendar(page, info);
+	if (!isTouch(info)) await page.getByRole('button', { name: 'Visual', exact: true }).click();
+	await showCalendar(page, info);
+}
+
+/** The details of a day on screen: a click on it (a finger: two taps, the second opens them). */
+async function openDetails(page: Page, info: TestInfo, date: string): Promise<void> {
+	const d = await showDay(page, date);
+	await tapDay(page, info, d);
+	const details = page.getByTestId('cal-details');
+	// A finger's first tap selects; on some devices it already opens the details, and the second would miss.
+	if (
+		isTouch(info) &&
+		!(await details.waitFor({ timeout: 2000 }).then(
+			() => true,
+			() => false,
+		))
+	) {
+		await tapDay(page, info, d);
+	}
+	await expect(details).toBeVisible();
 }
 
 /** The leave plan open in the Calendar, the index current; then the index is held. */
 async function openLeaves(page: Page, info: TestInfo): Promise<void> {
-	await openCalendar(page, info, { mode: 'split' });
+	await openCalendar(page, info);
 	await inEditor(page, info, async (mod) => {
 		await page.keyboard.press(`${mod}+A`);
 		await page.keyboard.insertText(LEAVE_PLAN);
 	});
 	await caughtUp(page);
-	await expect(page.getByTestId('cal-day').first()).toBeVisible();
+	// The Calendar lists Sam's leave on the 14th: the index has caught up with the new plan.
+	await expect(page.getByTestId('cal-scope').locator('option', { hasText: 'Sam' })).toHaveCount(1, {
+		timeout: READY_TIMEOUT_MS,
+	});
+	await setScope(page, 'Sam');
+	await openDetails(page, info, '2026-12-14');
+	await expect(page.getByTestId('cal-leave')).toHaveCount(1, { timeout: READY_TIMEOUT_MS });
 	await holdIndex(page);
 }
 
-/** Types `n` letters into Sam's name: the items move right by exactly one item and its ", ". */
+/** Types `n` letters into Sam's name (`resource sam "Sam"`): the items move right by exactly one item and its ", ". */
 async function renameSam(page: Page, info: TestInfo, n: number): Promise<void> {
-	await inEditor(page, info, async (mod) => {
-		await page.keyboard.press(`${mod}+Home`);
-		// Line 5, `resource sam "Sam" {`: the end of the line, then before the closing quote.
-		for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');
-		await page.keyboard.press('End');
-		for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowLeft');
+	await inEditor(page, info, async () => {
+		// The caret goes before the closing quote of "Sam" (the editor's own state: no key can miss).
+		await page.evaluate(() => {
+			type View = {
+				state: { doc: { toString(): string } };
+				dispatch(t: { selection: { anchor: number } }): void;
+				focus(): void;
+			};
+			const el = document.querySelector('.cm-content') as unknown as {
+				cmTile: { root: { view: View } };
+			};
+			const view = el.cmTile.root.view;
+			view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('"Sam"') + 4 } });
+			view.focus();
+		});
 		await page.keyboard.insertText('n'.repeat(n));
 	});
 }
@@ -320,7 +376,7 @@ test.describe('a leave card on an index that lags', () => {
 		const first = LEAVE_PLAN.replace(ITEM1, 'special 2026-12-14 - 2026-12-16');
 		await expect.poll(() => text(page), { timeout: CHANGE_MS }).toBe(first);
 		await openDetails(page, info, '2026-12-21');
-		await page.getByTestId('cal-leave-remove').first().click();
+		await page.getByTestId('cal-leave-remove').first().click({ timeout: CHANGE_MS });
 		await expect
 			.poll(() => text(page), { timeout: CHANGE_MS })
 			.toBe(first.replace(`, ${ITEM2}`, ''));

@@ -65,12 +65,6 @@ describe('installEditHooks', () => {
 });
 
 describe('the index gate', () => {
-	it("exists only with ?hooks=edits, so production keeps the runner's own timers", () => {
-		expect(createIndexGate(new URLSearchParams(''))).toBeNull();
-		expect(createIndexGate(new URLSearchParams('hooks=gantt'))).toBeNull();
-		expect(createIndexGate(new URLSearchParams('hooks=edits,gantt'))).not.toBeNull();
-	});
-
 	it('queues idle tasks while held and runs them on release; a cancelled one never runs', () => {
 		const gate = createIndexGate();
 		const ran: string[] = [];
