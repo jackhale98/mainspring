@@ -93,7 +93,7 @@ describe('planLeaveEdit', () => {
 			intent: {
 				type: 'updateLeave',
 				// The ref carries the version its range was read in (ADR-0018).
-				leave: { item: item.range, basedOn: item.version },
+				leave: { item: item.range, basedOn: p.index.version },
 				to: { type: 'sick', name: 'Holiday', start: '2026-01-08', end: '2026-01-10' },
 			},
 		});

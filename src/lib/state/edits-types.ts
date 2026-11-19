@@ -81,7 +81,8 @@ export type ActionDispatchOptions = Pick<
 
 /**
  * `unprepared`: the index could not be built (an error in the app, never the text's fault).
- * `planner`: a view planner (`dispatchPlan`) threw (an error in the app, ADR-0018).
+ * `planner`: a view planner (`dispatchPlan`) answered `not-possible` (ADR-0018); the outcome's
+ * `message` is the planner's own sentence. A planner that throws is `unprepared`.
  */
 export type DispatchRefusal = ActionRefusal | 'unprepared' | 'planner';
 

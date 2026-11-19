@@ -77,6 +77,28 @@ describe('basedOn', () => {
 		});
 	});
 
+	it('stamps the version of when the call was made, though the call runs later (defer, coalesce)', async () => {
+		h = harness(SHARED);
+		await h.finish();
+		const shown = h.runner.state.indexVersion;
+		// A deferred call runs after a paint, a coalesced one after its 300 ms of quiet: the text and
+		// the index move on meanwhile, and the stamp must still be the version the view read.
+		const deferred = h.edits.dispatch(effort, { ...label, defer: true });
+		const held = h.edits.dispatch(effort, { ...label, coalesceKey: 'k' });
+		h.type('# note\n');
+		// The runner's idle tasks publish the index of the typed text.
+		for (let i = 0; i < 10 && h.runner.state.indexVersion === shown; i++) {
+			vi.advanceTimersByTime(20);
+			h.idle.run();
+			await Promise.resolve();
+		}
+		expect(h.runner.state.indexVersion).toBeGreaterThan(shown);
+		vi.advanceTimersByTime(400);
+		expect(await deferred).toMatchObject({ status: 'confirm-shared', basedOn: shown });
+		expect(await held).toMatchObject({ status: 'confirm-shared', basedOn: shown });
+	});
+
+	// T27b replaces this test with the planner's own (it implements dispatchPlan).
 	it('declares dispatchPlan, which T27b implements', () => {
 		h = harness(SHARED);
 		expect(() => h.edits.dispatchPlan(() => ({ status: 'unchanged' }))).toThrow(/T27b/);

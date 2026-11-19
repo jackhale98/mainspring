@@ -23,9 +23,12 @@
  *   opts?, preview?)`. `plan` is a pure `ViewPlanner` that reads only the `PlanBase` it is given
  *   (the text now and its index) and the plain data it was made from. The dispatcher calls it on
  *   the fresh index on every plan of the call, and on the gesture's base for a later call of a
- *   coalesced gesture; its `intent` then goes through the edit API as `dispatch` does. `unchanged`
- *   answers `noop` (with its message, if any), `not-possible` is refused with its message and
- *   place, and a planner that throws is refused as `planner`.
+ *   coalesced gesture; its `intent` then goes through the edit API as `dispatch` does. The other
+ *   answers map to outcomes as follows (so that no view guesses): `unchanged` is `noop` with
+ *   reason `already-set` and the planner's message (the usual noop copy when it gives none);
+ *   `not-possible` is `refused` with reason `planner`, the planner's own `message` (its view's
+ *   sentence, e.g. a gone anchor) and its `at`; a planner that throws is `refused` as `unprepared`
+ *   (an error in the app, with that reason's copy).
  * - **Targets carry their version** (ADR-0018): `basedOn` is the index version the view read its
  *   targets in; it defaults to the published `indexVersion` when `dispatch*` is called (the stamp,
  *   enough for id intents). A drop passes `outline.version`, a `LeaveRef` its `PaintItem.version`,

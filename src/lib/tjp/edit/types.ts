@@ -3,8 +3,8 @@
  * Types of the edit API (phase-1.md 6.5). Additions to the spec's interface, for T11 and Phase 2:
  *
  * - `LeaveRef` names a leave by its item range (`LeaveSite.items`), which the spec leaves open,
- *   and the workspace version that range was read in (ADR-0018; `target-changed` when it is not
- *   the index's version).
+ *   and the workspace version that range was read in (ADR-0018; from T27b, `target-changed` when
+ *   it is not the index's version).
  * - RefusalReason gains `stale` (the index was not built from this snapshot) and
  *   `shared-declaration` (the target lies in a file TaskJuggler reads in several include visits,
  *   so one text change edits several engine ids; 15.8, 15.15). The refusal lists those ids in
@@ -158,7 +158,7 @@ export type RefusalReason =
 	| 'stale'
 	| 'shared-declaration'
 	/**
-	 * ADR-0018: the target was read in an older version and the text now no longer holds the same
+	 * ADR-0018, from T27b: the target was read in an older version and the text now no longer holds the same
 	 * logical target (a touched range, another declaration under the id, a changed child list).
 	 * Unlike `stale`, planning again does not help.
 	 */
