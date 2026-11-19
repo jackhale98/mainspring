@@ -33,7 +33,7 @@
 <script lang="ts">
 	import { onDestroy, untrack, type Component } from 'svelte';
 	import { AppState } from '../lib/state/app.svelte';
-	import { installHookLazily } from '../lib/state/hook-params';
+	import { hookAsked, installHookLazily } from '../lib/state/hook-params';
 	import { LayoutState } from '../lib/state/layout.svelte';
 	import { ModeState } from '../lib/state/mode.svelte';
 	import { PeopleViewState } from '../lib/state/people-view.svelte';
@@ -63,7 +63,13 @@
 	import type { SourceRange } from '../lib/tjp/index';
 
 	const params = new URLSearchParams(location.search);
-	const app = new AppState({ initial: params.get('sample') });
+	// End-to-end tests only: with ?hooks=edits the hook's module is fetched at once, and the runner
+	// is built on its idle timers, which the hook can hold (edit-hooks.ts). Otherwise nothing loads.
+	const editHooks = hookAsked(params, 'edits') ? import('../lib/state/edit-hooks') : null;
+	const app = new AppState({
+		initial: params.get('sample'),
+		idle: editHooks?.then((m) => m.indexGate.timers),
+	});
 	const theme = new ThemeState();
 	const linked = modeFromParam(params.get('mode'));
 	const modes = new ModeState({ linked });
@@ -76,7 +82,7 @@
 	updates.start();
 	// End-to-end tests only, with ?hooks=edits: the hook's module is fetched only then (edit-hooks.ts).
 	const offHooks = installHookLazily(params, 'edits', () =>
-		import('../lib/state/edit-hooks').then((m) => m.installEditHooks(app, params)),
+		editHooks!.then((m) => m.installEditHooks(app, params, undefined, m.indexGate)),
 	);
 	onDestroy(() => {
 		updates.stop();
