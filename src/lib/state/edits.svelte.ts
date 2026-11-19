@@ -19,6 +19,18 @@
  * - **Check an action** with `check(action, source)`: a dry run for gestures; null: no answer yet.
  * - **Dispatch an edit intent** (the inspector's fields): `dispatch(intent, { label }, preview?)`;
  *   pass `constraint: true` when it adds a `start` or `end` the task did not have.
+ * - **Dispatch a relative command** (ADR-0018 decision 3; T27b, no caller yet): `dispatchPlan(plan,
+ *   opts?, preview?)`. `plan` is a pure `ViewPlanner` that reads only the `PlanBase` it is given
+ *   (the text now and its index) and the plain data it was made from. The dispatcher calls it on
+ *   the fresh index on every plan of the call, and on the gesture's base for a later call of a
+ *   coalesced gesture; its `intent` then goes through the edit API as `dispatch` does. `unchanged`
+ *   answers `noop` (with its message, if any), `not-possible` is refused with its message and
+ *   place, and a planner that throws is refused as `planner`.
+ * - **Targets carry their version** (ADR-0018): `basedOn` is the index version the view read its
+ *   targets in; it defaults to the published `indexVersion` when `dispatch*` is called (the stamp,
+ *   enough for id intents). A drop passes `outline.version`, a `LeaveRef` its `PaintItem.version`,
+ *   and a call made again after `confirm-shared` or `ask-move-preference` that outcome's
+ *   `basedOn`. From T27b, a target the text now no longer holds is refused as `target-changed`.
  * - `preview` is the dragged item's geometry (`PendingMark`). It shows at once in `pending.byTask`
  *   (state `preview`), becomes `pending` once applied, and is dropped when the result that
  *   includes the edit schedules, so the bar animates to the engine's dates. When that result does
@@ -111,6 +123,7 @@ import type {
 	Job,
 	PendingEdits,
 	PendingMark,
+	ViewPlanner,
 } from './edits-types';
 import { Ledger } from './ledger.svelte';
 import { Toasts, type Toast } from './toasts.svelte';
@@ -191,7 +204,14 @@ export class EditDispatcher {
 		o: DispatchOptions,
 		preview?: PendingMark,
 	): Promise<DispatchOutcome> {
-		return this.#enqueue({ seq: ++this.#seq, preview, kind: 'intent', intent, o });
+		return this.#enqueue({
+			seq: ++this.#seq,
+			basedOn: this.#stamp(o),
+			preview,
+			kind: 'intent',
+			intent,
+			o,
+		});
 	}
 
 	dispatchAction(
@@ -200,7 +220,20 @@ export class EditDispatcher {
 		o: ActionDispatchOptions = {},
 		preview?: PendingMark,
 	): Promise<DispatchOutcome> {
-		return this.#enqueue({ seq: ++this.#seq, preview, kind: 'action', action, source, o });
+		const basedOn = this.#stamp(o);
+		return this.#enqueue({ seq: ++this.#seq, basedOn, preview, kind: 'action', action, source, o });
+	}
+
+	/**
+	 * A relative command planned on the text now by `plan` (the contract; ADR-0018 decision 3).
+	 * Interface only (T27a): it throws until T27b implements it, and no view calls it yet.
+	 */
+	dispatchPlan(
+		_plan: ViewPlanner,
+		_o?: Omit<DispatchOptions, 'label'>,
+		_preview?: PendingMark,
+	): Promise<DispatchOutcome> {
+		throw new Error('dispatchPlan: not implemented (T27b)');
 	}
 
 	/** A dry run on the current text (no edit, toast or history), for gestures; null: not ready. */
@@ -271,6 +304,11 @@ export class EditDispatcher {
 		for (const h of this.#co.clear()) h.resolve(CANCELLED);
 		this.#ledger.dispose();
 		this.#toasts.clear();
+	}
+
+	/** The call's `basedOn`: the view's, else the published index version (ADR-0018). */
+	#stamp(o: { readonly basedOn?: number }): number {
+		return o.basedOn ?? this.#state?.indexVersion ?? this.#d.workspace.snapshot().version;
 	}
 
 	#enqueue(job: Job): Promise<DispatchOutcome> {

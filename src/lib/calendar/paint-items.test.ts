@@ -22,6 +22,15 @@ describe('scope items', () => {
 		]);
 	});
 
+	it('carries the version of the index each range is in (ADR-0018)', () => {
+		const items = [
+			...scopeItems(p.index, { kind: 'global' }, EPOCH),
+			...inheritedItems(p.index, 'p2', EPOCH),
+		];
+		expect(items.length).toBeGreaterThan(0);
+		for (const i of items) expect(i.version).toBe(p.index.version);
+	});
+
 	it("reads a person's own items, and what they inherit", () => {
 		expect(brief(scopeItems(p.index, { kind: 'resource', resource: 'p2' }, EPOCH))).toEqual([
 			['annual', 'Holiday', 3, 5],

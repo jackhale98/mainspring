@@ -268,10 +268,13 @@ export function fedoraCases(): TimingCase[] {
 		}),
 		R('updateLeave', {
 			type: 'updateLeave',
-			leave: { item: devLeave },
+			leave: { item: devLeave, basedOn: res.index.version },
 			to: { type: 'annual', start: '2013-08-12', end: '2013-08-16' },
 		}),
-		R('removeLeave', { type: 'removeLeave', leave: { item: globalLeave } }),
+		R('removeLeave', {
+			type: 'removeLeave',
+			leave: { item: globalLeave, basedOn: res.index.version },
+		}),
 		// Phase 3 (T8): a split of dev's leave, and a gap turned into a waiting task.
 		RZ('clearLeave', {
 			type: 'clearLeave',

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { applyIntent } from './apply';
 import { addLeave, removeLeave, updateLeave } from './settings';
 import { setup, span, textsAfter } from './testing';
-import type { EditIntent, EditResult, IntentOf } from './types';
+import type { EditIntent, EditResult, IntentOf, LeaveRef } from './types';
 
 const PLAN = `project p "P" 2026-01-05 - 2026-03-27 {
   now 2026-02-02
@@ -34,9 +34,10 @@ function run(intent: EditIntent, text = PLAN) {
 
 const status = (r: EditResult): string =>
 	r.status === 'edit' ? 'edit' : `${r.status}:${r.reason}`;
-const ref = (text: string, needle: string) => ({
-	item: { file: 'plan.tjp', ...span(setup(text).file(), needle) },
-});
+const ref = (text: string, needle: string): LeaveRef => {
+	const s = setup(text);
+	return { item: { file: 'plan.tjp', ...span(s.file(), needle) }, basedOn: s.index.version };
+};
 
 describe('addLeave', () => {
 	it('appends to the last list of the scope', () => {
@@ -139,7 +140,10 @@ describe('updateLeave and removeLeave', () => {
 		).toContain('}\n\nvacation "Closure"');
 		const s = setup(PLAN);
 		expect(
-			removeLeave(s.snap, s.index, { item: { file: 'plan.tjp', from: 0, to: 3 } }),
+			removeLeave(s.snap, s.index, {
+				item: { file: 'plan.tjp', from: 0, to: 3 },
+				basedOn: s.index.version,
+			}),
 		).toMatchObject({
 			reason: 'unknown-target',
 		});

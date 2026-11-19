@@ -4,6 +4,7 @@ import type { TjpDiagnostic } from '../tjp/diagnostics';
 import { buildIndex } from '../tjp/index';
 import { inline } from '../tjp/index/testing';
 import {
+	EMPTY_OUTLINE,
 	WINDOW_THRESHOLD,
 	buildOutline,
 	errorCounts,
@@ -31,12 +32,26 @@ function outlineOf(files: Record<string, string>, entry = 'plan.tjp') {
 	const index = buildIndex(snap);
 	const textOf = (r: { file: string; from: number; to: number }) =>
 		snap.files.get(r.file)?.text.sliceString(r.from, r.to) ?? null;
-	return { ws, snap, outline: buildOutline(index, textOf) };
+	return { ws, snap, index, outline: buildOutline(index, textOf) };
 }
 
 const label = (n: OutlineNode) => `${' '.repeat(n.level - 1)}${n.localId}`;
 
 describe('buildOutline', () => {
+	it('carries the version of the index it was built from (ADR-0018)', () => {
+		const { ws, index, outline } = outlineOf({ 'plan.tjp': PLAN });
+		expect(outline.version).toBe(index.version);
+		ws.commit(
+			'plan.tjp',
+			ws.state('plan.tjp').update({ changes: { from: 0, insert: '\n' } }),
+			'typing',
+		);
+		const next = buildIndex(ws.snapshot());
+		expect(next.version).toBeGreaterThan(index.version);
+		expect(buildOutline(next).version).toBe(next.version);
+		expect(EMPTY_OUTLINE.version).toBe(-1);
+	});
+
 	it('lists tasks and resources as trees in declaration order', () => {
 		const { outline } = outlineOf({ 'plan.tjp': PLAN });
 		expect(outline.tasks.map(label)).toEqual(['app', ' ui', ' api', 'docs']);

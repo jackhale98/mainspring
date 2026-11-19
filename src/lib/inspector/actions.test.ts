@@ -12,7 +12,7 @@ const edit: Edit = {
 	constraint: true,
 };
 const noop: DispatchOutcome = { status: 'noop', reason: 'already-set', message: 'x' };
-const shared: DispatchOutcome = { status: 'confirm-shared', affects: ['a', 'b'] };
+const shared: DispatchOutcome = { status: 'confirm-shared', affects: ['a', 'b'], basedOn: 1 };
 
 function env(first: DispatchOutcome, confirm = () => true) {
 	const dispatch = vi.fn().mockResolvedValueOnce(first).mockResolvedValue(noop);

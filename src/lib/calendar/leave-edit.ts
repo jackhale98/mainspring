@@ -167,7 +167,7 @@ export function planLeaveEdit(item: PaintItem, f: LeaveFields, ctx: EditContext)
 	};
 	return {
 		status: 'intent',
-		intent: { type: 'updateLeave', leave: { item: item.range }, to },
+		intent: { type: 'updateLeave', leave: { item: item.range, basedOn: item.version }, to },
 		label: {
 			text: C.label.change(
 				L.type[f.type],
@@ -190,7 +190,7 @@ export function planLeaveRemove(
 	);
 	return {
 		status: 'intent',
-		intent: { type: 'removeLeave', leave: { item: item.range } },
+		intent: { type: 'removeLeave', leave: { item: item.range, basedOn: item.version } },
 		label: {
 			text: C.label.removed(L.type[item.type], whoOf(item, ctx.index), days),
 			approx: false,

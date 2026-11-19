@@ -196,11 +196,14 @@ export function settingArb(c: LinkCorpus, type: SettingType): fc.Arbitrary<EditI
 		case 'updateLeave':
 			return fc.record({ item, to: leaveArb(c) }).map(({ item: i, to }) => ({
 				type,
-				leave: { item: i ?? { file: '', from: 0, to: 0 } },
+				leave: { item: i ?? { file: '', from: 0, to: 0 }, basedOn: c.index.version },
 				to,
 			}));
 		case 'removeLeave':
-			return item.map((i) => ({ type, leave: { item: i ?? { file: '', from: 0, to: 0 } } }));
+			return item.map((i) => ({
+				type,
+				leave: { item: i ?? { file: '', from: 0, to: 0 }, basedOn: c.index.version },
+			}));
 	}
 }
 

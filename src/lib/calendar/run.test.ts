@@ -126,10 +126,14 @@ describe('runStroke', () => {
 describe('runIntent', () => {
 	const intent: EditIntent = {
 		type: 'removeLeave',
-		leave: { item: { file: 'a.tji', from: 1, to: 2 } },
+		leave: { item: { file: 'a.tji', from: 1, to: 2 }, basedOn: 1 },
 	};
 	const label = { text: 'x', approx: false };
-	const shared = { status: 'confirm-shared', affects: ['a.tjp', 'b.tjp'] } as DispatchOutcome;
+	const shared = {
+		status: 'confirm-shared',
+		affects: ['a.tjp', 'b.tjp'],
+		basedOn: 1,
+	} as DispatchOutcome;
 
 	it('asks once for a shared declaration, then sends it again confirmed', async () => {
 		const e = edits([shared, applied]);
