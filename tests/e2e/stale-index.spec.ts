@@ -11,7 +11,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
-import { frames } from './lib/settle';
+import { frames, resultAfter, resultRevision } from './lib/settle';
 import {
 	caughtUp,
 	openCalendar,
@@ -290,10 +290,14 @@ async function openDetails(page: Page, info: TestInfo, date: string): Promise<vo
 /** The leave plan open in the Calendar, the index current; then the index is held. */
 async function openLeaves(page: Page, info: TestInfo): Promise<void> {
 	await openCalendar(page, info);
+	const rev = await resultRevision(page);
 	await inEditor(page, info, async (mod) => {
 		await page.keyboard.press(`${mod}+A`);
 		await page.keyboard.insertText(LEAVE_PLAN);
 	});
+	// "Scheduled" still shows the sample's result until the pasted plan's schedule starts, and the
+	// Calendar moves to the new plan's months when that result arrives: wait for it first.
+	await resultAfter(page, rev);
 	await caughtUp(page);
 	// The Calendar lists Sam's leave on the 14th: the index has caught up with the new plan.
 	await expect(page.getByTestId('cal-scope').locator('option', { hasText: 'Sam' })).toHaveCount(1, {
