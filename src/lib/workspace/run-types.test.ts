@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaultTimers, IDLE_TIMEOUT_MS } from './run-types';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import type { EngineError } from '../../engine/protocol';
+import type { TjpDiagnostic } from '../tjp/diagnostics-types';
+import {
+	defaultTimers,
+	IDLE_TIMEOUT_MS,
+	type RunRecord,
+	type ScheduleCheck,
+	type ScheduleChecker,
+} from './run-types';
+import type { WorkspaceSnapshot } from './workspace';
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -98,5 +107,20 @@ describe('defaultTimers', () => {
 		vi.advanceTimersByTime(10);
 		expect(n).toBe(101);
 		expect(t.now()).toBeGreaterThanOrEqual(0);
+	});
+});
+
+describe('the schedule check of a commit (phase-4.md 6.5)', () => {
+	it('fixes `checked`, which T7 adds to the runner (`npm run typecheck` enforces it)', () => {
+		expectTypeOf<ScheduleChecker['checked']>().toEqualTypeOf<
+			(version: number, signal?: AbortSignal) => Promise<ScheduleCheck | null>
+		>();
+		expectTypeOf<ScheduleCheck['snapshot']>().toEqualTypeOf<WorkspaceSnapshot>();
+		expectTypeOf<ScheduleCheck['errors']>().toEqualTypeOf<readonly TjpDiagnostic[]>();
+		expectTypeOf<ScheduleCheck['record']>().toEqualTypeOf<RunRecord | null>();
+		expectTypeOf<ScheduleCheck['failure']>().toEqualTypeOf<EngineError | null>();
+		expectTypeOf<keyof ScheduleCheck>().toEqualTypeOf<
+			'version' | 'snapshot' | 'ok' | 'errors' | 'record' | 'failure'
+		>();
 	});
 });
