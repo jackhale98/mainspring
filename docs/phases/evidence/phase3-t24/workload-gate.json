@@ -1,0 +1,30 @@
+{
+  "desktop": {
+    "plan": "fedora-res",
+    "zoom": "week",
+    "rows": 28,
+    "weeks": 88,
+    "cellsCompared": 2464,
+    "differences": 0,
+    "goldenParityDiffs": 0,
+    "goldenParityIgnored": [
+      "/project/now"
+    ],
+    "liveNow": "2026-11-23T18:00:00Z",
+    "workerMemoryBytes": 112852992
+  },
+  "pixel-7": {
+    "plan": "fedora-res",
+    "zoom": "week",
+    "rows": 28,
+    "weeks": 88,
+    "cellsCompared": 2464,
+    "differences": 0,
+    "goldenParityDiffs": 0,
+    "goldenParityIgnored": [
+      "/project/now"
+    ],
+    "liveNow": "2026-11-23T18:00:00Z",
+    "workerMemoryBytes": 108199936
+  }
+}

@@ -7,7 +7,8 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main | `10a7a6d1` (branch run 45229658035, 2026-11-23; main fast-forwarded): the interface specs that do not need scale run on small plans. T22 (`204b16a5`) is pushed and its run is pending |
+| Last green commit on main | `55695168` (branch run 45237757981, 2026-11-23, 19 min 20 s; main fast-forwarded): T22's audit, T23's CI changes and the paint property fix, on top of the small plans |
+| Gate | Evidence recorded (T24, section "Gate evidence" below), 2026-11-23. Waiting for the user's approval |
 | Timing trend | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression. 2. `6d43799c` (nightly 44728784645, `timing-nightly-9`): 14 passed, judge step green. 3. `1b3c00d7` (nightly 44896823472, `timing-nightly-10`): 14 passed, judge step green. 4. `1b3c00d7` (nightly 45016747623, `timing-nightly-11`): 14 passed, judge step green |
 | iPhone 14 skips left | None outside the allowlist (2026-11-19): B4 is done (health, health fixes, why-here and the health screenshots run on the iPhone 14 once the windowed Health list held still on WebKit, `anchor.ts`), so `PENDING_BATCHES` in `scripts/ci/webkit-skips.mjs` is empty and the scan fails on any iPhone skip outside the allowlist in every spec. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`; T22's Health panel test runs on the iPhone and records only the time to open there, so it took no entry) |
 | CI wall time | 14.3 to 19.0 min over the five manual runs on `1b3c00d7` (16.3, 16.3, 14.3, 17.2, 19.0; runs 44807594259, 44828061086, 44983027206, 45043700692, 45054048787). About 215 job-minutes over 38 jobs against at most 20 concurrent runners; the iPhone project is about 120 of them, so the 12 min target (ADR-0016 section 4) needs fewer iPhone worker-minutes, not more shards. Durations re-measured 2026-11-19 (longest planned shard about 7 min). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`. After the small plans: 16 min 19 s on `10a7a6d1` (run 45229658035, 208 job-minutes). The 12 min target is waived by the user (2026-11-23; done-when item 4) |
@@ -28,6 +29,170 @@ How the CI wall time is read: open the run of the `CI` workflow on the branch co
 fast-forwarded to (a push to `main` runs only the timing tier, ADR-0016 section 5); the wall time
 is the time from start to the end of the slowest job (the run's "Total duration"). The timing job is
 `continue-on-error` and is not part of the merge wall time.
+
+## Gate evidence (T24, 2026-11-23)
+
+The gate commit is `55695168`. Gate run: [CI run 45237757981](https://github.com/jackhale98/mainspring/actions/runs/45237757981),
+green, 18:22:52 to 18:42:12 UTC (19 min 20 s), every job passed. "Gate run" below means this run.
+Sections lower in this file hold the detail: [T21](#t21-end-to-end-specs-the-gate-spec-and-pictures-2026-11-19)
+(specs and pictures), [T22](#t22-performance-and-accessibility-audit-2026-11-23) (perf and a11y),
+[T23](#t23-ci-changes-133) (CI), [CI time](#ci-time-small-plans-adr-0016-change-4-small-plans-first-user-2026-11-23)
+and [Done when](#done-when-adr-0016-recorded-as-each-item-is-met).
+
+### Criterion 1 (16.1): the heatmap's hours per person per week match the engine's load data
+
+| Evidence | Result | Source |
+| --- | --- | --- |
+| `workload-gate.spec.ts`, `fedora-res`, week zoom, every group expanded, desktop | 28 rows x 88 weeks = **2464 cells compared, 0 differences** | gate run, job "End-to-end and accessibility (desktop 3/5)", log line `workload gate (desktop)` |
+| The same on Pixel 7 | 2464 cells, **0 differences** | gate run, job "pixel-7 6/6" |
+| The same on iPhone 14 (not required by 16.1) | 2464 cells, 0 differences | gate run, job "iphone-14 1/18" |
+| Live result equals the committed golden (parity), ignoring only the wall clock `/project/now` (user decision, T21) | 0 differences on desktop and Pixel 7 | the spec asserts it in CI; the counts are in `docs/phases/evidence/phase3-t24/workload-gate.json` (local run of the spec on `55695168`, desktop and Pixel 7, load 1 to 2, 4 of 4 passed). CI does not upload `workload-gate.json` |
+| Golden parity job | 72 of 72 plans match their goldens (`fedora-res` included, fresh and shuffled) | gate run, artifact `golden-report` |
+| Engine's load data checked natively (T6 cross-check, 5.3) | tj3's own weekly resource report agrees with the golden's bookings, working time and leaves for every golden with resources. `golden:record` stops on any disagreement (`engine/golden/record-native.mjs`, `crossCheck` throws), and all 72 goldens were recorded through it. Last counts written down: 31 goldens with resources, 268 resource rows, 174,340 values (commit `399ab463`). The 31 goldens added in `bee485d9` (`fedora-res`, the workload and health fixtures) passed the same check when recorded, but that commit gives no counts | commits `dd8ff7b1`, `043fe035`, `399ab463`, `bee485d9` |
+| The Fedora plan itself (`upstream-fedora-20`) | It declares no resources; the Workload view says "No people in this plan yet". Zero cells, zero differences: stated, not counted as evidence | `workload-gate.spec.ts` test "upstream-fedora-20: no resources", passed in the gate run and locally; picture `t13-no-people-*` |
+| Unit oracle over all goldens at day, week and month (`src/lib/workload/load.golden.test.ts`) | 62 goldens with resources, 290 people, 21 groups; 1394 weeks, 9561 days, 344 months; 172,558 cells per series; all 63 tests pass. `fedora-res`: 24 people + 4 groups x 88 weeks = 2464 week cells | gate run, job "Format, typecheck and unit tests", stdout of `load.golden.test.ts` |
+
+Pictures of the `fedora-res` heatmap (all exist): desktop `t14-heatmap-week-desktop-light.png`,
+`t14-heatmap-week-desktop-dark.png`; phone `t14-heatmap-week-pixel-7-light.png`,
+`t14-heatmap-week-pixel-7-dark.png`, `t14-heatmap-week-iphone-14-light.png`,
+`t14-heatmap-week-iphone-14-dark.png`, `t14-heatmap-week-360-light.png`; tablet
+`t21-heatmap-tablet-820-light.png`, `t21-heatmap-tablet-820-dark.png` (all in
+`docs/phases/screenshots/phase-3/`).
+
+### Criterion 2 (16.2): every health check has a passing and a failing fixture
+
+Fixtures: `tests/fixtures/health/<check>/{pass,fail}/`, all 18 in the golden manifest (kind `health`,
+recorded natively). Counts are the findings of `checkPlan` over each committed golden with every check
+on (local run of `src/lib/health/health.golden.test.ts` and a count of `goldenReport` on `55695168`;
+the same test passed in the gate run's unit job).
+
+| Check | Fail fixture: findings | Pass fixture: findings |
+| --- | --- | --- |
+| H1 no-predecessor | 1 (`no-predecessor`, task `build`) | 0 |
+| H2 no-successor | 1 (`no-successor`, `test`) | 0 |
+| H3 hard-constraint | 1 (`hard-constraint`, `build`) | 0 |
+| H4 constraint-warning | 1 (`constraint-warning`, message 0) | 0 |
+| H5 long-gap | 1 (`long-gap`, link `build` to `test`) | 0 |
+| H6 long-task | 1 (`long-task`, `build`) | 0 |
+| H7 held-by-people | 1 (`held-by-people`, `side`) | 0 |
+| H8 work-without-people | 1 (`work-without-people`, `side`) | 0 |
+| H9 resource-warning | 1 (`resource-warning`, message 0) | 0 |
+
+Each fail fixture has exactly its own finding, with the facts its header names; each pass fixture has
+none at all. `health-fixtures.spec.ts` opens the H1 and H7 pairs in the app and the panel lists exactly
+the unit oracle's findings, on desktop, Pixel 7 and iPhone 14 (gate run). On `fedora-res` the panel holds
+241 findings: no-predecessor 26, no-successor 61, hard-constraint 7, long-gap 39, long-task 10,
+work-without-people 77, resource-warning 21.
+
+**Missing:** 16.2 asks for pictures of the health panel on each failing fixture (desktop) and on two of
+them (phone). No spec produces them; the health pictures are of `fedora-res` (`t18-health-panel-*`,
+six files) and of small plans (`t18-*`). They are not in this evidence.
+
+### Phase deliverables (16.3)
+
+| Plan bullet | Demonstration |
+| --- | --- |
+| "Resources view, workload heatmap with thresholds, drag to rebalance, calendar with leave painting, resource table and groups." | Specs: `workload.spec.ts`, `workload-edits.spec.ts` (thresholds), `rebalance.spec.ts` and `lanes.spec.ts` (exact patch, Undo bytes, Redo per W row), `calendar.spec.ts`, `resources.spec.ts`, all green in the gate run. Pictures: `t14-thresholds-desktop-*`, `t15-lanes-fedora-res-*`, `t21-rebalance-moved-*`, `t21-rebalance-question-*`, `t21-rebalance-refused-*`, `t16-month-everyone-*`, `t16-paint-drag-*`, `t17-table-*`, `t17-add-person-*` (desktop, Pixel 7, iPhone 14, light and dark where named) |
+| "Plan health panel with the checks from the best-practices section and "why is this here?" explanations." | Criterion 2 above; explain unit fixtures (`src/lib/schedule/explain.golden.test.ts`, `explain.test.ts`, `explain.engine.test.ts`); `health.spec.ts`, `health-fixes.spec.ts`, `why-here.spec.ts`. Pictures: `t18-health-panel-*`, `t18-why-here-*`, `t18-why-here-unsure-*`, `t18-cell-why-*`, `t18-show-in-gantt-*` |
+
+### What the gate also records
+
+**Authoring track (ADR-0013), phone pictures** (Pixel 7, light and dark): `add-task-toolbar-idle-*`,
+`add-task-toolbar-menu-*`, `add-task-plan-tab-idle-*`, `add-task-plan-tab-menu-*`,
+`add-task-details-*`, `add-task-toolbar-phone-360-light.png`; New plan on Pixel 7 and iPhone 14:
+`new-plan-chooser-*`, `new-plan-sheet-*`, `new-plan-empty-state-*`, `new-plan-empty-plan-tab-*`,
+`new-plan-sheet-phone-360-light.png`. Specs: `gantt-add-task.spec.ts`, `new-plan.spec.ts`,
+`authoring.spec.ts`.
+
+**Schema v3 `serializeMs`** (native `golden:record`, in Ruby, minimum of two runs;
+`engine/golden/native-timings.json` before schema v3, at `1cc5cd0b^`, and now). One recording each, on
+a shared machine on different days, so totals move with machine noise; the serializer's own share is
+the comparable figure.
+
+| Golden | Tasks | serializeMs v2 | serializeMs v3 | total ms v2 | total ms v3 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `syn-20-scale-1000` | 1225 | 153.3 | 155.6 | 1682.3 | 1980.4 |
+| `gantt-500` | 500 | 76.2 | 70.8 | 788.4 | 963.4 |
+| `gantt-200` | 200 | 41.8 | 35.3 | 452.4 | 549.0 |
+| `upstream-fedora-20` | 414 | 13.2 | 32.5 | 545.3 | 686.2 |
+| `fedora-res` (new) | 414 | | 89.6 | | 1666.7 |
+| `syn-23-unused-resources` (new) | 3 | | 45.3 | | 296.8 |
+| `upstream-tutorial` | 15 | 3.9 | 4.4 | 154.0 | 175.3 |
+
+Against 5.3's targets: the serializer adds 1.5% on `scale-1000` and is 7% faster on `gantt-500`, so its
+share of the total stays well under 10%. On Fedora it adds 19.3 ms, about 3.5% of the total: "about
+none" is not quite met. The T6 review's unused-resource case went from 3,814 to 38 ms of serializeMs in
+the browser engine (commit `0f281f93`). Browser-engine serializeMs per golden at the gate commit was not
+recorded.
+
+**Derived-work timings (8.3)**: T22's table D1 to D7 ([T22](#t22-performance-and-accessibility-audit-2026-11-23);
+`docs/phases/phase-3-perf-a11y.md`). In short, unthrottled desktop Chromium at load 3 to 4: load model
+7.6 ms cold, 0.9 warm; demand 3.2; health check 15.9 cold against 15 (marginal); Gantt analysis 5.0.
+At 4x CPU every derived task is under 50 ms except one runner task of 61.1 ms on `scale-1000`.
+
+**`workload-perf`, desktop and Pixel 7 emulation, with the waiver (8.5)**: T22's W1 to W10. Desktop
+heatmap scroll and pan 100% on time, at most 0.5% dropped (load 4; they fail at load 15 to 35); drag
+script p95 0.3 ms; Pixel 7 DOM 333 nodes (cap 800, enforced); Pixel 7 swipe at 4x 97.1% on time
+(target 90%). These are emulation on a shared sandbox: no real device was measured, under the T26
+waiver of 2026-11-13 (real devices in Phase 6). In CI the desktop caps run in the timing tier, which is
+not blocking (ADR-0016).
+
+**JS sizes** (gate run, artifact `js-sizes`, gzip bytes):
+
+| Measure | Size | Cap |
+| --- | ---: | ---: |
+| Visual-first first load | 329,562 | 330,000 (438 left) |
+| Text-first first load | 436,653 | 440,000 |
+| Whole `dist` | 608,183 | 650,000 |
+| People views, all lazy chunks together | 90,624 | 100,000 |
+| `heat-shared` (the heatmap and lanes' shared chunk) | 19,234 | 21,000 |
+| Editor chunk | 103,330 | 118,000 |
+
+Every other chunk cap passes too (`people`, `workload`, `heat`, `lanes`, `calendar`, `resources`,
+`person`, `health`, `health-checks`). The first load of either kind loads no People chunk.
+
+**Golden state**: provisional. All 72 goldens are schema v3, recorded natively on Ruby 3.3.6 (`native.ruby`
+in each file of `engine/golden/expected`; `native-timings.json`), until the user records once on Ruby
+3.4 (ADR-0003 #5, amended).
+
+**Edit API timings for the new intents** (gate run, unit job, `tests/perf/text-mode-timings.test.ts`,
+CI runner; target 50 ms):
+
+| Intent | Plan | p50 | p90 | max |
+| --- | --- | ---: | ---: | ---: |
+| `clearLeave` | Fedora + resources | 2.12 | 2.45 | 3.70 |
+| `gapToTask` | Fedora | 18.57 | 24.23 | 25.89 |
+| Rebalance reassign (W1) | `fedora-res` | 1.53 | 2.03 | 2.43 |
+| Leave paint (W3) | `fedora-res` | 1.76 | 3.21 | 3.26 |
+
+All under 50 ms. In the same log one older intent's p90 is over 50 ms: `setWorkingHours` on
+`scale-1000` (p50 38.3, p90 50.5, max 70.3), on a shared CI runner.
+
+**Worker heap growth**: the gate spec reads the worker's memory once, after its result: 112.9 MB on
+desktop and 108.2 MB on Pixel 7 (`docs/phases/evidence/phase3-t24/workload-gate.json`, local run).
+Growth over a session is T22's M2: 12 reschedules of `fedora-res` grow the wasm memory by 2.6 MB
+(2.2%) after the first edit, then stay flat. No leak.
+
+### Open for the user at the gate
+
+1. **Desktop fills (T22 P2).** At day zoom on a 1280 px desktop the heatmap draws 731 cells per frame
+   against the 600 of 8.1, while its paint stays inside 4 ms. It is recorded, not enforced. Should 600
+   apply to phones only?
+2. **Visual-first first load.** It is 438 bytes under its 330,000 cap (gate run). Should something be
+   cut, or the cap raised?
+3. **CI time (done-when item 4).** Waived by the user on 2026-11-23. The gate run took 19 min 20 s.
+4. **Goldens provisional** on Ruby 3.3.6 until the user re-records them on Ruby 3.4.
+5. **Real devices** are waived to Phase 6, including the iPhone fling check of the Health list.
+6. **Polish items 20 and 21** are open (`docs/phases/phase-2-polish.md`).
+
+**Gaps in this evidence**, stated plainly:
+- The health panel pictures on each failing fixture (16.2) do not exist (see criterion 2).
+- CI does not upload `workload-gate.json`. The committed copy comes from a local run of the gate spec
+  on the gate commit; in CI the counts are in the job logs only.
+- The native cross-check counts for the 31 goldens added in `bee485d9` were not written down. They
+  passed, because recording stops on a disagreement.
+- Fedora's serializeMs grew by about 3.5% of total engine time (native), against "about none".
+- Browser-engine serializeMs per golden is not recorded at the gate commit; only native figures are.
 
 ## The two tiers (ADR-0016 section 1)
 
