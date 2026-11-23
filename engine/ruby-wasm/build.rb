@@ -15,8 +15,15 @@
 # 3. Sources come from files build.sh verified (file:// URLs) instead of downloads during the
 #    build: the Ruby tarball, LibYAML and zlib. LibYAML's config.guess and config.sub come from
 #    the pinned Ruby tarball's tool/ directory instead of gcc's unpinned master branch.
-# 4. The host-side build logs of gem extensions are not packed (they name temporary paths, so
-#    two builds would differ).
+# 4. Two kinds of files are not packed: the host-side build logs of gem extensions (they name
+#    temporary paths, so two builds would differ) and rdoc's HTML generator templates (fonts,
+#    icons and scripts for writing documentation sites, under their own licences; the engine
+#    never loads rdoc).
+#
+# Guards: ruby_wasm fetches wasi-sdk, binaryen, wasi-vfs and OpenSSL itself when it is not given
+# them. build.sh gives it each of them (checked against inputs.json) except OpenSSL, which the
+# recipe drops, so the build raises if any of those code paths, or any other network fetch through
+# ruby_wasm's executor, would run.
 #
 # Modes:
 #   --vfs (default): the stock packager. The standard library and the gems in this Gemfile are
@@ -62,6 +69,10 @@ end.parse!
 %i[ruby libyaml zlib].each { |k| fail!("#{opts[k]} not found") unless File.file?(opts[k]) }
 fail!("--fs-dir is required with --no-vfs") if !opts[:vfs] && !opts[:fs_dir]
 fail!("ruby_wasm #{RubyWasm::VERSION} is loaded, expected #{RUBY_WASM_VERSION}") unless RubyWasm::VERSION == RUBY_WASM_VERSION
+# The packer (RubyWasmExt::WasiVfs) is in ruby_wasm's native extension, which rbwasm loads in its
+# CLI (RubyWasm::CLI#require_extension), not on `require "ruby_wasm"`. Load it the same way.
+RubyWasm::CLI.new(stdout: $stdout, stderr: $stderr).send(:require_extension)
+fail!("ruby_wasm's native extension did not define RubyWasmExt::WasiVfs") unless defined?(RubyWasmExt::WasiVfs)
 fail!("WASI_SDK_PATH is not set") unless ENV["WASI_SDK_PATH"]
 fail!("wasm-opt is not on PATH") unless RubyWasm::Toolchain.find_path("wasm-opt")
 if opts[:vfs]
@@ -156,15 +167,92 @@ module MainspringZlib
 end
 RubyWasm::ZlibProduct.prepend(MainspringZlib)
 
-# --- 4. Reproducible /bundle: the host-side install logs of the gems' extensions (gem_make.out,
-# mkmf.log) name temporary directories and process ids. Nothing reads them at run time.
-module MainspringNoBuildLogs
+# --- 4. Files that are not packed, through the packager's own hook for non-runtime files (both
+# modes call it).
+# - The host-side install logs of the gems' extensions (gem_make.out, mkmf.log) name temporary
+#   directories and process ids, so /bundle would not be reproducible. Nothing reads them.
+# - rdoc's generator templates (rdoc/generator/template: darkfish's Lato and Source Code Pro fonts
+#   under OFL-1.1, its icons and scripts, json_index's scripts). Only rdoc's HTML generator reads
+#   them, to write a documentation site; the engine never requires rdoc (run-engine.mjs lists
+#   $LOADED_FEATURES). rdoc's Ruby code stays.
+module MainspringNonRuntimeFiles
+  RDOC_TEMPLATES = File.join("usr", "local", "lib", "ruby", "**", "rdoc", "generator", "template")
+
   def remove_non_runtime_files(executor)
     super
     Dir.glob(File.join(@dest_dir, "bundle", "extensions", "**", "{gem_make.out,mkmf.log}")).each { |f| executor.rm_f f }
+    templates = Dir.glob(File.join(@dest_dir, RDOC_TEMPLATES))
+    raise "build.rb: no rdoc generator templates under #{@dest_dir}; review MainspringNonRuntimeFiles" if templates.empty?
+    templates.each do |dir|
+      files = Dir.glob(File.join(dir, "**", "*")).select { |f| File.file?(f) }
+      RubyWasm.logger.info "Not packing #{dir.delete_prefix(@dest_dir)}: #{files.size} files, #{files.sum { |f| File.size(f) }} bytes"
+      executor.rm_rf dir
+    end
   end
 end
-RubyWasm::Packager::FileSystem.prepend(MainspringNoBuildLogs)
+RubyWasm::Packager::FileSystem.prepend(MainspringNonRuntimeFiles)
+
+# --- Guards: no download by ruby_wasm itself. build.sh fetches and checks every input; these
+# raise where ruby_wasm 2.10.1 would fetch one on its own (lib/ruby_wasm/build/toolchain.rb,
+# build/product/{wasi_vfs,openssl}.rb), so a gem bump or a missing variable cannot bring in an
+# unpinned tool or library unnoticed.
+module MainspringNoFetch
+  def self.refuse!(what, instead = "build.sh must provide it, pinned in inputs.json")
+    raise "build.rb: ruby_wasm would fetch #{what} itself; #{instead}"
+  end
+
+  # wasi-sdk: fetched when WASI_SDK_PATH is not set.
+  module WasiSdk
+    def install_wasi_sdk(executor)
+      MainspringNoFetch.refuse!("wasi-sdk") if @need_fetch_wasi_sdk
+      super
+    end
+
+    def download_url(*) = MainspringNoFetch.refuse!("wasi-sdk")
+  end
+
+  # binaryen: fetched when no wasm-opt is on PATH.
+  module Binaryen
+    def install(executor)
+      MainspringNoFetch.refuse!("binaryen") if @need_fetch_binaryen
+      super
+    end
+
+    def download_url(*) = MainspringNoFetch.refuse!("binaryen")
+  end
+
+  # wasi-vfs: fetched when LIB_WASI_VFS_A is not set and the product is built (--vfs only).
+  module WasiVfs
+    def build(executor)
+      MainspringNoFetch.refuse!("wasi-vfs (libwasi_vfs.a)") if @need_fetch_lib
+      super
+    end
+  end
+
+  # OpenSSL: fetched and built whenever the product is built; patch 2 removes the product.
+  module OpenSSLLibrary
+    def build(*) = MainspringNoFetch.refuse!("and build OpenSSL", "this recipe links no OpenSSL (patch 2)")
+  end
+
+  # Anything else through ruby_wasm's executor: curl of anything but a file:// URL, git, wget, or
+  # Ruby's tool/downloader.rb (BuildSource runs it when a source tree has no configure script).
+  module Executor
+    def system(*args, **kwargs)
+      argv = args.flatten.map(&:to_s)
+      command = File.basename(argv.first.to_s)
+      url = argv.find { |a| a.match?(%r{\A[a-z][a-z0-9+.-]*://}i) && !a.start_with?("file://") }
+      MainspringNoFetch.refuse!(url) if command == "curl" && url
+      MainspringNoFetch.refuse!("with #{command} (#{argv.join(' ')})") if %w[git wget].include?(command)
+      MainspringNoFetch.refuse!("config.guess and config.sub (tool/downloader.rb)") if argv.any? { |a| a.end_with?("tool/downloader.rb") }
+      super
+    end
+  end
+end
+RubyWasm::WASISDK.prepend(MainspringNoFetch::WasiSdk)
+RubyWasm::Binaryen.prepend(MainspringNoFetch::Binaryen)
+RubyWasm::WasiVfsProduct.prepend(MainspringNoFetch::WasiVfs)
+RubyWasm::OpenSSLProduct.prepend(MainspringNoFetch::OpenSSLLibrary)
+RubyWasm::BuildExecutor.prepend(MainspringNoFetch::Executor)
 
 # --- Build.
 definition = Bundler.definition

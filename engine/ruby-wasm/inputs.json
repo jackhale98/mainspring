@@ -1,5 +1,5 @@
 {
-	"comment": "Pinned inputs of engine/ruby-wasm/build.sh. sha256 is of the downloaded file. null means not yet recorded: the host is unreachable where the recipe was written; build.sh refuses it unless --record-unpinned, which prints the hash to pin.",
+	"comment": "Pinned inputs of engine/ruby-wasm/build.sh. sha256 is of the downloaded file. null means not yet recorded (the host was unreachable where the recipe was written): the build refuses to start while an input it uses is null; build.sh --fetch-only downloads it afresh and prints the hash to pin. toolchain: used by that --toolchain only. vfs_only: used with wasi-vfs only.",
 	"inputs": {
 		"ruby": {
 			"file": "ruby-3.4.1.tar.gz",
@@ -79,6 +79,7 @@
 			"sha256": null,
 			"license": "Apache-2.0 WITH LLVM-exception",
 			"ships": "linked in (--vfs builds only)",
+			"vfs_only": true,
 			"note": "ruby_wasm 2.10.1's WASI_VFS_VERSION; only published as a GitHub release asset"
 		},
 		"ubuntu_wasi_libc": {

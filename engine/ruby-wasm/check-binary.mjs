@@ -6,30 +6,88 @@
 //   node engine/ruby-wasm/check-binary.mjs <ruby.wasm>... [--expect-openssl] [--compare <stock-debug.wasm>]
 //                                          [--json <file>]
 //
-// For each binary it reports and checks three markers, any of which means OpenSSL code is in it:
-// - the version banner libcrypto compiles in (OPENSSL_VERSION_TEXT, "OpenSSL 3.2.0 23 Nov 2023");
-// - "openssl.so" as a C string: the name a statically linked openssl extension registers under
-//   (ruby_init_ext in Ruby's extinit.c), which plain Ruby text in the packed stdlib never is;
-// - in a binary with a name section (the debug build), functions of the openssl extension or of
-//   libcrypto/libssl: Init_openssl, ossl_*, and a few canonical libcrypto/libssl entry points.
+// This is the licence gate for the engine binary: OpenSSL is Apache-2.0, which GPL-2.0 code may
+// not ship with. For each binary it reports and checks these markers, any of which means OpenSSL
+// code is in it:
+// - banner: the version banner libcrypto compiles in (OPENSSL_VERSION_TEXT, "OpenSSL 3.2.0 23 Nov
+//   2023");
+// - extension: "openssl.so" as a C string, the name a statically linked openssl extension
+//   registers under (ruby_init_ext in Ruby's extinit.c), which plain Ruby text in the packed
+//   stdlib never is;
+// - data: C strings that libcrypto always compiles in and a build cannot drop without patching it:
+//   the OpenSSL_version() directory strings ("OPENSSLDIR: \"...", "ENGINESDIR: \"...",
+//   "MODULESDIR: \"...") and object names from its OID table (obj_dat.h: rsaEncryption,
+//   sha256WithRSAEncryption). Each is matched NUL-delimited, as C strings sit in the data section,
+//   so Ruby source packed into the binary cannot match;
+// - functions: in a binary with a name section (the debug build), functions of the openssl
+//   extension or of libcrypto/libssl (OPENSSL_FUNCS). The prefixes are OpenSSL's API names. Ruby's
+//   own digest code renames its MD5_/SHA1_/SHA256_/SHA512_ functions to rb_Digest_* (ext/digest,
+//   "avoid name clash"), so they do not match.
 // It also lists the native extensions registered in the binary (the "<name>.so" C strings).
-// Exits 1 when a binary has a marker, or with --expect-openssl when one has none (to check the
-// check on the stock binary).
+// Exits 1 when a binary has any marker. With --expect-openssl (to check the check, on the stock
+// binaries) it exits 1 unless a binary has every marker that applies to it: banner, extension,
+// each data string, and, when it has a name section, at least one function.
 //
 // --compare <stock-debug.wasm>: for the debug builds among the binaries, also the functions that
 // are in the stock binary but not in this one, their code size, and how many of them look like
 // OpenSSL, so the gate can record what dropping the extension removed.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-const BANNER = /OpenSSL \d+\.\d+\.\d+[a-z]?(?:-[a-z0-9]+)? +\d{1,2} [A-Z][a-z]{2} \d{4}/;
-const EXT_NAME = Buffer.from('\0openssl.so\0', 'latin1');
-const OPENSSL_FUNCS = /^(?:Init_openssl|Init_ossl_\w+|ossl_\w+|OpenSSL_version|OPENSSL_\w+|SSL_CTX_new|SSL_new|EVP_\w+|BN_\w+|X509_\w+|ASN1_\w+|ERR_\w+|BIO_\w+|CRYPTO_\w+|RSA_\w+|EC_\w+|PEM_\w+)$/;
+export const BANNER = /OpenSSL \d+\.\d+\.\d+[a-z]?(?:-[a-z0-9]+)? +\d{1,2} [A-Z][a-z]{2} \d{4}/;
+export const EXT_NAME = '\0openssl.so\0';
+/** NUL-delimited C strings of libcrypto, by marker name. */
+export const DATA_MARKERS = /** @type {const} */ ({
+	OPENSSLDIR: '\0OPENSSLDIR: "',
+	ENGINESDIR: '\0ENGINESDIR: "',
+	MODULESDIR: '\0MODULESDIR: "',
+	rsaEncryption: '\0rsaEncryption\0',
+	sha256WithRSAEncryption: '\0sha256WithRSAEncryption\0',
+});
+export const OPENSSL_FUNCS = new RegExp(
+	'^(?:' +
+		[
+			// The openssl extension.
+			'Init_openssl',
+			'Init_ossl_\\w+',
+			'ossl_\\w+',
+			// libcrypto and libssl.
+			'OpenSSL_version',
+			'OPENSSL_\\w+',
+			'OSSL_\\w+',
+			'SSL_CTX_new',
+			'SSL_new',
+			'EVP_\\w+',
+			'BN_\\w+',
+			'X509_\\w+',
+			'ASN1_\\w+',
+			'ERR_\\w+',
+			'BIO_\\w+',
+			'CRYPTO_\\w+',
+			'RSA_\\w+',
+			'EC_\\w+',
+			'PEM_\\w+',
+			'MD5_\\w+',
+			'SHA1_\\w+',
+			'SHA256_\\w+',
+			'SHA512_\\w+',
+			'HMAC\\w*',
+			'RAND_\\w+',
+			'OBJ_\\w+',
+			'd2i_\\w+',
+			'i2d_\\w+',
+		].join('|') +
+		')$',
+);
 
-/** @param {Buffer} buf */
-function readWasm(buf) {
-	if (buf.readUInt32LE(0) !== 0x6d736100) throw new Error('not a wasm module');
+/**
+ * The sections, function names and code sizes of a wasm module.
+ * @param {Buffer} buf
+ */
+export function readWasm(buf) {
+	if (buf.length < 8 || buf.readUInt32LE(0) !== 0x6d736100) throw new Error('not a wasm module');
 	let p = 8;
 	const leb = () => {
 		let result = 0;
@@ -37,6 +95,7 @@ function readWasm(buf) {
 		let b;
 		do {
 			b = buf[p++];
+			if (b === undefined) throw new Error('truncated wasm module');
 			result += (b & 0x7f) * 2 ** shift;
 			shift += 7;
 		} while (b & 0x80);
@@ -51,7 +110,7 @@ function readWasm(buf) {
 	/** @type {{ id: number, name: string, start: number, end: number }[]} */
 	const sections = [];
 	while (p < buf.length) {
-		const id = buf[p++];
+		const id = buf[p++] ?? 0;
 		const size = leb();
 		const start = p;
 		const name = id === 0 ? str() : '';
@@ -121,35 +180,64 @@ function readWasm(buf) {
 }
 
 /** The native extensions a binary registers: "\0<feature>.so\0" C strings, sorted. */
-function extNames(/** @type {Buffer} */ buf) {
+export function extNames(/** @type {Buffer} */ buf) {
 	const text = buf.toString('latin1');
 	const out = new Set();
 	for (const m of text.matchAll(/\0((?:[a-z0-9_]+\/)*[a-z0-9_]+)\.so(?=\0)/g)) out.add(m[1]);
 	return [...out].sort();
 }
 
-function inspect(file) {
-	const buf = fs.readFileSync(file);
+/**
+ * The OpenSSL markers of one binary.
+ * @param {Buffer} buf
+ */
+export function inspectBuffer(buf) {
 	const wasm = readWasm(buf);
 	const banner = buf.toString('latin1').match(BANNER)?.[0] ?? null;
-	const extRegistered = buf.indexOf(EXT_NAME) >= 0;
+	const extensionRegistered = buf.includes(Buffer.from(EXT_NAME, 'latin1'));
+	/** @type {Record<string, boolean>} */
+	const data = {};
+	for (const [name, text] of Object.entries(DATA_MARKERS)) {
+		data[name] = buf.includes(Buffer.from(text, 'latin1'));
+	}
 	const opensslFunctions = [...wasm.functions.keys()].filter((n) => OPENSSL_FUNCS.test(n));
+	const markers = {
+		banner: Boolean(banner),
+		extension: extensionRegistered,
+		...Object.fromEntries(Object.entries(data).map(([k, v]) => [`data:${k}`, v])),
+		...(wasm.hasNames ? { functions: opensslFunctions.length > 0 } : {}),
+	};
 	return {
-		file,
 		bytes: buf.length,
 		codeBytes: wasm.codeBytes,
 		dataBytes: wasm.dataBytes,
 		nameSection: wasm.hasNames,
 		openssl: {
 			banner,
-			extensionRegistered: extRegistered,
+			extensionRegistered,
+			data,
 			functions: wasm.hasNames ? opensslFunctions.length : null,
 			sample: opensslFunctions.slice(0, 5),
 		},
-		hasOpenSSL: Boolean(banner) || extRegistered || opensslFunctions.length > 0,
+		/** Every marker that applies to this binary: true where it was found. */
+		markers,
+		hasOpenSSL: Object.values(markers).some(Boolean),
 		extensions: extNames(buf),
 		_functions: wasm.functions,
 	};
+}
+
+/**
+ * Whether a binary passes: no marker at all, or with `expectOpenSSL` every applicable marker.
+ * @param {ReturnType<typeof inspectBuffer>} r
+ * @param {boolean} expectOpenSSL
+ * @returns {string[]} what is wrong (empty when it passes)
+ */
+export function problems(r, expectOpenSSL) {
+	const entries = Object.entries(r.markers);
+	return expectOpenSSL
+		? entries.filter(([, found]) => !found).map(([m]) => `expected OpenSSL marker ${m}, not found`)
+		: entries.filter(([, found]) => found).map(([m]) => `OpenSSL marker ${m} found`);
 }
 
 function main() {
@@ -165,39 +253,44 @@ function main() {
 		console.error('usage: check-binary.mjs <ruby.wasm>... [--expect-openssl] [--compare <stock-debug.wasm>] [--json <file>]');
 		process.exit(2);
 	}
-	const stock = values.compare ? inspect(values.compare) : null;
+	const stock = values.compare ? inspectBuffer(fs.readFileSync(values.compare)) : null;
 	if (stock && !stock.nameSection) throw new Error(`${values.compare} has no name section; pass the debug build`);
 	let failed = false;
 	const report = [];
 	for (const file of positionals) {
-		const r = inspect(file);
+		const r = inspectBuffer(fs.readFileSync(file));
 		const o = r.openssl;
+		const yes = (/** @type {boolean} */ b) => (b ? 'yes' : 'no');
 		console.log(`${path.basename(file)}: ${r.bytes} bytes (code ${r.codeBytes}, data ${r.dataBytes})`);
-		console.log(`  OpenSSL banner: ${o.banner ?? 'none'}; openssl.so registered: ${o.extensionRegistered ? 'yes' : 'no'}; ` +
+		console.log(`  OpenSSL banner: ${o.banner ?? 'none'}; openssl.so registered: ${yes(o.extensionRegistered)}; ` +
 			`OpenSSL functions: ${o.functions === null ? 'n/a (no name section)' : o.functions}` +
 			(o.sample.length ? ` (${o.sample.join(', ')}, ...)` : ''));
+		console.log(`  libcrypto strings: ${Object.entries(o.data).map(([k, v]) => `${k} ${yes(v)}`).join(', ')}`);
 		console.log(`  native extensions (${r.extensions.length}): ${r.extensions.filter((e) => !e.startsWith('enc/')).join(' ')} + ${r.extensions.filter((e) => e.startsWith('enc/')).length} enc/*`);
 		/** @type {Record<string, unknown>} */
-		const entry = { ...r, _functions: undefined };
+		const entry = { file, ...r, _functions: undefined };
 		if (stock && r.nameSection) {
 			const removed = [...stock._functions].filter(([n]) => !r._functions.has(n));
 			const added = [...r._functions.keys()].filter((n) => !stock._functions.has(n));
 			const bytes = removed.reduce((n, [, size]) => n + size, 0);
 			const ossl = removed.filter(([n]) => OPENSSL_FUNCS.test(n)).length;
-			console.log(`  vs ${path.basename(values.compare)}: ${removed.length} functions gone (${bytes} code bytes, ` +
+			console.log(`  vs ${path.basename(values.compare ?? '')}: ${removed.length} functions gone (${bytes} code bytes, ` +
 				`${ossl} matching the OpenSSL pattern), ${added.length} new`);
-			entry.compare = { stock: values.compare, removedFunctions: removed.length, removedCodeBytes: bytes,
+			entry['compare'] = { stock: values.compare, removedFunctions: removed.length, removedCodeBytes: bytes,
 				removedOpenSSLPattern: ossl, addedFunctions: added.length, addedSample: added.slice(0, 20) };
 		}
-		const bad = values['expect-openssl'] ? !r.hasOpenSSL : r.hasOpenSSL;
-		if (bad) {
+		const bad = problems(r, values['expect-openssl']);
+		if (bad.length) {
 			failed = true;
-			console.log(`  FAIL: ${values['expect-openssl'] ? 'expected OpenSSL, found none' : 'OpenSSL is in this binary'}`);
-		} else console.log(`  ok: ${r.hasOpenSSL ? 'OpenSSL present, as expected' : 'no OpenSSL'}`);
+			for (const b of bad) console.log(`  FAIL: ${b}`);
+		} else {
+			const n = Object.keys(r.markers).length;
+			console.log(`  ok: ${values['expect-openssl'] ? `all ${n} OpenSSL markers present, as expected` : `none of ${n} OpenSSL markers present`}`);
+		}
 		report.push(entry);
 	}
 	if (values.json) fs.writeFileSync(values.json, `${JSON.stringify(report, null, 2)}\n`);
 	if (failed) process.exitCode = 1;
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
