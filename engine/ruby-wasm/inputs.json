@@ -67,7 +67,7 @@
 		"wasi_sdk": {
 			"file": "wasi-sdk-22.0-linux.tar.gz",
 			"url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-22/wasi-sdk-22.0-linux.tar.gz",
-			"sha256": null,
+			"sha256": "fa46b8f1b5170b0fecc0daf467c39f44a6d326b80ced383ec4586a50bc38d7b8",
 			"license": "Apache-2.0 WITH LLVM-exception (LLVM, compiler-rt); wasi-libc: Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT, musl parts MIT",
 			"ships": "wasi-libc and compiler-rt builtins are linked in",
 			"toolchain": "wasi-sdk",
@@ -76,7 +76,7 @@
 		"wasi_vfs": {
 			"file": "libwasi_vfs-wasm32-unknown-unknown.zip",
 			"url": "https://github.com/kateinoigakukun/wasi-vfs/releases/download/v0.6.2/libwasi_vfs-wasm32-unknown-unknown.zip",
-			"sha256": null,
+			"sha256": "a6891501fb5e24487ea714bd2a5382e161b5b2df5407a95ac31507af5c6dcf00",
 			"license": "Apache-2.0 WITH LLVM-exception",
 			"ships": "linked in (--vfs builds only)",
 			"vfs_only": true,
