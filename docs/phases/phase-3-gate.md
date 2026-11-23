@@ -681,4 +681,6 @@ Checks run locally: the generator `--check` (match); `scripts/workload-perf-summ
 (table printed); a YAML parse of the three workflows (`actionlint` is not installed); `tsc --noEmit`;
 `prettier --check`; `vitest run tests/ci` (296 passed); `shard-plan.mjs check`; `webkit-skips.mjs`;
 `fixed-waits.mjs` (30 in 15 files); `licenses.mjs`; `no-ruby.mjs`. No golden or fidelity job was changed;
-those rows were verified by reading.
+those rows were verified by reading, and by the nightly on `1b3c00d7` (run 45175320477, job "Patch fidelity
+(all shards)"): `clearLeave` 169 edits of 180 cases and `gapToTask` 170 (at least 5 required), P4 with no
+new error or fatal ids, "All rules hold".
