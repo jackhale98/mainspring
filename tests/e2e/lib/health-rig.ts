@@ -7,14 +7,26 @@
  * `checkPlan` over the committed golden (src/lib/health), which the live result equals on this plan
  * (the golden parity job proves that; here it is the number the panel must show).
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { checkPlan } from '../../../src/lib/health/report';
 import { goldenInput } from '../../../src/lib/health/testing';
 import type { CheckId, HealthSettings } from '../../../src/lib/health/types';
+import { REPO } from '../../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './gantt-rig';
+import { modKey } from './keys';
+import { resultAfter, resultRevision } from './settle';
 
 export const PLAN = 'fedora-res';
 export const SETTINGS_KEY = `mainspring.health.${PLAN}`;
+/**
+ * The small plan the specs use where the size of the plan is not the point (ADR-0016 change 4): 16
+ * tasks, nine findings in four checks (no predecessor, no successor, hard constraint, held by
+ * people). What the panel must show for it is `smallReport` (lib/small-plan.ts).
+ */
+export const SMALL = 'ui-basic';
+export const SMALL_SETTINGS_KEY = `mainspring.health.${SMALL}`;
 export const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 export const phoneOf = isTouch;
@@ -50,6 +62,27 @@ export async function openPlan(
 	return Rig.open(page, info, undefined, 'visual', PLAN);
 }
 
+/** Opens the small plan on the Gantt, ready and scheduled. */
+export async function openSmall(
+	page: Page,
+	info: TestInfo,
+	scheme?: 'light' | 'dark',
+): Promise<Rig> {
+	if (scheme) await page.emulateMedia({ colorScheme: scheme });
+	return Rig.open(page, info, undefined, 'visual', SMALL);
+}
+
+/** Opens a sample on the Gantt, ready and scheduled (the small plans of tests/fixtures/ui). */
+export async function openSample(
+	page: Page,
+	info: TestInfo,
+	sample: string,
+	scheme?: 'light' | 'dark',
+): Promise<Rig> {
+	if (scheme) await page.emulateMedia({ colorScheme: scheme });
+	return Rig.open(page, info, undefined, 'visual', sample);
+}
+
 /** The health panel: the right panel on a desktop, the sheet on a phone. */
 export const panelOf = (page: Page, info: TestInfo): Locator =>
 	isTouch(info)
@@ -83,8 +116,8 @@ export const heading = (panel: Locator, text: string | RegExp): Locator =>
 	panel.getByRole('heading', { level: 3, name: text });
 
 /** The stored settings of the plan, or null. */
-export const storedSettings = (page: Page): Promise<string | null> =>
-	page.evaluate((k) => localStorage.getItem(k), SETTINGS_KEY);
+export const storedSettings = (page: Page, key = SETTINGS_KEY): Promise<string | null> =>
+	page.evaluate((k) => localStorage.getItem(k), key);
 
 /** The panel says how many problems there are, and the Health button's name says it too. */
 export async function expectTotal(page: Page, info: TestInfo, panel: Locator, n: number) {
@@ -94,7 +127,7 @@ export async function expectTotal(page: Page, info: TestInfo, panel: Locator, n:
 	if (!isTouch(info)) {
 		await expect(page.getByTestId('health-button')).toHaveAttribute(
 			'aria-label',
-			`Plan health: ${n} problems`,
+			`Plan health: ${n} ${n === 1 ? 'problem' : 'problems'}`,
 		);
 	}
 }
@@ -349,3 +382,46 @@ export async function sizes(panel: Locator): Promise<Record<string, number>> {
 			),
 		);
 }
+
+/** The text of a health fixture (tests/fixtures/health/<dir>/<side>/plan.tjp). */
+export const fixtureText = (dir: string, side: 'pass' | 'fail'): string =>
+	fs.readFileSync(path.join(REPO, 'tests', 'fixtures', 'health', dir, side, 'plan.tjp'), 'utf8');
+
+/** Replaces the plan's text in the Text editor and comes back to the Gantt, scheduled. */
+export async function setPlan(page: Page, info: TestInfo, source: string): Promise<void> {
+	const phone = isTouch(info);
+	if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
+	else await page.getByRole('button', { name: 'Text', exact: true }).click();
+	const editor = page.getByRole('textbox', { name: /^Editor for / });
+	await editor.click();
+	const rev = await resultRevision(page);
+	await page.keyboard.press(`${await modKey(page)}+A`);
+	await page.keyboard.insertText(source);
+	await expect
+		.poll(() =>
+			page.evaluate(() =>
+				(
+					window as unknown as { __mainspringEdits: { text(): string | null } }
+				).__mainspringEdits.text(),
+			),
+		)
+		.toBe(source);
+	// "Scheduled" still shows the plan before this one until its run starts.
+	await resultAfter(page, rev, READY_TIMEOUT_MS);
+	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+		timeout: READY_TIMEOUT_MS,
+	});
+	if (phone) await page.getByRole('tab', { name: 'Gantt', exact: true }).tap();
+	else await page.getByRole('button', { name: 'Visual', exact: true }).click();
+}
+
+/**
+ * Health fixture H8 (fail) with one more task, typed into a small plan: "side" runs without Dev for
+ * 24 hours, and "lone" is a task of Ann's that Dev is not on, with nothing before it.
+ */
+export const H8_LONE_PLAN = `${fixtureText('h8-work-without-people', 'fail')}
+task lone "Lone task" {
+  effort 1d
+  allocate ann
+}
+`;

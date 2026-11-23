@@ -558,3 +558,73 @@ fixed (`Plan health: 0 problems`, WCAG 2.5.3), so the authoring axe test scans t
 name focused and the + menu too. A drop on a group row in the heatmap is being given the planner's
 `not-a-person` refusal toast. The five merge-tier reruns of done-when item 1 use the new manual
 start of `ci.yml` (`workflow_dispatch`).
+
+## CI time: small plans (ADR-0016 change 4, "Small plans first", user 2026-11-23)
+
+Goal: cut e2e worker time, the iPhone first, without testing less. Measured before touching
+anything: every test pays a floor of about 12 to 15 s on the iPhone for the page and the engine
+(WebKit compiles the 30 MB wasm in each fresh context), and a test that opens `fedora-res` pays
+about 45 to 65 s on top of that for its 414 tasks. So only a test that opens a big plan can be
+made cheaper by a smaller one; a file that is already on a small plan is at its floor (below).
+
+**What moved.** Seven spec files opened `fedora-res` for tests whose subject is not the size of the
+plan. Each of those now runs on a small plan, with the same assertions adapted to the small plan's
+ids:
+
+| File | What drove its time | Moved | Stays on `fedora-res` (scale is the point) |
+| --- | --- | --- | --- |
+| `health.spec.ts` | all 8 iPhone tests opened `fedora-res` | severity filter, milestone setting, thresholds, 44 px targets, axe light and dark, keyboard path, tablet sheet, focus: `ui-basic` (9 findings in 4 checks) | the 241-finding golden counts and windowing, the two scroll-holds-still tests, the Tab walk through a windowed list |
+| `why-here.spec.ts` | 11 of 11 tests on `fedora-res` | gap and written date, "cannot tell", the link to a task, finding to details, axe: `ui-basic` / `ui-people`; the three "finding about a person" tests: health fixture H8 typed into `ui-basic`; the heatmap's cell details: `ui-people` | the explainer's sentences against the native golden (gap, written date) |
+| `workload-edits.spec.ts` | 7 of 7 on `fedora-res` | all: `ui-people` | none (the gate and `workload.spec.ts` keep the scale) |
+| `workload.spec.ts` | 5 of 8 on the iPhone on `fedora-res` | buildLoad equals the cells, zoom, unit, group toggle, keyboard: `ui-people` | 28 rows with groups, held and unmet work (T10); `workload-gate.spec.ts` untouched |
+| `health-fixes.spec.ts` | 6 of 6 on `fedora-res` | H3 remove start, H5 convert gap, H5 edit gap, H8 replace person: the health fixtures typed into `ui-basic`; the macro refusal: a plan of its own | H1 "Add predecessor" (the picker over 414 tasks, then the whole report back) |
+| `health-screenshots.spec.ts` | 8 of 8 on `fedora-res` | "Why here?", cell details and Show in Gantt, finding about a person | the panel with its 241 findings, the list held mid-scroll, the tablet sheet |
+| `health-fixtures.spec.ts` | not heavy | only its `setPlan` helper moved to `lib/health-rig.ts` (shared) | |
+
+How a small plan's expectations are known (they have no native golden): `tests/e2e/lib/small-plan.ts`
+schedules the plan in the spec's own Node process with the same engine build (once per worker) and
+runs the unit oracles of `src/lib` (`checkPlan`, `explainTask`) over the result; the health
+fixtures (H1 to H9) keep their native goldens. `tests/e2e/lib/small-plan.test.ts` pins the numbers the
+specs rely on (nine findings, the milestone rule, the explainer's sentences). The screenshots of the
+moved tests (`t18-why-here*`, `t18-cell-why*`, `t18-show-in-gantt*`, `t18-finding-*`) were
+regenerated on the small plans, for the three devices; the ones that show the 241-finding list are
+unchanged.
+
+**Seconds of worker time per file** (sum of tests over 2 workers, as in `durations.json`). iPhone:
+before and after run back to back per file on one machine (shared with other jobs, load 15 to 35), so
+both saw the same load; desktop and pixel-7: separate runs, less load-sensitive.
+
+| File | iPhone before | iPhone after | desktop before | desktop after | pixel-7 before | pixel-7 after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| health | 409 | 243 | 87 | 97 | 83 | 51 |
+| why-here | 353 | 171 | 77 | 55 | 70 | 42 |
+| workload-edits | 268 | 92 | 47 | 25 | 44 | 21 |
+| health-screenshots | 295 | 253 | 47 | 29 | 54 | 45 |
+| workload | 213 | 98 | 40 | 33 | 23 | 17 |
+| health-fixes | 278 | 80 | 66 | 39 | 53 | 27 |
+| health-fixtures | 24 | 25 | 8 | 10 | 7 | 7 |
+| **total** | **1840** | **962** | **372** | **288** | **334** | **210** |
+
+The iPhone opens of `fedora-res` fell from about 43 to 9. On the desktop `health` did not get
+faster: its remaining tests are the long fedora ones, and each worker now also boots the Node engine
+once (about 5 s) for the small plans' expectations.
+
+`durations.json` has the new times of these files for the three projects (iPhone from the "after"
+runs above, which a loaded machine makes about 1.3 times the CI figures, so the shard plan is
+slightly pessimistic for them; `health-fixtures` had no entry and now has one). Note for whoever
+re-measures: `shard-plan.mjs measure` replaces the whole project's map with the files of the reports
+it is given, so for a few files merge the result instead of running it on them alone.
+
+**Estimated CI saving.** By `durations.json` (times by `ciFactor`): iPhone 589 s, pixel-7 227 s,
+desktop 115 s, about **15.5 job-minutes of the ~215**; the back-to-back iPhone runs give 878 s of
+worker time, so 16 to 20 job-minutes is a fair range. This is not the whole of the 12-minute target:
+it takes the fedora opens out of three of the heaviest iPhone shards.
+
+**Left alone, and why.** The other heavy files are on small plans already (`gantt-manipulation`,
+`upstream-tutorial`, `poc-sample`, `ui-people`) and sit at the floor: `gantt-a11y` (11 tests, 18 to
+50 s), `phone-bugfixes` (15 to 33 s), `resources` (20 to 36 s), `phone-status` (22 to 31 s),
+`gantt-add-task` (14 to 22 s), `gantt-manipulation` (about 20 s), `select-arrows` (20 to 35 s),
+`people-shell` (a reload test is two boots, 62 s), `gantt-treegrid` (25 to 40 s, axe scans). Their time
+is the number of tests times the engine boot, so only merging tests or a faster boot would cut it, and
+merging would break the independence of the tests. `workload-gate`, the perf specs and the golden
+parity are untouched.

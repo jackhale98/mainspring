@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// "Why here?" and "Show in Gantt" (phase-3.md 9.3, 9.7, 20, 24; T18) on `fedora-res`, desktop Chrome,
-// the Pixel 7 emulation and the iPhone 14 (WebKit):
+// "Why here?" and "Show in Gantt" (phase-3.md 9.3, 9.7, 20, 24; T18), desktop Chrome, the Pixel 7
+// emulation and the iPhone 14 (WebKit). The one test that reads the explainer against the native
+// golden of the plan with the most causes runs on `fedora-res`; the others run on the small plans
+// `ui-basic` and `ui-people`, or on the health fixture H8 typed into the editor (ADR-0016 change 4:
+// the size of the plan is not what they test), with the explainer's sentences read from the engine
+// run in the spec's own process (lib/small-plan.ts) and, for the fixture, its native golden:
 // - the task details' Schedule block lists the explainer's causes of the task as sentences, read
 //   here from `explainTask` and `whyText` on the golden (the live result equals it on this plan), and
 //   says less when the explainer cannot tell ("The schedule does not show why."); a cause links to
@@ -17,8 +21,21 @@ import { whyText } from '../../src/lib/health/why-text';
 import { explainTask } from '../../src/lib/schedule/explain-task';
 import { goldenContext } from '../../src/lib/schedule/explain-testing';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
-import { expected, openHealth, openPlan, rowOf, selectionOf, TAGS } from './lib/health-rig';
+import {
+	H8_LONE_PLAN,
+	openHealth,
+	openPlan,
+	openSample,
+	rowOf,
+	selectionOf,
+	setPlan,
+	TAGS,
+} from './lib/health-rig';
 import { settledValue } from './lib/settle';
+import { contextOfText, smallContext } from './lib/small-plan';
+import type { ExplainContext } from '../../src/lib/schedule/explain-types';
+import { checkPlan } from '../../src/lib/health/report';
+import { inputOf } from '../../src/lib/health/testing';
 import { oracle, openHeatmap, resultOf, shape } from './lib/workload-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -26,13 +43,9 @@ test.use({ actionTimeout: 20_000 });
 
 const NAMING = 'f20.naming';
 const WIKI = 'f20.PlanningPhase.clean_market_wiki';
-const START_FEATURES = 'f20.PlanningPhase.start_features_cal';
-const UNSURE = 'f20.TestingPhase.alpha.software_translation';
-const LICENSE = 'f20.supplement_wallpaper.supplement_license_review';
 
 /** The explainer's sentences for a task, in the browser's language (en-US under Playwright). */
-const ctx = goldenContext('fedora-res');
-function expectedWhy(task: string) {
+function expectedWhy(ctx: ExplainContext, task: string) {
 	const w = whyText(explainTask(task, ctx), ctx, 'en-US');
 	return {
 		causes: w.causes,
@@ -40,6 +53,19 @@ function expectedWhy(task: string) {
 		texts: [...w.causes, ...w.inside].map((l) => l.text),
 	};
 }
+
+// The small plans (tests/fixtures/ui): ui-basic's Sketch waits for Research with a gap, and its
+// Launch has a written start; ui-people's Core is a container whose cause the explainer cannot tell.
+const SMALL = 'ui-basic';
+const SKETCH = 'design.sketch';
+const RESEARCH = 'design.research';
+const LAUNCH = 'launch';
+const UNSURE = 'build.core';
+// Health fixture H8 (fail) with one more task (H8_LONE_PLAN): "side" runs without Dev for 24 hours;
+// "lone" is a task of Ann's that Dev is not on, with nothing before it.
+const SIDE = 'side';
+const LONE = 'lone';
+const H8_PLAN = H8_LONE_PLAN;
 
 /** The details: the side panel on a desktop (the Details tab), the bottom sheet on a phone. */
 const details = (page: Page, info: TestInfo): Locator =>
@@ -82,12 +108,15 @@ async function said(section: Locator): Promise<Array<{ kind: string; text: strin
 }
 
 test.describe('in the task details', () => {
-	test('lists the causes the explainer reads from the schedule', async ({ page }, info) => {
+	test('lists the causes the explainer reads from the schedule (fedora-res, its native golden)', async ({
+		page,
+	}, info) => {
+		const ctx = goldenContext('fedora-res');
 		const rig = await openPlan(page, info);
 
 		// A dependency with a gap, from the golden's explainer.
 		let panel = await select(page, info, rig, WIKI);
-		let want = expectedWhy(WIKI);
+		let want = expectedWhy(ctx, WIKI);
 		expect(want.texts[0]).toMatch(
 			/^Waits for Start Feature Submission \(ends .*May 1\), then a gap\.$/,
 		);
@@ -96,17 +125,37 @@ test.describe('in the task details', () => {
 
 		// A written date, on the task itself.
 		panel = await select(page, info, rig, NAMING);
-		want = expectedWhy(NAMING);
+		want = expectedWhy(ctx, NAMING);
 		expect(want.texts).toEqual(['“start Sep 17, 2013” is written on this task (a constraint).']);
 		expect((await said(panel.getByTestId('why-here'))).map((l) => l.text)).toEqual(want.texts);
 	});
 
+	test('lists a gap and a written date from the schedule of a small plan', async ({
+		page,
+	}, info) => {
+		const ctx = await smallContext(SMALL);
+		const rig = await openSample(page, info, SMALL);
+
+		let panel = await select(page, info, rig, SKETCH);
+		let want = expectedWhy(ctx, SKETCH);
+		expect(want.texts).toEqual(['Waits for Research (ends Thu, Mar 5), then a gap.']);
+		await expect(panel.getByRole('heading', { name: 'Why here?' })).toBeVisible();
+		expect((await said(panel.getByTestId('why-here'))).map((l) => l.text)).toEqual(want.texts);
+
+		panel = await select(page, info, rig, LAUNCH);
+		want = expectedWhy(ctx, LAUNCH);
+		expect(want.texts).toEqual(['“start May 4, 2026” is written on this task (a constraint).']);
+		expect((await said(panel.getByTestId('why-here'))).map((l) => l.text)).toEqual(want.texts);
+	});
+
 	test('says less when the explainer cannot tell', async ({ page }, info) => {
-		const rig = await openPlan(page, info);
+		const ctx = await smallContext('ui-people');
+		const rig = await openSample(page, info, 'ui-people');
 		const panel = await select(page, info, rig, UNSURE);
-		const want = expectedWhy(UNSURE);
-		// The explainer knows the written date and nothing else: one cause, and "does not show why".
-		expect(want.causes.map((c) => c.kind)).toEqual(['constraint', 'unknown']);
+		const want = expectedWhy(ctx, UNSURE);
+		// The explainer knows what the container waits for and nothing else: one cause, and "does
+		// not show why".
+		expect(want.causes.map((c) => c.kind)).toEqual(['dependency', 'unknown']);
 		const lines = await said(panel.getByTestId('why-here'));
 		expect(lines).toEqual(want.causes.map((c) => ({ kind: c.kind, text: c.text })));
 		expect(lines[1]?.text).toBe('The schedule does not show why.');
@@ -117,38 +166,40 @@ test.describe('in the task details', () => {
 	});
 
 	test('a cause links to the task it names', async ({ page }, info) => {
-		const rig = await openPlan(page, info);
-		const panel = await select(page, info, rig, WIKI);
-		await panel
-			.getByTestId('why-here')
-			.getByRole('button', { name: 'Select Start Feature Submission' })
-			.click();
-		await expect.poll(() => selectionOf(page)).toMatchObject({ kind: 'task', id: START_FEATURES });
-		await expect(details(page, info).getByLabel('Name', { exact: true })).toHaveValue(
-			'Start Feature Submission',
-		);
+		const rig = await openSample(page, info, SMALL);
+		const panel = await select(page, info, rig, SKETCH);
+		await panel.getByTestId('why-here').getByRole('button', { name: 'Select Research' }).click();
+		await expect.poll(() => selectionOf(page)).toMatchObject({ kind: 'task', id: RESEARCH });
+		await expect(details(page, info).getByLabel('Name', { exact: true })).toHaveValue('Research');
 	});
 
 	test('a finding\'s "Why here?" opens the details at the section, with the focus on it', async ({
 		page,
 	}, info) => {
-		await openPlan(page, info);
+		const ctx = await smallContext(SMALL);
+		await openSample(page, info, SMALL);
 		const panel = await openHealth(page, info);
-		await (await rowOf(panel, 'hard-constraint', NAMING)).locator('[data-fix="why"]').click();
+		// Launch has two (its start and its end are written): the first one.
+		await (
+			await rowOf(panel, 'hard-constraint', LAUNCH)
+		)
+			.first()
+			.locator('[data-fix="why"]')
+			.click();
 		const open = details(page, info);
 		await expect(open.getByTestId('why-here')).toBeVisible();
 		await expect(open.getByRole('heading', { name: 'Why here?' })).toBeFocused();
 		// It is the finding's task whose details are open.
-		await expect(open.locator('p.id code')).toHaveText(NAMING);
+		await expect(open.locator('p.id code')).toHaveText(LAUNCH);
 		expect((await said(open.getByTestId('why-here'))).map((l) => l.text)).toEqual(
-			expectedWhy(NAMING).texts,
+			expectedWhy(ctx, LAUNCH).texts,
 		);
 	});
 
 	for (const scheme of ['light', 'dark'] as const) {
 		test(`axe finds nothing with the section open (${scheme})`, async ({ page }, info) => {
-			const rig = await openPlan(page, info, scheme);
-			const panel = await select(page, info, rig, WIKI);
+			const rig = await openSample(page, info, SMALL, scheme);
+			const panel = await select(page, info, rig, SKETCH);
 			await expect(panel.getByTestId('why-here').locator('li').first()).toBeVisible();
 			expect((await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations).toEqual([]);
 			if (isTouch(info)) {
@@ -176,10 +227,10 @@ async function bookedCell(page: Page): Promise<{ person: string; col: number; ta
 	const s = await shape(page);
 	if (!result) throw new Error('no result');
 	const o = oracle(result);
-	for (const person of (s?.rows ?? []).slice(8)) {
+	for (const person of s?.rows ?? []) {
 		if (result.resources.find((r) => r.id === person)?.group) continue;
 		const row = o.booked.get(person) ?? [];
-		for (let col = 4; col < row.length; col++) {
+		for (let col = 0; col < row.length; col++) {
 			if ((row[col] ?? 0) === 0) continue;
 			const tasks = await page.evaluate(
 				([p, c]) =>
@@ -247,7 +298,8 @@ test.describe("in the heatmap's cell details", () => {
 	test('a task row has "Why here?", which lists the explainer\'s reasons under it', async ({
 		page,
 	}, info) => {
-		await openHeatmap(page, info);
+		const ctx = await smallContext('ui-people');
+		await openHeatmap(page, info, 'ui-people');
 		const { person, col, task } = await bookedCell(page);
 		const cell = await openCell(page, info, person, col);
 		const row = cell.locator(`[data-testid="detail-task"][data-task="${task}"]`);
@@ -257,7 +309,7 @@ test.describe("in the heatmap's cell details", () => {
 		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
 		const why = cell.getByTestId('cell-why').first();
 		await expect(why.locator('li').first()).toBeVisible({ timeout: 30_000 });
-		expect((await said(why)).map((l) => l.text)).toEqual(expectedWhy(task).texts);
+		expect((await said(why)).map((l) => l.text)).toEqual(expectedWhy(ctx, task).texts);
 		// Again closes it.
 		await toggle.click();
 		await expect(cell.getByTestId('cell-why')).toHaveCount(0);
@@ -266,7 +318,7 @@ test.describe("in the heatmap's cell details", () => {
 	test('"Show in Gantt" sets the person filter, which the filter line names, and selects the task', async ({
 		page,
 	}, info) => {
-		await openHeatmap(page, info);
+		await openHeatmap(page, info, 'ui-people');
 		const { person, col, task } = await bookedCell(page);
 		const result = await resultOf(page);
 		const name = result?.resources.find((r) => r.id === person)?.name ?? person;
@@ -285,17 +337,21 @@ test.describe("in the heatmap's cell details", () => {
 	});
 });
 
+/** The health fixture H8 (with one more task) typed into the small plan, and its panel open. */
+async function openH8(page: Page, info: TestInfo): Promise<Locator> {
+	await openSample(page, info, SMALL);
+	await setPlan(page, info, H8_PLAN);
+	return openHealth(page, info);
+}
+
 test.describe('from a finding about a person', () => {
 	test('"Show in Gantt" filters the chart to the person', async ({ page }, info) => {
-		await openPlan(page, info);
-		const panel = await openHealth(page, info);
-		const row = await rowOf(panel, 'work-without-people', LICENSE);
-		await expect(row).toContainText('Runs without Desktop 01');
+		const panel = await openH8(page, info);
+		const row = await rowOf(panel, 'work-without-people', SIDE);
+		await expect(row).toContainText('Runs without Dev for 24 hours');
 		await row.locator('[data-fix="show-in-gantt"]').click();
-		await expect(page.getByTestId('filter-note')).toContainText('Desktop 01', {
-			timeout: 30_000,
-		});
-		await expect.poll(() => selectionOf(page)).toMatchObject({ kind: 'task', id: LICENSE });
+		await expect(page.getByTestId('filter-note')).toContainText('Dev', { timeout: 30_000 });
+		await expect.poll(() => selectionOf(page)).toMatchObject({ kind: 'task', id: SIDE });
 		// The panel is not in the way on a phone; on a desktop it stays beside the chart.
 		if (isTouch(info)) await expect(panel).toHaveCount(0);
 	});
@@ -303,33 +359,32 @@ test.describe('from a finding about a person', () => {
 	test("a finding's task, which the filter would hide, drops the filter and is selected", async ({
 		page,
 	}, info) => {
-		await openPlan(page, info);
-		let panel = await openHealth(page, info);
+		const ctx = await contextOfText(H8_PLAN);
+		let panel = await openH8(page, info);
 		await (
-			await rowOf(panel, 'work-without-people', LICENSE)
+			await rowOf(panel, 'work-without-people', SIDE)
 		)
 			.locator('[data-fix="show-in-gantt"]')
 			.click();
-		await expect(page.getByTestId('filter-note')).toContainText('Desktop 01', { timeout: 30_000 });
-		// Another task of the plan, which Desktop 01 is not on (not allocated, not booked, and not the
-		// first candidate of an allocate), found from the golden: its button in the panel.
+		await expect(page.getByTestId('filter-note')).toContainText('Dev', { timeout: 30_000 });
+		// Another task of the plan, which Dev is not on (not allocated, not booked, and not the
+		// first candidate of an allocate), found from the oracle: its button in the panel.
 		const sc = ctx.scenario;
 		const booked = new Set(
 			ctx.result.bookings
-				.filter((b) => b.resource === 'desk01' && b.scenario === sc)
+				.filter((b) => b.resource === 'dev' && b.scenario === sc)
 				.map((b) => b.task),
 		);
-		const target = expected().findings.find((f) => {
+		const target = checkPlan(inputOf(ctx)).findings.find((f) => {
 			if (f.check !== 'no-predecessor' || f.subject.kind !== 'task') return false;
 			const id = f.subject.id;
 			const own = ctx.result.tasks.find((t) => t.id === id)?.scenarios[sc];
 			const asks =
-				own?.allocate.some((a) => a.candidates[0] === 'desk01') ||
-				own?.allocated.includes('desk01');
+				own?.allocate.some((a) => a.candidates[0] === 'dev') || own?.allocated.includes('dev');
 			return !booked.has(id) && !asks;
 		});
 		const id = target?.subject.kind === 'task' ? target.subject.id : '';
-		expect(id).not.toBe('');
+		expect(id).toBe(LONE);
 		panel = await openHealth(page, info);
 		await (await rowOf(panel, 'no-predecessor', id)).locator('button.task').click();
 		await expect.poll(() => selectionOf(page)).toMatchObject({ kind: 'task', id });
@@ -338,16 +393,16 @@ test.describe('from a finding about a person', () => {
 	});
 
 	test('"Open in Workload" opens the person\'s cell', async ({ page }, info) => {
-		await openPlan(page, info);
-		const panel = await openHealth(page, info);
-		await (await rowOf(panel, 'work-without-people', LICENSE)).locator('[data-fix="open"]').click();
+		const panel = await openH8(page, info);
+		await (await rowOf(panel, 'work-without-people', SIDE)).locator('[data-fix="open"]').click();
 		const cell = page.getByTestId('cell-details');
 		await expect(cell).toBeVisible({ timeout: 60_000 });
-		await expect(cell.getByRole('heading', { level: 2 })).toContainText('Desktop 01');
+		await expect(cell.getByRole('heading', { level: 2 })).toContainText('Dev');
 		// The cell is a week the task runs without them: it lists it among the waiting or running-without.
 		await expect(cell.getByTestId('detail-task').first()).toBeVisible();
-		await expect(cell.locator(`[data-testid="detail-task"][data-task="${LICENSE}"]`)).toHaveCount(
-			1,
-		);
+		// Dev books it on its last two days, and the cell lists it again among the work that runs
+		// without them: two rows, the second under its own heading.
+		await expect(cell.locator(`[data-testid="detail-task"][data-task="${SIDE}"]`)).toHaveCount(2);
+		await expect(cell.getByText(/^Running without /)).toBeVisible();
 	});
 });

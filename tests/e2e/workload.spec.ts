@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The workload heatmap (phase-3.md 9.3, 8.1, 10, 7.1 W1 and W2; T14), on the `fedora-res` sample
-// ("Fedora with people"), on desktop Chrome and the Pixel 7 emulation:
+// The workload heatmap (phase-3.md 9.3, 8.1, 10, 7.1 W1 and W2; T14), on desktop Chrome, the Pixel 7
+// emulation and the iPhone 14. What depends on the size of the plan (its 28 rows, and the held and
+// unmet work of T10) runs on the `fedora-res` sample ("Fedora with people"), and the gate
+// (workload-gate.spec.ts) checks every cell of it; the rest runs on the small plan `ui-people`
+// (ADR-0016 change 4):
 // - the heatmap shows, with the people and their groups;
 // - a cell's hours equal T9's `buildLoad` for that person and week (the gate, workload-gate.spec.ts,
 //   checks every cell against an independent oracle);
@@ -20,13 +23,14 @@ import { expect, test } from '@playwright/test';
 import { createTimeZoneHost } from '../../src/engine/timezone';
 import { availabilityOf } from '../../src/lib/workload/availability';
 import { buildLoad } from '../../src/lib/workload/load';
-import { buildIndex, hintsFromResult } from '../../src/lib/tjp/index';
-import { golden } from '../../src/lib/tjp/index/testing';
+import { smallContext } from './lib/small-plan';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { mirrorCells, openHeatmap, resultOf, shape, walkGrid } from './lib/workload-rig';
 import { busyCell, chooseUnit, chooseZoom, pointOf } from './lib/workload-heat';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
+
+const SMALL = 'ui-people';
 
 test('shows the people and their weeks, groups first', async ({ page }, info) => {
 	await openHeatmap(page, info);
@@ -54,16 +58,12 @@ test('shows the people and their weeks, groups first', async ({ page }, info) =>
 });
 
 test("a cell's hours equal T9's buildLoad for that person and week", async ({ page }, info) => {
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, SMALL);
 	const result = await resultOf(page);
 	if (!result?.project) throw new Error('no result');
-	const index = buildIndex(
-		golden('fedora-res').snapshot(),
-		hintsFromResult(result, (_f, l) => l),
-		{
-			cache: null,
-		},
-	);
+	// The index of the plan's text with the engine's hints, as the app builds it (the unit oracle's
+	// context of the same plan, run in this process, has it).
+	const { index } = await smallContext(SMALL);
 	const scenario = result.project.scenarios.find((x) => x.active)?.id as string;
 	const model = buildLoad({
 		result,
@@ -94,7 +94,7 @@ test('keyboard: arrows, Home and End, Enter opens the details, Escape closes the
 	page,
 }, info) => {
 	test.skip(isTouch(info), 'a keyboard');
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, SMALL);
 	const grid = page.getByRole('grid', { name: 'Workload by person and period' });
 	const active = page.locator('[data-testid="heat-cell"][tabindex="0"]');
 	await active.focus();
@@ -132,7 +132,7 @@ test('keyboard: arrows, Home and End, Enter opens the details, Escape closes the
 test('zoom: the toolbar, + and -, and Ctrl+wheel step day, week and month', async ({
 	page,
 }, info) => {
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, SMALL);
 	const root = page.getByTestId('workload');
 	const grid = page.getByRole('grid', { name: 'Workload by person and period' });
 	const cols = async () => Number(await grid.getAttribute('aria-colcount'));
@@ -171,7 +171,7 @@ test('zoom: the toolbar, + and -, and Ctrl+wheel step day, week and month', asyn
 
 test('zoom keeps the week in view', async ({ page }, info) => {
 	test.skip(isTouch(info));
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, SMALL);
 	const { person, col } = await busyCell(page);
 	await pointOf(page, person, col);
 	const wanted = (await mirrorCells(page)).find((c) => c.person === person && c.col === col);
@@ -211,7 +211,7 @@ test('held and unmet work (T10) shows in the cells: over, with the reason in the
 });
 
 test('unit: percent shows percent in the cells and their names', async ({ page }, info) => {
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, SMALL);
 	await chooseUnit(page, '%');
 	await expect(page.getByTestId('workload')).toHaveAttribute('data-unit', 'percent');
 	await expect(page.locator('[data-testid="heat-cell"]').first()).toContainText(
@@ -222,8 +222,9 @@ test('unit: percent shows percent in the cells and their names', async ({ page }
 });
 
 test("a group's toggle hides and shows its members", async ({ page }, info) => {
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, SMALL);
 	const grid = page.getByRole('grid', { name: 'Workload by person and period' });
+	const rowCount = Number(await grid.getAttribute('aria-rowcount'));
 	const toggle = page
 		.getByTestId('heat-names')
 		.getByRole('button', { name: /^Collapse / })
@@ -234,7 +235,7 @@ test("a group's toggle hides and shows its members", async ({ page }, info) => {
 		'aria-expanded',
 		'false',
 	);
-	expect(Number(await grid.getAttribute('aria-rowcount'))).toBeLessThan(29);
+	expect(Number(await grid.getAttribute('aria-rowcount'))).toBeLessThan(rowCount);
 	await page.getByRole('button', { name: `Expand ${name}` }).click();
-	await expect(grid).toHaveAttribute('aria-rowcount', '29');
+	await expect(grid).toHaveAttribute('aria-rowcount', String(rowCount));
 });

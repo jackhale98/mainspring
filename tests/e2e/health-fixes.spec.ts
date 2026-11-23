@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The fixes of the health panel (phase-3.md 9.7, section 12; T18) on `fedora-res`, desktop Chrome, the
-// Pixel 7 emulation and the iPhone 14 (WebKit). Each kind of fix is pressed in the real panel and what it did is read from
+// The fixes of the health panel (phase-3.md 9.7, section 12; T18), desktop Chrome, the Pixel 7
+// emulation and the iPhone 14 (WebKit). One test runs on `fedora-res` (H1's picker over its 414
+// tasks, and the whole report coming back); the others type a health fixture (tests/fixtures/health,
+// native goldens) or a plan of their own into the small plan `ui-basic` (ADR-0016 change 4: what
+// they check is the patch, not the size of the plan). Each kind of fix is pressed in the real panel and what it did is read from
 // the plan's text, exactly: the patch is the text before with one change, one Undo restores every
 // byte, and the finding goes and comes back with the schedule. The kinds:
 // - "Remove start" (H3): `removeAttr`; "Convert gap to task" and "Edit gap" (H5): `gapToTask`,
@@ -15,13 +18,17 @@ import {
 	changedLines,
 	expected,
 	findings,
+	fixtureText,
 	rowOf,
 	openHealth,
 	openPlan,
+	openSample,
+	setPlan,
 	settled,
 	textOf,
 	undo,
 } from './lib/health-rig';
+import { reportOfText } from './lib/small-plan';
 
 test.setTimeout(READY_TIMEOUT_MS * 3);
 test.use({ actionTimeout: 20_000 });
@@ -42,12 +49,22 @@ async function undone(page: Page, info: Parameters<typeof undo>[1], before: stri
 	await expect.poll(() => textOf(page), { timeout: 30_000 }).toBe(before);
 }
 
-const NAMING = 'f20.naming';
-const WIKI = 'f20.PlanningPhase.clean_market_wiki';
-const LICENSE = 'f20.supplement_wallpaper.supplement_license_review';
 const DESIGN = 'f20.PlanningPhase.design_concept';
 
-/** The plan open with its health panel, the text before any fix, and a row's fix button by kind. */
+/**
+ * The small plan open with a plan typed into it and its health panel, the text before any fix, and
+ * a row's fix button by kind.
+ */
+async function readyOn(page: Page, info: Parameters<typeof undo>[1], plan: string) {
+	await openSample(page, info, 'ui-basic');
+	await setPlan(page, info, plan);
+	const panel = await openHealth(page, info);
+	const start = await textOf(page);
+	const fix = (row: Locator, kind: string) => row.locator(`[data-fix="${kind}"]`);
+	return { panel, start, fix };
+}
+
+/** The fedora-res plan open with its health panel (the one test that needs its size). */
 async function ready(page: Page, info: Parameters<typeof undo>[1]) {
 	await openPlan(page, info);
 	const panel = await openHealth(page, info);
@@ -56,23 +73,52 @@ async function ready(page: Page, info: Parameters<typeof undo>[1]) {
 	return { panel, start, fix };
 }
 
+// Health fixtures (native goldens), typed in: H3 with a comment after its date, H5 with its gap, H8
+// with the person that "side" runs without, and a plan whose constraint is written with a macro.
+const H3_PLAN = fixtureText('h3-hard-constraint', 'fail').replace(
+	'start 2026-01-05\n',
+	'start 2026-01-05   # manually\n',
+);
+const H5_PLAN = fixtureText('h5-long-gap', 'fail');
+const H8_PLAN = fixtureText('h8-work-without-people', 'fail');
+const MACRO_PLAN = `# A container whose start is written with a macro, over two tasks.
+macro begin [ 2026-01-05 ]
+project mfix "Macro fix" 2026-01-05 - 2026-03-27 {
+}
+
+resource dev "Dev"
+
+task all "All" {
+  start \${begin}
+  task a "A" {
+    effort 2d
+    allocate dev
+  }
+  task b "B" {
+    depends !a
+    effort 2d
+    allocate dev
+  }
+}
+`;
+
 // One test per kind of fix (each was a step of one long test that could outlast its timeout on a
 // busy WebKit runner); each opens the plan afresh, so none depends on another's Undo.
 test.describe('every fix kind makes an exact patch that Undo takes back', () => {
 	test('H3 "Remove start": the date goes, the comment after it stays', async ({ page }, info) => {
-		const { panel, start, fix } = await ready(page, info);
-		const h3 = await rowOf(panel, 'hard-constraint', NAMING);
+		const { panel, start, fix } = await readyOn(page, info, H3_PLAN);
+		const h3 = await rowOf(panel, 'hard-constraint', 'build');
 		await expect(h3).toHaveCount(1);
 		await expect(h3).toContainText('Its start is fixed');
-		await expect(fix(h3, 'removeAttr')).toHaveText(/^Remove start \(.*2013\)$/);
+		await expect(fix(h3, 'removeAttr')).toHaveText(/^Remove start \(.*2026\)$/);
 		await fix(h3, 'removeAttr').click();
 		const removed = await changedFrom(page, start);
-		expect(removed).toBe(start.replace('start 2013-09-17   # manually', '# manually'));
+		expect(removed).toBe(start.replace('start 2026-01-05   # manually', '# manually'));
 		// The finding goes with the result that includes the edit, and comes back with Undo.
 		await settled(page);
-		await expect(findings(panel, 'hard-constraint', NAMING)).toHaveCount(0, { timeout: 5_000 });
+		await expect(findings(panel, 'hard-constraint', 'build')).toHaveCount(0, { timeout: 5_000 });
 		await undone(page, info, start);
-		await expect(findings(panel, 'hard-constraint', NAMING)).toHaveCount(1, {
+		await expect(findings(panel, 'hard-constraint', 'build')).toHaveCount(1, {
 			timeout: READY_TIMEOUT_MS,
 		});
 	});
@@ -80,25 +126,23 @@ test.describe('every fix kind makes an exact patch that Undo takes back', () => 
 	test('H5 "Convert gap to task": a waiting task takes the gap, as one edit', async ({
 		page,
 	}, info) => {
-		const { panel, start, fix } = await ready(page, info);
-		await rowOf(panel, 'long-gap', WIKI);
-		const gap = () => findings(panel, 'long-gap', WIKI);
+		const { panel, start, fix } = await readyOn(page, info, H5_PLAN);
+		await rowOf(panel, 'long-gap', 'test');
+		const gap = () => findings(panel, 'long-gap', 'test');
 		await expect(gap()).toHaveCount(1);
-		await expect(gap()).toContainText('Waits 25 working days after Start Feature Submission');
+		await expect(gap()).toContainText('Waits 6 working days after Build');
 		await fix(gap(), 'gapToTask').click();
 		const converted = await changedFrom(page, start);
-		const at = start.indexOf('    task clean_market_wiki') - 1;
+		const at = start.indexOf('task test "Test"') - 1;
 		const inserted =
-			'\n    task wait_after_start_feature_submission "Wait after Start Feature Submission" {\n      length 25d\n      depends !start_features_cal\n    }\n';
+			'\ntask wait_after_build "Wait after Build" {\n  length 6d\n  depends !build\n}\n';
 		expect(converted).toBe(
-			start.slice(0, at) +
-				inserted +
-				start
-					.slice(at)
-					.replace(
-						'depends !start_features_cal {gaplength 25d}',
-						'depends !wait_after_start_feature_submission',
-					),
+			start
+				.slice(0, at)
+				.concat(
+					inserted,
+					start.slice(at).replace('depends build { gaplength 6d }', 'depends !wait_after_build'),
+				),
 		);
 		await undone(page, info, start);
 		await expect(gap()).toHaveCount(1, { timeout: READY_TIMEOUT_MS });
@@ -107,15 +151,15 @@ test.describe('every fix kind makes an exact patch that Undo takes back', () => 
 	test('H5 "Edit gap": a gap that is no gap is refused; a good one changes only that value', async ({
 		page,
 	}, info) => {
-		const { panel, start, fix } = await ready(page, info);
-		await rowOf(panel, 'long-gap', WIKI);
-		const gap = () => findings(panel, 'long-gap', WIKI);
+		const { panel, start, fix } = await readyOn(page, info, H5_PLAN);
+		await rowOf(panel, 'long-gap', 'test');
+		const gap = () => findings(panel, 'long-gap', 'test');
 		await expect(gap()).toHaveCount(1);
 		// The field starts from the gap written; the refusal is the dispatcher's toast, and nothing
 		// changes.
 		await fix(gap(), 'setDependsGap').click();
 		const field = gap().getByRole('textbox', { name: 'Gap', exact: true });
-		await expect(field).toHaveValue('25d');
+		await expect(field).toHaveValue('6d');
 		await field.fill('soon');
 		await field.press('Enter');
 		const toast = page.getByTestId('toast').last();
@@ -125,29 +169,26 @@ test.describe('every fix kind makes an exact patch that Undo takes back', () => 
 		await field.press('Enter');
 		const edited = await changedFrom(page, start);
 		expect(changedLines(start, edited)).toEqual([
-			[
-				'      depends !start_features_cal {gaplength 25d}',
-				'      depends !start_features_cal {gaplength 10d}',
-			],
+			['  depends build { gaplength 6d }', '  depends build { gaplength 10d }'],
 		]);
 		await expect(gap().getByRole('textbox', { name: 'Gap', exact: true })).toHaveCount(0);
 		await undone(page, info, start);
 	});
 
-	test('H8 "Replace Desktop 01…": the chip\'s own edit, to a person chosen from the list', async ({
+	test('H8 "Replace Dev…": the chip\'s own edit, to a person chosen from the list', async ({
 		page,
 	}, info) => {
-		const { panel, start } = await ready(page, info);
-		const h8 = await rowOf(panel, 'work-without-people', LICENSE);
+		const { panel, start } = await readyOn(page, info, H8_PLAN);
+		const h8 = await rowOf(panel, 'work-without-people', 'side');
 		await expect(h8).toHaveCount(1);
-		await expect(h8).toContainText('Runs without Desktop 01 for 56 hours');
+		await expect(h8).toContainText('Runs without Dev for 24 hours');
 		const choose = h8.locator('select[data-fix="replace-person"]');
-		await expect(choose.locator('option').first()).toHaveText('Replace Desktop 01…');
-		await choose.selectOption({ label: 'Desktop 02' });
+		await expect(choose.locator('option').first()).toHaveText('Replace Dev…');
+		await choose.selectOption({ label: 'Ann' });
 		const replaced = await changedFrom(page, start);
 		const lines = changedLines(start, replaced);
 		expect(lines).toHaveLength(1);
-		expect(lines[0]?.[1]).toBe(lines[0]?.[0].replace('desk01', 'desk02'));
+		expect(lines[0]?.[1]).toBe(lines[0]?.[0].replace('dev', 'ann'));
 		await undone(page, info, start);
 	});
 
@@ -181,12 +222,20 @@ test.describe('every fix kind makes an exact patch that Undo takes back', () => 
 test('a fix whose text is written with a macro is disabled, and says why', async ({
 	page,
 }, info) => {
-	await openPlan(page, info);
+	// The oracle: the engine's schedule of the plan has a hard constraint on the container.
+	const report = await reportOfText(MACRO_PLAN);
+	expect(
+		report.findings.some(
+			(f) => f.check === 'hard-constraint' && f.subject.kind === 'task' && f.subject.id === 'all',
+		),
+	).toBe(true);
+	await openSample(page, info, 'ui-basic');
+	await setPlan(page, info, MACRO_PLAN);
 	const panel = await openHealth(page, info);
-	// Fedora's root has `start ${start_work}`: the constraint is reported, and cannot be removed here.
-	const root = await rowOf(panel, 'hard-constraint', 'f20');
+	// The container's start is `${begin}`: the constraint is reported, and cannot be removed here.
+	const root = await rowOf(panel, 'hard-constraint', 'all');
 	await expect(root).toHaveCount(1);
-	await expect(root).toContainText('applies to 273 tasks');
+	await expect(root).toContainText('applies to 3 tasks');
 	await expect(root.locator('[data-fix="removeAttr"]')).toBeDisabled();
 	await expect(root.getByTestId('fix-off')).toHaveText(
 		'Written with a macro. Edit it in the text.',

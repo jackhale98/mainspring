@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The helpers of the workload heatmap specs (workload.spec.ts and workload-edits.spec.ts), on the
-// `fedora-res` sample: the text of both files, a tap, the busy and movable cells, a move's outcome,
+// `fedora-res` sample and the small plan `ui-people`: the text of both files, a tap, the busy and movable cells, a move's outcome,
 // a cell's point, the zoom and unit controls and an axe check.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, type TestInfo } from '@playwright/test';
@@ -93,17 +93,24 @@ export async function moved(page: Page, act: () => Promise<void>): Promise<'appl
 	return 'applied';
 }
 
-/** A booked cell from which a drag may start (a task the text declares and can edit). */
-export async function movableCell(page: Page): Promise<{ person: string; col: number }> {
-	// Well down the list and well along the plot, clear of the edges that auto-scroll a drag.
+/**
+ * A booked cell from which a drag may start (a task the text declares and can edit). On a big plan
+ * (the default) it is well down the list and well along the plot, clear of the edges that
+ * auto-scroll a drag; on a small plan (`small`) every row and every week after the first is clear
+ * of them, but the last person is left for a drag to have someone below.
+ */
+export async function movableCell(
+	page: Page,
+	small = false,
+): Promise<{ person: string; col: number }> {
 	const result = await resultOf(page);
 	if (!result) throw new Error('no result');
 	const o = oracle(result);
 	const s = await shape(page);
-	for (const person of (s?.rows ?? []).slice(8, -4)) {
+	for (const person of (s?.rows ?? []).slice(small ? 0 : 8, small ? -1 : -4)) {
 		if (result.resources.find((r) => r.id === person)?.group) continue;
 		const row = o.booked.get(person) ?? [];
-		for (let col = 8; col < row.length; col++) {
+		for (let col = small ? 1 : 8; col < row.length; col++) {
 			if ((row[col] ?? 0) === 0) continue;
 			const tasks = await page.evaluate(
 				([p, c]) => (window as unknown as Win).__mainspringWorkload.tasks(p as string, c as number),

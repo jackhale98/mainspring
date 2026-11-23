@@ -7,16 +7,12 @@
 // (`checkPlan` over the golden, src/lib/health): the failing fixture has the check's findings on
 // its tasks and the passing one has none of that check. The Health button (or the status card on a
 // phone) carries the same total. The file is named for its job; health.spec.ts has the rest.
-import fs from 'node:fs';
-import path from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { goldenReport } from '../../src/lib/health/testing';
 import type { CheckId } from '../../src/lib/health/types';
-import { REPO } from '../golden/corpus';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
-import { modKey } from './lib/keys';
-import { openHealth } from './lib/health-rig';
-import { panelSettled, resultAfter, resultRevision } from './lib/settle';
+import { fixtureText, openHealth, setPlan } from './lib/health-rig';
+import { panelSettled } from './lib/settle';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
 test.use({ actionTimeout: 20_000 });
@@ -25,37 +21,6 @@ const PAIRS: ReadonlyArray<{ dir: string; id: string; check: CheckId }> = [
 	{ dir: 'h1-no-predecessor', id: 'h1', check: 'no-predecessor' },
 	{ dir: 'h7-held-by-people', id: 'h7', check: 'held-by-people' },
 ];
-
-const fixtureText = (dir: string, side: 'pass' | 'fail'): string =>
-	fs.readFileSync(path.join(REPO, 'tests', 'fixtures', 'health', dir, side, 'plan.tjp'), 'utf8');
-
-/** Replaces the plan's text in the Text editor and comes back to the Gantt, scheduled. */
-async function setPlan(page: Page, info: TestInfo, source: string): Promise<void> {
-	const phone = isTouch(info);
-	if (phone) await page.getByRole('tab', { name: 'Text', exact: true }).tap();
-	else await page.getByRole('button', { name: 'Text', exact: true }).click();
-	const editor = page.getByRole('textbox', { name: /^Editor for / });
-	await editor.click();
-	const rev = await resultRevision(page);
-	await page.keyboard.press(`${await modKey(page)}+A`);
-	await page.keyboard.insertText(source);
-	await expect
-		.poll(() =>
-			page.evaluate(() =>
-				(
-					window as unknown as { __mainspringEdits: { text(): string | null } }
-				).__mainspringEdits.text(),
-			),
-		)
-		.toBe(source);
-	// "Scheduled" still shows the plan before this one until its run starts.
-	await resultAfter(page, rev, READY_TIMEOUT_MS);
-	await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
-		timeout: READY_TIMEOUT_MS,
-	});
-	if (phone) await page.getByRole('tab', { name: 'Gantt', exact: true }).tap();
-	else await page.getByRole('button', { name: 'Visual', exact: true }).click();
-}
 
 /** The findings the panel lists, as `check:task` strings (a finding without a task has none). */
 async function listed(page: Page, info: TestInfo): Promise<string[]> {

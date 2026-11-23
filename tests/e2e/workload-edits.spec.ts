@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The workload heatmap, continued from workload.spec.ts (split so that neither file runs over a CI
-// shard's 8 minutes on the iPhone, ADR-0016 section 4), on the `fedora-res` sample:
+// shard's 8 minutes on the iPhone, ADR-0016 section 4), on the small plan `ui-people` (ADR-0016
+// change 4: nothing here depends on the size of the plan; the scale is workload.spec.ts's and the
+// gate's, on `fedora-res`):
 // - the cell details list the tasks with hours and effective effort, and the move menus and keys
 //   edit or refuse;
 // - the thresholds are stored per plan, a bad pair is refused, and the bands follow;
@@ -24,10 +26,12 @@ import { mirrorCells, openHeatmap, resultOf, shape } from './lib/workload-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 2);
 
+const PLAN = 'ui-people';
+
 test('details: the tasks of a cell with hours and effective effort; the move menus and keys edit or refuse', async ({
 	page,
 }, info) => {
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, PLAN);
 	const { person, col } = await busyCell(page);
 	const at = await pointOf(page, person, col);
 	const before = await text(page);
@@ -69,7 +73,7 @@ test('details: the tasks of a cell with hours and effective effort; the move men
 });
 
 test('thresholds: stored per plan, a bad pair refused, bands follow', async ({ page }, info) => {
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, PLAN);
 	const bands = async () => (await mirrorCells(page)).filter((c) => c.band === 'over').length;
 	const before = await bands();
 	await page.getByTestId('heat-thresholds-chip').click();
@@ -83,8 +87,8 @@ test('thresholds: stored per plan, a bad pair refused, bands follow', async ({ p
 	await spare.fill('50');
 	await spare.press('Enter');
 	await expect(page.getByRole('alert')).toHaveCount(0);
-	await expect.poll(bands).toBeGreaterThan(before + 5);
-	const stored = await page.evaluate(() => localStorage.getItem('mainspring.workload.fedora-res'));
+	await expect.poll(bands).toBeGreaterThan(before);
+	const stored = await page.evaluate(() => localStorage.getItem('mainspring.workload.ui-people'));
 	expect(JSON.parse(stored ?? '{}').thresholds).toEqual({ spareBelow: 50, overAbove: 90 });
 	// It survives a reload, and the other plan has its own.
 	await page.reload();
@@ -107,8 +111,8 @@ test('rebalance: a mouse drag to another person or week is one edit that Undo ta
 	page,
 }, info) => {
 	test.skip(isTouch(info), 'mouse');
-	await openHeatmap(page, info);
-	const { person, col } = await movableCell(page);
+	await openHeatmap(page, info, PLAN);
+	const { person, col } = await movableCell(page, true);
 	const from = await pointOf(page, person, col);
 	const before = await text(page);
 	// Escape cancels a drag.
@@ -160,8 +164,8 @@ test('a long-press on a finger opens the cell details; a tap selects, a second t
 	page,
 }, info) => {
 	test.skip(!isTouch(info), 'a finger');
-	await openHeatmap(page, info);
-	const { person, col } = await movableCell(page);
+	await openHeatmap(page, info, PLAN);
+	const { person, col } = await movableCell(page, true);
 	const at = await pointOf(page, person, col);
 	await page.touchscreen.tap(at.x, at.y);
 	await expect(page.getByTestId('cell-details')).toBeHidden();
@@ -188,7 +192,7 @@ test('a long-press on a finger opens the cell details; a tap selects, a second t
 for (const scheme of ['light', 'dark'] as const) {
 	test(`axe: the heatmap, the thresholds and the details (${scheme})`, async ({ page }, info) => {
 		await page.emulateMedia({ colorScheme: scheme });
-		await openHeatmap(page, info);
+		await openHeatmap(page, info, PLAN);
 		await axe(page, `heatmap (${scheme})`);
 		await page.getByTestId('heat-thresholds-chip').click();
 		await axe(page, `thresholds (${scheme})`);
@@ -204,7 +208,7 @@ for (const scheme of ['light', 'dark'] as const) {
 
 test('a finger: every target of the heatmap is 44 px', async ({ page }, info) => {
 	test.skip(!isTouch(info), 'a finger');
-	await openHeatmap(page, info);
+	await openHeatmap(page, info, PLAN);
 	const small = (await smallTargets(page)).filter(
 		(t) => !/people-shell|segment|panel/i.test(t.what),
 	);

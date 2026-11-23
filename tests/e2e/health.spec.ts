@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The health panel (phase-3.md 9.2, 9.7, 10, 12; T18) on `fedora-res`, desktop Chrome, the Pixel 7
-// emulation and the iPhone 14 (WebKit):
+// The health panel (phase-3.md 9.2, 9.7, 10, 12; T18), desktop Chrome, the Pixel 7 emulation and the
+// iPhone 14 (WebKit). What depends on the size of the plan (the counts of the health golden, the
+// windowed list, the list holding still while it is scrolled) runs on `fedora-res`; the rest runs on
+// the small plan `ui-basic` (ADR-0016 change 4), whose report is the unit oracle's over the engine
+// run in the spec's own process (lib/small-plan.ts), or on a health fixture whose golden is native:
 // - the findings are grouped by check and the counts per check are the health golden's (241 in all,
 //   milestones exempt: 26 without a predecessor, 61 without a successor);
 // - the severity filter; the settings (thresholds, each check, and milestones in H1 and H2), which
@@ -16,9 +19,14 @@ import { CHECK_IDS, DEFAULT_HEALTH_SETTINGS } from '../../src/lib/health/types';
 import { withCheck, withLinkMilestones } from '../../src/lib/health/settings';
 import { READY_TIMEOUT_MS } from './lib/gantt-rig';
 import { panelSettled } from './lib/settle';
+import { reportOfText, smallReport } from './lib/small-plan';
 import {
-	SETTINGS_KEY,
+	SMALL,
+	SMALL_SETTINGS_KEY,
 	TAGS,
+	fixtureText,
+	openSmall,
+	setPlan,
 	driveList,
 	scrollStops,
 	expectTotal,
@@ -89,18 +97,18 @@ test.describe('the findings', () => {
 	});
 
 	test('can be filtered by severity', async ({ page }, info) => {
-		await openPlan(page, info);
+		await openSmall(page, info);
 		const panel = await openHealth(page, info);
-		const want = expected();
+		const want = await smallReport(SMALL);
+		const total = want.findings.length;
 		const notes = want.findings.filter((f) => f.severity === 'info').length;
 		const warnings = want.findings.filter((f) => f.severity === 'warning').length;
-		expect([notes, warnings]).toEqual([17, 224]);
+		expect([notes, warnings, total]).toEqual([3, 6, 9]);
 
 		await panel.getByTestId('severity-info').click();
 		await expect(panel.getByTestId('severity-info')).toHaveAttribute('aria-checked', 'true');
 		await expect(panel.getByRole('heading', { level: 3 })).toHaveText([
 			`Hard constraint, ${want.counts['hard-constraint']}`,
-			`Long task, ${want.counts['long-task']}`,
 		]);
 		await expect
 			.poll(async () => Object.values(await sizes(panel)).reduce((a, b) => a + b, 0))
@@ -109,11 +117,13 @@ test.describe('the findings', () => {
 		await expect
 			.poll(async () => Object.values(await sizes(panel)).reduce((a, b) => a + b, 0))
 			.toBe(warnings);
-		await expect(heading(panel, `Hard constraint, 7`)).toHaveCount(0);
+		await expect(heading(panel, `Hard constraint, ${want.counts['hard-constraint']}`)).toHaveCount(
+			0,
+		);
 		await panel.getByTestId('severity-all').click();
 		await expect
 			.poll(async () => Object.values(await sizes(panel)).reduce((a, b) => a + b, 0))
-			.toBe(241);
+			.toBe(total);
 		// The filter is a radio group with a roving tab stop: the arrows move and choose.
 		await panel.getByTestId('severity-all').focus();
 		await page.keyboard.press('ArrowRight');
@@ -129,14 +139,25 @@ test.describe('the settings', () => {
 	test('milestones in H1 and H2 are a per-plan setting that changes the counts and is kept', async ({
 		page,
 	}, info) => {
-		const off = expected();
-		const on = expected(withLinkMilestones(DEFAULT_HEALTH_SETTINGS, true));
-		expect(on.counts['no-predecessor']).toBeGreaterThan(off.counts['no-predecessor']);
-		expect(on.counts['no-successor']).toBeGreaterThan(off.counts['no-successor']);
+		// The health fixture H1 (pass) with a milestone in the middle of the plan that nothing leads
+		// to or from. The start milestone (Kickoff) and the finish milestone are exempt; with the
+		// setting on, Midpoint is reported in H1 (nothing before it) and Done, which now ends
+		// before the finish, in H2 (the oracle: the report over the engine run in this process).
+		const plan = `${fixtureText('h1-no-predecessor', 'pass')}
+task mid "Midpoint" {
+  milestone
+  start 2026-02-02-09:00
+}
+`;
+		const off = await reportOfText(plan);
+		const on = await reportOfText(plan, withLinkMilestones(DEFAULT_HEALTH_SETTINGS, true));
+		expect(on.counts['no-predecessor']).toBe(off.counts['no-predecessor'] + 1);
+		expect(on.counts['no-successor']).toBe(off.counts['no-successor'] + 1);
 
-		await openPlan(page, info);
+		await openSmall(page, info);
+		await setPlan(page, info, plan);
 		let panel = await openHealth(page, info);
-		expect(await storedSettings(page)).toBeNull();
+		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBeNull();
 		await panel.getByTestId('health-settings-button').click();
 		const toggle = panel.getByTestId('health-link-milestones');
 		await expect(toggle).not.toBeChecked();
@@ -148,13 +169,14 @@ test.describe('the settings', () => {
 		await expect(heading(panel, `No predecessor, ${on.counts['no-predecessor']}`)).toHaveCount(1);
 		await expect(heading(panel, `No successor, ${on.counts['no-successor']}`)).toHaveCount(1);
 		// What is kept is only what differs from the defaults, under the plan's own key.
-		expect(await storedSettings(page)).toBe('{"linkMilestones":true}');
+		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBe('{"linkMilestones":true}');
 
-		// A new visit reads it again.
+		// A new visit reads it again (a reload brings the sample back, so the plan is typed again).
 		await page.reload();
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 			timeout: READY_TIMEOUT_MS,
 		});
+		await setPlan(page, info, plan);
 		panel = await openHealth(page, info);
 		await expectTotal(page, info, panel, on.findings.length);
 		await panel.getByTestId('health-settings-button').click();
@@ -165,29 +187,33 @@ test.describe('the settings', () => {
 		await expect(panel.getByTestId('health-link-milestones')).not.toBeChecked();
 		await panel.getByRole('button', { name: H.settings.back }).click();
 		await expectTotal(page, info, panel, off.findings.length);
-		expect(await storedSettings(page)).toBe('{}');
+		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBe('{}');
 	});
 
 	test('thresholds and checks change what is reported; a bad threshold is refused', async ({
 		page,
 	}, info) => {
-		const base = expected();
-		const long = expected({ ...DEFAULT_HEALTH_SETTINGS, longTaskDays: 40 });
-		const noGaps = expected(withCheck(DEFAULT_HEALTH_SETTINGS, 'long-gap', false));
-		expect(long.counts['long-task']).toBeLessThan(base.counts['long-task']);
-		expect(noGaps.counts['long-gap']).toBe(0);
+		const base = await smallReport(SMALL);
+		const long = await smallReport(SMALL, { ...DEFAULT_HEALTH_SETTINGS, longTaskDays: 2 });
+		const noConstraints = await smallReport(SMALL, {
+			...withCheck(DEFAULT_HEALTH_SETTINGS, 'hard-constraint', false),
+			longTaskDays: 2,
+		});
+		expect(long.counts['long-task']).toBeGreaterThan(base.counts['long-task']);
+		expect(noConstraints.counts['hard-constraint']).toBe(0);
+		expect(base.counts['hard-constraint']).toBeGreaterThan(0);
 
-		await openPlan(page, info);
+		await openSmall(page, info);
 		const panel = await openHealth(page, info);
 		await panel.getByTestId('health-settings-button').click();
 
 		const days = panel.getByTestId('health-task-days');
 		await expect(days).toHaveValue('20');
-		await days.fill('40');
+		await days.fill('2');
 		await days.press('Enter');
 		await panel.getByRole('button', { name: H.settings.back }).click();
 		await expectTotal(page, info, panel, long.findings.length);
-		expect(await storedSettings(page)).toBe('{"longTaskDays":40}');
+		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBe('{"longTaskDays":2}');
 
 		// A value that is not a whole number of days is refused with a sentence, and nothing changes.
 		await panel.getByTestId('health-settings-button').click();
@@ -195,29 +221,24 @@ test.describe('the settings', () => {
 		await days.press('Enter');
 		await expect(panel.getByRole('alert')).toHaveText(H.settings.invalid);
 		await expect(days).toHaveAttribute('aria-invalid', 'true');
-		expect(await storedSettings(page)).toBe('{"longTaskDays":40}');
+		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBe('{"longTaskDays":2}');
 		// The stepper works from the value shown.
-		await days.fill('40');
+		await days.fill('2');
 		await days.press('Enter');
 		await panel.getByRole('button', { name: /^More days: Long task/ }).click();
-		await expect(days).toHaveValue('41');
+		await expect(days).toHaveValue('3');
 		await panel.getByRole('button', { name: /^Fewer days: Long task/ }).click();
-		await expect(days).toHaveValue('40');
+		await expect(days).toHaveValue('2');
 
 		// A check turned off has no group.
-		await panel.locator('input[data-check="long-gap"]').uncheck();
+		await expect(panel.locator('input[data-check="hard-constraint"]')).toBeChecked();
+		await panel.locator('input[data-check="hard-constraint"]').uncheck();
 		await panel.getByRole('button', { name: H.settings.back }).click();
-		await expect(heading(panel, /^Long gap/)).toHaveCount(0);
-		await expectTotal(
-			page,
-			info,
-			panel,
-			expected({ ...withCheck(DEFAULT_HEALTH_SETTINGS, 'long-gap', false), longTaskDays: 40 })
-				.findings.length,
-		);
-		const stored = JSON.parse((await storedSettings(page)) ?? '{}');
-		expect(stored).toEqual({ longTaskDays: 40, enabled: { 'long-gap': false } });
-		expect(SETTINGS_KEY).toBe('mainspring.health.fedora-res');
+		await expect(heading(panel, /^Hard constraint/)).toHaveCount(0);
+		await expectTotal(page, info, panel, noConstraints.findings.length);
+		const stored = JSON.parse((await storedSettings(page, SMALL_SETTINGS_KEY)) ?? '{}');
+		expect(stored).toEqual({ longTaskDays: 2, enabled: { 'hard-constraint': false } });
+		expect(SMALL_SETTINGS_KEY).toBe('mainspring.health.ui-basic');
 	});
 });
 
@@ -227,10 +248,15 @@ test.describe('the keyboard path', () => {
 	});
 
 	test('the button, the tabs and Escape', async ({ page }) => {
-		await page.goto('/app?sample=fedora-res&mode=visual&hooks=edits');
-		await expect(page.getByTestId('health-button')).toHaveAttribute('data-count', '241', {
-			timeout: READY_TIMEOUT_MS,
-		});
+		const want = await smallReport(SMALL);
+		await page.goto(`/app?sample=${SMALL}&mode=visual&hooks=edits`);
+		await expect(page.getByTestId('health-button')).toHaveAttribute(
+			'data-count',
+			`${want.findings.length}`,
+			{
+				timeout: READY_TIMEOUT_MS,
+			},
+		);
 		const button = page.getByTestId('health-button');
 		await button.focus();
 		await page.keyboard.press('Enter');
@@ -280,7 +306,7 @@ test.describe('the details take the focus', () => {
 	test('Add task with the Health tab showing leaves it for the details, with the name focused', async ({
 		page,
 	}, info) => {
-		await openPlan(page, info);
+		await openSmall(page, info);
 		const panel = await openHealth(page, info);
 		await expect(panel).toBeVisible();
 		await page.getByRole('button', { name: 'Add task' }).first().click();
@@ -373,7 +399,7 @@ test.describe('the phone path', () => {
 	test('the status card leads to a full-height sheet whose targets are 44 px', async ({
 		page,
 	}, info) => {
-		await openPlan(page, info);
+		await openSmall(page, info);
 		const panel = await openHealth(page, info);
 		await expect(panel).toBeVisible();
 		// Full height: the sheet stops below the top bar, which keeps Undo and Redo in reach.
@@ -419,9 +445,15 @@ test.describe('the tablet sheet', () => {
 		page,
 	}, info) => {
 		await page.setViewportSize({ width: 820, height: 1180 });
-		await openPlan(page, info);
+		await openSmall(page, info);
 		const button = page.getByTestId('health-button');
-		await expect(button).toHaveAttribute('data-count', '241', { timeout: READY_TIMEOUT_MS });
+		await expect(button).toHaveAttribute(
+			'data-count',
+			`${(await smallReport(SMALL)).findings.length}`,
+			{
+				timeout: READY_TIMEOUT_MS,
+			},
+		);
 		await button.focus();
 		await page.keyboard.press('Enter');
 		const sheet = page.getByRole('dialog', { name: 'Plan health' });
@@ -444,7 +476,7 @@ test.describe('the tablet sheet', () => {
 test.describe('accessibility', () => {
 	for (const scheme of ['light', 'dark'] as const) {
 		test(`axe finds nothing in ${scheme}: the list and the settings`, async ({ page }, info) => {
-			await openPlan(page, info, scheme);
+			await openSmall(page, info, scheme);
 			const panel = await openHealth(page, info);
 			await expect(findings(panel, 'no-predecessor').first()).toBeVisible();
 			// A phone's sheet still sliding in lies partly over the toolbar: scan it at rest.
