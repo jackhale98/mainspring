@@ -792,3 +792,23 @@ The gate also records: JS sizes; 12.2 timings; the code-cache spike result; the 
 13. **ADR-0003 #1** leaves invalid bytes on save to Phase 4 (18.11).
 14. **The Storage table's "Detect external changes on focus by modified time"** is followed, plus a content comparison so that a touch with no change does not prompt.
 15. **"Schedule check before commit"** is stated for every commit, but "Merging plans safely" blocks only after a merge (18.9).
+
+## 20. Decisions (user, 2026-11-23)
+
+The user approved this spec with every section 18 recommendation, except:
+
+- **18.14 Staging origin: GitHub Pages for now** (the existing Pages site, ADR-0006), possibly a Cloudflare
+  domain later. Consequences:
+  - 16.3's "staging origin" is the Pages site; the deploy is the existing Pages workflow from `main`, and
+    `deploy-staging.yml` is not written until the user moves to Cloudflare.
+  - Headers: Pages cannot set them, so the policy of 10.2 ships as the `<meta>` tag (no `frame-ancestors`,
+    no `Referrer-Policy` header; the page sets `<meta name="referrer" content="no-referrer">`). The release
+    checklist's "`curl -I` headers" item becomes "the served page carries the CSP `<meta>` and
+    `csp.spec.ts` passes under `/mainspring/`". `public/_headers` is still written (T19), so a later move
+    to Cloudflare needs no code change.
+  - T10: the GitHub App's device-flow relay still needs the worker; `ALLOWED_ORIGINS` names the Pages
+    origin. The worker's host is the user's choice at T10.
+- **18.2 GitHub sign-in:** as recommended: the "Mainspring" GitHub App with the device flow relayed by the
+  worker, plus "Use a token instead" (fine-grained, no worker).
+- **18.15 Release items:** both accepted: the user re-records the goldens on Ruby 3.4 before the release,
+  and does a 15-minute real-device smoke on the Pages site (iPhone home-screen app, Android Chrome).

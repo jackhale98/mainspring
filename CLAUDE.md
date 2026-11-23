@@ -101,7 +101,8 @@ away because work was split or delegated too early. These rules refine the loop 
 - Phase 1 approved 2026-11-12 (`docs/phases/phase-1-gate.md`). Phase 2 gate evidence recorded
   2026-11-14 (`docs/phases/phase-2-gate.md`; ADR-0007, ADR-0008, ADR-0010). Phase 3 approved
   2026-11-23 (`docs/phases/phase-3-gate.md`; spec `docs/phases/phase-3.md`; ADR-0013, ADR-0014,
-  ADR-0016). Phase 4 spec next (architect), for the user's review. Priority (user, 2026-11-16): the workload work (T7, T9 and what follows) comes
+  ADR-0016). Phase 4 in progress (`docs/phases/phase-4.md`, approved 2026-11-23 with every
+  section 18 recommendation except 18.14: staging is the GitHub Pages site for now, section 20). Priority (user, 2026-11-16): the workload work (T7, T9 and what follows) comes
   first; new polish requests go on the list and wait unless they are bugs. Goldens are
   provisional (Ruby 3.3.6) until the user re-records them on Ruby 3.4 (ADR-0003 #5, amended).
 - UI hardening pass approved (user, 2026-11-18; ADR-0016): runs at the end of Phase 3 before the gate,
