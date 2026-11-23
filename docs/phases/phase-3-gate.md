@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main | `1b3c00d7` (branch run 44760368049, 2026-11-20; main fast-forwarded): T21's specs, the Health button's zero name, the group-row drop refusal, the manual CI start, and the sweep of waits that read a result from before the edit; then five manual runs on it, all green (see done-when item 1) |
+| Last green commit on main | `10a7a6d1` (branch run 45229658035, 2026-11-23; main fast-forwarded): the interface specs that do not need scale run on small plans. T22 (`204b16a5`) is pushed and its run is pending |
 | Timing trend | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression. 2. `6d43799c` (nightly 44728784645, `timing-nightly-9`): 14 passed, judge step green. 3. `1b3c00d7` (nightly 44896823472, `timing-nightly-10`): 14 passed, judge step green. 4. `1b3c00d7` (nightly 45016747623, `timing-nightly-11`): 14 passed, judge step green |
 | iPhone 14 skips left | None outside the allowlist (2026-11-19): B4 is done (health, health fixes, why-here and the health screenshots run on the iPhone 14 once the windowed Health list held still on WebKit, `anchor.ts`), so `PENDING_BATCHES` in `scripts/ci/webkit-skips.mjs` is empty and the scan fails on any iPhone skip outside the allowlist in every spec. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`; T22's Health panel test runs on the iPhone and records only the time to open there, so it took no entry) |
-| CI wall time | 14.3 to 19.0 min over the five manual runs on `1b3c00d7` (16.3, 16.3, 14.3, 17.2, 19.0; runs 44807594259, 44828061086, 44983027206, 45043700692, 45054048787). About 215 job-minutes over 38 jobs against at most 20 concurrent runners; the iPhone project is about 120 of them, so the 12 min target (ADR-0016 section 4) needs fewer iPhone worker-minutes, not more shards. Durations re-measured 2026-11-19 (longest planned shard about 7 min). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble` |
+| CI wall time | 14.3 to 19.0 min over the five manual runs on `1b3c00d7` (16.3, 16.3, 14.3, 17.2, 19.0; runs 44807594259, 44828061086, 44983027206, 45043700692, 45054048787). About 215 job-minutes over 38 jobs against at most 20 concurrent runners; the iPhone project is about 120 of them, so the 12 min target (ADR-0016 section 4) needs fewer iPhone worker-minutes, not more shards. Durations re-measured 2026-11-19 (longest planned shard about 7 min). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble`. After the small plans: 16 min 19 s on `10a7a6d1` (run 45229658035, 208 job-minutes). The 12 min target is waived by the user (2026-11-23; done-when item 4) |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
@@ -479,7 +479,11 @@ desktop.
 2. iPhone skips down to the allowlist: done (B1 to B5 done; `PENDING_BATCHES` is empty; 5 allowlist entries of at most 6).
 3. Contract specs for the six primitives: done (T25 above): pass on desktop, Pixel 7 and iPhone 14;
    `select-arrows.spec.ts` passes on all three and the global select rule is gone.
-4. CI meets the time target: not yet.
+4. CI meets the time target: waived by the user (2026-11-23), kept as is. After the small-plans
+   work the branch run 45229658035 on `10a7a6d1` took 16 min 19 s against the 12 min target: 38
+   jobs and 208 job-minutes on about 20 runners, so a third of the jobs queued 5 to 7 minutes; the
+   last iPhone shard to start (11/18) ran 10 minutes, and the engine build job alone takes 11. The
+   levers left are even shard packing, fewer iPhone shards and a shorter engine build job.
 5. The status line is at the top of this file: done (this file).
 
 ## T21: end-to-end specs, the gate spec and pictures (2026-11-19)
