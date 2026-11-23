@@ -452,7 +452,7 @@ Each row goes through the dispatcher, so it is one undo step, appears in History
   - the canvases redraw only on a model change, a zoom, or a scroll past the overscan;
   - cell text is drawn only when a cell is at least 32 px wide.
 - **ARIA mirror.** It holds the visible window only (at most 30 rows x 20 columns of cells) and is rebuilt 150 ms after scrolling stops, never during scroll frames.
-- **Per-frame work.** At most 600 `fillRect` calls and the overlay; script at most 4 ms on desktop and 8 ms at 4x.
+- **Per-frame work.** At most 600 `fillRect` calls and the overlay (**amended 2026-11-23, user, Phase 3 gate:** enforced on phones only; desktop is recorded, 731 at day zoom on 1280 px); script at most 4 ms on desktop and 8 ms at 4x.
 
 ### 8.2 Calendar, tables, health
 
@@ -471,7 +471,7 @@ These are DOM: a month is 42 day cells, and the tables and lists are short.
   Each task stays under 50 ms at 4x, chunked where needed. Targets on desktop: load at most 15 ms, demand at most 25 ms, health at most 15 ms on `fedora-res` and `scale-1000`. These are recorded, not enforced. CI's enforced rule is the responsiveness job: no task over 50 ms after ready, extended to `fedora-res` with the Workload view open.
 - **Bundle.**
   - The People views and the insight modules (`workload`, `explain`, `demand`, `health`) are one lazy chunk, loaded when a People view opens or in idle after the first result (for the health count).
-  - Total `/app` JS stays under 450,000 bytes gzip, and Visual-first initial JS grows by at most 5 KB. **Amended 2026-11-16 (user):** first loads are capped instead (Visual or Gantt-first at most 310,000 bytes gzip, Text-first at most 420,000, enforced), with a total guard of 600,000 bytes and per-chunk caps; the People chunk at 60,000 (`scripts/js-sizes.mjs`). **Raised 2026-11-17 (user):** Visual or Gantt-first at most 330,000 bytes gzip, Text-first at most 440,000, total guard 650,000; the per-chunk caps are unchanged.
+  - Total `/app` JS stays under 450,000 bytes gzip, and Visual-first initial JS grows by at most 5 KB. **Amended 2026-11-16 (user):** first loads are capped instead (Visual or Gantt-first at most 310,000 bytes gzip, Text-first at most 420,000, enforced), with a total guard of 600,000 bytes and per-chunk caps; the People chunk at 60,000 (`scripts/js-sizes.mjs`). **Raised 2026-11-17 (user):** Visual or Gantt-first at most 330,000 bytes gzip, Text-first at most 440,000, total guard 650,000; the per-chunk caps are unchanged. **Raised 2026-11-23 (user, Phase 3 gate):** Visual or Gantt-first at most 340,000 (it stood 438 bytes under 330,000).
   - `scripts/js-sizes.mjs` reports the new chunk.
 
 ### 8.4 Measured in CI (emulation) and on the desktop

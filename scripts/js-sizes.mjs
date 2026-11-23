@@ -4,7 +4,7 @@
 // The budgets are on what a first load fetches, where the user waits, plus a loose guard on the
 // whole app and caps on named lazy chunks:
 //
-//   1. the JS a first load fetches in Visual mode (330,000 bytes gzip) and in Text mode (440,000),
+//   1. the JS a first load fetches in Visual mode (340,000 bytes gzip; raised from 330,000 at the Phase 3 gate, user 2026-11-23) and in Text mode (440,000),
 //      measured in a browser against a preview: enforced (exit 1). The code-split CodeMirror chunk
 //      is fetched in Text and Split, never in Visual: enforced too. So is the keyword docs asset
 //      (`engine/tj-docs.*.json.gz`, ADR-0017): a Visual-first load never requests it (a Text-first
@@ -25,7 +25,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 
 export const TOTAL_CAP = 650_000;
-export const VISUAL_FIRST_CAP = 330_000;
+export const VISUAL_FIRST_CAP = 340_000;
 export const TEXT_FIRST_CAP = 440_000;
 /**
  * All the People views' lazy chunks together (the heatmap, the lanes, the Calendar, the Resources

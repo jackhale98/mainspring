@@ -335,7 +335,7 @@ jobs:
         env:
           MAINSPRING_DEV_PAGES: '1'
       # JS budget (phase-2 11.3, 13.4, 18.11; amended 2026-11-16, raised 2026-11-17), on this build:
-      # a Visual-first load at most 330,000 bytes gzip and a Text-first load at most 440,000 (fail),
+      # a Visual-first load at most 340,000 bytes gzip and a Text-first load at most 440,000 (fail),
       # the total of dist/_astro under a 650,000 guard, named lazy chunks under their caps, and a
       # Visual-first load must not fetch the CodeMirror chunk (fails).
       # It serves dist itself, as Pages does, and loads two pages to Engine Ready: about a minute.
