@@ -891,3 +891,15 @@ The settled contracts are in `src/lib/storage/{types,store-types}.ts`, `src/lib/
   confirms.
 - **Summary (6.5).** `summarize` takes the index of the checked snapshot itself, never the published index
   (ADR-0018). `ScheduleCheck` carries the record and a failure.
+
+## 23. Amendments from the T6 review (user, 2026-11-23)
+
+- **Additive statements merge automatically.** Two sides that each add a different `depends`, `allocate`,
+  `flags`, `booking` or another statement TaskJuggler accumulates, to the same task or resource, merge with
+  no conflict, ours first. Two sides changing the same existing line differently still conflict. This
+  widens 8's rule 3.
+- **A single-valued attribute added on both sides at different lines is a conflict** (it merged cleanly
+  and the later one silently won): the merge keeps a table of repeatable and single-valued statements.
+- **The merge budget (12, rule 5)** is: no single step over 50 ms at 4x CPU, and the whole merge at most
+  50 ms p90 on `fedora-res` on desktop. `mergeFile` is resumable, and `MergeContext` may carry ours' trees.
+- **13.1's "merged plans schedule" property** also requires no new warnings relative to the two sides.
