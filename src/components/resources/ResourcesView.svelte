@@ -99,7 +99,7 @@
 				{@const Lanes = lanes.module.default}
 				<Lanes {app} {phone} {active} {setBar} />
 			{:else if lanes.failed}
-				<ViewFailed lazy={lanes} dirty={app.dirty} testid="lanes-failed" />
+				<ViewFailed lazy={lanes} reload={() => app.reloadPage()} testid="lanes-failed" />
 			{:else}
 				<p class="message" role="status">{strings.people.loading}</p>
 			{/if}

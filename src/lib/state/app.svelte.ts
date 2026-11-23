@@ -38,13 +38,16 @@
  * it is unstored, `ws:<id>` once stored (`openSerial` tells a plan that opened from a key that
  * changed, plan-follow.ts). One tab owns a stored plan (storage/lock.ts): a second tab shows it
  * read-only (`heldElsewhere`), and "Open here instead" takes it over, which makes the first tab
- * read-only (`readOnly`). Read-only, nothing edits: the edit dispatcher is closed, the history
- * detached and the editor not editable. `keep` is what the footer's line says; a store that fails is
- * shown (8.1 #8), and `dirty` is true while changes are only in this tab, which is when switching
- * plans asks first. The store, the lock and autosave are a lazy chunk (plan-keeper.ts) that a
- * visit which only reads a sample never fetches (12.1). Folders, files, GitHub, Save to…, the sync
- * controller and the service worker's state are T5, T7, T8, T11 and T15's: until then those members
- * answer that nothing is available.
+ * read-only (`readOnly`). Read-only, nothing edits: the edit dispatcher is closed and gone
+ * (`edits` null), the history detached, the editor not editable, and the views offer no edit. The
+ * keeping itself (what the footer's line says, the plans listed, autosave, the lock, the keeper
+ * chunk that a visit which only reads a sample never fetches, 12.1) is `keeping`
+ * (keeping.svelte.ts). `dirty` is true while changes are only in this tab, which is when switching
+ * plans or reloading asks first; `flush` stores what autosave holds before a reload the app starts.
+ * A stored plan that cannot be opened (the store or the keeper chunk failed, or it is damaged)
+ * leaves the last-plan pointer alone: a sample opens meanwhile and the notice offers Retry. Folders,
+ * files, GitHub, Save to…, the sync controller and the service worker's state are T5, T7, T8, T11
+ * and T15's: until then those members answer that nothing is available.
  *
  * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
  * editor first mounts and then gives each workspace its editor support, so a Visual-first load
@@ -106,14 +109,16 @@ import {
 
 export type { SourceMark };
 import { statusView, type StatusView } from './status';
-import { browserStorage, LAST_PLAN_KEY, MARKER_KEY, readPref, writePref } from './storage';
+import { browserStorage, LAST_PLAN_KEY, readPref, writePref } from './storage';
+import { MARKER_KEY } from '../storage/marker';
 import type { ListedStorage } from './storage';
 import { INITIAL_PWA_STATE, type PwaState } from '../../pwa/messages';
 import type { LocalStore } from '../storage/store-types';
-import type { StorageError, WorkspaceId } from '../storage/types';
+import type { WorkspaceId } from '../storage/types';
 import type { SyncController, SyncOutcome } from '../sync/types';
 import type { AppStorageState } from './app-storage';
-import type { Acquire, KeeperHost, Kept, Opening, PlanKeeper } from './plan-keeper';
+import { Keeping } from './keeping.svelte';
+import type { Acquire, Opening } from './plan-keeper';
 
 export type PhoneTab = 'plan' | 'gantt' | 'people' | 'text';
 export type Phase = 'loading' | 'ready' | 'failed';
@@ -130,14 +135,7 @@ export interface Reveal {
 	readonly select?: boolean;
 }
 
-/** Where the open plan is kept: what the footer's line says (`keepLine`). */
-export type KeepState =
-	/** A sample opened unstored: its first change stores a copy (18.7). */
-	| { readonly kind: 'sample' }
-	/** In this browser's store; `at` is the last autosave, null before the first. */
-	| { readonly kind: 'stored'; readonly at: number | null }
-	/** The store refused the last save or cannot be used: changes are only in this tab. */
-	| { readonly kind: 'failed'; readonly error: StorageError };
+export type { KeepState } from './keeping.svelte';
 
 /** What the shell (App.svelte) tells the app about the screen. */
 export interface Shell {
@@ -179,6 +177,8 @@ export interface AppStateOptions {
 	acquire?: Acquire;
 	/** Where the last plan and the preferences are kept; default `localStorage`. */
 	prefs?: ListedStorage | null;
+	/** Loads the keeper chunk; default `import('./plan-keeper')` (tests hold it back or fail it). */
+	keeper?: () => Promise<typeof import('./plan-keeper')>;
 }
 
 /** How long a format message stays in the toolbar. */
@@ -201,10 +201,8 @@ export class AppState implements AppStorageState {
 	storedId = $state<WorkspaceId | null>(null);
 	heldElsewhere = $state<WorkspaceId | null>(null);
 	readOnly = $state(false);
-	/** Where the open plan is kept (`keepLine`). */
-	keep = $state.raw<KeepState>({ kind: 'sample' });
-	/** The browser cleared the plans it kept (9.4): the notice shows until it is dismissed. */
-	cleared = $state(false);
+	/** Keeping plans in this browser (keeping.svelte.ts): the line, the plans, the notices. */
+	readonly keeping: Keeping;
 	/** The sync controller is T7's; until then no plan has one. */
 	readonly sync: SyncController | null = null;
 	/** The service worker's state is T11's. */
@@ -328,32 +326,8 @@ export class AppState implements AppStorageState {
 	readonly #confirm: (message: string) => boolean;
 	readonly #offClient: () => void;
 	readonly #prefs: ListedStorage | null;
-	readonly #keeperOptions: { store?: LocalStore | undefined; acquire?: Acquire | undefined };
-	#keeper: Promise<PlanKeeper> | null = null;
-	/** The open plan's keeping (plan-keeper.ts) once it started; `#starting` while it loads. */
-	#kept: Kept | null = null;
-	#starting: Promise<void> | null = null;
-	/** Why the store cannot be used, once it said so: plans then open as if unstored. */
-	#storeError: StorageError | null = null;
 	/** The open plan was reopened and nothing has changed since: an empty undo says why. */
 	#restored = false;
-	readonly #host: KeeperHost = {
-		saved: (k, st) => {
-			if (k !== this.#kept) return;
-			this.keep = st.kind === 'saved' ? { kind: 'stored', at: st.at } : st;
-			this.dirty = st.kind !== 'saved';
-		},
-		stored: (k, id, key, label) => {
-			if (k !== this.#kept) return;
-			this.planKey = key;
-			this.storedId = id;
-			this.#label = label;
-			writePref(this.#prefs, LAST_PLAN_KEY, this.planKey);
-		},
-		lost: (k) => {
-			if (k === this.#kept) this.#readOnlyNow();
-		},
-	};
 
 	constructor(opts: AppStateOptions = {}) {
 		this.client = opts.client ?? createEngineClient();
@@ -362,7 +336,22 @@ export class AppState implements AppStorageState {
 		this.#docsOption = opts.docs ?? null;
 		this.#idle = opts.idle;
 		this.#prefs = opts.prefs === undefined ? browserStorage() : opts.prefs;
-		this.#keeperOptions = { store: opts.store, acquire: opts.acquire };
+		this.keeping = new Keeping(
+			{
+				current: () => this.#current?.ws ?? null,
+				key: () => this.planKey,
+				readOnly: () => this.readOnly,
+				stored: (id, key, label) => {
+					this.planKey = key;
+					this.storedId = id;
+					this.#label = label;
+					writePref(this.#prefs, LAST_PLAN_KEY, key);
+				},
+				lost: () => this.#readOnlyNow(),
+				dirty: (on) => (this.dirty = on),
+			},
+			{ prefs: this.#prefs, store: opts.store, acquire: opts.acquire, load: opts.keeper },
+		);
 		this.engine = this.client.state;
 		this.#offClient = this.client.onState((s) => (this.engine = s));
 		// Only the strip's text depends on it: a boot that fails shows no version, and says so elsewhere.
@@ -385,15 +374,8 @@ export class AppState implements AppStorageState {
 		const first = asked ?? this.samples.find((s) => s.id === last) ?? this.samples[0];
 		if (last?.startsWith('ws:')) void this.#restore(last.slice(3), first);
 		else if (first) void this.#load(sampleOpening(first));
-		// Plans were kept here: were they cleared since (9.4)?
-		if (readPref(this.#prefs, MARKER_KEY) === '1') {
-			this.#keep()
-				.then((k) => k.cleared())
-				.then(
-					(c) => void (c && (this.cleared = true)),
-					(e: unknown) => this.#broken(e),
-				);
-		}
+		// Plans were kept here: were they cleared since (9.4)? (This lists them too.)
+		if (readPref(this.#prefs, MARKER_KEY) === '1') this.keeping.check();
 	}
 
 	/** The open plan's name as the chooser and the phone's header show it. */
@@ -404,7 +386,23 @@ export class AppState implements AppStorageState {
 	/** The footer's line: where the open plan is kept (T14's status control replaces it). */
 	get keepLine(): string {
 		const k = strings.keep;
-		return this.readOnly ? k.readOnly : k[this.keep.kind];
+		return this.readOnly ? k.readOnly : k[this.keeping.keep.kind];
+	}
+
+	/**
+	 * Stores what autosave holds now; true when nothing is only in this tab. Every reload the app
+	 * starts itself waits for it (`reloadPage`, the update's Reload).
+	 */
+	flush(): Promise<boolean> {
+		return this.keeping.flush();
+	}
+
+	/** A reload the app starts (a retry that a failed chunk needs): stores first, asks if it would lose changes. */
+	async reloadPage(): Promise<boolean> {
+		await this.flush();
+		if (this.dirty && !this.#confirm(strings.update.confirmReload)) return false;
+		globalThis.location.reload();
+		return true;
 	}
 
 	/** Opens another sample (unstored); asks first when changes are only in this tab. */
@@ -422,13 +420,24 @@ export class AppState implements AppStorageState {
 		if (id === this.storedId && !this.readOnly) return true;
 		if (!(await this.#leave())) return false;
 		const token = ++this.#token;
-		const found = await this.#keep()
+		let failed = false;
+		const found = await this.keeping
+			.keeper()
 			.then((k) => k.find(id, o.steal === true))
-			.catch((e: unknown) => void this.#broken(e));
+			.catch((e: unknown) => {
+				failed = true;
+				this.keeping.broken(e);
+				return null;
+			});
 		const lock = found?.stored?.lock ?? null;
-		const ok = !!found && token === this.#token && (await this.#load(found));
+		// A damaged plan throws while it opens (no entry file): that is a failure too (M2).
+		const ok =
+			!!found &&
+			token === this.#token &&
+			(await this.#load(found).catch(() => ((failed = true), false)));
 		if (!ok) lock?.release();
 		else if (!lock) this.heldElsewhere = id;
+		if (failed) this.keeping.unopened = id;
 		return ok && lock !== null;
 	}
 
@@ -445,59 +454,28 @@ export class AppState implements AppStorageState {
 		});
 	}
 
-	/** Opens the last plan; when it is gone (deleted, cleared), `fallback`. */
+	/**
+	 * Opens the last plan. When it cannot be opened, `fallback` opens without becoming the last plan
+	 * (the pointer stays, for the next start or the notice's Retry; module comment).
+	 */
 	async #restore(id: string, fallback: Sample | undefined): Promise<void> {
 		if ((await this.openStored(id)) || this.heldElsewhere !== null || this.workspace) return;
-		if (fallback) await this.#load(sampleOpening(fallback));
-	}
-
-	/** The keeper chunk (plan-keeper.ts), loaded once; a failed load is tried again next time. */
-	#keep(): Promise<PlanKeeper> {
-		return (this.#keeper ??= import('./plan-keeper').then(
-			(m) => new m.PlanKeeper(this.#host, { ...this.#keeperOptions, prefs: this.#prefs }),
-			(e: unknown) => {
-				this.#keeper = null;
-				throw e;
-			},
-		));
-	}
-
-	/** Starts keeping the open workspace (`o` is how it opened). */
-	#startKeeping(ws: Workspace, o: Opening): void {
-		this.#starting = this.#keep().then(
-			(k) => {
-				// Not once the plan closed (another opened, or the app was disposed).
-				if (this.#current?.ws !== ws || this.readOnly) return;
-				const s = o.stored;
-				this.#kept = k.keep(ws, s?.id ?? null, s?.lock ?? null, o.unstored, this.planKey);
-			},
-			(e: unknown) => this.#broken(e),
-		);
+		if (fallback) await this.#load({ ...sampleOpening(fallback), fallback: true });
 	}
 
 	/** Before another plan opens: stores what autosave holds, then asks if changes would be lost. */
 	async #leave(): Promise<boolean> {
-		await this.#starting;
-		await this.#kept?.flush();
+		await this.flush();
 		return !this.dirty || this.#confirm(strings.topBar.confirmSwitch);
-	}
-
-	/** The store failed or cannot be used (a `StorageFailure`, or the chunk could not load). */
-	#broken(e: unknown): void {
-		const error = (e as { error?: StorageError } | null)?.error ?? {
-			kind: 'unsupported',
-			retryAfterMs: null,
-			detail: 'keeper',
-		};
-		this.#storeError = error;
-		if (this.storedId === null && this.workspace) this.keep = { kind: 'failed', error };
 	}
 
 	/** Nothing edits the plan in this tab any more (module comment). */
 	#readOnlyNow(): void {
-		this.#kept?.stop();
+		if (this.readOnly) return;
+		this.keeping.stop();
 		this.readOnly = true;
 		this.edits?.dispose();
+		this.edits = null;
 		this.history.attach(null);
 		this.#attachEditor();
 	}
@@ -521,9 +499,10 @@ export class AppState implements AppStorageState {
 			label: strings.newPlan.listed(name),
 			from: { newPlan: true } as const,
 		};
-		const made = await this.#keep()
+		const made = await this.keeping
+			.keeper()
 			.then((k) => k.create(unstored, seed))
-			.catch((e: unknown) => void this.#broken(e));
+			.catch((e: unknown) => void this.keeping.broken(e));
 		return this.#load(
 			made ?? {
 				key: NEW_PLAN_ID,
@@ -585,9 +564,7 @@ export class AppState implements AppStorageState {
 		this.#unsubscribe = [
 			ws.subscribe(() => {
 				this.#restored = false;
-				// A plan opened unstored is stored from its first change (18.7).
-				if (!this.#starting) this.#startKeeping(ws, o);
-				if (this.keep.kind === 'failed') this.dirty = true;
+				this.keeping.changed(ws, o);
 			}),
 			runner.subscribe((s) => {
 				this.run = s;
@@ -611,17 +588,13 @@ export class AppState implements AppStorageState {
 		this.activeFile = seed.entry;
 		this.reveal = null;
 		const stored = o.stored;
-		const err = this.#storeError;
 		this.storedId = stored?.id ?? null;
-		this.keep = stored
-			? { kind: 'stored', at: null }
-			: err
-				? { kind: 'failed', error: err }
-				: SAMPLE;
 		this.#restored = o.restored === true;
-		if (o.key !== NEW_PLAN_ID) writePref(this.#prefs, LAST_PLAN_KEY, o.key);
+		// A fallback (the last plan could not be opened) does not become the last plan.
+		if (o.key !== NEW_PLAN_ID && !o.fallback) writePref(this.#prefs, LAST_PLAN_KEY, o.key);
+		this.keeping.opened(ws, o);
+		if (stored) this.keeping.refresh();
 		if (stored && !stored.lock) this.#readOnlyNow();
-		else if (stored) this.#startKeeping(ws, o);
 		this.phase = 'ready';
 		return true;
 	}
@@ -677,9 +650,7 @@ export class AppState implements AppStorageState {
 
 	#teardown(): void {
 		// What autosave still holds is stored, then the lock is given up (plan-keeper.ts).
-		this.#kept?.end();
-		this.#kept = null;
-		this.#starting = null;
+		this.keeping.end();
 		this.#current = null;
 		this.edits?.dispose();
 		this.edits = null;
@@ -718,7 +689,8 @@ export class AppState implements AppStorageState {
 	#onHistory(o: HistoryOutcome, quiet = false): void {
 		if (o.status !== 'done') {
 			// A reopened plan has no history yet (7.1): its first undo says why nothing happens.
-			if (o.status === 'diverged' || this.#restored) {
+			// A read-only tab has no history to speak of.
+			if (o.status === 'diverged' || (this.#restored && !this.readOnly)) {
 				const say = strings.history[o.status === 'diverged' ? 'diverged' : 'reopened'];
 				this.#showNote(say);
 				if (this.compactMessages) this.edits?.say(say, true);
@@ -963,9 +935,25 @@ export class AppState implements AppStorageState {
 		// The cursor is the truth only while the user is in the editor and no visual selection is
 		// being shown there (it would take the selection back from the visual that made it).
 		const cur = this.selection.current;
-		if (ed?.hasFocus && (cur === null || originOf(cur) !== 'visual')) {
+		if (ed?.hasFocus && (cur === null || originOf(cur) !== 'visual') && this.#shows(ed)) {
 			this.cursorMoved(this.activeFile, ed.state.selection.main.head);
 		}
+	}
+
+	/**
+	 * Whether the editor shows the open plan's file: not while another plan opens (its first
+	 * result can come before the editor of the plan that closed is gone), when the cursor of the old
+	 * text would be read in the new one. Switching plans without a question (they are kept) made
+	 * that possible with the old editor still focused.
+	 */
+	#shows(ed: EditorView): boolean {
+		const ws = this.#current?.ws;
+		return (
+			!!ws &&
+			ws === this.workspace &&
+			ws.snapshot().files.has(this.activeFile) &&
+			ws.state(this.activeFile).doc === ed.state.doc
+		);
 	}
 
 	/** Where a selection's source is in the text now. */
@@ -1103,8 +1091,6 @@ export class AppState implements AppStorageState {
 		this.client.dispose();
 	}
 }
-
-const SAMPLE: KeepState = { kind: 'sample' };
 
 /** A sample opens unstored; its first change stores "Label (copy)" (18.7). */
 function sampleOpening(sample: Sample): Opening {

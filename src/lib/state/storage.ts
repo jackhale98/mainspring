@@ -23,8 +23,6 @@ export type ListedStorage = PrefStorage & Pick<Storage, 'key' | 'length'>;
 
 /** The plan key (a sample's id, or `ws:<id>`) of the plan opened last. */
 export const LAST_PLAN_KEY = 'mainspring.last-plan';
-/** `localStorage`'s half of the eviction marker (storage/local-store.ts, phase-4.md 9.4). */
-export const MARKER_KEY = 'mainspring.stored';
 
 /** `localStorage` when it can be reached, else null. */
 export function browserStorage(): ListedStorage | null {

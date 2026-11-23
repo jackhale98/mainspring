@@ -861,6 +861,8 @@ export const strings = {
 		chooser: 'New plan…',
 		/** The chooser's group of built-in plans. */
 		samplesGroup: 'Samples',
+		/** The chooser's group of the plans kept in this browser (T4; T15's chooser replaces it). */
+		yourPlans: 'Your plans',
 		/** How the chooser and the phone's header list a plan made here. */
 		listed: (name: string) => `${name} (new)`,
 		title: 'New plan',

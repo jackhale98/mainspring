@@ -11,6 +11,7 @@ test.describe('New plan', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	const chooser = (page: Page) => page.getByLabel('Sample plan');
+	const yourPlans = (page: Page) => chooser(page).locator('optgroup[label="Your plans"]');
 	const sheet = (page: Page) => page.getByRole('dialog', { name: 'New plan' });
 	const nameInput = (page: Page) => sheet(page).getByLabel('Name', { exact: true });
 	const text = (page: Page) =>
@@ -313,13 +314,13 @@ test.describe('New plan', () => {
 			await expect(sheet(page)).toBeHidden();
 		};
 
-		// Unedited: a sample replaces it, and "Draft (new)" leaves the list (T15's chooser lists the
-		// plans kept here).
+		// Unedited: a sample replaces it, and "Draft (new)" stays in the list, under "Your plans"
+		// (T4 review H2; T15's chooser does the rest).
 		await create('Draft');
 		await expect(chooser(page).locator('option:checked')).toHaveText('Draft (new)');
 		await chooser(page).selectOption({ label: 'TaskJuggler tutorial' });
 		await expect(chooser(page).locator('option:checked')).toHaveText('TaskJuggler tutorial');
-		await expect(chooser(page).locator('option', { hasText: '(new)' })).toHaveCount(0);
+		await expect(yourPlans(page).locator('option')).toHaveText(['Draft (new)']);
 
 		// Edited: no question either.
 		await create('Draft');
@@ -346,5 +347,16 @@ test.describe('New plan', () => {
 		await expect(chooser(page).locator('option:checked')).toHaveText('Third (new)');
 		await expect.poll(() => text(page)).toBe('project third "Third" 2026-11-16 +1y\n');
 		expect(asked).toBe(0);
+		// Every plan made here is kept and listed, most recently changed first.
+		await expect(yourPlans(page).locator('option')).toHaveText([
+			'Third (new)',
+			'Second (new)',
+			'Draft (new)',
+			'Draft (new)',
+		]);
+		// The first Draft opens again, as it was left.
+		await chooser(page).selectOption({ index: 4 });
+		await expect(chooser(page).locator('option:checked')).toHaveText('Draft (new)');
+		await expect.poll(() => text(page)).toBe('project draft "Draft" 2026-11-16 +1y\n');
 	});
 });

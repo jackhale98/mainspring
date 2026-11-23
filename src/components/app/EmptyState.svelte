@@ -51,16 +51,19 @@
 
 <div class="empty" data-testid="empty-state">
 	<p class="title">{S.tasksTitle}</p>
-	<button
-		type="button"
-		class="add"
-		bind:this={addButton}
-		data-testid="empty-add-task"
-		aria-disabled={busy ? 'true' : undefined}
-		onclick={add}
-	>
-		<Icon name="plus" size={16} stroke={2.2} />{S.addTask}
-	</button>
+	<!-- A read-only tab (another tab has the plan) adds nothing. -->
+	{#if !app.readOnly}
+		<button
+			type="button"
+			class="add"
+			bind:this={addButton}
+			data-testid="empty-add-task"
+			aria-disabled={busy ? 'true' : undefined}
+			onclick={add}
+		>
+			<Icon name="plus" size={16} stroke={2.2} />{S.addTask}
+		</button>
+	{/if}
 	{#if ontext}
 		<button type="button" class="text" onclick={ontext}>{S.inText}</button>
 	{/if}

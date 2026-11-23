@@ -6,7 +6,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { describe, expect, it, vi } from 'vitest';
-import { MARKER_KEY } from '../state/storage';
+import { MARKER_KEY } from './marker';
 import { createLocalStore } from './local-store';
 import type { PendingWrite, StoredConflict, StoredPlan, SyncBase } from './store-types';
 import { isStorageFailure, isWorkspaceId, type StorageErrorKind } from './types';
@@ -109,6 +109,60 @@ describe('local store', () => {
 		// The same version again is a retry, not a race: it is written.
 		await s.saveFiles(id, files({ 'plan.tjp': 'v5b' }), 5);
 		expect((await s.open(id))?.files.get('plan.tjp')).toBe('v5b');
+	});
+
+	it('starts the save order again in a new session of the plan (a reopen, T4 review H1)', async () => {
+		const { s } = store();
+		const id = await s.create(PLAN, files({ 'plan.tjp': 'v0' }), null);
+		await s.saveFiles(id, files({ 'plan.tjp': 'session 1, v7' }), 7);
+		// The same tab opens the plan again (after another tab had it): a new workspace, at version 0.
+		await s.open(id, { own: true });
+		await s.saveFiles(id, files({ 'plan.tjp': 'session 2, v1' }), 1);
+		expect((await s.open(id))?.files.get('plan.tjp')).toBe('session 2, v1');
+		// Within the session the order still holds.
+		await Promise.all([
+			s.saveFiles(id, files({ 'plan.tjp': 'session 2, v3' }), 3),
+			s.saveFiles(id, files({ 'plan.tjp': 'session 2, v2' }), 2),
+		]);
+		expect((await s.open(id))?.files.get('plan.tjp')).toBe('session 2, v3');
+	});
+
+	it('refuses every write of an instance that lost the plan to another, with nothing written (M1)', async () => {
+		const { s, factory, marker } = store();
+		const id = await s.create(PLAN, files({ 'plan.tjp': 'a1' }), null);
+		const other = createLocalStore({ indexedDB: factory, marker });
+		// The other tab takes the plan: it reads A's text in the transaction that makes it the owner.
+		expect((await other.open(id, { own: true }))?.files.get('plan.tjp')).toBe('a1');
+		// A's slow save arrives late: refused, so it can never land after B's read.
+		expect(await kind(s.saveFiles(id, files({ 'plan.tjp': 'a2', 'new.tji': 'n' }), 2))).toBe(
+			'not-owner',
+		);
+		const base: SyncBase = {
+			revision: 'r',
+			files: files({}),
+			lossy: new Set(),
+			kept: new Set(),
+			summary: null,
+		};
+		expect(await kind(s.setBase(id, base))).toBe('not-owner');
+		expect(await kind(s.enqueue(id, write('w', { 'plan.tjp': 'q' })))).toBe('not-owner');
+		expect(await kind(s.dequeue(id, 'w'))).toBe('not-owner');
+		expect(await kind(s.setConflict(id, null))).toBe('not-owner');
+		const now = await other.open(id);
+		expect(now?.files).toEqual(files({ 'plan.tjp': 'a1' }));
+		expect(now?.base).toBeNull();
+		expect(now?.queue).toEqual([]);
+		// The new owner writes; a plan opened only to read cannot be written.
+		await other.saveFiles(id, files({ 'plan.tjp': 'b1' }), 1);
+		expect((await other.open(id))?.files.get('plan.tjp')).toBe('b1');
+		const reader = createLocalStore({ indexedDB: factory, marker });
+		await reader.open(id);
+		expect(await kind(reader.saveFiles(id, files({ 'plan.tjp': 'r' }), 1))).toBe('not-owner');
+		// Taking it back makes A the owner again.
+		await s.open(id, { own: true });
+		await s.saveFiles(id, files({ 'plan.tjp': 'a3' }), 1);
+		expect(await kind(other.saveFiles(id, files({ 'plan.tjp': 'b2' }), 2))).toBe('not-owner');
+		expect((await reader.open(id))?.files.get('plan.tjp')).toBe('a3');
 	});
 
 	it('writes all or nothing: a save to a plan that is gone writes no file', async () => {

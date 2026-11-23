@@ -230,7 +230,12 @@
 	 */
 	const showNotice = $derived(!phone && !(kind === 'desktop' && mode === 'text'));
 	/** The notice under the top bar (PlanNotice.svelte, lazy): read-only, cleared, or not kept. */
-	const planNotice = $derived(app.readOnly || app.cleared || (phone && app.keep.kind === 'failed'));
+	const planNotice = $derived(
+		app.readOnly ||
+			app.keeping.cleared ||
+			app.keeping.unopened !== null ||
+			(phone && app.keeping.keep.kind === 'failed'),
+	);
 
 	let body: HTMLElement | undefined = $state();
 	const axis = $derived(kind === 'desktop' ? 'col' : 'row');
@@ -452,11 +457,13 @@
 								showNotice={false}
 								views={planViews}
 								showResources={false}
-								add={{
-									hasSelection: app.selectedTask !== null,
-									canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
-									onadd: (mode) => addFromPlan(mode),
-								}}
+								add={app.readOnly
+									? undefined
+									: {
+											hasSelection: app.selectedTask !== null,
+											canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
+											onadd: (mode) => addFromPlan(mode),
+										}}
 								ontext={openText}
 							/>
 						</div>

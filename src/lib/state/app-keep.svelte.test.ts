@@ -19,7 +19,8 @@ import { StorageFailure, storageError } from '../storage/types';
 import type { Sample } from '../workspace/samples';
 import { FakeEngineClient, flush } from '../workspace/testing/fake-engine-client';
 import { AppState } from './app.svelte';
-import { LAST_PLAN_KEY, MARKER_KEY, type ListedStorage } from './storage';
+import { MARKER_KEY } from '../storage/marker';
+import { LAST_PLAN_KEY, type ListedStorage } from './storage';
 
 const PLAN =
 	'project p "P" 2026-01-05 +1m\r\ninclude "lib/x.tji"\r\ntask a "Alpha" { effort 1d }\r\n';
@@ -61,7 +62,12 @@ function browser() {
 	const locks = fakeLocks();
 	const apps: AppState[] = [];
 	const tab = (
-		o: { initial?: string; store?: LocalStore; confirm?: () => boolean } = {},
+		o: {
+			initial?: string;
+			store?: LocalStore;
+			confirm?: () => boolean;
+			keeper?: () => Promise<typeof import('./plan-keeper')>;
+		} = {},
 	): AppState => {
 		const app = new AppState({
 			client: new FakeEngineClient(),
@@ -72,6 +78,7 @@ function browser() {
 			prefs,
 			store: o.store ?? createLocalStore({ indexedDB: factory, marker: prefs }),
 			acquire: createAcquire({ locks, handoverMs: 200 }),
+			...(o.keeper && { keeper: o.keeper }),
 		});
 		apps.push(app);
 		return app;
@@ -111,7 +118,7 @@ describe('plans kept in the browser', () => {
 		const a = await ready(b.tab());
 		expect(a.planKey).toBe('one');
 		expect(a.storedId).toBeNull();
-		expect(a.keep).toEqual({ kind: 'sample' });
+		expect(a.keeping.keep).toEqual({ kind: 'sample' });
 		expect(a.keepLine).toBe(strings.keep.sample);
 		const serial = a.openSerial;
 
@@ -127,7 +134,7 @@ describe('plans kept in the browser', () => {
 		expect(b.prefs.getItem(`mainspring.mode.ws:${id}`)).toBe('visual');
 		expect(b.prefs.getItem(`mainspring.gantt.zoom.ws:${id}`)).toBe('12');
 		expect(b.prefs.getItem('mainspring.mode.one')).toBe('visual');
-		await vi.waitFor(() => expect(a.keep.kind).toBe('stored'));
+		await vi.waitFor(() => expect(a.keeping.keep.kind).toBe('stored'));
 		expect(a.keepLine).toBe(strings.keep.stored);
 		expect(a.dirty).toBe(false);
 
@@ -155,7 +162,7 @@ describe('plans kept in the browser', () => {
 		const b = browser();
 		const first = await ready(b.tab());
 		type(first, 'lib/x.tji', 'task y "Y"\r\n');
-		await vi.waitFor(() => expect(first.keep.kind).toBe('stored'), { timeout: 3000 });
+		await vi.waitFor(() => expect(first.keeping.keep.kind).toBe('stored'), { timeout: 3000 });
 		const id = first.storedId;
 		first.dispose();
 		open = open.filter((x) => x !== first);
@@ -202,7 +209,7 @@ describe('plans kept in the browser', () => {
 		expect(id).not.toBeNull();
 		expect(a.planKey).toBe(`ws:${id}`);
 		expect(a.fresh).toBe(true);
-		expect(a.keep).toEqual({ kind: 'stored', at: null });
+		expect(a.keeping.keep).toEqual({ kind: 'stored', at: null });
 		a.dispose();
 		open = open.filter((x) => x !== a);
 		await vi.waitFor(() => expect(b.locks.isHeld(`mainspring.plan.${id}`)).toBe(false));
@@ -218,7 +225,7 @@ describe('plans kept in the browser', () => {
 		type(tabA, 'plan.tjp', '# A1\n');
 		await vi.waitFor(() => expect(tabA.storedId).not.toBeNull(), { timeout: 3000 });
 		const id = tabA.storedId ?? '';
-		await vi.waitFor(() => expect(tabA.keep.kind).toBe('stored'));
+		await vi.waitFor(() => expect(tabA.keeping.keep.kind).toBe('stored'));
 
 		const tabB = await ready(b.tab());
 		expect(tabB.storedId).toBe(id);
@@ -229,12 +236,8 @@ describe('plans kept in the browser', () => {
 		// The editor cannot change the text.
 		await tabB.ensureEditor();
 		expect(tabB.workspace?.state('plan.tjp').readOnly).toBe(true);
-		// Views cannot edit: the dispatcher answers `cancelled`.
-		const outcome = await tabB.edits?.dispatch(
-			{ type: 'setEffort', task: 'a', value: '2d' } as never,
-			{ label: { text: 'set effort' } } as never,
-		);
-		expect(outcome).toEqual({ status: 'cancelled' });
+		// Views cannot edit: there is no edit dispatcher (they offer no edit then, T4 review L4).
+		expect(tabB.edits).toBeNull();
 
 		// A types again; B takes the plan over, and gets A's newest text (A stored it first).
 		type(tabA, 'plan.tjp', '# A2\n');
@@ -251,9 +254,125 @@ describe('plans kept in the browser', () => {
 
 		// B's changes are stored; A, read-only, stores nothing more.
 		type(tabB, 'plan.tjp', '# B\n');
-		expect(await tabB.openSample('two')).toBe(true);
-		const kept = await createLocalStore({ indexedDB: b.factory, marker: null }).open(id);
-		expect(kept?.files.get('plan.tjp')).toBe(`# B\n# A2\n# A1\n${PLAN}`);
+		expect(await tabB.flush()).toBe(true);
+		const reader = createLocalStore({ indexedDB: b.factory, marker: null });
+		expect((await reader.open(id))?.files.get('plan.tjp')).toBe(`# B\n# A2\n# A1\n${PLAN}`);
+		// Read-only, an undo says nothing about a history (L4).
+		tabA.note = null;
+		tabA.history.undo();
+		expect(tabA.note).toBeNull();
+
+		// A takes the plan back and types: kept (a reopened plan starts its versions at 0, H1).
+		expect(await tabA.openStored(id, { steal: true })).toBe(true);
+		await vi.waitFor(() => expect(tabB.readOnly).toBe(true));
+		type(tabA, 'plan.tjp', '# A again\n');
+		expect(await tabA.flush()).toBe(true);
+		expect(tabA.keeping.keep.kind).toBe('stored');
+		expect((await reader.open(id))?.files.get('plan.tjp')).toBe(
+			`# A again\n# B\n# A2\n# A1\n${PLAN}`,
+		);
+	});
+
+	it('flush stores what autosave holds at once, and keeping opens the database before the first save (L1)', async () => {
+		const b = browser();
+		const real = createLocalStore({ indexedDB: b.factory, marker: b.prefs });
+		const calls: string[] = [];
+		const spy: LocalStore = {
+			...real,
+			plans: () => (calls.push('plans'), real.plans()),
+			create: (...a) => (calls.push('create'), real.create(...a)),
+			saveFiles: (...a) => (calls.push('saveFiles'), real.saveFiles(...a)),
+		};
+		const a = await ready(b.tab({ store: spy }));
+		type(a, 'plan.tjp', '# 1\n');
+		// The keeper loads on the first change and lists the plans: the database is open before the
+		// first save, which can then start its transaction in a pagehide task.
+		await vi.waitFor(() => expect(calls[0]).toBe('plans'));
+		expect(calls).not.toContain('create');
+		expect(await a.flush()).toBe(true);
+		expect(calls).toContain('create');
+		type(a, 'plan.tjp', '# 2\n');
+		expect(await a.flush()).toBe(true);
+		const id = a.storedId ?? '';
+		expect((await real.open(id))?.files.get('plan.tjp')).toBe(`# 2\n# 1\n${PLAN}`);
+	});
+
+	it('lists the plans kept here, newest first, and opens one of them', async () => {
+		const b = browser();
+		const a = await ready(b.tab());
+		type(a, 'plan.tjp', '# mine\n');
+		await vi.waitFor(() => expect(a.storedId).not.toBeNull(), { timeout: 3000 });
+		const copy = a.storedId ?? '';
+		await vi.waitFor(() => expect(a.keeping.plans.map((p) => p.id)).toEqual([copy]));
+		expect(await a.openNewPlan({ name: 'Web', start: '2026-11-16', timezone: null })).toBe(true);
+		const web = a.storedId ?? '';
+		await vi.waitFor(() => expect(a.keeping.plans.map((p) => p.id)).toEqual([web, copy]));
+		// A pick in the chooser opens the copy, with its edit.
+		expect(await a.openStored(copy)).toBe(true);
+		expect(a.workspace?.texts()['plan.tjp']).toBe(`# mine\n${PLAN}`);
+		expect(a.planLabel).toBe('One (copy)');
+	});
+
+	it('keeps the last-plan pointer when the keeper chunk cannot load, says so, and Retry opens it (H2)', async () => {
+		const b = browser();
+		const first = await ready(b.tab());
+		type(first, 'plan.tjp', '# kept\n');
+		await vi.waitFor(() => expect(first.keeping.keep.kind).toBe('stored'), { timeout: 3000 });
+		const id = first.storedId ?? '';
+		first.dispose();
+		open = open.filter((x) => x !== first);
+		await vi.waitFor(() => expect(b.locks.isHeld(`mainspring.plan.${id}`)).toBe(false));
+
+		let fail = true;
+		const real = () => import('./plan-keeper');
+		const keeper = () => (fail ? Promise.reject(new Error('chunk')) : real());
+		const a = await ready(b.tab({ keeper }));
+		// A sample opens meanwhile; it does not become the last plan.
+		expect(a.planKey).toBe('one');
+		expect(a.keeping.unopened).toBe(id);
+		expect(b.prefs.getItem(LAST_PLAN_KEY)).toBe(`ws:${id}`);
+		fail = false;
+		expect(await a.openStored(id)).toBe(true);
+		expect(a.keeping.unopened).toBeNull();
+		expect(a.workspace?.texts()['plan.tjp']).toBe(`# kept\n${PLAN}`);
+	});
+
+	it('does not open a damaged plan: the lock goes back, a sample opens, the pointer stays (M2)', async () => {
+		const b = browser();
+		const real = createLocalStore({ indexedDB: b.factory, marker: b.prefs });
+		const id = await real.create(
+			{ name: 'Broken', entry: 'plan.tjp', location: { kind: 'browser' }, from: { opened: true } },
+			new Map([['other.tji', 'task x "X"\n']]),
+			null,
+		);
+		b.prefs.setItem(LAST_PLAN_KEY, `ws:${id}`);
+		const a = await ready(b.tab());
+		expect(a.planKey).toBe('one');
+		expect(a.keeping.unopened).toBe(id);
+		expect(b.prefs.getItem(LAST_PLAN_KEY)).toBe(`ws:${id}`);
+		await vi.waitFor(() => expect(b.locks.isHeld(`mainspring.plan.${id}`)).toBe(false));
+	});
+
+	it('has nothing to edit before the keeper chunk has loaded a stored plan (M3)', async () => {
+		const b = browser();
+		const first = await ready(b.tab());
+		type(first, 'plan.tjp', '# kept\n');
+		await vi.waitFor(() => expect(first.keeping.keep.kind).toBe('stored'), { timeout: 3000 });
+		first.dispose();
+		open = open.filter((x) => x !== first);
+		let release!: () => void;
+		const held = new Promise<void>((r) => (release = r));
+		const keeper = () => held.then(() => import('./plan-keeper'));
+		const a = b.tab({ keeper });
+		open.push(a);
+		await flush();
+		expect(a.phase).toBe('loading');
+		expect(a.workspace).toBeNull();
+		expect(a.edits).toBeNull();
+		release();
+		await vi.waitFor(() => expect(a.phase).toBe('ready'));
+		expect(a.storedId).not.toBeNull();
+		expect(a.workspace?.texts()['plan.tjp']).toBe(`# kept\n${PLAN}`);
 	});
 
 	it('shows a store that fails, and asks before switching then, since the changes are only in this tab', async () => {
@@ -265,18 +384,18 @@ describe('plans kept in the browser', () => {
 		};
 		const first = await ready(b.tab());
 		type(first, 'plan.tjp', '# 1\n');
-		await vi.waitFor(() => expect(first.keep.kind).toBe('stored'), { timeout: 3000 });
+		await vi.waitFor(() => expect(first.keeping.keep.kind).toBe('stored'), { timeout: 3000 });
 		first.dispose();
 		open = open.filter((x) => x !== first);
 		await vi.waitFor(() => expect(b.locks.isHeld(`mainspring.plan.${first.storedId}`)).toBe(false));
 
 		const confirm = vi.fn(() => false);
 		const a = await ready(b.tab({ store: failing, confirm }));
-		expect(a.keep.kind).toBe('stored');
+		expect(a.keeping.keep.kind).toBe('stored');
 		type(a, 'plan.tjp', '# 2\n');
 		expect(await a.openSample('two')).toBe(false);
 		expect(confirm).toHaveBeenCalledWith(strings.topBar.confirmSwitch);
-		expect(a.keep).toEqual({ kind: 'failed', error: storageError('quota', 'full') });
+		expect(a.keeping.keep).toEqual({ kind: 'failed', error: storageError('quota', 'full') });
 		expect(a.keepLine).toBe(strings.keep.failed);
 		expect(a.dirty).toBe(true);
 	});
@@ -285,18 +404,18 @@ describe('plans kept in the browser', () => {
 		const b = browser();
 		const first = await ready(b.tab());
 		type(first, 'plan.tjp', '# 1\n');
-		await vi.waitFor(() => expect(first.keep.kind).toBe('stored'), { timeout: 3000 });
+		await vi.waitFor(() => expect(first.keeping.keep.kind).toBe('stored'), { timeout: 3000 });
 		first.dispose();
 		open = open.filter((x) => x !== first);
 		expect(b.prefs.getItem(MARKER_KEY)).toBe('1');
 		// The browser clears IndexedDB (not localStorage).
 		const evicted = createLocalStore({ indexedDB: new IDBFactory(), marker: b.prefs });
 		const a = await ready(b.tab({ store: evicted }));
-		await vi.waitFor(() => expect(a.cleared).toBe(true));
+		await vi.waitFor(() => expect(a.keeping.cleared).toBe(true));
 		expect(a.planKey).toBe('one');
 		expect(a.storedId).toBeNull();
 		const later = await ready(b.tab({ store: evicted }));
 		await flush();
-		expect(later.cleared).toBe(false);
+		expect(later.keeping.cleared).toBe(false);
 	});
 });

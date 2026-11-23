@@ -15,8 +15,17 @@
  *   created with the database, so that their tasks need no upgrade.
  *
  * - **updatedAt** is set on every write to a plan's records, in the same transaction.
- * - **Ordering** (store-types.ts `saveFiles`): a save with a lower version than the last one this
- *   instance was asked to make for the plan is dropped. IndexedDB runs transactions over the same
+ * - **One owner, in the database too** (8.1 #7; T4 review M1). Each plan's `sync` record holds an
+ *   owner epoch. `open(id, { own: true })` (the tab that took the plan's lock) raises it in the
+ *   transaction that reads the plan, and `create` starts it, and this instance remembers the epoch
+ *   it holds. Every write of the plan's records (`saveFiles`, `setBase`, `enqueue`, `dequeue`,
+ *   `setConflict`) checks it in its own transaction: when another instance raised it since (another
+ *   tab took the plan over, even by force), the write aborts with `not-owner` and writes nothing.
+ *   So a slow write of a tab that lost the plan can never land after the new owner read it.
+ * - **Ordering** (store-types.ts `saveFiles`): within one session of the plan in this instance
+ *   (from the `open` with `own` or the `create` that started it), a save with a lower version than
+ *   the last one is dropped. A new session starts the order again: a reopened plan is a new
+ *   workspace whose versions start at 0 (T4 review H1). IndexedDB runs transactions over the same
  *   stores in the order they were made, so the saves that remain commit in version order.
  * - **The eviction marker** is set by `create` in the database and in `localStorage`. `cleared()`
  *   reports a database without plans while either half of the marker says plans were kept, once:
@@ -24,7 +33,7 @@
  *   is never reported as cleared. The `localStorage` half is put back when it alone was lost. A
  *   browser that clears both (WebKit's seven-day rule clears every script-writable store) cannot
  *   be told from a first visit, which is why the location line says "Only in this browser" (11.2).
- *   The `localStorage` key is `MARKER_KEY` (state/storage.ts), which the app reads on start.
+ *   The `localStorage` key is `MARKER_KEY` (marker.ts), which the app reads on start.
  * - **A plan that is gone** (removed meanwhile): a write to its records rejects with `not-found`
  *   and writes nothing (the contract does not say; nothing else fits).
  */
@@ -38,7 +47,7 @@ import type {
 	SyncBase,
 } from './store-types';
 import { StorageFailure, storageError, type WorkspaceId, type WorkspacePath } from './types';
-import { MARKER_KEY } from '../state/storage';
+import { MARKER_KEY } from './marker';
 const MARKER = 'stored';
 const STORES = ['plans', 'files', 'sync', 'meta'] as const;
 
@@ -46,7 +55,11 @@ interface SyncRecord {
 	readonly base: SyncBase | null;
 	readonly queue: readonly PendingWrite[];
 	readonly conflict: StoredConflict | null;
+	/** The owner epoch (module comment); absent before the first owner. */
+	readonly epoch?: number;
 }
+
+const EMPTY: SyncRecord = { base: null, queue: [], conflict: null };
 
 export interface LocalStoreOptions {
 	/** Default `globalThis.indexedDB`; `undefined` stands for a browser without it. */
@@ -69,7 +82,10 @@ const filesOf = (id: WorkspaceId): IDBKeyRange => IDBKeyRange.bound([id], [id, [
 export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 	const factory = 'indexedDB' in o ? o.indexedDB : globalThis.indexedDB;
 	const now = o.now ?? Date.now;
+	/** The last version saved in this session of each plan (module comment, "Ordering"). */
 	const last = new Map<WorkspaceId, number>();
+	/** The owner epoch this instance holds for each plan it opened to write or created. */
+	const owned = new Map<WorkspaceId, number>();
 	let db: Promise<IDBDatabase> | null = null;
 	const conn = (): Promise<IDBDatabase> =>
 		(db ??= openDb(factory, o.name ?? 'mainspring', 1, upgrade, () => (db = null)).catch((e) => {
@@ -114,13 +130,26 @@ export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 			else abort(new StorageFailure(storageError('not-found', 'no such plan')));
 		});
 	};
+	/**
+	 * Calls `then` with the plan's sync record when this instance still owns the plan; aborts with
+	 * `not-owner` otherwise (module comment).
+	 */
+	const owner = (
+		t: IDBTransaction,
+		id: WorkspaceId,
+		abort: (w: StorageFailure) => void,
+		then: (r: SyncRecord) => void = () => undefined,
+	): void => {
+		on(t.objectStore('sync').get(id) as IDBRequest<SyncRecord | undefined>, (r) => {
+			const mine = owned.get(id);
+			if (mine !== undefined && r?.epoch === mine) then(r);
+			else abort(new StorageFailure(storageError('not-owner', 'another tab owns the plan')));
+		});
+	};
 	const editSync = (id: WorkspaceId, f: (s: SyncRecord) => SyncRecord): Promise<void> =>
 		run(['plans', 'sync'], 'readwrite', (t, abort) => {
 			touch(t, id, abort);
-			const s = t.objectStore('sync');
-			on(s.get(id) as IDBRequest<SyncRecord | undefined>, (r) =>
-				s.put(f(r ?? { base: null, queue: [], conflict: null }), id),
-			);
+			owner(t, id, abort, (r) => t.objectStore('sync').put(f(r), id));
 			return () => undefined;
 		});
 
@@ -132,19 +161,31 @@ export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 				return () => all.sort((a, b) => b.updatedAt - a.updatedAt);
 			}),
 
-		open: (id) =>
-			run(['plans', 'files', 'sync'], 'readonly', (t) => {
+		open: (id, o) =>
+			run(['plans', 'files', 'sync'], o?.own ? 'readwrite' : 'readonly', (t) => {
 				let plan: StoredPlan | undefined;
 				let sync: SyncRecord | undefined;
 				let keys: IDBValidKey[] = [];
 				let texts: string[] = [];
+				let epoch = 0;
 				const files = t.objectStore('files');
+				const syncs = t.objectStore('sync');
 				on(t.objectStore('plans').get(id) as IDBRequest<StoredPlan | undefined>, (v) => (plan = v));
 				on(files.getAllKeys(filesOf(id)), (v) => (keys = v));
 				on(files.getAll(filesOf(id)) as IDBRequest<string[]>, (v) => (texts = v));
-				on(t.objectStore('sync').get(id) as IDBRequest<SyncRecord | undefined>, (v) => (sync = v));
-				return (): OpenedPlan | null =>
-					plan
+				on(syncs.get(id) as IDBRequest<SyncRecord | undefined>, (v) => {
+					sync = v;
+					// Taking ownership: a new epoch, in the transaction that reads the plan.
+					if (!o?.own || !plan) return;
+					epoch = (v?.epoch ?? 0) + 1;
+					syncs.put({ ...(v ?? EMPTY), epoch }, id);
+				});
+				return (): OpenedPlan | null => {
+					if (plan && epoch > 0) {
+						owned.set(id, epoch);
+						last.delete(id);
+					}
+					return plan
 						? {
 								plan,
 								files: new Map(
@@ -155,6 +196,7 @@ export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 								conflict: sync?.conflict ?? null,
 							}
 						: null;
+				};
 			}),
 
 		create: (p, files, base) => {
@@ -163,9 +205,10 @@ export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 				t.objectStore('plans').put({ ...p, id, updatedAt: now() } satisfies StoredPlan);
 				const f = t.objectStore('files');
 				for (const [path, text] of files) f.put(text, [id, path]);
-				t.objectStore('sync').put({ base, queue: [], conflict: null } satisfies SyncRecord, id);
+				t.objectStore('sync').put({ ...EMPTY, base, epoch: 1 } satisfies SyncRecord, id);
 				t.objectStore('meta').put(1, MARKER);
 				return () => {
+					owned.set(id, 1);
 					mark(true);
 					return id;
 				};
@@ -175,8 +218,9 @@ export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 		saveFiles: (id, files, version) => {
 			if (version < (last.get(id) ?? -Infinity)) return Promise.resolve();
 			last.set(id, version);
-			return run(['plans', 'files'], 'readwrite', (t, abort) => {
+			return run(['plans', 'files', 'sync'], 'readwrite', (t, abort) => {
 				touch(t, id, abort);
+				owner(t, id, abort);
 				const f = t.objectStore('files');
 				for (const [path, text] of files) f.put(text, [id, path]);
 				return () => undefined;
@@ -202,6 +246,7 @@ export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 				});
 				return () => {
 					last.delete(id);
+					owned.delete(id);
 					if (left === 0) mark(false);
 				};
 			}),

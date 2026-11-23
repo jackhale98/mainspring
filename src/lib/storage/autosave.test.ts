@@ -4,7 +4,7 @@
 // the next save, and nothing after dispose.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
-import { AUTOSAVE_MS, createAutosave, type AutosaveState } from './autosave';
+import { AUTOSAVE_MS, IDLE_MS, createAutosave, type AutosaveState } from './autosave';
 import { StorageFailure, storageError, type WorkspacePath } from './types';
 
 const PLAN = 'project p "P" 2026-01-05 +1m\ninclude "a.tji"\n';
@@ -145,6 +145,27 @@ describe('autosave', () => {
 		await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 2);
 		await a.flush();
 		expect(saved).toEqual([]);
+	});
+
+	it('waits for an idle moment at most so long that a change is stored within a second (L2)', async () => {
+		vi.useFakeTimers();
+		const asked: number[] = [];
+		vi.stubGlobal('requestIdleCallback', (f: () => void, o: { timeout: number }) => {
+			asked.push(o.timeout);
+			setTimeout(f, o.timeout);
+			return 1;
+		});
+		try {
+			const { ws, a, saved } = rig();
+			type(ws, 'a.tji', 'x');
+			await vi.advanceTimersByTimeAsync(AUTOSAVE_MS + IDLE_MS);
+			await a.flush();
+			expect(saved).toHaveLength(1);
+			expect(asked).toEqual([IDLE_MS]);
+			expect(AUTOSAVE_MS + IDLE_MS).toBeLessThanOrEqual(1000);
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 
 	it('does not save on a change itself: typing only notes the file', () => {

@@ -10,6 +10,7 @@ import { createLocalStore } from '../storage/local-store';
 import { createAcquire } from '../storage/lock';
 import { fakeLocks } from '../storage/testing/fake-locks';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
+import { planKey } from './app-storage';
 import { copyPlanPrefs, PlanKeeper, type KeeperHost, type Kept } from './plan-keeper';
 import type { ListedStorage } from './storage';
 
@@ -40,6 +41,7 @@ function rig() {
 			store: createLocalStore({ indexedDB: factory, marker: null }),
 			acquire: tab,
 			prefs,
+			keyOf: planKey,
 		});
 	return { factory, locks, prefs, events, keeper };
 }
@@ -144,12 +146,32 @@ describe('PlanKeeper', () => {
 		await vi.waitFor(() => expect(r.locks.isHeld(`mainspring.plan.${id}`)).toBe(false));
 	});
 
-	it('stops saving when another tab takes the plan, after storing what it held', async () => {
+	it('turns read-only when its save is refused because another tab owns the plan now (M1)', async () => {
 		const r = rig();
-		const made = await r.keeper().create({ name: 'A', label: 'A', from: { opened: true } }, SEED);
+		// No lock tells this tab that it lost the plan: only the store's owner epoch does.
+		const blind = createAcquire({ locks: null, channel: () => null });
+		const tabA = r.keeper(blind);
+		const made = await tabA.create({ name: 'A', label: 'A', from: { opened: true } }, SEED);
 		const id = made.stored?.id ?? '';
 		const ws = workspace();
-		const kept = r.keeper().keep(ws, id, made.stored?.lock ?? null, null, made.key);
+		const kept = tabA.keep(ws, id, made.stored?.lock ?? null, null, made.key);
+		await r.keeper(blind).find(id, true);
+		type(ws, '# late\n');
+		await kept.flush();
+		expect(r.events).toContain('lost');
+		expect(r.events).not.toContain('saved failed');
+		const back = await createLocalStore({ indexedDB: r.factory, marker: null }).open(id);
+		expect(back?.files.get('plan.tjp')).toBe(SEED.files['plan.tjp']);
+	});
+
+	it('stops saving when another tab takes the plan, after storing what it held', async () => {
+		const r = rig();
+		// One tab: the keeper (and its store instance) that made the plan owns it.
+		const tabA = r.keeper();
+		const made = await tabA.create({ name: 'A', label: 'A', from: { opened: true } }, SEED);
+		const id = made.stored?.id ?? '';
+		const ws = workspace();
+		const kept = tabA.keep(ws, id, made.stored?.lock ?? null, null, made.key);
 		type(ws, '# before\n');
 		const taken = await r.keeper(createAcquire({ locks: r.locks })).find(id, true);
 		expect(taken?.stored?.lock).not.toBeNull();

@@ -22,6 +22,11 @@ import type { Workspace, WorkspaceSnapshot } from '../workspace/workspace';
 
 /** How long after the last change a save starts (7.1). */
 export const AUTOSAVE_MS = 400;
+/**
+ * At most this long in addition for an idle moment: a change is stored within a second (12.2,
+ * T4 review L2), however busy the page is.
+ */
+export const IDLE_MS = 600;
 
 export type AutosaveState =
 	| { readonly kind: 'saved'; readonly at: number; readonly version: number }
@@ -95,7 +100,7 @@ export function createAutosave(o: AutosaveOptions): Autosave {
 	};
 	const idle = (): void => {
 		const ric = globalThis.requestIdleCallback;
-		if (ric) ric(() => void flush(), { timeout: 1000 });
+		if (ric) ric(() => void flush(), { timeout: IDLE_MS });
 		else void flush();
 	};
 	const hidden = (e: Event): void => {

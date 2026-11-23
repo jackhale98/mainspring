@@ -10,9 +10,14 @@
  *   autosave, so the newest text is stored), lets go and resolves `lost`: it shows the plan
  *   read-only from then on. The asking tab is granted the lock and reads the store, which has that
  *   text. An owner that does not let go within `HANDOVER_MS` (a frozen background tab) loses the
- *   lock by force (`steal: true`); its `lost` resolves when it runs again, and it writes nothing
- *   after that.
- * - **No Web Locks** (an old browser): the lock is granted and never lost, as the contract says.
+ *   lock by force (`steal: true`); its `lost` resolves when it runs again, and the store refuses
+ *   its writes from then on (local-store.ts, the owner epoch).
+ * - **Messages** carry the plan id and the sender's nonce, one per `acquire`: a lock never answers
+ *   its own messages, so a tab that takes a plan back cannot hand it to itself (T4 review M4).
+ * - **No Web Locks** (an old browser): the same channel stands in (T4 review L3). A tab asks "who
+ *   has this plan?" and waits `WHO_MS` for an owner to answer; with no answer it holds the plan.
+ *   "Open here instead" asks the owner to hand over and waits for its "gone" (at most
+ *   `HANDOVER_MS`). Without BroadcastChannel either, the lock is granted and never lost.
  *
  * `acquire` returns a `HeldLock`, a `PlanLock` with the `onAsked` hook; it is an `AcquirePlanFn`.
  */
@@ -21,6 +26,8 @@ import type { WorkspaceId } from './types';
 
 /** How long "Open here instead" waits for the owner to hand over before it takes the lock. */
 export const HANDOVER_MS = 3000;
+/** Without Web Locks: how long a tab waits for an owner to say that it has the plan. */
+export const WHO_MS = 150;
 const CHANNEL = 'mainspring.plans';
 
 export interface HeldLock extends PlanLock {
@@ -37,6 +44,16 @@ export interface LockDeps {
 	readonly channel?: () => BroadcastChannel | null;
 	/** Default `HANDOVER_MS`. */
 	readonly handoverMs?: number;
+	/** Default `WHO_MS`. */
+	readonly whoMs?: number;
+}
+
+/** A message on the channel: `ask` to hand over, `who` has it, `mine`, and `gone` once handed. */
+interface Message {
+	readonly k: 'ask' | 'who' | 'mine' | 'gone';
+	readonly id: string;
+	/** The sender's nonce (module comment). */
+	readonly n: string;
 }
 
 const never = new Promise<never>(() => undefined);
@@ -49,66 +66,100 @@ export function createAcquire(deps: LockDeps = {}) {
 		deps.channel ??
 		(() => (typeof BroadcastChannel === 'function' ? new BroadcastChannel(CHANNEL) : null));
 	const ms = deps.handoverMs ?? HANDOVER_MS;
+	const whoMs = deps.whoMs ?? WHO_MS;
 	return (
 		id: WorkspaceId,
 		o?: { readonly steal?: boolean },
 	): Promise<HeldLock | 'held-elsewhere'> =>
 		new Promise((resolve) => {
-			if (!locks) return resolve(free);
+			const bc = channel();
+			if (!locks && !bc) return resolve(free);
+			const n = crypto.randomUUID();
 			const name = `mainspring.plan.${id}`;
 			let letGo!: () => void;
 			let lose!: () => void;
 			const held = new Promise<void>((r) => (letGo = r));
 			const lost = new Promise<void>((r) => (lose = r));
-			/** Granted, then let go (released or handed over): nothing more to do. */
+			/** Holds the plan now (granted, and not let go). */
 			let granted = false;
 			let done = false;
 			let asked: () => Promise<unknown> = () => Promise.resolve();
 			let timer: ReturnType<typeof setTimeout> | undefined;
-			const bc = channel();
-			const end = (): void => {
-				done = true;
+			/** Waits for an answer of another tab (no Web Locks): `mine` or `gone`. */
+			let heard: ((k: Message['k']) => void) | null = null;
+			const send = (k: Message['k']): void => bc?.postMessage({ k, id, n } satisfies Message);
+			const finish = (handed: boolean): void => {
+				if (handed) {
+					send('gone');
+					lose();
+				}
 				letGo();
 				bc?.close();
 			};
 			if (bc)
-				bc.onmessage = (e: MessageEvent<unknown>) => {
-					if (!granted || done || e.data !== id) return;
+				bc.onmessage = (e: MessageEvent<Message | null>) => {
+					const m = e.data;
+					if (!m || m.id !== id || m.n === n) return;
+					if (m.k === 'mine' || m.k === 'gone') return heard?.(m.k);
+					if (!granted || done) return;
+					if (m.k === 'who') return send('mine');
 					done = true;
-					void Promise.race([asked().catch(() => undefined), wait(ms)]).then(() => {
-						lose();
-						end();
-					});
+					void Promise.race([asked().catch(() => undefined), wait(ms)]).then(() => finish(true));
 				};
-			const lock: HeldLock = { release: end, lost, onAsked: (f) => (asked = f) };
+			const lock: HeldLock = {
+				release: () => {
+					if (done) return;
+					done = true;
+					finish(false);
+				},
+				lost,
+				onAsked: (f) => (asked = f),
+			};
+			const grant = (): void => {
+				granted = true;
+				clearTimeout(timer);
+				resolve(lock);
+			};
+			const refuse = (): void => {
+				bc?.close();
+				resolve('held-elsewhere');
+			};
+			if (o?.steal) send('ask');
+			if (!locks) {
+				// No Web Locks: the channel stands in (module comment).
+				const answer = (k: Message['k'], within: number): Promise<boolean> =>
+					new Promise((r) => {
+						heard = (got) => got === k && r(true);
+						setTimeout(() => r(false), within);
+					});
+				if (o?.steal) void answer('gone', ms).then(grant);
+				else {
+					send('who');
+					void answer('mine', whoMs).then((taken) => (taken ? refuse() : grant()));
+				}
+				return;
+			}
 			const take = (opts: LockOptions, onFail: () => void): void => {
 				locks
 					.request(name, opts, (l) => {
-						if (!l) {
-							bc?.close();
-							resolve('held-elsewhere');
-							return;
-						}
-						granted = true;
-						clearTimeout(timer);
-						resolve(lock);
+						if (!l) return refuse();
+						grant();
 						return held;
 					})
 					.catch(() => {
 						if (!granted) return onFail();
 						// Taken by force: this tab must not write the plan any more.
 						if (!done) lose();
-						end();
+						done = true;
+						letGo();
+						bc?.close();
 					});
 			};
-			if (!o?.steal) return take({ ifAvailable: true }, () => resolve('held-elsewhere'));
-			// Ask the owner first; take the lock by force if it has not let go in time.
-			const ask = channel();
-			ask?.postMessage(id);
-			ask?.close();
+			if (!o?.steal) return take({ ifAvailable: true }, refuse);
+			// The owner was asked; take the lock by force if it has not let go in time.
 			const ctl = new AbortController();
 			timer = setTimeout(() => ctl.abort(), ms);
-			take({ signal: ctl.signal }, () => take({ steal: true }, () => resolve('held-elsewhere')));
+			take({ signal: ctl.signal }, () => take({ steal: true }, refuse));
 		});
 }
 

@@ -11,6 +11,12 @@ export const storageStrings = {
 		/** Another tab took the plan over with "Open here instead" (7.1). */
 		taken: 'This plan is now open in another tab, so it is read-only here.',
 		openHere: 'Open here instead',
+		/** The last plan could not be opened (T4 review H2, M2): a sample is open instead. */
+		unopened:
+			'The plan you had open could not be opened from this browser. A sample is open instead.',
+		retry: 'Try again',
+		/** Try again failed: the page reloads, which opens the last plan again. */
+		reload: 'Reload the page',
 		/** The store is empty but the marker says plans were kept (9.4). */
 		cleared:
 			'This browser cleared the plans that Mainspring kept in it. Plans saved somewhere else are not affected.',

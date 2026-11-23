@@ -4,6 +4,8 @@
 // The budgets are on what a first load fetches, where the user waits, plus a loose guard on the
 // whole app and caps on named lazy chunks:
 //
+//   0. reported only: the JS a returning visit fetches, a stored plan restored on start (T4 review
+//      M3; phase-4.md 12.1), in Visual and Text mode;
 //   1. the JS a first load fetches in Visual mode (340,000 bytes gzip; raised from 330,000 at the Phase 3 gate, user 2026-11-23) and in Text mode (440,000),
 //      measured in a browser against a preview: enforced (exit 1). The code-split CodeMirror chunk
 //      is fetched in Text and Split, never in Visual: enforced too. So is the keyword docs asset
@@ -80,10 +82,12 @@ export const CHUNK_CAPS = [
 	{ name: 'export', pattern: /^run-export\./, cap: 3_700, lazy: true },
 	// Plans kept in the browser (T4, phase-4.md 12.1): the local store, the owner lock and autosave,
 	// fetched when a plan has to be kept (a stored plan restores, a sample's first change, New plan),
-	// never by a first visit that only reads a sample (3,404 bytes on 2026-11-23).
-	{ name: 'keeper', pattern: /^plan-keeper\./, cap: 3_800, lazy: true },
-	// The notice under the top bar (read-only, cleared, not kept; 903 bytes on 2026-11-23).
-	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_100, lazy: true },
+	// never by a first visit that only reads a sample (3,801 bytes on 2026-11-23, after the T4
+	// review: the owner epoch, the lock's channel without Web Locks, damaged plans).
+	{ name: 'keeper', pattern: /^plan-keeper\./, cap: 4_200, lazy: true },
+	// The notice under the top bar (read-only, could not open, cleared, not kept; 1,043 bytes on
+	// 2026-11-23).
+	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_200, lazy: true },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
@@ -182,7 +186,37 @@ export function distScripts(dir) {
 }
 
 async function firstLoad(browser, base, query, viewChunks) {
-	const page = await browser.newPage();
+	return measurePage(await browser.newPage(), base, query, viewChunks);
+}
+
+/**
+ * A returning visit (phase-4.md 12.1; T4 review M3): a stored plan restores on start. In a fresh
+ * context the Tutorial's copy is stored (an edit), that page closes, and a new page of the same
+ * context opens `/app?mode=<mode>`, which opens the last plan: what it fetches is measured. It
+ * fetches the keeper chunk (the store, the lock, autosave) and not the sample's own module.
+ * Reported, not capped: the budget for it is the user's decision.
+ */
+async function returningLoad(browser, base, mode, viewChunks) {
+	const context = await browser.newContext();
+	try {
+		const first = await context.newPage();
+		await first.goto(`${base}/app?sample=upstream-tutorial&mode=text`);
+		await first.getByTestId('engine-status').filter({ hasText: 'Engine: Ready' }).waitFor({
+			timeout: 180_000,
+		});
+		await first.getByRole('textbox', { name: /^Editor for / }).click();
+		await first.keyboard.press('Control+Home');
+		await first.keyboard.insertText('# kept\n');
+		// The copy is stored: the address drops ?sample= (App.svelte).
+		await first.waitForURL((u) => !u.search.includes('sample='), { timeout: 30_000 });
+		await first.close();
+		return await measurePage(await context.newPage(), base, `mode=${mode}`, viewChunks);
+	} finally {
+		await context.close();
+	}
+}
+
+async function measurePage(page, base, query, viewChunks) {
 	const seen = new Map();
 	const docs = [];
 	page.on('request', (req) => {
@@ -240,6 +274,8 @@ async function measureLoads() {
 			viewChunks: [...views].sort(),
 			visualFirst: await firstLoad(browser, base, 'sample=upstream-tutorial&mode=visual', views),
 			textFirst: await firstLoad(browser, base, 'sample=upstream-tutorial&mode=text', views),
+			returningVisual: await returningLoad(browser, base, 'visual', views),
+			returningText: await returningLoad(browser, base, 'text', views),
 		};
 	} finally {
 		await browser.close();
@@ -346,6 +382,7 @@ async function main() {
 		lines.push(
 			`First load, Visual mode: **${kb(result.visualFirst.gzipBytes)}** of ${kb(VISUAL_FIRST_CAP)}; keyword docs ${docs(result.visualFirst)}.`,
 			`First load, Text mode: **${kb(result.textFirst.gzipBytes)}** of ${kb(TEXT_FIRST_CAP)}; keyword docs ${docs(result.textFirst)}.`,
+			`Returning visit (a stored plan restored, not capped), Visual: **${kb(result.returningVisual.gzipBytes)}**; Text: **${kb(result.returningText.gzipBytes)}**.`,
 		);
 	}
 	if (result.peopleViews)

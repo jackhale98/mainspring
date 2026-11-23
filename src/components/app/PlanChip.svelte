@@ -5,12 +5,15 @@
 	accessible name "Sample plan". Replacing a plan whose changes are only in this tab asks first
 	(AppState). The list is "New plan…" first (it opens the New plan sheet, which App.svelte mounts
 	once, so that a layout change that remounts this chip does not lose what was typed), then the
-	open plan when it is not a sample (a plan made here as "Name (new)", a sample's copy as
-	"Name (copy)"), then the "Samples" group (ADR-0013 #2). The full chooser is T15's.
+	"Your plans" group, the plans kept in this browser, most recently changed first (a plan made
+	here as "Name (new)", a sample's copy as "Name (copy)"; T4 review H2), then the "Samples" group
+	(ADR-0013 #2). A plan that is open but not kept (the store refused it) has its own entry. The
+	full chooser (rename, delete, locations) is T15's.
 	`title` style puts the name in the serif display face for the phone header.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
+	import { planKey } from '../../lib/state/app-storage';
 	import { strings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
 	import Select from '../ui/Select.svelte';
@@ -33,12 +36,24 @@
 			return;
 		}
 		if (value === app.planKey) return;
-		const opened = await app.openSample(value);
+		const opened = value.startsWith('ws:')
+			? await app.openStored(value.slice(3))
+			: await app.openSample(value);
 		// A cancelled switch leaves the old plan open: show it in the picker again.
 		if (!opened) select.value = app.planKey;
 	}
-	/** The open plan when it is not one of the samples: it gets its own entry. */
-	const own = $derived(!app.samples.some((s) => s.id === app.planKey) && app.planKey !== '');
+	const kept = $derived(
+		app.keeping.plans.map((p) => ({
+			key: planKey(p.id),
+			label: 'newPlan' in p.from ? strings.newPlan.listed(p.name) : p.name,
+		})),
+	);
+	/** The open plan when it is neither kept here nor a sample: it gets its own entry. */
+	const own = $derived(
+		app.planKey !== '' &&
+			!app.samples.some((s) => s.id === app.planKey) &&
+			!kept.some((p) => p.key === app.planKey),
+	);
 </script>
 
 <label class="chip" class:title>
@@ -52,6 +67,13 @@
 		<option value={CREATE}>{strings.newPlan.chooser}</option>
 		{#if own}
 			<option value={app.planKey}>{app.planLabel}</option>
+		{/if}
+		{#if kept.length > 0}
+			<optgroup label={strings.newPlan.yourPlans}>
+				{#each kept as p (p.key)}
+					<option value={p.key}>{p.label}</option>
+				{/each}
+			</optgroup>
 		{/if}
 		<optgroup label={strings.newPlan.samplesGroup}>
 			{#each app.samples as sample (sample.id)}

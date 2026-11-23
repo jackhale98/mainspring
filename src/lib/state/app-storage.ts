@@ -34,6 +34,25 @@
  * - `openStored` takes `{ steal }`, and `heldElsewhere` and `readOnly` are added: 7.1's "Open
  *   here instead" and the read-only tab have no member in 6.7.
  * - `sync` is null while the open plan is not stored (a sample before its first edit).
+ *
+ * Contract notes (T4, accepted in its review; app.svelte.ts and keeping.svelte.ts implement them):
+ * - `openStored` of a plan another tab holds opens it read-only: it returns false and sets
+ *   `heldElsewhere`, as above, and `readOnly` is true too (the tab cannot edit it either).
+ * - `sync` is null for every plan until T7's controller; `openFolder`, `openFiles` and `openGitHub`
+ *   resolve false and `saveTo` resolves `failed` (`unsupported`) until T5, T8 and T15; `pwa` is
+ *   `INITIAL_PWA_STATE` until T11.
+ * - `dirty` means "changes only in this tab" (the store refused them or cannot be used) until T7
+ *   widens it to what the provider does not have; switching plans or reloading asks only then, and
+ *   `flush()` stores what autosave holds before any reload the app starts itself.
+ * - AppState's own members: `planKey` (the plan part of preference keys), `openSerial` (grows when a
+ *   plan opens, not when only the key changes), `fresh`, `storedId`, `keeping` (what the line says,
+ *   the plans kept here, the cleared and could-not-open notices), `keepLine`, `flush`, `reloadPage`.
+ *   `sampleId`, `newPlanName` and `newPlanSerial` are gone.
+ * - The last-plan pointer (`mainspring.last-plan`) holds a plan key: `ws:<id>`, or a sample's id
+ *   when a sample was opened last. A plan that could not be opened leaves it as it was.
+ * - After a plan is reopened its history is empty, and an empty undo or redo says so (the history
+ *   outcome has no direction); a read-only tab says nothing.
+ * - The cleared notice does not point to GitHub or Export yet (T5, T14); the landing copy is T25's.
  */
 import type { PwaState } from '../../pwa/messages';
 import type { GitHubLocation, Location, WorkspaceId } from '../storage/types';

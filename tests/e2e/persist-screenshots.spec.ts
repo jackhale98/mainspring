@@ -2,7 +2,9 @@
 // Pictures of the plans kept in the browser (SCREENSHOTS=1; phase-4.md 7.1, 9.4, T4), light and
 // dark: the footer's line once a sample's copy is kept (desktop and a tablet-sized desktop), the
 // read-only notice of a second page with "Open here instead" (desktop, Pixel 7, iPhone 14), and the
-// notice that the browser cleared its plans (the phones, where no footer line is):
+// notice that the browser cleared its plans (the phones, where no footer line is), the chooser with
+// the plans kept here ("Your plans", drawn as a list box: a native picker is not in a screenshot)
+// and the notice that the last plan could not be opened (T4 review H2):
 // docs/phases/screenshots/phase-4/t4-<what>-<device>-<scheme>.png. Without SCREENSHOTS=1 the tests
 // are skipped (each boots the engine).
 import fs from 'node:fs';
@@ -70,6 +72,61 @@ for (const scheme of ['light', 'dark'] as const) {
 			});
 			await pictureReady(second);
 			await second.screenshot({ path: file('read-only', info, scheme) });
+		});
+
+		test('the chooser with the plans kept here', async ({ page }, info) => {
+			await open(page, 'text');
+			await keepCopy(page);
+			await page
+				.getByLabel(strings.topBar.sample)
+				.selectOption({ label: strings.samples['ui-people'] });
+			await expect(page.getByLabel(strings.topBar.sample).locator('optgroup')).toHaveCount(2);
+			await page.getByLabel(strings.topBar.sample).evaluate((select: HTMLSelectElement) => {
+				const box = select.closest('label')?.getBoundingClientRect();
+				select.size = 12;
+				Object.assign(select.style, {
+					position: 'fixed',
+					inset: 'auto',
+					left: `${Math.max(8, Math.min(box?.left ?? 0, window.innerWidth - 312))}px`,
+					top: `${(box?.bottom ?? 0) + 6}px`,
+					width: '19rem',
+					height: 'auto',
+					opacity: '1',
+					zIndex: '100',
+					border: '1px solid var(--color-border-strong)',
+					borderRadius: '10px',
+					background: 'var(--color-surface)',
+					color: 'var(--color-text)',
+					fontSize: '15px',
+					padding: '4px',
+					boxShadow: 'var(--shadow-raised)',
+				});
+			});
+			await pictureReady(page);
+			await page.screenshot({ path: file('chooser', info, scheme) });
+		});
+
+		test('the notice that the last plan could not be opened', async ({ page }, info) => {
+			// Storage that refuses to open (as persist.spec.ts does it; a cache may still serve a
+			// blocked chunk).
+			await page.addInitScript(() => {
+				const blocked = sessionStorage.getItem('block-idb') === '1';
+				const open = indexedDB.open.bind(indexedDB);
+				indexedDB.open = ((name: string, version?: number) => {
+					if (blocked) throw new DOMException('blocked', 'SecurityError');
+					return open(name, version);
+				}) as typeof indexedDB.open;
+			});
+			await open(page, 'text');
+			await keepCopy(page);
+			await page.evaluate(() => sessionStorage.setItem('block-idb', '1'));
+			await page.goto('/app?mode=visual');
+			await expect(page.getByTestId('plan-notice')).toBeVisible({ timeout: READY_TIMEOUT_MS });
+			await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+				timeout: READY_TIMEOUT_MS,
+			});
+			await pictureReady(page);
+			await page.screenshot({ path: file('unopened', info, scheme) });
 		});
 
 		test('the notice that the browser cleared its plans', async ({ page }, info) => {

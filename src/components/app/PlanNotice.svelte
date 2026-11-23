@@ -4,6 +4,10 @@
 	layout:
 	- read-only, because another tab has the plan (`elsewhere`: it was open there first; `taken`: it
 	  was taken over there), with "Open here instead", which takes it into this tab;
+	- the last plan could not be opened (the store or the keeper chunk failed, or the plan is
+	  damaged): a sample is open meanwhile, and Try again opens the plan (T4 review H2, M2). A
+	  browser remembers a failed import, so after a failed try the button reloads the page, which
+	  opens the last plan again (the pointer was left alone);
 	- the browser cleared the plans it kept (the eviction marker, 9.4), until dismissed;
 	- on a phone, which has no footer line, changes that could not be kept (8.1 #8).
 	A lazy chunk: App.svelte mounts it the first time one of them applies. T14's sync status takes
@@ -20,25 +24,30 @@
 	let { app, phone }: Props = $props();
 	const S = storageStrings.notice;
 
+	const k = $derived(app.keeping);
 	const kind = $derived(
 		app.readOnly
 			? app.heldElsewhere !== null
 				? 'elsewhere'
 				: 'taken'
-			: app.cleared
-				? 'cleared'
-				: phone && app.keep.kind === 'failed'
-					? 'failed'
-					: null,
+			: k.unopened !== null
+				? 'unopened'
+				: k.cleared
+					? 'cleared'
+					: phone && k.keep.kind === 'failed'
+						? 'failed'
+						: null,
 	);
 	let busy = $state(false);
+	/** Try again failed: the next press reloads the page instead. */
+	let tried = $state(false);
 
-	async function openHere(): Promise<void> {
-		const id = app.storedId;
+	/** "Open here instead" takes the open plan; Try again opens the one that could not be opened. */
+	async function open(id: string | null, steal: boolean): Promise<void> {
 		if (id === null || busy) return;
 		busy = true;
 		try {
-			await app.openStored(id, { steal: true });
+			await app.openStored(id, { steal });
 		} finally {
 			busy = false;
 		}
@@ -49,9 +58,21 @@
 	<div class="notice" role="status" data-testid="plan-notice" data-kind={kind}>
 		<p>{S[kind]}</p>
 		{#if kind === 'elsewhere' || kind === 'taken'}
-			<button type="button" class="primary" disabled={busy} onclick={openHere}>{S.openHere}</button>
+			<button type="button" class="primary" disabled={busy} onclick={() => open(app.storedId, true)}
+				>{S.openHere}</button
+			>
+		{:else if kind === 'unopened'}
+			<button
+				type="button"
+				class="primary"
+				disabled={busy}
+				onclick={() => {
+					if (tried) void app.reloadPage();
+					else void open(k.unopened, false).then(() => (tried = k.unopened !== null));
+				}}>{tried ? S.reload : S.retry}</button
+			>
 		{:else if kind === 'cleared'}
-			<button type="button" onclick={() => (app.cleared = false)}>{S.dismiss}</button>
+			<button type="button" onclick={() => (k.cleared = false)}>{S.dismiss}</button>
 		{/if}
 	</div>
 {/if}

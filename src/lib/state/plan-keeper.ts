@@ -15,16 +15,20 @@
  *   under the sample's key are copied under the copy's, once, as its defaults (`copyPlanPrefs`).
  * - **The lock** (lock.ts): a tab that asks for the plan gets it after this one has stored what
  *   autosave holds; then nothing more is stored here and `KeeperHost.lost` makes the tab read-only.
+ *   The owner opens the plan with `own` (local-store.ts, the owner epoch): a save of this tab that
+ *   arrives after another tab took the plan is refused with `not-owner`, which is a loss too.
+ * - **A damaged plan** (T4 review M2): a stored plan without files, or without its entry file, is
+ *   not opened: `find` gives its lock back and rejects, and the app says it could not be opened.
  */
 import { strings } from '../strings';
 import { createAutosave, type AutosaveState } from '../storage/autosave';
 import { createLocalStore } from '../storage/local-store';
 import { acquire, type HeldLock } from '../storage/lock';
 import type { LocalStore, StoredPlan } from '../storage/store-types';
-import { isWorkspaceId, type Location, type WorkspaceId } from '../storage/types';
+import { isWorkspaceId, StorageFailure, storageError } from '../storage/types';
+import type { Location, WorkspaceId } from '../storage/types';
 import type { SampleWorkspace } from '../workspace/samples';
 import type { Workspace } from '../workspace/workspace';
-import { planKey } from './app-storage';
 import type { ListedStorage } from './storage';
 
 export type Acquire = (
@@ -38,6 +42,11 @@ export interface KeeperOptions {
 	/** Default Web Locks' (lock.ts). */
 	readonly acquire?: Acquire | undefined;
 	readonly prefs: ListedStorage | null;
+	/**
+	 * A stored plan's preference key (app-storage.ts `planKey`), given by the app so that this chunk
+	 * shares no module with a first load but the ones it already has.
+	 */
+	readonly keyOf: (id: WorkspaceId) => string;
 }
 
 /** How a plan that opened unstored is stored on its first change. */
@@ -62,6 +71,8 @@ export interface Opening {
 	readonly fresh?: boolean;
 	/** Reopened from the store: an empty undo says why. */
 	readonly restored?: boolean;
+	/** Opened because the last plan could not be: it does not become the last plan (T4 review H2). */
+	readonly fallback?: boolean;
 }
 
 /** What the keeper tells `AppState` about the plan it keeps (`k`). */
@@ -114,12 +125,14 @@ export class PlanKeeper {
 	readonly #store: LocalStore;
 	readonly #acquire: Acquire;
 	readonly #prefs: ListedStorage | null;
+	readonly #keyOf: (id: WorkspaceId) => string;
 
 	constructor(host: KeeperHost, o: KeeperOptions) {
 		this.#host = host;
 		this.#store = o.store ?? createLocalStore();
 		this.#acquire = o.acquire ?? acquire;
 		this.#prefs = o.prefs;
+		this.#keyOf = o.keyOf;
 	}
 
 	/**
@@ -132,15 +145,18 @@ export class PlanKeeper {
 		const l = await this.#acquire(id, steal ? { steal } : undefined);
 		const lock = l === 'held-elsewhere' ? null : l;
 		try {
-			const opened = await this.#store.open(id);
+			const opened = await this.#store.open(id, { own: lock !== null });
 			if (!opened) {
 				lock?.release();
 				return null;
 			}
 			const { plan } = opened;
+			if (!opened.files.has(plan.entry)) {
+				throw new StorageFailure(storageError('server', 'damaged: no entry file'));
+			}
 			const seed = { entry: plan.entry, files: Object.fromEntries(opened.files) };
 			return {
-				key: planKey(id),
+				key: this.#keyOf(id),
 				label: 'newPlan' in plan.from ? strings.newPlan.listed(plan.name) : plan.name,
 				load: () => Promise.resolve(seed),
 				stored: { id, lock },
@@ -162,13 +178,18 @@ export class PlanKeeper {
 		);
 		const l = await this.#acquire(id);
 		return {
-			key: planKey(id),
+			key: this.#keyOf(id),
 			label: p.label,
 			load: () => Promise.resolve(seed),
 			stored: { id, lock: l === 'held-elsewhere' ? null : l },
 			unstored: null,
 			fresh: true,
 		};
+	}
+
+	/** The plans kept in this browser, most recently changed first (the chooser lists them). */
+	plans(): Promise<readonly StoredPlan[]> {
+		return this.#store.plans();
 	}
 
 	/** True once when the browser cleared the plans it kept (9.4). */
@@ -214,11 +235,17 @@ export class PlanKeeper {
 				const l = await this.#acquire(made);
 				held = l === 'held-elsewhere' ? null : l;
 				if (held) this.#hold(k, held);
-				const to = planKey(made);
+				const to = this.#keyOf(made);
 				copyPlanPrefs(this.#prefs, key, to);
 				this.#host.stored(k, made, to, unstored.label);
 			},
-			onState: (st) => this.#host.saved(k, st),
+			onState: (st) => {
+				// Another tab owns the plan now (it took it by force): this tab only reads it.
+				if (st.kind === 'failed' && st.error.kind === 'not-owner') {
+					k.stop();
+					this.#host.lost(k);
+				} else this.#host.saved(k, st);
+			},
 		});
 		if (held) this.#hold(k, held);
 		return k;

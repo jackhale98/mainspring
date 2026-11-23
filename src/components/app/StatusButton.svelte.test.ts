@@ -43,6 +43,7 @@ function setup(status: StatusView | null, update: 'available' | 'current' | 'unk
 		run: null,
 		engine: 'idle',
 		dirty: false,
+		flush: vi.fn(async () => true),
 		goToNextProblem,
 		retry,
 		history,
@@ -162,7 +163,7 @@ describe('the popover', () => {
 		expect(retry).toHaveBeenCalledOnce();
 	});
 
-	it('lists the messages without a place, and offers New version · Reload only when one is out', () => {
+	it('lists the messages without a place, and offers New version · Reload only when one is out', async () => {
 		const { target, reloadAsking } = setup(
 			view({
 				unlocated: [{ severity: 'warning', message: 'No tasks.', precision: 'none' } as never],
@@ -175,7 +176,8 @@ describe('the popover', () => {
 		const reload = pop?.querySelector<HTMLButtonElement>('[data-testid="update-reload"]');
 		expect(reload?.textContent?.replace(/\s+/g, ' ').trim()).toBe('New version · Reload');
 		reload?.click();
-		expect(reloadAsking).toHaveBeenCalledWith(false);
+		// The plan is stored first (T4 review L1), then the reload asks if anything would be lost.
+		await vi.waitFor(() => expect(reloadAsking).toHaveBeenCalledWith(false));
 		expect(
 			setup(view(), 'current').target.querySelector('[data-testid="update-reload"]'),
 		).toBeNull();

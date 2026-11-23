@@ -17,6 +17,8 @@ const LABEL = strings.samples[SAMPLE];
 const COPY = strings.keep.copy(LABEL);
 const chooser = (page: Page) => page.getByLabel(strings.topBar.sample);
 const notice = (page: Page) => page.getByTestId('plan-notice');
+const yourPlans = (page: Page) =>
+	chooser(page).locator(`optgroup[label="${strings.newPlan.yourPlans}"]`);
 
 test.setTimeout(READY_TIMEOUT_MS * 2 + 60_000);
 
@@ -98,10 +100,11 @@ test("a sample's first change stores a copy, which a reload opens; the sample st
 	await chooser(page).selectOption({ label: LABEL });
 	await expect(chooser(page).locator('option:checked')).toHaveText(LABEL);
 	await expect(editor(page)).not.toContainText('# kept in this browser');
-	// The last plan is the sample now; the copy is still kept (the chooser of T15 lists it).
+	// The last plan is the sample now; the copy is still kept, and the chooser lists it.
 	await page.reload();
 	await ready(page);
 	await expect(chooser(page).locator('option:checked')).toHaveText(LABEL);
+	await expect(yourPlans(page).locator('option')).toHaveText([COPY]);
 
 	// A `?sample=` link opens the sample, whatever the last plan was.
 	await openApp(page, 'ui-people');
@@ -128,6 +131,19 @@ test('a second page on the plan is read-only; "Open here instead" takes it, with
 	expect(axe.violations).toEqual([]);
 	await expect(editor(second)).toHaveAttribute('contenteditable', 'false');
 	await expect(editor(second)).toContainText('# first page');
+	// Nothing offers an edit there (T4 review L4): no Add task on the chart, Undo and Redo off.
+	const phone = await second.getByRole('tab', { name: 'Gantt', exact: true }).isVisible();
+	if (phone) await second.getByRole('tab', { name: 'Gantt', exact: true }).click();
+	else await second.getByRole('button', { name: 'Visual', exact: true }).click();
+	await expect(second.getByTestId('gantt')).toBeVisible();
+	await expect(second.getByTestId('add-task')).toHaveCount(0);
+	for (const b of await second
+		.getByRole('group', { name: strings.topBar.history })
+		.getByRole('button')
+		.all())
+		await expect(b).toBeDisabled();
+	if (phone) await second.getByRole('tab', { name: 'Text', exact: true }).click();
+	else await second.getByRole('button', { name: 'Text', exact: true }).click();
 	const line = second.getByTestId('keep-line');
 	if (await line.isVisible()) await expect(line).toHaveText(strings.keep.readOnly);
 
@@ -153,11 +169,101 @@ test('a second page on the plan is read-only; "Open here instead" takes it, with
 	await expect(editor(third)).toContainText('# second page');
 	await expect(notice(third)).toContainText(storageStrings.notice.elsewhere);
 
-	// And the first page can take it back.
+	// And the first page can take it back, and what it types then is kept (T4 review H1: a plan
+	// opened again starts its versions at 0).
 	await page.bringToFront();
 	await notice(page).getByRole('button', { name: storageStrings.notice.openHere }).click();
 	await expect(editor(page)).toHaveAttribute('contenteditable', 'true');
 	await expect(editor(page)).toContainText('# second page');
+	await typeAtStart(page, '# A again\n');
+	await kept(page, '# A again');
+	await page.reload();
+	await ready(page);
+	await expect(notice(page)).toBeHidden();
+	await expect(editor(page)).toContainText('# A again');
+	await expect(editor(page)).toContainText('# second page');
+});
+
+test('the chooser lists the plans kept here; one opens with its edit (T4 review H2)', async ({
+	page,
+}) => {
+	await openApp(page, 'upstream-tutorial');
+	await typeAtStart(page, '# my tutorial\n');
+	await expect(page).not.toHaveURL(/[?&]sample=/, { timeout: 10_000 });
+	await kept(page, '# my tutorial');
+	// The editor still has the focus: the switch shows the other plan's text (no question first).
+	await chooser(page).selectOption({ label: LABEL });
+	await expect(chooser(page).locator('option:checked')).toHaveText(LABEL);
+	await expect(editor(page)).toContainText('ui-basic');
+	await expect(editor(page)).not.toContainText('# my tutorial');
+	await page.reload();
+	await ready(page);
+	const tutorialCopy = strings.keep.copy(strings.samples['upstream-tutorial']);
+	await expect(yourPlans(page).locator('option')).toHaveText([tutorialCopy]);
+	const axe = await new AxeBuilder({ page })
+		.include('header')
+		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+		.analyze();
+	expect(axe.violations).toEqual([]);
+	await chooser(page).selectOption({ label: tutorialCopy });
+	await expect(chooser(page).locator('option:checked')).toHaveText(tutorialCopy);
+	await expect(editor(page)).toContainText('# my tutorial');
+});
+
+test('a switch right after typing, the editor still focused, shows the other plan', async ({
+	page,
+}) => {
+	// Switching asks nothing now (the plan is kept): the old editor still has the focus when the
+	// new plan's first result comes, and its cursor must not be read in the new text.
+	const errors: string[] = [];
+	page.on('pageerror', (e) => errors.push(e.message));
+	await openApp(page, SAMPLE);
+	await typeAtStart(page, '# kept\n');
+	await stored(page);
+	await chooser(page).selectOption({ label: strings.samples['ui-people'] });
+	await expect(chooser(page).locator('option:checked')).toHaveText(strings.samples['ui-people']);
+	await expect(editor(page)).toContainText('ui-people');
+	await expect(editor(page)).not.toContainText('# kept');
+	expect(errors).toEqual([]);
+});
+
+test('when the kept plan cannot be opened, a sample opens, the notice says so, and the plan comes back (H2)', async ({
+	page,
+}) => {
+	// The browser's storage refuses to open while `block-idb` is set (a private window, a blocked
+	// site): the same on every engine, unlike a blocked chunk that a cache may still serve.
+	await page.addInitScript(() => {
+		const w = window as unknown as { blockIdb?: boolean };
+		w.blockIdb = sessionStorage.getItem('block-idb') === '1';
+		const open = indexedDB.open.bind(indexedDB);
+		indexedDB.open = ((name: string, version?: number) => {
+			if (w.blockIdb) throw new DOMException('blocked', 'SecurityError');
+			return open(name, version);
+		}) as typeof indexedDB.open;
+	});
+	await openApp(page, SAMPLE);
+	await typeAtStart(page, '# still here\n');
+	await stored(page);
+	await kept(page, '# still here');
+	await page.evaluate(() => sessionStorage.setItem('block-idb', '1'));
+	await page.reload();
+	await ready(page);
+	await expect(notice(page)).toContainText(storageStrings.notice.unopened);
+	await expect(chooser(page).locator('option:checked')).toHaveText(strings.samples['poc-sample']);
+	await expect(editor(page)).not.toContainText('# still here');
+	// The pointer to the plan is left alone: once the storage opens again, so does the plan.
+	await page.evaluate(() => {
+		sessionStorage.removeItem('block-idb');
+		(window as unknown as { blockIdb?: boolean }).blockIdb = false;
+	});
+	await notice(page).getByRole('button', { name: storageStrings.notice.retry }).click();
+	await expect(notice(page)).toBeHidden();
+	await expect(editor(page)).toContainText('# still here');
+	await expect(chooser(page).locator('option:checked')).toHaveText(COPY);
+	// A reload opens it again as the last plan.
+	await page.reload();
+	await ready(page);
+	await expect(editor(page)).toContainText('# still here');
 });
 
 test('says once that the browser cleared the plans it kept', async ({ page }) => {

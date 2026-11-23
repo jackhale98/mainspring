@@ -61,7 +61,7 @@ describe('AppState', () => {
 		ws.commit('plan.tjp', state.update({ changes: { from: 0, insert: '# hi\n' } }), 'typing');
 		expect(await app.openSample('one')).toBe(false);
 		expect(app.dirty).toBe(true);
-		expect(app.keep.kind).toBe('failed');
+		expect(app.keeping.keep.kind).toBe('failed');
 		expect(confirm).toHaveBeenCalledWith(strings.topBar.confirmSwitch);
 		expect(app.planKey).toBe('two');
 		expect(app.workspace).toBe(ws);
