@@ -59,3 +59,12 @@ decisions are recorded in ADR-0019 and ADR-0020.
 - **Mycelium is not copied wholesale (18.4).** Task T2 first confirms sole authorship. After that,
   only pieces that fit the interfaces are reused, likely the diff3 helpers, relicensed
   GPL-2.0-or-later. The check for outside contributions above still applies to any copied code.
+
+## Amendment 2026-11-23: Apache-2.0 WITH LLVM-exception is accepted for linked toolchain runtime (user)
+
+The engine binary links compiler-rt and wasi-vfs, both under Apache-2.0 WITH LLVM-exception (today's stock
+binary has them too). The exception's second clause permits combining with GPLv2 code, so these are not
+"Apache-2.0-only" and may ship. Plain Apache-2.0 code stays banned from the shipped bundle. Binaryen
+(Apache-2.0) only transforms the binary (asyncify); its output is treated as tool output, not as a copy of
+binaryen. `scripts/ci/licenses.mjs` and the Phase 4 release checklist ("no Apache-2.0 runtime dependency")
+read accordingly: no Apache-2.0 code without the LLVM exception.
