@@ -101,6 +101,11 @@
 	import type { AppState } from '../../lib/state/app.svelte';
 	import { gestureStrings, strings } from '../../lib/strings';
 	import { ctrlWheel } from './ctrl-wheel';
+	import { copyImage } from '../../lib/export/clipboard';
+	import { paintBars } from '../../lib/gantt/paint/bars';
+	import { markerLines, paintGrid } from '../../lib/gantt/paint/grid';
+	import { paintHeader } from '../../lib/gantt/paint/header';
+	import { paintOverlay } from '../../lib/gantt/paint/overlay';
 	import { createManipulation } from './manipulation.svelte';
 	import { installHookLazily } from '../../lib/state/hook-params';
 	import type { MoveKind } from '../../lib/gantt/intents';
@@ -453,6 +458,65 @@
 		);
 	});
 
+	/**
+	 * The "More actions" menu's exports (phase-4.md 18.20): the picture of what the chart shows now
+	 * and the tasks as CSV. Their code is fetched when the menu opens (or on the first choice) and by
+	 * no first load (lib/export/run-export.ts). The picture's clipboard write is started here, in the
+	 * click itself, with a promise of the picture: Safari allows it nowhere later (clipboard.ts).
+	 */
+	type ExportLib = typeof import('../../lib/export/run-export');
+	let exportChunk: Promise<ExportLib> | null = null;
+	function exportLib(): Promise<ExportLib> {
+		return (exportChunk ??= import('../../lib/export/run-export').catch((error: unknown) => {
+			exportChunk = null;
+			throw error;
+		}));
+	}
+	function exportAs(kind: 'png' | 'csv'): void {
+		const shown = result;
+		if (!shown) return;
+		const lib = exportLib();
+		const say = (message: string, sticky?: boolean): void => app.edits?.say(message, sticky);
+		const request = {
+			plan: shown.project?.name || app.planLabel,
+			phone: env.coarse,
+			say,
+			picture: () => ({
+				paint: { paintGrid, paintBars, paintOverlay, paintHeader, markerLines, ticksFor },
+				model,
+				layout,
+				theme: env.theme,
+				pxPerDay,
+				scrollLeft,
+				scrollTop,
+				viewW,
+				viewH,
+				namesW: nameColW,
+				todayMin: today,
+			}),
+			tasks: () => ({
+				result: shown,
+				scenario: model.scenario,
+				chain,
+				symbol: (id: string) => app.index?.tasks.get(id),
+			}),
+		};
+		const png = kind === 'png' ? lib.then((l) => l.renderPicture(request)) : null;
+		png?.catch(() => undefined);
+		const copying = png && copyImage(png);
+		lib.then(
+			(l) => l.runExport(kind, request, png, copying),
+			() => {
+				say(
+					navigator.onLine === false
+						? gestureStrings.row.exportOffline
+						: gestureStrings.row.exportReload,
+					true,
+				);
+			},
+		);
+	}
+
 	function onscroll(): void {
 		if (!scroller) return;
 		scrollLeft = scroller.scrollLeft;
@@ -659,6 +723,16 @@
 			onclear: () => filter.clear(),
 		}}
 		rowActions={m.rowActions}
+		exports={{
+			png: !model.scheduled
+				? gestureStrings.row.exportWait
+				: model.rows.length > 0 && viewW > 0 && viewH > 0
+					? null
+					: gestureStrings.row.exportEmpty,
+			csv: result !== null ? null : gestureStrings.row.exportWait,
+			onexport: exportAs,
+			prefetch: () => void exportLib().catch(() => undefined),
+		}}
 		lead={toolbarLead}
 		onpill={(h) => (pillH = h)}
 	/>

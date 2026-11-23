@@ -492,7 +492,7 @@ export const gestureStrings = {
 	},
 	row: {
 		grip: (name: string) => `Move ${name}`,
-		menu: 'Row actions',
+		menu: 'More actions',
 		up: 'Move up',
 		down: 'Move down',
 		indent: 'Indent',
@@ -509,6 +509,14 @@ export const gestureStrings = {
 		earlier: 'Earlier by a working day',
 		link: 'Link from this task',
 		shortcuts: 'Keyboard shortcuts',
+		/** The export entries of the menu (phase-4.md 18.20); what they say when done is strings-export.ts. */
+		exportPng: 'Copy Gantt as image',
+		exportCsv: 'Export tasks as CSV',
+		/** Why an export entry cannot be chosen (its hint), and what a failed fetch of the export's code says. */
+		exportWait: 'Available once the plan is scheduled',
+		exportEmpty: 'No tasks are showing',
+		exportOffline: 'You are offline. Try the export again when you are online.',
+		exportReload: 'The export could not be loaded. Reload the page and try again.',
 	},
 	/** The shortcuts list (the row menu) and the treegrid's description of its keys. */
 	keys: {

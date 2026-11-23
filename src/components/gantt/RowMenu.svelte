@@ -1,14 +1,15 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!--
-	Row actions (phase-2.md 7.1 R5, 10.2; WCAG 2.5.7): the commands of the selected task as buttons,
-	for a pointer that cannot drag and for anyone who does not know the keys: move up and down,
-	indent and outdent, rename, add after, delete. They call the same commands as the keys
-	(interactions.svelte.ts), so each is one text patch and one undo step. The button draws here;
-	the list and its keys are the shared Menu (ui/Menu.svelte), with a last item that opens the
-	shortcuts list.
+	The "More actions" menu, the toolbar's "…" (phase-2.md 7.1 R5, 10.2; WCAG 2.5.7). First the
+	commands of the selected task as buttons, for a pointer that cannot drag and for anyone who does
+	not know the keys: move up and down, indent and outdent, rename, add after, delete. They call the
+	same commands as the keys (interactions.svelte.ts), so each is one text patch and one undo step;
+	with no task selected they are there but off. Then the two exports of the chart (phase-4.md 18.20:
+	the picture and the tasks as CSV), which need no selection, and a last item that opens the
+	shortcuts list. The button draws here; the list and its keys are the shared Menu (ui/Menu.svelte).
 -->
 <script lang="ts">
-	import type { RowAction } from './types';
+	import type { ExportEntries, RowAction } from './types';
 	import { SHORTCUTS } from '../../lib/gantt/keys';
 	import { gestureStrings } from '../../lib/strings';
 	import Icon from '../Icon.svelte';
@@ -16,28 +17,51 @@
 
 	interface Props {
 		actions: readonly RowAction[];
-		/** No task is selected: the button says so and does not open. */
+		/** No task is selected: the menu has no row actions (the exports and the shortcuts stay). */
 		disabled: boolean;
 		onaction: (id: string) => void;
+		/** The exports: which can be chosen now, and what choosing one does (none: no entries). */
+		exports?: ExportEntries | undefined;
 	}
-	let { actions, disabled, onaction }: Props = $props();
+	let { actions, disabled, onaction, exports }: Props = $props();
 
 	const uid = $props.id();
 	let button: HTMLButtonElement | undefined = $state();
 	let help: HTMLDialogElement | undefined = $state();
 
+	const R = gestureStrings.row;
+	let open = $state(false);
+	// The export's code is fetched while the menu is open, ready for a choice (a first load has none of it).
+	$effect(() => {
+		if (open) exports?.prefetch();
+	});
+	/** An export entry: reachable while it cannot be chosen, and then says why (its hint). */
+	const exportItem = (id: 'png' | 'csv', label: string, first: boolean): MenuItem => {
+		const why = exports?.[id] ?? null;
+		return {
+			id: `export-${id}`,
+			label,
+			separator: first,
+			...(why === null ? {} : { unavailable: true, hint: why }),
+		};
+	};
 	const items = $derived<readonly MenuItem[]>([
-		...actions,
-		{ id: 'shortcuts', label: gestureStrings.row.shortcuts, separator: true },
+		...(disabled ? [] : actions),
+		...(exports
+			? [exportItem('png', R.exportPng, !disabled), exportItem('csv', R.exportCsv, false)]
+			: []),
+		{ id: 'shortcuts', label: R.shortcuts, separator: true },
 	]);
 
 	function choose(id: string): void {
 		if (id === 'shortcuts') help?.showModal();
+		else if (id === 'export-png') exports?.onexport('png');
+		else if (id === 'export-csv') exports?.onexport('csv');
 		else onaction(id);
 	}
 </script>
 
-<Menu {items} label={gestureStrings.row.menu} onselect={choose}>
+<Menu {items} label={R.menu} onselect={choose} bind:open>
 	{#snippet trigger({ attrs, toggle })}
 		<button
 			bind:this={button}
@@ -45,9 +69,8 @@
 			class="chip"
 			data-narrow="fixed"
 			{...attrs}
-			aria-label={gestureStrings.row.menu}
-			title={gestureStrings.row.menu}
-			{disabled}
+			aria-label={R.menu}
+			title={R.menu}
 			data-testid="row-menu"
 			onclick={toggle}
 		>
@@ -91,11 +114,7 @@
 		color: var(--color-gantt-text);
 		cursor: pointer;
 	}
-	.chip:disabled {
-		opacity: 0.55;
-		cursor: default;
-	}
-	.chip:hover:not(:disabled) {
+	.chip:hover {
 		background: var(--color-gantt-inset);
 	}
 	.chip:focus-visible {

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	checkBudgets,
 	CHUNK_CAPS,
+	isLazyChunk,
 	isViewChunk,
 	PEOPLE_VIEWS_CAP,
 	peopleViewsSize,
@@ -118,6 +119,7 @@ describe('checkBudgets', () => {
 				'ResourcePanel.a.js',
 				'HealthPanel.a.js',
 				'compute.a.js',
+				'run-export.a.js',
 			]),
 		).toEqual([]);
 	});
@@ -147,6 +149,29 @@ describe('checkBudgets', () => {
 				/Gantt-first load fetched the People chunk/,
 			);
 		}
+	});
+
+	it('fails a first load that fetches the export chunk, and caps the chunk', () => {
+		expect(isLazyChunk('run-export.a.js')).toBe(true);
+		expect(isLazyChunk('run.a.js')).toBe(false);
+		expect(isLazyChunk('App.a.js')).toBe(false);
+		const fetched = (v: string[], t: string[]) => ({
+			visualFirst: { ...load(290_000, false), loadsLazy: v },
+			textFirst: { ...load(400_000, true), loadsLazy: t },
+		});
+		expect(checkBudgets({ files: [], loads: fetched([], []) })).toEqual([]);
+		for (const [v, t] of [
+			[['run-export.a.js'], []],
+			[[], ['run-export.a.js']],
+		] as const) {
+			expect(checkBudgets({ files: [], loads: fetched([...v], [...t]) }).join('\n')).toMatch(
+				/must stay lazy: run-export\.a\.js/,
+			);
+		}
+		const cap = CHUNK_CAPS.find((c) => c.name === 'export');
+		expect(cap?.lazy).toBe(true);
+		const over = checkBudgets({ files: [{ file: 'run-export.a.js', gzip: (cap?.cap ?? 0) + 1 }] });
+		expect(over.join('\n')).toMatch(/export chunk is/);
 	});
 
 	it('fails a Visual-first load that requests the keyword docs asset, not a Text-first one', () => {

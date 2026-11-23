@@ -93,7 +93,7 @@ test.describe('axe', () => {
 					await sheet.getByRole('button', { name: 'Close', exact: true }).click();
 			}
 			await page.getByTestId('row-menu').click();
-			await expect(page.getByRole('menu', { name: 'Row actions' })).toBeVisible();
+			await expect(page.getByRole('menu', { name: 'More actions' })).toBeVisible();
 			await axe(page, `row menu (${scheme})`);
 			await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click();
 			await expect(page.getByTestId('shortcuts')).toBeVisible();
@@ -313,9 +313,9 @@ test.describe('keyboard (10.2)', () => {
 		const button = page.getByTestId('row-menu');
 		await button.focus();
 		await page.keyboard.press('Enter');
-		await expect(page.getByRole('menu', { name: 'Row actions' })).toBeVisible();
+		await expect(page.getByRole('menu', { name: 'More actions' })).toBeVisible();
 		await page.keyboard.press('Escape');
-		await expect(page.getByRole('menu', { name: 'Row actions' })).not.toBeVisible();
+		await expect(page.getByRole('menu', { name: 'More actions' })).not.toBeVisible();
 		await expect(button).toBeFocused();
 	});
 
