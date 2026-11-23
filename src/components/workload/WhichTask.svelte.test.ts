@@ -58,4 +58,19 @@ describe('WhichTask focus', () => {
 		close();
 		expect(document.activeElement).toBe(cell);
 	});
+
+	it('falls back to the grid focus cell when what had the focus before is gone', () => {
+		const { other, cell, close } = open({ focusBefore: true });
+		other.remove();
+		close();
+		expect(document.activeElement).toBe(cell);
+	});
+
+	it('leaves the focus alone when something else took it while the chooser was open', () => {
+		const { other, cell, close } = open({ focusBefore: false });
+		other.focus();
+		close();
+		expect(document.activeElement).toBe(other);
+		expect(document.activeElement).not.toBe(cell);
+	});
 });

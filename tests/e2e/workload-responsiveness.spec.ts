@@ -10,12 +10,12 @@
  * Engine boot is not judged here: while V8 compiles the 30 MB ruby.wasm the compile job occupies the
  * renderer's thread pool and a long task can show up with no CPU in it (engine-responsiveness.spec.ts
  * explains); boot tasks are only reported here (engine-responsiveness.spec.ts caps them). A run at 4x CPU throttling is reported, not asserted.
- * Writes test-results/workload-responsiveness.json with the device, browser and build.
+ * Writes test-results/responsiveness-workload-<run>.json (the job uploads responsiveness-*) with the device, browser and build.
  */
 import fs from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { READY_TIMEOUT_MS } from './lib/gantt-rig';
-import { perfEnvironment, recordInto } from './lib/perf-env';
+import { perfEnvironment, recordFile } from './lib/perf-env';
 import { installMonitor, splitByReady, type LongTaskRecord } from './lib/responsiveness-monitor';
 import { appSettled, frames } from './lib/settle';
 import { traceEventsOf } from './lib/trace-max-task';
@@ -122,8 +122,7 @@ async function run(page: Page, label: string, throttle: number): Promise<Report>
 			wallMs: Math.round((e.dur ?? 0) / 100) / 10,
 			cpuMs: e.tdur === undefined ? null : Math.round(e.tdur / 100) / 10,
 		}))
-		.sort((a, b) => b.wallMs - a.wallMs)
-		.slice(0, 10);
+		.sort((a, b) => b.wallMs - a.wallMs);
 	const split = splitByReady(data.longTasks, data.readyAt);
 	return {
 		label,
@@ -141,7 +140,7 @@ for (let i = 1; i <= RUNS; i++) {
 		page,
 	}, info) => {
 		const report = await run(page, `run ${i}`, 1);
-		recordInto('workload-responsiveness.json', `run${i}`, {
+		recordFile(`responsiveness-workload-run${i}`, {
 			environment: await perfEnvironment(page, info),
 			...report,
 		});
@@ -164,7 +163,7 @@ for (let i = 1; i <= RUNS; i++) {
 
 test('the same at 4x CPU throttling (reported, not asserted)', async ({ page }, info) => {
 	const report = await run(page, '4x', 4);
-	recordInto('workload-responsiveness.json', 'throttled4x', {
+	recordFile('responsiveness-workload-throttled4x', {
 		environment: await perfEnvironment(page, info, 4),
 		...report,
 	});

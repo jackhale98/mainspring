@@ -29,13 +29,18 @@
 		const before = document.activeElement;
 		const view = root?.parentElement ?? null;
 		root?.querySelector('button')?.focus();
+		const dialog = root;
 		return () => {
-			// Closed by a choice, Escape or Cancel: the focus does not fall to the page.
+			// Closed by a choice, Escape or Cancel: the focus does not fall to the page. It is given back
+			// only if it is about to fall (on the dialog, or nowhere); something that took it since
+			// (a toast, the details, a field) keeps it.
+			const now = document.activeElement;
+			if (now && now !== document.body && !dialog?.contains(now)) return;
 			const back =
 				before instanceof HTMLElement && before !== document.body && before.isConnected
 					? before
 					: view?.querySelector<HTMLElement>('[role="grid"] [tabindex="0"]');
-			back?.focus();
+			back?.focus({ preventScroll: true });
 		};
 	});
 </script>

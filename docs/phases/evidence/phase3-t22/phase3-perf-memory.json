@@ -1,0 +1,88 @@
+{
+  "environment": {
+    "when": "2026-11-23T17:34:37.542Z",
+    "project": "desktop",
+    "device": "Desktop Chrome (1280x720, no throttle)",
+    "cpuThrottle": 1,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      4.56,
+      16.35,
+      21.06
+    ]
+  },
+  "series": [
+    {
+      "edit": 0,
+      "workerWasmBytes": 112918528,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 1,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 2,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 3,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 4,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 5,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 6,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 7,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 8,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 9,
+      "workerWasmBytes": 120127488,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 10,
+      "workerWasmBytes": 122748928,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 11,
+      "workerWasmBytes": 122748928,
+      "pageJsHeapBytes": 16100000
+    },
+    {
+      "edit": 12,
+      "workerWasmBytes": 122748928,
+      "pageJsHeapBytes": 16100000
+    }
+  ],
+  "growthAfterFirstEdit": {
+    "workerWasmBytes": 2621440,
+    "pageJsHeapBytes": 0
+  }
+}

@@ -156,7 +156,7 @@
 						});
 				const ms = performance.now() - t0;
 				onpaint?.(stats, ms);
-				// The audit's recorder (tests/e2e/workload-perf.spec.ts): an array that the page's own
+				// The audit's recorder (tests/e2e/phase3-perf.spec.ts): an array that the page's own
 				// init script put there, so that nothing is kept in production.
 				(globalThis as { __mainspringPaint?: PaintRecord[] }).__mainspringPaint?.push({
 					view: testid,

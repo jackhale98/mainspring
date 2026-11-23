@@ -15,14 +15,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { openCalendar, setMode, setScope, setType } from './lib/calendar-rig';
+import { day, openCalendar, setMode, setScope, setType } from './lib/calendar-rig';
 import { READY_TIMEOUT_MS, isTouch } from './lib/gantt-rig';
 import { findings, openHealth, openPlan, rowOf, settled, undo } from './lib/health-rig';
 import { LanesRig } from './lib/lanes-rig';
 import { dragCell } from './lib/rebalance-rig';
 import { openResources } from './lib/resources-rig';
 import { animationsDone, frames, panelSettled, resultRevision } from './lib/settle';
-import { chooseZoom } from './lib/workload-heat';
+import { chooseZoom, text } from './lib/workload-heat';
 import { openHeatmap } from './lib/workload-rig';
 
 test.setTimeout(READY_TIMEOUT_MS * 3);
@@ -145,10 +145,11 @@ test('"N new problems" is announced once after a reschedule that brings a proble
 	// A same sentence twice differs by an invisible character, so that a reader says it again.
 	await expect.poll(raw, { timeout: READY_TIMEOUT_MS }).not.toBe(afterFix);
 	expect(await textOf(page, 'health-live')).toMatch(/^\d+ new problems?$/);
-	// Said once: it stays as it is until the next result with new problems.
-	const said = await textOf(page, 'health-live');
+	// Said once: the region, with its invisible flip character, is exactly as it was for a while (a
+	// repeat of the same sentence would flip it).
+	const said = await raw();
 	await frames(page, 30);
-	expect(await textOf(page, 'health-live')).toBe(said);
+	expect(await raw()).toBe(said);
 });
 
 test('focus: Escape on the "Move which task?" chooser cancels and the focus stays in the view', async ({
@@ -163,8 +164,13 @@ test('focus: Escape on the "Move which task?" chooser cancels and the focus stay
 	// The chooser takes the focus (a dialog does), Escape closes it and nothing was edited.
 	await expect(which.locator('button').first()).toBeFocused();
 	const rev = await resultRevision(page);
+	const before = await text(page);
 	await page.keyboard.press('Escape');
 	await expect(which).toBeHidden();
+	// Nothing was edited: after a settle (frames for the dispatcher to have started a run) the text
+	// and the result revision are as they were.
+	await frames(page, 30);
+	expect(await text(page)).toBe(before);
 	expect(await resultRevision(page)).toBe(rev);
 	// The focus is back in the view (a pointer drag leaves it on the view itself, a key press on a
 	// cell), not lost on the page: before this audit it fell to the body.
@@ -179,9 +185,7 @@ test('focus: Escape on the "Move which task?" chooser cancels and the focus stay
 		.toBe(true);
 });
 
-test('focus: Thresholds closes with Escape onto its chip; the lanes return to the lane from the details', async ({
-	page,
-}, info) => {
+test('focus: the Thresholds popover closes with Escape onto its chip', async ({ page }, info) => {
 	test.skip(isTouch(info), 'a keyboard');
 	await openHeatmap(page, info, 'ui-people');
 	const chip = page.getByTestId('heat-thresholds-chip');
@@ -247,7 +251,9 @@ test('keyboard (W12): T goes to today in the heatmap and in the Calendar', async
 	page,
 }, info) => {
 	test.skip(isTouch(info), 'a keyboard');
-	// poc-sample is dated around the real today (2026), so today is inside its range.
+	// The clock is fixed inside poc-sample (2026-11-16, five months): Wednesday 13 January 2027,
+	// in the week of Monday 11 January. Nothing here depends on the date the test runs on.
+	await page.context().clock.setFixedTime(new Date('2027-01-13T12:00:00'));
 	await openHeatmap(page, info, 'poc-sample');
 	await page.locator('[data-testid="heat-cell"]').first().focus();
 	await page.keyboard.press('Control+Home');
@@ -255,11 +261,11 @@ test('keyboard (W12): T goes to today in the heatmap and in the Calendar', async
 	const col = async (): Promise<number> => Number(await focused.getAttribute('data-col'));
 	expect(await col()).toBe(0);
 	await page.keyboard.press('t');
-	// Today is in a later week of the plan: the focus moved there, and its name says which week.
 	await expect.poll(col).toBeGreaterThan(0);
-	const name = (await focused.textContent()) ?? '';
-	const month = new Date().toLocaleString('en-GB', { month: 'long' });
-	expect(name, 'the focused cell names the week of today').toContain(month);
+	expect(
+		await focused.textContent(),
+		'the focused cell is the week of Monday 11 January',
+	).toContain('week of January 11');
 
 	const cal = await page.context().newPage();
 	await openCalendar(cal, info);
@@ -267,5 +273,5 @@ test('keyboard (W12): T goes to today in the heatmap and in the Calendar', async
 	await cal.keyboard.press('PageDown');
 	await cal.keyboard.press('PageDown');
 	await cal.keyboard.press('t');
-	await expect(cal.locator('[data-testid="cal-day"][aria-current="date"]')).toBeAttached();
+	await expect(day(cal, '2027-01-13')).toHaveAttribute('aria-current', 'date');
 });

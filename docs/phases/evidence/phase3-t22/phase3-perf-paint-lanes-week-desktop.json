@@ -1,0 +1,23 @@
+{
+  "environment": {
+    "when": "2026-11-23T17:39:12.100Z",
+    "project": "desktop",
+    "device": "Desktop Chrome (1280x720, no throttle)",
+    "cpuThrottle": 1,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      2.03,
+      8.04,
+      16.32
+    ]
+  },
+  "paints": 40,
+  "maxFills": 146,
+  "p95Fills": 132,
+  "maxTexts": 10,
+  "p95Ms": 1.4,
+  "maxMs": 1.5
+}

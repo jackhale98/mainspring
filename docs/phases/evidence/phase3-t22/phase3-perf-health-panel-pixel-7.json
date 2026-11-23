@@ -1,0 +1,53 @@
+{
+  "traced": true,
+  "1x": {
+    "environment": {
+      "when": "2026-11-23T17:41:01.331Z",
+      "project": "pixel-7",
+      "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+      "cpuThrottle": 1,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+      "build": "754ba2ea-dirty",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        2.07,
+        6.18,
+        14.72
+      ]
+    },
+    "openMs": 122,
+    "nodes": 976,
+    "frames": 200,
+    "onTimePct": 100,
+    "maxMs": 16.8,
+    "over50": 0,
+    "droppedPct": 0,
+    "longestTaskMs": 14.7
+  },
+  "4x": {
+    "environment": {
+      "when": "2026-11-23T17:41:15.892Z",
+      "project": "pixel-7",
+      "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+      "cpuThrottle": 4,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+      "build": "754ba2ea-dirty",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        1.98,
+        5.96,
+        14.51
+      ]
+    },
+    "openMs": 273,
+    "nodes": 976,
+    "frames": 200,
+    "onTimePct": 47,
+    "maxMs": 50.1,
+    "over50": 1,
+    "droppedPct": 21.6,
+    "longestTaskMs": 48.2
+  }
+}

@@ -16,7 +16,7 @@ export const loadavg = (): number[] => os.loadavg().map((v) => Math.round(v * 10
 
 function build(): string {
 	try {
-		return execSync('git rev-parse --short HEAD', { cwd: REPO }).toString().trim();
+		return execSync('git describe --always --dirty', { cwd: REPO }).toString().trim();
 	} catch {
 		return 'unknown';
 	}
@@ -43,10 +43,35 @@ export async function perfEnvironment(page: Page, info: TestInfo, cpuThrottle = 
 	};
 }
 
-/** Merges one key into a JSON file under test-results (the file of the spec that calls it). */
+/** Writes a file whole: to a temporary name in the same folder, then renamed over it. */
+function writeAtomic(out: string, text: string): void {
+	fs.mkdirSync(path.dirname(out), { recursive: true });
+	const tmp = `${out}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+	fs.writeFileSync(tmp, text);
+	fs.renameSync(tmp, out);
+}
+
+/**
+ * One result in a file of its own, `test-results/<name>.json` (a test per file: tests that run in
+ * parallel in the merge tier never share one). Name it `<spec>-<test>-<project>`.
+ */
+export function recordFile(name: string, value: unknown): void {
+	writeAtomic(path.join(REPO, 'test-results', `${name}.json`), JSON.stringify(value, null, 2));
+}
+
+/**
+ * Merges one key into a shared JSON file under test-results, for the serial timing tier only
+ * (scripts/ci/timing-check.mjs reads `workload-perf.json`). The write is atomic and a file that
+ * does not parse is started afresh, but two writers at once would still lose one key: use
+ * `recordFile` for anything that can run in parallel.
+ */
 export function recordInto(file: string, key: string, value: unknown): void {
 	const out = path.join(REPO, 'test-results', file);
-	fs.mkdirSync(path.dirname(out), { recursive: true });
-	const old = fs.existsSync(out) ? (JSON.parse(fs.readFileSync(out, 'utf8')) as object) : {};
-	fs.writeFileSync(out, JSON.stringify({ ...old, [key]: value }, null, 2));
+	let old: object = {};
+	try {
+		old = JSON.parse(fs.readFileSync(out, 'utf8')) as object;
+	} catch {
+		// Missing or half-written: start again.
+	}
+	writeAtomic(out, JSON.stringify({ ...old, [key]: value }, null, 2));
 }
