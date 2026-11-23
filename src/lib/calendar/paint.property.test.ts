@@ -46,16 +46,48 @@ function strokeArb(p: Plan): fc.Arbitrary<LeavePaint> {
 			const j = Math.min(days.length - 1, i + n);
 			return { from: Math.max(0, days[i] as number) + off, to: (days[j] as number) - off };
 		});
+	const start = Math.round(Date.parse(project.start) / 1000);
+	const scopes: PaintScope[] = [
+		{ kind: 'global' },
+		...people.map((resource) => ({ kind: 'resource' as const, resource })),
+	];
+	const own = scopes.flatMap((s) =>
+		scopeItems(p.index, s, start).map((item) => [s, item] as const),
+	);
 	const name = fc.option(fc.constantFrom('Holiday', 'Company closure', 'Trip'), { nil: undefined });
 	return fc.oneof(
-		fc.tuple(scope, range, fc.constantFrom(...TYPES), name).map(([s, r, leave, n]) => ({
-			type: 'paint' as const,
-			scope: s,
-			...r,
-			leave,
-			...(n === undefined ? {} : { name: n }),
-		})),
+		{
+			// Paints stay half the strokes when the aimed erases are there.
+			weight: own.length === 0 ? 1 : 2,
+			arbitrary: fc
+				.tuple(scope, range, fc.constantFrom(...TYPES), name)
+				.map(([s, r, leave, n]) => ({
+					type: 'paint' as const,
+					scope: s,
+					...r,
+					leave,
+					...(n === undefined ? {} : { name: n }),
+				})),
+		},
 		fc.tuple(scope, range).map(([s, r]) => ({ type: 'erase' as const, scope: s, ...r })),
+		// An erase gives an edit only over leave the scope has, which a random range rarely hits:
+		// half the erases start on one of the plan's own items, so the erase count is not luck.
+		...(own.length === 0
+			? []
+			: [
+					fc
+						.tuple(fc.constantFrom(...own), fc.integer({ min: 0, max: 3 }))
+						.map(([[s, item], extra]) => {
+							const i = days.findLastIndex((d) => d <= item.from);
+							const j = Math.min(days.length - 1, Math.max(i + 1, i + 1 + extra));
+							return {
+								type: 'erase' as const,
+								scope: s,
+								from: days[Math.max(0, i)] as number,
+								to: days[j] as number,
+							};
+						}),
+				]),
 	);
 }
 
