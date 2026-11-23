@@ -82,12 +82,13 @@ export const CHUNK_CAPS = [
 	{ name: 'export', pattern: /^run-export\./, cap: 3_700, lazy: true },
 	// Plans kept in the browser (T4, phase-4.md 12.1): the local store, the owner lock and autosave,
 	// fetched when a plan has to be kept (a stored plan restores, a sample's first change, New plan),
-	// never by a first visit that only reads a sample (3,801 bytes on 2026-11-23, after the T4
-	// review: the owner epoch, the lock's channel without Web Locks, damaged plans).
+	// never by a first visit that only reads a sample (3,881 bytes on 2026-11-23, after the T4
+	// review and re-check: the owner epoch, the lock's channel without Web Locks, damaged plans,
+	// changes a lost plan leaves unstored).
 	{ name: 'keeper', pattern: /^plan-keeper\./, cap: 4_200, lazy: true },
-	// The notice under the top bar (read-only, could not open, cleared, not kept; 1,043 bytes on
-	// 2026-11-23).
-	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_200, lazy: true },
+	// The notice under the top bar (read-only, could not open, cleared, not kept, and changes another
+	// tab refused with "Copy the text", T4 re-check N1; 1,308 bytes on 2026-11-23).
+	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_400, lazy: true },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */

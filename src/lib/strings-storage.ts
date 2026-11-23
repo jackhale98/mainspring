@@ -11,6 +11,16 @@ export const storageStrings = {
 		/** Another tab took the plan over with "Open here instead" (7.1). */
 		taken: 'This plan is now open in another tab, so it is read-only here.',
 		openHere: 'Open here instead',
+		/**
+		 * Another tab took the plan before this one had stored its latest changes (T4 re-check N1):
+		 * they are on screen, read-only, and nowhere else.
+		 */
+		refused:
+			'Your latest changes in this tab were not kept: another tab took the plan. Copy the text to keep them.',
+		/** Copies the open file's text to the clipboard (export arrives with T5). */
+		copyText: 'Copy the text',
+		copied: 'Copied',
+		copyFailed: 'Could not copy',
 		/** The last plan could not be opened (T4 review H2, M2): a sample is open instead. */
 		unopened:
 			'The plan you had open could not be opened from this browser. A sample is open instead.',

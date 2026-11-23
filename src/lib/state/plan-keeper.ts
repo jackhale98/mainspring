@@ -17,11 +17,15 @@
  *   autosave holds; then nothing more is stored here and `KeeperHost.lost` makes the tab read-only.
  *   The owner opens the plan with `own` (local-store.ts, the owner epoch): a save of this tab that
  *   arrives after another tab took the plan is refused with `not-owner`, which is a loss too.
+ * - **Changes a loss leaves unstored** (T4 re-check N1): a save refused with `not-owner`, or
+ *   changes autosave still held when the lock was lost (taken by force from a slow or frozen tab,
+ *   or typed while the handover was storing), are reported as a failed save (`not-owner`) besides
+ *   the loss, so the tab says that they were not kept and asks before they are dropped.
  * - **A damaged plan** (T4 review M2): a stored plan without files, or without its entry file, is
  *   not opened: `find` gives its lock back and rejects, and the app says it could not be opened.
  */
 import { strings } from '../strings';
-import { createAutosave, type AutosaveState } from '../storage/autosave';
+import { createAutosave, type Autosave, type AutosaveState } from '../storage/autosave';
 import { createLocalStore } from '../storage/local-store';
 import { acquire, type HeldLock } from '../storage/lock';
 import type { LocalStore, StoredPlan } from '../storage/store-types';
@@ -77,7 +81,7 @@ export interface Opening {
 
 /** What the keeper tells `AppState` about the plan it keeps (`k`). */
 export interface KeeperHost {
-	/** An autosave finished or failed. */
+	/** An autosave finished or failed; `not-owner` when another tab took the plan first (N1). */
 	saved(k: Kept, st: AutosaveState): void;
 	/** The plan that opened unstored is stored now, as `id` (preference key `key`), listed as `label`. */
 	stored(k: Kept, id: WorkspaceId, key: string, label: string): void;
@@ -96,6 +100,7 @@ export interface Kept {
 }
 
 const BROWSER: Location = { kind: 'browser' };
+const NOT_OWNER = storageError('not-owner', 'taken');
 
 /**
  * Copies every preference of plan `from` (`mainspring.<what>.<from>`) to plan `to`, keeping any that
@@ -234,28 +239,34 @@ export class PlanKeeper {
 				sid = made;
 				const l = await this.#acquire(made);
 				held = l === 'held-elsewhere' ? null : l;
-				if (held) this.#hold(k, held);
+				if (held) this.#hold(k, held, saves);
 				const to = this.#keyOf(made);
 				copyPlanPrefs(this.#prefs, key, to);
 				this.#host.stored(k, made, to, unstored.label);
 			},
 			onState: (st) => {
-				// Another tab owns the plan now (it took it by force): this tab only reads it.
+				this.#host.saved(k, st);
+				// Another tab owns the plan now (it took it first): this tab only reads it, and the
+				// refused changes stay on screen (module comment).
 				if (st.kind === 'failed' && st.error.kind === 'not-owner') {
 					k.stop();
+					held?.release();
 					this.#host.lost(k);
-				} else this.#host.saved(k, st);
+				}
 			},
 		});
-		if (held) this.#hold(k, held);
+		if (held) this.#hold(k, held, saves);
 		return k;
 	}
 
-	#hold(k: Kept, lock: HeldLock): void {
+	#hold(k: Kept, lock: HeldLock, saves: Autosave): void {
 		lock.onAsked(() => k.flush());
-		void lock.lost.then(() => {
+		void lock.lost.then(async () => {
 			k.stop();
 			this.#host.lost(k);
+			// A save in flight settles (no new one starts); what is left was not stored (N1).
+			await saves.flush();
+			if (saves.pending) this.#host.saved(k, { kind: 'failed', error: NOT_OWNER });
 		});
 	}
 }

@@ -4,6 +4,9 @@
 	layout:
 	- read-only, because another tab has the plan (`elsewhere`: it was open there first; `taken`: it
 	  was taken over there), with "Open here instead", which takes it into this tab;
+	- another tab took the plan before this one had stored its latest changes (`refused`, T4
+	  re-check N1): they stay on screen, read-only; "Copy the text" puts the open file's text on the
+	  clipboard (export is T5's), and "Open here instead" asks first, since it drops them;
 	- the last plan could not be opened (the store or the keeper chunk failed, or the plan is
 	  damaged): a sample is open meanwhile, and Try again opens the plan (T4 review H2, M2). A
 	  browser remembers a failed import, so after a failed try the button reloads the page, which
@@ -25,22 +28,40 @@
 	const S = storageStrings.notice;
 
 	const k = $derived(app.keeping);
+	const refused = $derived(k.keep.kind === 'failed' && k.keep.error.kind === 'not-owner');
 	const kind = $derived(
-		app.readOnly
-			? app.heldElsewhere !== null
-				? 'elsewhere'
-				: 'taken'
-			: k.unopened !== null
-				? 'unopened'
-				: k.cleared
-					? 'cleared'
-					: phone && k.keep.kind === 'failed'
-						? 'failed'
-						: null,
+		refused
+			? 'refused'
+			: app.readOnly
+				? app.heldElsewhere !== null
+					? 'elsewhere'
+					: 'taken'
+				: k.unopened !== null
+					? 'unopened'
+					: k.cleared
+						? 'cleared'
+						: phone && k.keep.kind === 'failed'
+							? 'failed'
+							: null,
 	);
 	let busy = $state(false);
 	/** Try again failed: the next press reloads the page instead. */
 	let tried = $state(false);
+	/** The file whose text "Copy the text" copied (or failed to), and how that went. */
+	let copied = $state<{ readonly path: string; readonly ok: boolean } | null>(null);
+
+	/** The open file's text to the clipboard: what this tab could not keep (N1). */
+	async function copy(): Promise<void> {
+		const path = app.activeFile;
+		const text = app.workspace?.texts()[path] ?? '';
+		let ok = true;
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			ok = false;
+		}
+		copied = { path, ok };
+	}
 
 	/** "Open here instead" takes the open plan; Try again opens the one that could not be opened. */
 	async function open(id: string | null, steal: boolean): Promise<void> {
@@ -57,7 +78,16 @@
 {#if kind}
 	<div class="notice" role="status" data-testid="plan-notice" data-kind={kind}>
 		<p>{S[kind]}</p>
-		{#if kind === 'elsewhere' || kind === 'taken'}
+		{#if kind === 'refused'}
+			<button type="button" onclick={copy}
+				>{copied?.path !== app.activeFile
+					? S.copyText
+					: copied.ok
+						? S.copied
+						: S.copyFailed}</button
+			>
+		{/if}
+		{#if kind === 'elsewhere' || kind === 'taken' || kind === 'refused'}
 			<button type="button" class="primary" disabled={busy} onclick={() => open(app.storedId, true)}
 				>{S.openHere}</button
 			>

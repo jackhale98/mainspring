@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The keeper (plan-keeper.ts): finding a stored plan with its lock (read-only when another tab has
 // it, the lock given back when the plan is gone), a new plan stored at once, a plan opened
-// unstored stored whole by its first save with the sample's preferences copied once, and a lost
-// lock that stops the saves. On fake-indexeddb and the fake lock manager.
+// unstored stored whole by its first save with the sample's preferences copied once, a lost lock
+// that stops the saves, and changes that a lost plan leaves unstored, which are reported (T4
+// re-check N1). On fake-indexeddb and the fake lock manager.
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it, vi } from 'vitest';
 import { createLocalStore } from '../storage/local-store';
-import { createAcquire } from '../storage/lock';
+import { createAcquire, type HeldLock } from '../storage/lock';
+import type { LocalStore } from '../storage/store-types';
 import { fakeLocks } from '../storage/testing/fake-locks';
 import { createWorkspace, type Workspace } from '../workspace/workspace';
 import { planKey } from './app-storage';
@@ -32,13 +34,17 @@ function rig() {
 	const prefs = memory({ 'mainspring.mode.one': 'text', 'mainspring.theme': 'dark' });
 	const events: string[] = [];
 	const host: KeeperHost = {
-		saved: (_k, st) => events.push(`saved ${st.kind}`),
+		saved: (_k, st) =>
+			events.push(st.kind === 'failed' ? `saved failed ${st.error.kind}` : `saved ${st.kind}`),
 		stored: (_k, id, key, label) => events.push(`stored ${key === `ws:${id}`} ${label}`),
 		lost: () => events.push('lost'),
 	};
-	const keeper = (tab = createAcquire({ locks, handoverMs: 50 })) =>
+	const keeper = (
+		tab = createAcquire({ locks, handoverMs: 50 }),
+		store: LocalStore = createLocalStore({ indexedDB: factory, marker: null }),
+	) =>
 		new PlanKeeper(host, {
-			store: createLocalStore({ indexedDB: factory, marker: null }),
+			store,
 			acquire: tab,
 			prefs,
 			keyOf: planKey,
@@ -146,7 +152,7 @@ describe('PlanKeeper', () => {
 		await vi.waitFor(() => expect(r.locks.isHeld(`mainspring.plan.${id}`)).toBe(false));
 	});
 
-	it('turns read-only when its save is refused because another tab owns the plan now (M1)', async () => {
+	it('turns read-only and says the changes were not kept when the store refuses them (M1, N1)', async () => {
 		const r = rig();
 		// No lock tells this tab that it lost the plan: only the store's owner epoch does.
 		const blind = createAcquire({ locks: null, channel: () => null });
@@ -154,12 +160,76 @@ describe('PlanKeeper', () => {
 		const made = await tabA.create({ name: 'A', label: 'A', from: { opened: true } }, SEED);
 		const id = made.stored?.id ?? '';
 		const ws = workspace();
-		const kept = tabA.keep(ws, id, made.stored?.lock ?? null, null, made.key);
+		const release = vi.fn();
+		const lock: HeldLock = {
+			release,
+			lost: new Promise(() => undefined),
+			onAsked: () => undefined,
+		};
+		const kept = tabA.keep(ws, id, lock, null, made.key);
 		await r.keeper(blind).find(id, true);
 		type(ws, '# late\n');
 		await kept.flush();
-		expect(r.events).toContain('lost');
-		expect(r.events).not.toContain('saved failed');
+		// Reported, not dropped: the tab says so and asks before the changes go (T4 re-check N1).
+		expect(r.events).toEqual(['saved failed not-owner', 'lost']);
+		// It owns nothing any more.
+		expect(release).toHaveBeenCalled();
+		const back = await createLocalStore({ indexedDB: r.factory, marker: null }).open(id);
+		expect(back?.files.get('plan.tjp')).toBe(SEED.files['plan.tjp']);
+		// Nothing more is tried.
+		type(ws, '# later\n');
+		await kept.flush();
+		expect(r.events).toEqual(['saved failed not-owner', 'lost']);
+	});
+
+	it('says a slow save was not kept when another tab takes the plan by force meanwhile (N1)', async () => {
+		const r = rig();
+		const real = createLocalStore({ indexedDB: r.factory, marker: null });
+		let go!: () => void;
+		const gate = new Promise<void>((g) => (go = g));
+		const slow: LocalStore = {
+			...real,
+			saveFiles: async (...a) => {
+				await gate;
+				return real.saveFiles(...a);
+			},
+		};
+		// A lets go only once its save is stored; B does not wait that long.
+		const tabA = r.keeper(createAcquire({ locks: r.locks, handoverMs: 5000 }), slow);
+		const made = await tabA.create({ name: 'A', label: 'A', from: { opened: true } }, SEED);
+		const id = made.stored?.id ?? '';
+		const ws = workspace();
+		const kept = tabA.keep(ws, id, made.stored?.lock ?? null, null, made.key);
+		type(ws, '# slow\n');
+		const saving = kept.flush();
+		const taken = await r.keeper(createAcquire({ locks: r.locks, handoverMs: 50 })).find(id, true);
+		expect(taken?.stored?.lock).not.toBeNull();
+		await vi.waitFor(() => expect(r.events).toContain('lost'));
+		go();
+		await saving;
+		await vi.waitFor(() => expect(r.events).toContain('saved failed not-owner'));
+		expect(r.events).not.toContain('saved saved');
+		expect(await taken?.load()).toEqual(SEED);
+	});
+
+	it('says what autosave still held was not kept when the lock is lost before it was stored (N1)', async () => {
+		const r = rig();
+		const tabA = r.keeper();
+		const made = await tabA.create({ name: 'A', label: 'A', from: { opened: true } }, SEED);
+		const id = made.stored?.id ?? '';
+		made.stored?.lock?.release();
+		// A frozen tab that wakes up: its lock was taken by force before autosave ran.
+		let lose!: () => void;
+		const lock: HeldLock = {
+			release: () => undefined,
+			lost: new Promise((l) => (lose = l)),
+			onAsked: () => undefined,
+		};
+		const ws = workspace();
+		tabA.keep(ws, id, lock, null, made.key);
+		type(ws, '# frozen\n');
+		lose();
+		await vi.waitFor(() => expect(r.events).toEqual(['lost', 'saved failed not-owner']));
 		const back = await createLocalStore({ indexedDB: r.factory, marker: null }).open(id);
 		expect(back?.files.get('plan.tjp')).toBe(SEED.files['plan.tjp']);
 	});
@@ -179,6 +249,10 @@ describe('PlanKeeper', () => {
 		expect(await taken?.load()).toMatchObject({
 			files: { 'plan.tjp': `# before\n${SEED.files['plan.tjp']}` },
 		});
+		// Everything was stored: no false alarm.
+		await vi.waitFor(() => expect(r.events.at(-1)).toBe('lost'));
+		await new Promise((w) => setTimeout(w, 0));
+		expect(r.events).not.toContain('saved failed not-owner');
 		// Nothing more is stored from the tab that lost it.
 		type(ws, '# after\n');
 		await kept.flush();

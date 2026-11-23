@@ -3,8 +3,9 @@
 // project: a sample's first change stores a copy, a reload opens it with the change and an empty
 // undo history that says so, the sample itself is unchanged, and a `?sample=` link still opens the
 // sample; a second page on the plan is read-only until "Open here instead", which makes the first
-// one read-only; and storage the browser cleared is said once. Each test has a fresh browser
-// context, so nothing stored leaks from one test to the next.
+// one read-only; changes another page took the plan before were stored are said not kept, with
+// the text to copy (T4 re-check N1); and storage the browser cleared is said once. Each test has a
+// fresh browser context, so nothing stored leaks from one test to the next.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { historyStrings, strings } from '../../src/lib/strings';
@@ -182,6 +183,80 @@ test('a second page on the plan is read-only; "Open here instead" takes it, with
 	await expect(notice(page)).toBeHidden();
 	await expect(editor(page)).toContainText('# A again');
 	await expect(editor(page)).toContainText('# second page');
+});
+
+test('changes another page took the plan before were stored are said not kept, and can be copied (N1)', async ({
+	page,
+	context,
+}) => {
+	// An old browser, without Web Locks or BroadcastChannel: both pages edit the plan, and the
+	// store's owner epoch refuses the saves of the page that opened it first. The clipboard
+	// records what is copied.
+	await context.addInitScript(() => {
+		Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true });
+		Reflect.deleteProperty(window, 'BroadcastChannel');
+		Object.defineProperty(navigator, 'clipboard', {
+			configurable: true,
+			value: {
+				writeText: (t: string) => {
+					(window as unknown as { copied: string }).copied = t;
+					return Promise.resolve();
+				},
+			},
+		});
+	});
+	await openApp(page, SAMPLE);
+	await typeAtStart(page, '# first page\n');
+	await stored(page);
+	await kept(page, '# first page');
+	const second = await context.newPage();
+	await second.goto('/app?mode=text');
+	await ready(second);
+	await expect(editor(second)).toHaveAttribute('contenteditable', 'true');
+	await expect(notice(second)).toBeHidden();
+
+	// The first page types; the store refuses it: the page says so, read-only, text on screen.
+	await page.bringToFront();
+	await typeAtStart(page, '# not kept\n');
+	await expect(notice(page)).toHaveAttribute('data-kind', 'refused', { timeout: 10_000 });
+	await expect(notice(page)).toContainText(storageStrings.notice.refused);
+	await expect(editor(page)).toHaveAttribute('contenteditable', 'false');
+	await expect(editor(page)).toContainText('# not kept');
+	const line = page.getByTestId('keep-line');
+	if (await line.isVisible()) await expect(line).toHaveText(strings.keep.failed);
+	const axe = await new AxeBuilder({ page })
+		.include('[data-testid="plan-notice"]')
+		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+		.analyze();
+	expect(axe.violations).toEqual([]);
+	expect(await storedTexts(page)).not.toContainEqual(expect.stringContaining('# not kept'));
+
+	// "Copy the text" puts the open file's text on the clipboard.
+	await notice(page).getByRole('button', { name: storageStrings.notice.copyText }).click();
+	await expect(
+		notice(page).getByRole('button', { name: storageStrings.notice.copied }),
+	).toBeVisible();
+	const copied = await page.evaluate(() => (window as unknown as { copied?: string }).copied);
+	expect(copied).toContain('# not kept\n# first page\n');
+
+	// "Open here instead" asks first; no keeps the text on screen.
+	const asked: string[] = [];
+	page.once('dialog', (d) => {
+		asked.push(d.message());
+		void d.dismiss();
+	});
+	const openHere = notice(page).getByRole('button', { name: storageStrings.notice.openHere });
+	await openHere.click();
+	await expect.poll(() => asked).toEqual([strings.keep.confirmTake]);
+	await expect(notice(page)).toHaveAttribute('data-kind', 'refused');
+	await expect(editor(page)).toContainText('# not kept');
+	// Yes opens the plan here as it is stored, editable.
+	page.once('dialog', (d) => void d.accept());
+	await openHere.click();
+	await expect(notice(page)).toBeHidden();
+	await expect(editor(page)).toHaveAttribute('contenteditable', 'true');
+	await expect(editor(page)).toContainText('# first page');
+	await expect(editor(page)).not.toContainText('# not kept');
 });
 
 test('the chooser lists the plans kept here; one opens with its edit (T4 review H2)', async ({

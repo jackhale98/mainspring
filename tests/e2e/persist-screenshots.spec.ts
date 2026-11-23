@@ -3,8 +3,10 @@
 // dark: the footer's line once a sample's copy is kept (desktop and a tablet-sized desktop), the
 // read-only notice of a second page with "Open here instead" (desktop, Pixel 7, iPhone 14), and the
 // notice that the browser cleared its plans (the phones, where no footer line is), the chooser with
-// the plans kept here ("Your plans", drawn as a list box: a native picker is not in a screenshot)
-// and the notice that the last plan could not be opened (T4 review H2):
+// the plans kept here ("Your plans", drawn as a list box: a native picker is not in a screenshot),
+// the notice that the last plan could not be opened (T4 review H2), and the notice that changes
+// were not kept because another page took the plan first (desktop, Pixel 7, iPhone 14; T4
+// re-check N1):
 // docs/phases/screenshots/phase-4/t4-<what>-<device>-<scheme>.png. Without SCREENSHOTS=1 the tests
 // are skipped (each boots the engine).
 import fs from 'node:fs';
@@ -72,6 +74,31 @@ for (const scheme of ['light', 'dark'] as const) {
 			});
 			await pictureReady(second);
 			await second.screenshot({ path: file('read-only', info, scheme) });
+		});
+
+		test('the notice that changes were not kept', async ({ page, context }, info) => {
+			// Without Web Locks or BroadcastChannel both pages edit; the store refuses the first.
+			await context.addInitScript(() => {
+				Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true });
+				Reflect.deleteProperty(window, 'BroadcastChannel');
+			});
+			await open(page, 'text');
+			await keepCopy(page);
+			const second = await context.newPage();
+			await second.goto('/app?mode=text');
+			await expect(second.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+				timeout: READY_TIMEOUT_MS,
+			});
+			await second.close();
+			await editor(page).click();
+			await page.keyboard.press(`${await modKey(page)}+Home`);
+			await page.keyboard.insertText('# not kept\n');
+			await expect(page.getByTestId('plan-notice')).toHaveAttribute('data-kind', 'refused', {
+				timeout: 10_000,
+			});
+			await editor(page).blur();
+			await pictureReady(page);
+			await page.screenshot({ path: file('refused', info, scheme) });
 		});
 
 		test('the chooser with the plans kept here', async ({ page }, info) => {

@@ -900,6 +900,9 @@ export const strings = {
 		stored: 'Only in this browser. Changes are kept as you make them.',
 		failed: 'Not kept: this browser refused the changes. They are only in this tab.',
 		readOnly: 'Read-only: this plan is open in another tab.',
+		/** "Open here instead" while this tab holds changes it could not keep (T4 re-check N1). */
+		confirmTake:
+			'Opening the plan here discards the changes this tab could not keep. Open it anyway?',
 		/** A sample's copy, as the chooser lists it (18.7). */
 		copy: (label: string) => `${label} (copy)`,
 	},

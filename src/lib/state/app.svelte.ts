@@ -44,6 +44,8 @@
  * chunk that a visit which only reads a sample never fetches, 12.1) is `keeping`
  * (keeping.svelte.ts). `dirty` is true while changes are only in this tab, which is when switching
  * plans or reloading asks first; `flush` stores what autosave holds before a reload the app starts.
+ * Changes refused because another tab took the plan first stay on screen, read-only and dirty: the
+ * notice says so and offers to copy the text, and "Open here instead" asks first (T4 re-check N1).
  * A stored plan that cannot be opened (the store or the keeper chunk failed, or it is damaged)
  * leaves the last-plan pointer alone: a sample opens meanwhile and the notice offers Retry. Folders,
  * files, GitHub, Save to…, the sync controller and the service worker's state are T5, T7, T8, T11
@@ -386,7 +388,9 @@ export class AppState implements AppStorageState {
 	/** The footer's line: where the open plan is kept (T14's status control replaces it). */
 	get keepLine(): string {
 		const k = strings.keep;
-		return this.readOnly ? k.readOnly : k[this.keeping.keep.kind];
+		const kind = this.keeping.keep.kind;
+		// Changes this tab could not keep are said even when it is read-only (T4 re-check N1).
+		return this.readOnly && kind !== 'failed' ? k.readOnly : k[kind];
 	}
 
 	/**
@@ -418,7 +422,9 @@ export class AppState implements AppStorageState {
 	 */
 	async openStored(id: WorkspaceId, o: { readonly steal?: boolean } = {}): Promise<boolean> {
 		if (id === this.storedId && !this.readOnly) return true;
-		if (!(await this.#leave())) return false;
+		// "Open here instead" on changes this tab could not keep drops them: it asks first (N1).
+		const ask = id === this.storedId ? strings.keep.confirmTake : strings.topBar.confirmSwitch;
+		if (!(await this.#leave(ask))) return false;
 		const token = ++this.#token;
 		let failed = false;
 		const found = await this.keeping
@@ -463,10 +469,10 @@ export class AppState implements AppStorageState {
 		if (fallback) await this.#load({ ...sampleOpening(fallback), fallback: true });
 	}
 
-	/** Before another plan opens: stores what autosave holds, then asks if changes would be lost. */
-	async #leave(): Promise<boolean> {
+	/** Before another plan opens: stores what autosave holds, then asks (`ask`) if changes would be lost. */
+	async #leave(ask: string = strings.topBar.confirmSwitch): Promise<boolean> {
 		await this.flush();
-		return !this.dirty || this.#confirm(strings.topBar.confirmSwitch);
+		return !this.dirty || this.#confirm(ask);
 	}
 
 	/** Nothing edits the plan in this tab any more (module comment). */

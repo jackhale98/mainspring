@@ -67,6 +67,7 @@ function browser() {
 			store?: LocalStore;
 			confirm?: () => boolean;
 			keeper?: () => Promise<typeof import('./plan-keeper')>;
+			acquire?: ReturnType<typeof createAcquire>;
 		} = {},
 	): AppState => {
 		const app = new AppState({
@@ -77,7 +78,7 @@ function browser() {
 			initial: o.initial ?? null,
 			prefs,
 			store: o.store ?? createLocalStore({ indexedDB: factory, marker: prefs }),
-			acquire: createAcquire({ locks, handoverMs: 200 }),
+			acquire: o.acquire ?? createAcquire({ locks, handoverMs: 200 }),
 			...(o.keeper && { keeper: o.keeper }),
 		});
 		apps.push(app);
@@ -271,6 +272,47 @@ describe('plans kept in the browser', () => {
 		expect((await reader.open(id))?.files.get('plan.tjp')).toBe(
 			`# A again\n# B\n# A2\n# A1\n${PLAN}`,
 		);
+	});
+
+	it('keeps changes the store refused on screen and asks before dropping them, when another tab took the plan (N1)', async () => {
+		const b = browser();
+		// An old browser: no Web Locks, no BroadcastChannel. Both tabs edit; the store's owner
+		// epoch says which one owns the plan (the one that opened it last).
+		const blind = createAcquire({ locks: null, channel: () => null });
+		const confirm = vi.fn(() => false);
+		const tabX = await ready(b.tab({ acquire: blind, confirm }));
+		type(tabX, 'plan.tjp', '# X1\n');
+		await vi.waitFor(() => expect(tabX.storedId).not.toBeNull(), { timeout: 3000 });
+		const id = tabX.storedId ?? '';
+		await vi.waitFor(() => expect(tabX.keeping.keep.kind).toBe('stored'));
+		expect(await tabX.flush()).toBe(true);
+		const tabY = await ready(b.tab({ acquire: blind }));
+		expect(tabY.storedId).toBe(id);
+		expect(tabY.readOnly).toBe(false);
+
+		type(tabX, 'plan.tjp', '# X2\n');
+		type(tabY, 'lib/x.tji', '# Y\n');
+		expect(await tabY.flush()).toBe(true);
+		expect(await tabX.flush()).toBe(false);
+		// X: read-only, its changes on screen, said to be kept nowhere, and dirty.
+		expect(tabX.readOnly).toBe(true);
+		expect(tabX.keeping.keep).toMatchObject({ kind: 'failed', error: { kind: 'not-owner' } });
+		expect(tabX.dirty).toBe(true);
+		expect(tabX.keepLine).toBe(strings.keep.failed);
+		expect(tabX.workspace?.texts()['plan.tjp']).toBe(`# X2\n# X1\n${PLAN}`);
+		// "Open here instead" and a switch ask first, and stay when the answer is no.
+		expect(await tabX.openStored(id, { steal: true })).toBe(false);
+		expect(confirm).toHaveBeenLastCalledWith(strings.keep.confirmTake);
+		expect(await tabX.openSample('two')).toBe(false);
+		expect(confirm).toHaveBeenLastCalledWith(strings.topBar.confirmSwitch);
+		expect(tabX.workspace?.texts()['plan.tjp']).toBe(`# X2\n# X1\n${PLAN}`);
+		// Yes: the plan opens here as it is stored (with Y's change), and X edits it again.
+		confirm.mockReturnValue(true);
+		expect(await tabX.openStored(id, { steal: true })).toBe(true);
+		expect(tabX.readOnly).toBe(false);
+		expect(tabX.dirty).toBe(false);
+		expect(tabX.workspace?.texts()['plan.tjp']).toBe(`# X1\n${PLAN}`);
+		expect(tabX.workspace?.texts()['lib/x.tji']).toMatch(/^# Y\n/);
 	});
 
 	it('flush stores what autosave holds at once, and keeping opens the database before the first save (L1)', async () => {

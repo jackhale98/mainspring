@@ -80,21 +80,39 @@ export function createAcquire(deps: LockDeps = {}) {
 			let lose!: () => void;
 			const held = new Promise<void>((r) => (letGo = r));
 			const lost = new Promise<void>((r) => (lose = r));
-			/** Holds the plan now (granted, and not let go). */
+			/** Granted the lock at some point. */
 			let granted = false;
+			/** Let go of it: released, handed over, or taken by force. */
 			let done = false;
+			/** `release` was called: a loss it causes is not a loss. */
+			let released = false;
+			let hasLost = false;
+			let closed = false;
 			let asked: () => Promise<unknown> = () => Promise.resolve();
 			let timer: ReturnType<typeof setTimeout> | undefined;
 			/** Waits for an answer of another tab (no Web Locks): `mine` or `gone`. */
 			let heard: ((k: Message['k']) => void) | null = null;
-			const send = (k: Message['k']): void => bc?.postMessage({ k, id, n } satisfies Message);
+			/** Never on a closed channel (a lock taken by force closes it; T4 re-check N2). */
+			const send = (k: Message['k']): void => {
+				if (!closed) bc?.postMessage({ k, id, n } satisfies Message);
+			};
+			const close = (): void => {
+				if (closed) return;
+				closed = true;
+				bc?.close();
+			};
+			const loseOnce = (): void => {
+				if (hasLost) return;
+				hasLost = true;
+				lose();
+			};
 			const finish = (handed: boolean): void => {
 				if (handed) {
 					send('gone');
-					lose();
+					loseOnce();
 				}
 				letGo();
-				bc?.close();
+				close();
 			};
 			if (bc)
 				bc.onmessage = (e: MessageEvent<Message | null>) => {
@@ -110,6 +128,7 @@ export function createAcquire(deps: LockDeps = {}) {
 				release: () => {
 					if (done) return;
 					done = true;
+					released = true;
 					finish(false);
 				},
 				lost,
@@ -121,7 +140,7 @@ export function createAcquire(deps: LockDeps = {}) {
 				resolve(lock);
 			};
 			const refuse = (): void => {
-				bc?.close();
+				close();
 				resolve('held-elsewhere');
 			};
 			if (o?.steal) send('ask');
@@ -148,11 +167,12 @@ export function createAcquire(deps: LockDeps = {}) {
 					})
 					.catch(() => {
 						if (!granted) return onFail();
-						// Taken by force: this tab must not write the plan any more.
-						if (!done) lose();
+						// Taken by force, also while a handover it was asked for was still storing: this
+						// tab must not write the plan any more (T4 re-check N2).
+						if (!released) loseOnce();
 						done = true;
 						letGo();
-						bc?.close();
+						close();
 					});
 			};
 			if (!o?.steal) return take({ ifAvailable: true }, refuse);

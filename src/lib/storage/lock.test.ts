@@ -90,6 +90,29 @@ describe('acquire', () => {
 		await a.lost;
 	});
 
+	it('loses the plan when it is taken by force during a slow handover, with no stray error (N2)', async () => {
+		const unhandled: unknown[] = [];
+		const onUnhandled = (e: unknown): void => void unhandled.push(e);
+		process.on('unhandledRejection', onUnhandled);
+		try {
+			const locks = fakeLocks();
+			const tabA = createAcquire({ locks, handoverMs: 1000 });
+			const tabB = createAcquire({ locks, handoverMs: 100 });
+			const a = await take(tabA, 'p1');
+			// Storing what autosave holds takes 400 ms; B gives up waiting after 100 ms.
+			a.onAsked(() => new Promise((r) => setTimeout(r, 400)));
+			const b = await take(tabB, 'p1', true);
+			expect(await settled(a.lost)).toBe(true);
+			// The hook settles later: the handover finishes on a closed channel, quietly.
+			await new Promise((r) => setTimeout(r, 600));
+			expect(await settled(b.lost)).toBe(false);
+			expect(locks.isHeld('mainspring.plan.p1')).toBe(true);
+			expect(unhandled).toEqual([]);
+		} finally {
+			process.off('unhandledRejection', onUnhandled);
+		}
+	});
+
 	it('grants "Open here instead" at once when nobody holds the plan', async () => {
 		const acquire = createAcquire({ locks: fakeLocks(), handoverMs: 5000 });
 		expect(await settled(take(acquire, 'p1', true))).toBe(true);

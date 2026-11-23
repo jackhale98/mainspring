@@ -44,6 +44,9 @@
  * - `dirty` means "changes only in this tab" (the store refused them or cannot be used) until T7
  *   widens it to what the provider does not have; switching plans or reloading asks only then, and
  *   `flush()` stores what autosave holds before any reload the app starts itself.
+ * - Changes the store refused because another tab took the plan first (`not-owner`; T4 re-check
+ *   N1): the tab is `readOnly` and `dirty`, the text stays on screen, `keeping.keep` is `failed`
+ *   with `not-owner` (the notice offers to copy the text), and "Open here instead" asks first.
  * - AppState's own members: `planKey` (the plan part of preference keys), `openSerial` (grows when a
  *   plan opens, not when only the key changes), `fresh`, `storedId`, `keeping` (what the line says,
  *   the plans kept here, the cleared and could-not-open notices), `keepLine`, `flush`, `reloadPage`.
