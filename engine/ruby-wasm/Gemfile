@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Gems for the OpenSSL-free ruby.wasm build (engine/ruby-wasm/build.sh, phase-4 T13).
+#
+# ruby_wasm is the build tool (rbwasm's packager; it does not ship). js is the gem whose
+# extension and lib the engine needs (the JS bridge @ruby/wasm-wasi talks to, and `require "js"`
+# in engine/bridge/wasm/tj_wasm_tz.rb): it is linked into the binary and packed into /bundle, as in
+# @ruby/3.4-wasm-wasi 2.10.1. logger comes in as ruby_wasm's dependency and is packed too (the
+# stock binary has logger 1.7.0 in /bundle). The stock binary also packs test-unit 3.6.2 and
+# power_assert 2.0.3; Mainspring never loads them, so this build leaves them out.
+#
+# build.sh installs these from engine/ruby-wasm/inputs.json (checked .gem files, `bundle install
+# --local`), never from the network during the build.
+source 'https://rubygems.org'
+
+gem 'ruby_wasm', '2.10.1'
+gem 'js', '2.10.1'
+gem 'logger', '1.7.0'

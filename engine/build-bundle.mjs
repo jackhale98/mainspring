@@ -4,6 +4,7 @@
 // build-bundle.mjs - build the hashed engine assets (docs/phases/phase-0.md, section 3.5).
 //
 //   node engine/build-bundle.mjs [--out public/engine] [--check]
+//                                [--ruby-wasm <file> --ruby-wasm-version <label>]
 //   (npm run build:engine; npm run build runs it before astro build)
 //
 // Inputs: the .rb files under engine/tj/lib, engine/stubs/**, engine/bridge/** except
@@ -31,6 +32,14 @@
 //
 // --check rebuilds in memory (the docs included) and exits 1 if --out differs (missing, different
 // or stale files).
+//
+// --ruby-wasm (or MAINSPRING_RUBY_WASM) builds on another interpreter binary instead of the
+// package's, for checking one (phase-4 T13: the OpenSSL-free build of engine/ruby-wasm/build.sh).
+// The manifest then records --ruby-wasm-version (or MAINSPRING_RUBY_WASM_VERSION, default
+// "<package version>+custom") as the rubyWasm version, and NOTICES.txt gains a line saying the
+// binary is not the package's; the rest of NOTICES.txt still describes the package's binary, so
+// such a build is for checks, not for release, until T13 updates the notices. Without either, the
+// build is exactly as before.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -175,8 +184,14 @@ async function engineDocs(files) {
 
 async function main() {
 	const { values } = parseArgs({
-		options: { out: { type: 'string', default: 'public/engine' }, check: { type: 'boolean', default: false } },
+		options: {
+			out: { type: 'string', default: 'public/engine' },
+			check: { type: 'boolean', default: false },
+			'ruby-wasm': { type: 'string' },
+			'ruby-wasm-version': { type: 'string' },
+		},
 	});
+	const customRuby = values['ruby-wasm'] ?? process.env.MAINSPRING_RUBY_WASM ?? '';
 	const out = path.resolve(values.out);
 	const rubyWasmVersion = packageVersion(RUBY_WASM_PACKAGE);
 	const wasiShimVersion = packageVersion(WASI_SHIM_PACKAGE);
@@ -185,13 +200,23 @@ async function main() {
 		throw new Error(`@ruby/wasm-wasi ${rubyRuntime} differs from ${RUBY_WASM_PACKAGE} ${rubyWasmVersion}`);
 	}
 	const commit = tjCommit();
+	const rubyFile = customRuby ? path.resolve(customRuby) : path.join(REPO, 'node_modules', RUBY_WASM_PACKAGE, RUBY_WASM_FILE);
+	const recordedVersion = customRuby
+		? (values['ruby-wasm-version'] ?? process.env.MAINSPRING_RUBY_WASM_VERSION ?? `${rubyWasmVersion}+custom`)
+		: rubyWasmVersion;
+	if (customRuby) {
+		console.log(`build-bundle: interpreter ${path.relative(process.cwd(), rubyFile)}, recorded as ${RUBY_WASM_PACKAGE} ${recordedVersion} (not for release)`);
+	}
+	const baseNotices = notices({ commit, rubyWasmVersion, wasiShimVersion });
 	const built = buildOutputs({
-		rubyWasm: fs.readFileSync(path.join(REPO, 'node_modules', RUBY_WASM_PACKAGE, RUBY_WASM_FILE)),
+		rubyWasm: fs.readFileSync(rubyFile),
 		bundleFiles: bundleFiles(),
 		tjCommit: commit,
-		rubyWasmVersion,
+		rubyWasmVersion: recordedVersion,
 		wasiShimVersion,
-		notices: notices({ commit, rubyWasmVersion, wasiShimVersion }),
+		notices: customRuby
+			? `NOTE: ruby.*.wasm.gz in this build is not the package's binary but ${path.basename(rubyFile)}, recorded\nas version ${recordedVersion}; see engine/ruby-wasm/README.md. Not for release.\n\n${baseNotices}`
+			: baseNotices,
 	});
 	const { files, manifest } = withDocs(built, await engineDocs(built.files));
 
