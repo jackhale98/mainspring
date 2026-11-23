@@ -1,0 +1,23 @@
+{
+  "environment": {
+    "when": "2026-11-23T17:31:21.252Z",
+    "project": "iphone-14",
+    "device": "iPhone 14 emulation (WebKit)",
+    "cpuThrottle": 1,
+    "browser": "webkit 27.2",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      22.82,
+      24.17,
+      23.94
+    ]
+  },
+  "paints": 21,
+  "maxFills": 149,
+  "p95Fills": 134,
+  "maxTexts": 195,
+  "p95Ms": 2,
+  "maxMs": 2
+}

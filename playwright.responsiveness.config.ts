@@ -12,7 +12,7 @@ const launchOptions = process.env['CHROMIUM_PATH']
 
 export default defineConfig({
 	testDir: 'tests/e2e',
-	testMatch: 'engine-responsiveness.spec.ts',
+	testMatch: ['engine-responsiveness.spec.ts', 'workload-responsiveness.spec.ts'],
 	fullyParallel: false,
 	workers: 1,
 	forbidOnly: !!process.env['CI'],

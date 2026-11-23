@@ -31,7 +31,7 @@ export const PENDING_BATCHES = {};
  * is not a hole. `engine-responsiveness.spec.ts` is `testIgnore`d by playwright.config.ts and run by
  * `npm run test:responsiveness` on Chromium.
  */
-export const EXEMPT_FILES = ['engine-responsiveness.spec.ts'];
+export const EXEMPT_FILES = ['engine-responsiveness.spec.ts', 'workload-responsiveness.spec.ts'];
 
 /** A skip or fixme call. */
 const SKIP_START = /\b(?:test|info|testInfo)(?:\.describe)?\.(?:skip|fixme)\s*\(/g;

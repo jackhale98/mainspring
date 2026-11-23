@@ -1,0 +1,195 @@
+{
+  "environment-desktop": {
+    "when": "2026-11-23T17:35:20.474Z",
+    "project": "desktop",
+    "device": "Desktop Chrome (1280x720, no throttle)",
+    "cpuThrottle": 1,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      4.31,
+      14.59,
+      20.23
+    ]
+  },
+  "desktop": {
+    "Week-rows": {
+      "runs": 1,
+      "runList": [
+        {
+          "droppedPct": 0,
+          "maxMs": 16.8
+        }
+      ],
+      "frames": 73,
+      "onTimePct": 100,
+      "maxMs": 16.8,
+      "droppedPct": 0,
+      "scrollPx": 840
+    },
+    "Week-frame": {
+      "runs": 1,
+      "runList": [
+        {
+          "droppedPct": 0.5,
+          "maxMs": 16.8
+        }
+      ],
+      "frames": 160,
+      "onTimePct": 100,
+      "maxMs": 16.8,
+      "droppedPct": 0.5,
+      "scrollPx": 5120
+    },
+    "Day-rows": {
+      "runs": 1,
+      "runList": [
+        {
+          "droppedPct": 0,
+          "maxMs": 16.8
+        }
+      ],
+      "frames": 71,
+      "onTimePct": 100,
+      "maxMs": 16.8,
+      "droppedPct": 0,
+      "scrollPx": 840
+    },
+    "Day-frame": {
+      "runs": 1,
+      "runList": [
+        {
+          "droppedPct": 0.2,
+          "maxMs": 33.3
+        }
+      ],
+      "frames": 744,
+      "onTimePct": 99.9,
+      "maxMs": 33.3,
+      "droppedPct": 0.2,
+      "scrollPx": 19744
+    }
+  },
+  "desktop-extra": {
+    "zoom": {
+      "frames": 184,
+      "onTimePct": 99.5,
+      "maxMs": 33.4,
+      "over50": 0,
+      "droppedPct": 9.3,
+      "longestTaskMs": 41.5,
+      "inputScriptP95Ms": 0,
+      "rafScriptP95Ms": 0.1,
+      "loafMaxMs": 50,
+      "endedAt": "month"
+    },
+    "drag": {
+      "frames": 376,
+      "onTimePct": 100,
+      "maxMs": 16.8,
+      "over50": 0,
+      "droppedPct": 0,
+      "longestTaskMs": 8.2,
+      "inputScriptP95Ms": 0.2,
+      "rafScriptP95Ms": 0.1,
+      "loafMaxMs": 0,
+      "scriptP95Ms": 0.3
+    },
+    "scrollDuringResult": {
+      "frames": 290,
+      "onTimePct": 100,
+      "maxMs": 16.8,
+      "over50": 0,
+      "droppedPct": 0.6,
+      "longestTaskMs": 35.2,
+      "inputScriptP95Ms": 0,
+      "rafScriptP95Ms": 0.1,
+      "loafMaxMs": 0
+    }
+  },
+  "environment-pixel-7-1x": {
+    "when": "2026-11-23T17:36:59.077Z",
+    "project": "pixel-7",
+    "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+    "cpuThrottle": 1,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      3.08,
+      11.33,
+      18.52
+    ]
+  },
+  "environment-pixel-7-4x": {
+    "when": "2026-11-23T17:37:12.856Z",
+    "project": "pixel-7",
+    "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+    "cpuThrottle": 4,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      3.19,
+      10.95,
+      18.28
+    ]
+  },
+  "pixel-7": {
+    "nodes": 333,
+    "swipe-1x": {
+      "frames": 324,
+      "onTimePct": 100,
+      "maxMs": 16.8,
+      "over50": 0,
+      "droppedPct": 0.2,
+      "longestTaskMs": 14.2,
+      "inputScriptP95Ms": 0,
+      "rafScriptP95Ms": 0.9,
+      "loafMaxMs": 0,
+      "scrolledPx": 3036
+    },
+    "pinch-1x": {
+      "frames": 284,
+      "onTimePct": 100,
+      "maxMs": 16.8,
+      "over50": 0,
+      "droppedPct": 33.3,
+      "longestTaskMs": 12.9,
+      "inputScriptP95Ms": 0.2,
+      "rafScriptP95Ms": 0.1,
+      "loafMaxMs": 0,
+      "from": "week",
+      "to": "month"
+    },
+    "swipe-4x": {
+      "frames": 349,
+      "onTimePct": 97.1,
+      "maxMs": 50,
+      "over50": 0,
+      "droppedPct": 3.1,
+      "longestTaskMs": 54.8,
+      "inputScriptP95Ms": 0,
+      "rafScriptP95Ms": 0.9,
+      "loafMaxMs": 0,
+      "scrolledPx": 2678
+    },
+    "pinch-4x": {
+      "frames": 285,
+      "onTimePct": 99.6,
+      "maxMs": 33.3,
+      "over50": 0,
+      "droppedPct": 50,
+      "longestTaskMs": 46.3,
+      "inputScriptP95Ms": 1,
+      "rafScriptP95Ms": 0.5,
+      "loafMaxMs": 0,
+      "from": "week",
+      "to": "month"
+    }
+  }
+}

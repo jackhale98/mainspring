@@ -18,6 +18,7 @@ export default defineConfig({
 	testIgnore: [
 		'**/*.test.ts',
 		'**/engine-responsiveness.spec.ts',
+		'**/workload-responsiveness.spec.ts',
 		...(process.env['E2E_PERF'] === '1' ? [] : ['**/text-mode-perf.spec.ts']),
 		...(process.env['ENGINE_COST'] === '1' ? [] : ['**/engine-cost.spec.ts']),
 	],

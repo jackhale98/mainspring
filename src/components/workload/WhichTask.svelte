@@ -3,7 +3,8 @@
 	"Move which task?" (phase-3.md 7.1 W1 and W2, 18.9): a cell with several tasks a drag may start
 	from asks on the drop which one is meant, once, with what the drop would do in the title. One
 	button per task, with its booked hours; Escape or Cancel drops the move. It takes the focus when
-	it opens and gives it back to the plot when it closes.
+	it opens and gives it back when it closes (T22: it used to leave the focus on the page): to what
+	had it before, or else to the grid's focus cell of the view it is in.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -24,7 +25,24 @@
 	let { ask, tasks, onchoose, oncancel }: Props = $props();
 
 	let root: HTMLDivElement | undefined = $state();
-	onMount(() => root?.querySelector('button')?.focus());
+	onMount(() => {
+		const before = document.activeElement;
+		const view = root?.parentElement ?? null;
+		root?.querySelector('button')?.focus();
+		const dialog = root;
+		return () => {
+			// Closed by a choice, Escape or Cancel: the focus does not fall to the page. It is given back
+			// only if it is about to fall (on the dialog, or nowhere); something that took it since
+			// (a toast, the details, a field) keeps it.
+			const now = document.activeElement;
+			if (now && now !== document.body && !dialog?.contains(now)) return;
+			const back =
+				before instanceof HTMLElement && before !== document.body && before.isConnected
+					? before
+					: view?.querySelector<HTMLElement>('[role="grid"] [tabindex="0"]');
+			back?.focus({ preventScroll: true });
+		};
+	});
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

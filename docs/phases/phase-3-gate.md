@@ -9,7 +9,7 @@ batch, before the push.
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Last green commit on main | `1b3c00d7` (branch run 44760368049, 2026-11-20; main fast-forwarded): T21's specs, the Health button's zero name, the group-row drop refusal, the manual CI start, and the sweep of waits that read a result from before the edit; then five manual runs on it, all green (see done-when item 1) |
 | Timing trend | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression. 2. `6d43799c` (nightly 44728784645, `timing-nightly-9`): 14 passed, judge step green. 3. `1b3c00d7` (nightly 44896823472, `timing-nightly-10`): 14 passed, judge step green. 4. `1b3c00d7` (nightly 45016747623, `timing-nightly-11`): 14 passed, judge step green |
-| iPhone 14 skips left | None outside the allowlist (2026-11-19): B4 is done (health, health fixes, why-here and the health screenshots run on the iPhone 14 once the windowed Health list held still on WebKit, `anchor.ts`), so `PENDING_BATCHES` in `scripts/ci/webkit-skips.mjs` is empty and the scan fails on any iPhone skip outside the allowlist in every spec. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`) |
+| iPhone 14 skips left | None outside the allowlist (2026-11-19): B4 is done (health, health fixes, why-here and the health screenshots run on the iPhone 14 once the windowed Health list held still on WebKit, `anchor.ts`), so `PENDING_BATCHES` in `scripts/ci/webkit-skips.mjs` is empty and the scan fails on any iPhone skip outside the allowlist in every spec. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`; T22's Health panel test runs on the iPhone and records only the time to open there, so it took no entry) |
 | CI wall time | 14.3 to 19.0 min over the five manual runs on `1b3c00d7` (16.3, 16.3, 14.3, 17.2, 19.0; runs 44807594259, 44828061086, 44983027206, 45043700692, 45054048787). About 215 job-minutes over 38 jobs against at most 20 concurrent runners; the iPhone project is about 120 of them, so the 12 min target (ADR-0016 section 4) needs fewer iPhone worker-minutes, not more shards. Durations re-measured 2026-11-19 (longest planned shard about 7 min). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble` |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
@@ -628,3 +628,28 @@ it takes the fedora opens out of three of the heaviest iPhone shards.
 is the number of tests times the engine boot, so only merging tests or a faster boot would cut it, and
 merging would break the independence of the tests. `workload-gate`, the perf specs and the golden
 parity are untouched.
+
+## T22: performance and accessibility audit (2026-11-23)
+
+The full audit is `docs/phases/phase-3-perf-a11y.md` (budget, measured, method and verdict for every
+Phase 3 budget; the accessibility items with their evidence and fixes). Raw records, one file per test
+and project, each with its device, browser, build and load: `docs/phases/evidence/phase3-t22/`. In short,
+at the quiet half hour of a shared machine (load 1 to 4; at load 15 to 35 the frame caps fail):
+
+- **Met:** the Workload scroll and pan caps, the 3 s drag script time (0.3 ms of 8), the Pixel 7's
+  800-node cap (333), fills per frame on a phone (225 of 600), paint script time (2.5 ms desktop, 5.7 ms
+  at 4x), no long task after ready with the Workload view open (new check), worker memory (flat after the
+  first edit, 2.6 MB over 12), every first-load and chunk cap of `js-sizes`, and the Phase 2 desktop
+  budgets (app shell 0.39 s, engine ready 3.4 s, the 500-task scroll 6 of 6 runs).
+- **Not met, recorded:** one runner task of 61 ms at 4x on `scale-1000` (50 ms per task, 8.3) and the
+  health check's cold call at 15.9 ms against 15 (47 ms at 4x); 731 fills at day zoom on a 1280 px
+  desktop (the 600 of 8.1); the 500-task phone scroll at 61 to 62% on time, as in Phase 2.
+- **Fixed:** the "Move which task?" chooser dropped the focus on close (WCAG 2.4.3); `js-sizes` now
+  reports the People views together (90,589 of a 100,000 guard) and caps the shared heatmap chunk; the
+  responsiveness job covers `fedora-res` with the Workload view open; the live regions and the T key have
+  end-to-end tests.
+- **Waiting for the user (P2):** the desktop's fills per frame is recorded only, with no assertion, until
+  the user decides what a desktop's budget is. The 600 stays asserted for a phone.
+- **Open (user or owner):** the Visual-first first load has 439 bytes under its cap; a Layout inside the
+  first Workload paint's rAF callback (46 ms in a busy trace); the idle work at 4x. See the audit's
+  "Open items".

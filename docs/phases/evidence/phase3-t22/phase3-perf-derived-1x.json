@@ -1,0 +1,72 @@
+{
+  "environment": {
+    "when": "2026-11-23T17:39:21.020Z",
+    "project": "desktop",
+    "device": "Desktop Chrome (1280x720, no throttle)",
+    "cpuThrottle": 1,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      2.02,
+      7.84,
+      16.17
+    ]
+  },
+  "fedora-res": {
+    "gantt-analysis": [
+      5
+    ],
+    "workload-load": [
+      7.6,
+      0.9
+    ],
+    "workload-demand": [
+      3.2
+    ],
+    "health-check": [
+      15.9
+    ],
+    "runner-task": [
+      8.4,
+      3.9,
+      4.8
+    ]
+  },
+  "scale-1000": {
+    "added": {
+      "gantt-analysis": [
+        8.8
+      ],
+      "workload-load": [
+        1.4,
+        0.5,
+        14.2,
+        1.7
+      ],
+      "workload-demand": [
+        1.7,
+        3.1
+      ],
+      "health-check": [
+        11.2
+      ],
+      "runner-task": [
+        13.8,
+        9.5,
+        6.2,
+        5,
+        11.7,
+        7.4
+      ]
+    },
+    "max": {
+      "gantt-analysis": 8.8,
+      "workload-load": 14.2,
+      "workload-demand": 3.1,
+      "health-check": 11.2,
+      "runner-task": 13.8
+    }
+  }
+}

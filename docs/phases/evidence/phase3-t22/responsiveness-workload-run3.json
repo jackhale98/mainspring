@@ -1,0 +1,57 @@
+{
+  "environment": {
+    "when": "2026-11-23T17:38:15.934Z",
+    "project": "chromium",
+    "device": "chromium",
+    "cpuThrottle": 1,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      3.09,
+      9.42,
+      17.25
+    ]
+  },
+  "label": "run 3",
+  "readyAt": 6613.60000000149,
+  "endAt": 7661.60000000149,
+  "bootLongTasks": [
+    {
+      "start": 160.90000000037253,
+      "duration": 155
+    },
+    {
+      "start": 558.9000000003725,
+      "duration": 99
+    }
+  ],
+  "afterReady": [],
+  "measures": {
+    "gantt-analysis": [
+      6.6
+    ],
+    "workload-load": [
+      8.7,
+      1
+    ],
+    "workload-demand": [
+      2.7
+    ],
+    "health-check": [
+      16
+    ],
+    "runner-task": [
+      8.3,
+      4.2,
+      5.9
+    ]
+  },
+  "slowTasks": [
+    {
+      "wallMs": 99.6,
+      "cpuMs": 0.8
+    }
+  ]
+}

@@ -59,10 +59,10 @@ export const WEBKIT_ALLOWLIST: readonly WebKitAllowEntry[] = [
 	},
 	{
 		file: 'workload-perf.spec.ts',
-		title: 'Pixel 7: the frame times of a swipe are recorded',
+		title: 'Pixel 7: swipes and pinches are recorded, unthrottled and at 4x CPU',
 		reason: 'chromium-performance-api',
 		detail:
-			"records the frame times of the browser's own touch scroll with Chromium's trace (browser.startTracing); WebKit has no trace and Playwright has no touch scroll there. The mounted-DOM cap of the same view runs on the iPhone (the DOM-node test above it)",
+			"records the frame times of the browser's own touch scroll and pinch with Chromium's trace (browser.startTracing) and its CPU throttle (Emulation.setCPUThrottlingRate); WebKit has neither and Playwright has no touch scroll there. The mounted-DOM cap of the same view runs on the iPhone (the DOM-node test above it)",
 	},
 ];
 

@@ -1,0 +1,94 @@
+{
+  "environment": {
+    "when": "2026-11-23T17:38:25.434Z",
+    "project": "chromium",
+    "device": "chromium",
+    "cpuThrottle": 4,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      2.84,
+      9.16,
+      17.08
+    ]
+  },
+  "label": "4x",
+  "readyAt": 7460.5999999996275,
+  "endAt": 8682,
+  "bootLongTasks": [
+    {
+      "start": 289.7999999988824,
+      "duration": 243
+    },
+    {
+      "start": 585,
+      "duration": 600
+    },
+    {
+      "start": 1328.5999999996275,
+      "duration": 87
+    }
+  ],
+  "afterReady": [
+    {
+      "start": 7573,
+      "duration": 91
+    },
+    {
+      "start": 7664.199999999255,
+      "duration": 148
+    },
+    {
+      "start": 7858.299999998882,
+      "duration": 74
+    },
+    {
+      "start": 7951.0999999996275,
+      "duration": 56
+    },
+    {
+      "start": 8011.799999998882,
+      "duration": 53
+    }
+  ],
+  "measures": {
+    "gantt-analysis": [
+      21.4
+    ],
+    "workload-load": [
+      30.1,
+      4.2
+    ],
+    "workload-demand": [
+      29
+    ],
+    "health-check": [
+      43
+    ],
+    "runner-task": [
+      32.8,
+      16.3,
+      20.8
+    ]
+  },
+  "slowTasks": [
+    {
+      "wallMs": 148.5,
+      "cpuMs": 147.4
+    },
+    {
+      "wallMs": 91.2,
+      "cpuMs": 90.9
+    },
+    {
+      "wallMs": 74.3,
+      "cpuMs": 74.6
+    },
+    {
+      "wallMs": 56.6,
+      "cpuMs": 55.5
+    }
+  ]
+}

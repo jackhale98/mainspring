@@ -1,0 +1,35 @@
+- treegrid "People":
+  - row "Name Id Group Efficiency Booked":
+    - columnheader "Name"
+    - columnheader "Id"
+    - columnheader "Group"
+    - columnheader "Efficiency"
+    - columnheader "Booked"
+  - row "Developers, group, 320 h booked" [expanded] [level=1]:
+    - rowheader "Developers"
+    - gridcell "dev":
+      - code: dev
+    - gridcell "–"
+    - gridcell "1"
+    - gridcell "320 h"
+  - row "Jack, in Developers, 184 h booked" [level=2]:
+    - rowheader "Jack"
+    - gridcell "jack":
+      - code: jack
+    - gridcell "Developers"
+    - gridcell "1"
+    - gridcell "184 h"
+  - row "Ana, in Developers, 136 h booked" [level=2]:
+    - rowheader "Ana"
+    - gridcell "ana":
+      - code: ana
+    - gridcell "Developers"
+    - gridcell "1"
+    - gridcell "136 h"
+  - row "Reviewer, 24 h booked" [level=1]:
+    - rowheader "Reviewer"
+    - gridcell "rev":
+      - code: rev
+    - gridcell "–"
+    - gridcell "1"
+    - gridcell "24 h"

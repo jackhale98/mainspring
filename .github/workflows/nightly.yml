@@ -255,6 +255,7 @@ jobs:
           path: |
             test-results/responsiveness-report.md
             test-results/responsiveness-report.json
+            test-results/responsiveness-workload-*.json
           if-no-files-found: warn
           retention-days: 30
 
@@ -357,6 +358,7 @@ jobs:
           path: |
             test-results/gantt-*.json
             test-results/workload-perf.json
+            test-results/phase3-perf-*.json
             test-results/timing-summary.md
             test-results/e2e-results.json
           if-no-files-found: ignore

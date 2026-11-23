@@ -1,0 +1,64 @@
+- grid "Workload by person and period":
+  - row "People week of March 2 week of March 9 week of March 16 week of March 23 week of March 30 week of April 6 week of April 13":
+    - columnheader "People"
+    - columnheader "week of March 2"
+    - columnheader "week of March 9"
+    - columnheader "week of March 16"
+    - columnheader "week of March 23"
+    - columnheader "week of March 30"
+    - columnheader "week of April 6"
+    - columnheader "week of April 13"
+  - 'row "Team, group, expanded Team, week of March 2: 72 of 180 hours, spare Team, week of March 9: 56 of 164 hours, spare, 16 hours of leave Team, week of March 16: 60 of 164 hours, spare, 16 hours of leave Team, week of March 23: 60 of 140 hours, spare, 40 hours of leave Team, week of March 30: 57 of 180 hours, spare Team, week of April 6: 89 of 144 hours, spare, 36 hours of leave Team, week of April 13: 49 of 164 hours, spare, 16 hours of leave"':
+    - rowheader "Team, group, expanded"
+    - 'gridcell "Team, week of March 2: 72 of 180 hours, spare"'
+    - 'gridcell "Team, week of March 9: 56 of 164 hours, spare, 16 hours of leave"'
+    - 'gridcell "Team, week of March 16: 60 of 164 hours, spare, 16 hours of leave"'
+    - 'gridcell "Team, week of March 23: 60 of 140 hours, spare, 40 hours of leave"'
+    - 'gridcell "Team, week of March 30: 57 of 180 hours, spare"'
+    - 'gridcell "Team, week of April 6: 89 of 144 hours, spare, 36 hours of leave"'
+    - 'gridcell "Team, week of April 13: 49 of 164 hours, spare, 16 hours of leave"'
+  - 'row "Ana, in Team Ana, week of March 2: 40 of 40 hours, full Ana, week of March 9: 20 of 40 hours, spare Ana, week of March 16: 0 of 40 hours, spare Ana, week of March 23: no working time, 40 hours of leave Ana, week of March 30: 0 of 40 hours, spare Ana, week of April 6: 31 of 32 hours, full, 8 hours of leave Ana, week of April 13: 40 of 40 hours, full"':
+    - rowheader "Ana, in Team"
+    - 'gridcell "Ana, week of March 2: 40 of 40 hours, full"'
+    - 'gridcell "Ana, week of March 9: 20 of 40 hours, spare"'
+    - 'gridcell "Ana, week of March 16: 0 of 40 hours, spare"'
+    - 'gridcell "Ana, week of March 23: no working time, 40 hours of leave"'
+    - 'gridcell "Ana, week of March 30: 0 of 40 hours, spare"'
+    - 'gridcell "Ana, week of April 6: 31 of 32 hours, full, 8 hours of leave"'
+    - 'gridcell "Ana, week of April 13: 40 of 40 hours, full"'
+  - 'row "Ben, in Team Ben, week of March 2: 0 of 40 hours, spare Ben, week of March 9: 16 of 24 hours, spare, 16 hours of leave Ben, week of March 16: 40 of 40 hours, full Ben, week of March 23: 40 of 40 hours, full Ben, week of March 30: 25 of 40 hours, spare Ben, week of April 6: 10 of 32 hours, spare, 8 hours of leave Ben, week of April 13: 5 of 24 hours, spare, 16 hours of leave"':
+    - rowheader "Ben, in Team"
+    - 'gridcell "Ben, week of March 2: 0 of 40 hours, spare"'
+    - 'gridcell "Ben, week of March 9: 16 of 24 hours, spare, 16 hours of leave"'
+    - 'gridcell "Ben, week of March 16: 40 of 40 hours, full"'
+    - 'gridcell "Ben, week of March 23: 40 of 40 hours, full"'
+    - 'gridcell "Ben, week of March 30: 25 of 40 hours, spare"'
+    - 'gridcell "Ben, week of April 6: 10 of 32 hours, spare, 8 hours of leave"'
+    - 'gridcell "Ben, week of April 13: 5 of 24 hours, spare, 16 hours of leave"'
+  - 'row "Cy, in Team Cy, week of March 2: 0 of 20 hours, spare Cy, week of March 9: 8 of 20 hours, spare Cy, week of March 16: 20 of 20 hours, full Cy, week of March 23: 20 of 20 hours, full Cy, week of March 30: 20 of 20 hours, full Cy, week of April 6: 14 of 16 hours, full, 4 hours of leave Cy, week of April 13: 4 of 20 hours, spare"':
+    - rowheader "Cy, in Team"
+    - 'gridcell "Cy, week of March 2: 0 of 20 hours, spare"'
+    - 'gridcell "Cy, week of March 9: 8 of 20 hours, spare"'
+    - 'gridcell "Cy, week of March 16: 20 of 20 hours, full"'
+    - 'gridcell "Cy, week of March 23: 20 of 20 hours, full"'
+    - 'gridcell "Cy, week of March 30: 20 of 20 hours, full"'
+    - 'gridcell "Cy, week of April 6: 14 of 16 hours, full, 4 hours of leave"'
+    - 'gridcell "Cy, week of April 13: 4 of 20 hours, spare"'
+  - 'row "Dee, in Team Dee, week of March 2: 32 of 40 hours, full Dee, week of March 9: 12 of 40 hours, spare Dee, week of March 16: 0 of 24 hours, spare, 16 hours of leave Dee, week of March 23: 0 of 40 hours, spare Dee, week of March 30: 12 of 40 hours, spare Dee, week of April 6: 25 of 32 hours, spare, 8 hours of leave Dee, week of April 13: 0 of 40 hours, spare"':
+    - rowheader "Dee, in Team"
+    - 'gridcell "Dee, week of March 2: 32 of 40 hours, full"'
+    - 'gridcell "Dee, week of March 9: 12 of 40 hours, spare"'
+    - 'gridcell "Dee, week of March 16: 0 of 24 hours, spare, 16 hours of leave"'
+    - 'gridcell "Dee, week of March 23: 0 of 40 hours, spare"'
+    - 'gridcell "Dee, week of March 30: 12 of 40 hours, spare"'
+    - 'gridcell "Dee, week of April 6: 25 of 32 hours, spare, 8 hours of leave"'
+    - 'gridcell "Dee, week of April 13: 0 of 40 hours, spare"'
+  - 'row "Eli, in Team Eli, week of March 2: 0 of 40 hours, spare Eli, week of March 9: 0 of 40 hours, spare Eli, week of March 16: 0 of 40 hours, spare Eli, week of March 23: 0 of 40 hours, spare Eli, week of March 30: 0 of 40 hours, spare Eli, week of April 6: 9 of 32 hours, spare, 8 hours of leave Eli, week of April 13: 0 of 40 hours, spare"':
+    - rowheader "Eli, in Team"
+    - 'gridcell "Eli, week of March 2: 0 of 40 hours, spare"'
+    - 'gridcell "Eli, week of March 9: 0 of 40 hours, spare"'
+    - 'gridcell "Eli, week of March 16: 0 of 40 hours, spare"'
+    - 'gridcell "Eli, week of March 23: 0 of 40 hours, spare"'
+    - 'gridcell "Eli, week of March 30: 0 of 40 hours, spare"'
+    - 'gridcell "Eli, week of April 6: 9 of 32 hours, spare, 8 hours of leave"'
+    - 'gridcell "Eli, week of April 13: 0 of 40 hours, spare"'

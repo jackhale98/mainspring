@@ -29,6 +29,7 @@ const DURATIONS = path.join(ROOT, 'tests/e2e/durations.json');
 /** Spec files that playwright.config.ts never runs in the merge tier (testIgnore). */
 const NOT_IN_MERGE_TIER = new Set([
 	'engine-responsiveness.spec.ts',
+	'workload-responsiveness.spec.ts',
 	'text-mode-perf.spec.ts',
 	'engine-cost.spec.ts',
 ]);

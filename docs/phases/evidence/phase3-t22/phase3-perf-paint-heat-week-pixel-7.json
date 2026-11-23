@@ -1,0 +1,23 @@
+{
+  "environment": {
+    "when": "2026-11-23T17:40:30.779Z",
+    "project": "pixel-7",
+    "device": "Pixel 7 emulation (412x915, dpr 2.625, touch)",
+    "cpuThrottle": 1,
+    "browser": "chromium 156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36",
+    "build": "754ba2ea-dirty",
+    "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+    "loadAverageAtStart": [
+      2.02,
+      6.6,
+      15.13
+    ]
+  },
+  "paints": 21,
+  "maxFills": 195,
+  "p95Fills": 182,
+  "maxTexts": 266,
+  "p95Ms": 1.5,
+  "maxMs": 2.1
+}

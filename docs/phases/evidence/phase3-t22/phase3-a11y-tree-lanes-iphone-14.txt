@@ -1,0 +1,26 @@
+- grid "Resource lanes by person and period":
+  - row "People week of March 2 week of March 9 week of March 16":
+    - columnheader "People"
+    - columnheader "week of March 2"
+    - columnheader "week of March 9"
+    - columnheader "week of March 16"
+  - 'row "Dev 1 Dev 1, week of March 2: 24 of 40 hours, spare, works on Research 24 h Dev 1, week of March 9: 0 of 40 hours, spare Dev 1, week of March 16: 0 of 40 hours, spare"':
+    - rowheader "Dev 1"
+    - 'gridcell "Dev 1, week of March 2: 24 of 40 hours, spare, works on Research 24 h"'
+    - 'gridcell "Dev 1, week of March 9: 0 of 40 hours, spare"'
+    - 'gridcell "Dev 1, week of March 16: 0 of 40 hours, spare"'
+  - 'row "Dev 2 Dev 2, week of March 2: 0 of 40 hours, spare Dev 2, week of March 9: 32 of 40 hours, full, works on Sketch 32 h Dev 2, week of March 16: 0 of 40 hours, spare"':
+    - rowheader "Dev 2"
+    - 'gridcell "Dev 2, week of March 2: 0 of 40 hours, spare"'
+    - 'gridcell "Dev 2, week of March 9: 32 of 40 hours, full, works on Sketch 32 h"'
+    - 'gridcell "Dev 2, week of March 16: 0 of 40 hours, spare"'
+  - 'row "Dev 3 Dev 3, week of March 2: 0 of 40 hours, spare Dev 3, week of March 9: 0 of 40 hours, spare Dev 3, week of March 16: 0 of 40 hours, spare"':
+    - rowheader "Dev 3"
+    - 'gridcell "Dev 3, week of March 2: 0 of 40 hours, spare"'
+    - 'gridcell "Dev 3, week of March 9: 0 of 40 hours, spare"'
+    - 'gridcell "Dev 3, week of March 16: 0 of 40 hours, spare"'
+  - 'row "Ops 1 Ops 1, week of March 2: 0 of 40 hours, spare Ops 1, week of March 9: 0 of 40 hours, spare Ops 1, week of March 16: 0 of 40 hours, spare"':
+    - rowheader "Ops 1"
+    - 'gridcell "Ops 1, week of March 2: 0 of 40 hours, spare"'
+    - 'gridcell "Ops 1, week of March 9: 0 of 40 hours, spare"'
+    - 'gridcell "Ops 1, week of March 16: 0 of 40 hours, spare"'

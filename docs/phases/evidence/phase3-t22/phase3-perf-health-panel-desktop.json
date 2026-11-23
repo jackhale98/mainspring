@@ -1,0 +1,53 @@
+{
+  "traced": true,
+  "1x": {
+    "environment": {
+      "when": "2026-11-23T17:39:59.766Z",
+      "project": "desktop",
+      "device": "Desktop Chrome (1280x720, no throttle)",
+      "cpuThrottle": 1,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+      "build": "754ba2ea-dirty",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        1.77,
+        7.04,
+        15.55
+      ]
+    },
+    "openMs": 69,
+    "nodes": 982,
+    "frames": 200,
+    "onTimePct": 100,
+    "maxMs": 16.8,
+    "over50": 0,
+    "droppedPct": 0,
+    "longestTaskMs": 8.2
+  },
+  "4x": {
+    "environment": {
+      "when": "2026-11-23T17:40:13.467Z",
+      "project": "desktop",
+      "device": "Desktop Chrome (1280x720, no throttle)",
+      "cpuThrottle": 4,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+      "build": "754ba2ea-dirty",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        1.8,
+        6.87,
+        15.4
+      ]
+    },
+    "openMs": 197,
+    "nodes": 982,
+    "frames": 200,
+    "onTimePct": 64,
+    "maxMs": 66.6,
+    "over50": 2,
+    "droppedPct": 16,
+    "longestTaskMs": 59.1
+  }
+}

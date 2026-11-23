@@ -37,6 +37,12 @@
 
 	import type { DrawCells, DrawOverlay } from './heat-plot-types';
 
+	interface PaintRecord {
+		view: string;
+		fills: number;
+		texts: number;
+		ms: number;
+	}
 	interface Props {
 		model: LoadModel;
 		layout: HeatLayout;
@@ -148,7 +154,16 @@
 							surface: l.theme.surface,
 							fontSans: l.theme.fontSans,
 						});
-				onpaint?.(stats, performance.now() - t0);
+				const ms = performance.now() - t0;
+				onpaint?.(stats, ms);
+				// The audit's recorder (tests/e2e/phase3-perf.spec.ts): an array that the page's own
+				// init script put there, so that nothing is kept in production.
+				(globalThis as { __mainspringPaint?: PaintRecord[] }).__mainspringPaint?.push({
+					view: testid,
+					fills: stats.fillRects,
+					texts: stats.texts,
+					ms,
+				});
 			}
 			// The overlay shares the window: it moved and resized with the cells.
 			overlayDirty = true;

@@ -6,6 +6,8 @@ import {
 	checkBudgets,
 	CHUNK_CAPS,
 	isViewChunk,
+	PEOPLE_VIEWS_CAP,
+	peopleViewsSize,
 	TEXT_FIRST_CAP,
 	TOTAL_CAP,
 	unmatchedCaps,
@@ -109,6 +111,7 @@ describe('checkBudgets', () => {
 				'PeopleView.a.js',
 				'Workload.a.js',
 				'WorkloadBar.a.js',
+				'WhichTask.a.js',
 				'Lanes.a.js',
 				'Calendar.a.js',
 				'ResourcesView.a.js',
@@ -215,5 +218,34 @@ describe('viewChunkSet', () => {
 		expect(set.has('shared.a.js')).toBe(false);
 		expect(set.has('strings.a.js')).toBe(false);
 		expect(set.has('editor-controller.a.js')).toBe(false);
+	});
+});
+
+describe('the People views together (T22)', () => {
+	const files = [
+		{ file: 'Lanes.a.js', gzip: 60_000 },
+		{ file: 'Calendar.a.js', gzip: 30_000 },
+		{ file: 'App.a.js', gzip: 300_000 },
+	];
+	const views = new Set(['Lanes.a.js', 'Calendar.a.js']);
+
+	it('sums the view chunks and not the first load', () => {
+		expect(peopleViewsSize(files, views)).toEqual({
+			files: 2,
+			gzipBytes: 90_000,
+			cap: PEOPLE_VIEWS_CAP,
+		});
+	});
+
+	it('fails over the cap and passes at it', () => {
+		const at = { files: 2, gzipBytes: PEOPLE_VIEWS_CAP, cap: PEOPLE_VIEWS_CAP };
+		expect(checkBudgets({ files: [], peopleViews: at })).toEqual([]);
+		expect(
+			checkBudgets({ files: [], peopleViews: { ...at, gzipBytes: PEOPLE_VIEWS_CAP + 1 } }),
+		).toHaveLength(1);
+	});
+
+	it('caps the chunk the heatmap and the lanes share', () => {
+		expect(CHUNK_CAPS.some((c) => c.pattern.test('WhichTask.DNL4xTRu.js'))).toBe(true);
 	});
 });
