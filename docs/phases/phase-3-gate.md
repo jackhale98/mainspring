@@ -7,10 +7,10 @@ batch, before the push.
 
 | Item                       | Now                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Last green commit on main | `9344d434` (branch run 44563997510, 2026-11-19; main fast-forwarded): the edge auto-scroll hold for every drag, the calendar scan and the split Health fix-kind tests, on top of the fidelity P4 fixes, T26 part 2, B4 and the fixed-wait slice 3; no test passed only on retry in that run |
-| Timing trend               | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression               |
+| Last green commit on main | `1b3c00d7` (branch run 44760368049, 2026-11-20; main fast-forwarded): T21's specs, the Health button's zero name, the group-row drop refusal, the manual CI start, and the sweep of waits that read a result from before the edit; then five manual runs on it, all green (see done-when item 1) |
+| Timing trend | 1. `d4150c6d` (run 44240034126, artifact `timing-232`): job green, no gross regression. 2. `6d43799c` (nightly 44728784645, `timing-nightly-9`): 14 passed, judge step green. 3. `1b3c00d7` (nightly 44896823472, `timing-nightly-10`): 14 passed, judge step green. 4. `1b3c00d7` (nightly 45016747623, `timing-nightly-11`): 14 passed, judge step green |
 | iPhone 14 skips left | None outside the allowlist (2026-11-19): B4 is done (health, health fixes, why-here and the health screenshots run on the iPhone 14 once the windowed Health list held still on WebKit, `anchor.ts`), so `PENDING_BATCHES` in `scripts/ci/webkit-skips.mjs` is empty and the scan fails on any iPhone skip outside the allowlist in every spec. Allowlist: 5 entries of at most 6 (1 `cdp-touch`, 4 `chromium-performance-api`) |
-| CI wall time | 17.7 min (run 44563997510): 217 job-minutes over 38 jobs against at most 20 concurrent runners, so the iPhone shards queued up to 7.7 min, and three iPhone shards ran 9.4 to 10.8 min on stale estimates (B4's unskipped Health specs). All three projects re-measured from that run's reports (2026-11-19): the plan's longest shard is now about 7 min. The iPhone project is about 120 of the 217 job-minutes; the 12 min target (ADR-0016 section 4) needs fewer iPhone worker-minutes, not more shards. The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble` |
+| CI wall time | 14.3 to 19.0 min over the five manual runs on `1b3c00d7` (16.3, 16.3, 14.3, 17.2, 19.0; runs 44807594259, 44828061086, 44983027206, 45043700692, 45054048787). About 215 job-minutes over 38 jobs against at most 20 concurrent runners; the iPhone project is about 120 of them, so the 12 min target (ADR-0016 section 4) needs fewer iPhone worker-minutes, not more shards. Durations re-measured 2026-11-19 (longest planned shard about 7 min). The e2e shards run in `mcr.microsoft.com/playwright:v1.64.1-noble` |
 
 How the iPhone skips are counted, so that the number is repeatable. A spec file counts when it has a
 `skip` call and also names the iPhone project or WebKit:
@@ -469,7 +469,13 @@ desktop.
 ## Done when (ADR-0016): recorded as each item is met
 
 1. Merge tier has no frame-rate or full-speed animation assertion: split done (see above). Five
-   reruns of the merge tier on one commit green, and three timing trend entries: not yet.
+   reruns of the merge tier on one commit green, and three timing trend entries: done (2026-11-22).
+   Five manual runs (`workflow_dispatch`, user) on `1b3c00d7`, all green: 44807594259,
+   44828061086, 44983027206, 45043700692, 45054048787, plus its push run 44760368049. One test
+   passed only on retry, in the fifth: the iPhone calendar axe scan caught the view switcher's
+   segment colour still easing (color-contrast on "Load"); the scan now waits for animations to end.
+   An earlier attempt on `6d43799c` failed in its second run (a rebalance read of the result from
+   before Redo), which led to the sweep of such waits. Timing trend entries 2 to 4 above.
 2. iPhone skips down to the allowlist: done (B1 to B5 done; `PENDING_BATCHES` is empty; 5 allowlist entries of at most 6).
 3. Contract specs for the six primitives: done (T25 above): pass on desktop, Pixel 7 and iPhone 14;
    `select-arrows.spec.ts` passes on all three and the global select rule is gone.

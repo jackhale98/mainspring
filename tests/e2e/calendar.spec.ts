@@ -22,7 +22,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { READY_TIMEOUT_MS, Rig, isTouch } from './lib/gantt-rig';
 import { modKey } from './lib/keys';
-import { frames, panelSettled } from './lib/settle';
+import { animationsDone, frames, panelSettled } from './lib/settle';
 import {
 	CROWD,
 	FEBRUARY_PLAN,
@@ -708,6 +708,8 @@ for (const scheme of ['light', 'dark'] as const) {
 		await openCalendar(page, info);
 		await showDay(page, '2026-11-26');
 		const scan = async (label: string): Promise<void> => {
+			// A colour still easing (the view switcher's segment, a selection) reads as low contrast.
+			await animationsDone(page, 2);
 			const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 			expect(
 				r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`),
