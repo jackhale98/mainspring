@@ -657,3 +657,28 @@ at the quiet half hour of a shared machine (load 1 to 4; at load 15 to 35 the fr
 - **Open (user or owner):** the Visual-first first load has 439 bytes under its cap; a Layout inside the
   first Workload paint's rAF callback (46 ms in a busy trace); the idle work at 4x. See the audit's
   "Open items".
+
+## T23: CI changes (13.3)
+
+Each row of phase-3.md 13.3 against `ci.yml` and `nightly.yml` at `d83dfcfa`. Two gaps were closed (marked
+"added"); the rest was already in place as the suites landed.
+
+| Row of 13.3 | Job and workflow lines | State | Evidence |
+| --- | --- | --- | --- |
+| `check`: new Phase 3 unit tests | `check`, `npm run test:unit` | was there | `vitest.config.ts` includes `src/**/*.test.ts` and `tests/**/*.test.ts`, so every Phase 3 unit test (workload, health, explain, calendar, `tests/golden`) runs; only the two engine-booting fidelity files are excluded, and `fidelity` runs them |
+| `check`: fedora-res generator `--check` | `check`, the step after `scale-1000.mjs --check` | added | `node engine/golden/generators/fedora-res.mjs --check` prints `fedora-res: 4 files match the generator`, exit 0 |
+| `golden`: schema v3, new goldens | `golden`, `npm run test:golden` (`tests/golden/parity.spec.ts`) | was there | `GOLDEN_SCHEMA_VERSION = 3` (`engine/golden/lib.mjs`); every file in `engine/golden/expected` has `schemaVersion` 3; the manifest holds `fedora-res`, 13 `workload` and 18 `health` plans and `loadCorpus()` reads the whole manifest; `tests/golden/corpus.test.ts` fails on a golden of another schema |
+| `fidelity`: `clearLeave` and `gapToTask` families | `fidelity`, `npm run test:fidelity`; nightly `fidelity-nightly` and `fidelity-merge` | was there | `leaveClearFamily` and `gapTaskFamily` are in `FAMILIES` (`tests/fidelity/families/index.ts`), so both are enforced and `PENDING` is empty; `harness.test.ts` fails if an intent type has no family; `fidelity-merge.mjs` fails a nightly with fewer than 5 edits of an enforced type. The `engine` job also runs `leave-gap.engine.test.ts` |
+| `fidelity`: fast-path suite on v3 | `fidelity`, step "Fast path equivalence" | was there | `fast-path.equivalence.test.ts` runs "every golden plan" from `loadCorpus()` (all v3), each fast result equal to a full run of the same text |
+| `e2e`: new specs on the matrix | `e2e` (desktop 5, pixel-7 6, iphone-14 18 shards) via `scripts/ci/shard-plan.mjs` | was there | `shard-plan.mjs files <project> <shard>` over all shards of each of the three projects lists `workload`, `workload-edits`, `workload-gate`, `workload-perf`, `workload-screenshots`, `health`, `health-fixes`, `health-fixtures`, `health-screenshots`, `people-shell`, `people-shell-screenshots`, `gantt-people-picker`, `people-picker-screenshots`; `shard-plan.mjs check` passes |
+| `e2e`: `workload-perf` desktop caps | `timing` (ci.yml, main only) and nightly `timing`, `--grep @timing` | was there | the desktop tests carry `{ tag: '@timing' }` (ADR-0016); `scripts/ci/timing-check.mjs` reads `workload-perf.json` |
+| `e2e`: Pixel 7 DOM-node cap | `e2e` merge tier (`--grep-invert @timing`) | was there | "the mounted Workload view stays under 800 DOM nodes on a phone" in `workload-perf.spec.ts` has no `@timing` tag, so it runs in the shards |
+| `e2e`: `js-sizes` reports the People chunk | `gates`, step "JS sizes" and the `js-sizes` artifact | was there | `CHUNK_CAPS` has the `people` chunk (`view: true`); `peopleViewsSize` totals the People view chunks; `loadsPeopleChunk` is checked per load |
+| `responsiveness`: `fedora-res` with the Workload view open | `responsiveness`, `npm run test:responsiveness` | was there | `playwright.responsiveness.config.ts` `testMatch` lists `workload-responsiveness.spec.ts`, which opens `/app?sample=fedora-res&mode=visual&view=workload`; the `responsiveness-*` artifact glob picks up its report |
+| `nightly.yml`: `workload-perf` throttled, with history | nightly `timing`: `--grep @timing` on desktop and pixel-7; artifact `timing-nightly-<run_number>` with `workload-perf.json`, 90 days | was there (history); summary added | The Pixel 7 test measures swipes and pinches at 1x and 4x CPU on every run. History is the Gantt's: one artifact per night, kept 90 days, no new store. Added: step "Summarise the Workload phone measures" (`scripts/workload-perf-summary.mjs`) prints the 1x and 4x rows into the step summary, as `gantt-perf-summary.mjs` does for the Gantt |
+
+Checks run locally: the generator `--check` (match); `scripts/workload-perf-summary.mjs` on a sample JSON
+(table printed); a YAML parse of the three workflows (`actionlint` is not installed); `tsc --noEmit`;
+`prettier --check`; `vitest run tests/ci` (296 passed); `shard-plan.mjs check`; `webkit-skips.mjs`;
+`fixed-waits.mjs` (30 in 15 files); `licenses.mjs`; `no-ruby.mjs`. No golden or fidelity job was changed;
+those rows were verified by reading.
