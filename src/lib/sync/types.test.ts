@@ -4,7 +4,7 @@
 // tests come with T7.
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Minutes, ScheduleResult } from '../../engine/protocol';
-import type { PendingWrite } from '../storage/store-types';
+import type { PendingWrite, StoredConflict } from '../storage/store-types';
 import type { Access, Location, StorageError } from '../storage/types';
 import type { TjpDiagnostic } from '../tjp/diagnostics-types';
 import type { SymbolIndex } from '../tjp/index';
@@ -43,6 +43,10 @@ describe('sync status and outcomes (6.3)', () => {
 		>();
 		expectTypeOf<Extract<SyncStatus, { kind: 'needs-access' }>['access']>().toEqualTypeOf<Access>();
 		expectTypeOf<Extract<SyncStatus, { kind: 'failed' }>['error']>().toEqualTypeOf<StorageError>();
+		// A store failure is told apart, so it outranks every other state (contract notes).
+		expectTypeOf<Extract<SyncStatus, { kind: 'failed' }>['where']>().toEqualTypeOf<
+			'store' | 'provider'
+		>();
 	});
 
 	it('names what a call came to', () => {
@@ -105,6 +109,10 @@ describe('the controller (6.3)', () => {
 		expectTypeOf<SyncController['queue']>().toEqualTypeOf<readonly PendingWrite[]>();
 		expectTypeOf<SyncController['conflict']>().toEqualTypeOf<ConflictState | null>();
 		expectTypeOf<ConflictState['merge']>().toEqualTypeOf<WorkspaceMerge>();
+		expectTypeOf<ConflictState['choices']>().toEqualTypeOf<readonly Resolution[]>();
+		// "Download both versions" needs theirs' text, not only the header.
+		expectTypeOf<ConflictState['theirs']>().toEqualTypeOf<StoredConflict['theirs']>();
+		expectTypeOf<CommitDraft['readded']>().toEqualTypeOf<readonly string[]>();
 		expectTypeOf<SyncController['draft']>().toEqualTypeOf<
 			(signal?: AbortSignal) => Promise<CommitDraft | null>
 		>();

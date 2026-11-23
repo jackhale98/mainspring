@@ -230,7 +230,9 @@ export interface StorageProvider<L extends ProviderLocation> {
 	 * a commit with `parents`, then the branch update with `force: false`, which GitHub refuses
 	 * unless it is a fast-forward: `moved`). folder: per file (7.2): each file's size and
 	 * `lastModified` are checked against the stamps of `base` before the first is written; any
-	 * difference is `moved`. An aborted write may be part done, as a failed one may.
+	 * difference is `moved`. A file only touched (same text) then merges cleanly and silently, so
+	 * 7.2's content comparison (19.14) is the merge's, not the provider's. An aborted write may be
+	 * part done, as a failed one may.
 	 */
 	write(loc: L, req: WriteRequest, signal?: AbortSignal): Promise<WriteResult>;
 }

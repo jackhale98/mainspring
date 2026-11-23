@@ -4,6 +4,7 @@
 // tests come with T4 (fake-indexeddb), the credentials' with T8.
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { ScheduleSummary } from '../sync/types';
+import type { Resolution } from '../tjp/merge/types';
 import type { SampleId } from '../workspace/samples';
 import type {
 	AccountInfo,
@@ -31,6 +32,7 @@ describe('added files (21, "New file")', () => {
 				['plan.tjp', 'project p "P" 2027-01-01 +1m {}\ninclude "parts/people.tji"\n'],
 			]),
 			lossy: new Set(),
+			kept: new Set(),
 			summary: null,
 		};
 		const added: WorkspacePath = 'parts/people.tji';
@@ -47,6 +49,8 @@ describe('added files (21, "New file")', () => {
 			base: base.revision,
 			files: new Map([...base.files, [added, 'resource dev "Dev"\n'], [notIncluded, '']]),
 			message: 'Plan: add parts/people.tji',
+			changed: new Set([added, notIncluded]),
+			summary: null,
 			checkedVersion: 2,
 		};
 		expect([...write.files.keys()]).toEqual(['plan.tjp', added, notIncluded]);
@@ -90,6 +94,10 @@ describe('codec and records (6.2)', () => {
 		expectTypeOf<SyncBase['files']>().toEqualTypeOf<ReadonlyMap<string, string>>();
 		expectTypeOf<SyncBase['lossy']>().toEqualTypeOf<ReadonlySet<string>>();
 		expectTypeOf<SyncBase['summary']>().toEqualTypeOf<ScheduleSummary | null>();
+		expectTypeOf<SyncBase['kept']>().toEqualTypeOf<ReadonlySet<string>>();
+		expectTypeOf<PendingWrite['summary']>().toEqualTypeOf<ScheduleSummary | null>();
+		expectTypeOf<PendingWrite['changed']>().toEqualTypeOf<ReadonlySet<string>>();
+		expectTypeOf<StoredConflict['choices']>().toEqualTypeOf<readonly Resolution[]>();
 		expectTypeOf<StoredConflict['theirs']>().toExtend<DecodedFiles>();
 		expectTypeOf<StoredConflict['theirs']['author']>().toEqualTypeOf<string | null>();
 	});
@@ -105,6 +113,7 @@ describe('codec and records (6.2)', () => {
 			revision: 'a1b2c3',
 			files: new Map([['plan.tjp', '﻿project p "P" 2027-01-01 +1m {}\r\n']]),
 			lossy: new Set(['lib/old.tji']),
+			kept: new Set(['lib/old.tji']),
 			summary: {
 				finish: 4800,
 				start: '2027-01-01T00:00:00Z',
@@ -119,6 +128,8 @@ describe('codec and records (6.2)', () => {
 			base: 'a1b2c3',
 			files: new Map(base.files),
 			message: 'Plan: 1 task moved',
+			changed: new Set(),
+			summary: base.summary,
 			checkedVersion: 3,
 		};
 		expect(structuredClone(base)).toEqual(base);

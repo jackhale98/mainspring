@@ -34,12 +34,17 @@
  *
  * Contract notes (T3):
  * - `StoredConflict` is not defined in 6.2. It holds the remote side as decoded text with its
- *   header data; the merge is computed again from it, the base and the workspace (8.3: "On Apply,
- *   the merge is computed again from the current text"), so no merge result is stored.
+ *   header data, and the choices made so far; the merge is computed again from it, the base and
+ *   the workspace (8.3: "On Apply, the merge is computed again from the current text"), so no
+ *   merge result is stored.
+ * - `SyncBase.kept`, `PendingWrite.changed` and `PendingWrite.summary` are added for sync (sync/types.ts): a file the
+ *   provider deleted is kept but never silently written back, and a queued write's summary is the
+ *   "before" of the next message once it is written.
  * - `SyncBase` and `StoredConflict.theirs` share `DecodedFiles` (the spec lists the fields).
  * - `PendingWrite.files` is the full checked snapshot (every workspace file, included or not,
- *   added ones too), not only the changed ones: a queued write's changed set is computed against
- *   the text it follows, and the queue's last snapshot is what a merge takes (7.3).
+ *   added ones too), not only the changed ones: the queue's last snapshot is what a merge takes
+ *   (7.3). `PendingWrite.changed` records the changed set when it is queued, because a pull can
+ *   move the base before the write is sent, and the text it followed is then no longer stored.
  * - `saveFiles`'s `version` orders writes within one store instance (one tab's session); the
  *   workspace version starts again at 0 after a reload, so it is not compared across sessions.
  * - `cleared()` is added for the eviction notice (9.4); 6.2 had no member for the marker.
@@ -51,6 +56,7 @@
  *   tokens, so views never hold one.
  */
 import type { ScheduleSummary } from '../sync/types';
+import type { Resolution } from '../tjp/merge/types';
 import type { SampleId } from '../workspace/samples';
 import type { Location, WorkspaceId, WorkspacePath } from './types';
 
@@ -84,9 +90,15 @@ export interface DecodedFiles {
 
 /**
  * The provider's text as last read or written (6.2): the base of every three-way merge and of the
- * writing rules. A browser-only plan has none.
+ * writing rules. A browser-only plan has none. `files` also holds the `kept` files, with their
+ * last base text, although `revision` lacks them.
  */
 export interface SyncBase extends DecodedFiles {
+	/**
+	 * Files the provider deleted that this plan keeps (sync/types.ts, "Files deleted on the
+	 * provider"): never written back while their text equals their text here. Usually empty.
+	 */
+	readonly kept: ReadonlySet<WorkspacePath>;
 	/**
 	 * The schedule of the base text, for the commit message's "before" (6.5); null when that text
 	 * was never scheduled as it is (a remote head taken in by a merge), which gives a message
@@ -100,12 +112,29 @@ export interface PendingWrite {
 	/** Unique in the plan's queue; what `SyncController.discardQueued` names. */
 	readonly id: string;
 	readonly createdAt: number;
-	/** The revision this write follows: the base, or for a later write the one before it. */
+	/**
+	 * The base's revision when it was queued. The oldest write follows that revision; each later
+	 * one follows the write before it, whose revision is not known until that one is written, so
+	 * the controller chains them at push time (sync/types.ts, "History"). When the base has moved
+	 * past `base` (a pull merged the remote head into the workspace meanwhile), the queue is already
+	 * in that merge and goes out under the merge commit.
+	 */
 	readonly base: string;
-	/** Every plan file's text as checked (contract notes); the changed set is computed from it. */
+	/** Every plan file's text as checked (contract notes). */
 	readonly files: ReadonlyMap<WorkspacePath, string>;
+	/**
+	 * The paths whose text differs from the text this write follows (the base's when queued, or
+	 * the write before it), worked out when it is queued: exactly what its write holds, so an
+	 * unchanged file (a `lossy` one above all, 18.11) is never written.
+	 */
+	readonly changed: ReadonlySet<WorkspacePath>;
 	/** The commit message (github); null for a folder. */
 	readonly message: string | null;
+	/**
+	 * The schedule of exactly this text (`SummarizeFn` of the check), or null: once this write is
+	 * written it becomes the base's `summary`, the "before" of the next write's message (6.5).
+	 */
+	readonly summary: ScheduleSummary | null;
 	/**
 	 * The workspace version whose engine result was ok for exactly this text (6.5). It names a
 	 * version of the session that queued it; after a reload it is a record only, and the text in
@@ -120,6 +149,11 @@ export interface StoredConflict {
 	readonly theirs: DecodedFiles & { readonly author: string | null; readonly at: number | null };
 	/** When the conflict was found, ms since the epoch. */
 	readonly foundAt: number;
+	/**
+	 * The user's choices so far, by `MergeConflict.id` (stable while base and theirs are fixed,
+	 * tjp/merge/types.ts), so "Later" and a reload keep them (8.3).
+	 */
+	readonly choices: readonly Resolution[];
 }
 
 /** What `LocalStore.open` returns: everything needed to restore a plan (7.1). */
