@@ -235,6 +235,8 @@ export const historyStrings = {
 	undone: (what: string, files: string) => `Undone: ${what} (${files})`,
 	redone: (what: string, files: string) => `Redone: ${what} (${files})`,
 	diverged: 'A file changed outside the undo history, so undo and redo were cleared.',
+	/** Undo right after a plan was reopened (phase-4.md 7.1): the history starts when it opens. */
+	reopened: 'Nothing to undo: the history starts again when a plan opens.',
 	shortcuts: {
 		undo: { mac: '⌘Z', other: 'Ctrl+Z' },
 		redo: { mac: '⇧⌘Z', other: 'Ctrl+Y' },
@@ -887,7 +889,18 @@ export const strings = {
 		/** The phone's status card: the same three choices as the toggle, as a group. */
 		appearance: 'Appearance',
 	},
-	notice: 'Changes stay in this tab until saving arrives. Reloading the page discards them.',
+	/**
+	 * Where the open plan is kept: the line at the foot of the outline or the window (phase-4.md
+	 * 7.1, 11.2). T14's status control replaces it.
+	 */
+	keep: {
+		sample: 'A sample. Your first change keeps a copy in this browser.',
+		stored: 'Only in this browser. Changes are kept as you make them.',
+		failed: 'Not kept: this browser refused the changes. They are only in this tab.',
+		readOnly: 'Read-only: this plan is open in another tab.',
+		/** A sample's copy, as the chooser lists it (18.7). */
+		copy: (label: string) => `${label} (copy)`,
+	},
 	panels: {
 		plan: 'Plan',
 		gantt: 'Gantt',

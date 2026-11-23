@@ -29,10 +29,22 @@
  * clears the mark and asks the Gantt to scroll the task's row into view. Following a rename and the
  * toast's "Show" in Visual mode (the source sheet) are here too.
  *
- * Samples load in memory; nothing is stored (Phase 4). So does a plan made with "New plan…"
- * (`openNewPlan`, ADR-0013): its key is `sampleId === 'new'`, it replaces the open plan the way a
- * sample does (asking first when that was edited), and `newPlanName` is what the chooser lists it
- * as, "Name (new)".
+ * Plans kept in the browser (phase-4.md 7.1, 18.7; app-storage.ts is the contract this class
+ * implements). Every plan that opens is stored and autosaved, except a sample, which opens unstored:
+ * its first change stores a copy, "Tutorial (copy)", and the sample never changes. A plan made with
+ * "New plan…" (`openNewPlan`, ADR-0013) is stored at once and listed as "Name (new)". On start the
+ * last plan opens (`LAST_PLAN_KEY`) unless the address names a sample; its undo history is empty,
+ * and the first undo says so. `planKey` is the plan part of the preference keys: a sample's id while
+ * it is unstored, `ws:<id>` once stored (`openSerial` tells a plan that opened from a key that
+ * changed, plan-follow.ts). One tab owns a stored plan (storage/lock.ts): a second tab shows it
+ * read-only (`heldElsewhere`), and "Open here instead" takes it over, which makes the first tab
+ * read-only (`readOnly`). Read-only, nothing edits: the edit dispatcher is closed, the history
+ * detached and the editor not editable. `keep` is what the footer's line says; a store that fails is
+ * shown (8.1 #8), and `dirty` is true while changes are only in this tab, which is when switching
+ * plans asks first. The store, the lock and autosave are a lazy chunk (plan-keeper.ts) that a
+ * visit which only reads a sample never fetches (12.1). Folders, files, GitHub, Save to…, the sync
+ * controller and the service worker's state are T5, T7, T8, T11 and T15's: until then those members
+ * answer that nothing is available.
  *
  * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
  * editor first mounts and then gives each workspace its editor support, so a Visual-first load
@@ -56,6 +68,7 @@ import type { EngineVersions, WorkspacePath } from '../../engine/protocol';
 import { editorStrings, strings } from '../strings';
 import type { FormatOutcome, HoverContent } from '../tjp/cm';
 import { NEW_PLAN_ID, SAMPLES, type Sample, type SampleWorkspace } from '../workspace/samples';
+import type { SampleId } from '../workspace/samples';
 import { cleanPlanName, newPlanText, type NewPlanSpec } from '../tjp/new-plan';
 import {
 	createScheduleRunner,
@@ -93,7 +106,14 @@ import {
 
 export type { SourceMark };
 import { statusView, type StatusView } from './status';
-import { browserStorage } from './storage';
+import { browserStorage, LAST_PLAN_KEY, MARKER_KEY, readPref, writePref } from './storage';
+import type { ListedStorage } from './storage';
+import { INITIAL_PWA_STATE, type PwaState } from '../../pwa/messages';
+import type { LocalStore } from '../storage/store-types';
+import type { StorageError, WorkspaceId } from '../storage/types';
+import type { SyncController, SyncOutcome } from '../sync/types';
+import type { AppStorageState } from './app-storage';
+import type { Acquire, KeeperHost, Kept, Opening, PlanKeeper } from './plan-keeper';
 
 export type PhoneTab = 'plan' | 'gantt' | 'people' | 'text';
 export type Phase = 'loading' | 'ready' | 'failed';
@@ -109,6 +129,15 @@ export interface Reveal {
 	/** False to scroll to the range and keep the selection (after an undo of typing). */
 	readonly select?: boolean;
 }
+
+/** Where the open plan is kept: what the footer's line says (`keepLine`). */
+export type KeepState =
+	/** A sample opened unstored: its first change stores a copy (18.7). */
+	| { readonly kind: 'sample' }
+	/** In this browser's store; `at` is the last autosave, null before the first. */
+	| { readonly kind: 'stored'; readonly at: number | null }
+	/** The store refused the last save or cannot be used: changes are only in this tab. */
+	| { readonly kind: 'failed'; readonly error: StorageError };
 
 /** What the shell (App.svelte) tells the app about the screen. */
 export interface Shell {
@@ -144,21 +173,43 @@ export interface AppStateOptions {
 	docs?: EngineDocsLoader;
 	/** The runner's idle timers; set only by the end-to-end hook (`createIndexGate`), never in production. */
 	idle?: Promise<Pick<Timers, 'requestIdle' | 'cancelIdle'>> | undefined;
+	/** The plans in this browser; default the IndexedDB store (storage/local-store.ts). */
+	store?: LocalStore;
+	/** The owner lock of a stored plan; default Web Locks' (storage/lock.ts). */
+	acquire?: Acquire;
+	/** Where the last plan and the preferences are kept; default `localStorage`. */
+	prefs?: ListedStorage | null;
 }
 
 /** How long a format message stays in the toolbar. */
 const NOTE_MS = 5000;
 
-export class AppState {
+export class AppState implements AppStorageState {
 	readonly client: EngineClient;
 	readonly samples: readonly Sample[];
 
-	/** The open plan's key: a sample's id, or `new` for a plan made with "New plan…". */
-	sampleId = $state('');
-	/** The name of the open plan when it was made with "New plan…", else null. */
-	newPlanName = $state<string | null>(null);
-	/** Counts the plans made with "New plan…", so a second one resets what a plan's key keeps. */
-	newPlanSerial = $state(0);
+	/**
+	 * The plan part of the open plan's preference keys (module comment): a sample's id while it is
+	 * open unstored, `new` for a new plan the store did not take, `ws:<id>` for a stored plan.
+	 */
+	planKey = $state('');
+	/** Grows each time a plan opens (another, or the same again), not when `planKey` alone changes. */
+	openSerial = $state(0);
+	/** The open plan was made with "New plan…" just now: it opens on the Gantt (ADR-0013). Not reactive. */
+	fresh = false;
+	/** The open plan's id in the store; null while it is not stored (a sample before its first change). */
+	storedId = $state<WorkspaceId | null>(null);
+	heldElsewhere = $state<WorkspaceId | null>(null);
+	readOnly = $state(false);
+	/** Where the open plan is kept (`keepLine`). */
+	keep = $state.raw<KeepState>({ kind: 'sample' });
+	/** The browser cleared the plans it kept (9.4): the notice shows until it is dismissed. */
+	cleared = $state(false);
+	/** The sync controller is T7's; until then no plan has one. */
+	readonly sync: SyncController | null = null;
+	/** The service worker's state is T11's. */
+	readonly pwa: PwaState = INITIAL_PWA_STATE;
+	#label = $state('');
 	/**
 	 * When an edit last deleted the plan's last task (ms), or 0. The empty state that appears then
 	 * takes the focus, which the deleted row held (EmptyState.svelte); a later one does not.
@@ -192,7 +243,10 @@ export class AppState {
 	/** The newest format message, shown briefly. */
 	note = $state<string | null>(null);
 	reveal = $state.raw<Reveal | null>(null);
-	/** True once the open plan has been edited, so replacing it needs a confirmation. */
+	/**
+	 * True while the open plan has changes that are only in this tab (the store refused them or
+	 * cannot be used), so switching plans or reloading asks first. Stored changes are not dirty.
+	 */
 	dirty = $state(false);
 	/** What the docs sheet shows: the documentation at the cursor when it was opened. */
 	docsContent = $state.raw<HoverContent | null>(null);
@@ -273,6 +327,33 @@ export class AppState {
 	#noteTimer: ReturnType<typeof setTimeout> | null = null;
 	readonly #confirm: (message: string) => boolean;
 	readonly #offClient: () => void;
+	readonly #prefs: ListedStorage | null;
+	readonly #keeperOptions: { store?: LocalStore | undefined; acquire?: Acquire | undefined };
+	#keeper: Promise<PlanKeeper> | null = null;
+	/** The open plan's keeping (plan-keeper.ts) once it started; `#starting` while it loads. */
+	#kept: Kept | null = null;
+	#starting: Promise<void> | null = null;
+	/** Why the store cannot be used, once it said so: plans then open as if unstored. */
+	#storeError: StorageError | null = null;
+	/** The open plan was reopened and nothing has changed since: an empty undo says why. */
+	#restored = false;
+	readonly #host: KeeperHost = {
+		saved: (k, st) => {
+			if (k !== this.#kept) return;
+			this.keep = st.kind === 'saved' ? { kind: 'stored', at: st.at } : st;
+			this.dirty = st.kind !== 'saved';
+		},
+		stored: (k, id, key, label) => {
+			if (k !== this.#kept) return;
+			this.planKey = key;
+			this.storedId = id;
+			this.#label = label;
+			writePref(this.#prefs, LAST_PLAN_KEY, this.planKey);
+		},
+		lost: (k) => {
+			if (k === this.#kept) this.#readOnlyNow();
+		},
+	};
 
 	constructor(opts: AppStateOptions = {}) {
 		this.client = opts.client ?? createEngineClient();
@@ -280,6 +361,8 @@ export class AppState {
 		this.#confirm = opts.confirm ?? ((m) => globalThis.confirm(m));
 		this.#docsOption = opts.docs ?? null;
 		this.#idle = opts.idle;
+		this.#prefs = opts.prefs === undefined ? browserStorage() : opts.prefs;
+		this.#keeperOptions = { store: opts.store, acquire: opts.acquire };
 		this.engine = this.client.state;
 		this.#offClient = this.client.onState((s) => (this.engine = s));
 		// Only the strip's text depends on it: a boot that fails shows no version, and says so elsewhere.
@@ -296,24 +379,127 @@ export class AppState {
 		});
 		const keys = opts.keyTarget === undefined ? (globalThis.window ?? null) : opts.keyTarget;
 		this.#offKeys = keys ? bindHistoryKeys(keys, this.history) : () => undefined;
-		const first = this.samples.find((s) => s.id === opts.initial) ?? this.samples[0];
-		if (first) void this.#load(first, null);
+		// On start: the sample the address names, else the last plan (18.7), else the first sample.
+		const asked = this.samples.find((s) => s.id === opts.initial) ?? null;
+		const last = asked ? null : readPref(this.#prefs, LAST_PLAN_KEY);
+		const first = asked ?? this.samples.find((s) => s.id === last) ?? this.samples[0];
+		if (last?.startsWith('ws:')) void this.#restore(last.slice(3), first);
+		else if (first) void this.#load(sampleOpening(first));
+		// Plans were kept here: were they cleared since (9.4)?
+		if (readPref(this.#prefs, MARKER_KEY) === '1') {
+			this.#keep()
+				.then((k) => k.cleared())
+				.then(
+					(c) => void (c && (this.cleared = true)),
+					(e: unknown) => this.#broken(e),
+				);
+		}
 	}
 
 	/** The open plan's name as the chooser and the phone's header show it. */
 	get planLabel(): string {
-		if (this.sampleId === NEW_PLAN_ID && this.newPlanName !== null) {
-			return strings.newPlan.listed(this.newPlanName);
-		}
-		return this.samples.find((s) => s.id === this.sampleId)?.label ?? '';
+		return this.#label;
 	}
 
-	/** Opens another sample; asks first when the open plan was edited. Returns whether it opened. */
+	/** The footer's line: where the open plan is kept (T14's status control replaces it). */
+	get keepLine(): string {
+		const k = strings.keep;
+		return this.readOnly ? k.readOnly : k[this.keep.kind];
+	}
+
+	/** Opens another sample (unstored); asks first when changes are only in this tab. */
 	async openSample(id: string): Promise<boolean> {
 		const sample = this.samples.find((s) => s.id === id) ?? null;
-		if (!sample || id === this.sampleId) return false;
-		if (this.dirty && !this.#confirm(strings.topBar.confirmSwitch)) return false;
-		return this.#load(sample, null);
+		if (!sample || id === this.planKey || !(await this.#leave())) return false;
+		return this.#load(sampleOpening(sample));
+	}
+
+	/**
+	 * Opens a stored plan with its text (7.1); the undo history is empty. When another tab has it,
+	 * it opens read-only, `heldElsewhere` is set and the result is false (app-storage.ts).
+	 */
+	async openStored(id: WorkspaceId, o: { readonly steal?: boolean } = {}): Promise<boolean> {
+		if (id === this.storedId && !this.readOnly) return true;
+		if (!(await this.#leave())) return false;
+		const token = ++this.#token;
+		const found = await this.#keep()
+			.then((k) => k.find(id, o.steal === true))
+			.catch((e: unknown) => void this.#broken(e));
+		const lock = found?.stored?.lock ?? null;
+		const ok = !!found && token === this.#token && (await this.#load(found));
+		if (!ok) lock?.release();
+		else if (!lock) this.heldElsewhere = id;
+		return ok && lock !== null;
+	}
+
+	/** Folders, files and GitHub are T5's, T8's and T15's: nothing opens yet. */
+	readonly openFolder = none;
+	readonly openFiles = none;
+	readonly openGitHub = none;
+
+	/** Save to… is T15's. */
+	saveTo(): Promise<SyncOutcome> {
+		return Promise.resolve({
+			kind: 'failed',
+			error: { kind: 'unsupported', retryAfterMs: null, detail: 'save-to' },
+		});
+	}
+
+	/** Opens the last plan; when it is gone (deleted, cleared), `fallback`. */
+	async #restore(id: string, fallback: Sample | undefined): Promise<void> {
+		if ((await this.openStored(id)) || this.heldElsewhere !== null || this.workspace) return;
+		if (fallback) await this.#load(sampleOpening(fallback));
+	}
+
+	/** The keeper chunk (plan-keeper.ts), loaded once; a failed load is tried again next time. */
+	#keep(): Promise<PlanKeeper> {
+		return (this.#keeper ??= import('./plan-keeper').then(
+			(m) => new m.PlanKeeper(this.#host, { ...this.#keeperOptions, prefs: this.#prefs }),
+			(e: unknown) => {
+				this.#keeper = null;
+				throw e;
+			},
+		));
+	}
+
+	/** Starts keeping the open workspace (`o` is how it opened). */
+	#startKeeping(ws: Workspace, o: Opening): void {
+		this.#starting = this.#keep().then(
+			(k) => {
+				// Not once the plan closed (another opened, or the app was disposed).
+				if (this.#current?.ws !== ws || this.readOnly) return;
+				const s = o.stored;
+				this.#kept = k.keep(ws, s?.id ?? null, s?.lock ?? null, o.unstored, this.planKey);
+			},
+			(e: unknown) => this.#broken(e),
+		);
+	}
+
+	/** Before another plan opens: stores what autosave holds, then asks if changes would be lost. */
+	async #leave(): Promise<boolean> {
+		await this.#starting;
+		await this.#kept?.flush();
+		return !this.dirty || this.#confirm(strings.topBar.confirmSwitch);
+	}
+
+	/** The store failed or cannot be used (a `StorageFailure`, or the chunk could not load). */
+	#broken(e: unknown): void {
+		const error = (e as { error?: StorageError } | null)?.error ?? {
+			kind: 'unsupported',
+			retryAfterMs: null,
+			detail: 'keeper',
+		};
+		this.#storeError = error;
+		if (this.storedId === null && this.workspace) this.keep = { kind: 'failed', error };
+	}
+
+	/** Nothing edits the plan in this tab any more (module comment). */
+	#readOnlyNow(): void {
+		this.#kept?.stop();
+		this.readOnly = true;
+		this.edits?.dispose();
+		this.history.attach(null);
+		this.#attachEditor();
 	}
 
 	/**
@@ -328,31 +514,52 @@ export class AppState {
 		} catch {
 			return false;
 		}
-		if (this.dirty && !this.#confirm(strings.topBar.confirmSwitch)) return false;
+		if (!(await this.#leave())) return false;
 		const name = cleanPlanName(spec.name);
-		this.newPlanSerial++;
-		return this.#load({ id: NEW_PLAN_ID, label: name, load: () => Promise.resolve(seed) }, name);
+		const unstored = {
+			name,
+			label: strings.newPlan.listed(name),
+			from: { newPlan: true } as const,
+		};
+		const made = await this.#keep()
+			.then((k) => k.create(unstored, seed))
+			.catch((e: unknown) => void this.#broken(e));
+		return this.#load(
+			made ?? {
+				key: NEW_PLAN_ID,
+				label: unstored.label,
+				load: () => Promise.resolve(seed),
+				stored: null,
+				unstored,
+				fresh: true,
+			},
+		);
 	}
 
-	async #load(sample: Sample, newName: string | null): Promise<boolean> {
+	async #load(o: Opening): Promise<boolean> {
 		const token = ++this.#token;
 		this.phase = 'loading';
 		this.loadError = null;
-		this.sampleId = sample.id;
-		this.newPlanName = newName;
+		this.planKey = o.key;
+		this.#label = o.label;
+		this.fresh = o.fresh === true;
+		this.openSerial++;
 		let seed: SampleWorkspace;
 		try {
-			seed = await sample.load();
+			seed = await o.load();
 		} catch {
 			if (token !== this.#token) return false;
 			this.phase = 'failed';
-			this.loadError = strings.topBar.loadFailed(sample.label);
+			this.loadError = strings.topBar.loadFailed(o.label);
 			return false;
 		}
 		if (token !== this.#token) return false;
 		const idle = await this.#idle;
 		if (token !== this.#token) return false;
 		this.#teardown();
+		// Editable again before the editor support is attached (#attachEditor reads it).
+		this.heldElsewhere = null;
+		this.readOnly = false;
 		const ws = createWorkspace(seed);
 		const runner = createScheduleRunner({
 			workspace: ws,
@@ -376,7 +583,12 @@ export class AppState {
 			onEmptied: () => (this.emptiedAt = Date.now()),
 		});
 		this.#unsubscribe = [
-			ws.subscribe(() => (this.dirty = true)),
+			ws.subscribe(() => {
+				this.#restored = false;
+				// A plan opened unstored is stored from its first change (18.7).
+				if (!this.#starting) this.#startKeeping(ws, o);
+				if (this.keep.kind === 'failed') this.dirty = true;
+			}),
 			runner.subscribe((s) => {
 				this.run = s;
 				this.#syncFiles(ws);
@@ -398,6 +610,18 @@ export class AppState {
 		this.#syncFiles(ws);
 		this.activeFile = seed.entry;
 		this.reveal = null;
+		const stored = o.stored;
+		const err = this.#storeError;
+		this.storedId = stored?.id ?? null;
+		this.keep = stored
+			? { kind: 'stored', at: null }
+			: err
+				? { kind: 'failed', error: err }
+				: SAMPLE;
+		this.#restored = o.restored === true;
+		if (o.key !== NEW_PLAN_ID) writePref(this.#prefs, LAST_PLAN_KEY, o.key);
+		if (stored && !stored.lock) this.#readOnlyNow();
+		else if (stored) this.#startKeeping(ws, o);
 		this.phase = 'ready';
 		return true;
 	}
@@ -436,6 +660,7 @@ export class AppState {
 				workspace: () => ws,
 				index: () => runner.state.index ?? null,
 				onFormat: (o) => this.#onFormat(o),
+				readOnly: this.readOnly,
 			}),
 		);
 	}
@@ -451,6 +676,10 @@ export class AppState {
 	}
 
 	#teardown(): void {
+		// What autosave still holds is stored, then the lock is given up (plan-keeper.ts).
+		this.#kept?.end();
+		this.#kept = null;
+		this.#starting = null;
 		this.#current = null;
 		this.edits?.dispose();
 		this.edits = null;
@@ -487,10 +716,13 @@ export class AppState {
 
 	/** After an undo or redo: reveal what changed, and name it unless it was typing here. */
 	#onHistory(o: HistoryOutcome, quiet = false): void {
-		if (o.status === 'empty') return;
-		if (o.status === 'diverged') {
-			this.#showNote(strings.history.diverged);
-			if (this.compactMessages) this.edits?.say(strings.history.diverged, true);
+		if (o.status !== 'done') {
+			// A reopened plan has no history yet (7.1): its first undo says why nothing happens.
+			if (o.status === 'diverged' || this.#restored) {
+				const say = strings.history[o.status === 'diverged' ? 'diverged' : 'reopened'];
+				this.#showNote(say);
+				if (this.compactMessages) this.edits?.say(say, true);
+			}
 			return;
 		}
 		const files = Object.keys(o.entry.applied.edit.changes);
@@ -871,6 +1103,22 @@ export class AppState {
 		this.client.dispose();
 	}
 }
+
+const SAMPLE: KeepState = { kind: 'sample' };
+
+/** A sample opens unstored; its first change stores "Label (copy)" (18.7). */
+function sampleOpening(sample: Sample): Opening {
+	const label = strings.keep.copy(sample.label);
+	return {
+		key: sample.id,
+		label: sample.label,
+		load: () => sample.load(),
+		stored: null,
+		unstored: { name: label, label, from: { sample: sample.id as SampleId } },
+	};
+}
+
+const none = (): Promise<boolean> => Promise.resolve(false);
 
 /** A touch screen: the editor does not take the focus (a touch keyboard would cover it). */
 function coarsePointer(): boolean {

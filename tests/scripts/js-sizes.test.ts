@@ -120,6 +120,8 @@ describe('checkBudgets', () => {
 				'HealthPanel.a.js',
 				'compute.a.js',
 				'run-export.a.js',
+				'plan-keeper.a.js',
+				'PlanNotice.a.js',
 			]),
 		).toEqual([]);
 	});

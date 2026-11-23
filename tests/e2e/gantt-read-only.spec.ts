@@ -349,12 +349,13 @@ test.describe('gantt', () => {
 		await expect(page.getByRole('dialog', { name: 'Outline' })).toBeVisible();
 	});
 
-	test('the outline is reachable in Split and Visual, and the unsaved-changes notice stays', async ({
+	test('the outline is reachable in Split and Visual, and the line about where the plan is kept stays', async ({
 		page,
 	}, info) => {
 		test.skip(info.project.name !== 'desktop', 'phones have the Plan tab');
 		await open(page);
-		const notice = page.getByText('Changes stay in this tab until saving arrives');
+		// Where the plan is kept (T4): in the footer once the outline is a drawer.
+		const notice = page.getByTestId('keep-line');
 		await expect(notice).toBeVisible();
 		for (const mode of ['Split', 'Visual']) {
 			await page.getByRole('button', { name: mode, exact: true }).click();

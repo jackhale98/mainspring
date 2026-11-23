@@ -61,6 +61,7 @@
 	import { RebalanceHost } from '../workload/rebalance-host.svelte';
 	import WhichTask from '../workload/WhichTask.svelte';
 	import WorkloadBar from '../workload/WorkloadBar.svelte';
+	import { followPlan } from '../../lib/state/plan-follow';
 	import { installLanesHook } from './lanes-hook';
 
 	interface Props {
@@ -89,9 +90,15 @@
 	let namesW = $state(0);
 	let sheetH = $state(0);
 
+	// The plan's preferences (lib/state/plan-follow.ts: a sample's copy keeps what it shows).
+	const follow = followPlan(
+		(k) => loads.use(k),
+		(k) => loads.rekey(k),
+	);
 	$effect(() => {
-		const id = app.sampleId;
-		untrack(() => loads.use(id));
+		const serial = app.openSerial;
+		const key = app.planKey;
+		untrack(() => follow(serial, key));
 	});
 	// A view that is not on screen builds nothing: it takes the newest result when it is shown again.
 	$effect(() => {
@@ -620,7 +627,7 @@
 	});
 	// A new plan or a changed frame: forget what is selected.
 	$effect(() => {
-		void app.sampleId;
+		void app.openSerial;
 		untrack(() => {
 			sel = focusRef = null;
 			detailsOpen = false;

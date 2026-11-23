@@ -78,6 +78,12 @@ export const CHUNK_CAPS = [
 	// fetched by the first use of the "More actions" menu's export entries and by no first load
 	// (3,356 bytes on 2026-11-23).
 	{ name: 'export', pattern: /^run-export\./, cap: 3_700, lazy: true },
+	// Plans kept in the browser (T4, phase-4.md 12.1): the local store, the owner lock and autosave,
+	// fetched when a plan has to be kept (a stored plan restores, a sample's first change, New plan),
+	// never by a first visit that only reads a sample (3,404 bytes on 2026-11-23).
+	{ name: 'keeper', pattern: /^plan-keeper\./, cap: 3_800, lazy: true },
+	// The notice under the top bar (read-only, cleared, not kept; 903 bytes on 2026-11-23).
+	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_100, lazy: true },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */

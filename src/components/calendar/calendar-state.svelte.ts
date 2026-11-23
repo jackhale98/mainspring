@@ -28,8 +28,8 @@ export class CalendarState {
 	anchor = $state<number | null>(null);
 	/** The selected person the view last looked at: only a change of it moves the scope. */
 	seenPerson: string | null = null;
-	/** The plan these were chosen for: another plan starts again. */
-	plan: string | null = null;
+	/** The plan opening these were chosen for (`AppState.openSerial`): another plan starts again. */
+	plan: number | null = null;
 
 	/** Shows another person's leave (or Everyone's); the type follows the scope's kinds. */
 	setScope(scope: PaintScope): void {

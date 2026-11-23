@@ -50,6 +50,7 @@
 	import { HeatGestures } from './heat-gestures.svelte';
 	import { HeatState } from './heat-state.svelte';
 	import { RebalanceHost } from './rebalance-host.svelte';
+	import { followPlan } from '../../lib/state/plan-follow';
 	import { installWorkloadHook } from './test-hook';
 	import WhichTask from './WhichTask.svelte';
 	import WorkloadBar from './WorkloadBar.svelte';
@@ -79,9 +80,14 @@
 	let sheetH = $state(0);
 
 	// The plan's preferences; the model from the newest good result, built in an idle task.
+	const follow = followPlan(
+		(k) => loads.use(k),
+		(k) => loads.rekey(k),
+	);
 	$effect(() => {
-		const id = app.sampleId;
-		untrack(() => loads.use(id));
+		const serial = app.openSerial;
+		const key = app.planKey;
+		untrack(() => follow(serial, key));
 	});
 	// A view that is not on screen builds nothing: it takes the newest result when it is shown again.
 	$effect(() => {
@@ -540,7 +546,7 @@
 	});
 	// A new plan or a changed frame: forget what is selected.
 	$effect(() => {
-		void app.sampleId;
+		void app.openSerial;
 		untrack(() => {
 			sel = focusRef = null;
 			detailsOpen = false;

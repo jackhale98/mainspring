@@ -38,6 +38,7 @@ import {
 	panelOf,
 	phoneOf,
 	sizes,
+	storedPlanKey,
 	storedSettings,
 } from './lib/health-rig';
 
@@ -156,8 +157,10 @@ task mid "Midpoint" {
 
 		await openSmall(page, info);
 		await setPlan(page, info, plan);
+		// The change stored the sample's copy, whose settings are its own (phase-4.md 18.7).
+		const key = await storedPlanKey(page, 'mainspring.health');
 		let panel = await openHealth(page, info);
-		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBeNull();
+		expect(await storedSettings(page, key)).toBeNull();
 		await panel.getByTestId('health-settings-button').click();
 		const toggle = panel.getByTestId('health-link-milestones');
 		await expect(toggle).not.toBeChecked();
@@ -169,14 +172,17 @@ task mid "Midpoint" {
 		await expect(heading(panel, `No predecessor, ${on.counts['no-predecessor']}`)).toHaveCount(1);
 		await expect(heading(panel, `No successor, ${on.counts['no-successor']}`)).toHaveCount(1);
 		// What is kept is only what differs from the defaults, under the plan's own key.
-		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBe('{"linkMilestones":true}');
+		expect(await storedSettings(page, key)).toBe('{"linkMilestones":true}');
+		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBeNull();
 
-		// A new visit reads it again (a reload brings the sample back, so the plan is typed again).
+		// A new visit reads it again: the reload opens the copy, with its text.
 		await page.reload();
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		await setPlan(page, info, plan);
+		await expect(page.getByRole('group', { name: 'Plan status' })).toContainText('Scheduled', {
+			timeout: READY_TIMEOUT_MS,
+		});
 		panel = await openHealth(page, info);
 		await expectTotal(page, info, panel, on.findings.length);
 		await panel.getByTestId('health-settings-button').click();
@@ -187,7 +193,7 @@ task mid "Midpoint" {
 		await expect(panel.getByTestId('health-link-milestones')).not.toBeChecked();
 		await panel.getByRole('button', { name: H.settings.back }).click();
 		await expectTotal(page, info, panel, off.findings.length);
-		expect(await storedSettings(page, SMALL_SETTINGS_KEY)).toBe('{}');
+		expect(await storedSettings(page, key)).toBe('{}');
 	});
 
 	test('thresholds and checks change what is reported; a bad threshold is refused', async ({

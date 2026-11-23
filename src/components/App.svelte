@@ -8,7 +8,7 @@
 	details dock and drawer, the toasts' room and the phone tabs together; splitting it would
 	scatter that wiring across files that only make sense together.
 
-	Modes (Text, Split, Visual) are per sample and remembered (src/lib/state/mode.svelte.ts);
+	Modes (Text, Split, Visual) are per plan and remembered (src/lib/state/mode.svelte.ts);
 	Cmd or Ctrl and 1, 2, 3 switch from anywhere. Text on a desktop shows the outline beside the
 	editor; tablets put the outline in a drawer. Split shows the editor and the Gantt side by side
 	with a draggable divider, stacked on a tablet (the Gantt above); Visual shows the Gantt alone.
@@ -58,7 +58,7 @@
 	import TabBar from './app/TabBar.svelte';
 	import Toasts from './app/Toasts.svelte';
 	import TopBar from './app/TopBar.svelte';
-	import { NEW_PLAN_ID } from '../lib/workspace/samples';
+	import { followPlan } from '../lib/state/plan-follow';
 	import { AppUpdates } from '../lib/state/updates.svelte';
 	import { sitePath } from '../lib/site-path';
 	import type { SourceRange } from '../lib/tjp/index';
@@ -104,24 +104,44 @@
 	/** What the phone's Plan tab keeps while it is unmounted (OutlineTree `view`). */
 	const planViews = { tasks: newOutlineView() };
 
-	// The preferences of the open sample: its mode and its divider.
-	$effect(() => {
-		const id = app.sampleId;
-		// A second new plan starts over, though its key is the same.
-		void app.newPlanSerial;
-		if (id === '') return;
-		untrack(() => {
+	// The preferences of the open plan: its mode and its dividers. A sample's copy keeps what it
+	// shows and only writes under its new key (lib/state/plan-follow.ts).
+	const followPrefs = followPlan(
+		(key) => {
 			// Another plan's outline starts at the top with nothing selected.
 			Object.assign(planViews.tasks, newOutlineView());
-			modes.use(id);
-			app.health.use(id);
-			// A new plan opens on the Gantt, whatever the shared `new` key holds (ADR-0013).
-			people.use(id, id === NEW_PLAN_ID);
+			modes.use(key);
+			app.health.use(key);
+			// A new plan opens on the Gantt, whatever its key holds (ADR-0013).
+			people.use(key, app.fresh);
 			// A phone starts on the tab of the remembered mode.
 			if (modes.choice !== null) app.phoneTab = phoneTabFor(modes.choice);
 			// A new plan opens on the Gantt tab: its Add task is how the plan begins (ADR-0013).
-			else if (id === NEW_PLAN_ID) app.phoneTab = 'gantt';
-		});
+			else if (app.fresh) app.phoneTab = 'gantt';
+		},
+		(key) => {
+			modes.rekey(key);
+			app.health.rekey(key);
+			people.rekey(key);
+		},
+	);
+	$effect(() => {
+		const serial = app.openSerial;
+		const key = app.planKey;
+		if (key === '') return;
+		untrack(() => followPrefs(serial, key));
+	});
+
+	// The address names a sample only while that sample is open unstored (`?sample=` opens it, the
+	// way a link does). Once another plan is open (the sample's copy, a new plan, another choice) the
+	// address drops it, so a reload opens the last plan (phase-4.md 18.7).
+	$effect(() => {
+		const key = app.planKey;
+		if (key === '' || !params.has('sample') || params.get('sample') === key) return;
+		params.delete('sample');
+		const url = new URL(location.href);
+		url.searchParams.delete('sample');
+		history.replaceState(history.state, '', url);
 	});
 
 	// Plan health reads the newest good result and the index of its text; the report is made in an
@@ -189,7 +209,9 @@
 		layout: typeof kind;
 	}> | null>(null);
 	$effect(() => {
-		if (showEditor && EditorPanel === null) {
+		// Not while the last plan is being restored (no plan key yet): until its remembered mode is
+		// known, the layout's default would show an editor that a Visual plan never needs.
+		if (showEditor && EditorPanel === null && app.planKey !== '') {
 			void import('./EditorPanel.svelte').then((m) => (EditorPanel = m.default));
 		}
 	});
@@ -202,8 +224,13 @@
 	$effect(() => {
 		if (!drawer) untrack(() => (app.outlineOpen = false));
 	});
-	/** The notice sits in the outline panel; where that is not on screen, it sits in the footer. Phones have neither. */
+	/**
+	 * The line about where the plan is kept sits in the outline panel; where that is not on screen,
+	 * it sits in the footer. Phones have neither: the notice under the top bar says what matters.
+	 */
 	const showNotice = $derived(!phone && !(kind === 'desktop' && mode === 'text'));
+	/** The notice under the top bar (PlanNotice.svelte, lazy): read-only, cleared, or not kept. */
+	const planNotice = $derived(app.readOnly || app.cleared || (phone && app.keep.kind === 'failed'));
 
 	let body: HTMLElement | undefined = $state();
 	const axis = $derived(kind === 'desktop' ? 'col' : 'row');
@@ -380,6 +407,13 @@
 
 <div class="app" data-layout={kind}>
 	<TopBar {app} {theme} layout={kind} {mode} {drawer} {updates} onmode={(m) => modes.set(m)} />
+	<div class="notice-slot">
+		<LazyMount
+			when={planNotice}
+			load={() => import('./app/PlanNotice.svelte')}
+			props={{ app, phone }}
+		/>
+	</div>
 	{#if phone}
 		<!-- A phone's messages are one compact line under the top bar, in the flow (Toasts.svelte). -->
 		<Toasts {app} phone />
@@ -440,7 +474,10 @@
 					<p class="message error" role="alert">{app.loadError}</p>
 				{:else if app.workspace && EditorPanel}
 					{#key app.workspace}
-						<EditorPanel {app} ws={app.workspace} layout={kind} />
+						<!-- Read-only (another tab has the plan): the editor is made again, not editable. -->
+						{#key app.readOnly}
+							<EditorPanel {app} ws={app.workspace} layout={kind} />
+						{/key}
 					{/key}
 				{:else}
 					<p class="message">{strings.topBar.loading}</p>
@@ -527,7 +564,7 @@
 		<div class="tab-dock" bind:this={tabDock}><TabBar {app} onchange={pickTab} /></div>
 	{:else}
 		<div class="footer" bind:this={footer}>
-			{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
+			{#if showNotice}<p class="notice" data-testid="keep-line">{app.keepLine}</p>{/if}
 			<StatusStrip {app} {updates} phone={false} quiet={showGantt} />
 		</div>
 	{/if}
@@ -567,7 +604,7 @@
 <style>
 	.app {
 		display: grid;
-		grid-template-rows: auto minmax(0, 1fr) auto auto;
+		grid-template-rows: auto auto minmax(0, 1fr) auto auto;
 		block-size: 100%;
 		max-block-size: 100dvh;
 		padding-inline: max(var(--gap-panel), env(safe-area-inset-left))
@@ -575,7 +612,7 @@
 		background: var(--color-bg);
 	}
 	.app[data-layout='phone'] {
-		grid-template-rows: auto auto minmax(0, 1fr) auto;
+		grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 		padding-inline: max(10px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-right));
 	}
 	/* The Gantt and its inspector side by side on a desktop; the body is what the Split divider
@@ -651,6 +688,10 @@
 	.grow {
 		flex: 1 1 0;
 		min-block-size: 0;
+	}
+	/* The notice under the top bar takes no room while it shows nothing. */
+	.notice-slot {
+		min-inline-size: 0;
 	}
 	/* The footer: the notice and the status strip on one floating bar, off the phone's panels. */
 	.footer {

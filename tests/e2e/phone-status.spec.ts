@@ -68,7 +68,8 @@ test.describe('the phone status button', () => {
 
 	test('the footer is gone, and the hidden group has no focusable control', async ({ page }) => {
 		await open(page);
-		await expect(page.getByText('Changes stay in this tab')).toHaveCount(0);
+		// No line about where the plan is kept: a phone has no footer (phase-4.md 7.1, T4).
+		await expect(page.getByTestId('keep-line')).toHaveCount(0);
 		await expect(page.locator('.footer')).toHaveCount(0);
 		// The group is there for assistive technology only, and has nothing to tab to.
 		const box = await group(page).boundingBox();
@@ -294,10 +295,13 @@ test.describe('the phone status button', () => {
 test.describe('desktop and tablet keep the strip', () => {
 	test.setTimeout(READY_TIMEOUT_MS + 60_000);
 
-	test('the footer, its notice and the engine button are still there', async ({ page }, info) => {
+	test('the footer, its line and the engine button are still there', async ({ page }, info) => {
 		test.skip(info.project.name !== 'desktop');
 		await open(page);
-		await expect(page.getByText('Changes stay in this tab until saving arrives')).toBeVisible();
+		// Where the plan is kept: a sample, which its first change copies into this browser (T4).
+		await expect(page.getByTestId('keep-line')).toHaveText(
+			'A sample. Your first change keeps a copy in this browser.',
+		);
 		await expect(group(page).getByTestId('engine-info')).toBeVisible();
 		await expect(page.getByTestId('status-button')).toHaveCount(0);
 		await page.getByTestId('engine-info').click();

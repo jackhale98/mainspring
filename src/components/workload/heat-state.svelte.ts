@@ -102,6 +102,11 @@ export class HeatState {
 		return { ...prefs, zoom: ZOOMS.find((z) => z === kept) ?? DEFAULT_HEAT_ZOOM };
 	}
 
+	/** The open plan's preferences are kept under another key from now on (plan-follow.ts). */
+	rekey(plan: string): void {
+		this.#plan = plan;
+	}
+
 	/** Switches to a plan's preferences (call when the open plan changes). */
 	use(plan: string): void {
 		if (plan === this.#plan) return;

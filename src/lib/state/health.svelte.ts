@@ -102,6 +102,14 @@ export class HealthState {
 		this.open = false;
 	}
 
+	/**
+	 * The open plan's settings are kept under another key from now on (its copy was stored, 18.7):
+	 * nothing it shows changes (plan-follow.ts).
+	 */
+	rekey(plan: string): void {
+		this.#plan = plan;
+	}
+
 	/** The newest good result and the index of its text; makes the report in an idle task. */
 	offer(result: ScheduleResult | null, index: SymbolIndex | null): void {
 		const cur = this.#input;
