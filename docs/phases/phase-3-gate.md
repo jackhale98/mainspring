@@ -46,7 +46,7 @@ and [Done when](#done-when-adr-0016-recorded-as-each-item-is-met).
 | `workload-gate.spec.ts`, `fedora-res`, week zoom, every group expanded, desktop | 28 rows x 88 weeks = **2464 cells compared, 0 differences** | gate run, job "End-to-end and accessibility (desktop 3/5)", log line `workload gate (desktop)` |
 | The same on Pixel 7 | 2464 cells, **0 differences** | gate run, job "pixel-7 6/6" |
 | The same on iPhone 14 (not required by 16.1) | 2464 cells, 0 differences | gate run, job "iphone-14 1/18" |
-| Live result equals the committed golden (parity), ignoring only the wall clock `/project/now` (user decision, T21) | 0 differences on desktop and Pixel 7 | the spec asserts it in CI; the counts are in `docs/phases/evidence/phase3-t24/workload-gate.json` (local run of the spec on `55695168`, desktop and Pixel 7, load 1 to 2, 4 of 4 passed). CI does not upload `workload-gate.json` |
+| Live result equals the committed golden (parity), ignoring only the wall clock `/project/now` (user decision, T21) | 0 differences on desktop and Pixel 7 | the spec asserts it in CI; the counts are in `docs/phases/evidence/phase3-t24/workload-gate.json` (local run of the spec on `55695168`, desktop and Pixel 7, load 1 to 2, 4 of 4 passed). The gate run did not upload `workload-gate.json`; later runs do (artifact `workload-gate-<project>-<shard>`) |
 | Golden parity job | 72 of 72 plans match their goldens (`fedora-res` included, fresh and shuffled) | gate run, artifact `golden-report` |
 | Engine's load data checked natively (T6 cross-check, 5.3) | tj3's own weekly resource report agrees with the golden's bookings, working time and leaves for every golden with resources. `golden:record` stops on any disagreement (`engine/golden/record-native.mjs`, `crossCheck` throws), and all 72 goldens were recorded through it. Last counts written down: 31 goldens with resources, 268 resource rows, 174,340 values (commit `399ab463`). The 31 goldens added in `bee485d9` (`fedora-res`, the workload and health fixtures) passed the same check when recorded, but that commit gives no counts | commits `dd8ff7b1`, `043fe035`, `399ab463`, `bee485d9` |
 | The Fedora plan itself (`upstream-fedora-20`) | It declares no resources; the Workload view says "No people in this plan yet". Zero cells, zero differences: stated, not counted as evidence | `workload-gate.spec.ts` test "upstream-fedora-20: no resources", passed in the gate run and locally; picture `t13-no-people-*` |
@@ -84,9 +84,19 @@ the unit oracle's findings, on desktop, Pixel 7 and iPhone 14 (gate run). On `fe
 241 findings: no-predecessor 26, no-successor 61, hard-constraint 7, long-gap 39, long-task 10,
 work-without-people 77, resource-warning 21.
 
-**Missing:** 16.2 asks for pictures of the health panel on each failing fixture (desktop) and on two of
-them (phone). No spec produces them; the health pictures are of `fedora-res` (`t18-health-panel-*`,
-six files) and of small plans (`t18-*`). They are not in this evidence.
+Pictures of the panel on each failing fixture, written by `health-fixture-screenshots.spec.ts`
+(SCREENSHOTS=1; it runs in the nightly `gated` job). Before each picture the spec asserts that the panel
+lists exactly one finding, of the fixture's own check, and says "1 problem". Desktop, all nine:
+`t24-health-h1-no-predecessor-fail-desktop-light.png`, `t24-health-h2-no-successor-fail-desktop-light.png`,
+`t24-health-h3-hard-constraint-fail-desktop-light.png`,
+`t24-health-h4-constraint-warning-fail-desktop-light.png`, `t24-health-h5-long-gap-fail-desktop-light.png`,
+`t24-health-h6-long-task-fail-desktop-light.png`, `t24-health-h7-held-by-people-fail-desktop-light.png`,
+`t24-health-h8-work-without-people-fail-desktop-light.png`,
+`t24-health-h9-resource-warnings-fail-desktop-light.png`. Phones, H1 and H7:
+`t24-health-h1-no-predecessor-fail-pixel-7-light.png`, `t24-health-h1-no-predecessor-fail-iphone-14-light.png`,
+`t24-health-h7-held-by-people-fail-pixel-7-light.png`, `t24-health-h7-held-by-people-fail-iphone-14-light.png`
+(all in `docs/phases/screenshots/phase-3/`). The fixture text is typed into the small `ui-people` plan, so
+the plan chip reads "Small plan: five people". The panel on `fedora-res` is `t18-health-panel-*`.
 
 ### Phase deliverables (16.3)
 
@@ -186,9 +196,9 @@ Growth over a session is T22's M2: 12 reschedules of `fedora-res` grow the wasm 
 6. **Polish items 20 and 21** are open (`docs/phases/phase-2-polish.md`).
 
 **Gaps in this evidence**, stated plainly:
-- The health panel pictures on each failing fixture (16.2) do not exist (see criterion 2).
-- CI does not upload `workload-gate.json`. The committed copy comes from a local run of the gate spec
-  on the gate commit; in CI the counts are in the job logs only.
+- The gate run did not upload `workload-gate.json`. The committed copy comes from a local run of the gate
+  spec on the gate commit; in the gate run the counts are in the job logs. Later runs upload it
+  (`ci.yml`, artifact `workload-gate-<project>-<shard>`, 30 days).
 - The native cross-check counts for the 31 goldens added in `bee485d9` were not written down. They
   passed, because recording stops on a disagreement.
 - Fedora's serializeMs grew by about 3.5% of total engine time (native), against "about none".

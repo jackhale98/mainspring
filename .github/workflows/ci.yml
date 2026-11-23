@@ -283,6 +283,15 @@ jobs:
           path: test-results/e2e-results.json
           if-no-files-found: ignore
           retention-days: 14
+      # The gate spec's counts (phase-3.md 16.1, 17): cells compared, differences, parity with the
+      # golden and the worker's memory. Only the shard that runs workload-gate.spec.ts writes it.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workload-gate-${{ matrix.project }}-${{ strategy.job-index }}
+          path: test-results/workload-gate.json
+          if-no-files-found: ignore
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
