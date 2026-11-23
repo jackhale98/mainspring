@@ -49,6 +49,9 @@ jobs:
       # Generated golden plans must match their generators (phase-2 T3; scale-1000 is phase-0 section 6.1).
       - run: node engine/golden/generators/gantt-plans.mjs --check
       - run: node engine/golden/generators/scale-1000.mjs --check
+      # The Fedora plan with a roster and leaves (phase-3 spec 18.1, 19.1): the generated copy and
+      # mainspring-load.tji must match the generator.
+      - run: node engine/golden/generators/fedora-res.mjs --check
       - uses: actions/upload-artifact@v4
         if: always()
         with:

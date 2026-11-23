@@ -348,6 +348,15 @@ jobs:
           if [ -f test-results/gantt-perf.json ]; then
             { echo '## Gantt frame times'; echo; echo '```'; node scripts/gantt-perf-summary.mjs; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
+      # The Workload view's phone swipes and pinches, unthrottled and at 4x CPU (workload-perf.spec.ts,
+      # phase-3 spec 13.3). The JSON goes up with the run as timing-nightly-<run> (90 days), which is
+      # the history; this table is its readable form.
+      - name: Summarise the Workload phone measures
+        if: always()
+        run: |
+          if [ -f test-results/workload-perf.json ]; then
+            { echo '## Workload view, Pixel 7 emulation (1x and 4x CPU)'; echo; node scripts/workload-perf-summary.mjs; } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: List tests that passed only on retry
         if: always()
         run: node scripts/ci/flaky-summary.mjs test-results/e2e-results.json timing >> "$GITHUB_STEP_SUMMARY"
