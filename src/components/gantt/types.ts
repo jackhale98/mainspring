@@ -17,3 +17,10 @@ export interface RowAction {
 	readonly aria?: string;
 	readonly show?: string;
 }
+
+/** The exports in the toolbar's "More actions" menu (phase-4.md 18.20): which can be chosen now. */
+export interface ExportEntries {
+	readonly png: boolean;
+	readonly csv: boolean;
+	readonly onexport: (kind: 'png' | 'csv') => void;
+}

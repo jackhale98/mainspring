@@ -453,6 +453,44 @@
 		);
 	});
 
+	/**
+	 * The "More actions" menu's exports (phase-4.md 18.20): the picture of what the chart shows now
+	 * and the tasks as CSV. Their code is fetched on the first use (lib/export/run-export.ts), not by a first load.
+	 */
+	function exportAs(kind: 'png' | 'csv'): void {
+		const shown = result;
+		if (!shown) return;
+		void import('../../lib/export/run-export').then(
+			(lib) =>
+				lib.runExport({
+					kind,
+					plan: shown.project?.name || app.planLabel,
+					phone: env.coarse,
+					say: (message) => app.edits?.say(message),
+					picture: () => ({
+						model,
+						layout,
+						theme: env.theme,
+						pxPerDay,
+						scrollLeft,
+						scrollTop,
+						viewW,
+						viewH,
+						namesW: nameColW,
+						todayMin: today,
+						heading: strings.grid.columns.name,
+					}),
+					tasks: () => ({
+						result: shown,
+						scenario: model.scenario,
+						chain,
+						symbol: (id) => app.index?.tasks.get(id),
+					}),
+				}),
+			() => app.edits?.say(gestureStrings.row.exportOffline),
+		);
+	}
+
 	function onscroll(): void {
 		if (!scroller) return;
 		scrollLeft = scroller.scrollLeft;
@@ -659,6 +697,11 @@
 			onclear: () => filter.clear(),
 		}}
 		rowActions={m.rowActions}
+		exports={{
+			png: model.scheduled && model.rows.length > 0 && viewW > 0 && viewH > 0,
+			csv: result !== null,
+			onexport: exportAs,
+		}}
 		lead={toolbarLead}
 		onpill={(h) => (pillH = h)}
 	/>
