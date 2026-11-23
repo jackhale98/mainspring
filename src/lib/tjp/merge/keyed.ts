@@ -1,0 +1,323 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * The statement-by-statement merge of a widened hunk (refine.ts; types.ts "Refinement").
+ *
+ * The elements of each side are aligned by a three-way diff of their tokens: the key when it is
+ * unique among the hunk's elements on every side, else the key with the statement's text (so
+ * repeated statements such as two `depends` align only where they are equal). A statement that
+ * moved on one side while the other side changed the hunk too (or moved it as well) makes the
+ * whole hunk one conflict: a move is a delete and an add to the diff, which would otherwise
+ * lose the other side's edit or declare it twice. Then, per run of the token diff:
+ * - aligned elements merge one by one (statement.ts);
+ * - a run changed on one side merges cleanly when the other side left its text alone; a run one
+ *   side deleted while the other changed it gives, per changed element, `block` `deleted-*` or an
+ *   `attribute` conflict with that side null;
+ * - one element per side with the same key, or one attribute each (a statement replaced by
+ *   another on both sides), merge as aligned elements;
+ * - runs both sides added at one place keep what they added alike at their start and end; the
+ *   rest is classified as types.ts says: the same key (`added-twice`, or an `attribute`
+ *   conflict for a statement), attributes with different keys in a block (clean, ours first),
+ *   blocks with different ids (`added-twice` with `both`);
+ * - anything else is one conflict over the run's whole elements (emit.ts `wholeConflict`), so
+ *   either choice takes one side's statements whole.
+ */
+import type { SyntaxNode } from '@lezer/common';
+import type { Element } from './elements';
+import {
+	emit,
+	emitMerged,
+	wholeConflict,
+	SIDES,
+	textOf,
+	type Cx,
+	type Parent,
+	type SideIx,
+	type Tri,
+} from './emit';
+import { attrName, blockKind } from './hints';
+import { alignable, element } from './statement';
+import { diffIndices } from 'node-diff3';
+import { diff3Regions, type IxRange } from './lines';
+import type { Rng } from './out';
+
+export interface Seq {
+	readonly els: readonly Element[];
+	readonly start: number;
+	readonly end: number;
+}
+
+const whole = (e: Element): Rng => ({ from: e.from, to: e.to });
+
+function tokens(cx: Cx, seqs: Tri<Seq>): Tri<string[]> {
+	const counts = SIDES.map((s) => {
+		const m = new Map<string, number>();
+		for (const e of seqs[s].els) if (e.key !== null) m.set(e.key, (m.get(e.key) ?? 0) + 1);
+		return m;
+	});
+	const unique = (k: string): boolean => counts.every((m) => (m.get(k) ?? 0) <= 1);
+	return SIDES.map((s) =>
+		seqs[s].els.map((e) => {
+			if (e.kind !== 'stmt') return `\u0001${e.kind}`;
+			if (e.key !== null && unique(e.key)) return `\u0003${e.key}`;
+			return `\u0002${e.key ?? ''}\u0000${textOf(cx, s, { from: e.lead, to: e.to }).trim()}`;
+		}),
+	) as unknown as Tri<string[]>;
+}
+
+/** Merges the elements of a widened hunk into `cx.out` (module comment). */
+export function keyedMerge(cx: Cx, seqs: Tri<Seq>, parent: Parent): void {
+	const [to, ta, tb] = tokens(cx, seqs);
+	if (moved(cx, seqs, [to, ta, tb])) {
+		wholeConflict(
+			cx,
+			SIDES.map((s) => ({ from: seqs[s].start, to: seqs[s].end })) as unknown as Tri<Rng>,
+			parent,
+		);
+		return;
+	}
+	for (const g of diff3Regions(to, ta, tb)) {
+		const ix: Tri<IxRange> = [g.o, g.a, g.b];
+		const run = SIDES.map((s) => seqs[s].els.slice(ix[s][0], ix[s][1])) as unknown as Tri<
+			Element[]
+		>;
+		const pos = SIDES.map((s) => {
+			const e = seqs[s].els[ix[s][0]];
+			return e ? e.from : seqs[s].end;
+		}) as unknown as Tri<number>;
+		if (g.kind === 'same') {
+			for (let i = 0; i < run[0].length; i++) {
+				element(cx, [run[0][i], run[1][i], run[2][i]] as Tri<Element>, parent);
+			}
+		} else runMerge(cx, run, pos, parent);
+	}
+}
+
+/** Keys (unique ones) of side `s` that sit elsewhere among the keys it shares with the base. */
+function movedOn(o: readonly string[], x: readonly string[]): Set<string> {
+	const keyed = (t: readonly string[], other: ReadonlySet<string>): string[] =>
+		t.filter((k) => k.startsWith('\u0003') && other.has(k));
+	const so = new Set(o);
+	const sx = new Set(x);
+	const out = new Set<string>();
+	for (const h of diffIndices(keyed(o, sx), keyed(x, so)))
+		for (const k of h.buffer2Content) out.add(k);
+	return out;
+}
+
+/**
+ * Whether a statement moved on one side while the other side changed the hunk too (or moved it as
+ * well). Token diff3 sees a move as a delete and an add, which would lose the other side's edit
+ * of it or declare it twice; the hunk is one line conflict of whole elements instead.
+ */
+function moved(cx: Cx, seqs: Tri<Seq>, t: Tri<string[]>): boolean {
+	const ma = movedOn(t[0], t[1]);
+	const mb = movedOn(t[0], t[2]);
+	if (ma.size === 0 && mb.size === 0) return false;
+	const text = (s: SideIx): string => textOf(cx, s, { from: seqs[s].start, to: seqs[s].end });
+	if (ma.size > 0 && mb.size > 0) return true;
+	return text(ma.size > 0 ? 2 : 1) !== text(0);
+}
+
+const span = (els: readonly Element[], at: number): Rng =>
+	els.length > 0
+		? { from: (els[0] as Element).from, to: (els[els.length - 1] as Element).to }
+		: { from: at, to: at };
+
+const single = (e: Element | undefined): SyntaxNode | null =>
+	e && e.kind === 'stmt' && e.stmts.length === 1 ? (e.stmts[0] as SyntaxNode) : null;
+
+function runMerge(cx: Cx, run: Tri<Element[]>, pos: Tri<number>, parent: Parent): void {
+	const r = SIDES.map((s) => span(run[s], pos[s])) as unknown as Tri<Rng>;
+	if (emitMerged(cx, r)) return;
+	const [o, a, b] = run;
+	if (o.length > 0 && (a.length === 0) !== (b.length === 0)) {
+		// One side deleted the run: each element the other side changed is a conflict.
+		const kept: SideIx = a.length === 0 ? 2 : 1;
+		const k = run[kept];
+		const same = (i: number): boolean =>
+			textOf(cx, 0, whole(o[i] as Element)) === textOf(cx, kept, whole(k[i] as Element));
+		const keyed = (i: number): boolean => {
+			const eo = o[i] as Element;
+			return eo.kind === 'stmt' && eo.key !== null && eo.key === k[i]?.key;
+		};
+		if (o.length === k.length && o.every((_, i) => same(i) || keyed(i))) {
+			o.forEach((eo, i) => {
+				if (!same(i)) deleted(cx, kept === 2 ? 1 : 2, eo, k[i] as Element, pos, parent);
+			});
+			return;
+		}
+	}
+	if (o.length === 1 && a.length === 1 && b.length === 1) {
+		const e = [o[0], a[0], b[0]] as Tri<Element>;
+		if (alignable(cx, e)) {
+			// The same statement changed on both sides, or one statement replaced on both sides
+			// by another (a sizing criterion written as `duration` instead of `effort`).
+			element(cx, e, parent);
+			return;
+		}
+	}
+	if (o.length === 0) {
+		// Both added: what both added alike at the start or the end merges as it is.
+		const same = (i: number, j: number): boolean =>
+			textOf(cx, 1, whole(a[i] as Element)) === textOf(cx, 2, whole(b[j] as Element));
+		let p = 0;
+		while (p < a.length && p < b.length && same(p, p)) p++;
+		let q = 0;
+		while (q < a.length - p && q < b.length - p && same(a.length - 1 - q, b.length - 1 - q)) q++;
+		if (p > 0) emit(cx, 1, span(a.slice(0, p), pos[1]));
+		const mid: Tri<Element[]> = [[], a.slice(p, a.length - q), b.slice(p, b.length - q)];
+		const at = (s: 1 | 2): number => (run[s][p] ?? { from: r[s].to }).from;
+		const midPos: Tri<number> = [pos[0], at(1), at(2)];
+		if (mid[1].length === 0 || mid[2].length === 0) {
+			emit(cx, 1, span(mid[1], midPos[1]));
+			emit(cx, 2, span(mid[2], midPos[2]));
+		} else addedTwice(cx, mid, midPos, parent);
+		if (q > 0) emit(cx, 1, span(a.slice(a.length - q), r[1].to));
+		return;
+	}
+	wholeConflict(cx, r, parent);
+}
+
+/** An element one side deleted while the other changed it (`deletedOn` is the side without it). */
+function deleted(
+	cx: Cx,
+	deletedOn: 1 | 2,
+	eo: Element,
+	ek: Element,
+	pos: Tri<number>,
+	parent: Parent,
+): void {
+	const kept: SideIx = deletedOn === 1 ? 2 : 1;
+	const so = single(eo);
+	const sk = single(ek);
+	if (!so || !sk) {
+		const r: Tri<Rng> = [
+			whole(eo),
+			kept === 1 ? whole(ek) : { from: pos[1], to: pos[1] },
+			kept === 2 ? whole(ek) : { from: pos[2], to: pos[2] },
+		];
+		wholeConflict(cx, r, parent);
+		return;
+	}
+	const keptText = cx.sides[kept].text;
+	const change = deletedOn === 1 ? 'deleted-ours' : 'deleted-theirs';
+	if (blockKind(sk)) {
+		const text = textOf(cx, kept, whole(ek));
+		const at = cx.out.push(text);
+		cx.out.conflict({
+			subject: { kind: 'block', owner: cx.naming.owner(sk, keptText), change },
+			base: textOf(cx, 0, whole(eo)),
+			ours: deletedOn === 1 ? null : text,
+			theirs: deletedOn === 2 ? null : text,
+			at,
+			atOurs: deletedOn === 1 ? { from: pos[1], to: pos[1] } : whole(ek),
+			atBase: whole(eo),
+			both: false,
+		});
+		return;
+	}
+	const subject = { kind: 'attribute', owner: parent.owner, attr: attrName(sk, keptText) } as const;
+	const base = textOf(cx, 0, so);
+	if (deletedOn === 1) {
+		const p = cx.out.pos;
+		cx.out.conflict({
+			subject,
+			base,
+			ours: null,
+			theirs: textOf(cx, 2, sk),
+			at: { from: p, to: p },
+			atOurs: { from: pos[1], to: pos[1] },
+			atBase: { from: so.from, to: so.to },
+			both: false,
+		});
+		return;
+	}
+	emit(cx, 1, { from: ek.from, to: sk.from });
+	const at = emit(cx, 1, sk);
+	cx.out.conflict({
+		subject,
+		base,
+		ours: textOf(cx, 1, sk),
+		theirs: null,
+		at,
+		atOurs: { from: sk.from, to: sk.to },
+		atBase: { from: so.from, to: so.to },
+		both: false,
+	});
+	emit(cx, 1, { from: sk.to, to: ek.to });
+}
+
+/** Runs both sides added at the same place (module comment). */
+function addedTwice(cx: Cx, run: Tri<Element[]>, pos: Tri<number>, parent: Parent): void {
+	const [, a, b] = run;
+	const r = SIDES.map((s) => span(run[s], pos[s])) as unknown as Tri<Rng>;
+	const stmts = [...a, ...b].map(single);
+	if (stmts.some((s) => s === null) || [...a, ...b].some((e) => e.key === null)) {
+		wholeConflict(cx, r, parent);
+		return;
+	}
+	const atBase = { from: pos[0], to: pos[0] };
+	const keysB = new Set(b.map((e) => e.key));
+	if (a.some((e) => keysB.has(e.key))) {
+		const sa = single(a[0]);
+		const sb = single(b[0]);
+		if (a.length !== 1 || b.length !== 1 || !sa || !sb || !!blockKind(sa) !== !!blockKind(sb)) {
+			wholeConflict(cx, r, parent);
+			return;
+		}
+		const ea = a[0] as Element;
+		if (blockKind(sa)) {
+			const at = emit(cx, 1, whole(ea));
+			cx.out.conflict({
+				subject: {
+					kind: 'block',
+					owner: cx.naming.owner(sa, cx.sides[1].text),
+					change: 'added-twice',
+				},
+				base: null,
+				ours: textOf(cx, 1, whole(ea)),
+				theirs: textOf(cx, 2, whole(b[0] as Element)),
+				at,
+				atOurs: whole(ea),
+				atBase,
+				both: false,
+			});
+			return;
+		}
+		emit(cx, 1, { from: ea.from, to: sa.from });
+		const at = emit(cx, 1, sa);
+		cx.out.conflict({
+			subject: { kind: 'attribute', owner: parent.owner, attr: attrName(sa, cx.sides[1].text) },
+			base: null,
+			ours: textOf(cx, 1, sa),
+			theirs: textOf(cx, 2, sb),
+			at,
+			atOurs: { from: sa.from, to: sa.to },
+			atBase,
+			both: false,
+		});
+		emit(cx, 1, { from: sa.to, to: ea.to });
+		return;
+	}
+	const kinds = (stmts as SyntaxNode[]).map(blockKind);
+	if (parent.inBlock && kinds.every((k) => k === null)) {
+		emit(cx, 1, r[1]);
+		emit(cx, 2, r[2]);
+		return;
+	}
+	if (kinds.every((k) => k === 'task' || k === 'resource')) {
+		const at = emit(cx, 1, r[1]);
+		cx.out.conflict({
+			subject: { kind: 'block', owner: parent.owner, change: 'added-twice' },
+			base: null,
+			ours: textOf(cx, 1, r[1]),
+			theirs: textOf(cx, 2, r[2]),
+			at,
+			atOurs: r[1],
+			atBase,
+			both: true,
+		});
+		return;
+	}
+	wholeConflict(cx, r, parent);
+}
