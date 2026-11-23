@@ -43,3 +43,19 @@ patch, and the keyword table built from TaskJuggler's documentation). Those file
 from GPL-2.0-only code, so they carry `SPDX-License-Identifier: GPL-2.0-only` and a header line
 naming the TaskJuggler source they follow. All other Mainspring files stay GPL-2.0-or-later. The
 distributed app is GPL-2.0 either way.
+
+## Amendment 2026-11-23: Phase 4 decisions (user, Phase 4 approval)
+
+Source: `docs/phases/phase-4.md` section 18, items 18.4, 18.5 and 18.13, and section 20. The
+decisions are recorded in ADR-0019 and ADR-0020.
+
+- **Dexie is not used (18.5).** Storage uses a small IndexedDB wrapper of Mainspring's own (ADR-0019
+  #5). The Dexie open issue above is closed.
+- **OpenSSL path (18.13).** The chosen path is a custom ruby.wasm built without the openssl
+  extension (task T13), which is the recommended option above. Accepting OpenSSL by ADR is the
+  fallback. It is not taken. The Pages site and any later staging ship only the new build. The
+  ADR-0006 exception ends when that build ships on Pages. The open issue above stays open until then,
+  and it still blocks a real release.
+- **Mycelium is not copied wholesale (18.4).** Task T2 first confirms sole authorship. After that,
+  only pieces that fit the interfaces are reused, likely the diff3 helpers, relicensed
+  GPL-2.0-or-later. The check for outside contributions above still applies to any copied code.

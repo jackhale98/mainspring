@@ -41,3 +41,17 @@ purpose.
   reloads the page.
 - Unsaved edits are still lost on reload until saving arrives in Phase 4. The confirmation says
   so.
+
+## Amendment 2026-11-23: unsaved edits and the service worker's update (Phase 4)
+
+Source: `docs/phases/phase-4.md` sections 7.1 and 9.1, with section 20. The storage decision is
+recorded in ADR-0019, and the update flow in ADR-0020.
+
+- **The consequence above no longer holds.** Every opened plan is stored in the browser (IndexedDB)
+  and reopened after a reload with its exact text, its sync base and its queue. Edits survive a
+  reload.
+- **Decision 5 changes for the update.** The Reload in the update flow sends `skip-waiting` to a
+  waiting service worker, then reloads on `controllerchange`. It asks first only while a save or a
+  commit is in flight, or while the conflict view is open.
+- **Decision 6 is in use.** A new service worker that is waiting drives the same "New version ·
+  Reload" control. The `version.json` check stays, and it also calls `registration.update()`.

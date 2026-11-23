@@ -33,3 +33,13 @@ and 14).
 - The Phase 1 gate's "byte for byte" criterion holds for 40 of the 41 corpus files, and
   text-exact for the one file with invalid bytes.
 - Diagnostics in the editor carry a derived column with a precision flag.
+
+## Amendment 2026-11-23: invalid UTF-8 on save (Phase 4, item 18.11)
+
+Source: `docs/phases/phase-4.md` section 18, item 18.11, approved with section 20. Decision 1 above
+left the question to Phase 4. The decision is recorded in ADR-0019 #11.
+
+- A file that has not changed is never written on save, so its invalid bytes are never touched.
+- A changed file that had invalid bytes asks first. The question reads: "plan.tji will be saved with
+  replacement characters where it had bytes that are not UTF-8".
+- Decoding is unchanged (ADR-0002 #13). Invalid bytes still become U+FFFD when the file is read.

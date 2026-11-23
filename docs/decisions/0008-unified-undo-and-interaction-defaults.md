@@ -62,6 +62,20 @@ Three interaction defaults are also open:
 - Preferences are local to one browser. Nothing is synced, and no plan text leaves the
   device through this path.
 
+## Amendment 2026-11-23: plan storage, undo after merges and preference keys (Phase 4)
+
+Source: `docs/phases/phase-4.md` section 6.7 and section 18, item 18.8, with section 20. The
+decisions are recorded in ADR-0019.
+
+- **#1, undo after pulled or reloaded text (18.8).** Text that comes from a merge, or is reloaded
+  from disk, is applied through `Workspace.apply` as one labelled undo step: "Merged changes from
+  GitHub" or "Reloaded from disk". Both stacks are kept. The clearing rule of #1 does not apply to
+  these two cases. This amendment covers no other case.
+- **#3, storage (6.7, ADR-0019).** The statement "No plan text is ever stored" no longer holds.
+  Phase 4 stores every opened plan in IndexedDB, and sync carries plan files only. Preferences move
+  from per-sample keys to per-plan keys, `ws:<id>`. The existing sample keys are read once as
+  defaults. The move preference is still stored once per browser.
+
 ## Amendment 2026-11-13: the Gantt table divider (user)
 
 In the Visual view the task table and the chart are split by a divider the user drags, like the
