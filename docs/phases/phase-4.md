@@ -854,3 +854,40 @@ repository that already had one.
 | --- | --- | --- | --- | --- |
 | T27a | `addInclude` intent, `Workspace.addFile`, name validation, fidelity family, engine test | `grammar-specialist`; `reviewer` with an engine reproduction | `src/lib/tjp/edit/include-add.ts`, `types.ts`, `src/lib/workspace/workspace.ts`, `tests/fidelity/families/**` | T3; before T7 in track C |
 | T27b | "New file…" in the file switcher, the sheet, the "Not included" mark, strings | `ui-builder` | `FileSwitcher.svelte`, `src/components/storage/NewFileSheet.svelte`, `strings*.ts` | T27a; with T15 |
+
+## 22. Amendments from T3 (the interface PR, 2026-11-23)
+
+The settled contracts are in `src/lib/storage/{types,store-types}.ts`, `src/lib/storage/github/{endpoints,schemas}.ts`,
+`src/lib/sync/types.ts`, `src/lib/tjp/merge/types.ts`, `src/lib/workspace/run-types.ts`, `src/pwa/messages.ts` and
+`src/lib/state/app-storage.ts`. Where they differ from section 6, the contract files win. The differences:
+
+- **A file deleted on the remote is kept** (review decision; 8.1 #5 and section 21). The merge never drops a file
+  that only one side deleted: unchanged on the other side, it is kept with its base text and the merge is clean;
+  changed, it is a `file` conflict. The sync base lists such files (`SyncBase.kept`) and does not write them back
+  while their text is unchanged; a changed one is added again and the Commit sheet names it (`CommitDraft.readded`).
+  If its `include` line went with it, the switcher shows it as "Not included". Only a file deleted on both sides
+  leaves the result.
+- **Merge (6.4).** `mergeWorkspace` takes a fourth parameter, `MergeContext { includes }` (ours' include graph), and
+  `mergeFile` is the per-file unit so the controller can split the work. Refinement also runs at a file's top
+  level. Conflict ids come from the file, the subject, the region's range in the base and its text on theirs, so
+  they survive a merge computed again from newer local text and change when theirs moves. `MergeConflict.both`
+  says whether "Keep both" is allowed; `atOurs` is where "Edit…" opens.
+- **13.1's commutation property** leaves out two adds at the same place in the same parent: by rule 3 that is a
+  conflict offering Keep both, not a clean merge (T21).
+- **Applying pulled text (18.8).** After autosave has finished: files the workspace lacks are added with
+  `Workspace.addFile(path, text)` outside the undo step; everything else is one `Workspace.apply` with a label;
+  `'stale'` means merge again; `saveFiles` finishes before `setBase`. So `Workspace.addFile` (T27a) takes the
+  file's text, not only an empty file.
+- **History (18.10).** Queued commits are chained through `WriteResult.moved.commit`. A merge commit writes a
+  checked workspace version; `sync()` makes it unasked only when no local changes follow the queue, otherwise it
+  waits for `save()`.
+- **Status order (6.3).** A store failure outranks everything; then working, conflict, blocked, provider failure,
+  queued (also when it waits for access), needs-access, changes, saved or browser-only.
+- **Saving to a folder never waits for or asks about the schedule check** (18.9).
+- **Additions to 6.1 and 6.2:** `RemoteSnapshot.author` and `at`; `StorageFailure` for `head` and `read`; limits of
+  2 MiB per file and 8 MiB per plan; `PendingWrite.changed` and `summary`; `StoredConflict` (theirs as text, the
+  user's choices; the merge is recomputed); `LocalStore.cleared()`; the plan lock's `steal` and `lost`;
+  `CredentialStore.accounts()` without tokens; the `branches` endpoint; the sign-in relay paths, which T10
+  confirms.
+- **Summary (6.5).** `summarize` takes the index of the checked snapshot itself, never the published index
+  (ADR-0018). `ScheduleCheck` carries the record and a failure.
