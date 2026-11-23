@@ -10,9 +10,10 @@
  *   `diff3MergeRegions` does (hunks that overlap or touch in `o` form one region), but keeps every
  *   side's range, which `diff3MergeRegions` drops for one-sided regions, so callers can map a
  *   region back to each text.
- * - The two-way diffs cut common ends and split large chunks at patience-diff anchors (lines
- *   that occur once on each side), so `diffIndices` only sees small chunks: Hunt-McIlroy's cost
- *   grows with repeated lines such as `}`, which a plan has thousands of (12.2 budget).
+ * - The two diffs are made together (`split3`): large chunks are split at lines that occur once
+ *   in each of the three lists (patience diff's anchors), so `diffIndices` only sees small chunks
+ *   (Hunt-McIlroy's cost grows with repeated lines such as `}`, which a plan has thousands of;
+ *   12.2), and both diffs see the same chunks, so an edit both sides made alike is merged once.
  * - A `conflict` region whose two sides are equal (a false conflict) is reported as such; the
  *   caller decides (equal lines merge cleanly; equal keys need not mean equal statements).
  */
@@ -66,12 +67,10 @@ interface Hunk {
 	readonly xE: number;
 }
 
-/** Chunks at most this many cells (lines of one side times the other's) go to diffIndices whole. */
+/** Chunks at most this many cells (lines of the base times the longer side's) go to diffIndices. */
 const SMALL = 4096;
 
-/**
- * The longest increasing run of `ys` over pairs sorted by x (patience sorting), as pair indices.
- */
+/** The longest increasing run of `ys` (patience sorting), as indices into `ys`. */
 function increasing(ys: readonly number[]): number[] {
 	const tails: number[] = [];
 	const prev: number[] = new Array<number>(ys.length).fill(-1);
@@ -98,83 +97,23 @@ function increasing(ys: readonly number[]): number[] {
 	return out.reverse();
 }
 
-/**
- * The two-way diff of `o[oS, oE)` and `x[xS, xE)` as hunks, appended to `out`. Common ends are
- * cut; a large chunk is split at the lines that occur once on each side and in the same order
- * (patience diff's anchors), so `diffIndices` (Hunt-McIlroy, whose cost grows with repeated
- * lines) only ever sees the small chunks between anchors.
- */
-function diff2(
-	o: readonly string[],
-	x: readonly string[],
-	oS: number,
-	oE: number,
-	xS: number,
-	xE: number,
-	isA: boolean,
-	out: Hunk[],
-): void {
-	while (oS < oE && xS < xE && o[oS] === x[xS]) {
-		oS++;
-		xS++;
-	}
-	while (oE > oS && xE > xS && o[oE - 1] === x[xE - 1]) {
-		oE--;
-		xE--;
-	}
-	if (oS === oE && xS === xE) return;
-	if (oS === oE || xS === xE || (oE - oS) * (xE - xS) <= SMALL) {
-		if (oS === oE || xS === xE) {
-			out.push({ a: isA, oS, oE, xS, xE });
-			return;
-		}
-		diff2Small(o, x, oS, oE, xS, xE, isA, out);
-		return;
-	}
-	const seen = new Map<string, { o: number; oi: number; x: number; xi: number }>();
-	for (let i = oS; i < oE; i++) {
-		const l = o[i] as string;
-		const e = seen.get(l);
-		if (e) e.o++;
-		else seen.set(l, { o: 1, oi: i, x: 0, xi: -1 });
-	}
-	for (let j = xS; j < xE; j++) {
-		const e = seen.get(x[j] as string);
-		if (e) {
-			e.x++;
-			e.xi = j;
-		}
-	}
-	const pairs: Array<[number, number]> = [];
-	for (const e of seen.values()) if (e.o === 1 && e.x === 1) pairs.push([e.oi, e.xi]);
-	pairs.sort((p, q) => p[0] - q[0]);
-	const run = increasing(pairs.map((p) => p[1]));
-	if (run.length === 0) {
-		diff2Small(o, x, oS, oE, xS, xE, isA, out);
-		return;
-	}
-	let po = oS;
-	let px = xS;
-	for (const k of run) {
-		const [ai, aj] = pairs[k] as [number, number];
-		diff2(o, x, po, ai, px, aj, isA, out);
-		po = ai + 1;
-		px = aj + 1;
-	}
-	diff2(o, x, po, oE, px, xE, isA, out);
-}
+/** A chunk of the three line lists: [o0, o1), [a0, a1), [b0, b1). */
+type Chunk = [number, number, number, number, number, number];
 
-/** A chunk without anchors: `diffIndices` on it whole. */
-function diff2Small(
+/** The two-way hunks of a chunk without anchors: `diffIndices` on it whole, or one hunk. */
+function pairwise(
 	o: readonly string[],
 	x: readonly string[],
-	oS: number,
-	oE: number,
-	xS: number,
-	xE: number,
+	c: [number, number, number, number],
 	isA: boolean,
 	out: Hunk[],
 ): void {
+	const [oS, oE, xS, xE] = c;
+	if (oS === oE && xS === xE) return;
+	if (oS === oE || xS === xE) {
+		out.push({ a: isA, oS, oE, xS, xE });
+		return;
+	}
 	for (const h of diffIndices(o.slice(oS, oE), x.slice(xS, xE))) {
 		out.push({
 			a: isA,
@@ -186,10 +125,91 @@ function diff2Small(
 	}
 }
 
-function hunks(o: readonly string[], x: readonly string[], isA: boolean): Hunk[] {
-	const out: Hunk[] = [];
-	diff2(o, x, 0, o.length, 0, x.length, isA, out);
-	return out;
+/**
+ * The hunks of `a` and `b` against `o` in one chunk, appended to `ha` and `hb`. A large chunk is
+ * split at the lines that occur once in each of the three lists, in the same order in all
+ * (patience diff's anchors, made three-way), and each piece is diffed whole by `diffIndices`,
+ * both ways, as `diff3Merge` would diff it: both two-way diffs see the same pieces, so an edit
+ * the two sides made alike lands on the same base lines and is merged once. Ends are not cut
+ * two-way, nor three-way: a cut decides alone where an edit among repeated lines goes (two-way
+ * it applied a shared edit twice; three-way it moved edits next to each other, a conflict that
+ * `diff3Merge` does not have).
+ */
+function split3(
+	o: readonly string[],
+	a: readonly string[],
+	b: readonly string[],
+	c: Chunk,
+	ha: Hunk[],
+	hb: Hunk[],
+	limit: number,
+): void {
+	const [oS, oE, aS, aE, bS, bE] = c;
+	const small = (oE - oS) * Math.max(aE - aS, bE - bS) <= limit;
+	const anchors = small ? [] : anchorsOf(o, a, b, [oS, oE, aS, aE, bS, bE]);
+	if (anchors.length === 0) {
+		pairwise(o, a, [oS, oE, aS, aE], true, ha);
+		pairwise(o, b, [oS, oE, bS, bE], false, hb);
+		return;
+	}
+	let p: [number, number, number] = [oS, aS, bS];
+	for (const [i, j, k] of anchors) {
+		split3(o, a, b, [p[0], i, p[1], j, p[2], k], ha, hb, limit);
+		p = [i + 1, j + 1, k + 1];
+	}
+	split3(o, a, b, [p[0], oE, p[1], aE, p[2], bE], ha, hb, limit);
+}
+
+/** Lines once in each list's chunk, as (o, a, b) indices increasing in all three. */
+function anchorsOf(
+	o: readonly string[],
+	a: readonly string[],
+	b: readonly string[],
+	c: Chunk,
+): Array<[number, number, number]> {
+	const seen = new Map<string, [number, number, number, number, number, number]>();
+	const count = (
+		xs: readonly string[],
+		from: number,
+		to: number,
+		side: 0 | 1 | 2,
+		add: boolean,
+	): void => {
+		for (let i = from; i < to; i++) {
+			const l = xs[i] as string;
+			let e = seen.get(l);
+			if (!e) {
+				if (!add) continue;
+				e = [0, -1, 0, -1, 0, -1];
+				seen.set(l, e);
+			}
+			e[side * 2] = (e[side * 2] as number) + 1;
+			e[side * 2 + 1] = i;
+		}
+	};
+	count(o, c[0], c[1], 0, true);
+	count(a, c[2], c[3], 1, false);
+	count(b, c[4], c[5], 2, false);
+	const triples: Array<[number, number, number]> = [];
+	for (const e of seen.values())
+		if (e[0] === 1 && e[2] === 1 && e[4] === 1) triples.push([e[1], e[3], e[5]]);
+	triples.sort((x, y) => x[0] - y[0]);
+	const byA = increasing(triples.map((t) => t[1])).map(
+		(k) => triples[k] as [number, number, number],
+	);
+	return increasing(byA.map((t) => t[2])).map((k) => byA[k] as [number, number, number]);
+}
+
+function hunks3(
+	o: readonly string[],
+	a: readonly string[],
+	b: readonly string[],
+	limit: number,
+): Hunk[] {
+	const ha: Hunk[] = [];
+	const hb: Hunk[] = [];
+	split3(o, a, b, [0, o.length, 0, a.length, 0, b.length], ha, hb, limit);
+	return [...ha, ...hb].sort((x, y) => x.oS - y.oS);
 }
 
 /** The range one side covers in a region, from its hunks there, or `o` shifted by its offset. */
@@ -213,8 +233,10 @@ export function diff3Regions(
 	o: readonly string[],
 	a: readonly string[],
 	b: readonly string[],
+	/** Chunks up to this many cells are diffed whole (tests lower it to exercise the anchors). */
+	limit = SMALL,
 ): Region[] {
-	const all = [...hunks(o, a, true), ...hunks(o, b, false)].sort((x, y) => x.oS - y.oS);
+	const all = hunks3(o, a, b, limit);
 	const out: Region[] = [];
 	let cur = 0;
 	let da = 0;

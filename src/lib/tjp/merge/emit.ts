@@ -6,18 +6,22 @@
  * `lineMerge` is the plain three-way merge on lines of one range per side: what diff3 proves
  * clean is merged, and every other hunk is a line conflict holding ours. Its subject is
  * `block` `both-edited` of the block the lines lie in (the parent's, or for a file's top level
- * the innermost task, resource or project whose braces hold them), else `text` (with `both`).
+ * the innermost task, resource or project whose braces hold them), else `text` (with `both`,
+ * unless the two sides hold the same task or resource: keeping both would declare it twice).
  * `wholeConflict` is one such conflict over whole elements, without diffing inside them, where
  * refinement cannot split a hunk: a line diff could cut through blocks and pair half of one
  * side's block with the other side's, so a choice would not be well formed.
  */
 import type { SyntaxNode, Tree } from '@lezer/common';
-import { blockKind, type Naming } from './hints';
+import { blockKind, statementKey, type Naming } from './hints';
 import { diff3Regions, lineStarts, merge3, splitLines, trueConflict } from './lines';
 import type { Out, Rng } from './out';
 import type { ConflictSubject, Owner } from './types';
 
 export type Tri<T> = readonly [T, T, T];
+
+/** A piece of merge work that pauses (yields) between steps (types.ts rule 5). */
+export type Step = Generator<void, void, void>;
 export type SideIx = 0 | 1 | 2;
 export const SIDES: Tri<SideIx> = [0, 1, 2];
 
@@ -43,13 +47,26 @@ export interface Cx {
 	readonly sides: Tri<SideText>;
 	readonly naming: Naming;
 	readonly out: Out;
-	/** Merges a span into `cx.out` (refine.ts `mergeSpan`), for a block edited on both sides. */
-	readonly span: (cx: Cx, spans: Tri<Span>, parent: Parent) => void;
+	/**
+	 * Merges a span into `cx.out` (refine.ts `mergeSpan`), for a block edited on both sides, in
+	 * steps (types.ts rule 5): it pauses after each line diff of a large span.
+	 */
+	readonly span: (cx: Cx, spans: Tri<Span>, parent: Parent) => Step;
 }
 
 export const textOf = (cx: Cx, s: SideIx, r: Rng): string => cx.sides[s].text.slice(r.from, r.to);
 
+/**
+ * Appends a side's text. Text that starts a line on its side starts one in the merge too: when
+ * the text before it came from the other side without a line end (ours dropped the file's last
+ * line break, theirs appended a task), a line break is put between (review L5), the file's own
+ * (`\r\n` where that side's line before it has one).
+ */
 export function emit(cx: Cx, s: SideIx, r: Rng): Rng {
+	const text = cx.sides[s].text;
+	if (r.to > r.from && r.from > 0 && text[r.from - 1] === '\n' && !cx.out.atLineStart) {
+		cx.out.push(text[r.from - 2] === '\r' ? '\r\n' : '\n');
+	}
 	return cx.out.push(textOf(cx, s, r));
 }
 
@@ -87,6 +104,38 @@ function enclosingBlock(cx: Cx, r: Tri<Rng>): { side: SideIx; stmt: SyntaxNode }
 	return null;
 }
 
+/** The keys of the tasks and resources declared in `r` of one side, nested ones too. */
+function blocksIn(cx: Cx, s: SideIx, r: Rng): Set<string> {
+	const out = new Set<string>();
+	const text = cx.sides[s].text;
+	cx.sides[s].tree.iterate({
+		from: r.from,
+		to: r.to,
+		enter: (n) => {
+			if (n.from < r.from || n.to > r.to) return undefined;
+			const k = blockKind(n.node);
+			if ((k === 'task' || k === 'resource') && n.node.getChild('Id')) {
+				const key = statementKey(n.node, text);
+				if (key) out.add(key);
+			}
+			return undefined;
+		},
+	});
+	return out;
+}
+
+/**
+ * Whether ours' and theirs' lines declare a task or resource in common (a block reordered,
+ * wrapped or moved): "Keep both" would then declare it twice, so it is not offered (L1).
+ */
+export function shareBlocks(cx: Cx, r: Tri<Rng>): boolean {
+	if (r[1].to <= r[1].from || r[2].to <= r[2].from) return false;
+	const mine = blocksIn(cx, 1, r[1]);
+	if (mine.size === 0) return false;
+	for (const k of blocksIn(cx, 2, r[2])) if (mine.has(k)) return true;
+	return false;
+}
+
 export function lineSubject(cx: Cx, r: Tri<Rng>, parent: Parent): ConflictSubject {
 	if (parent.inBlock) return { kind: 'block', owner: parent.owner, change: 'both-edited' };
 	const b = enclosingBlock(cx, r);
@@ -120,7 +169,7 @@ export function lineMerge(cx: Cx, r: Tri<Rng>, parent: Parent): void {
 				at,
 				atOurs: ranges[1],
 				atBase: ranges[0],
-				both: subject.kind === 'text',
+				both: subject.kind === 'text' && !shareBlocks(cx, ranges),
 			});
 		}
 	}
@@ -142,6 +191,6 @@ export function wholeConflict(cx: Cx, r: Tri<Rng>, parent: Parent): void {
 		at,
 		atOurs: r[1],
 		atBase: r[0],
-		both: subject.kind === 'text',
+		both: subject.kind === 'text' && !shareBlocks(cx, r),
 	});
 }

@@ -6,7 +6,9 @@
 // - laws: merge(b, x, b) = x, merge(b, b, x) = x and merge(b, x, x) = x, clean;
 // - swapping ours and theirs gives the same conflicts with their sides swapped;
 // - commutation: intents on different tasks that do not insert at one place merge cleanly, equal
-//   to applying B on top of A (and A on top of B for the swapped merge);
+//   to applying B on top of A (and A on top of B for the swapped merge); and edits aimed at one
+//   task or at adjacent lines (most reach refinement: the count is printed) merge the same way,
+//   or are one attribute conflict when they set the same value;
 // - a clean merge of sides that parse has no syntax issue; a merge with conflicts holds ours in
 //   each region, and every region parses again after Take mine or Take theirs where both sides do;
 // - one attribute set both ways is one attribute conflict naming it: Take mine gives ours, Take
@@ -22,6 +24,7 @@ import { statementsIn } from '../tree';
 import { blockKind, statementKey } from './hints';
 import type { EditIntent } from '../edit/types';
 import {
+	adjacentSides,
 	addsAtSamePlace,
 	applyTo,
 	drawIntent,
@@ -34,6 +37,8 @@ import {
 	type Texts,
 } from './sides-testing';
 import { contextOf, filesOf, resolveAll } from './testing';
+import { trueConflict } from './lines';
+import { lined } from './refine';
 import { mergeWorkspace } from '../../sync/merge';
 import { ENFORCED } from '../../../../tests/fidelity/families';
 import type { MergeConflict, WorkspaceMerge } from './types';
@@ -172,6 +177,54 @@ describe('merge properties (13.1)', { timeout: 300_000 }, () => {
 		);
 		console.info(`commutation: ${checked} pairs checked`);
 		expect(checked).toBeGreaterThan(0);
+	});
+
+	it('edits aimed at one task or at adjacent lines merge as B on top of A (refinement)', () => {
+		let checked = 0;
+		let refined = 0;
+		fc.assert(
+			fc.property(seeds, (seed) => {
+				const s = adjacentSides(seed);
+				fc.pre(s !== null && issues(s.p, s.p.files) === 0);
+				if (!s) return;
+				const why = `${s.p.name}: ${JSON.stringify(s.a.intent)} / ${JSON.stringify(s.b.intent)}`;
+				const ab = merge(s.p, s.p.files, s.a.files, s.b.files);
+				const ba = merge(s.p, s.p.files, s.b.files, s.a.files);
+				const reach = Object.keys(s.p.files).some((f) => {
+					const l = lined([s.p.files[f] ?? '', s.a.files[f] ?? '', s.b.files[f] ?? '']);
+					return l.regions.some((r) => trueConflict(r, l.lines[1], l.lines[2]));
+				});
+				const ia = s.a.intent;
+				const ib = s.b.intent;
+				const sizing = (x: string): string =>
+					['effort', 'duration', 'length'].includes(x) ? 'sizing' : x;
+				if (ia.type === 'setAttr' && ib.type === 'setAttr' && sizing(ia.attr) === sizing(ib.attr)) {
+					if (JSON.stringify(ia.value) === JSON.stringify(ib.value)) return;
+					expect(
+						ab.conflicts.map((c) => c.subject.kind),
+						why,
+					).toEqual(['attribute']);
+					checked++;
+					if (reach) refined++;
+					return;
+				}
+				expect(ab.conflicts, why).toEqual([]);
+				expect(ba.conflicts, why).toEqual([]);
+				const ca = s.a.changes?.changes ?? [];
+				const cb = s.b.changes?.changes ?? [];
+				if (!addsAtSamePlace(ca, cb)) {
+					const bOnA = applyTo(s.p, s.a.files, ib);
+					const aOnB = applyTo(s.p, s.b.files, ia);
+					if (bOnA) expect(plain(ab), why).toEqual(bOnA.files);
+					if (aOnB) expect(plain(ba), why).toEqual(aOnB.files);
+				}
+				checked++;
+				if (reach) refined++;
+			}),
+			opts,
+		);
+		console.info(`adjacent edits: ${checked} pairs checked, ${refined} reached refinement`);
+		expect(refined).toBeGreaterThan(checked / 10);
 	});
 
 	it('a clean merge parses; conflicts hold ours; Take mine and Take theirs parse', () => {

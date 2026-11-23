@@ -6,7 +6,8 @@
 // which parses and refines), cold and computed again from newer ours (8.3). Like the other timing tests, it asserts only a sanity bound ten
 // times the target; the timing tier enforces the budget in the browser.
 import { describe, expect, it } from 'vitest';
-import { mergeWorkspace } from '../../sync/merge';
+import { mergeFileSteps } from '../../sync/merge';
+import { createWorkspace } from '../../workspace/workspace';
 import type { EditIntent } from '../edit/types';
 import type { Change } from '../../../../tests/fidelity/families/types';
 import {
@@ -21,7 +22,6 @@ import {
 	type Plan,
 	type Texts,
 } from './sides-testing';
-import { contextOf, filesOf } from './testing';
 
 const TARGET_MS = 50;
 const SANITY = 10;
@@ -74,18 +74,21 @@ describe.each(PLANS)('%s', (id) => {
 			const apply = applier(p, p.files);
 			const ours = side(p, apply, 11, 20, taken, made);
 			const theirs = side(p, apply, 23, 20, taken, made);
-			const ctx = contextOf(p.entry, ours.files);
 			/**
-			 * Timings over 15 runs (the first 3 dropped). `fresh` marks the files of the sides it
-			 * names with a comment line of the run, so their texts are new to the merge: 'all' is a
-			 * first merge, 'ours' the merge computed again from newer local text (8.3).
+			 * Timings over 15 runs (the first 3 dropped), each file merged by `mergeFileSteps` as the
+			 * sync controller runs it: the whole merge, and its longest step. `fresh` marks the files
+			 * of the sides it names with a comment line of the run, so their texts are new to the
+			 * merge: 'all' is a first merge, 'ours' the merge computed again from newer local text
+			 * (8.3). `trees` passes ours' trees, parsed by the workspace, as the controller does.
 			 */
 			const run = (
 				o: Texts,
 				t: Texts,
 				fresh: 'all' | 'ours',
-			): { ms: number[]; conflicts: number } => {
+				trees: boolean,
+			): { ms: number[]; step: number[]; conflicts: number } => {
 				const ms: number[] = [];
+				const step: number[] = [];
 				let conflicts = 0;
 				const mark = (f: Texts, i: number): Texts =>
 					Object.fromEntries(Object.entries(f).map(([k, v]) => [k, `${v}# run ${i}\n`]));
@@ -93,14 +96,50 @@ describe.each(PLANS)('%s', (id) => {
 					const b = fresh === 'all' ? mark(p.files, i) : p.files;
 					const oi = mark(o, i);
 					const ti = fresh === 'all' ? mark(t, i) : t;
-					const t0 = performance.now();
-					const m = mergeWorkspace(filesOf(b), filesOf(oi), filesOf(ti), ctx);
-					ms.push(performance.now() - t0);
-					conflicts = m.conflicts.length;
+					const snap = createWorkspace({ entry: p.entry, files: { ...oi } }).snapshot();
+					const c = {
+						includes: snap.includes,
+						...(trees ? { trees: new Map([...snap.files].map(([k, f]) => [k, f.tree])) } : {}),
+					};
+					let whole = 0;
+					let longest = 0;
+					conflicts = 0;
+					for (const path of Object.keys(oi)) {
+						const steps = mergeFileSteps(
+							path,
+							b[path] ?? null,
+							oi[path] ?? null,
+							ti[path] ?? null,
+							c,
+						);
+						for (;;) {
+							const t0 = performance.now();
+							const r = steps.next();
+							const d = performance.now() - t0;
+							whole += d;
+							longest = Math.max(longest, d);
+							if (r.done) {
+								conflicts += r.value.conflicts.length;
+								break;
+							}
+						}
+					}
+					ms.push(whole);
+					step.push(longest);
 				}
-				return { ms: ms.slice(3), conflicts };
+				return { ms: ms.slice(3), step: step.slice(3), conflicts };
 			};
-			const clean = run(ours.files, theirs.files, 'all');
+			const show = (label: string, r: ReturnType<typeof run> | null): string => {
+				if (!r) return `${label}: none`;
+				const w = stats(r.ms);
+				const s = stats(r.step);
+				return (
+					`${label}: whole median ${w.median.toFixed(1)} / p90 ${w.p90.toFixed(1)} ms, ` +
+					`longest step median ${s.median.toFixed(1)} / max ${Math.max(...r.step).toFixed(1)} ms ` +
+					`(${r.conflicts} conflicts)`
+				);
+			};
+			const clean = run(ours.files, theirs.files, 'all', true);
 			// One attribute set both ways on top: the merge parses and refines.
 			const set = (task: string, v: string): EditIntent => ({
 				type: 'setAttr',
@@ -116,27 +155,23 @@ describe.each(PLANS)('%s', (id) => {
 				t2 = o2 && applyTo(p, theirs.files, set(task, '23'));
 				if (o2 && t2) break;
 			}
-			const both = o2 && t2 ? run(o2.files, t2.files, 'all') : null;
-			const again = o2 && t2 ? run(o2.files, t2.files, 'ours') : null;
+			const both = o2 && t2 ? run(o2.files, t2.files, 'all', true) : null;
+			const bare = o2 && t2 ? run(o2.files, t2.files, 'all', false) : null;
+			const again = o2 && t2 ? run(o2.files, t2.files, 'ours', true) : null;
 			const size = Object.values(p.files).reduce((n, t) => n + t.length, 0);
-			const s1 = stats(clean.ms);
-			const s2 = both ? stats(both.ms) : null;
-			const s3 = again ? stats(again.ms) : null;
 			console.info(
-				`merge ${id} (${(size / 1024).toFixed(0)} KiB, ${ours.edits}+${theirs.edits} edits): ` +
-					`clean median ${s1.median.toFixed(1)} ms, p90 ${s1.p90.toFixed(1)} ms (${clean.conflicts} conflicts); ` +
-					(s2 && both
-						? `with a conflict median ${s2.median.toFixed(1)} ms, p90 ${s2.p90.toFixed(1)} ms (${both.conflicts} conflicts)`
-						: 'no conflict case') +
-					(s3
-						? `; computed again from newer ours median ${s3.median.toFixed(1)} ms, p90 ${s3.p90.toFixed(1)} ms`
-						: '') +
-					`; target ${TARGET_MS} ms p90`,
+				[
+					`merge ${id} (${(size / 1024).toFixed(0)} KiB, ${ours.edits}+${theirs.edits} edits; target 50 ms p90 whole, steps under 12.5 ms desktop)`,
+					show('  clean', clean),
+					show('  with a conflict, ours’ trees given', both),
+					show('  with a conflict, no trees', bare),
+					show('  computed again from newer ours', again),
+				].join('\n'),
 			);
 			expect(ours.edits + theirs.edits).toBeGreaterThan(0);
 			expect(clean.conflicts).toBe(0);
-			expect(s1.p90).toBeLessThan(TARGET_MS * SANITY);
-			if (s2) expect(s2.p90).toBeLessThan(TARGET_MS * SANITY);
+			expect(stats(clean.ms).p90).toBeLessThan(TARGET_MS * SANITY);
+			if (both) expect(stats(both.ms).p90).toBeLessThan(TARGET_MS * SANITY);
 		},
 		120_000,
 	);

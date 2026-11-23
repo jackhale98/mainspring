@@ -7,7 +7,8 @@
  *   without the region gives '' (Take mine on `deleted-ours` removes the block);
  * - `attribute`: the statement; a side without it, or '', removes it, and its line when nothing
  *   else is left on it; one theirs added (an empty `at`) goes on its own line, indented like the
- *   statements around it, with the line ending of the line it joins;
+ *   statements around it, with the line ending of the line it joins (in a one-line body, on
+ *   that line, between spaces);
  * - `file`: the whole text; a chosen side without the file keeps the base text (the kept rule).
  */
 import type { MergeConflict, Resolution, Take, Unresolved, Files, WorkspaceMerge } from './types';
@@ -54,6 +55,12 @@ export function insertStatement(text: string, pos: number, stmt: string): string
 	const indent = indentFor(text, pos);
 	if (text.slice(here.from, pos).trim() === '') {
 		return text.slice(0, here.from) + indent + stmt + eol + text.slice(here.from);
+	}
+	if (text.slice(pos, here.to).trim() !== '') {
+		// Inside a one-line body (`task a "A" { effort 1d }`): on that line, between spaces.
+		const before = /\s/.test(text[pos - 1] ?? ' ') ? '' : ' ';
+		const after = /\s/.test(text[pos] ?? ' ') ? '' : ' ';
+		return `${text.slice(0, pos)}${before}${stmt}${after}${text.slice(pos)}`;
 	}
 	return text.slice(0, pos) + eol + indent + stmt + text.slice(pos);
 }

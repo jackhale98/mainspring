@@ -95,19 +95,20 @@ describe('statements of one block', () => {
 		expect(text(m)).toBe(TASK('  effort 3d\n  priority 600\n  note "n"\n'));
 	});
 
-	it('makes two different statements of one keyword added at one place an attribute conflict without both', () => {
+	it('merges different additive statements both sides added at one place, ours first (rule 3)', () => {
 		const base = `${HEAD}task a "A" {\n  effort 1d\n}\ntask b "B" {\n  effort 1d\n}\ntask c "C" {\n  effort 3d\n}\n`;
-		const at = (dep: string): string =>
-			base.replace('  effort 3d\n', `  effort 3d\n  depends ${dep}\n`);
-		const m = merge1(base, at('a'), at('b'));
-		expect(m.conflicts.map((c) => [c.subject, c.base, c.ours, c.theirs, c.both])).toEqual([
-			[
-				{ kind: 'attribute', owner: { kind: 'task', id: 'c', name: 'C' }, attr: 'depends' },
-				null,
-				'depends a',
-				'depends b',
-				false,
-			],
+		const at = (dep: string): string => base.replace('  effort 3d\n', `  effort 3d\n  ${dep}\n`);
+		const m = merge1(base, at('depends a'), at('depends b'));
+		expect(m.conflicts).toEqual([]);
+		expect(text(m)).toBe(at('depends a\n  depends b'));
+		// Identical additions are kept once; a single-valued one added both ways conflicts.
+		expect(text(merge1(base, at('depends a'), at('depends a')))).toBe(at('depends a'));
+		const two = merge1(base, at('depends a\n  flags hot'), at('flags hot\n  depends b'));
+		expect(two.conflicts).toEqual([]);
+		expect(text(two)).toBe(at('depends a\n  flags hot\n  depends b'));
+		const prio = merge1(base, at('priority 100'), at('priority 900'));
+		expect(prio.conflicts.map((c) => [c.subject.kind, c.ours, c.theirs])).toEqual([
+			['attribute', 'priority 100', 'priority 900'],
 		]);
 	});
 

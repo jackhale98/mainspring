@@ -31,6 +31,7 @@ import {
 	type Cx,
 	type Parent,
 	type Span,
+	type Step,
 	type Tri,
 } from './emit';
 import { attrName, blockKind, statementKey } from './hints';
@@ -94,7 +95,7 @@ function unitsOf(cx: Cx, s: 0 | 1 | 2, e: Element): Seq {
 }
 
 /** Merges three aligned elements into `cx.out` (module comment). */
-export function element(cx: Cx, e: Tri<Element>, parent: Parent): void {
+export function* element(cx: Cx, e: Tri<Element>, parent: Parent): Step {
 	const r = tri((s) => ({ from: e[s].from, to: e[s].to }));
 	if (emitMerged(cx, r)) return;
 	if (e.every((x) => x.kind !== 'stmt')) {
@@ -108,7 +109,7 @@ export function element(cx: Cx, e: Tri<Element>, parent: Parent): void {
 	}
 	const lead = tri((s) => ({ from: e[s].from, to: e[s].lead }));
 	if (!emitMerged(cx, lead)) lineMerge(cx, lead, parent);
-	statements(cx, e, parent);
+	yield* statements(cx, e, parent);
 }
 
 type Plan =
@@ -161,7 +162,7 @@ function attrOf(cx: Cx, st: Tri<SyntaxNode>): string {
 	return a === b ? (a as string) : (o as string);
 }
 
-function statements(cx: Cx, e: Tri<Element>, parent: Parent): void {
+function* statements(cx: Cx, e: Tri<Element>, parent: Parent): Step {
 	const lines = tri((s) => ({ from: e[s].lead, to: e[s].to }));
 	const n = e[0].stmts.length;
 	const only = n === 1 ? (e[1].stmts[0] as SyntaxNode) : null;
@@ -169,7 +170,9 @@ function statements(cx: Cx, e: Tri<Element>, parent: Parent): void {
 		only && blockKind(only)
 			? { owner: cx.naming.owner(only, cx.sides[1].text), inBlock: true }
 			: parent;
-	if (linesClean(cx, lines)) {
+	const clean = linesClean(cx, lines);
+	if (lines[0].to - lines[0].from > 20_000) yield;
+	if (clean) {
 		lineMerge(cx, lines, parent);
 		return;
 	}
@@ -177,7 +180,7 @@ function statements(cx: Cx, e: Tri<Element>, parent: Parent): void {
 		// Statements sharing a line, added or removed on a side: merge them as elements of their
 		// own, on trial, and keep the result only when it has no line conflict.
 		const trial: Cx = { ...cx, out: new Out() };
-		keyedMerge(
+		yield* keyedMerge(
 			trial,
 			tri((s) => unitsOf(cx, s, e[s])),
 			parent,
@@ -215,7 +218,7 @@ function statements(cx: Cx, e: Tri<Element>, parent: Parent): void {
 		if (p.t === 'clean') emitMerged(cx, own);
 		else if (p.t === 'block') {
 			emitMerged(cx, p.head);
-			cx.span(cx, p.body, p.own);
+			yield* cx.span(cx, p.body, p.own);
 			emitMerged(cx, p.tail);
 		} else {
 			const at = emit(cx, 1, own[1]);

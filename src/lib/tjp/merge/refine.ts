@@ -14,9 +14,10 @@
  *
  * A hunk where any side has an error node among the parent's statements stays a line conflict
  * (emit.ts `lineMerge`); errors inside a nested body are checked when the merge enters it.
+ * `mergeSpan` is a generator: it pauses after the line diff of a large span (types.ts rule 5).
  */
 import type { SyntaxNode } from '@lezer/common';
-import { cover, elementsOf, type Element } from './elements';
+import { cover, declsOf, elementAt, elementsOf, type Element } from './elements';
 import {
 	emit,
 	lineMerge,
@@ -26,6 +27,7 @@ import {
 	type SideIx,
 	type Span,
 	type Tri,
+	type Step,
 } from './emit';
 import { keyedMerge } from './keyed';
 import { diff3Regions, lineStarts, splitLines, trueConflict, type Region } from './lines';
@@ -66,10 +68,15 @@ export function lined(texts: Tri<string>): Lined {
 }
 
 /** Merges three spans of one parent into `cx.out` (module comment). */
-export function mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): void {
+/** Spans longer than this (UTF-16 units) pause after their line diff (rule 5). */
+const BIG = 20_000;
+
+export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): Step {
 	const { lines, regions } =
 		pre ??
 		lined(SIDES.map((s) => cx.sides[s].text.slice(sp[s].from, sp[s].to)) as unknown as Tri<string>);
+	// A pause after each line diff of a large span (types.ts rule 5).
+	if (!pre && sp[0].to - sp[0].from > BIG) yield;
 	const starts = lines.map(lineStarts);
 	const range = (k: number, s: SideIx): Rng => {
 		const g = regions[k] as Region;
@@ -94,15 +101,18 @@ export function mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): v
 	const els = SIDES.map((s) =>
 		elementsOf(cx.sides[s].text, sp[s].node, sp[s].from, sp[s].to),
 	) as unknown as Tri<Element[]>;
-	// Keys that name one element per side in the span: such an element must be inside a hunk on
-	// every side or on none, else a line diff that saw a move would read it as deleted and added.
+	// Keys that name one element per side in the span (a statement's key, or a task or resource
+	// declared anywhere inside it): such an element must be inside a hunk on every side or on
+	// none, else a line diff that saw a move (also into another block) would read it as deleted
+	// in one place and added in another.
+	const decls = SIDES.map((s) => declsOf(cx.sides[s].tree, cx.sides[s].text));
+	/** Keys of elements: their own (unique on every side), and tasks or resources declared once. */
 	const counts = new Map<string, number>();
 	for (const s of SIDES) {
 		const seen = new Map<string, number>();
 		for (const e of els[s]) if (e.key !== null) seen.set(e.key, (seen.get(e.key) ?? 0) + 1);
 		for (const [key, n] of seen) counts.set(key, Math.max(counts.get(key) ?? 0, n));
 	}
-	const unique = (key: string | null): key is string => key !== null && counts.get(key) === 1;
 	const widen = (lo0: number, hi0: number): [number, number] => {
 		let lo = lo0;
 		let hi = hi0;
@@ -128,15 +138,29 @@ export function mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): v
 			const inside = new Set<string>();
 			SIDES.forEach((s) => {
 				const x = r[s] as Rng;
-				for (const e of els[s])
-					if (unique(e.key) && e.from >= x.from && e.to <= x.to) inside.add(e.key);
+				for (const e of els[s]) {
+					if (e.from >= x.from && e.to <= x.to && e.key !== null && counts.get(e.key) === 1) {
+						inside.add(e.key);
+					}
+				}
+				for (const [k, at] of decls[s] as ReadonlyMap<string, number>) {
+					if (at >= x.from && at < x.to) inside.add(k);
+				}
 			});
+			if (inside.size === 0) continue;
 			SIDES.forEach((s) => {
 				const x = r[s] as Rng;
+				const out = (at: number): boolean => at < x.from || at >= x.to;
 				for (const e of els[s]) {
-					if (unique(e.key) && inside.has(e.key) && (e.to <= x.from || e.from >= x.to)) {
+					if (e.key !== null && inside.has(e.key) && out(e.from) && out(e.to - 1)) {
 						need(s, Math.min(e.from, x.from), Math.max(e.to, x.to));
 					}
+				}
+				for (const k of inside) {
+					const at = (decls[s] as ReadonlyMap<string, number>).get(k);
+					if (at === undefined || !out(at) || at < sp[s].from || at >= sp[s].to) continue;
+					const e = els[s][elementAt(els[s], at)];
+					if (e) need(s, Math.min(e.from, x.from), Math.max(e.to, x.to));
 				}
 			});
 		}
@@ -174,7 +198,7 @@ export function mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): v
 			start: r[s].from,
 			end: r[s].to,
 		})) as unknown as Tri<{ els: Element[]; start: number; end: number }>;
-		keyedMerge(cx, seqs, parent);
+		yield* keyedMerge(cx, seqs, parent);
 		k = hi + 1;
 	}
 	for (; k < regions.length; k++) plain(k);

@@ -2,6 +2,7 @@
 // Lines and the three-way line regions (lines.ts).
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { diff3Merge } from 'node-diff3';
 import { diff3Regions, lineStarts, merge3, sameRange, splitLines, trueConflict } from './lines';
 
 const SEED = process.env['FC_SEED'] === undefined ? {} : { seed: Number(process.env['FC_SEED']) };
@@ -24,10 +25,15 @@ describe('splitLines', () => {
 });
 
 /** The merged lines of the regions, ours in a conflict; and whether there was one. */
-function apply(o: string[], a: string[], b: string[]): { out: string[]; conflict: boolean } {
+function apply(
+	o: string[],
+	a: string[],
+	b: string[],
+	limit?: number,
+): { out: string[]; conflict: boolean } {
 	const out: string[] = [];
 	let conflict = false;
-	for (const r of diff3Regions(o, a, b)) {
+	for (const r of diff3Regions(o, a, b, limit)) {
 		const [side, ix] = r.kind === 'same' ? [o, r.o] : r.kind === 'theirs' ? [b, r.b] : [a, r.a];
 		if (trueConflict(r, a, b)) conflict = true;
 		out.push(...side.slice(ix[0], ix[1]));
@@ -96,4 +102,123 @@ describe('merge3', () => {
 		expect(merge3('o', 'x', 'x')).toBe('x');
 		expect(merge3('o', 'a', 'b')).toBeNull();
 	});
+});
+
+/** An edit at base lines [from, to): its new lines, and the side(s) that make it. */
+interface Op {
+	readonly from: number;
+	readonly to: number;
+	readonly insert: readonly string[];
+	readonly who: 'a' | 'b' | 'both';
+}
+
+const applyOps = (
+	base: readonly string[],
+	ops: readonly Op[],
+	side: 'a' | 'b' | null,
+): string[] => {
+	const out = [...base];
+	for (const op of [...ops].sort((x, y) => y.from - x.from)) {
+		if (side === null || op.who === side || op.who === 'both') {
+			out.splice(op.from, op.to - op.from, ...op.insert);
+		}
+	}
+	return out;
+};
+
+/**
+ * A base and edits at least two lines apart, as base-position operations; `repeated` draws base
+ * lines with repeats (as a plan has `}` and blank lines), else every base line is unique.
+ */
+const caseArb = (repeated: boolean) =>
+	fc
+		.array(
+			repeated
+				? fc.oneof(
+						fc.constantFrom('}', '{', '', '  effort 1d'),
+						fc.integer({ min: 0, max: 40 }).map((n) => `u${n}`),
+					)
+				: fc.constant(''),
+			{ minLength: 4, maxLength: repeated ? 50 : 120 },
+		)
+		.map((base) => (repeated ? base : base.map((_, i) => `line ${i}`)))
+		.chain((base) =>
+			fc
+				.array(
+					fc.record({
+						at: fc.nat({ max: base.length }),
+						len: fc.nat({ max: 3 }),
+						n: fc.nat({ max: 3 }),
+						who: fc.constantFrom<Op['who']>('a', 'b', 'both'),
+					}),
+					{ maxLength: 8 },
+				)
+				.map((raw) => {
+					const ops: Op[] = [];
+					let next = 0;
+					let fresh = 0;
+					for (const r of [...raw].sort((x, y) => x.at - y.at)) {
+						const from = Math.max(r.at, next);
+						const to = Math.min(base.length, from + r.len);
+						if (from > base.length || (to === from && r.n === 0)) continue;
+						const insert = Array.from({ length: r.n }, () => `new ${fresh++}`);
+						ops.push({ from, to, insert, who: r.who });
+						next = to + 2;
+					}
+					return { base, ops };
+				}),
+		);
+
+const MODES = [
+	['diffed whole', undefined],
+	['split at anchors everywhere', 0],
+] as const;
+
+describe('diff3Regions against ground truth', () => {
+	it('merges an edit both sides made alike once (review M1)', () => {
+		const o = splitLines('}\ntask t21 {\n}\n}\n}\n');
+		const a = splitLines('}\ntask t21 {\n}\n}\n');
+		const b = splitLines('task t21 {\n}\n}\n');
+		expect(apply(o, a, b)).toEqual({ out: b, conflict: false });
+	});
+
+	it.each(MODES)('merges unambiguous edits exactly, also a shared one once (%s)', (_, limit) => {
+		fc.assert(
+			fc.property(caseArb(false), ({ base, ops }) => {
+				const expected = applyOps(base, ops, null);
+				const mine = apply(base, applyOps(base, ops, 'a'), applyOps(base, ops, 'b'), limit);
+				expect(mine).toEqual({ out: expected, conflict: false });
+			}),
+			{ ...SEED, numRuns: 1000 },
+		);
+	});
+
+	it.each(MODES)(
+		'among repeated lines, is clean and right wherever plain diff3Merge is (%s)',
+		(_, limit) => {
+			// With repeated lines a two-way diff may place an edit on other equal lines, so no line
+			// merge can always give the edits' text; plain diff3Merge is the bar.
+			let right = 0;
+			fc.assert(
+				fc.property(caseArb(true), ({ base, ops }) => {
+					const a = applyOps(base, ops, 'a');
+					const b = applyOps(base, ops, 'b');
+					const expected = applyOps(base, ops, null);
+					const mine = apply(base, a, b, limit);
+					const plain = diff3Merge(a, base, b);
+					const plainOut = plain.every((r) => r.ok) ? plain.flatMap((r) => r.ok ?? []) : null;
+					if (limit === undefined && plainOut) {
+						expect(mine).toEqual({ out: plainOut, conflict: false });
+					}
+					if (plainOut && JSON.stringify(plainOut) === JSON.stringify(expected)) {
+						right++;
+						expect(mine).toEqual({ out: expected, conflict: false });
+					}
+				}),
+				{ ...SEED, numRuns: 2000 },
+			);
+			console.info(`repeated lines: plain diff3Merge and this merge right on ${right} of 2000`);
+			expect(right).toBeGreaterThan(1000);
+		},
+	);
 });

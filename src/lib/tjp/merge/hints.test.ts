@@ -78,7 +78,7 @@ describe('Naming', () => {
 		expect(n.owner(null, t)).toEqual({ kind: 'other', id: null, name: null });
 	});
 
-	it('prefixes ids with the include site’s prefixes, null when one is a macro', () => {
+	it('prefixes task ids with the include site’s prefix, null when it is a macro; resource ids are global', () => {
 		const files = {
 			'plan.tjp':
 				'project p "P" 2027-01-01 +1m\ntask top "Top"\nresource team "Team"\n' +
@@ -92,7 +92,7 @@ describe('Naming', () => {
 		const [t, r] = statementsIn(a.topNode) as [SyntaxNode, SyntaxNode];
 		const na = new Naming('a.tji', inc);
 		expect(na.owner(t, files['a.tji']).id).toBe('top.t');
-		expect(na.owner(r, files['a.tji']).id).toBe('team.r');
+		expect(na.owner(r, files['a.tji']).id).toBe('r');
 		const m = parseTjp(files['m.tji']);
 		expect(
 			new Naming('m.tji', inc).owner(statementsIn(m.topNode)[0] ?? null, files['m.tji']).id,

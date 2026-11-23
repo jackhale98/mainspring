@@ -3,17 +3,19 @@
  * The workspace merge (phase-4.md 6.4, 8; tjp/merge/types.ts is the contract). Lazy: only the
  * sync controller and the conflict view import it, never a first load (12.1).
  *
- * `mergeFile` applies the table of types.ts to the sides that have the file, and merges a file
+ * `mergeFile` (`mergeFileSteps` in steps) applies the table of types.ts to the sides that have
+ * the file, and merges a file
  * all three have with tjp/merge/file.ts. `mergeWorkspace` is the same loop over every path of
  * ours, then theirs, then the base, without yielding; conflicts come out by file (code-unit
  * order), then by position. `resolve` is tjp/merge/resolve.ts.
  */
-import { mergeTexts } from '../tjp/merge/file';
+import { drive, mergeTextSteps } from '../tjp/merge/file';
 import { hash } from '../tjp/merge/out';
 import type {
 	FileMerge,
 	MergeConflict,
 	MergeFileFn,
+	MergeFileStepsFn,
 	MergeWorkspaceFn,
 	ResolveFn,
 } from '../tjp/merge/types';
@@ -45,9 +47,17 @@ function fileConflict(
 	return { text, conflicts: [c] };
 }
 
+/** `mergeFile` in steps (types.ts rule 5): a file all sides have is merged by file.ts's steps. */
+export const mergeFileSteps: MergeFileStepsFn = function* (file, base, ours, theirs, ctx) {
+	if (ours !== null && theirs !== null && base !== null) {
+		return yield* mergeTextSteps(file, base, ours, theirs, ctx);
+	}
+	return mergeFile(file, base, ours, theirs, ctx);
+};
+
 export const mergeFile: MergeFileFn = (file, base, ours, theirs, ctx) => {
 	if (ours !== null && theirs !== null) {
-		if (base !== null) return mergeTexts(file, base, ours, theirs, ctx);
+		if (base !== null) return drive(mergeTextSteps(file, base, ours, theirs, ctx));
 		return ours === theirs ? clean(ours) : fileConflict(file, 'added-twice', null, ours, theirs);
 	}
 	if (ours !== null) {

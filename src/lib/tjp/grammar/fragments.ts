@@ -85,3 +85,43 @@ export function reparse(
 	}
 	return { tree: parser.parse(text), fragments: [] };
 }
+
+/** `advance()` calls of a parse between two pauses of `parseSteps` (about a millisecond's work). */
+export const ADVANCES_PER_STEP = 250;
+
+/**
+ * `parser.parse(text, fragments)` in steps: it pauses (yields) every ADVANCES_PER_STEP calls of
+ * Lezer's `PartialParse.advance()`, so a caller can spread a large parse over several tasks. The
+ * pauses depend on the work done, not on a clock, so the tree is the same however it is driven.
+ */
+export function* parseSteps(
+	parser: LRParser,
+	text: string,
+	fragments?: readonly TreeFragment[],
+): Generator<void, Tree, void> {
+	const p = parser.startParse(text, fragments);
+	for (let n = 1; ; n++) {
+		const done = p.advance();
+		if (done) return done;
+		if (n % ADVANCES_PER_STEP === 0) yield;
+	}
+}
+
+/** `reparse` in steps (`parseSteps`): the same tree, built over several pauses. */
+export function* reparseSteps(
+	parser: LRParser,
+	text: string,
+	tree: Tree,
+	changes: readonly ChangedRange[],
+): Generator<void, Tree, void> {
+	let fragments = reuseFragments(tree, changes);
+	for (let round = 0; round < MAX_ROUNDS; round++) {
+		const next = yield* parseSteps(parser, text, fragments);
+		const nearReuse = errorRanges(next).filter((r) =>
+			fragments.some((f) => f.from < r.toA && f.to > r.fromA),
+		);
+		if (nearReuse.length === 0) return next;
+		fragments = TreeFragment.applyChanges(fragments, nearReuse);
+	}
+	return yield* parseSteps(parser, text);
+}

@@ -14,7 +14,7 @@ function cx(o: string, a: string, b: string): Cx {
 		sides: sides as unknown as Cx['sides'],
 		naming: new Naming('plan.tjp', contextOf('plan.tjp', { 'plan.tjp': a }).includes),
 		out: new Out(),
-		span: () => {},
+		span: function* () {},
 	};
 }
 const all = (

@@ -18,7 +18,7 @@ export interface Plan {
 	readonly name: string;
 	readonly entry: string;
 	readonly files: Texts;
-	readonly c: Pick<Case, 'facts' | 'sem' | 'result'>;
+	readonly c: Pick<Case, 'facts' | 'sem' | 'result' | 'now'>;
 }
 
 /** A plan for `seed`: a generated plan, or every third one a golden plan of the per-push list. */
@@ -166,5 +166,143 @@ export function twoSides(seed: number, types = ENFORCED, more = 0): TwoSides | n
 		p,
 		a: { intent: ia, files: extra(a.files, 1), changes: a },
 		b: { intent: ib, files: extra(b.files, 2), changes: b },
+	};
+}
+
+/** Statements the adjacent-edit generator changes or removes. */
+const EDITABLE: ReadonlySet<string> = new Set(['priority', 'complete', 'note', 'effort']);
+
+/** Values the adjacent-edit generator sets (TaskJuggler accepts them on any task). */
+const VALUES: ReadonlyArray<readonly [string, string]> = [
+	['priority', '321'],
+	['complete', '40'],
+	['note', 'merge note'],
+	['effort', '2d'],
+	['priority', '654'],
+];
+
+/**
+ * Two edits aimed at one task, or at lines next to each other (review M2): two attributes of one
+ * task; an attribute appended before a task's `}` and a task added right after it; an attribute
+ * of one task and a rename of the next one. Their changes are close, so the line merge often
+ * conflicts and refinement must split them. Null when the plan offers no such pair.
+ */
+export function adjacentSides(seed: number): TwoSides | null {
+	const p = planOf(seed);
+	const rng = new Rng(mixSeed(seed, 0xad1));
+	const f = p.c.facts;
+	const tasks = f.tasks.filter((t) => t.body && !t.nameMacro);
+	const t = tasks[rng.int(0, Math.max(0, tasks.length - 1))];
+	if (!t) return null;
+	const siblings =
+		t.parent === null
+			? f.tasks.filter((x) => x.parent === null).map((x) => x.id)
+			: (f.byId.get(t.parent)?.children ?? []);
+	const at = siblings.indexOf(t.id);
+	const next = siblings[at + 1];
+	const value = (i: number): EditIntent => {
+		const [attr, v] = VALUES[i % VALUES.length] as readonly [string, string];
+		return { type: 'setAttr', task: t.id, attr: attr as 'priority', value: v };
+	};
+	const i = rng.int(0, VALUES.length - 1);
+	const kind = rng.int(0, 3);
+	// Two statements of the task on adjacent lines: one changed, the next removed.
+	const own = t.stmts.filter(
+		(s) => s.site === 'decl' && s.scenario === null && !s.macro && EDITABLE.has(s.key),
+	);
+	const k = rng.int(0, Math.max(0, own.length - 2));
+	const [s1, s2] = [own[k], own[k + 1]];
+	const pair: [EditIntent, EditIntent] =
+		kind === 3 && s1 && s2 && s1.key !== s2.key
+			? [
+					{
+						type: 'setAttr',
+						task: t.id,
+						attr: s1.key as 'priority',
+						value: VALUES.find(([x]) => x === s1.key)?.[1] ?? '1',
+					},
+					{ type: 'removeAttr', task: t.id, attr: s2.key as 'priority' },
+				]
+			: kind === 0
+				? [value(i), value(i + 1 + rng.int(0, 2))]
+				: kind === 1 || !next
+					? [
+							value(i),
+							{ type: 'addTask', parent: t.parent, index: at + 1, name: `Added ${seed % 1000}` },
+						]
+					: [value(i), { type: 'renameTask', task: next, name: `Renamed ${seed % 1000}` }];
+	if (rng.chance(0.5)) pair.reverse();
+	const [ia, ib] = pair;
+	const a = applyTo(p, p.files, ia);
+	const b = applyTo(p, p.files, ib);
+	if (!a || !b) return null;
+	return {
+		p,
+		a: { intent: ia, files: a.files, changes: a },
+		b: { intent: ib, files: b.files, changes: b },
+	};
+}
+
+/**
+ * Edits as a person types them (review M2): each side adds one statement (`priority`, `complete`,
+ * `note`, `depends` on an earlier sibling) at a random line of a task's body, often the same
+ * task, so values said twice in one block at different lines come up (review H1). Null when the
+ * plan has no multi-line task body.
+ */
+export function handSides(seed: number): TwoSides | null {
+	const p = planOf(seed);
+	const rng = new Rng(mixSeed(seed, 0x4a4d));
+	const tasks = p.c.facts.tasks.filter(
+		(t) =>
+			t.body &&
+			!t.nameMacro &&
+			(p.files[t.body.file] ?? '').slice(t.body.open, t.body.close).includes('\n'),
+	);
+	if (tasks.length === 0) return null;
+	const pick = (): (typeof tasks)[number] =>
+		tasks[rng.int(0, tasks.length - 1)] as (typeof tasks)[number];
+	const first = pick();
+	const statement = (): string => {
+		switch (rng.int(0, 2)) {
+			case 0:
+				return `priority ${rng.int(1, 999)}`;
+			case 1:
+				return `complete ${rng.int(0, 100)}`;
+			default:
+				return `note "typed ${rng.int(0, 99)}"`;
+		}
+	};
+	const typed = (): { files: Record<string, string>; intent: EditIntent } | null => {
+		const t = rng.chance(0.6) ? first : pick();
+		const body = t.body;
+		if (!body) return null;
+		const text = p.files[body.file] ?? '';
+		const stmt = statement();
+		const kw = stmt.split(' ')[0] as string;
+		if (t.stmts.some((s) => s.key === kw)) return null;
+		const elems = body.elems.filter((e) => e.kind === 'stmt');
+		const after =
+			elems.length > 0 && rng.chance(0.8)
+				? (elems[rng.int(0, elems.length - 1)]?.to ?? body.open)
+				: body.open;
+		const lineEnd = text.indexOf('\n', after);
+		if (lineEnd < 0 || lineEnd >= body.close) return null;
+		const lineStart = text.lastIndexOf('\n', after - 1) + 1;
+		const indent = /^[ \t]*/.exec(text.slice(lineStart, after))?.[0] ?? '';
+		const pad = after === body.open ? `${indent}  ` : indent;
+		const files = {
+			...p.files,
+			[body.file]: `${text.slice(0, lineEnd)}\n${pad}${stmt}${text.slice(lineEnd)}`,
+		};
+		// The intent records what was typed (for messages): a setAttr of that keyword on the task.
+		return { files, intent: { type: 'setAttr', task: t.id, attr: kw as 'priority', value: stmt } };
+	};
+	const a = typed();
+	const b = typed();
+	if (!a || !b) return null;
+	return {
+		p,
+		a: { intent: a.intent, files: a.files, changes: null },
+		b: { intent: b.intent, files: b.files, changes: null },
 	};
 }

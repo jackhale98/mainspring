@@ -11,7 +11,7 @@
  * - Elements partition the span: they are contiguous, the first starts at the span's start and the
  *   last ends at its end. Every boundary is a line start, or the span's start or end.
  */
-import type { SyntaxNode } from '@lezer/common';
+import type { SyntaxNode, Tree } from '@lezer/common';
 import { statementsIn } from '../tree';
 import { statementKey } from './hints';
 
@@ -89,6 +89,51 @@ export function elementsOf(text: string, parent: SyntaxNode, from: number, to: n
 	}
 	out.push({ kind: 'end', from: at, lead: at, to, stmts: [], key: null });
 	return out;
+}
+
+const DECLS = new WeakMap<Tree, ReadonlyMap<string, number>>();
+
+/**
+ * The tasks and resources a tree declares once (by their local key, `task:t`), at the start of
+ * their statement: what a move across blocks carries (refine.ts, keyed.ts). A key declared more
+ * than once in the file (`task spec` under two parents) is left out. One walk per tree, kept.
+ */
+export function declsOf(tree: Tree, text: string): ReadonlyMap<string, number> {
+	const kept = DECLS.get(tree);
+	if (kept) return kept;
+	const out = new Map<string, number>();
+	const twice = new Set<string>();
+	const walk = (n: SyntaxNode): void => {
+		for (let c = n.firstChild; c; c = c.nextSibling) {
+			if (c.name === 'TaskStatement' || c.name === 'ResourceStatement') {
+				const id = c.getChild('Id');
+				if (id) {
+					const k = `${c.name === 'TaskStatement' ? 'task' : 'resource'}:${text.slice(id.from, id.to)}`;
+					if (out.has(k)) twice.add(k);
+					out.set(k, c.from);
+				}
+			}
+			if (c.name === 'Body' || c.name.endsWith('Statement')) walk(c);
+		}
+	};
+	walk(tree.topNode);
+	for (const k of twice) out.delete(k);
+	DECLS.set(tree, out);
+	return out;
+}
+
+/** The index of the element holding `pos`, or -1 (elements are sorted and contiguous). */
+export function elementAt(els: readonly Element[], pos: number): number {
+	let lo = 0;
+	let hi = els.length - 1;
+	while (lo <= hi) {
+		const mid = (lo + hi) >> 1;
+		const e = els[mid] as Element;
+		if (pos < e.from) hi = mid - 1;
+		else if (pos >= e.to) lo = mid + 1;
+		else return mid;
+	}
+	return -1;
 }
 
 /**

@@ -13,7 +13,8 @@
  * - **Owners.** The full id as the symbol index forms it: the ids of the enclosing declarations of
  *   the same kind, under the prefix in force in the file's first visit (includes.ts: the
  *   `@property` an include site leaves applies before the visit's first include, else the
- *   `taskprefix`/`resourceprefix`). A macro id on the way, or an unknown prefix, gives null.
+ *   `taskprefix`/`resourceprefix`). A macro id on the way, or an unknown prefix, gives null. A
+ *   resource declaration's id is its own: resource ids are global (TjpSyntaxRules.rb 4796-4810).
  */
 import type { SyntaxNode } from '@lezer/common';
 import type { IncludeGraph } from '../../workspace/includes';
@@ -171,6 +172,11 @@ export class Naming {
 			return leaf && !MACRO_TOKENS.has(leaf.name) ? slice(leaf, text) : null;
 		};
 		if (kind === 'project') return literal(stmt.getChild('Id'));
+		// Resource ids are global: a declaration's id is its own, without its parents or the
+		// resource prefix (rule_resourceHeader, TjpSyntaxRules.rb 4796-4810).
+		if (kind === 'resource' && stmt.name === 'ResourceStatement') {
+			return literal(stmt.getChild('Id'));
+		}
 		const ids: string[] = [];
 		let top: SyntaxNode = stmt;
 		for (let n: SyntaxNode | null = stmt; n; n = n.parent) {

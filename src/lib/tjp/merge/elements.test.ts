@@ -4,7 +4,7 @@
 import type { SyntaxNode } from '@lezer/common';
 import { describe, expect, it } from 'vitest';
 import { parseTjp } from '../document';
-import { cover, elementsOf, type Element } from './elements';
+import { cover, declsOf, elementAt, elementsOf, type Element } from './elements';
 
 const show = (t: string, els: readonly Element[]): Array<[string, string, string | null]> =>
 	els.map((e) => [e.kind, t.slice(e.from, e.to), e.key]);
@@ -60,5 +60,19 @@ describe('cover', () => {
 	it('widens an empty range only when it falls inside an element', () => {
 		expect(cover(els, b, b)).toEqual([b, b]);
 		expect(cover(els, b + 3, b + 3)).toEqual([b, c]);
+	});
+});
+
+describe('declsOf and elementAt', () => {
+	it('indexes tasks and resources declared once, and finds the element holding a position', () => {
+		const t =
+			'task a "A" {\n  task s "S"\n}\ntask b "B" {\n  task s "S"\n  task u "U"\n}\nresource r "R"\n';
+		const tree = parseTjp(t);
+		const d = declsOf(tree, t);
+		expect([...d.keys()].sort()).toEqual(['resource:r', 'task:a', 'task:b', 'task:u']);
+		expect(d.get('task:u')).toBe(t.indexOf('task u'));
+		const els = elementsOf(t, tree.topNode, 0, t.length);
+		expect(elementAt(els, t.indexOf('task u'))).toBe(1);
+		expect(elementAt(els, t.length + 5)).toBe(-1);
 	});
 });

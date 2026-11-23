@@ -44,6 +44,12 @@ export class Out {
 		return { from, to: this.length };
 	}
 
+	/** Whether the text so far is empty or ends a line. */
+	get atLineStart(): boolean {
+		const last = this.parts[this.parts.length - 1];
+		return last === undefined || last.endsWith('\n');
+	}
+
 	conflict(c: Pending): void {
 		this.conflicts.push(c);
 	}
