@@ -24,6 +24,7 @@ import {
 	press,
 	resultOf,
 	withoutClipboardItem,
+	withoutShare,
 } from './lib/export-rig';
 import { animationsDone } from './lib/settle';
 
@@ -93,9 +94,12 @@ for (const scheme of ['light', 'dark'] as const) {
 			await expect(item).toBeEnabled();
 			await expect(item).not.toHaveAttribute('aria-disabled', 'true');
 		}
-		// The row actions are in the menu and off: there is no task to act on.
-		await expect(menu.getByRole('menuitem', { name: 'Indent' })).toBeDisabled();
-		await expect(menu.getByRole('menuitem', { name: 'Keyboard shortcuts' })).toBeEnabled();
+		// With no task to act on the menu is the exports and the shortcuts, and nothing else.
+		await expect(menu.getByRole('menuitem')).toHaveText([
+			'Copy Gantt as image',
+			'Export tasks as CSV',
+			'Keyboard shortcuts',
+		]);
 		await axe(page, `the menu with the exports (${scheme})`);
 		await page.keyboard.press('Escape');
 		await expect(menu).not.toBeVisible();
@@ -103,9 +107,27 @@ for (const scheme of ['light', 'dark'] as const) {
 	});
 }
 
+test('with a task selected the row actions come first and the exports after them', async ({
+	page,
+}, info) => {
+	const rig = await openPlan(page, info);
+	await rig.row('task:design.research').locator('.label').click();
+	const menu = await openMenu(page, info);
+	const items = menu.getByRole('menuitem');
+	// The row actions carry their key hints in the text; the order is what is asserted.
+	await expect(items.first()).toContainText('Move up');
+	await expect(items.nth(1)).toContainText('Move down');
+	const count = await items.count();
+	await expect(items.nth(count - 3)).toHaveText('Copy Gantt as image');
+	await expect(items.nth(count - 2)).toHaveText('Export tasks as CSV');
+	await expect(items.nth(count - 1)).toHaveText('Keyboard shortcuts');
+	await expect(menu.getByRole('menuitem', { name: 'Indent' })).toBeVisible();
+});
+
 test('the CSV is the exact bytes of the plan’s schedule, named for the plan', async ({
 	page,
 }, info) => {
+	await withoutShare(page);
 	await openPlan(page, info);
 	const file = await download(page, info, 'Export tasks as CSV');
 	expect(file.suggestedFilename()).toBe('UI-basic-tasks.csv');
@@ -131,6 +153,7 @@ test('the picture is downloaded as a PNG of the visible range when the clipboard
 	page,
 }, info) => {
 	await withoutClipboardItem(page);
+	await withoutShare(page);
 	await openPlan(page, info);
 	const g = await geometry(page);
 	const file = await download(page, info, 'Copy Gantt as image');
@@ -152,6 +175,7 @@ for (const scheme of ['light', 'dark'] as const) {
 	}, info) => {
 		await page.emulateMedia({ colorScheme: scheme });
 		await withoutClipboardItem(page);
+		await withoutShare(page);
 		await openPlan(page, info);
 		const g = await geometry(page);
 		const png = await bytesOf(await download(page, info, 'Copy Gantt as image'));
@@ -175,8 +199,10 @@ test('the picture goes to the clipboard as image/png where the browser takes it'
 	page,
 	context,
 }, info) => {
-	// Clipboard permissions can be granted in Chromium only; WebKit is asked the same and may copy or
-	// may refuse and download: either is an outcome, and a failure message is not.
+	// Clipboard permissions can be granted in Chromium only, and that is the one that can read the
+	// clipboard back. WebKit's Playwright build lets the click write it without a grant, so the very
+	// first export after a fresh load must end in "Copied" there too: the write is made in the click
+	// itself (clipboard.ts), not after the export's code has been fetched.
 	const chromium = info.project.name !== 'iphone-14';
 	if (chromium) await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 	await openPlan(page, info);
@@ -184,16 +210,9 @@ test('the picture goes to the clipboard as image/png where the browser takes it'
 	await openMenu(page, info);
 	await press(page.getByRole('menuitem', { name: 'Copy Gantt as image' }), info);
 	const toast = page.getByTestId('toast');
-	if (!chromium) {
-		await expect(
-			toast.filter({
-				hasText: /Copied the Gantt as an image\.|Downloaded UI-basic-gantt\.png\./,
-			}),
-		).toBeVisible();
-		await expect(toast.filter({ hasText: 'could not be made' })).toHaveCount(0);
-		return;
-	}
 	await expect(toast.filter({ hasText: 'Copied the Gantt as an image.' })).toBeVisible();
+	await expect(toast.filter({ hasText: 'could not be made' })).toHaveCount(0);
+	if (!chromium) return;
 	const copied = await page.evaluate(async () => {
 		const [item] = await navigator.clipboard.read();
 		const blob = await item?.getType('image/png');
@@ -244,6 +263,23 @@ test('a finger is offered the share sheet when the clipboard cannot take the pic
 		);
 		expect(sent).toMatchObject({ name: 'UI-basic-gantt.png', type: 'image/png' });
 		expect(sent?.size).toBeGreaterThan(1000);
+		// The CSV is offered the same way.
+		await openMenu(page, info);
+		await press(page.getByRole('menuitem', { name: 'Export tasks as CSV' }), info);
+		await expect
+			.poll(() =>
+				page.evaluate(() => (window as unknown as { __shared: unknown[] }).__shared.length),
+			)
+			.toBe(2);
+		const sentAll = await page.evaluate(
+			() =>
+				(window as unknown as { __shared: Array<{ name: string; type: string; size: number }> })
+					.__shared,
+		);
+		expect(sentAll[1]).toMatchObject({
+			name: 'UI-basic-tasks.csv',
+			type: 'text/csv;charset=utf-8',
+		});
 	} else {
 		// A mouse has no share sheet in this app: the picture is a download.
 		expect((await downloading)?.suggestedFilename()).toBe('UI-basic-gantt.png');

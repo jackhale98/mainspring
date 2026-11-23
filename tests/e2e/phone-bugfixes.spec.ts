@@ -383,7 +383,7 @@ test.describe('4. the row menu fits the screen', () => {
 		await openResources(page, info);
 		await selectRow(page, info, 'jack');
 		await page.getByTestId('resource-menu').click();
-		const pop = page.getByRole('menu', { name: 'More actions' });
+		const pop = page.getByRole('menu', { name: 'Row actions' });
 		await expect(pop).toBeVisible();
 		// A scroll of the menu's own list does not close it, and neither does one that leaves its
 		// button where it was (a late scroll event from elsewhere: the list is still beside it).
@@ -407,7 +407,7 @@ test.describe('4. the row menu fits the screen', () => {
 		await openResources(page, info);
 		await selectRow(page, info, 'jack');
 		await page.getByTestId('resource-menu').click();
-		const pop = page.getByRole('menu', { name: 'More actions' });
+		const pop = page.getByRole('menu', { name: 'Row actions' });
 		await expect(pop).toBeVisible();
 		const box = await pop.boundingBox();
 		const view = page.viewportSize();

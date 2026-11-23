@@ -15,8 +15,8 @@ const DIR = path.join(REPO, 'docs', 'phases', 'screenshots', 'phase-4');
 test.setTimeout(READY_TIMEOUT_MS * 2);
 test.skip(!process.env['SCREENSHOTS'], 'pictures only on request');
 
-const file = (what: string, info: TestInfo, scheme: string): string =>
-	path.join(DIR, `t18-export-${what}-${deviceName(info)}-${scheme}.png`);
+const file = (what: string, info: TestInfo, scheme: string, device = deviceName(info)): string =>
+	path.join(DIR, `t18-export-${what}-${device}-${scheme}.png`);
 
 for (const scheme of ['light', 'dark'] as const) {
 	test.describe(`export (${scheme})`, () => {
@@ -47,6 +47,26 @@ for (const scheme of ['light', 'dark'] as const) {
 			await pictureReady(page);
 			await page.screenshot({ path: file('menu-none', info, scheme) });
 		});
+
+		// A tablet (820 x 1180, phase-4.md 13.2) is the desktop project at that size.
+		for (const [what, select] of [
+			['menu', true],
+			['menu-none', false],
+		] as const) {
+			test(`the menu on a tablet${select ? '' : ' with no task selected'}`, async ({
+				page,
+			}, info) => {
+				test.skip(info.project.name !== 'desktop', 'the tablet size is the desktop project');
+				await page.setViewportSize({ width: 820, height: 1180 });
+				const rig = await openPlan(page, info);
+				if (select) await rig.row('task:design.research').locator('.label').click();
+				await pictureReady(page);
+				const menu = await openMenu(page, info);
+				await expect(menu.getByRole('menuitem', { name: 'Export tasks as CSV' })).toBeInViewport();
+				await pictureReady(page);
+				await page.screenshot({ path: file(what, info, scheme, 'tablet') });
+			});
+		}
 
 		test('the picture the export makes', async ({ page }, info) => {
 			await withoutClipboardItem(page);

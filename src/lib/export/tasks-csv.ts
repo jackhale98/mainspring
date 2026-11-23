@@ -13,6 +13,14 @@
  *   whose size is a `length` or `duration`, for a container, and where the statement is a macro;
  * - people are the allocated people's names, joined by "; " (a comma would be quoted);
  * - complete is the plan's `complete` in percent, empty when the plan sets none.
+ *
+ * The end stays the exact instant (TaskJuggler's own `end`, lossless), not the last day worked: the
+ * Gantt's END column shows the day of `end - 1 minute`, so a task that ends at midnight reads one
+ * day earlier there than here (pinned in the test).
+ *
+ * Known choice: the fields are the plan's own text, unaltered. A task name that starts with `=`,
+ * `+`, `-` or `@` is read as a formula by some spreadsheets; guarding against that would change the
+ * data (a leading quote), so the file does not.
  */
 import type { Minutes, ProjectInfo, ScheduleResult } from '../../engine/protocol';
 import { sizingSite } from '../gantt/grid';

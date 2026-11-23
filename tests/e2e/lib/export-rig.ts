@@ -52,6 +52,14 @@ export async function withoutClipboardItem(page: Page): Promise<void> {
 	});
 }
 
+/** Takes the share sheet away, so that a finger's export is a download (and does not depend on the browser). */
+export async function withoutShare(page: Page): Promise<void> {
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+		Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+	});
+}
+
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /** The size in pixels from a PNG's header; throws when the bytes are not a PNG. */

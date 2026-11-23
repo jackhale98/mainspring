@@ -4,6 +4,11 @@
 // in the name column.
 import { describe, expect, it } from 'vitest';
 import { createLayout } from '../gantt/layout';
+import { paintBars } from '../gantt/paint/bars';
+import { markerLines, paintGrid } from '../gantt/paint/grid';
+import { paintHeader } from '../gantt/paint/header';
+import { paintOverlay } from '../gantt/paint/overlay';
+import { ticksFor } from '../gantt/ticks';
 import { recorder, type Recorder } from '../gantt/paint/testing';
 import { createScale } from '../gantt/scale';
 import { D, FIXED_MEASURE, TEST_THEME, metricsOf, modelOf, row } from '../gantt/testing';
@@ -12,6 +17,8 @@ import { renderGanttPng, type GanttPngInput } from './gantt-png';
 interface FakeCanvas {
 	width: number;
 	height: number;
+	/** The size it had when it was drawn on: a canvas is emptied once it is composed. */
+	peak: { w: number; h: number };
 	style: Record<string, string>;
 	rec: Recorder;
 	getContext: () => CanvasRenderingContext2D;
@@ -25,9 +32,24 @@ function fakeDocument(): { doc: Document; canvases: FakeCanvas[] } {
 		createElement: (tag: string): FakeCanvas => {
 			if (tag !== 'canvas') throw new Error(tag);
 			const rec = recorder();
+			const size = { w: 300, h: 150 };
+			const peak = { w: 0, h: 0 };
 			const c: FakeCanvas = {
-				width: 300,
-				height: 150,
+				get width() {
+					return size.w;
+				},
+				set width(v: number) {
+					size.w = v;
+					peak.w = Math.max(peak.w, v);
+				},
+				get height() {
+					return size.h;
+				},
+				set height(v: number) {
+					size.h = v;
+					peak.h = Math.max(peak.h, v);
+				},
+				peak,
 				style: {},
 				rec,
 				getContext: () => rec.ctx,
@@ -60,6 +82,7 @@ function input(over: Partial<GanttPngInput> = {}): GanttPngInput {
 		FIXED_MEASURE,
 	);
 	return {
+		paint: { paintGrid, paintBars, paintOverlay, paintHeader, markerLines, ticksFor },
 		model,
 		layout,
 		theme: TEST_THEME,
@@ -85,8 +108,8 @@ describe('renderGanttPng', () => {
 		expect(blob.size).toBeGreaterThan(0);
 		const out = canvases.at(-1);
 		const header = i.layout.metrics.headerHeight;
-		expect(out?.width).toBe((180 + 600) * 2);
-		expect(out?.height).toBe((header + 200) * 2);
+		expect(out?.peak.w).toBe((180 + 600) * 2);
+		expect(out?.peak.h).toBe((header + 200) * 2);
 	});
 
 	it('paints the plot in three layers and puts them beside the names, under the header', async () => {
@@ -102,7 +125,7 @@ describe('renderGanttPng', () => {
 		for (const d of draws.slice(1)) expect(d.slice(2)).toEqual([360, header * 2]);
 		// The layers are sized to the visible plot at the ratio.
 		const layers = canvases.slice(0, 4);
-		expect(layers.map((c) => [c.width, c.height])).toEqual([
+		expect(layers.map((c) => [c.peak.w, c.peak.h])).toEqual([
 			[1200, 400],
 			[1200, 400],
 			[1200, 400],
@@ -121,7 +144,7 @@ describe('renderGanttPng', () => {
 	it('writes the header’s dates on the header canvas when the plan has a calendar', async () => {
 		const { doc, canvases } = fakeDocument();
 		await renderGanttPng(input(), doc);
-		const header = canvases.find((c) => c.height === input().layout.metrics.headerHeight * 2);
+		const header = canvases.find((c) => c.peak.h === input().layout.metrics.headerHeight * 2);
 		expect(header?.rec.of('fillText').length).toBeGreaterThan(0);
 	});
 
@@ -129,7 +152,7 @@ describe('renderGanttPng', () => {
 		const { doc, canvases } = fakeDocument();
 		const i = input();
 		await renderGanttPng({ ...i, model: { ...i.model, calendar: null } }, doc);
-		const header = canvases.find((c) => c.height === i.layout.metrics.headerHeight * 2);
+		const header = canvases.find((c) => c.peak.h === i.layout.metrics.headerHeight * 2);
 		expect(header?.rec.of('fillText')).toHaveLength(0);
 		expect(header?.rec.of('fillRect').length).toBeGreaterThan(0);
 	});
@@ -146,8 +169,15 @@ describe('renderGanttPng', () => {
 		const { doc, canvases } = fakeDocument();
 		await renderGanttPng(input({ viewW: 3000, viewH: 1500, dpr: 3 }), doc);
 		const out = canvases.at(-1) as FakeCanvas;
-		expect(out.width * out.height).toBeLessThanOrEqual(16_100_000);
-		expect(out.width).toBeLessThan((180 + 3000) * 3);
+		expect(out.peak.w * out.peak.h).toBeLessThanOrEqual(16_100_000);
+		expect(out.peak.w).toBeLessThan((180 + 3000) * 3);
+	});
+
+	it('empties every canvas it made once the picture is encoded', async () => {
+		const { doc, canvases } = fakeDocument();
+		await renderGanttPng(input(), doc);
+		expect(canvases).toHaveLength(5);
+		for (const c of canvases) expect([c.width, c.height]).toEqual([0, 0]);
 	});
 
 	it('rejects when the browser cannot encode', async () => {

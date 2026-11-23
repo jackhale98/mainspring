@@ -18,9 +18,14 @@ export interface RowAction {
 	readonly show?: string;
 }
 
-/** The exports in the toolbar's "More actions" menu (phase-4.md 18.20): which can be chosen now. */
+/**
+ * The exports in the toolbar's "More actions" menu (phase-4.md 18.20). `png` and `csv` are null when
+ * the entry can be chosen, else the reason it cannot (its hint). `prefetch` is asked when the menu
+ * opens, so that the export's code is there by the time an entry is chosen.
+ */
 export interface ExportEntries {
-	readonly png: boolean;
-	readonly csv: boolean;
+	readonly png: string | null;
+	readonly csv: string | null;
 	readonly onexport: (kind: 'png' | 'csv') => void;
+	readonly prefetch: () => void;
 }

@@ -38,6 +38,32 @@ describe('csvDate', () => {
 		expect(csvDate(30 * 1440, berlin)).toBe('2026-04-01 01:00');
 	});
 
+	describe('across the daylight saving changes of Europe/Berlin', () => {
+		const start = '2026-01-01T00:00:00Z';
+		const berlin = { start, timezone: 'Europe/Berlin' };
+		/** Minutes after the project start of a UTC instant. */
+		const at = (iso: string): number => (Date.parse(iso) - Date.parse(start)) / 60_000;
+
+		it('skips the hour that does not exist on 2026-03-29 (02:00 becomes 03:00)', () => {
+			expect(csvDate(at('2026-03-29T00:59:00Z'), berlin)).toBe('2026-03-29 01:59');
+			expect(csvDate(at('2026-03-29T01:00:00Z'), berlin)).toBe('2026-03-29 03:00');
+			expect(csvDate(at('2026-03-29T01:30:00Z'), berlin)).toBe('2026-03-29 03:30');
+		});
+
+		it('writes the repeated hour of 2026-10-25 twice, an hour apart in time', () => {
+			expect(csvDate(at('2026-10-24T23:59:00Z'), berlin)).toBe('2026-10-25 01:59');
+			// 02:30 CEST, then 02:30 CET: the same text for two instants (the zone has no more to give).
+			expect(csvDate(at('2026-10-25T00:30:00Z'), berlin)).toBe('2026-10-25 02:30');
+			expect(csvDate(at('2026-10-25T01:30:00Z'), berlin)).toBe('2026-10-25 02:30');
+			expect(csvDate(at('2026-10-25T02:00:00Z'), berlin)).toBe('2026-10-25 03:00');
+		});
+
+		it('is an hour ahead of UTC in winter and two in summer, at midnight too', () => {
+			expect(csvDate(at('2026-01-15T23:00:00Z'), berlin)).toBe('2026-01-16 00:00');
+			expect(csvDate(at('2026-07-15T22:00:00Z'), berlin)).toBe('2026-07-16 00:00');
+		});
+	});
+
 	it('falls back to UTC for a zone Intl does not know', () => {
 		expect(csvDate(60, { start: '2026-01-05T00:00:00Z', timezone: 'Not/AZone' })).toBe(
 			'2026-01-05 01:00',
@@ -117,6 +143,13 @@ describe('taskRows', () => {
 		const text = csvText(rows());
 		expect(text.split('\r\n')[0]).toBe('id,name,start,end,effort,people,complete');
 		expect(text).toContain('b,"B, with a comma",2026-01-07 09:00,');
+	});
+
+	it('writes the end of a task that ends at midnight as that midnight, not the day before', () => {
+		const r = plan([['a', { start: at(0, 9), end: at(2, 0) }]]);
+		const rows = taskRows({ result: r, scenario: 'plan', chain, symbol: () => undefined });
+		// The Gantt's END column says Jan 6 (the last day worked); the file keeps the instant.
+		expect(rows[1]?.slice(2, 4)).toEqual(['2026-01-05 09:00', '2026-01-07 00:00']);
 	});
 
 	it('writes no dates for a scenario the task has no result in', () => {

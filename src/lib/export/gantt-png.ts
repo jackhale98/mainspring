@@ -12,20 +12,35 @@
  * visible part of the content, exactly what `Timeline.svelte` paints), the header, and the picture
  * itself with the names and the two others placed on it. Nothing here is fetched until the first
  * export.
+ *
+ * The painters are handed in (`Painters`), not imported: the chart's first load has them already,
+ * and a lazy chunk that imported them would make the bundler cut them out of the chunks a first
+ * load fetches into shared chunks of their own, which costs every first load bytes (12.1).
  */
 import type { Minutes } from '../../engine/protocol';
 import type { GanttLayout } from '../gantt/layout';
 import type { GanttModel } from '../gantt/model';
-import { paintBars } from '../gantt/paint/bars';
-import { sizeCanvas, textWidth, type PaintFrame } from '../gantt/paint/canvas';
-import { markerLines, paintGrid } from '../gantt/paint/grid';
-import { paintHeader } from '../gantt/paint/header';
-import { NO_OVERLAY, paintOverlay } from '../gantt/paint/overlay';
+import type { paintBars } from '../gantt/paint/bars';
+import type { PaintFrame } from '../gantt/paint/canvas';
+import type { markerLines, paintGrid } from '../gantt/paint/grid';
+import type { paintHeader } from '../gantt/paint/header';
+import type { paintOverlay } from '../gantt/paint/overlay';
 import type { Theme } from '../gantt/paint/theme';
-import { ticksFor, type TickRows } from '../gantt/ticks';
+import type { ticksFor, TickRows } from '../gantt/ticks';
 import { frameSize, limitDpr, nameCells, type NameCell, type NameRow } from './png-frame';
 
+/** The chart's own painters, from the chart's own modules. */
+export interface Painters {
+	readonly paintGrid: typeof paintGrid;
+	readonly paintBars: typeof paintBars;
+	readonly paintOverlay: typeof paintOverlay;
+	readonly paintHeader: typeof paintHeader;
+	readonly markerLines: typeof markerLines;
+	readonly ticksFor: typeof ticksFor;
+}
+
 export interface GanttPngInput {
+	readonly paint: Painters;
 	readonly model: GanttModel;
 	readonly layout: GanttLayout;
 	readonly theme: Theme;
@@ -51,7 +66,8 @@ const ARROW = 14;
 
 function canvasOf(doc: Document, w: number, h: number, dpr: number): HTMLCanvasElement {
 	const c = doc.createElement('canvas');
-	sizeCanvas(c, w, h, dpr);
+	c.width = Math.round(w * dpr);
+	c.height = Math.round(h * dpr);
 	return c;
 }
 
@@ -87,11 +103,16 @@ function drawPlot(
 		];
 	};
 	const [grid, g] = layer(true);
-	paintGrid(g, ticks, null);
+	i.paint.paintGrid(g, ticks, null);
 	const [bars, b] = layer(false);
-	paintBars(b);
+	i.paint.paintBars(b);
 	const [lines, o] = layer(false);
-	paintOverlay(o, { ...NO_OVERLAY, todayMin: i.todayMin });
+	i.paint.paintOverlay(o, {
+		selectedRow: null,
+		hoverRow: null,
+		hoverLink: null,
+		todayMin: i.todayMin,
+	});
 	return [grid, bars, lines];
 }
 
@@ -108,13 +129,13 @@ function drawHeader(
 		ctx.fillRect(0, 0, c.width, c.height);
 		return;
 	}
-	paintHeader({
+	i.paint.paintHeader({
 		ctx,
 		win: { x: i.scrollLeft, w: i.viewW },
 		dpr,
 		scale: i.layout.scale,
 		ticks,
-		markers: markerLines(i.model, i.todayMin),
+		markers: i.paint.markerLines(i.model, i.todayMin),
 		theme: i.theme,
 		viewLeft: i.scrollLeft,
 	});
@@ -176,7 +197,7 @@ function drawNames(ctx: CanvasRenderingContext2D, i: GanttPngInput, dpr: number)
 		},
 		(text, bold) => {
 			ctx.font = nameFont(t, bold);
-			return textWidth(ctx, text);
+			return ctx.measureText(text).width;
 		},
 	);
 	ctx.save();
@@ -211,6 +232,12 @@ async function fontsReady(doc: Document): Promise<void> {
 	}
 }
 
+/** Empties a canvas's backing store. */
+function release(c: HTMLCanvasElement): void {
+	c.width = 0;
+	c.height = 0;
+}
+
 /** The Gantt's visible range as a PNG. */
 export async function renderGanttPng(i: GanttPngInput, doc: Document = document): Promise<Blob> {
 	await fontsReady(doc);
@@ -220,7 +247,7 @@ export async function renderGanttPng(i: GanttPngInput, doc: Document = document)
 	const cal = i.model.calendar;
 	const { scale } = i.layout;
 	const ticks = cal
-		? ticksFor(cal, scale.m(i.scrollLeft), scale.m(i.scrollLeft + i.viewW), i.pxPerDay)
+		? i.paint.ticksFor(cal, scale.m(i.scrollLeft), scale.m(i.scrollLeft + i.viewW), i.pxPerDay)
 		: null;
 
 	const plot = drawPlot(doc, i, dpr, ticks);
@@ -238,11 +265,15 @@ export async function renderGanttPng(i: GanttPngInput, doc: Document = document)
 	for (const layer of plot) ctx.drawImage(layer, left, Math.round(headerH * dpr));
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 	drawNames(ctx, i, dpr);
+	// What is composed has no more use: give the backing stores back at once (Safari keeps a canvas's
+	// memory until a collection, and a phone has little).
+	for (const c of [header, ...plot]) release(c);
 
 	return new Promise<Blob>((resolve, reject) => {
-		out.toBlob(
-			(b) => (b ? resolve(b) : reject(new Error('the picture could not be encoded'))),
-			'image/png',
-		);
+		out.toBlob((b) => {
+			release(out);
+			if (b) resolve(b);
+			else reject(new Error('the picture could not be encoded'));
+		}, 'image/png');
 	});
 }

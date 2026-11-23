@@ -17,7 +17,7 @@
 
 	interface Props {
 		actions: readonly RowAction[];
-		/** No task is selected: the row actions are off (the exports and the shortcuts are not). */
+		/** No task is selected: the menu has no row actions (the exports and the shortcuts stay). */
 		disabled: boolean;
 		onaction: (id: string) => void;
 		/** The exports: which can be chosen now, and what choosing one does (none: no entries). */
@@ -30,17 +30,25 @@
 	let help: HTMLDialogElement | undefined = $state();
 
 	const R = gestureStrings.row;
-	/** An export entry: reachable while the plan has no schedule, and then says why it does nothing. */
-	const exportItem = (id: 'png' | 'csv', label: string, first: boolean): MenuItem => ({
-		id: `export-${id}`,
-		label,
-		separator: first,
-		...(exports?.[id] ? {} : { unavailable: true, hint: R.exportWait }),
+	let open = $state(false);
+	// The export's code is fetched while the menu is open, ready for a choice (a first load has none of it).
+	$effect(() => {
+		if (open) exports?.prefetch();
 	});
+	/** An export entry: reachable while it cannot be chosen, and then says why (its hint). */
+	const exportItem = (id: 'png' | 'csv', label: string, first: boolean): MenuItem => {
+		const why = exports?.[id] ?? null;
+		return {
+			id: `export-${id}`,
+			label,
+			separator: first,
+			...(why === null ? {} : { unavailable: true, hint: why }),
+		};
+	};
 	const items = $derived<readonly MenuItem[]>([
-		...actions.map((a) => (disabled ? { ...a, disabled: true } : a)),
+		...(disabled ? [] : actions),
 		...(exports
-			? [exportItem('png', R.exportPng, true), exportItem('csv', R.exportCsv, false)]
+			? [exportItem('png', R.exportPng, !disabled), exportItem('csv', R.exportCsv, false)]
 			: []),
 		{ id: 'shortcuts', label: R.shortcuts, separator: true },
 	]);
@@ -53,7 +61,7 @@
 	}
 </script>
 
-<Menu {items} label={R.menu} onselect={choose}>
+<Menu {items} label={R.menu} onselect={choose} bind:open>
 	{#snippet trigger({ attrs, toggle })}
 		<button
 			bind:this={button}

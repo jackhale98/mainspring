@@ -76,7 +76,7 @@ export const CHUNK_CAPS = [
 	{ name: 'health-checks', pattern: /^(compute|health-checks)\./, cap: 13_300 },
 	// Export (T18, phase-4.md 18.20): the Gantt picture's renderer, the CSV writer and what they say,
 	// fetched by the first use of the "More actions" menu's export entries and by no first load
-	// (3,349 bytes on 2026-11-23).
+	// (3,356 bytes on 2026-11-23).
 	{ name: 'export', pattern: /^run-export\./, cap: 3_700, lazy: true },
 ];
 
@@ -247,7 +247,7 @@ const kb = (n) => `${(n / 1000).toFixed(1)} KB`;
 /**
  * The budget problems of a measurement (empty when it is within every budget). `loads` is absent
  * with --dist-only. Pure, so it is unit-tested (tests/scripts/js-sizes.test.ts).
- * @param {{ files: { file: string, gzip: number }[], peopleViews?: { gzipBytes: number, cap: number }, loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsLazy?: string[], loadsDocs?: boolean } } }} m
+ * @param {{ files: { file: string, gzip: number }[], peopleViews?: { gzipBytes: number, cap: number }, loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsLazy?: string[], loadsDocs?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsLazy?: string[], loadsDocs?: boolean } } }} m
  * @returns {string[]}
  */
 export function checkBudgets({ files, loads, peopleViews }) {
