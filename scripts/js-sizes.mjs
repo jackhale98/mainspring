@@ -28,6 +28,14 @@ export const TOTAL_CAP = 650_000;
 export const VISUAL_FIRST_CAP = 330_000;
 export const TEXT_FIRST_CAP = 440_000;
 /**
+ * All the People views' lazy chunks together (the heatmap, the lanes, the Calendar, the Resources
+ * table, the person details and what they share; found from the built graph, `viewChunkSet`). The
+ * 60,000 of phase-3.md 8.3 was one chunk's target; the views are now one chunk each (23.1) with
+ * caps of their own, and 90,589 bytes were measured together on 2026-11-23 (T22): this guard keeps the sum
+ * from growing unseen.
+ */
+export const PEOPLE_VIEWS_CAP = 100_000;
+/**
  * Lazy chunks with their own cap, by file name (Rollup names a chunk after its entry module, and
  * a chunk two views share after one of its modules). `view: true` marks a People view chunk: none
  * of them may load with a Gantt-first load (phase-3.md 8.3). A pattern that matches no chunk is a
@@ -42,6 +50,9 @@ export const CHUNK_CAPS = [
 	{ name: 'workload', pattern: /^Workload\./, cap: 7_000, view: true },
 	// What the heatmap and the lanes share (the canvas plot, names, header, details, the model).
 	{ name: 'heat', pattern: /^WorkloadBar/, cap: 34_000, view: true },
+	// What the heatmap and the lanes share, named after one of its modules (WhichTask: the plot, the
+	// painters, the details; 19,196 on 2026-11-23): it had no cap of its own (T22).
+	{ name: 'heat-shared', pattern: /^WhichTask/, cap: 21_000, view: true },
 	{ name: 'lanes', pattern: /^Lanes\./, cap: 12_200, view: true },
 	{ name: 'calendar', pattern: /^(Calendar\.|calendar-state)/, cap: 16_400, view: true },
 	// The Resources view: the resource table, its drag and the divider's rules (T17).
@@ -127,6 +138,16 @@ export function builtViewChunks(dir = path.join(process.cwd(), 'dist')) {
 			.map((f) => [f, fs.readFileSync(path.join(astro, f), 'utf8')]),
 	);
 	return viewChunkSet(sources, fs.readFileSync(path.join(dir, 'app', 'index.html'), 'utf8'));
+}
+
+/** The People views' lazy chunks together: how many files and their gzip bytes. */
+export function peopleViewsSize(files, viewChunks) {
+	const mine = files.filter((f) => viewChunks.has(f.file));
+	return {
+		files: mine.length,
+		gzipBytes: mine.reduce((n, f) => n + f.gzip, 0),
+		cap: PEOPLE_VIEWS_CAP,
+	};
 }
 
 const gzip = (buf) => zlib.gzipSync(buf, { level: 9 }).length;
@@ -217,10 +238,10 @@ const kb = (n) => `${(n / 1000).toFixed(1)} KB`;
 /**
  * The budget problems of a measurement (empty when it is within every budget). `loads` is absent
  * with --dist-only. Pure, so it is unit-tested (tests/scripts/js-sizes.test.ts).
- * @param {{ files: { file: string, gzip: number }[], loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean } } }} m
+ * @param {{ files: { file: string, gzip: number }[], peopleViews?: { gzipBytes: number, cap: number }, loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean } } }} m
  * @returns {string[]}
  */
-export function checkBudgets({ files, loads }) {
+export function checkBudgets({ files, loads, peopleViews }) {
 	const problems = [];
 	const total = files.reduce((n, f) => n + f.gzip, 0);
 	if (total > TOTAL_CAP)
@@ -230,6 +251,10 @@ export function checkBudgets({ files, loads }) {
 		if (size > c.cap)
 			problems.push(`the ${c.name} chunk is ${size} bytes gzip; its cap is ${c.cap}`);
 	}
+	if (peopleViews && peopleViews.gzipBytes > peopleViews.cap)
+		problems.push(
+			`the People views' chunks are ${peopleViews.gzipBytes} bytes gzip together; the cap is ${peopleViews.cap}`,
+		);
 	if (loads) {
 		const { visualFirst: v, textFirst: t } = loads;
 		if (v.gzipBytes > VISUAL_FIRST_CAP)
@@ -270,6 +295,7 @@ async function main() {
 	};
 	if (!flag('--dist-only')) {
 		Object.assign(result, await measureLoads());
+		result.peopleViews = peopleViewsSize(files, new Set(result.viewChunks));
 		result.visualFirstCap = VISUAL_FIRST_CAP;
 		result.textFirstCap = TEXT_FIRST_CAP;
 	}
@@ -277,6 +303,7 @@ async function main() {
 		...unmatchedCaps(files),
 		...checkBudgets({
 			files,
+			peopleViews: result.peopleViews,
 			loads: result.visualFirst
 				? { visualFirst: result.visualFirst, textFirst: result.textFirst }
 				: undefined,
@@ -302,6 +329,10 @@ async function main() {
 			`First load, Text mode: **${kb(result.textFirst.gzipBytes)}** of ${kb(TEXT_FIRST_CAP)}; keyword docs ${docs(result.textFirst)}.`,
 		);
 	}
+	if (result.peopleViews)
+		lines.push(
+			`People views, all ${result.peopleViews.files} lazy chunks together: **${kb(result.peopleViews.gzipBytes)}** of ${kb(PEOPLE_VIEWS_CAP)}.`,
+		);
 	for (const c of result.chunkCaps)
 		lines.push(`Lazy chunk ${c.name}: **${kb(c.gzipBytes)}** of ${kb(c.cap)}.`);
 	lines.push(

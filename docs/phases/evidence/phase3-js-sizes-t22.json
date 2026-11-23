@@ -1,0 +1,368 @@
+{
+  "distTotal": {
+    "files": 81,
+    "gzipBytes": 608147,
+    "cap": 650000
+  },
+  "biggest": [
+    {
+      "file": "editor-controller.8vXqEf_B.js",
+      "raw": 324384,
+      "gzip": 103330
+    },
+    {
+      "file": "App.Cui1UEr3.js",
+      "raw": 267908,
+      "gzip": 85111
+    },
+    {
+      "file": "core-shared.D226X6oW.js",
+      "raw": 248739,
+      "gzip": 79606
+    },
+    {
+      "file": "shared-ui.C-Gy_zVx.js",
+      "raw": 122369,
+      "gzip": 44785
+    },
+    {
+      "file": "apply.qdDKNe4p.js",
+      "raw": 120157,
+      "gzip": 38144
+    },
+    {
+      "file": "ViewSwitcher.KR7Nadeb.js",
+      "raw": 73545,
+      "gzip": 25325
+    }
+  ],
+  "chunkCaps": [
+    {
+      "name": "editor",
+      "cap": 118000,
+      "gzipBytes": 103330
+    },
+    {
+      "name": "people",
+      "cap": 3700,
+      "gzipBytes": 3113
+    },
+    {
+      "name": "workload",
+      "cap": 7000,
+      "gzipBytes": 5766
+    },
+    {
+      "name": "heat",
+      "cap": 34000,
+      "gzipBytes": 6144
+    },
+    {
+      "name": "heat-shared",
+      "cap": 21000,
+      "gzipBytes": 19196
+    },
+    {
+      "name": "lanes",
+      "cap": 12200,
+      "gzipBytes": 9818
+    },
+    {
+      "name": "calendar",
+      "cap": 16400,
+      "gzipBytes": 12934
+    },
+    {
+      "name": "resources",
+      "cap": 9400,
+      "gzipBytes": 7335
+    },
+    {
+      "name": "person",
+      "cap": 15800,
+      "gzipBytes": 12769
+    },
+    {
+      "name": "health",
+      "cap": 16700,
+      "gzipBytes": 14504
+    },
+    {
+      "name": "health-checks",
+      "cap": 13300,
+      "gzipBytes": 10669
+    }
+  ],
+  "viewChunks": [
+    "Calendar.N3yixtOU.js",
+    "CalendarBar.BRQXCXUF.js",
+    "FilterPanel.BjgQ_1Lk.js",
+    "Lanes.Ch8uib1K.js",
+    "LeaveCard.bhbd7eQr.js",
+    "MovePreferenceDialog.7mUnBYCH.js",
+    "PeopleList.C6GVJrJe.js",
+    "PeopleView.NzWVr0iX.js",
+    "ResourcePanel.DM2pVbhT.js",
+    "ResourcesView.Sa0YC8DW.js",
+    "WhichTask.DFj2hzmY.js",
+    "WorkingHoursEditor.CXPD-bgz.js",
+    "Workload.eXTMnz2e.js",
+    "WorkloadBar.BYqIUxqu.js",
+    "calendar-state.svelte.ARMtxYIl.js",
+    "leave-edit.bDmMlUvV.js",
+    "person-edit.xDgxcsMM.js",
+    "rows.B2kEiNyq.js",
+    "run.CzcfxEaH.js",
+    "strings-calendar.KU69Rn2U.js"
+  ],
+  "visualFirst": {
+    "files": [
+      {
+        "file": "App.Cui1UEr3.js",
+        "raw": 267908,
+        "gzip": 85111
+      },
+      {
+        "file": "core-shared.D226X6oW.js",
+        "raw": 248739,
+        "gzip": 79606
+      },
+      {
+        "file": "shared-ui.C-Gy_zVx.js",
+        "raw": 122369,
+        "gzip": 44785
+      },
+      {
+        "file": "apply.qdDKNe4p.js",
+        "raw": 120157,
+        "gzip": 38144
+      },
+      {
+        "file": "ViewSwitcher.KR7Nadeb.js",
+        "raw": 73545,
+        "gzip": 25325
+      },
+      {
+        "file": "worker-tFpnrjPl.js",
+        "raw": 58377,
+        "gzip": 16253
+      },
+      {
+        "file": "health-checks.DA1P5E36.js",
+        "raw": 30096,
+        "gzip": 10669
+      },
+      {
+        "file": "gantt-env.svelte.ClS86m80.js",
+        "raw": 25113,
+        "gzip": 9518
+      },
+      {
+        "file": "tutorial.CHCkTolR.js",
+        "raw": 15052,
+        "gzip": 5354
+      },
+      {
+        "file": "intents.Bv7xor2-.js",
+        "raw": 10326,
+        "gzip": 3627
+      },
+      {
+        "file": "client.SaA0mv13.js",
+        "raw": 8973,
+        "gzip": 3140
+      },
+      {
+        "file": "history-steps.CgHSLjmI.js",
+        "raw": 4894,
+        "gzip": 2024
+      },
+      {
+        "file": "Mark.JMCXKMXn.js",
+        "raw": 3344,
+        "gzip": 1720
+      },
+      {
+        "file": "edit.S6xR19Uu.js",
+        "raw": 3182,
+        "gzip": 1063
+      },
+      {
+        "file": "Field.C511TXTx.js",
+        "raw": 1221,
+        "gzip": 679
+      },
+      {
+        "file": "StatusGlyph.BjAvHdEs.js",
+        "raw": 1337,
+        "gzip": 602
+      },
+      {
+        "file": "new-plan.z75SEvOh.js",
+        "raw": 971,
+        "gzip": 581
+      },
+      {
+        "file": "history-keys.CARqbB33.js",
+        "raw": 1027,
+        "gzip": 548
+      },
+      {
+        "file": "client.svelte.C_1q4UCE.js",
+        "raw": 897,
+        "gzip": 504
+      },
+      {
+        "file": "range.mfkjcPBj.js",
+        "raw": 212,
+        "gzip": 173
+      },
+      {
+        "file": "context.BVZBu2j5.js",
+        "raw": 129,
+        "gzip": 135
+      }
+    ],
+    "gzipBytes": 329561,
+    "rawBytes": 997869,
+    "loadsEditorChunk": false,
+    "loadsPeopleChunk": false,
+    "loadsDocs": false
+  },
+  "textFirst": {
+    "files": [
+      {
+        "file": "editor-controller.8vXqEf_B.js",
+        "raw": 324384,
+        "gzip": 103330
+      },
+      {
+        "file": "App.Cui1UEr3.js",
+        "raw": 267908,
+        "gzip": 85111
+      },
+      {
+        "file": "core-shared.D226X6oW.js",
+        "raw": 248739,
+        "gzip": 79606
+      },
+      {
+        "file": "shared-ui.C-Gy_zVx.js",
+        "raw": 122369,
+        "gzip": 44785
+      },
+      {
+        "file": "apply.qdDKNe4p.js",
+        "raw": 120157,
+        "gzip": 38144
+      },
+      {
+        "file": "ViewSwitcher.KR7Nadeb.js",
+        "raw": 73545,
+        "gzip": 25325
+      },
+      {
+        "file": "worker-tFpnrjPl.js",
+        "raw": 58377,
+        "gzip": 16253
+      },
+      {
+        "file": "health-checks.DA1P5E36.js",
+        "raw": 30096,
+        "gzip": 10669
+      },
+      {
+        "file": "gantt-env.svelte.ClS86m80.js",
+        "raw": 25113,
+        "gzip": 9518
+      },
+      {
+        "file": "tutorial.CHCkTolR.js",
+        "raw": 15052,
+        "gzip": 5354
+      },
+      {
+        "file": "intents.Bv7xor2-.js",
+        "raw": 10326,
+        "gzip": 3627
+      },
+      {
+        "file": "client.SaA0mv13.js",
+        "raw": 8973,
+        "gzip": 3140
+      },
+      {
+        "file": "history-steps.CgHSLjmI.js",
+        "raw": 4894,
+        "gzip": 2024
+      },
+      {
+        "file": "editor-bundle.CQIZP3KA.js",
+        "raw": 4142,
+        "gzip": 1934
+      },
+      {
+        "file": "EditorPanel.BTNEB3Uu.js",
+        "raw": 3971,
+        "gzip": 1827
+      },
+      {
+        "file": "Mark.JMCXKMXn.js",
+        "raw": 3344,
+        "gzip": 1720
+      },
+      {
+        "file": "edit.S6xR19Uu.js",
+        "raw": 3182,
+        "gzip": 1063
+      },
+      {
+        "file": "Field.C511TXTx.js",
+        "raw": 1221,
+        "gzip": 679
+      },
+      {
+        "file": "StatusGlyph.BjAvHdEs.js",
+        "raw": 1337,
+        "gzip": 602
+      },
+      {
+        "file": "new-plan.z75SEvOh.js",
+        "raw": 971,
+        "gzip": 581
+      },
+      {
+        "file": "history-keys.CARqbB33.js",
+        "raw": 1027,
+        "gzip": 548
+      },
+      {
+        "file": "client.svelte.C_1q4UCE.js",
+        "raw": 897,
+        "gzip": 504
+      },
+      {
+        "file": "range.mfkjcPBj.js",
+        "raw": 212,
+        "gzip": 173
+      },
+      {
+        "file": "context.BVZBu2j5.js",
+        "raw": 129,
+        "gzip": 135
+      }
+    ],
+    "gzipBytes": 436652,
+    "rawBytes": 1330366,
+    "loadsEditorChunk": true,
+    "loadsPeopleChunk": false,
+    "loadsDocs": true
+  },
+  "peopleViews": {
+    "files": 20,
+    "gzipBytes": 90589,
+    "cap": 100000
+  },
+  "visualFirstCap": 330000,
+  "textFirstCap": 440000
+}

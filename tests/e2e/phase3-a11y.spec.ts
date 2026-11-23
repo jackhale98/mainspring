@@ -23,7 +23,12 @@ const moving = (page: Page): Promise<string[]> =>
 			Math.max(...v.split(',').map((x) => parseFloat(x) * (x.includes('ms') ? 0.001 : 1)));
 		for (const el of document.querySelectorAll('body *')) {
 			const cs = getComputedStyle(el);
-			const anim = cs.animationName !== 'none' && secs(cs.animationDuration) > 0.05;
+			// The brand mark's loader holds still under reduced motion and pulses its opacity gently
+			// (ADR-0009, Mark.svelte): an opacity change is no movement, so it is the one animation allowed.
+			const anim =
+				cs.animationName !== 'none' &&
+				!cs.animationName.endsWith('mark-pulse') &&
+				secs(cs.animationDuration) > 0.05;
 			const trans = secs(cs.transitionDuration) > 0.05;
 			if (anim || trans) {
 				out.push(

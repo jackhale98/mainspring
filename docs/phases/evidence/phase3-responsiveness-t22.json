@@ -1,0 +1,404 @@
+{
+  "run1": {
+    "environment": {
+      "when": "2026-11-23T16:00:30.802Z",
+      "project": "chromium",
+      "device": "chromium",
+      "cpuThrottle": 1,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+      "build": "727f7270",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        17.79,
+        16.32,
+        17.59
+      ]
+    },
+    "label": "run 1",
+    "readyAt": 11126.5,
+    "endAt": 11910.799999999814,
+    "bootLongTasks": [
+      {
+        "start": 50.40000000037253,
+        "duration": 53
+      },
+      {
+        "start": 259.29999999981374,
+        "duration": 58
+      },
+      {
+        "start": 383.40000000037253,
+        "duration": 337
+      },
+      {
+        "start": 789,
+        "duration": 248
+      },
+      {
+        "start": 1308.0999999996275,
+        "duration": 364
+      },
+      {
+        "start": 1676.7999999998137,
+        "duration": 55
+      },
+      {
+        "start": 1815.0999999996275,
+        "duration": 274
+      },
+      {
+        "start": 3419.4000000003725,
+        "duration": 66
+      }
+    ],
+    "afterReady": [],
+    "measures": {
+      "gantt-analysis": [
+        6.6
+      ],
+      "workload-load": [
+        15.8,
+        1.2
+      ],
+      "workload-demand": [
+        8.1
+      ],
+      "health-check": [
+        16.9
+      ],
+      "runner-task": [
+        11.9,
+        5.7,
+        13.2
+      ]
+    },
+    "slowTasks": [
+      {
+        "wallMs": 364.7,
+        "cpuMs": 0.8
+      },
+      {
+        "wallMs": 274.6,
+        "cpuMs": 1.1
+      },
+      {
+        "wallMs": 248,
+        "cpuMs": 3
+      },
+      {
+        "wallMs": 66.6,
+        "cpuMs": 1.2
+      },
+      {
+        "wallMs": 55.5,
+        "cpuMs": 1.1
+      }
+    ]
+  },
+  "run2": {
+    "environment": {
+      "when": "2026-11-23T16:00:44.618Z",
+      "project": "chromium",
+      "device": "chromium",
+      "cpuThrottle": 1,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+      "build": "727f7270",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        16.87,
+        16.19,
+        17.52
+      ]
+    },
+    "label": "run 2",
+    "readyAt": 11014.200000000186,
+    "endAt": 12046.5,
+    "bootLongTasks": [
+      {
+        "start": 424.70000000018626,
+        "duration": 62
+      },
+      {
+        "start": 506.59999999962747,
+        "duration": 394
+      },
+      {
+        "start": 1340.2000000001863,
+        "duration": 370
+      },
+      {
+        "start": 1883.7000000001863,
+        "duration": 210
+      }
+    ],
+    "afterReady": [
+      {
+        "start": 11125.900000000373,
+        "duration": 53
+      }
+    ],
+    "measures": {
+      "gantt-analysis": [
+        10.1
+      ],
+      "workload-load": [
+        11.8,
+        1.3
+      ],
+      "workload-demand": [
+        10.9
+      ],
+      "health-check": [
+        16.6
+      ],
+      "runner-task": [
+        16.8,
+        8.8,
+        15.6
+      ]
+    },
+    "slowTasks": [
+      {
+        "wallMs": 370.7,
+        "cpuMs": 2.8
+      },
+      {
+        "wallMs": 211,
+        "cpuMs": 0.9
+      },
+      {
+        "wallMs": 53.2,
+        "cpuMs": 44.3
+      }
+    ]
+  },
+  "run3": {
+    "environment": {
+      "when": "2026-11-23T16:00:56.901Z",
+      "project": "chromium",
+      "device": "chromium",
+      "cpuThrottle": 1,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+      "build": "727f7270",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        16.05,
+        16.04,
+        17.46
+      ]
+    },
+    "label": "run 3",
+    "readyAt": 10069.399999999441,
+    "endAt": 11080.699999999255,
+    "bootLongTasks": [
+      {
+        "start": 219.09999999962747,
+        "duration": 118
+      },
+      {
+        "start": 361,
+        "duration": 344
+      },
+      {
+        "start": 1285.0999999996275,
+        "duration": 315
+      },
+      {
+        "start": 1614.699999999255,
+        "duration": 58
+      },
+      {
+        "start": 1781.3999999994412,
+        "duration": 174
+      }
+    ],
+    "afterReady": [],
+    "measures": {
+      "gantt-analysis": [
+        7.5
+      ],
+      "workload-load": [
+        13.8,
+        6.3
+      ],
+      "workload-demand": [
+        3.8
+      ],
+      "health-check": [
+        30.4
+      ],
+      "runner-task": [
+        12.6,
+        8.2,
+        8.5
+      ]
+    },
+    "slowTasks": [
+      {
+        "wallMs": 315.6,
+        "cpuMs": 0.9
+      },
+      {
+        "wallMs": 174.5,
+        "cpuMs": 0.9
+      },
+      {
+        "wallMs": 58.7,
+        "cpuMs": 2.2
+      }
+    ]
+  },
+  "throttled4x": {
+    "environment": {
+      "when": "2026-11-23T16:01:13.605Z",
+      "project": "chromium",
+      "device": "chromium",
+      "cpuThrottle": 4,
+      "browser": "chromium 156.0.8078.4",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+      "build": "727f7270",
+      "host": "Intel(R) Xeon(R) Processor @ 2.10GHz x4",
+      "loadAverageAtStart": [
+        16.22,
+        16.08,
+        17.45
+      ]
+    },
+    "label": "4x",
+    "readyAt": 13571.199999999255,
+    "endAt": 15027.099999999627,
+    "bootLongTasks": [
+      {
+        "start": 568.5999999996275,
+        "duration": 233
+      },
+      {
+        "start": 887.7999999998137,
+        "duration": 61
+      },
+      {
+        "start": 956.3999999994412,
+        "duration": 431
+      },
+      {
+        "start": 1483.7999999998137,
+        "duration": 174
+      },
+      {
+        "start": 2158.199999999255,
+        "duration": 344
+      },
+      {
+        "start": 2618,
+        "duration": 124
+      },
+      {
+        "start": 3449.5,
+        "duration": 84
+      },
+      {
+        "start": 4030.7999999998137,
+        "duration": 69
+      },
+      {
+        "start": 4485.5999999996275,
+        "duration": 67
+      },
+      {
+        "start": 4598.199999999255,
+        "duration": 85
+      },
+      {
+        "start": 7128.299999999814,
+        "duration": 62
+      }
+    ],
+    "afterReady": [
+      {
+        "start": 13587.799999999814,
+        "duration": 78
+      },
+      {
+        "start": 13781.099999999627,
+        "duration": 102
+      },
+      {
+        "start": 13883.399999999441,
+        "duration": 164
+      },
+      {
+        "start": 14103.5,
+        "duration": 74
+      },
+      {
+        "start": 14192.799999999814,
+        "duration": 77
+      }
+    ],
+    "measures": {
+      "gantt-analysis": [
+        6.8
+      ],
+      "workload-load": [
+        39.3,
+        1.3
+      ],
+      "workload-demand": [
+        31.8
+      ],
+      "health-check": [
+        73.5
+      ],
+      "runner-task": [
+        73.6,
+        20.6,
+        34.8
+      ]
+    },
+    "slowTasks": [
+      {
+        "wallMs": 344.5,
+        "cpuMs": 233.4
+      },
+      {
+        "wallMs": 164,
+        "cpuMs": 158
+      },
+      {
+        "wallMs": 124.5,
+        "cpuMs": 38.2
+      },
+      {
+        "wallMs": 102.9,
+        "cpuMs": 34.7
+      },
+      {
+        "wallMs": 102.3,
+        "cpuMs": 100.4
+      },
+      {
+        "wallMs": 80.5,
+        "cpuMs": 8
+      },
+      {
+        "wallMs": 78.3,
+        "cpuMs": 45.9
+      },
+      {
+        "wallMs": 74.1,
+        "cpuMs": 58.2
+      },
+      {
+        "wallMs": 67.4,
+        "cpuMs": 24.4
+      },
+      {
+        "wallMs": 66.8,
+        "cpuMs": 49.7
+      }
+    ]
+  }
+}

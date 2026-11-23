@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // npm run test:responsiveness: builds the site with MAINSPRING_DEV_PAGES=1 (the responsiveness test needs the
-// /dev/engine page) and runs tests/e2e/engine-responsiveness.spec.ts on Chromium.
+// /dev/engine page) and runs tests/e2e/engine-responsiveness.spec.ts and workload-responsiveness.spec.ts on Chromium.
 // RESPONSIVENESS_SKIP_BUILD=1 reuses an existing dist/ that already has the dev page.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
