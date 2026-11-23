@@ -39,7 +39,8 @@
 // "<package version>+custom") as the rubyWasm version, and NOTICES.txt gains a line saying the
 // binary is not the package's; the rest of NOTICES.txt still describes the package's binary, so
 // such a build is for checks, not for release, until T13 updates the notices. Without either, the
-// build is exactly as before.
+// build is exactly as before. The version label must carry a "+<build>" suffix (pages.yml refuses
+// to deploy a manifest whose rubyWasm version has one), and is an error without --ruby-wasm.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -191,7 +192,17 @@ async function main() {
 			'ruby-wasm-version': { type: 'string' },
 		},
 	});
-	const customRuby = values['ruby-wasm'] ?? process.env.MAINSPRING_RUBY_WASM ?? '';
+	const customRuby = values['ruby-wasm'] || process.env.MAINSPRING_RUBY_WASM || '';
+	const versionLabel = values['ruby-wasm-version'] || process.env.MAINSPRING_RUBY_WASM_VERSION || '';
+	const label = values['ruby-wasm-version'] ? '--ruby-wasm-version' : 'MAINSPRING_RUBY_WASM_VERSION';
+	if (versionLabel && !customRuby) {
+		throw new Error(`${label} ${versionLabel} without --ruby-wasm (or MAINSPRING_RUBY_WASM): it would label the package's own binary`);
+	}
+	// A custom binary is never recorded as a release version: the "+<build>" suffix marks it, and
+	// pages.yml refuses to deploy a manifest whose rubyWasm version has one.
+	if (versionLabel && !/^[^+\s]+\+[0-9A-Za-z.-]+$/.test(versionLabel)) {
+		throw new Error(`${label} ${versionLabel} needs a "+<build>" suffix (e.g. 2.10.1+no-openssl): a custom binary is not a release`);
+	}
 	const out = path.resolve(values.out);
 	const rubyWasmVersion = packageVersion(RUBY_WASM_PACKAGE);
 	const wasiShimVersion = packageVersion(WASI_SHIM_PACKAGE);
@@ -201,9 +212,7 @@ async function main() {
 	}
 	const commit = tjCommit();
 	const rubyFile = customRuby ? path.resolve(customRuby) : path.join(REPO, 'node_modules', RUBY_WASM_PACKAGE, RUBY_WASM_FILE);
-	const recordedVersion = customRuby
-		? (values['ruby-wasm-version'] ?? process.env.MAINSPRING_RUBY_WASM_VERSION ?? `${rubyWasmVersion}+custom`)
-		: rubyWasmVersion;
+	const recordedVersion = customRuby ? versionLabel || `${rubyWasmVersion}+custom` : rubyWasmVersion;
 	if (customRuby) {
 		console.log(`build-bundle: interpreter ${path.relative(process.cwd(), rubyFile)}, recorded as ${RUBY_WASM_PACKAGE} ${recordedVersion} (not for release)`);
 	}

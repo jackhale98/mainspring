@@ -1,6 +1,7 @@
 # OpenSSL-free ruby.wasm (phase 4, T13)
 
-Status: wave 1, feasibility (2026-11-23). The app still builds and ships the binary of
+Status: wave 2 (2026-11-23): the recipe is hardened and its CI workflow,
+`.github/workflows/ruby-wasm.yml`, is active. The app still builds and ships the binary of
 `@ruby/3.4-wasm-wasi` 2.10.1; nothing here changes `npm run build:engine` unless
 `--ruby-wasm` (or `MAINSPRING_RUBY_WASM`) is given. Switching the app over is T13's finish (wave 6).
 
@@ -45,14 +46,14 @@ it, golden parity on it, and `scripts/ci/licenses.mjs` with no embedded exceptio
 
 | File | What it is |
 | --- | --- |
-| `build.sh` | Fetches every input in `inputs.json`, checks its SHA-256, sets up the toolchain, installs the gems offline, runs `build.rb`, strips the result, runs `check-binary.mjs` and writes `out/provenance.json` |
-| `build.rb` | Drives ruby_wasm 2.10.1's own packager (the code that built the stock binary) with four changes only: the extension list is the `3.4` full profile minus `openssl`; the OpenSSL library is neither fetched nor built; sources come from the checked files; the host-side build logs of gem extensions are not packed. It checks that ruby_wasm's `3.4` alias still names the pinned Ruby tarball, applies no patches and lists `openssl`, so a gem bump cannot change the build silently |
+| `build.sh` | Fetches every input in `inputs.json`, checks its SHA-256, sets up the toolchain, installs the gems offline, runs `build.rb`, strips the result, runs `check-binary.mjs` and writes `out/provenance.json` (inputs, outputs, host tool versions). It refuses to start while an input it uses has no pin. A failed or partial download never becomes the cached file, and a cached file that does not match its pin is deleted |
+| `build.rb` | Drives ruby_wasm 2.10.1's own packager (the code that built the stock binary) with four changes only: the extension list is the `3.4` full profile minus `openssl`; the OpenSSL library is neither fetched nor built; sources come from the checked files; two kinds of non-runtime files are not packed (the host-side build logs of gem extensions, and rdoc's HTML generator templates). It checks that ruby_wasm's `3.4` alias still names the pinned Ruby tarball, applies no patches and lists `openssl`, so a gem bump cannot change the build silently. Guards raise if ruby_wasm would fetch wasi-sdk, binaryen, wasi-vfs or OpenSSL itself, or run any other download (curl of a non-`file://` URL, git, wget, Ruby's `tool/downloader.rb`) |
 | `inputs.json` | Every input with its URL, SHA-256 and licence |
 | `Gemfile`, `Gemfile.lock` | ruby_wasm 2.10.1 (build tool), js 2.10.1 and logger 1.7.0 (packed). The stock binary also packs test-unit 3.6.2 and power_assert 2.0.3; the engine never loads them, so they are left out |
-| `check-binary.mjs` | Fails if a binary has OpenSSL (the libcrypto version banner, `openssl.so` registered, or OpenSSL functions in the name section); `--expect-openssl` checks the check on the stock binary; `--compare` reports what was removed |
-| `run-engine.mjs` | Boots an engine in Node on a given binary (with `--fs` for a build without wasi-vfs), checks syntax docs, tokens, every golden, the time-zone cases and `retain`, then reports `$LOADED_FEATURES` and tries `require "openssl"` |
-| `gem-licenses.rb` | The declared licences of every gem the binary packs |
-| `ci-job.yml` | The CI job that builds and checks the shipping binary. Not active: it is a sketch for T24 and T13's finish |
+| `check-binary.mjs` | The licence gate. Fails if a binary has any OpenSSL marker: the libcrypto version banner; `openssl.so` registered; libcrypto's C strings `OPENSSLDIR: "`, `ENGINESDIR: "`, `MODULESDIR: "`, `rsaEncryption`, `sha256WithRSAEncryption` (NUL-delimited, so packed Ruby text cannot match); OpenSSL functions in the name section (`ossl_*`, `EVP_*`, `OSSL_*`, `MD5_*`, `SHA256_*`, `HMAC*`, `RAND_*`, `OBJ_*`, `d2i_*`, `i2d_*` and others). `--expect-openssl` requires every applicable marker, to check the check on the stock binaries; `--compare` reports what was removed. Unit test: `tests/scripts/check-binary.test.ts` |
+| `run-engine.mjs` | Boots an engine in Node on a given binary (with `--fs` for a build without wasi-vfs), checks syntax docs, tokens, every golden, the time-zone cases and `retain`, then reports `$LOADED_FEATURES` and tries `require "openssl"`; `--expect-no-openssl` fails unless that raises `LoadError` |
+| `gem-licenses.rb` | The declared licences of every gem the binary packs. Every entry of a gem's list must be allowed; a non-SPDX name passes only through a review in the script that maps it (test-unit: BSDL, PSFL) |
+| `.github/workflows/ruby-wasm.yml` | The CI workflow that builds and checks the shipping binary (ADR-0020, amendment 2026-11-23): fetch, build, `check-binary` on both outputs and on the stock binaries, `run-engine --expect-no-openssl`, then `npm run test:golden` in Chromium on an engine built on the new binary. Fetch-only while an input is unpinned |
 
 **Modes.**
 - `--toolchain wasi-sdk` (default): wasi-sdk 22.0, the shipping toolchain. It needs `github.com`
@@ -61,6 +62,11 @@ it, golden parity on it, and `scripts/ci/licenses.mjs` with no embedded exceptio
   compiler-rt packages, all from `archive.ubuntu.com`.
 - `--no-vfs`: no wasi-vfs. This writes `ruby.wasm` plus `fs/`, the `/usr` and `/bundle` trees that
   wasi-vfs would pack. It is not a drop-in engine binary; `run-engine.mjs --fs` mounts the trees.
+- `--fetch-only`: download the inputs of that toolchain and mode, print `PINNED`, `UNPINNED` or
+  `MISMATCH` with each SHA-256, and exit without unpacking or running anything. An unpinned input is
+  always downloaded afresh. This is how a hash gets pinned: record it from a fetch-only run, then
+  write it into `inputs.json`.
+- `--list-unpinned`: print the inputs of that toolchain and mode that have no pin.
 
 **Steps of a build** (ruby_wasm's own sequence):
 1. Unpack Ruby 3.4.1.
@@ -74,11 +80,12 @@ it, golden parity on it, and `scripts/ci/licenses.mjs` with no embedded exceptio
 8. `wasm-opt --strip-debug`, as ruby.wasm's npm packaging does.
 
 ```sh
+engine/ruby-wasm/build.sh --fetch-only                     # print the SHA-256 of every input
 engine/ruby-wasm/build.sh                                  # CI: wasi-sdk 22, wasi-vfs
-node engine/build-bundle.mjs --ruby-wasm engine/ruby-wasm/out/ruby+stdlib.wasm --ruby-wasm-version 2.10.1+no-openssl
-node engine/golden/run-wasm.mjs --syntax --tokens          # parity in Node
-node engine/ruby-wasm/run-engine.mjs                       # features; require "openssl" must fail
-MAINSPRING_RUBY_WASM=engine/ruby-wasm/out/ruby+stdlib.wasm npm run test:golden   # Chromium
+npm run build:engine                                       # the stock engine, the reference
+node engine/ruby-wasm/run-engine.mjs --ruby engine/ruby-wasm/out/ruby+stdlib.wasm --expect-no-openssl
+MAINSPRING_RUBY_WASM=engine/ruby-wasm/out/ruby+stdlib.wasm MAINSPRING_RUBY_WASM_VERSION=2.10.1+no-openssl \
+  npm run test:golden                                      # Chromium
 ```
 
 **A toolchain trap found on the way.** With Ubuntu's newer wasi-libc snapshot (`20240708`),
@@ -91,9 +98,11 @@ MAINSPRING_RUBY_WASM=engine/ruby-wasm/out/ruby+stdlib.wasm npm run test:golden  
 The 2023 snapshot has no `mprotect`, and neither can wasi-sdk 22's libc, because the stock binary
 boots. Do not move the 3.4 build to a newer wasi-sdk or wasi-libc without checking this.
 
-## 3. What was built here (wave 1)
+## 3. What was built here
 
-Here, `github.com` is blocked (section 5), so the shipping configuration could not be built. It
+### Wave 1
+
+In wave 1, `github.com` was blocked (section 5), so the shipping configuration could not be built. It
 was built as `--toolchain ubuntu --no-vfs`: the same ruby_wasm packager, Ruby, extensions,
 LibYAML, zlib sources and binaryen 108; Ubuntu's LLVM 18.1.3 and wasi-libc instead of wasi-sdk 22;
 and the stdlib mounted by the engine's WASI shim instead of wasi-vfs.
@@ -148,6 +157,41 @@ and the stdlib mounted by the engine's WASI shim instead of wasi-vfs.
 What this does not show: the shipping (wasi-vfs, wasi-sdk 22) binary itself, and `npm run
 test:golden` in Chromium on it. Both need the CI job.
 
+### Wave 2 (2026-11-23): hardening, and a preview of the shipping build
+
+GitHub release assets became reachable here (section 5), so the shipping configuration was built
+once as a preview, from a scratch copy of the recipe with wasi-sdk's and wasi-vfs's hashes filled
+in locally. `inputs.json` still has them `null`: they are pinned from the CI workflow's fetch-only
+run (ADR-0020, amendment 2026-11-23), and three fresh downloads here gave the same values.
+
+- **The `--vfs` path had never run.** `build.rb` did not load ruby_wasm's native extension, which
+  holds the wasi-vfs packer (`RubyWasmExt`); rbwasm loads it in its CLI. Fixed: `build.rb` loads it
+  the CLI's way and stops if it is missing.
+- **wasi-sdk 22.0, wasi-vfs 0.6.2.** `check-binary.mjs`: none of the 8 markers in
+  `ruby.debug+stdlib.wasm`, none of the 7 in `ruby+stdlib.wasm`. Against the stock debug binary:
+  8,126 functions gone (3,923,832 code bytes), all 3,615 that match the OpenSSL pattern among
+  them, and 1 new (the Ubuntu toolchain's 22 libc and compiler-rt differences are gone).
+- **Sizes of the drop-in `ruby+stdlib.wasm`:** 24,917,147 raw and 7,392,134 gzip -9, against
+  30,635,497 and 9,058,728 for the stock binary: 1.67 MB less to download (18%).
+- **Parity, Node** (`run-engine.mjs --ruby out/ruby+stdlib.wasm --expect-no-openssl`, the stock
+  engine as reference): keyword docs equal to the stock `tj-docs` asset, 83 of 83 token streams,
+  72 of 72 plans, 71 of 71 time-zone cases, `retain` matches, the same 236 `$LOADED_FEATURES`,
+  `LoadError` for openssl.
+- **Parity, Chromium** (`npm run test:golden` on an engine built on it): 72 of 72. The engine's
+  `tj-docs` asset has the stock engine's hash (`951e36ef993e`).
+- **Timings, Chromium, Fedora** (golden report, worker ms, two interleaved rounds, load 3 to 4):
+
+  | Run | Stock | New |
+  | --- | --- | --- |
+  | `fedora-res`, long-lived worker | 5,507 / 4,840 | 5,890 / 4,960 |
+  | `upstream-fedora-20`, long-lived worker | 2,778 / 2,631 | 3,105 / 2,579 |
+  | `upstream-fedora-20`, first run in a fresh page | 3,683 / 3,660 | 4,553 / 4,512 |
+
+  The first run in a fresh page was about 0.85 s slower in both rounds; the rest is within noise.
+  In Node the same first run after boot is slightly faster on the new binary (3,966 / 3,944 /
+  3,613 ms against 4,123 / 4,097 / 3,748), so the gap is in the browser (V8 tiering or code
+  caching), not in the interpreter. To look at for T13's finish.
+
 ## 4. Licences of what the new build ships
 
 Every item below ships in the stock binary today too; the build removes OpenSSL and adds nothing.
@@ -155,7 +199,7 @@ Every item below ships in the stock binary today too; the build removes OpenSSL 
 | Component | Licence | GPL-2.0 compatible |
 | --- | --- | --- |
 | CRuby 3.4.1, its extensions and stdlib | Ruby OR BSD-2-Clause. Ruby's LEGAL lists permissive parts: Onigmo BSD-2-Clause, `missing/*` BSD and public domain, `st.c` public domain, MT19937 BSD-3-Clause, digest implementations BSD-style, Unicode data tables. `parse.c` is a Bison/Lrama skeleton under the GPL with the Bison exception, which lets the work take other terms | Yes, under BSD-2-Clause |
-| 78 gems packed (`gem-licenses.rb`: 53 default, 23 bundled, js and logger) | MIT, BSD-2-Clause, or Ruby OR BSD-2-Clause; test-unit Ruby OR BSDL OR PSFL. All 78 have an allowed choice | Yes |
+| 78 gems packed (`gem-licenses.rb`: 53 default, 23 bundled, js and logger) | MIT, BSD-2-Clause, or Ruby and BSD-2-Clause; every entry of every list is allowed. test-unit 3.6.7 lists Ruby, BSDL, PSFL: its COPYING offers BSDL (the BSD-2-Clause text) or the Ruby licence, and `lib/test/unit/diff.rb` is under that and the PSF licence (Python 2.5's, SPDX Python-2.0); reviewed in the script | Yes |
 | js gem 2.10.1 (extension and lib) | MIT | Yes |
 | LibYAML 0.2.5 | MIT | Yes |
 | zlib 1.3.1 | Zlib | Yes |
@@ -167,6 +211,12 @@ Every item below ships in the stock binary today too; the build removes OpenSSL 
 
 Build tools that do not ship: ruby_wasm (MIT), binaryen (Apache-2.0), LLVM, the host Ruby.
 
+Not packed since wave 2: rdoc's HTML generator templates (`rdoc/generator/template`, 59 files,
+733,686 bytes): darkfish's Lato and Source Code Pro fonts (OFL-1.1), its icons and scripts, and
+json_index's scripts. The stock binary ships them. Only rdoc's HTML generator reads them; the engine
+never loads rdoc, and `$LOADED_FEATURES` after a full parity run is the same 236 entries, in the
+same order, as the stock engine's.
+
 Gaps in today's `THIRD_PARTY_NOTICES.md`, for T13's finish:
 - compiler-rt builtins and the Rust parts of wasi-vfs are not listed;
 - test-unit 3.6.2 and power_assert 2.0.3 leave `/bundle` (Ruby's own bundled copies, 3.6.7 and 2.0.5, stay in the stdlib tree as today);
@@ -174,26 +224,25 @@ Gaps in today's `THIRD_PARTY_NOTICES.md`, for T13's finish:
 
 ## 5. Blocked here
 
-- **`github.com`** (403 from the egress proxy). It hosts the three inputs that are published
-  only there:
+- **`github.com`** (403 from the egress proxy in wave 1). It hosts the three inputs that are
+  published only there:
   - wasi-sdk 22.0 (`WebAssembly/wasi-sdk` releases);
   - libwasi_vfs 0.6.2 (`kateinoigakukun/wasi-vfs` releases; crates.io has only wasi-vfs 0.1.1);
   - the zlib 1.3.1 release asset.
 
-  Their SHA-256s are not recorded: wasi-sdk and wasi-vfs are `null` in `inputs.json`, and zlib
-  carries the hash zlib.net publishes. The CI job's first run records them (`--record-unpinned`).
+  In wave 2 the release assets downloaded here (`api.github.com` still answers 403). The zlib
+  asset matches the hash zlib.net publishes, which `inputs.json` pins. wasi-sdk and wasi-vfs stay
+  `null` until they are pinned from the CI workflow's first, fetch-only run.
 - **`zlib.net`** answers automated clients with a bot-check page instead of the tarball. The
   Ubuntu toolchain uses the Ubuntu archive's repack of zlib 1.3.1 (`contrib/` removed; the
-  library sources are upstream's).
-- **Shipping-shape build.** Without wasi-vfs there is no packed binary, so `build-bundle.mjs`
-  cannot boot it to write the docs, and `npm run test:golden` was not run on the new
-  interpreter. Golden parity on it was checked in Node, with the same `runtime.ts` boot and bridge
-  path as the browser worker.
+  library sources are upstream's). `build.sh` refuses a download that does not start like the
+  archive it names, so such a page can neither be cached nor have its hash printed.
 - No Docker daemon is running, and `ghcr.io` (the ruby.wasm builder image) is not reachable.
 
 ## 6. For T13's finish
 
-1. Run `ci-job.yml` once and pin the SHA-256s it logs.
+1. Pin wasi-sdk's and wasi-vfs's SHA-256 from the fetch-only run of
+   `.github/workflows/ruby-wasm.yml` (its notices and step summary), then let it build.
 2. Make the new binary the default input of `build-bundle.mjs`, with its own notices: ruby_wasm's
    NOTICE without OpenSSL, plus compiler-rt and the Rust parts.
 3. Remove the embedded exception from `scripts/ci/licenses.mjs`.

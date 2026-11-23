@@ -6,7 +6,7 @@
 //
 //   node engine/ruby-wasm/run-engine.mjs [--engine public/engine] [--ruby <file.wasm[.gz]>]
 //                                        [--fs <dir>] [--only <id>]... [--repeat <n>] [--json <file>]
-//                                        [--no-parity]
+//                                        [--no-parity] [--expect-no-openssl]
 //
 // --engine: a built engine directory (npm run build:engine). Its manifest, TaskJuggler bundle and
 //   keyword docs are used as they are; its ruby.wasm too, unless --ruby names another binary.
@@ -29,6 +29,8 @@
 //      stock binary loads it; an OpenSSL-free one raises LoadError).
 // Exits 1 if any check fails. --no-parity skips 1 to 5 (the features after a bare boot). --repeat n
 // runs each plan of 3 n times (each run compared) and keeps the fastest run's timings.
+// --expect-no-openssl: also fail unless `require "openssl"` raises LoadError for openssl itself
+// (the OpenSSL-free build; CI passes it). Without it the outcome is only reported.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -141,6 +143,7 @@ async function main() {
 			only: { type: 'string', multiple: true, default: [] },
 			json: { type: 'string' },
 			'no-parity': { type: 'boolean', default: false },
+			'expect-no-openssl': { type: 'boolean', default: false },
 			repeat: { type: 'string', default: '1' },
 		},
 	});
@@ -278,8 +281,14 @@ async function main() {
 		"LoadError: " + e.message
 	end`).toString();
 	console.log(`require "openssl" (after the checks): ${probe}`);
+	// LoadError for openssl itself, not for something openssl.rb requires in turn.
+	const opensslAbsent = probe === 'LoadError: cannot load such file -- openssl';
+	if (values['expect-no-openssl']) {
+		console.log(`--expect-no-openssl: ${opensslAbsent ? 'ok, openssl cannot be loaded' : `FAIL, expected "LoadError: cannot load such file -- openssl"`}`);
+		if (!opensslAbsent) failures++;
+	}
 	report.features = { count: names.length, native, forbidden, defined: { OpenSSL: state.OpenSSL, Digest: state.Digest, SecureRandom: state.SecureRandom },
-		list: names, requireOpenssl: probe };
+		list: names, requireOpenssl: probe, opensslAbsent };
 	report.stderr = stderr;
 	if (values.json) fs.writeFileSync(values.json, `${JSON.stringify(report, null, 2)}\n`);
 	console.log(failures ? `FAILED (${failures} check(s))` : 'all checks passed');

@@ -6,7 +6,7 @@
 //
 //   0. reported only: the JS a returning visit fetches, a stored plan restored on start (T4 review
 //      M3; phase-4.md 12.1), in Visual and Text mode;
-//   1. the JS a first load fetches in Visual mode (340,000 bytes gzip; raised from 330,000 at the Phase 3 gate, user 2026-11-23) and in Text mode (440,000),
+//   1. the JS a first load fetches in Visual mode (340,000 bytes gzip; raised from 330,000 at the Phase 3 gate, user 2026-11-23) and in Text mode (445,000; raised from 440,000 in Phase 4, user 2026-11-23),
 //      measured in a browser against a preview: enforced (exit 1). The code-split CodeMirror chunk
 //      is fetched in Text and Split, never in Visual: enforced too. So is the keyword docs asset
 //      (`engine/tj-docs.*.json.gz`, ADR-0017): a Visual-first load never requests it (a Text-first
@@ -28,7 +28,7 @@ import zlib from 'node:zlib';
 
 export const TOTAL_CAP = 650_000;
 export const VISUAL_FIRST_CAP = 340_000;
-export const TEXT_FIRST_CAP = 440_000;
+export const TEXT_FIRST_CAP = 445_000;
 /**
  * All the People views' lazy chunks together (the heatmap, the lanes, the Calendar, the Resources
  * table, the person details and what they share; found from the built graph, `viewChunkSet`). The

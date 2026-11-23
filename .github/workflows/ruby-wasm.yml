@@ -1,0 +1,232 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# The OpenSSL-free ruby.wasm (phase-4 T13): builds the interpreter with the recipe in
+# engine/ruby-wasm/ (wasi-sdk 22.0, wasi-vfs, ruby_wasm's full profile minus openssl), checks the
+# binary for OpenSSL, and runs the wasm engine's golden parity on it, in Node and in Chromium. The
+# app does not switch to it here: the engine built on it exists only inside this job.
+#
+# The one workflow allowed to use Ruby, as a build tool only (ADR-0020, amendment 2026-11-23):
+# - It never runs TaskJuggler natively, never computes a schedule outside the wasm engine and never
+#   records or changes goldens. scripts/ci/no-ruby.mjs checks this whole file, comments included,
+#   and the npm scripts it invokes.
+# - The host Ruby comes from ruby/setup-ruby: Ruby 3.3.6 with Bundler 4.0.18 (the version
+#   Gemfile.lock was written with). It runs ruby_wasm's packager and its generator scripts, and
+#   nothing else. It cannot affect the goldens: they are recorded natively by the developer
+#   (ADR-0003), and here they are only read and compared. The interpreter under test is CRuby 3.4.1
+#   compiled from the pinned tarball, and so is the native baseruby its build uses; the host Ruby's
+#   version is in provenance.json.
+# - Every input is pinned by SHA-256 in engine/ruby-wasm/inputs.json, and only downloads/ is cached
+#   (each file checked against its pin before use). While an input this build needs has no pin, the
+#   run is fetch-only: it downloads the inputs afresh (no cache), prints their SHA-256 and ends
+#   green with a notice, and nothing is built. Pin the printed hashes, push again, and the next
+#   run builds. A manual run with fetch_only does the same.
+name: ruby.wasm without OpenSSL
+
+on:
+  workflow_dispatch:
+    inputs:
+      fetch_only:
+        description: Only download the inputs and print their SHA-256; build nothing
+        type: boolean
+        default: false
+  push:
+    paths:
+      - 'engine/ruby-wasm/**'
+      - '!engine/ruby-wasm/**/*.md'
+      - 'engine/build-bundle.mjs'
+      - 'engine/bundle-lib.mjs'
+      - '.github/workflows/ruby-wasm.yml'
+
+permissions:
+  contents: read
+
+# Its own group: never cancels or queues behind ci.yml. A newer push to a branch cancels the run in
+# progress there; on main it does not.
+concurrency:
+  group: ruby-wasm-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ruby-wasm:
+    name: Build, check for OpenSSL, golden parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      OUT: engine/ruby-wasm/out
+      STOCK: node_modules/@ruby/3.4-wasm-wasi/dist
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Mode (fetch-only while an input is unpinned)
+        id: mode
+        env:
+          FETCH_ONLY_INPUT: ${{ inputs.fetch_only }}
+        run: |
+          unpinned="$(engine/ruby-wasm/build.sh --toolchain wasi-sdk --list-unpinned)"
+          if [ -n "$unpinned" ]; then
+            echo "::notice title=ruby.wasm: fetch-only run::inputs.json has no sha256 for: $unpinned. This run downloads the inputs and prints their hashes; nothing is built."
+            echo "fetch_only=true" >> "$GITHUB_OUTPUT"
+          elif [ "$FETCH_ONLY_INPUT" = true ]; then
+            echo "::notice title=ruby.wasm: fetch-only run::Started with fetch_only; nothing is built."
+            echo "fetch_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fetch_only=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Only pinned files are ever cached, and each is checked against its pin when used. A
+      # fetch-only run skips the cache, so the hashes it prints are of fresh downloads.
+      - name: Cache the downloads (pinned inputs only)
+        if: steps.mode.outputs.fetch_only != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ruby-wasm-work/downloads
+          key: ruby-wasm-downloads-${{ hashFiles('engine/ruby-wasm/inputs.json') }}
+
+      - name: Fetch the inputs and print their SHA-256
+        env:
+          FETCH_ONLY: ${{ steps.mode.outputs.fetch_only }}
+        run: |
+          mkdir -p test-results
+          rc=0
+          engine/ruby-wasm/build.sh --toolchain wasi-sdk --fetch-only --work "$RUNNER_TEMP/ruby-wasm-work" \
+            | tee test-results/ruby-wasm-inputs.txt || rc=$?
+          {
+            echo '## ruby.wasm inputs'
+            echo
+            echo '| Status | Input | SHA-256 | File |'
+            echo '| --- | --- | --- | --- |'
+            awk '{ printf "| %s | %s | `%s` | %s |\n", $1, $2, $3, $4 }' test-results/ruby-wasm-inputs.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+          while read -r status key sha file _; do
+            if [ "$status" = UNPINNED ]; then
+              echo "::notice title=Pin $key in engine/ruby-wasm/inputs.json::sha256 $sha ($file)"
+            fi
+          done < test-results/ruby-wasm-inputs.txt
+          if [ "$rc" = 0 ] && [ "$FETCH_ONLY" = true ]; then
+            echo "::notice title=ruby.wasm: fetch-only run done::Nothing was built. Copy each UNPINNED sha256 into engine/ruby-wasm/inputs.json and push again to build."
+          fi
+          exit "$rc"
+
+      - name: Host Ruby for the build tools (see the header)
+        if: steps.mode.outputs.fetch_only != 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.6'
+          bundler: '4.0.18'
+
+      - name: Build (wasi-sdk 22.0, wasi-vfs, the full profile minus openssl)
+        if: steps.mode.outputs.fetch_only != 'true'
+        run: engine/ruby-wasm/build.sh --toolchain wasi-sdk --work "$RUNNER_TEMP/ruby-wasm-work" --out "$OUT"
+
+      - name: No OpenSSL in the new binary, stripped and debug; what dropping it removed
+        if: steps.mode.outputs.fetch_only != 'true'
+        run: >
+          node engine/ruby-wasm/check-binary.mjs "$OUT/ruby+stdlib.wasm" "$OUT/ruby.debug+stdlib.wasm"
+          --compare "$STOCK/ruby.debug+stdlib.wasm" --json test-results/ruby-wasm-binary.json
+
+      - name: Every OpenSSL marker in the stock binaries, stripped and debug (checks the check)
+        if: steps.mode.outputs.fetch_only != 'true'
+        run: >
+          node engine/ruby-wasm/check-binary.mjs "$STOCK/ruby+stdlib.wasm" "$STOCK/ruby.debug+stdlib.wasm"
+          --expect-openssl
+
+      - name: Sizes, raw and gzip -9
+        if: steps.mode.outputs.fetch_only != 'true'
+        run: |
+          node -e '
+          const fs = require("node:fs"), zlib = require("node:zlib");
+          const rows = process.argv.slice(1).map((f) => {
+            const b = fs.readFileSync(f);
+            return { file: f, raw: b.length, gzip9: zlib.gzipSync(b, { level: 9 }).length };
+          });
+          fs.writeFileSync("test-results/ruby-wasm-sizes.json", JSON.stringify(rows, null, 2) + "\n");
+          const lines = ["## ruby.wasm sizes", "", "| Binary | Raw | Gzip -9 |", "| --- | ---: | ---: |",
+            ...rows.map((r) => `| ${r.file} | ${r.raw} | ${r.gzip9} |`)];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          console.log(lines.join("\n"));
+          ' "$STOCK/ruby+stdlib.wasm" "$OUT/ruby+stdlib.wasm"
+
+      # The stock engine is the reference: run-engine.mjs compares the new binary's keyword docs
+      # with its docs asset.
+      - name: Stock engine
+        if: steps.mode.outputs.fetch_only != 'true'
+        run: npm run build:engine
+
+      - name: Engine on the new binary in Node (parity, features; require "openssl" must fail)
+        if: steps.mode.outputs.fetch_only != 'true'
+        run: >
+          node engine/ruby-wasm/run-engine.mjs --ruby "$OUT/ruby+stdlib.wasm" --expect-no-openssl
+          --json test-results/ruby-wasm-engine.json
+
+      - name: Cache Playwright browsers
+        if: steps.mode.outputs.fetch_only != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium and system dependencies
+        if: steps.mode.outputs.fetch_only != 'true'
+        # Same retrying install as the golden job in ci.yml.
+        run: |
+          for attempt in 1 2 3; do
+            sudo apt-get update -q && npx playwright install --with-deps chromium && exit 0
+            echo "install attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
+
+      # npm run build (inside test:golden) runs build:engine, which takes the binary from
+      # MAINSPRING_RUBY_WASM and records it as 2.10.1+no-openssl.
+      - name: Golden parity in Chromium on the new binary (npm run test:golden)
+        if: steps.mode.outputs.fetch_only != 'true'
+        env:
+          MAINSPRING_RUBY_WASM: engine/ruby-wasm/out/ruby+stdlib.wasm
+          MAINSPRING_RUBY_WASM_VERSION: 2.10.1+no-openssl
+        run: npm run test:golden
+
+      - name: The parity run used the new binary, and Pages would refuse its engine
+        if: steps.mode.outputs.fetch_only != 'true'
+        run: |
+          node -e '
+          const fs = require("node:fs"), crypto = require("node:crypto");
+          const m = JSON.parse(fs.readFileSync("dist/engine/manifest.json", "utf8"));
+          const sha = crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex");
+          console.log(`dist/engine: rubyWasm ${m.rubyWasm.version}, ruby sha256 ${m.ruby.sha256}; new binary ${sha}`);
+          if (m.rubyWasm.version !== "2.10.1+no-openssl" || m.ruby.sha256 !== sha) process.exit(1);
+          ' "$OUT/ruby+stdlib.wasm"
+          cp dist/engine/manifest.json test-results/ruby-wasm-manifest.json
+          if node scripts/ci/engine-release.mjs dist/engine/manifest.json; then
+            echo "engine-release.mjs accepted a test engine"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ruby-wasm-no-openssl
+          path: |
+            engine/ruby-wasm/out/ruby+stdlib.wasm
+            engine/ruby-wasm/out/provenance.json
+            engine/ruby-wasm/out/exts.json
+            test-results/ruby-wasm-*
+            test-results/golden-report.md
+            test-results/golden-report.json
+          if-no-files-found: warn
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ruby-wasm-test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

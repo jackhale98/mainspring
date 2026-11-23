@@ -36,6 +36,9 @@ jobs:
           MAINSPRING_BASE: /mainspring/
       # Every URL the site uses for its own files must be under the base path.
       - run: node scripts/ci/base-path-scan.mjs dist /mainspring/
+      # Only a release engine is deployed: build-bundle.mjs gives an engine built on a test
+      # interpreter (--ruby-wasm, as ruby-wasm.yml does) a "+<build>" rubyWasm version (phase-4 T13).
+      - run: node scripts/ci/engine-release.mjs dist/engine/manifest.json
       # No .nojekyll: a Pages site deployed from an Actions artifact is published as is, without
       # Jekyll, so _astro/ is served; upload-pages-artifact also leaves dotfiles out. The engine's
       # .gz files are served as plain application/gzip; the worker gunzips them (manifest.ts).
