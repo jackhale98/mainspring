@@ -25,6 +25,10 @@
  *   schedules) or `failure.workspaceVersion >= v` (the run that covered it failed) settles it;
  *   when both hold, the one with the newer revision wins. `engine === 'failed'` (the engine gave
  *   up) settles every pending edit as failed.
+ *
+ * The schedule check of a commit (phase-4.md 6.5; T3 contract, T7 implements it with
+ * engine-specialist): `ScheduleChecker` below. T7 makes `ScheduleRunner` extend it; until then
+ * the sync controller takes a `ScheduleChecker`, which the runner will be.
  */
 import type { EngineClient, EngineState } from '../../engine/client';
 import type { EngineError, Revision, ScheduleResult, Timings } from '../../engine/protocol';
@@ -33,7 +37,7 @@ import type { TjpDiagnostic } from '../tjp/diagnostics';
 import type { EngineHints, SymbolIndex } from '../tjp/index';
 import type { DiagnosticCounts, RunnerStatus } from './run-view';
 import type { ZoneOffsets } from '../tjp/values';
-import type { Workspace } from './workspace';
+import type { Workspace, WorkspaceSnapshot } from './workspace';
 
 export type { ChangeOrigin } from './workspace';
 
@@ -136,6 +140,45 @@ export interface RunnerState {
 }
 
 export type RunnerListener = (s: RunnerState) => void;
+
+/**
+ * The runner's verdict on one snapshot (phase-4.md 6.5): what a commit may write.
+ *
+ * Contract notes (T3): 6.5 gives `{ version, snapshot, ok, errors }`. `record` is added because
+ * the commit message summarizes the result (`SummarizeFn`, sync/types.ts), and `failure` because
+ * a run can fail (crash, timeout) or the engine give up, and `checked` never rejects. `errors`
+ * are `TjpDiagnostic`s (6.5 says `Diagnostic`, which the code does not have).
+ */
+export interface ScheduleCheck {
+	/** The workspace version that was scheduled: at least the version asked for. */
+	readonly version: number;
+	/**
+	 * Exactly the snapshot that was sent (`snapshot.version === version`); a commit writes its text.
+	 * When the engine gave up before a run was sent, the workspace's snapshot at that moment.
+	 */
+	readonly snapshot: WorkspaceSnapshot;
+	/** True when the result has `ok: true` and no engine diagnostic of severity 'error'. */
+	readonly ok: boolean;
+	/** The result's engine diagnostics of severity 'error', in `snapshot`'s text (not mapped). */
+	readonly errors: readonly TjpDiagnostic[];
+	/** The run's record; null when it failed. */
+	readonly record: RunRecord | null;
+	/** Why there is no result (the run failed, or the engine gave up); `ok` is false then. */
+	readonly failure: EngineError | null;
+}
+
+export interface ScheduleChecker {
+	/**
+	 * The first result for `version` or a later one, with the snapshot it scheduled (6.5). When the
+	 * runner already holds a result covering `version` (`latest.workspaceVersion >= version`), it
+	 * resolves with that one at once. It sends no request of its own: the run that covers `version`
+	 * is the runner's ordinary run (typing waits for its debounce), latest-wins unchanged
+	 * (ADR-0002 #3). A failed run that covers `version`, or the engine giving up, resolves with
+	 * `failure` (the runner does not retry by itself). Never rejects: resolves null when `signal`
+	 * aborts or the runner is disposed first. Precondition: `version` is at most the workspace's.
+	 */
+	checked(version: number, signal?: AbortSignal): Promise<ScheduleCheck | null>;
+}
 
 export interface Timers {
 	setTimeout(fn: () => void, ms: number): unknown;
