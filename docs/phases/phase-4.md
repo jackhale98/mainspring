@@ -30,7 +30,7 @@ The MVP is the build plan's "complete loop for one person": open a plan from a f
 - **No OneDrive or Dropbox** in this gate. They come right after the MVP release, behind the same provider interface (18.1).
 - **No GitLab or Bitbucket.** No branch switcher, schedule diff between branches, pull requests or history browser (Later).
 - **No real-time co-editing** (D9). Two devices meet only through the provider.
-- **Files are not created or deleted from views.** Edits never add or remove a file (`workspace.ts`). Phase 4 writes only the files that changed. The one exception is "Save to…", which writes every file of a plan that is not stored anywhere yet. Mainspring never deletes a file on a provider.
+- **Files are not created or deleted from views** (amended 2026-11-23, section 21: "New file…" creates a `.tji`; nothing deletes or renames one). Edits never add or remove a file (`workspace.ts`). Phase 4 writes only the files that changed. The one exception is "Save to…", which writes every file of a plan that is not stored anywhere yet. Mainspring never deletes a file on a provider.
 - **No last-schedule cache** for instant open. ADR-0015 is reserved for it (18.12).
 - **No templates gallery** (Phase 6 onboarding). "New plan…" stays as built (ADR-0013).
 - **No change to `engine/tj/`, the bridge protocol or the edit API's intents.** Merges are text. A resolution is text, applied through `Workspace.apply` as one change.
@@ -812,3 +812,45 @@ The user approved this spec with every section 18 recommendation, except:
   worker, plus "Use a token instead" (fine-grained, no worker).
 - **18.15 Release items:** both accepted: the user re-records the goldens on Ruby 3.4 before the release,
   and does a 15-minute real-device smoke on the Pages site (iPhone home-screen app, Android Chrome).
+
+## 21. Amendment: New file (user, 2026-11-23)
+
+The user asked for a way to split a plan into files from the app, for example a file for the people or
+for one part of the project. Before this, a second file could only arrive by opening a folder or a
+repository that already had one.
+
+- **What it does.** "New file…" in the file switcher (a "+" after the tabs; an entry beside the select on
+  phones) opens a sheet (the shared Sheet primitive) with:
+  - **Name**: a workspace path ending in `.tji` (`paths.ts` rules; folders allowed, as `parts/build.tji`);
+    refused with a sentence when it is invalid or already exists.
+  - **What it is for**: "People and settings" or "Tasks". This only decides where the `include` line
+    goes in the entry file, because TaskJuggler reads in order and a task's `allocate` needs its person
+    declared first: people and settings go after the project header and any includes already there;
+    tasks go at the end of the file.
+  The app then creates the file, inserts `include "<name>"` in the entry `.tjp`, and opens the new file in
+  the editor.
+- **Rules.**
+  - The `include` line is an ordinary edit through the edit API: a new intent `addInclude`, a minimal
+    text patch with its inverse, refused (`text-only`, `already-set`) like the other intents. It needs a
+    fidelity family and an engine test (the plan still schedules with the empty file included). This is
+    the one exception to section 2's "no change to the edit API's intents".
+  - Creating the file is a workspace operation (`Workspace.addFile`), not an undo step. Undo removes the
+    `include` line; the file stays in the workspace and the switcher marks it "Not included" (the
+    workspace already parses files outside the include graph). So nothing is ever deleted, in the app or
+    on a provider.
+  - No delete and no rename of files from the app. An include inside a task body, or from a `.tji`, is
+    still written as text.
+  - Storage: a new file is stored and saved like a changed one (browser storage at once; the folder's
+    Save writes it; a GitHub commit adds it). The contracts of 6 already carry added files.
+  - The views do not change where they write: a person added in a view still goes where the edit API
+    puts it today. Moving people into the new file is cut and paste in the text.
+- **Tests.** Unit: name validation, the `addInclude` placement for both kinds on plans with and without
+  includes, the inverse. Fidelity family for `addInclude`. E2E on a small plan, on desktop, Pixel 7 and
+  iPhone 14: create a people file, type a resource into it, the schedule and the Resources view show
+  it; undo marks the file "Not included"; after T4, a reload keeps both files. axe on the sheet; phone
+  and desktop screenshots.
+
+| # | Task | Owner | Files | Depends on |
+| --- | --- | --- | --- | --- |
+| T27a | `addInclude` intent, `Workspace.addFile`, name validation, fidelity family, engine test | `grammar-specialist`; `reviewer` with an engine reproduction | `src/lib/tjp/edit/include-add.ts`, `types.ts`, `src/lib/workspace/workspace.ts`, `tests/fidelity/families/**` | T3; before T7 in track C |
+| T27b | "New file…" in the file switcher, the sheet, the "Not included" mark, strings | `ui-builder` | `FileSwitcher.svelte`, `src/components/storage/NewFileSheet.svelte`, `strings*.ts` | T27a; with T15 |

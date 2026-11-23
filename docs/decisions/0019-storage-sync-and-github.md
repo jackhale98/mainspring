@@ -140,3 +140,10 @@ ADR-0002 #13, ADR-0003 #1, ADR-0008 #1 and #3, ADR-0018 (`changesSince`), ADR-00
 - **ADR-0001's Dexie issue is closed.** Mycelium code enters only after the T2 audit.
 - **Export adds the Gantt PNG and the task CSV (18.20).** The file exports of spec 7.2 (the `.tjp`
   or a `.zip`, by download or share sheet) are the fallback where a folder cannot be used.
+
+## Amendment 2026-11-23: New file (user)
+
+The app can create a `.tji` file and include it from the entry file (Phase 4 spec, section 21; tasks
+T27a and T27b). The `include` line is a new edit-API intent, `addInclude`; creating the file is a
+workspace operation and not an undo step. Nothing is deleted or renamed, in the app or on a provider:
+after an undo the file stays, marked "Not included".
