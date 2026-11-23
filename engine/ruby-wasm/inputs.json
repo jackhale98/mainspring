@@ -1,0 +1,104 @@
+{
+	"comment": "Pinned inputs of engine/ruby-wasm/build.sh. sha256 is of the downloaded file. null means not yet recorded (the host was unreachable where the recipe was written): the build refuses to start while an input it uses is null; build.sh --fetch-only downloads it afresh and prints the hash to pin. toolchain: used by that --toolchain only. vfs_only: used with wasi-vfs only.",
+	"inputs": {
+		"ruby": {
+			"file": "ruby-3.4.1.tar.gz",
+			"url": "https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.1.tar.gz",
+			"sha256": "3d385e5d22d368b064c817a13ed8e3cc3f71a7705d7ed1bae78013c33aa7c87f",
+			"license": "Ruby OR BSD-2-Clause (bundled parts under their own licenses, see LEGAL)",
+			"ships": true
+		},
+		"libyaml": {
+			"file": "yaml-0.2.5.tar.gz",
+			"url": "https://pyyaml.org/download/libyaml/yaml-0.2.5.tar.gz",
+			"sha256": "c642ae9b75fee120b2d96c712538bd2cf283228d2337df2cf2988e3c02678ef4",
+			"license": "MIT",
+			"ships": true,
+			"note": "ruby_wasm downloads the same release from github.com/yaml/libyaml/releases"
+		},
+		"zlib": {
+			"file": "zlib-1.3.1.tar.gz",
+			"url": "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",
+			"sha256": "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
+			"license": "Zlib",
+			"ships": true,
+			"toolchain": "wasi-sdk",
+			"note": "the URL ruby_wasm 2.10.1 uses; sha256 as zlib.net publishes it for 1.3.1, not re-fetched where the recipe was written (github.com blocked; zlib.net answers automated clients with a bot check)"
+		},
+		"ubuntu_zlib": {
+			"file": "zlib_1.3.dfsg+really1.3.1.orig.tar.gz",
+			"url": "http://archive.ubuntu.com/ubuntu/pool/main/z/zlib/zlib_1.3.dfsg+really1.3.1.orig.tar.gz",
+			"sha256": "60dd315c07f616887caa029408308a018ace66e3d142726a97db164b3b8f69fb",
+			"license": "Zlib",
+			"ships": true,
+			"toolchain": "ubuntu",
+			"note": "Debian's repack of zlib 1.3.1 (contrib/ removed); the library sources are upstream's"
+		},
+		"ruby_wasm_gem": {
+			"file": "ruby_wasm-2.10.1-x86_64-linux.gem",
+			"url": "https://rubygems.org/downloads/ruby_wasm-2.10.1-x86_64-linux.gem",
+			"sha256": "728e29dc688246572b56dcef1c7b131431d07865320c9b8434dd1ccdfd63db2b",
+			"license": "MIT",
+			"ships": false,
+			"note": "build tool (rbwasm packager); its wasi-vfs packer writes the stdlib image but no code of it ships"
+		},
+		"js_gem": {
+			"file": "js-2.10.1.gem",
+			"url": "https://rubygems.org/downloads/js-2.10.1.gem",
+			"sha256": "c5fb88c60ea936234f818ff240f2ab0c42a57c25ab9b575211fcc4d702d059fb",
+			"license": "MIT",
+			"ships": true
+		},
+		"logger_gem": {
+			"file": "logger-1.7.0.gem",
+			"url": "https://rubygems.org/downloads/logger-1.7.0.gem",
+			"sha256": "196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203",
+			"license": "Ruby OR BSD-2-Clause",
+			"ships": true
+		},
+		"binaryen": {
+			"file": "binaryen_108-1_amd64.deb",
+			"url": "http://archive.ubuntu.com/ubuntu/pool/universe/b/binaryen/binaryen_108-1_amd64.deb",
+			"sha256": "ef81caebd1cc28028cc5a3054cdebf500c3c1c6243438d224dd8c1614ff90644",
+			"license": "Apache-2.0",
+			"ships": false,
+			"note": "wasm-opt (asyncify, strip). ruby_wasm 2.10.1's default binaryen is version 108 too. A build tool: its output is the transformed binary, no binaryen code ships"
+		},
+		"wasi_sdk": {
+			"file": "wasi-sdk-22.0-linux.tar.gz",
+			"url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-22/wasi-sdk-22.0-linux.tar.gz",
+			"sha256": "fa46b8f1b5170b0fecc0daf467c39f44a6d326b80ced383ec4586a50bc38d7b8",
+			"license": "Apache-2.0 WITH LLVM-exception (LLVM, compiler-rt); wasi-libc: Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT, musl parts MIT",
+			"ships": "wasi-libc and compiler-rt builtins are linked in",
+			"toolchain": "wasi-sdk",
+			"note": "the toolchain ruby_wasm 2.10.1 uses for Ruby 3.4 (wasi_sdk_version 22.0); the stock binary's producers section says clang 18.1.2"
+		},
+		"wasi_vfs": {
+			"file": "libwasi_vfs-wasm32-unknown-unknown.zip",
+			"url": "https://github.com/kateinoigakukun/wasi-vfs/releases/download/v0.6.2/libwasi_vfs-wasm32-unknown-unknown.zip",
+			"sha256": "a6891501fb5e24487ea714bd2a5382e161b5b2df5407a95ac31507af5c6dcf00",
+			"license": "Apache-2.0 WITH LLVM-exception",
+			"ships": "linked in (--vfs builds only)",
+			"vfs_only": true,
+			"note": "ruby_wasm 2.10.1's WASI_VFS_VERSION; only published as a GitHub release asset"
+		},
+		"ubuntu_wasi_libc": {
+			"file": "wasi-libc_0.0~git20230113.4362b18-3_all.deb",
+			"url": "http://archive.ubuntu.com/ubuntu/pool/universe/w/wasi-libc/wasi-libc_0.0~git20230113.4362b18-3_all.deb",
+			"sha256": "27d110012b8f82a92f5c8b5d0e959cd4d7edb23359577c37b92f7ba49eec6bd1",
+			"license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT, musl parts MIT",
+			"ships": "linked in",
+			"toolchain": "ubuntu",
+			"note": "Ubuntu 24.04's own wasi-libc. Not a newer snapshot: from mid-2024 libwasi-emulated-mman.a defines mprotect, which overrides Ruby 3.4.1's no-op stub (wasm/missing.c) and fails the fiber guard pages in Init_Cont, so ruby_init exits (seen with the 20240708 snapshot)"
+		},
+		"ubuntu_compiler_rt": {
+			"file": "libclang-rt-18-dev-wasm32_18.1.3-1ubuntu1_all.deb",
+			"url": "http://archive.ubuntu.com/ubuntu/pool/universe/l/llvm-toolchain-18/libclang-rt-18-dev-wasm32_18.1.3-1ubuntu1_all.deb",
+			"sha256": "a88121b16973981e9e15d923b666455f87ba981344424120e0382e052addfc89",
+			"license": "Apache-2.0 WITH LLVM-exception",
+			"ships": "linked in (builtins)",
+			"toolchain": "ubuntu",
+			"note": "with the system clang-18, lld-18 and llvm-18 of Ubuntu 24.04 (18.1.3)"
+		}
+	}
+}

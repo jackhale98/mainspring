@@ -112,3 +112,20 @@ ADR-0006 (Pages preview), ADR-0012 (build name and update check), ADR-0016 (CI t
   check in Phase 4. The full device pass waits for Phase 6.
 - **CI stays slow for now.** The waived target means the run can exceed the old goal. The service
   worker shard and small plans are the means of keeping it down.
+
+## Amendment 2026-11-23: one CI workflow may build the interpreter with Ruby (user)
+
+Phase 0's CI rule says no Ruby is installed or invoked in CI (`docs/phases/phase-0.md`, the CI section and
+item 15). Building ruby.wasm without the openssl extension (18.13, T13) needs a host Ruby as a build tool:
+ruby_wasm's packager, the baseruby build and the extension-init generator. The user allows this in one
+dedicated workflow, `.github/workflows/ruby-wasm.yml`, and nowhere else.
+
+- The workflow only compiles the interpreter, checks the binary for OpenSSL, and runs the wasm engine's
+  golden parity on it. It never runs TaskJuggler natively, never computes a schedule outside the wasm
+  engine and never records goldens.
+- `scripts/ci/no-ruby.mjs` allowlists that one file and still scans it for `tj3`, `engine/tj`,
+  `golden:record` and `record-native`. Every other workflow stays Ruby-free.
+- It runs by hand (`workflow_dispatch`) and on pushes that touch the build recipe, in its own concurrency
+  group, with read-only permissions. It takes one runner for 30 to 60 minutes.
+- Its inputs are pinned by SHA-256. Unpinned downloads are never built into an uploaded binary: hashes are
+  recorded in a fetch-only run first, then pinned.

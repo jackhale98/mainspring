@@ -12,6 +12,8 @@
 	says why in text a screen reader reads, and it is ruby when on (the critical path's colour). The selected task's line is a polite live region
 	with the people on it; the hovered one is shown but not announced. The task line is a pill that
 	floats over the chart and exists only while there is a task, so it never moves the chart.
+	The "…" chip (RowMenu.svelte) is the one overflow menu: the selected task's row actions and, with
+	no selection needed, the exports of the chart (phase-4.md 18.20); no export chip is added to the row.
 	The Filter pill (FilterControl.svelte: by person and by flag, phase-3.md "Amendments from T19") is
 	one more chip after the people picker, for every pointer; on a phone it is what makes the
 	critical-path chip an icon up to 599 px, so that six 44 px controls fit the row.
@@ -36,7 +38,7 @@
 	import FilterControl from './FilterControl.svelte';
 	import PeoplePicker from './PeoplePicker.svelte';
 	import RowMenu from './RowMenu.svelte';
-	import type { RowAction } from './types';
+	import type { ExportEntries, RowAction } from './types';
 
 	interface Props {
 		pxPerDay: number;
@@ -67,6 +69,8 @@
 		rowActions?:
 			| { actions: readonly RowAction[]; disabled: boolean; onaction: (id: string) => void }
 			| undefined;
+		/** The chart's exports, in the same "More actions" menu (phase-4.md 18.20). */
+		exports?: ExportEntries | undefined;
 		/**
 		 * The height of the task pill while it shows, else 0: on a phone it floats over the foot of
 		 * the chart, which reserves that much room at the bottom of the scroller.
@@ -90,6 +94,7 @@
 		filter,
 		add,
 		rowActions,
+		exports,
 		onpill,
 		lead,
 	}: Props = $props();
@@ -167,7 +172,7 @@
 		{#if people && people.people.length > 0}<PeoplePicker {...people} />{/if}
 		{#if filter}<FilterControl {...filter} />{/if}
 		{#if rowActions}
-			<RowMenu {...rowActions} />
+			<RowMenu {...rowActions} {exports} />
 		{/if}
 	</div>
 

@@ -37,7 +37,8 @@ export const TEXT_FIRST_CAP = 440_000;
 export const PEOPLE_VIEWS_CAP = 100_000;
 /**
  * Lazy chunks with their own cap, by file name (Rollup names a chunk after its entry module, and
- * a chunk two views share after one of its modules). `view: true` marks a People view chunk: none
+ * a chunk two views share after one of its modules). `lazy: true` marks a chunk no first load may
+ * fetch (export, phase-4.md 12.1). `view: true` marks a People view chunk: none
  * of them may load with a Gantt-first load (phase-3.md 8.3). A pattern that matches no chunk is a
  * problem too (the split moved, and the cap guards nothing).
  *
@@ -73,6 +74,10 @@ export const CHUNK_CAPS = [
 	// an idle task after the first result: the Health button's count is made from them. What they
 	// import (demand, analysis, ...) is counted in the first load.
 	{ name: 'health-checks', pattern: /^(compute|health-checks)\./, cap: 13_300 },
+	// Export (T18, phase-4.md 18.20): the Gantt picture's renderer, the CSV writer and what they say,
+	// fetched by the first use of the "More actions" menu's export entries and by no first load
+	// (3,356 bytes on 2026-11-23).
+	{ name: 'export', pattern: /^run-export\./, cap: 3_700, lazy: true },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
@@ -84,6 +89,9 @@ export function unmatchedCaps(files) {
 
 /** Whether a built file is one of the capped People view chunks (by name). */
 export const isViewChunk = (file) => CHUNK_CAPS.some((c) => c.view && c.pattern.test(file));
+
+/** Whether a built file is a capped chunk that no first load may fetch (`lazy`), by name. */
+export const isLazyChunk = (file) => CHUNK_CAPS.some((c) => c.lazy && c.pattern.test(file));
 
 const STATIC_REF = /(?:from|import)\s*["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
 const ANY_REF = /["'`]\.\/([A-Za-z0-9._-]+\.js)["'`]/g;
@@ -198,6 +206,7 @@ async function firstLoad(browser, base, query, viewChunks) {
 		rawBytes: list.reduce((n, f) => n + f.raw, 0),
 		loadsEditorChunk: list.some((f) => f.file.startsWith('editor-controller')),
 		loadsPeopleChunk: list.some((f) => isViewChunk(f.file) || viewChunks.has(f.file)),
+		loadsLazy: list.filter((f) => isLazyChunk(f.file)).map((f) => f.file),
 		loadsDocs: docs.length > 0,
 	};
 }
@@ -238,7 +247,7 @@ const kb = (n) => `${(n / 1000).toFixed(1)} KB`;
 /**
  * The budget problems of a measurement (empty when it is within every budget). `loads` is absent
  * with --dist-only. Pure, so it is unit-tested (tests/scripts/js-sizes.test.ts).
- * @param {{ files: { file: string, gzip: number }[], peopleViews?: { gzipBytes: number, cap: number }, loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsDocs?: boolean } } }} m
+ * @param {{ files: { file: string, gzip: number }[], peopleViews?: { gzipBytes: number, cap: number }, loads?: { visualFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsLazy?: string[], loadsDocs?: boolean }, textFirst: { gzipBytes: number, loadsEditorChunk: boolean, loadsPeopleChunk?: boolean, loadsLazy?: string[], loadsDocs?: boolean } } }} m
  * @returns {string[]}
  */
 export function checkBudgets({ files, loads, peopleViews }) {
@@ -277,6 +286,10 @@ export function checkBudgets({ files, loads, peopleViews }) {
 		// The People views load when one opens, never with a Gantt-first load (phase-3.md 8.3).
 		if (v.loadsPeopleChunk || t.loadsPeopleChunk)
 			problems.push('a Gantt-first load fetched the People chunk (it must stay lazy)');
+		// Export waits for its first use (phase-4.md 12.1).
+		const lazy = [...(v.loadsLazy ?? []), ...(t.loadsLazy ?? [])];
+		if (lazy.length > 0)
+			problems.push(`a first load fetched a chunk that must stay lazy: ${lazy.join(', ')}`);
 	}
 	return problems;
 }
