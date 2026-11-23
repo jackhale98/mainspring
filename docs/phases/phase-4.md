@@ -903,3 +903,13 @@ The settled contracts are in `src/lib/storage/{types,store-types}.ts`, `src/lib/
 - **The merge budget (12, rule 5)** is: no single step over 50 ms at 4x CPU, and the whole merge at most
   50 ms p90 on `fedora-res` on desktop. `mergeFile` is resumable, and `MergeContext` may carry ours' trees.
 - **13.1's "merged plans schedule" property** also requires no new warnings relative to the two sides.
+
+## 24. Amendment: first-load bytes (user, 2026-11-23)
+
+Export (540 B) and browser storage (2,268 B) used 2,808 of 12.1's 3,000 bytes, with the status control
+(T14), the service worker registration (T11) and the chooser (T15) still to come. The user raised both
+numbers: Phase 4 may add **at most 6,000 bytes gzip to each first load** (was 3,000; 18.16), and the
+Text-first cap is **445,000** bytes gzip (was 440,000; `scripts/js-sizes.mjs`). The Visual-first cap stays
+340,000. The restore path is a lazy chunk (`plan-keeper`), fetched only when a plan is kept or restored; a
+returning visit's bytes are measured by `js-sizes --serve` and reported. The perf audit (T23) looks for
+cuts in the first loads.
