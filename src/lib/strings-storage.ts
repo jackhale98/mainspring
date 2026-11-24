@@ -61,12 +61,22 @@ export const storageStrings = {
 				: `${names.join(', ')} will be saved with replacement characters where they had bytes that are not UTF-8. Save them anyway?`,
 		downloaded: (name: string) => `Downloaded ${name}`,
 		exportFailed: 'The plan could not be exported.',
-		/** Save to… never overwrites (7.3). */
-		exists: (names: readonly string[]) =>
-			`${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} already in that folder, so nothing was saved there.`,
-		savedTo: (folder: string) => `Saved to the folder “${folder}”. The plan is kept there now.`,
-		saveFailed: 'The plan could not be saved to that folder.',
+		/** Save to… needs a folder without plan files, and never overwrites one (7.3; T5 review M5). */
+		planThere: (names: readonly string[]) =>
+			names.length === 1
+				? `That folder already holds the plan file ${names[0]}. Save to… needs a folder without plan files.`
+				: `That folder already holds ${names.length} plan files, ${names[0]} among them. Save to… needs a folder without plan files.`,
+		/** Until the sync controller (T7) saves later changes there (T5 review M6). */
+		savedTo: (folder: string) =>
+			`Saved a copy of the plan's files to “${folder}”. Saving later changes there arrives with sync.`,
+		/** A Save to… that failed may have written some files; doing it again finishes them (M4). */
+		saveFailed: (folder: string) =>
+			`Mainspring could not finish saving to “${folder}”. Some files may have been written there; Save to… again finishes the rest.`,
 		readOnly: 'This plan is open in another tab, so it is not saved from here.',
-		already: 'This plan is already saved in a folder or on GitHub.',
+		/** Two paths that differ only in capitals are one file on macOS and Windows (T5 review H1). */
+		sameNameOpen: (a: string, b: string) =>
+			`${a} and ${b} differ only in capital letters, which macOS and Windows treat as one file, so they were not opened.`,
+		sameNameSave: (a: string, b: string) =>
+			`${a} and ${b} differ only in capital letters, which macOS and Windows treat as one file, so the plan was not saved to a folder.`,
 	},
 } as const;

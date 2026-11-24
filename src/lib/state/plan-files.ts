@@ -15,10 +15,15 @@
  *   browser-only plan, stored at once, which records the files that had bytes that are not UTF-8
  *   (`StoredPlan.from.lossy`, 18.11). Several `.tjp` files ask which, as above.
  * - **Save to… a folder** (app-storage.ts `saveTo`): a browser-only plan or a sample's copy writes
- *   every file once, never over a file that is there (`exists`, nothing written), then lives there:
- *   it is stored anew at the folder, with what was written as its base, and the browser copy is
- *   removed. The workspace stays open, its history too; its first save stores every file, so what
- *   was typed while it moved is kept. GitHub is T8's.
+ *   every file once into a folder without plan files, in any case (`exists`, nothing written; T5
+ *   review M5), never over a file that is there (the provider's checks; H1). The plan's own files
+ *   with its bytes, or empty, left by a Save to… that did not finish, are taken, so doing it again
+ *   finishes it (M4). A plan whose paths differ only by case is refused. Then the plan lives there:
+ *   it is stored anew at the folder, with what was written as its base, and the browser copy (made
+ *   by the flush, M2) is removed. The workspace stays open, its history too; its first save stores
+ *   every file, so what was typed while it moved is kept. `saveToSentence` words the outcome for
+ *   T15's flow. GitHub is T8's.
+ * - **Opened files whose paths differ only by case** are refused, saying so (H1).
  * - **Export**: the plan's text now as one `.tjp` or a `.zip`, by the share sheet on a phone or a
  *   download (export-files.ts).
  * - **Invalid bytes** (18.11): Save to… and Export write every file, so files that had bytes that
@@ -26,7 +31,7 @@
  * - **What goes wrong** is said through `say` (strings-storage.ts `files`), never thrown.
  */
 import { decodeSnapshot, encodeFiles } from '../storage/codec';
-import { createFolderProvider, revisionPaths, type FolderProvider } from '../storage/folder';
+import { caseClash, createFolderProvider, type FolderProvider } from '../storage/folder';
 import { importName, planEntries, readImport, type ImportFile } from '../storage/import';
 import type { StoredPlan, SyncBase } from '../storage/store-types';
 import {
@@ -44,6 +49,7 @@ import type { SampleWorkspace } from '../workspace/samples';
 import type { Workspace } from '../workspace/workspace';
 import {
 	copyPlanPrefs,
+	type MadeAt,
 	type Opening,
 	type PlanKeeper,
 	type Unstored,
@@ -90,12 +96,6 @@ export interface OpenPlan {
 	/** How a plan open unstored (a sample) is stored: its `from`. */
 	readonly unstored: Unstored | null;
 	readonly readOnly: boolean;
-}
-
-/** Where a plan made here is stored: a folder, with what was read or written as its base. */
-export interface MadeAt {
-	readonly location: Location;
-	readonly base: SyncBase;
 }
 
 /** What `AppState` gives this module (module comment). */
@@ -215,7 +215,14 @@ export async function openFiles(
 ): Promise<boolean> {
 	const r = await readImport(files);
 	if (r.kind !== 'plan') {
-		h.say(r.kind === 'no-plan' ? S.noPlan : sentence(r.error), true);
+		h.say(
+			r.kind === 'no-plan'
+				? S.noPlan
+				: r.kind === 'case'
+					? S.sameNameOpen(...r.paths)
+					: sentence(r.error),
+			true,
+		);
 		return false;
 	}
 	const plan = r.plan;
@@ -243,49 +250,79 @@ const failed = (error: StorageError): SyncOutcome => ({ kind: 'failed', error })
 const lossyOf = (cur: OpenPlan, files: Readonly<Record<WorkspacePath, string>>): string[] =>
 	[...cur.where.lossy].filter((p) => p in files).sort();
 
+const same = (a: Uint8Array | undefined, b: Uint8Array): boolean =>
+	a !== undefined && a.length === b.length && a.every((x, i) => x === b[i]);
+
 /** Save to… (module comment; app-storage.ts `saveTo`). */
 export async function saveTo(h: PlanFilesHost, target: Location): Promise<SyncOutcome> {
 	if (target.kind === 'browser') return { kind: 'browser-only' };
 	if (target.kind === 'github') return failed(storageError('unsupported', 'save-to: github'));
-	const cur = h.open();
-	if (!cur) return { kind: 'cancelled' };
-	if (cur.readOnly) return failed(storageError('not-owner', 'save-to: read-only'));
-	if (cur.where.location.kind !== 'browser') {
+	const asked = h.open();
+	if (!asked) return { kind: 'cancelled' };
+	if (asked.readOnly) return failed(storageError('not-owner', 'save-to: read-only'));
+	if (asked.where.location.kind !== 'browser') {
 		return failed(storageError('unsupported', 'save-to: already at a provider'));
 	}
-	const lossy = lossyOf(cur, cur.ws.texts());
+	const clash = caseClash(Object.keys(asked.ws.texts()).sort());
+	if (clash) {
+		h.say(S.sameNameSave(...clash), true);
+		return { kind: 'cancelled' };
+	}
+	const lossy = lossyOf(asked, asked.ws.texts());
 	if (lossy.length > 0 && !h.confirm(S.lossy(lossy))) return { kind: 'cancelled' };
 	await h.flush();
+	// After the flush: a sample's first change may just have stored its copy (M2).
+	const cur = h.open();
+	if (!cur || cur.ws !== asked.ws) return { kind: 'cancelled' };
 	const p = folderProvider();
 	const access = await p.access(target);
 	if (access !== 'granted') return { kind: 'needs-access', access };
 	const texts = cur.ws.texts();
-	const files = new Map(Object.entries(texts));
-	const clash = (revision: string): WorkspacePath[] => {
-		const there = revisionPaths(revision) ?? new Set();
-		return [...files.keys()].filter((f) => there.has(f)).sort();
-	};
-	let head: string | null;
+	const bytes = encodeFiles(new Map(Object.entries(texts)));
+	let base: string;
+	const ours = new Set<WorkspacePath>();
 	try {
-		head = await p.head(target);
+		// Only a folder without plan files, in any case (M5). The plan's own files with its bytes,
+		// left by a Save to… that did not finish, are taken as written, and an empty file at one of
+		// its paths (the residual of a failed write, types.ts contract notes T5) is written over:
+		// nothing is in it to lose (M4).
+		const there = await p.planNames(target);
+		if (there.length > 0) {
+			const read = await p.read(target);
+			const empty = new Set<WorkspacePath>();
+			for (const f of there) {
+				const mine = bytes.get(f);
+				const now = read.files.get(f);
+				if (mine && same(now, mine)) ours.add(f);
+				else if (mine && now?.length === 0) empty.add(f);
+			}
+			const others = there.filter((f) => !ours.has(f) && !empty.has(f));
+			if (others.length > 0) return { kind: 'exists', files: others };
+			base = read.revision;
+		} else {
+			const head = await p.head(target);
+			if (head === null) return failed(storageError('not-found', 'save-to: no folder'));
+			base = head;
+		}
 	} catch (e) {
 		return failed(errorOf(e));
 	}
-	if (head === null) return failed(storageError('not-found', 'save-to: no folder'));
-	if (clash(head).length > 0) return { kind: 'exists', files: clash(head) };
-	const r = await p.write(target, { base: head, files: encodeFiles(files), message: null });
+	const write = new Map([...bytes].filter(([f]) => !ours.has(f)));
+	const r = await p.write(target, { base, files: write, message: null });
 	if (r.status === 'failed') return failed(r.error);
 	if (r.status === 'moved') {
-		// Someone wrote there meanwhile: nothing was written.
-		const there = clash(r.head);
-		return there.length > 0
-			? { kind: 'exists', files: there }
+		// Someone wrote there meanwhile; say what is there now (or that it changed).
+		const now = await p.planNames(target).catch((): WorkspacePath[] => []);
+		const others = now.filter((f) => !bytes.has(f));
+		return others.length > 0
+			? { kind: 'exists', files: others }
 			: failed(storageError('server', 'save-to: the folder changed'));
 	}
-	// What is on disk now is valid UTF-8: the new base has no lossy file.
-	const base: SyncBase = {
+	// What is on disk now is valid UTF-8: the new base has no lossy file. Its revision names the
+	// plan's files only, as the folder holds no other plan file (M5).
+	const synced: SyncBase = {
 		revision: r.revision,
-		files,
+		files: new Map(Object.entries(texts)),
 		lossy: new Set(),
 		kept: new Set(),
 		summary: null,
@@ -299,7 +336,7 @@ export async function saveTo(h: PlanFilesHost, target: Location): Promise<SyncOu
 		const seed = { entry: cur.ws.snapshot().entry, files: cur.ws.texts() };
 		opening = await k.create({ name: target.name, label: target.name, from }, seed, {
 			location: target,
-			base,
+			base: synced,
 		});
 		// The views' preferences go with the plan (as a sample's copy's do, plan-keeper.ts).
 		copyPlanPrefs(h.prefs(), h.key(), opening.key);
@@ -310,31 +347,25 @@ export async function saveTo(h: PlanFilesHost, target: Location): Promise<SyncOu
 	} catch (e) {
 		return failed(errorOf(e));
 	}
-	return { kind: 'synced', revision: r.revision, pulled: false, pushed: 1 };
+	return { kind: 'synced', revision: r.revision, pulled: false, pushed: write.size };
 }
 
-/** The chooser's temporary "Save to folder…": picks, saves, says how it went (T15 replaces it). */
-export async function saveToFolder(h: PlanFilesHost): Promise<void> {
-	const loc = await pickFolder(h);
-	const said = loc && savedSentence(await saveTo(h, loc), loc.name);
-	if (said) h.say(said, true);
-}
-
-/** What Save to… said, for the temporary entry point (T15's flow says it its own way). */
-export function savedSentence(o: SyncOutcome, folder: string): string | null {
+/**
+ * What a Save to… outcome says, for T15's flow (strings-storage.ts `files`; T5 review M4, M6). It
+ * reads the outcome's kind and the error's kind, never its detail (L3). A `failed` may come after
+ * some files were written, so it says that Save to… again finishes them (`saveTo` takes the plan's
+ * own files that are there).
+ */
+export function saveToSentence(o: SyncOutcome, folder: string): string | null {
 	switch (o.kind) {
 		case 'synced':
 			return S.savedTo(folder);
 		case 'exists':
-			return S.exists(o.files);
-		case 'failed':
-			return o.error.kind === 'not-owner'
-				? S.readOnly
-				: o.error.detail === 'save-to: already at a provider'
-					? S.already
-					: `${S.saveFailed} ${sentence(o.error)}`;
+			return S.planThere(o.files);
 		case 'needs-access':
 			return S.permission;
+		case 'failed':
+			return o.error.kind === 'not-owner' ? S.readOnly : S.saveFailed(folder);
 		default:
 			return null;
 	}

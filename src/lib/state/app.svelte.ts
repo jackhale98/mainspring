@@ -122,8 +122,7 @@ import type { WorkspaceId } from '../storage/types';
 import type { SyncController, SyncOutcome } from '../sync/types';
 import type { AppStorageState } from './app-storage';
 import { Keeping } from './keeping.svelte';
-import type { Acquire, Opening, Unstored, Where } from './plan-keeper';
-import type { MadeAt } from './plan-files';
+import type { Acquire, MadeAt, Opening, Unstored, Where } from './plan-keeper';
 import type { ChoosePlan, PlanAsk, PlanFilesHost } from './plan-files';
 import type { FolderLocation, Location } from '../storage/types';
 
@@ -486,11 +485,6 @@ export class AppState implements AppStorageState {
 		return this.#files((m, h) => m.pickFolder(h));
 	}
 
-	/** The chooser's temporary "Save to folder…" (T15's Save to… flow replaces it). */
-	saveToFolder(): Promise<void> {
-		return this.#files((m, h) => m.saveToFolder(h));
-	}
-
 	/** Exports the plan's files: one `.tjp` or a `.zip`, shared on a phone or downloaded. */
 	exportPlan(): Promise<void> {
 		return this.#files((m, h) => m.exportPlan(h));
@@ -499,11 +493,6 @@ export class AppState implements AppStorageState {
 	/** Where the open plan lives (`Location`); T14's location line reads `sync.location` later. */
 	get planLocation(): Location {
 		return this.#where.location;
-	}
-
-	/** Fetches plan-files.ts ahead of a gesture that needs it (the picker must open in time). */
-	preloadFiles(): void {
-		void plans().catch(() => undefined);
 	}
 
 	#files<T>(f: (m: typeof import('./plan-files'), h: PlanFilesHost) => Promise<T>): Promise<T> {
@@ -616,7 +605,8 @@ export class AppState implements AppStorageState {
 				label: u.label,
 				load: () => Promise.resolve(seed),
 				stored: null,
-				unstored: u,
+				// A folder's location and base go with it, so its first save stores it there (M1).
+				unstored: at ? { ...u, at } : u,
 				fresh: 'newPlan' in u.from,
 			},
 		);
@@ -697,7 +687,7 @@ export class AppState implements AppStorageState {
 		this.reveal = null;
 		const stored = o.stored;
 		this.#opening = o;
-		this.#where = o.where ?? { ...HERE, from: o.unstored?.from ?? null };
+		this.#where = o.where ?? whereOf(o.unstored);
 		this.storedId = stored?.id ?? null;
 		this.#restored = o.restored === true;
 		// A fallback (the last plan could not be opened) does not become the last plan.
@@ -1221,6 +1211,14 @@ const plans = () => import('./plan-files');
 
 /** A plan only in this browser, from nothing known, with no file that was not UTF-8. */
 const HERE: Where = { location: { kind: 'browser' }, from: null, lossy: new Set() };
+
+/** Where a plan opened unstored lives, with the files it was opened with that were lossy (M1). */
+function whereOf(u: Unstored | null): Where {
+	if (!u) return HERE;
+	const lossy = new Set(u.at?.base.lossy);
+	if ('opened' in u.from) for (const p of u.from.lossy ?? []) lossy.add(p);
+	return { location: u.at?.location ?? HERE.location, from: u.from, lossy };
+}
 
 /** A touch screen: the editor does not take the focus (a touch keyboard would cover it). */
 function coarsePointer(): boolean {

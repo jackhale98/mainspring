@@ -6,7 +6,9 @@
  *
  * - **Paths**: a folder import's `webkitRelativePath` without its first segment (the folder that
  *   was picked), else the file's name. Only plan files whose path is a workspace path are kept
- *   (7.4); a path given twice keeps the first.
+ *   (7.4), none inside `.git` (as the folder provider's walk); a path given twice keeps the first.
+ *   Two paths that differ only by case are refused (`case`): macOS and Windows keep one file for
+ *   both, so a Save to… or a folder would write one over the other (T5 review H1).
  * - **Limits** (`PLAN_LIMITS`) are checked on the sizes, before any content is read: `too-large`.
  * - **Text** comes from the codec (ADR-0002 #13). `lossy` names the files that had bytes that are
  *   not UTF-8: the plan records them (store-types.ts `StoredPlan.from`), so that Export and Save
@@ -16,6 +18,7 @@
  *   several, the caller asks which (18.22). With none, there is no plan (`no-plan`).
  */
 import { decodePlanFile } from './codec';
+import { caseClash } from './folder-disk';
 import { basename, isWorkspacePath } from '../workspace/paths';
 import {
 	isPlanFile,
@@ -47,6 +50,8 @@ export type ImportResult =
 	| { readonly kind: 'plan'; readonly plan: ImportedPlan }
 	/** No `.tjp` among the files. */
 	| { readonly kind: 'no-plan' }
+	/** Two paths that differ only by case: one file on macOS and Windows (T5 review H1). */
+	| { readonly kind: 'case'; readonly paths: readonly [string, string] }
 	/** Past the limits (`too-large`), or a file could not be read. */
 	| { readonly kind: 'failed'; readonly error: StorageError };
 
@@ -74,10 +79,13 @@ export async function readImport(files: readonly ImportFile[]): Promise<ImportRe
 		const rel = f.webkitRelativePath ?? '';
 		if (rel.includes('/')) folder ??= rel.slice(0, rel.indexOf('/'));
 		const path = importPath(f);
-		if (isWorkspacePath(path) && isPlanFile(path) && !picked.has(path)) picked.set(path, f);
+		const kept = isWorkspacePath(path) && isPlanFile(path) && !path.split('/').includes('.git');
+		if (kept && !picked.has(path)) picked.set(path, f);
 	}
 	const plans = planEntries(picked.keys());
 	if (plans.length === 0) return { kind: 'no-plan' };
+	const clash = caseClash(picked.keys());
+	if (clash) return { kind: 'case', paths: clash };
 	const problem = planLimitProblem([...picked.values()].map((f) => f.size));
 	if (problem) return { kind: 'failed', error: storageError('too-large', `import: ${problem}`) };
 	const texts = new Map<WorkspacePath, string>();

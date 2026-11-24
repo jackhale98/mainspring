@@ -85,9 +85,15 @@
 	const offHooks = installHookLazily(params, 'edits', () =>
 		editHooks!.then((m) => m.installEditHooks(app, params, undefined, m.indexGate)),
 	);
+	// End-to-end tests only, with ?hooks=files: the app's open, Save to… and export (T15's controls
+	// come later; files-hook.ts).
+	const offFiles = installHookLazily(params, 'files', () =>
+		import('../lib/state/files-hook').then((m) => m.installFilesHook(app)),
+	);
 	onDestroy(() => {
 		updates.stop();
 		offHooks();
+		offFiles();
 		layout.dispose();
 		theme.dispose();
 		app.dispose();

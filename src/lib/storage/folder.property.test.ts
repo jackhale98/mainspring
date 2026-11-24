@@ -9,6 +9,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { decodeSnapshot, encodeFiles, lossyChanged } from './codec';
+import { createWorkspace } from '../workspace/workspace';
 import { createFolderProvider } from './folder';
 import { FakeFs, memoryHandles } from './testing/fake-fsa';
 import type { FolderLocation } from './types';
@@ -115,7 +116,15 @@ describe('folder round trip (13.1)', () => {
 				const loc: FolderLocation = { kind: 'folder', handle: 'h', name: 'plans' };
 				const p = createFolderProvider({ handles });
 				const read = decodeSnapshot(await p.read(loc));
-				const changed = new Map([...read.files].filter(([path, t]) => read.files.get(path) !== t));
+				// Opened as the app opens it: a workspace of the decoded text (T5 review L5), whose
+				// text now is what a save compares with the base.
+				const entry = [...read.files.keys()][0] ?? 'plan.tjp';
+				const ws = createWorkspace({ entry, files: Object.fromEntries(read.files) });
+				const now = ws.texts();
+				expect(Object.keys(now).sort()).toEqual([...read.files.keys()].sort());
+				const changed = new Map(
+					Object.entries(now).filter(([path, t]) => read.files.get(path) !== t),
+				);
 				const r = await p.write(loc, {
 					base: read.revision,
 					files: encodeFiles(changed),

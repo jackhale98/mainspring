@@ -62,16 +62,21 @@
  *   (18.22); without it `AppState.planQuestion` holds the question until it is answered. A folder
  *   kept here already (the same location) opens as it was kept, which is how the choice is
  *   remembered. Their failures are said in the edit toasts' line (`say`), with no status member.
- * - `saveTo` a folder: `needs-access` without permission, `exists` (nothing written) when a file
- *   of the plan is there, `cancelled` when the person refused to write files that had bytes that
- *   are not UTF-8 (18.11; a `confirm`, as Export asks), `synced` with the revision written. The
- *   store has no way to move a plan (`LocalStore`), so the plan is stored anew at the folder (a
+ * - `saveTo` a folder (T5 review): only into a folder without plan files, in any case (`exists`,
+ *   naming them, nothing written). The plan's own files with its bytes, or empty, left there by a
+ *   Save to… that did not finish, are taken, so doing it again finishes it. `needs-access` without
+ *   permission; `cancelled` when the person refused to write files that had bytes that are not
+ *   UTF-8 (18.11; a `confirm`, as Export asks), or when the plan's paths differ only by case (said
+ *   in the toasts' line); `synced` with the revision written. A `failed` may come after some files
+ *   were written (plan-files.ts `saveToSentence` says so). The store has no way to move a plan
+ *   (`LocalStore`; store-types.ts proposes `relocate`), so the plan is stored anew at the folder (a
  *   new id, the views' preferences copied) and the browser copy is removed; the workspace and its
  *   history stay open. GitHub stays `failed` (`unsupported`) until T8.
  * - AppState's own members: `pickFolder` (the picker for T15's Save to… flow), `exportPlan`,
- *   `planLocation`, `planQuestion`, `preloadFiles`, and `saveToFolder` (the chooser's temporary
- *   entry, which T15 replaces).
+ *   `planLocation` and `planQuestion`. There are no controls for them until T15; end-to-end tests
+ *   reach them through `?hooks=files` (files-hook.ts).
  */
+import type { ChoosePlan } from './plan-files';
 import type { PwaState } from '../../pwa/messages';
 import type { GitHubLocation, Location, WorkspaceId } from '../storage/types';
 import type { SyncController, SyncOutcome } from '../sync/types';
@@ -79,14 +84,17 @@ import type { SyncController, SyncOutcome } from '../sync/types';
 export interface AppStorageState {
 	/** Opens a stored plan with its text, base, queue and conflict (7.1); the undo history is empty. */
 	openStored(id: WorkspaceId, o?: { readonly steal?: boolean }): Promise<boolean>;
-	/** Chromium only (`showDirectoryPicker`); needs a user gesture. */
-	openFolder(): Promise<boolean>;
+	/**
+	 * Chromium only (`showDirectoryPicker`); needs a user gesture. `choose` asks which plan when the
+	 * folder holds several (18.22; contract notes T5).
+	 */
+	openFolder(o?: { readonly choose?: ChoosePlan }): Promise<boolean>;
 	/**
 	 * Every browser: files from `<input type=file multiple>` or a folder import (`webkitdirectory`,
 	 * paths from `webkitRelativePath` without the top folder). Makes a browser-only plan of the
 	 * plan files among them.
 	 */
-	openFiles(files: readonly File[]): Promise<boolean>;
+	openFiles(files: readonly File[], o?: { readonly choose?: ChoosePlan }): Promise<boolean>;
 	openGitHub(loc: GitHubLocation): Promise<boolean>;
 	/**
 	 * A browser-only plan, a sample's copy or a new plan to a folder or a GitHub folder: writes

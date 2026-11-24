@@ -84,6 +84,7 @@ export async function walk(
 	root: FsDirHandle,
 	signal: AbortSignal | undefined,
 	max: number,
+	keep: (path: string) => boolean = isPlanFile,
 ): Promise<Map<WorkspacePath, FsFileHandle>> {
 	const found: Array<readonly [WorkspacePath, FsFileHandle]> = [];
 	const todo: Array<readonly [string, FsDirHandle]> = [['', root]];
@@ -97,11 +98,14 @@ export async function walk(
 			if (!isWorkspacePath(path)) continue;
 			if (h.kind === 'directory') {
 				if (h.name !== '.git') todo.push([`${path}/`, h]);
-			} else if (isPlanFile(path)) found.push([path, h]);
+			} else if (keep(path)) found.push([path, h]);
 		}
 	}
 	return new Map(found.sort(byPath));
 }
+
+/** A plan file's name in any case (`notes.TJI`): what Save to… will not write beside (M5). */
+export const planLike = (path: string): boolean => /\.tj[pi]$/i.test(path);
 
 /** Errors of a file that changed or went while it was being read: reading again helps. */
 export const racing = (e: unknown): boolean =>

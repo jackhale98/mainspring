@@ -59,6 +59,24 @@ export interface Unstored {
 	/** What the chooser lists once it is stored. */
 	readonly label: string;
 	readonly from: StoredPlan['from'];
+	/**
+	 * Where it lives when not only in this browser (a folder opened while the store refused, T5
+	 * review M1): its first save stores it there, with this base.
+	 */
+	readonly at?: MadeAt;
+}
+
+/** Where a plan made from a provider is stored: its location, and what was read as its base. */
+export interface MadeAt {
+	readonly location: Location;
+	readonly base: SyncBase;
+}
+
+/** The files a plan was opened with that had bytes that are not UTF-8 (18.11). */
+export function lossyOf(from: StoredPlan['from'], base: SyncBase | null): Set<WorkspacePath> {
+	const lossy = new Set(base?.lossy);
+	if ('opened' in from) for (const p of from.lossy ?? []) lossy.add(p);
+	return lossy;
 }
 
 /**
@@ -178,8 +196,7 @@ export class PlanKeeper {
 				throw new StorageFailure(storageError('server', 'damaged: no entry file'));
 			}
 			const seed = { entry: plan.entry, files: Object.fromEntries(opened.files) };
-			const lossy = new Set(opened.base?.lossy);
-			if ('opened' in plan.from) for (const p of plan.from.lossy ?? []) lossy.add(p);
+			const lossy = lossyOf(plan.from, opened.base);
 			return {
 				key: this.#keyOf(id),
 				label: 'newPlan' in plan.from ? strings.newPlan.listed(plan.name) : plan.name,
@@ -200,22 +217,14 @@ export class PlanKeeper {
 	 * opened files, or a folder (T5: at `at.location`, with its sync base and the files it read
 	 * lossy).
 	 */
-	async create(
-		p: Unstored,
-		seed: SampleWorkspace,
-		at: { readonly location: Location; readonly base: SyncBase | null } = {
-			location: BROWSER,
-			base: null,
-		},
-	): Promise<Opening> {
+	async create(p: Unstored, seed: SampleWorkspace, at: MadeAt | null = null): Promise<Opening> {
 		const id = await this.#store.create(
-			{ name: p.name, entry: seed.entry, location: at.location, from: p.from },
+			{ name: p.name, entry: seed.entry, location: at?.location ?? BROWSER, from: p.from },
 			new Map(Object.entries(seed.files)),
-			at.base,
+			at?.base ?? null,
 		);
 		const l = await this.#acquire(id);
-		const lossy = new Set(at.base?.lossy);
-		if ('opened' in p.from) for (const f of p.from.lossy ?? []) lossy.add(f);
+		const lossy = lossyOf(p.from, at?.base ?? null);
 		return {
 			key: this.#keyOf(id),
 			label: p.label,
@@ -223,7 +232,7 @@ export class PlanKeeper {
 			stored: { id, lock: l === 'held-elsewhere' ? null : l },
 			unstored: null,
 			fresh: 'newPlan' in p.from,
-			where: { location: at.location, from: p.from, lossy },
+			where: { location: at?.location ?? BROWSER, from: p.from, lossy },
 		};
 	}
 
@@ -273,10 +282,16 @@ export class PlanKeeper {
 			save: async (files, snap) => {
 				if (sid !== null) return this.#store.saveFiles(sid, files, snap.version);
 				if (!unstored) return;
+				const at = unstored.at;
 				const made = await this.#store.create(
-					{ name: unstored.name, entry: snap.entry, location: BROWSER, from: unstored.from },
+					{
+						name: unstored.name,
+						entry: snap.entry,
+						location: at?.location ?? BROWSER,
+						from: unstored.from,
+					},
 					files,
-					null,
+					at?.base ?? null,
 				);
 				sid = made;
 				const l = await this.#acquire(made);

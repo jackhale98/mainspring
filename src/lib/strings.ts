@@ -906,15 +906,6 @@ export const strings = {
 		/** A sample's copy, as the chooser lists it (18.7). */
 		copy: (label: string) => `${label} (copy)`,
 	},
-	/** The chooser's file entries (T5; T15's chooser replaces them, phase-4.md 11.1). */
-	planFiles: {
-		openFolder: 'Open folder…',
-		openFiles: 'Open files…',
-		importFolder: 'Import folder…',
-		group: 'Files',
-		saveToFolder: 'Save to folder…',
-		export: 'Export plan files',
-	},
 	panels: {
 		plan: 'Plan',
 		gantt: 'Gantt',

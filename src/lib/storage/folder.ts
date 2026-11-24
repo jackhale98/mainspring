@@ -60,6 +60,7 @@ import {
 	gone,
 	guard,
 	nameOf,
+	planLike,
 	present,
 	revisionOf,
 	settled,
@@ -105,6 +106,12 @@ export interface FolderProvider extends StorageProvider<FolderLocation> {
 	 * the user closed the picker. Rejects with a `StorageFailure` (`unsupported` without the API).
 	 */
 	pick(): Promise<FolderLocation | null>;
+	/**
+	 * Every file under the folder whose name ends in `.tjp` or `.tji` in any case (walked as the
+	 * plan files are), sorted: Save to… writes only into a folder without them (T5 review M5).
+	 * Rejects as `read` does.
+	 */
+	planNames(loc: FolderLocation, signal?: AbortSignal): Promise<WorkspacePath[]>;
 }
 
 export interface FolderOptions {
@@ -293,6 +300,9 @@ export function createFolderProvider(o: FolderOptions = {}): FolderProvider {
 				return { status: 'failed', error: folderError(e) };
 			}
 		},
+
+		planNames: (loc, signal) =>
+			guard(signal, async () => [...(await walk(await dirOf(loc), signal, max, planLike)).keys()]),
 
 		pick: async () => {
 			if (!pick) throw new StorageFailure(storageError('unsupported', 'folder: no picker'));

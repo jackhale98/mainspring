@@ -7,6 +7,7 @@ import { modeKey } from './mode.svelte';
 import type { GitHubLocation, Location, WorkspaceId } from '../storage/types';
 import type { SyncController, SyncOutcome } from '../sync/types';
 import { planKey, type AppStorageState } from './app-storage';
+import type { ChoosePlan } from './plan-files';
 
 describe('app storage state (6.7)', () => {
 	it('keys a stored plan’s preferences by ws:<id> (ADR-0008 #3 amended)', () => {
@@ -22,9 +23,12 @@ describe('app storage state (6.7)', () => {
 		expectTypeOf<AppStorageState['openStored']>().toEqualTypeOf<
 			(id: WorkspaceId, o?: { readonly steal?: boolean }) => Promise<boolean>
 		>();
-		expectTypeOf<AppStorageState['openFolder']>().toEqualTypeOf<() => Promise<boolean>>();
+		// T5: `choose` asks which plan when there are several (18.22).
+		expectTypeOf<AppStorageState['openFolder']>().toEqualTypeOf<
+			(o?: { readonly choose?: ChoosePlan }) => Promise<boolean>
+		>();
 		expectTypeOf<AppStorageState['openFiles']>().toEqualTypeOf<
-			(files: readonly File[]) => Promise<boolean>
+			(files: readonly File[], o?: { readonly choose?: ChoosePlan }) => Promise<boolean>
 		>();
 		expectTypeOf<AppStorageState['openGitHub']>().toEqualTypeOf<
 			(loc: GitHubLocation) => Promise<boolean>

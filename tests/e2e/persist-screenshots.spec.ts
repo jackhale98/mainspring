@@ -107,8 +107,7 @@ for (const scheme of ['light', 'dark'] as const) {
 			await page
 				.getByLabel(strings.topBar.sample)
 				.selectOption({ label: strings.samples['ui-people'] });
-			// Your plans, Samples and Files (T5's entries).
-			await expect(page.getByLabel(strings.topBar.sample).locator('optgroup')).toHaveCount(3);
+			await expect(page.getByLabel(strings.topBar.sample).locator('optgroup')).toHaveCount(2);
 			await page.getByLabel(strings.topBar.sample).evaluate((select: HTMLSelectElement) => {
 				const box = select.closest('label')?.getBoundingClientRect();
 				select.size = 12;
