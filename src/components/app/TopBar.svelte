@@ -12,6 +12,8 @@
 	details, and carries a pip when a new version is out); its tab bar replaces the mode switch.
 	A desktop and a tablet have the Health button (the finding count; phase-3.md 9.1) before the
 	engine pill: a phone's way to plan health is a row in the status button's card.
+	The sync status control (T14; components/sync/SyncStatus.svelte) sits after the plan chip on every
+	layout: icon and label where the bar is 1100 px or wider, the icon alone under that and on a phone.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -28,6 +30,7 @@
 	import ModeSwitch from './ModeSwitch.svelte';
 	import PlanChip from './PlanChip.svelte';
 	import StatusButton from './StatusButton.svelte';
+	import SyncStatus from '../sync/SyncStatus.svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 	import UndoRedo from './UndoRedo.svelte';
 
@@ -53,6 +56,7 @@
 		<h1 class="sr-only">{strings.appName}</h1>
 		<Mark size={26} />
 		<div class="title"><PlanChip {app} title subtitle={finish} /></div>
+		<SyncStatus {app} phone />
 		<button
 			type="button"
 			class="project-button"
@@ -90,6 +94,7 @@
 		</h1>
 		<span class="rule" aria-hidden="true"></span>
 		<div class="plan"><PlanChip {app} /></div>
+		<SyncStatus {app} />
 		<UndoRedo {app} />
 		<div class="centre"><ModeSwitch {mode} {onmode} /></div>
 		<button
@@ -117,9 +122,10 @@
 		min-block-size: var(--size-topbar);
 		padding: 0 20px;
 	}
+	/* The sync control (T14) is a sixth 44 px control here: the gaps and the sides give its room back. */
 	.topbar[data-layout='phone'] {
-		gap: 10px;
-		padding: calc(10px + env(safe-area-inset-top)) 18px 6px;
+		gap: 6px;
+		padding: calc(10px + env(safe-area-inset-top)) 12px 6px;
 	}
 	.brand {
 		display: flex;

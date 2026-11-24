@@ -1,0 +1,12 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// The sync status control and its panel in every state, without the engine (T14): /dev/sync-status,
+// routed only when MAINSPRING_DEV_PAGES=1 (scripts/astro-dev-pages.mjs), like /dev/primitives.
+// `tests/e2e/sync-status.spec.ts` runs axe on it in every state, and the screenshots spec photographs it.
+import SyncStatusDemo from '../../components/dev/SyncStatusDemo.svelte';
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Sync status">
+	<SyncStatusDemo client:only="svelte" />
+</Base>

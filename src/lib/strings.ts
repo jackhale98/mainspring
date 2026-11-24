@@ -891,20 +891,56 @@ export const strings = {
 		/** The phone's status card: the same three choices as the toggle, as a group. */
 		appearance: 'Appearance',
 	},
-	/**
-	 * Where the open plan is kept: the line at the foot of the outline or the window (phase-4.md
-	 * 7.1, 11.2). T14's status control replaces it.
-	 */
+	/** Keeping plans in this browser (phase-4.md 7.1): what the app asks, and how a copy is listed. */
 	keep: {
-		sample: 'A sample. Your first change keeps a copy in this browser.',
-		stored: 'Only in this browser. Changes are kept as you make them.',
-		failed: 'Not kept: this browser refused the changes. They are only in this tab.',
-		readOnly: 'Read-only: this plan is open in another tab.',
 		/** "Open here instead" while this tab holds changes it could not keep (T4 re-check N1). */
 		confirmTake:
 			'Opening the plan here discards the changes this tab could not keep. Open it anyway?',
 		/** A sample's copy, as the chooser lists it (18.7). */
 		copy: (label: string) => `${label} (copy)`,
+	},
+	/**
+	 * The sync status control in the top bar and the location line (phase-4.md 11.1, 11.2; T14), the
+	 * first load's part. The panel it opens has its own copy (strings-sync.ts, lazy).
+	 */
+	sync: {
+		/** The control's accessible name; it opens the Sync panel. */
+		name: (label: string) => `Sync status: ${label}`,
+		/** The location line: where the plan lives (11.2). */
+		location: {
+			browser: 'Only in this browser',
+			folder: (name: string) => `Folder “${name}” on this computer`,
+			github: (owner: string, repo: string, branch: string, dir: string) =>
+				`GitHub: ${owner}/${repo}, ${branch}${dir ? `, ${dir}/` : ''}`,
+		},
+		/** The short label of each state, beside the icon and in the name. */
+		label: {
+			sample: 'Sample',
+			saved: 'Saved',
+			changes: (n: number) => plural(n, 'change', 'changes'),
+			working: {
+				saving: 'Saving…',
+				committing: 'Committing…',
+				pulling: 'Syncing…',
+				checking: 'Checking…',
+			},
+			queued: {
+				offline: (n: number) => `Offline · ${n} waiting`,
+				'needs-access': (n: number) => `Sign in · ${n} waiting`,
+				retrying: (n: number) => `Retrying · ${n} waiting`,
+			},
+			conflict: (n: number) => plural(n, 'conflict', 'conflicts'),
+			blocked: 'Fix errors',
+			access: {
+				granted: 'Connected',
+				prompt: 'Reconnect',
+				'signed-out': 'Sign in',
+				denied: 'No access',
+			},
+			failedStore: 'Changes not kept',
+			failedProvider: 'Sync failed',
+			readOnly: 'Read-only',
+		},
 	},
 	panels: {
 		plan: 'Plan',
@@ -1177,9 +1213,13 @@ export const strings = {
 		lastGood: 'last good',
 		later: (amount: string) => `${amount} later`,
 		earlier: (amount: string) => `${amount} earlier`,
+		/**
+		 * The status line counts the engine's errors and warnings, not every finding of the Health
+		 * panel (polish 22): the empty case names what it counts, so it cannot contradict Health.
+		 */
 		counts: (errors: number, warnings: number) =>
 			errors + warnings === 0
-				? 'No problems'
+				? 'No engine errors or warnings'
 				: [
 						errors > 0 ? plural(errors, 'error', 'errors') : null,
 						warnings > 0 ? plural(warnings, 'warning', 'warnings') : null,

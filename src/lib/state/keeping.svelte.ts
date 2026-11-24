@@ -28,7 +28,7 @@ import { planKey } from './app-storage';
 import type { Acquire, KeeperHost, Kept, Opening, PlanKeeper } from './plan-keeper';
 import type { ListedStorage } from './storage';
 
-/** Where the open plan is kept: what the footer's line says (`AppState.keepLine`). */
+/** Where the open plan is kept: what the sync status control shows (`statusOf`, lib/sync/shown.ts). */
 export type KeepState =
 	/** A sample opened unstored: its first change stores a copy (18.7). */
 	| { readonly kind: 'sample' }

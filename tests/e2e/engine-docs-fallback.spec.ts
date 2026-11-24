@@ -116,7 +116,7 @@ test.describe('keyword docs without the docs asset', () => {
 		await expect(page.locator('.cm-activeLine')).toHaveText(/^\s*effort 3d$/);
 		await settled(page);
 		await resultAfter(page, rev, READY_TIMEOUT_MS);
-		await expect(strip(page)).toContainText('No problems');
+		await expect(strip(page)).toContainText('No engine errors or warnings');
 		await expect(strip(page)).toContainText('Scheduled');
 		await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready');
 	});

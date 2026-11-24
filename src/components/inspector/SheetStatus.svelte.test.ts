@@ -20,7 +20,7 @@ const view = (over: Partial<StatusView>): StatusView =>
 		label: 'Scheduled',
 		errors: 0,
 		warnings: 0,
-		counts: 'No problems',
+		counts: 'No engine errors or warnings',
 		...over,
 	}) as StatusView;
 

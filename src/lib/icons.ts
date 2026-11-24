@@ -104,6 +104,11 @@ export const ICONS = {
 	/** The Gantt's filter (a funnel). */
 	filter: ['M22 3H2l8 9.46V19l4 2v-8.54Z'],
 	more: [circle(12, 12, 1), circle(19, 12, 1), circle(5, 12, 1)],
+	/** The sync status (T14): in this browser (Lucide `app-window`), changes (`circle-dot`), waiting (`clock`), read-only (`lock`). */
+	browser: [rect(2, 4, 20, 16, 2), 'M10 4v4', 'M2 8h20', 'M6 4v4'],
+	dot: [circle(12, 12, 10), circle(12, 12, 1)],
+	clock: [circle(12, 12, 10), 'M12 6v6l4 2'],
+	lock: [rect(3, 11, 18, 11, 2), 'M7 11V7a5 5 0 0 1 10 0v4'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

@@ -75,13 +75,13 @@ test("a sample's first change stores a copy, which a reload opens; the sample st
 }) => {
 	await openApp(page, SAMPLE);
 	await expect(chooser(page).locator('option:checked')).toHaveText(LABEL);
-	// Desktop and tablet say where the plan is; a phone has no footer line.
-	const line = page.getByTestId('keep-line');
-	if (await line.isVisible()) await expect(line).toHaveText(strings.keep.sample);
+	// The top bar's sync control says where the plan is, on every layout (T14).
+	const sync = page.getByTestId('sync-status');
+	await expect(sync).toHaveAttribute('data-kind', 'sample');
 
 	await typeAtStart(page, '# kept in this browser\n');
 	await stored(page);
-	if (await line.isVisible()) await expect(line).toHaveText(strings.keep.stored);
+	await expect(sync).toHaveAttribute('data-kind', 'browser-only');
 	// A change after the copy is stored too.
 	await typeAtStart(page, '# and this\n');
 	await kept(page, '# and this');
@@ -145,8 +145,7 @@ test('a second page on the plan is read-only; "Open here instead" takes it, with
 		await expect(b).toBeDisabled();
 	if (phone) await second.getByRole('tab', { name: 'Text', exact: true }).click();
 	else await second.getByRole('button', { name: 'Text', exact: true }).click();
-	const line = second.getByTestId('keep-line');
-	if (await line.isVisible()) await expect(line).toHaveText(strings.keep.readOnly);
+	await expect(second.getByTestId('sync-status')).toHaveAttribute('data-kind', 'read-only');
 
 	// The first page types once more; the second takes the plan and has that text too.
 	await page.bringToFront();
@@ -222,8 +221,7 @@ test('changes another page took the plan before were stored are said not kept, a
 	await expect(notice(page)).toContainText(storageStrings.notice.refused);
 	await expect(editor(page)).toHaveAttribute('contenteditable', 'false');
 	await expect(editor(page)).toContainText('# not kept');
-	const line = page.getByTestId('keep-line');
-	if (await line.isVisible()) await expect(line).toHaveText(strings.keep.failed);
+	await expect(page.getByTestId('sync-status')).toHaveAttribute('data-kind', 'failed');
 	const axe = await new AxeBuilder({ page })
 		.include('[data-testid="plan-notice"]')
 		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])

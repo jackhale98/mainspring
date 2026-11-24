@@ -18,7 +18,7 @@ const view = (over: Partial<StatusView> = {}): StatusView => ({
 	outdated: false,
 	errors: 0,
 	warnings: 0,
-	counts: 'No problems',
+	counts: 'No engine errors or warnings',
 	unlocated: [],
 	failure: null,
 	engine: null,
@@ -84,11 +84,11 @@ describe('announcesRun', () => {
 describe('the strip with the Gantt shown', () => {
 	it('says an error every time it comes back, because the fix in between was said too', () => {
 		const { settle } = setup(true);
-		expect(settle(OK)).toBe('Scheduled. Finish Jan 9. No problems');
+		expect(settle(OK)).toBe('Scheduled. Finish Jan 9. No engine errors or warnings');
 		const first = settle(ERROR);
 		expect(first).toBe('Scheduled with problems. Finish Jan 9. 1 error');
 		// Fixed: the confirmation is said, so the region changes...
-		expect(settle(OK)).toBe('Scheduled. Finish Jan 9. No problems');
+		expect(settle(OK)).toBe('Scheduled. Finish Jan 9. No engine errors or warnings');
 		// ...and the same error again is a change in it, and is said again.
 		expect(settle(ERROR)).toBe(first);
 	});
@@ -110,7 +110,7 @@ describe('the strip with the Gantt shown', () => {
 	it('says every run when the Gantt is not shown', () => {
 		const { settle } = setup(false);
 		settle(OK);
-		expect(settle(OK)).toBe('Scheduled. Finish Jan 9. No problems');
+		expect(settle(OK)).toBe('Scheduled. Finish Jan 9. No engine errors or warnings');
 	});
 });
 
