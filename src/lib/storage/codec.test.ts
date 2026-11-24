@@ -27,6 +27,10 @@ const planText = fc
 	)
 	.map((parts) => parts.join(''));
 
+// 2,000-case properties and the whole golden corpus through a store: about 1.5 s alone, past
+// the 5 s default on a loaded machine (timeouts seen on 2026-11-23 and 24, never a wrong result).
+const SLOW = 30_000;
+
 describe('decodePlanFile and encodePlanFile', () => {
 	it('keeps a BOM, CRLF, a lone CR and astral characters, byte for byte', () => {
 		for (const s of [
@@ -53,43 +57,56 @@ describe('decodePlanFile and encodePlanFile', () => {
 		expect(decodePlanFile(utf8('�'))).toEqual({ text: '�', lossy: false });
 	});
 
-	it('round-trips every byte string that is not lossy, byte for byte (property)', () => {
-		fc.assert(
-			fc.property(fc.uint8Array({ maxLength: 64 }), (b) => {
-				const d = decodePlanFile(b);
-				if (!d.lossy) expect(encodePlanFile(d.text)).toEqual(b);
-				// A lossy file decodes the same way every time, and its text is valid to store.
-				else expect(decodePlanFile(encodePlanFile(d.text))).toEqual({ text: d.text, lossy: false });
-			}),
-			{ numRuns: RUNS, ...SEED },
-		);
-	});
+	it(
+		'round-trips every byte string that is not lossy, byte for byte (property)',
+		() => {
+			fc.assert(
+				fc.property(fc.uint8Array({ maxLength: 64 }), (b) => {
+					const d = decodePlanFile(b);
+					if (!d.lossy) expect(encodePlanFile(d.text)).toEqual(b);
+					// A lossy file decodes the same way every time, and its text is valid to store.
+					else
+						expect(decodePlanFile(encodePlanFile(d.text))).toEqual({ text: d.text, lossy: false });
+				}),
+				{ numRuns: RUNS, ...SEED },
+			);
+		},
+		SLOW,
+	);
 
-	it('round-trips the bytes of every well-formed string (property)', () => {
-		fc.assert(
-			fc.property(planText, (s) => {
-				const b = encodePlanFile(s);
-				expect(decodePlanFile(b)).toEqual({ text: s, lossy: false });
-				expect(encodePlanFile(decodePlanFile(b).text)).toEqual(b);
-			}),
-			{ numRuns: RUNS, ...SEED },
-		);
-	});
+	it(
+		'round-trips the bytes of every well-formed string (property)',
+		() => {
+			fc.assert(
+				fc.property(planText, (s) => {
+					const b = encodePlanFile(s);
+					expect(decodePlanFile(b)).toEqual({ text: s, lossy: false });
+					expect(encodePlanFile(decodePlanFile(b).text)).toEqual(b);
+				}),
+				{ numRuns: RUNS, ...SEED },
+			);
+		},
+		SLOW,
+	);
 
-	it('marks lossy exactly the bytes a strict decoder refuses (property)', () => {
-		fc.assert(
-			fc.property(fc.uint8Array({ maxLength: 32 }), (b) => {
-				let strict = true;
-				try {
-					new TextDecoder('utf-8', { fatal: true }).decode(b);
-				} catch {
-					strict = false;
-				}
-				expect(decodePlanFile(b).lossy).toBe(!strict);
-			}),
-			{ numRuns: RUNS, ...SEED },
-		);
-	});
+	it(
+		'marks lossy exactly the bytes a strict decoder refuses (property)',
+		() => {
+			fc.assert(
+				fc.property(fc.uint8Array({ maxLength: 32 }), (b) => {
+					let strict = true;
+					try {
+						new TextDecoder('utf-8', { fatal: true }).decode(b);
+					} catch {
+						strict = false;
+					}
+					expect(decodePlanFile(b).lossy).toBe(!strict);
+				}),
+				{ numRuns: RUNS, ...SEED },
+			);
+		},
+		SLOW,
+	);
 });
 
 describe('snapshots and the lossy flag (18.11)', () => {
@@ -128,34 +145,46 @@ describe('snapshots and the lossy flag (18.11)', () => {
 });
 
 describe('the golden corpus through the browser store (13.1)', () => {
-	it('stores and reads back every golden file with identical bytes, and the invalid one as text', async () => {
-		const s = createLocalStore({ indexedDB: new IDBFactory(), marker: null });
-		let compared = 0;
-		for (const plan of goldenPlans()) {
-			const raw = new Map(
-				plan.files.map((f) => [f, new Uint8Array(fs.readFileSync(path.join(ROOT, plan.root, f)))]),
-			);
-			const read = decodeSnapshot({ revision: plan.id, files: raw });
-			const id = await s.create(
-				{ name: plan.id, entry: plan.entry, location: { kind: 'browser' }, from: { opened: true } },
-				read.files,
-				null,
-			);
-			const back = (await s.open(id))?.files ?? new Map<string, string>();
-			for (const [f, b] of raw) {
-				const file = `${plan.root}/${f}`;
-				const text = back.get(f) ?? '';
-				expect(text, file).toBe(read.files.get(f));
-				if (file === INVALID_UTF8_FILE) {
-					expect(read.lossy.has(f), file).toBe(true);
-					expect(lossyChanged(read, back), file).toEqual([]);
-				} else {
-					expect(read.lossy.has(f), file).toBe(false);
-					expect(encodePlanFile(text), file).toEqual(b);
+	it(
+		'stores and reads back every golden file with identical bytes, and the invalid one as text',
+		async () => {
+			const s = createLocalStore({ indexedDB: new IDBFactory(), marker: null });
+			let compared = 0;
+			for (const plan of goldenPlans()) {
+				const raw = new Map(
+					plan.files.map((f) => [
+						f,
+						new Uint8Array(fs.readFileSync(path.join(ROOT, plan.root, f))),
+					]),
+				);
+				const read = decodeSnapshot({ revision: plan.id, files: raw });
+				const id = await s.create(
+					{
+						name: plan.id,
+						entry: plan.entry,
+						location: { kind: 'browser' },
+						from: { opened: true },
+					},
+					read.files,
+					null,
+				);
+				const back = (await s.open(id))?.files ?? new Map<string, string>();
+				for (const [f, b] of raw) {
+					const file = `${plan.root}/${f}`;
+					const text = back.get(f) ?? '';
+					expect(text, file).toBe(read.files.get(f));
+					if (file === INVALID_UTF8_FILE) {
+						expect(read.lossy.has(f), file).toBe(true);
+						expect(lossyChanged(read, back), file).toEqual([]);
+					} else {
+						expect(read.lossy.has(f), file).toBe(false);
+						expect(encodePlanFile(text), file).toEqual(b);
+					}
+					compared++;
 				}
-				compared++;
 			}
-		}
-		expect(compared).toBeGreaterThanOrEqual(80);
-	});
+			expect(compared).toBeGreaterThanOrEqual(80);
+		},
+		SLOW,
+	);
 });

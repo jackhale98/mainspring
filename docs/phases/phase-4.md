@@ -913,3 +913,18 @@ Text-first cap is **445,000** bytes gzip (was 440,000; `scripts/js-sizes.mjs`). 
 340,000. The restore path is a lazy chunk (`plan-keeper`), fetched only when a plan is kept or restored; a
 returning visit's bytes are measured by `js-sizes --serve` and reported. The perf audit (T23) looks for
 cuts in the first loads.
+
+## 25. Amendments from T14 part one and T5 (2026-11-24)
+
+- **Phone top bar (user).** The brand mark is hidden on phones, to give the plan title room beside the
+  sync status control. It stays on tablet and desktop.
+- **Label threshold (11.1).** The sync status control shows icon and label from a top-bar width of about
+  1,360 px; narrower desktops (1280 and 1366 px laptops) show the icon only, because the label does not fit
+  beside the other controls. "Changes not kept" is always also said in words by the notice under the top bar.
+- **Folder writes compare content.** Just before a file is overwritten, it is read again and compared with
+  what was read as the base; a difference is `moved` and the file is not written. Stamps (size and
+  modified time) alone cannot see an edit of the same size within one tick of a coarse file system clock.
+- **Save to… a folder** needs a folder with no plan files in it, and never writes over an existing file,
+  whatever the letter case of its name.
+- **No temporary controls.** T5's provider ships without controls in the production UI; T15 adds the real
+  buttons for Open folder, Open files, Save to… and Export, so every picker opens from a real tap.
