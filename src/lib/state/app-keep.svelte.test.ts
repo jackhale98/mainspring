@@ -20,6 +20,7 @@ import type { Sample } from '../workspace/samples';
 import { FakeEngineClient, flush } from '../workspace/testing/fake-engine-client';
 import { AppState } from './app.svelte';
 import { MARKER_KEY } from '../storage/marker';
+import { statusOf } from '../sync/shown';
 import { LAST_PLAN_KEY, type ListedStorage } from './storage';
 
 const PLAN =
@@ -120,7 +121,7 @@ describe('plans kept in the browser', () => {
 		expect(a.planKey).toBe('one');
 		expect(a.storedId).toBeNull();
 		expect(a.keeping.keep).toEqual({ kind: 'sample' });
-		expect(a.keepLine).toBe(strings.keep.sample);
+		expect(statusOf(a)).toEqual({ kind: 'sample' });
 		const serial = a.openSerial;
 
 		type(a, 'plan.tjp', '# mine\n');
@@ -136,7 +137,7 @@ describe('plans kept in the browser', () => {
 		expect(b.prefs.getItem(`mainspring.gantt.zoom.ws:${id}`)).toBe('12');
 		expect(b.prefs.getItem('mainspring.mode.one')).toBe('visual');
 		await vi.waitFor(() => expect(a.keeping.keep.kind).toBe('stored'));
-		expect(a.keepLine).toBe(strings.keep.stored);
+		expect(statusOf(a)).toMatchObject({ kind: 'browser-only' });
 		expect(a.dirty).toBe(false);
 
 		const store = createLocalStore({ indexedDB: b.factory, marker: null });
@@ -178,6 +179,8 @@ describe('plans kept in the browser', () => {
 			'plan.tjp': PLAN,
 			'lib/x.tji': 'task y "Y"\r\n﻿task x "X"\n',
 		});
+		// "Last kept" is when the store last wrote the plan, from the start (T14).
+		expect(statusOf(again)).toMatchObject({ kind: 'browser-only', savedAt: expect.any(Number) });
 		expect(again.history.canUndo).toBe(false);
 		again.history.undo();
 		expect(again.note).toBe(strings.history.reopened);
@@ -232,7 +235,7 @@ describe('plans kept in the browser', () => {
 		expect(tabB.storedId).toBe(id);
 		expect(tabB.readOnly).toBe(true);
 		expect(tabB.heldElsewhere).toBe(id);
-		expect(tabB.keepLine).toBe(strings.keep.readOnly);
+		expect(statusOf(tabB)).toEqual({ kind: 'read-only' });
 		expect(tabB.history.canUndo).toBe(false);
 		// The editor cannot change the text.
 		await tabB.ensureEditor();
@@ -251,7 +254,7 @@ describe('plans kept in the browser', () => {
 		expect(tabA.heldElsewhere).toBeNull();
 		await tabA.ensureEditor();
 		expect(tabA.workspace?.state('plan.tjp').readOnly).toBe(true);
-		expect(tabA.keepLine).toBe(strings.keep.readOnly);
+		expect(statusOf(tabA)).toEqual({ kind: 'read-only' });
 
 		// B's changes are stored; A, read-only, stores nothing more.
 		type(tabB, 'plan.tjp', '# B\n');
@@ -298,7 +301,7 @@ describe('plans kept in the browser', () => {
 		expect(tabX.readOnly).toBe(true);
 		expect(tabX.keeping.keep).toMatchObject({ kind: 'failed', error: { kind: 'not-owner' } });
 		expect(tabX.dirty).toBe(true);
-		expect(tabX.keepLine).toBe(strings.keep.failed);
+		expect(statusOf(tabX)).toMatchObject({ kind: 'failed', where: 'store' });
 		expect(tabX.workspace?.texts()['plan.tjp']).toBe(`# X2\n# X1\n${PLAN}`);
 		// "Open here instead" and a switch ask first, and stay when the answer is no.
 		expect(await tabX.openStored(id, { steal: true })).toBe(false);
@@ -438,7 +441,7 @@ describe('plans kept in the browser', () => {
 		expect(await a.openSample('two')).toBe(false);
 		expect(confirm).toHaveBeenCalledWith(strings.topBar.confirmSwitch);
 		expect(a.keeping.keep).toEqual({ kind: 'failed', error: storageError('quota', 'full') });
-		expect(a.keepLine).toBe(strings.keep.failed);
+		expect(statusOf(a)).toMatchObject({ kind: 'failed', where: 'store' });
 		expect(a.dirty).toBe(true);
 	});
 

@@ -14,8 +14,6 @@
 		app: AppState;
 		/** Heading level offset: the panel sits under an h1 and, on phones, a tab panel. */
 		showTitle?: boolean;
-		/** The line at the foot about where the plan is kept (a phone has the notice under its top bar). */
-		showNotice?: boolean;
 		/** What the two trees keep across an unmount (a phone's Plan tab). */
 		views?: { tasks: OutlineView; resources?: OutlineView };
 		/** The resource tree under the tasks (the outline drawer and sidebar; the phone's Plan tab has none). */
@@ -31,15 +29,7 @@
 		/** The empty state's pointer to Text (the phone's Plan tab: the editor is another tab). */
 		ontext?: (() => void) | undefined;
 	}
-	let {
-		app,
-		showTitle = true,
-		showNotice = true,
-		views,
-		showResources = true,
-		add,
-		ontext,
-	}: Props = $props();
+	let { app, showTitle = true, views, showResources = true, add, ontext }: Props = $props();
 </script>
 
 <div class="panel">
@@ -83,7 +73,6 @@
 			/>
 		</section>
 	{/if}
-	{#if showNotice}<p class="notice" data-testid="keep-line">{app.keepLine}</p>{/if}
 </div>
 
 <style>
@@ -127,13 +116,5 @@
 		justify-content: space-between;
 		padding-inline-end: var(--space-3);
 		padding-block: var(--space-2);
-	}
-	.notice {
-		margin: 0;
-		padding: var(--space-3) var(--space-4);
-		border-block-start: 1px solid var(--color-border);
-		background: var(--color-surface-sunken);
-		color: var(--color-text-muted);
-		font-size: var(--text-xs);
 	}
 </style>

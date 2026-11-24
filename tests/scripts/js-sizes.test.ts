@@ -126,6 +126,7 @@ describe('checkBudgets', () => {
 				'run-export.a.js',
 				'plan-keeper.a.js',
 				'PlanNotice.a.js',
+				'SyncPanel.a.js',
 			]),
 		).toEqual([]);
 	});

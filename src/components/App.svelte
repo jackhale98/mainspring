@@ -225,16 +225,15 @@
 		if (!drawer) untrack(() => (app.outlineOpen = false));
 	});
 	/**
-	 * The line about where the plan is kept sits in the outline panel; where that is not on screen,
-	 * it sits in the footer. Phones have neither: the notice under the top bar says what matters.
+	 * The notice under the top bar (PlanNotice.svelte, lazy): read-only, could not open, cleared,
+	 * changes the store or another tab refused. Where the plan is kept is the top bar's sync status
+	 * control (T14), on every layout; the notice says in words what the control's icon cannot.
 	 */
-	const showNotice = $derived(!phone && !(kind === 'desktop' && mode === 'text'));
-	/** The notice under the top bar (PlanNotice.svelte, lazy): read-only, cleared, or not kept. */
 	const planNotice = $derived(
 		app.readOnly ||
 			app.keeping.cleared ||
 			app.keeping.unopened !== null ||
-			(phone && app.keeping.keep.kind === 'failed'),
+			(app.keeping.keep.kind === 'failed' && app.dirty),
 	);
 
 	let body: HTMLElement | undefined = $state();
@@ -269,7 +268,7 @@
 	const splitTracks = $derived(`minmax(0, ${ratio}fr) var(--gap-panel) minmax(0, ${1 - ratio}fr)`);
 
 	/**
-	 * The toasts sit just above the footer (the notice and the status strip), so they never cover
+	 * The toasts sit just above the footer (the status strip), so they never cover
 	 * the status or its reload button; on a phone, which has no footer, just above the tab bar.
 	 * That element's distance from the viewport's bottom, measured whenever it or the viewport
 	 * changes size.
@@ -413,11 +412,7 @@
 <div class="app" data-layout={kind}>
 	<TopBar {app} {theme} layout={kind} {mode} {drawer} {updates} onmode={(m) => modes.set(m)} />
 	<div class="notice-slot">
-		<LazyMount
-			when={planNotice}
-			load={() => import('./app/PlanNotice.svelte')}
-			props={{ app, phone }}
-		/>
+		<LazyMount when={planNotice} load={() => import('./app/PlanNotice.svelte')} props={{ app }} />
 	</div>
 	{#if phone}
 		<!-- A phone's messages are one compact line under the top bar, in the flow (Toasts.svelte). -->
@@ -454,7 +449,6 @@
 							<OutlinePanel
 								{app}
 								showTitle={false}
-								showNotice={false}
 								views={planViews}
 								showResources={false}
 								add={app.readOnly
@@ -571,7 +565,6 @@
 		<div class="tab-dock" bind:this={tabDock}><TabBar {app} onchange={pickTab} /></div>
 	{:else}
 		<div class="footer" bind:this={footer}>
-			{#if showNotice}<p class="notice" data-testid="keep-line">{app.keepLine}</p>{/if}
 			<StatusStrip {app} {updates} phone={false} quiet={showGantt} />
 		</div>
 	{/if}
@@ -700,7 +693,7 @@
 	.notice-slot {
 		min-inline-size: 0;
 	}
-	/* The footer: the notice and the status strip on one floating bar, off the phone's panels. */
+	/* The footer: the status strip on a floating bar, off the phone's panels. */
 	.footer {
 		min-inline-size: 0;
 		margin-block-start: var(--gap-panel);
@@ -709,12 +702,6 @@
 		border-radius: 14px;
 		background: var(--color-surface);
 		box-shadow: var(--shadow-chip);
-	}
-	.notice {
-		margin: 0;
-		padding: 5px var(--gutter) 0;
-		color: var(--color-text-muted);
-		font-size: 11.5px;
 	}
 	.message {
 		margin: 0;

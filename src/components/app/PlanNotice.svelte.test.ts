@@ -21,11 +21,11 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function setup(o: { refused: boolean; phone?: boolean }) {
+function setup(o: { refused: boolean; quota?: boolean }) {
 	const openStored = vi.fn(async () => true);
 	const keeping = $state({
 		keep: o.refused
-			? { kind: 'failed', error: storageError('not-owner', 'taken') }
+			? { kind: 'failed', error: storageError(o.quota ? 'quota' : 'not-owner', 'taken') }
 			: { kind: 'stored', at: 1 },
 		unopened: null,
 		cleared: false,
@@ -33,6 +33,7 @@ function setup(o: { refused: boolean; phone?: boolean }) {
 	const app = $state({
 		keeping,
 		readOnly: true,
+		dirty: true,
 		heldElsewhere: null,
 		storedId: 'w1',
 		activeFile: 'plan.tjp',
@@ -45,7 +46,7 @@ function setup(o: { refused: boolean; phone?: boolean }) {
 	mounted.push(
 		mount(PlanNotice, {
 			target,
-			props: { app: app as unknown as AppState, phone: o.phone ?? false },
+			props: { app: app as unknown as AppState },
 		}),
 	);
 	flushSync();
@@ -69,13 +70,18 @@ describe('the plan notice', () => {
 		expect(openStored).toHaveBeenCalledWith('w1', { steal: true });
 	});
 
-	it('says the changes in this tab were not kept, on a desktop and a phone (N1)', () => {
-		for (const phone of [false, true]) {
-			const { notice } = setup({ refused: true, phone });
-			expect(notice.dataset['kind']).toBe('refused');
-			expect(notice.querySelector('p')?.textContent).toBe(S.refused);
-			expect(notice.getAttribute('role')).toBe('status');
-		}
+	it('says the changes in this tab were not kept, with the text to copy (N1)', () => {
+		const { notice } = setup({ refused: true });
+		expect(notice.dataset['kind']).toBe('refused');
+		expect(notice.querySelector('p')?.textContent).toBe(S.refused);
+		expect(notice.getAttribute('role')).toBe('status');
+	});
+
+	it('says in words that changes the store refused are only in this tab, with the text to copy', () => {
+		const { notice, button } = setup({ refused: true, quota: true });
+		expect(notice.dataset['kind']).toBe('failed');
+		expect(notice.querySelector('p')?.textContent).toBe(S.failed);
+		expect(button(S.copyText)).toBeTruthy();
 	});
 
 	it("copies the open file's text, and says when it could not (N1)", async () => {

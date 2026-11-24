@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Pictures of the plans kept in the browser (SCREENSHOTS=1; phase-4.md 7.1, 9.4, T4), light and
-// dark: the footer's line once a sample's copy is kept (desktop and a tablet-sized desktop), the
-// read-only notice of a second page with "Open here instead" (desktop, Pixel 7, iPhone 14), and the
+// dark: the read-only notice of a second page with "Open here instead" (desktop, Pixel 7, iPhone 14), and the
 // notice that the browser cleared its plans (the phones, where no footer line is), the chooser with
 // the plans kept here ("Your plans", drawn as a list box: a native picker is not in a screenshot),
 // the notice that the last plan could not be opened (T4 review H2), and the notice that changes
@@ -46,20 +45,6 @@ for (const scheme of ['light', 'dark'] as const) {
 		test.beforeEach(async ({ page }) => {
 			fs.mkdirSync(DIR, { recursive: true });
 			await page.emulateMedia({ colorScheme: scheme });
-		});
-
-		test('the footer line of a kept plan', async ({ page }, info) => {
-			test.skip(info.project.name !== 'desktop', 'phones have no footer line');
-			await open(page, 'text');
-			await keepCopy(page);
-			await page.getByRole('button', { name: 'Visual', exact: true }).click();
-			await expect(page.getByTestId('keep-line')).toHaveText(strings.keep.stored);
-			await pictureReady(page);
-			await page.screenshot({ path: file('keep-line', info, scheme) });
-			await page.setViewportSize({ width: 820, height: 1180 });
-			await expect(page.getByTestId('keep-line')).toBeVisible();
-			await pictureReady(page);
-			await page.screenshot({ path: file('keep-line', info, scheme, 'tablet') });
 		});
 
 		test('the read-only notice of a second page', async ({ page, context }, info) => {

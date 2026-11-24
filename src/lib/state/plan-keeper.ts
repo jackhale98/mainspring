@@ -75,6 +75,8 @@ export interface Opening {
 	readonly fresh?: boolean;
 	/** Reopened from the store: an empty undo says why. */
 	readonly restored?: boolean;
+	/** When the store last wrote a reopened plan (ms since the epoch): "last kept" until this tab saves. */
+	readonly keptAt?: number;
 	/** Opened because the last plan could not be: it does not become the last plan (T4 review H2). */
 	readonly fallback?: boolean;
 }
@@ -167,6 +169,7 @@ export class PlanKeeper {
 				stored: { id, lock },
 				unstored: null,
 				restored: true,
+				keptAt: plan.updatedAt,
 			};
 		} catch (e) {
 			lock?.release();

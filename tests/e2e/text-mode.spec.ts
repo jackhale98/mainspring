@@ -44,7 +44,7 @@ test.describe('text mode', () => {
 		await page.keyboard.press('ControlOrMeta+z');
 		await settled(page);
 		await expect(page.locator('.cm-lintRange-error')).toHaveCount(0);
-		await expect(strip(page)).toContainText('No problems');
+		await expect(strip(page)).toContainText('No scheduler problems');
 	});
 
 	test('changing an effort updates the finish date', async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe('text mode', () => {
 		await page.keyboard.insertText('40d');
 		await expect(page.locator('.cm-activeLine')).toHaveText('    effort 40d');
 		await settled(page);
-		await expect(strip(page)).toContainText('No problems');
+		await expect(strip(page)).toContainText('No scheduler problems');
 		await expect
 			.poll(async () => new Date((await finish(page).getAttribute('datetime')) ?? '').getTime())
 			.toBeGreaterThan(new Date(before ?? '').getTime());
@@ -145,7 +145,7 @@ test.describe('text mode', () => {
 		await page.keyboard.press('ControlOrMeta+End');
 		await page.keyboard.insertText('task messy "Messy" {\nduration 3d\n        priority 501\n}\n');
 		await settled(page);
-		await expect(strip(page)).toContainText('No problems');
+		await expect(strip(page)).toContainText('No scheduler problems');
 		const lineText = (text: string) =>
 			page
 				.locator('.cm-line', { hasText: text })
@@ -160,7 +160,7 @@ test.describe('text mode', () => {
 		await expect(strip(page).locator('.state')).not.toHaveAttribute('data-kind', 'scheduling', {
 			timeout: READY_TIMEOUT_MS,
 		});
-		await expect(strip(page)).toContainText('No problems');
+		await expect(strip(page)).toContainText('No scheduler problems');
 	});
 
 	test('outline clicks move the cursor to the declaration in another file', async ({

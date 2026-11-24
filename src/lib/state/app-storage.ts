@@ -48,8 +48,8 @@
  *   N1): the tab is `readOnly` and `dirty`, the text stays on screen, `keeping.keep` is `failed`
  *   with `not-owner` (the notice offers to copy the text), and "Open here instead" asks first.
  * - AppState's own members: `planKey` (the plan part of preference keys), `openSerial` (grows when a
- *   plan opens, not when only the key changes), `fresh`, `storedId`, `keeping` (what the line says,
- *   the plans kept here, the cleared and could-not-open notices), `keepLine`, `flush`, `reloadPage`.
+ *   plan opens, not when only the key changes), `fresh`, `storedId`, `keeping` (what the sync status
+ *   control shows, the plans kept here, the cleared and could-not-open notices), `flush`, `reloadPage`.
  *   `sampleId`, `newPlanName` and `newPlanSerial` are gone.
  * - The last-plan pointer (`mainspring.last-plan`) holds a plan key: `ws:<id>`, or a sample's id
  *   when a sample was opened last. A plan that could not be opened leaves it as it was.

@@ -92,8 +92,9 @@
 			min-block-size: var(--size-tap);
 		}
 	}
-	/* A narrow bar keeps the icons, and the label of the active segment only. */
-	@container topbar (max-width: 899px) {
+	/* A narrow bar keeps the icons, and the label of the active segment only. Up to 1199 px: with the
+	   sync control (T14) the full switch does not fit beside the plan chip, undo and redo under that. */
+	@container topbar (max-width: 1199px) {
 		button:not([aria-pressed='true']) .label {
 			position: absolute;
 			inline-size: 1px;

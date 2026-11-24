@@ -40,7 +40,7 @@
  * read-only (`heldElsewhere`), and "Open here instead" takes it over, which makes the first tab
  * read-only (`readOnly`). Read-only, nothing edits: the edit dispatcher is closed and gone
  * (`edits` null), the history detached, the editor not editable, and the views offer no edit. The
- * keeping itself (what the footer's line says, the plans listed, autosave, the lock, the keeper
+ * keeping itself (what the sync status control shows, the plans listed, autosave, the lock, the keeper
  * chunk that a visit which only reads a sample never fetches, 12.1) is `keeping`
  * (keeping.svelte.ts). `dirty` is true while changes are only in this tab, which is when switching
  * plans or reloading asks first; `flush` stores what autosave holds before a reload the app starts.
@@ -383,14 +383,6 @@ export class AppState implements AppStorageState {
 	/** The open plan's name as the chooser and the phone's header show it. */
 	get planLabel(): string {
 		return this.#label;
-	}
-
-	/** The footer's line: where the open plan is kept (T14's status control replaces it). */
-	get keepLine(): string {
-		const k = strings.keep;
-		const kind = this.keeping.keep.kind;
-		// Changes this tab could not keep are said even when it is read-only (T4 re-check N1).
-		return this.readOnly && kind !== 'failed' ? k.readOnly : k[kind];
 	}
 
 	/**

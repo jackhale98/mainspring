@@ -41,7 +41,7 @@ describe('strings', () => {
 	});
 
 	it('counts problems in plain words', () => {
-		expect(strings.status.counts(0, 0)).toBe('No problems');
+		expect(strings.status.counts(0, 0)).toBe('No scheduler problems');
 		expect(strings.status.counts(1, 0)).toBe('1 error');
 		expect(strings.status.counts(2, 1)).toBe('2 errors, 1 warning');
 		expect(strings.outline.errors(3)).toBe('3 errors');

@@ -20,7 +20,7 @@ const view = (over: Partial<StatusView> = {}): StatusView => ({
 	outdated: false,
 	errors: 0,
 	warnings: 0,
-	counts: 'No problems',
+	counts: 'No scheduler problems',
 	unlocated: [],
 	failure: null,
 	engine: null,
@@ -147,7 +147,7 @@ describe('the popover', () => {
 	it('shows no problems as plain text, not a button', () => {
 		const { target } = setup(view());
 		expect(target.querySelector('[data-testid="next-problem"]')).toBeNull();
-		expect(target.querySelector('[popover]')?.textContent).toContain('No problems');
+		expect(target.querySelector('[popover]')?.textContent).toContain('No scheduler problems');
 	});
 
 	it('gives a failure its reason and Try again', () => {

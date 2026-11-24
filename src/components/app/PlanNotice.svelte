@@ -12,19 +12,40 @@
 	  browser remembers a failed import, so after a failed try the button reloads the page, which
 	  opens the last plan again (the pointer was left alone);
 	- the browser cleared the plans it kept (the eviction marker, 9.4), until dismissed;
-	- on a phone, which has no footer line, changes that could not be kept (8.1 #8).
-	A lazy chunk: App.svelte mounts it the first time one of them applies. T14's sync status takes
-	the failure over.
+	- changes the store refused for another reason (full, blocked or not usable, 8.1 #8: `dirty`; a
+	  plan not changed yet has nothing to lose, and a plan that could not be opened says that): they are
+	  only in this tab. The sync status control says so too, but under 1360 px its label is an icon
+	  alone, so the one state where data is at risk is always said in words here.
+	A lazy chunk: App.svelte mounts it the first time one of them applies. The control (T14) says
+	where the open plan is kept; the Sync panel offers the same actions (`plan-actions.ts`).
+-->
+<!--
+	The notice under the top bar about where the open plan is kept (phase-4.md 7.1, 9.4), on every
+	layout:
+	- read-only, because another tab has the plan (`elsewhere`: it was open there first; `taken`: it
+	  was taken over there), with "Open here instead", which takes it into this tab;
+	- another tab took the plan before this one had stored its latest changes (`refused`, T4
+	  re-check N1): they stay on screen, read-only; "Copy the text" puts the open file's text on the
+	  clipboard (export is T5's), and "Open here instead" asks first, since it drops them;
+	- the last plan could not be opened (the store or the keeper chunk failed, or the plan is
+	  damaged): a sample is open meanwhile, and Try again opens the plan (T4 review H2, M2). A
+	  browser remembers a failed import, so after a failed try the button reloads the page, which
+	  opens the last plan again (the pointer was left alone);
+	- the browser cleared the plans it kept (the eviction marker, 9.4), until dismissed;
+	A lazy chunk: App.svelte mounts it the first time one of them applies. Where the open plan is
+	kept, and changes the store refused (8.1 #8), are the sync status control's (T14); this notice
+	stays for what blocks the tab or needs a decision, and the control and its panel say the same
+	state in their own words (Sync panel: `plan-actions.ts` does the same things).
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
+	import { copyOpenText, openHere, type Copied } from '../../lib/state/plan-actions';
 	import { storageStrings } from '../../lib/strings-storage';
 
 	interface Props {
 		app: AppState;
-		phone: boolean;
 	}
-	let { app, phone }: Props = $props();
+	let { app }: Props = $props();
 	const S = storageStrings.notice;
 
 	const k = $derived(app.keeping);
@@ -32,43 +53,30 @@
 	const kind = $derived(
 		refused
 			? 'refused'
-			: app.readOnly
-				? app.heldElsewhere !== null
-					? 'elsewhere'
-					: 'taken'
-				: k.unopened !== null
-					? 'unopened'
-					: k.cleared
-						? 'cleared'
-						: phone && k.keep.kind === 'failed'
-							? 'failed'
+			: k.keep.kind === 'failed' && app.dirty
+				? 'failed'
+				: app.readOnly
+					? app.heldElsewhere !== null
+						? 'elsewhere'
+						: 'taken'
+					: k.unopened !== null
+						? 'unopened'
+						: k.cleared
+							? 'cleared'
 							: null,
 	);
 	let busy = $state(false);
 	/** Try again failed: the next press reloads the page instead. */
 	let tried = $state(false);
 	/** The file whose text "Copy the text" copied (or failed to), and how that went. */
-	let copied = $state<{ readonly path: string; readonly ok: boolean } | null>(null);
-
-	/** The open file's text to the clipboard: what this tab could not keep (N1). */
-	async function copy(): Promise<void> {
-		const path = app.activeFile;
-		const text = app.workspace?.texts()[path] ?? '';
-		let ok = true;
-		try {
-			await navigator.clipboard.writeText(text);
-		} catch {
-			ok = false;
-		}
-		copied = { path, ok };
-	}
+	let copied = $state<Copied | null>(null);
 
 	/** "Open here instead" takes the open plan; Try again opens the one that could not be opened. */
-	async function open(id: string | null, steal: boolean): Promise<void> {
-		if (id === null || busy) return;
+	async function open(retry: string | null): Promise<void> {
+		if (busy || (retry === null && !app.storedId)) return;
 		busy = true;
 		try {
-			await app.openStored(id, { steal });
+			await (retry === null ? openHere(app) : app.openStored(retry));
 		} finally {
 			busy = false;
 		}
@@ -78,8 +86,8 @@
 {#if kind}
 	<div class="notice" role="status" data-testid="plan-notice" data-kind={kind}>
 		<p>{S[kind]}</p>
-		{#if kind === 'refused'}
-			<button type="button" onclick={copy}
+		{#if kind === 'refused' || kind === 'failed'}
+			<button type="button" onclick={async () => (copied = await copyOpenText(app))}
 				>{copied?.path !== app.activeFile
 					? S.copyText
 					: copied.ok
@@ -88,7 +96,7 @@
 			>
 		{/if}
 		{#if kind === 'elsewhere' || kind === 'taken' || kind === 'refused'}
-			<button type="button" class="primary" disabled={busy} onclick={() => open(app.storedId, true)}
+			<button type="button" class="primary" disabled={busy} onclick={() => open(null)}
 				>{S.openHere}</button
 			>
 		{:else if kind === 'unopened'}
@@ -98,7 +106,7 @@
 				disabled={busy}
 				onclick={() => {
 					if (tried) void app.reloadPage();
-					else void open(k.unopened, false).then(() => (tried = k.unopened !== null));
+					else void open(k.unopened).then(() => (tried = k.unopened !== null));
 				}}>{tried ? S.reload : S.retry}</button
 			>
 		{:else if kind === 'cleared'}

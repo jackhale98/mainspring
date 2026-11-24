@@ -91,6 +91,11 @@ export const CHUNK_CAPS = [
 	// The notice under the top bar (read-only, could not open, cleared, not kept, and changes another
 	// tab refused with "Copy the text", T4 re-check N1; 1,308 bytes on 2026-11-23).
 	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_400, lazy: true },
+	// The Sync panel behind the status control (T14, phase-4.md 11.1): a popover or a bottom sheet with
+	// the state's sentence, the location and the actions that exist, and its copy (strings-sync.ts), fetched
+	// by the first press of the control and by no first load (2,445 bytes on 2026-11-24). T14 part two
+	// adds the Commit, Sync and Save actions to it, and raises this cap with them.
+	{ name: 'sync-panel', pattern: /^SyncPanel\./, cap: 2_700, lazy: true },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
