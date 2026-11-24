@@ -50,7 +50,7 @@ import { TYPED_KEYWORDS } from './terms';
 
 export { parser as tjpGlobalParser } from './parser.generated';
 export { EXTRA_KEYWORDS } from './keyword-extras';
-export { reparse, reuseFragments } from './fragments';
+export { parseSteps, reparse, reparseSteps, reuseFragments } from './fragments';
 export { stringTemplate, type StringTemplate } from './props';
 export { requiresArgument } from './lexer';
 

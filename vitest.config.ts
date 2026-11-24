@@ -21,6 +21,7 @@ export default defineConfig({
 			...configDefaults.exclude,
 			'tests/fidelity/schedule.property.test.ts',
 			'tests/fidelity/open-ended.engine.test.ts',
+			'tests/fidelity/merge.property.test.ts',
 		],
 	},
 });

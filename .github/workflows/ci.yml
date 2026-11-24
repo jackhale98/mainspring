@@ -170,7 +170,8 @@ jobs:
       - run: npm run gen:keywords -- --check
       # Gate criterion 2 (phase-1.md 9.3, 12): properties P1 to P6 over 200 generated and 50 corpus
       # cases, the mutation meta-test and the recorded regressions. FIDELITY_SEED fixes the run; a
-      # failure prints the case seed and the FIDELITY_CASE to replay it.
+      # failure prints the case seed and the FIDELITY_CASE to replay it. It also schedules 100
+      # clean merges (merge.property.test.ts, phase-4.md 13.1; about a minute; 2,000 nightly).
       - run: npm run test:fidelity
       - name: Add the report to the step summary
         if: always()

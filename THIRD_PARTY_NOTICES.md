@@ -99,6 +99,13 @@ texts must also go into the site-level notices before a public release.
 the packages above. `@lezer/generator` (MIT) is a development dependency: it generates the
 parser tables at build time and does not ship.
 
+## Merge (from Phase 4)
+
+The three-way merge (`src/lib/sync/merge.ts`, `src/lib/tjp/merge/`, phase-4.md 6.4) uses
+`node-diff3` 3.2.1 (MIT, checked in its `package.json` and `LICENSE`; no dependencies of its own),
+which GPL-2.0 permits. It loads lazily with the sync code, never in a first load. Its license text
+must also go into the site-level notices before a public release.
+
 ## Sample plans (from Phase 1)
 
 Text mode bundles four sample workspaces (`src/lib/workspace/samples.ts`), loaded on demand. Two

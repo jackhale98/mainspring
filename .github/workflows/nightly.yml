@@ -66,6 +66,9 @@ jobs:
       FIDELITY_CORPUS: nightly
       FIDELITY_SEED: ${{ github.run_number }}
       FIDELITY_SHARD: ${{ matrix.shard }}/4
+      # Merged plans schedule (tests/fidelity/merge.property.test.ts, phase-4.md 13.1): 2,000 clean
+      # merges in all, 500 per shard; the push run makes 100.
+      MERGE_FIDELITY_RUNS: '2000'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

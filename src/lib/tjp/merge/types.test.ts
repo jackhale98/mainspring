@@ -14,6 +14,7 @@ import {
 	type MergeFileFn,
 	type MergeWorkspaceFn,
 	type Owner,
+	type ParsedFile,
 	type Resolution,
 	type ResolveFn,
 	type Take,
@@ -50,6 +51,7 @@ describe('merge types (6.4)', () => {
 		expectTypeOf<MergeConflict['at']>().toEqualTypeOf<SourceRange>();
 		expectTypeOf<MergeConflict['atOurs']>().toEqualTypeOf<SourceRange | null>();
 		expectTypeOf<MergeConflict['both']>().toEqualTypeOf<boolean>();
+		expectTypeOf<MergeConflict['only']>().toEqualTypeOf<'ours' | 'theirs' | null>();
 		const c: MergeConflict = {
 			id: 'plan.tjp#attribute:effort@120-129',
 			file: 'plan.tjp',
@@ -64,6 +66,7 @@ describe('merge types (6.4)', () => {
 			at: { file: 'plan.tjp', from: 120, to: 129 },
 			atOurs: { file: 'plan.tjp', from: 118, to: 127 },
 			both: false,
+			only: null,
 		};
 		expect(c.subject.kind).toBe('attribute');
 	});
@@ -80,6 +83,7 @@ describe('merge types (6.4)', () => {
 			at: { file: 'parts/people.tji', from: 0, to: text.length },
 			atOurs: { file: 'parts/people.tji', from: 0, to: text.length },
 			both: false,
+			only: null,
 		};
 		const m: WorkspaceMerge = { files: new Map([[c.file, text]]), conflicts: [c] };
 		expect(m.files.has(c.file)).toBe(true);
@@ -91,7 +95,11 @@ describe('merge types (6.4)', () => {
 	});
 
 	it('fixes the signatures T6 implements', () => {
-		expectTypeOf<MergeContext>().toEqualTypeOf<{ readonly includes: IncludeGraph }>();
+		expectTypeOf<MergeContext>().toEqualTypeOf<{
+			readonly includes: IncludeGraph;
+			readonly files?: ReadonlyMap<string, ParsedFile>;
+			readonly others?: { readonly base: Files; readonly ours: Files; readonly theirs: Files };
+		}>();
 		expectTypeOf<MergeWorkspaceFn>().parameters.toEqualTypeOf<
 			[Files, Files, Files, MergeContext]
 		>();
