@@ -54,8 +54,10 @@ export const CHUNK_CAPS = [
 	// What the heatmap and the lanes share (the canvas plot, names, header, details, the model).
 	{ name: 'heat', pattern: /^WorkloadBar/, cap: 34_000, view: true },
 	// What the heatmap and the lanes share, named after one of its modules (WhichTask: the plot, the
-	// painters, the details; 19,196 on 2026-11-23): it had no cap of its own (T22).
-	{ name: 'heat-shared', pattern: /^WhichTask/, cap: 21_000, view: true },
+	// painters, the details; 19,196 on 2026-11-23): it had no cap of its own (T22). Optional: only the
+	// build with the test pages (CI's, MAINSPRING_DEV_PAGES) splits it off; the Pages build folds it
+	// into the heat chunk above (24,407 there), whose cap then covers it.
+	{ name: 'heat-shared', pattern: /^WhichTask/, cap: 21_000, view: true, optional: true },
 	{ name: 'lanes', pattern: /^Lanes\./, cap: 12_200, view: true },
 	{ name: 'calendar', pattern: /^(Calendar\.|calendar-state)/, cap: 16_400, view: true },
 	// The Resources view: the resource table, its drag and the divider's rules (T17).
@@ -93,7 +95,7 @@ export const CHUNK_CAPS = [
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */
 export function unmatchedCaps(files) {
-	return CHUNK_CAPS.filter((c) => !files.some((f) => c.pattern.test(f.file))).map(
+	return CHUNK_CAPS.filter((c) => !c.optional && !files.some((f) => c.pattern.test(f.file))).map(
 		(c) => `the ${c.name} chunk cap matches no built file (${c.pattern}); did the split move?`,
 	);
 }
