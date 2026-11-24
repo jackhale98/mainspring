@@ -22,6 +22,9 @@
 //
 // CHROMIUM_PATH picks a browser that is already installed. PORT (default 4399) is the port of
 // --serve. In GitHub Actions the table goes to the step summary and the warning to an annotation.
+//
+// Over 400 lines: the chunk caps, the walks of the built graph and the browser measurement are one
+// gate, and each cap carries the reason for its number.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
