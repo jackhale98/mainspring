@@ -308,11 +308,13 @@ test('when the kept plan cannot be opened, a sample opens, the notice says so, a
 	await page.addInitScript(() => {
 		const w = window as unknown as { blockIdb?: boolean };
 		w.blockIdb = sessionStorage.getItem('block-idb') === '1';
-		const open = indexedDB.open.bind(indexedDB);
-		indexedDB.open = ((name: string, version?: number) => {
+		// Patched on the prototype: a property set on `indexedDB` itself lives on a wrapper object
+		// that WebKit may collect and make again, which un-blocked the storage on CI.
+		const open = IDBFactory.prototype.open;
+		IDBFactory.prototype.open = function (this: IDBFactory, name: string, version?: number) {
 			if (w.blockIdb) throw new DOMException('blocked', 'SecurityError');
-			return open(name, version);
-		}) as typeof indexedDB.open;
+			return open.call(this, name, version);
+		};
 	});
 	await openApp(page, SAMPLE);
 	await typeAtStart(page, '# still here\n');

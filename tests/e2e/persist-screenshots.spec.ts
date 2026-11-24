@@ -123,11 +123,12 @@ for (const scheme of ['light', 'dark'] as const) {
 			// blocked chunk).
 			await page.addInitScript(() => {
 				const blocked = sessionStorage.getItem('block-idb') === '1';
-				const open = indexedDB.open.bind(indexedDB);
-				indexedDB.open = ((name: string, version?: number) => {
+				// On the prototype, as persist.spec.ts does (a property on `indexedDB` can be lost).
+				const open = IDBFactory.prototype.open;
+				IDBFactory.prototype.open = function (this: IDBFactory, name: string, version?: number) {
 					if (blocked) throw new DOMException('blocked', 'SecurityError');
-					return open(name, version);
-				}) as typeof indexedDB.open;
+					return open.call(this, name, version);
+				};
 			});
 			await open(page, 'text');
 			await keepCopy(page);
