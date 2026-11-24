@@ -6,8 +6,9 @@
  * done. statement.ts keeps the result only when every hold is done and the plan did not fail.
  */
 import type { SyntaxNode } from '@lezer/common';
-import { at, type BlockPlan } from './check';
+import { at, independent, type BlockPlan } from './check';
 import type { Element } from './elements';
+import { blockKind } from './hints';
 import { emit, SIDES, textOf, type Cx, type Parent, type SideIx, type Tri } from './emit';
 import type { Seq } from './keyed';
 import type { Rng } from './out';
@@ -93,13 +94,35 @@ export function emitPlanned(
 		mid[s].every((e) => e.kind !== 'stmt') && t[s].trim() === '' && t[0] === '';
 	const side: SideIx | null =
 		t[1] === t[2] || t[2] === t[0] || blank(2) ? 1 : t[1] === t[0] || blank(1) ? 2 : null;
-	if (side === null) return false;
+	// Each side added statements of its own there (ours' may hold a conflict with one theirs' side
+	// of the plan left out): both stay, ours first, when every one is a plain statement and each
+	// of ours is independent of each of theirs (check.ts's rules, as keyed.ts `addedTwice` asks
+	// them). Without this the run was clean only when one side's additions were all left out, so
+	// the same two edits gave an attribute conflict one way round and a whole-block one the other.
+	let both = false;
+	if (side === null) {
+		const [ta, tb] = [cx.sides[1].text, cx.sides[2].text];
+		const plain = (e: Element): boolean => {
+			const st = only(e);
+			return !!st && blockKind(st) === null;
+		};
+		both =
+			run[0].length === 0 &&
+			parent.inBlock &&
+			mid[1].every(plain) &&
+			mid[2].every(plain) &&
+			mid[1].every((x) =>
+				mid[2].every((y) => independent(only(x) as SyntaxNode, ta, only(y) as SyntaxNode, tb)),
+			);
+		if (!both) return false;
+	}
+	const first: SideIx = side ?? 1;
 	for (const e of run[1].slice(0, p)) emit(cx, 1, whole(e));
-	for (const e of mid[side]) {
+	for (const e of mid[first]) {
 		const st = only(e);
-		const hold = side === 1 && st ? plan.holds.get(at(1, st)) : undefined;
+		const hold = first === 1 && st ? plan.holds.get(at(1, st)) : undefined;
 		if (!st || !hold) {
-			emit(cx, side, whole(e));
+			emit(cx, first, whole(e));
 			continue;
 		}
 		const theirs = cx.sides[2].text;
@@ -142,6 +165,7 @@ export function emitPlanned(
 		}
 		plan.done.add(at(1, st));
 	}
+	if (both) for (const e of mid[2]) emit(cx, 2, whole(e));
 	for (const e of run[1].slice(run[1].length - q)) emit(cx, 1, whole(e));
 	return true;
 }

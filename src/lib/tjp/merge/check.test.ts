@@ -75,3 +75,23 @@ describe('a dependency given by a macro', () => {
 		expect(m.conflicts.length).toBeGreaterThan(0);
 	});
 });
+
+describe('each side adds statements at one place, one pair of them clashing (CI seed -2121482778)', () => {
+	const base = `${H}resource ben "Ben"\nresource ann "Ann" {\n  efficiency 0.9\n  limits { dailymax 6h }\n}\n`;
+	const end = '  limits { dailymax 6h }\n';
+	const one = base.replace(end, `${end}  rate 310\n`);
+	const two = base.replace(end, `${end}  managers ben\n  rate 250\n`);
+
+	it('is the same attribute conflict whichever side is ours, and the other statement stays', () => {
+		for (const [ours, theirs] of [
+			[one, two],
+			[two, one],
+		] as const) {
+			const m = merge1(base, ours, theirs);
+			expect(m.conflicts.map((c) => c.subject.kind)).toEqual(['attribute']);
+			const text = m.files.get('plan.tjp') ?? '';
+			expect(text.match(/managers ben/g)).toHaveLength(1);
+			expect(text.match(/\brate\b/g)).toHaveLength(1);
+		}
+	});
+});
