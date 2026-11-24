@@ -31,7 +31,9 @@ describe('keywords', () => {
 		]) {
 			expect(repeatable(k), k).toBe(false);
 		}
-		expect(REPEATABLE.size).toBe(30);
+		expect(REPEATABLE.size).toBe(28);
+		expect(repeatable('extend')).toBe(false);
+		expect(repeatable('projectids')).toBe(false);
 	});
 
 	it('gives the sizing criteria one slot per scenario, and other statements their key', () => {

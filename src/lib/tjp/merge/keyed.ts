@@ -23,11 +23,13 @@
  *   (clean, ours first), blocks with different ids (`added-twice` with `both`);
  * - anything else is one conflict over the run's whole elements (emit.ts `wholeConflict`), so
  *   either choice takes one side's statements whole.
+ * In a block both sides changed statements of, the block's plan (check.ts) shapes the merge as
+ * planned.ts says; a run it cannot shape fails the plan (statement.ts: the block is one conflict).
  *
  * Merging pauses between steps (types.ts rule 5): `keyedMerge` and what it calls are generators.
  */
 import type { SyntaxNode } from '@lezer/common';
-import { declsOf, elementAt, type Element } from './elements';
+import { declCount, declsOf, elementAt, type Element } from './elements';
 import {
 	emit,
 	emitMerged,
@@ -40,8 +42,9 @@ import {
 	type Step,
 	type Tri,
 } from './emit';
-import { attrName, blockKind } from './hints';
+import { attrName, blockKind, statementKey } from './hints';
 import { keywordOf, repeatable, slotOf } from './keywords';
+import { emitPlanned, held, holesIn, planned } from './planned';
 import { alignable, element } from './statement';
 import { diffIndices } from 'node-diff3';
 import { diff3Regions, type IxRange } from './lines';
@@ -80,7 +83,9 @@ function tokens(cx: Cx, seqs: Tri<Seq>): Tri<string[]> {
 }
 
 /** Merges the elements of a widened hunk into `cx.out` (module comment). */
-export function* keyedMerge(cx: Cx, seqs: Tri<Seq>, parent: Parent): Step {
+export function* keyedMerge(cx: Cx, given: Tri<Seq>, parent: Parent): Step {
+	const plan = parent.plan;
+	const seqs = plan ? planned(given, plan) : given;
 	const [to, ta, tb] = tokens(cx, seqs);
 	if (moved(cx, seqs, [to, ta, tb])) {
 		wholeConflict(
@@ -101,9 +106,21 @@ export function* keyedMerge(cx: Cx, seqs: Tri<Seq>, parent: Parent): Step {
 		}) as unknown as Tri<number>;
 		if (g.kind === 'same') {
 			for (let i = 0; i < run[0].length; i++) {
-				yield* element(cx, [run[0][i], run[1][i], run[2][i]] as Tri<Element>, parent);
+				const e = [run[0][i], run[1][i], run[2][i]] as Tri<Element>;
+				if (plan && held(plan, e[1])) plan.failed = true;
+				yield* element(cx, e, parent);
 			}
-		} else yield* runMerge(cx, run, pos, parent);
+		} else if (!plan || !emitPlanned(cx, run, pos, parent, plan)) {
+			// A run the plan does not shape merges as usual (check.ts proved the block's changes
+			// independent), unless a statement the plan holds or leaves out is in it.
+			if (
+				plan &&
+				(run[1].some((e) => held(plan, e)) || SIDES.some((s) => holesIn(given[s], run[s], plan, s)))
+			) {
+				plan.failed = true;
+			}
+			yield* runMerge(cx, run, pos, parent);
+		}
 	}
 }
 
@@ -119,11 +136,6 @@ function movedOn(o: readonly string[], x: readonly string[]): Set<string> {
 	return out;
 }
 
-/**
- * Whether a statement moved on one side while the other side changed the hunk too (or moved it as
- * well). Token diff3 sees a move as a delete and an add, which would lose the other side's edit
- * of it or declare it twice; the hunk is one line conflict of whole elements instead.
- */
 /**
  * Tasks and resources (unique ones) that side `x` declares inside another element than the base
  * does: a block moved into another block (review L4).
@@ -143,6 +155,11 @@ function movedAcross(cx: Cx, seqs: Tri<Seq>, t: Tri<string[]>, x: 1 | 2): Set<st
 	return out;
 }
 
+/**
+ * Whether a statement moved on one side while the other side changed the hunk too (or moved it as
+ * well). Token diff3 sees a move as a delete and an add, which would lose the other side's edit
+ * of it or declare it twice; the hunk is one line conflict of whole elements instead.
+ */
 function moved(cx: Cx, seqs: Tri<Seq>, t: Tri<string[]>): boolean {
 	const ma = new Set([...movedOn(t[0], t[1]), ...movedAcross(cx, seqs, t, 1)]);
 	const mb = new Set([...movedOn(t[0], t[2]), ...movedAcross(cx, seqs, t, 2)]);
@@ -237,9 +254,20 @@ function deleted(
 	const change = deletedOn === 1 ? 'deleted-ours' : 'deleted-theirs';
 	if (blockKind(sk)) {
 		const text = textOf(cx, kept, whole(ek));
-		const at = cx.out.push(text);
+		// The deleting side declares it as often as the base does (a copy elsewhere in this
+		// file), or for ours anywhere in another file: a move, not a deletion. No choice here can
+		// remove the other copy, so it is a `text` conflict without Keep both (review L4), which
+		// holds ours as every text conflict does.
+		const key = statementKey(sk, keptText) ?? '';
+		const gone = cx.sides[deletedOn];
+		const moved =
+			declCount(gone.tree, gone.text, key) >= declCount(cx.sides[0].tree, cx.sides[0].text, key) ||
+			(deletedOn === 1 && cx.elsewhere(key));
+		const at = moved && deletedOn === 1 ? cx.out.push('') : cx.out.push(text);
 		cx.out.conflict({
-			subject: { kind: 'block', owner: cx.naming.owner(sk, keptText), change },
+			subject: moved
+				? { kind: 'text' }
+				: { kind: 'block', owner: cx.naming.owner(sk, keptText), change },
 			base: textOf(cx, 0, whole(eo)),
 			ours: deletedOn === 1 ? null : text,
 			theirs: deletedOn === 2 ? null : text,

@@ -40,7 +40,7 @@ describe('statementKey', () => {
 			['EffortStatement', 'effort'],
 			['EffortStatement', 'delayed:effort'],
 			['MacroCallStatement', null],
-			['TaskStatement', 'task'],
+			['TaskStatement', 'task#"Anonymous"#0'],
 		]);
 	});
 

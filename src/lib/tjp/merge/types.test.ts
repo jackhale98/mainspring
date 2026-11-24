@@ -2,7 +2,6 @@
 // Merge and conflict contract (phase-4.md 6.4): the result guard, and compile checks of the
 // interface (`npm run typecheck` enforces them). The merge laws and properties come with T6.
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { Tree } from '@lezer/common';
 import type { SourceRange } from '../tree';
 import type { IncludeGraph } from '../../workspace/includes';
 import {
@@ -15,6 +14,7 @@ import {
 	type MergeFileFn,
 	type MergeWorkspaceFn,
 	type Owner,
+	type ParsedFile,
 	type Resolution,
 	type ResolveFn,
 	type Take,
@@ -94,7 +94,7 @@ describe('merge types (6.4)', () => {
 	it('fixes the signatures T6 implements', () => {
 		expectTypeOf<MergeContext>().toEqualTypeOf<{
 			readonly includes: IncludeGraph;
-			readonly trees?: ReadonlyMap<string, Tree>;
+			readonly files?: ReadonlyMap<string, ParsedFile>;
 		}>();
 		expectTypeOf<MergeWorkspaceFn>().parameters.toEqualTypeOf<
 			[Files, Files, Files, MergeContext]

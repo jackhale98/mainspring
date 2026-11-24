@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Lines and the three-way line regions (lines.ts).
+import { readFileSync } from 'node:fs';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { diff3Merge } from 'node-diff3';
@@ -221,4 +222,83 @@ describe('diff3Regions against ground truth', () => {
 			expect(right).toBeGreaterThan(1000);
 		},
 	);
+});
+
+describe('large chunks without anchors (review N5)', () => {
+	const time = (
+		o: string[],
+		a: string[],
+		b: string[],
+	): { ms: number; out: string[]; conflict: boolean } => {
+		const t0 = performance.now();
+		const r = apply(o, a, b);
+		return { ms: performance.now() - t0, ...r };
+	};
+	const edit = (xs: string[], i: number, line: string): string[] =>
+		xs.map((l, k) => (k === i ? line : l));
+
+	it.each([
+		['3,000 identical macro-call lines', Array.from({ length: 3000 }, () => '  ${m}\n')],
+		[
+			'4,000 alternating } and effort lines',
+			Array.from({ length: 4000 }, (_, i) => (i % 2 ? '}\n' : '  effort 1d\n')),
+		],
+		[
+			'a 5,000-line note of repeated lines',
+			['task a "A" {\n', '  note "\n', ...Array.from({ length: 5000 }, () => 'x\n'), '"\n', '}\n'],
+		],
+	])('merges %s with one edit per side within 300 ms', (_, base) => {
+		const a = edit(base, 100, 'ours\n');
+		const b = edit(base, base.length - 100, 'theirs\n');
+		const r = time(base, a, b);
+		console.info(`N5 ${_}: ${r.ms.toFixed(1)} ms`);
+		expect(r.conflict).toBe(false);
+		expect(r.out).toEqual(edit(a, base.length - 100, 'theirs\n'));
+		expect(r.ms).toBeLessThan(300);
+	});
+
+	it('merges a pasted copy of 1,500 lines of a plan within 300 ms', () => {
+		const plan = splitLines(
+			readFileSync(
+				new URL('../../../../engine/golden/plans/fedora-res/f-20.tjp', import.meta.url),
+				'utf8',
+			),
+		);
+		const base = plan.slice(0, 1500);
+		const a = edit(base, 10, '# ours\n');
+		const b = [...base, ...base];
+		const r = time(base, a, b);
+		console.info(`N5 pasted copy: ${r.ms.toFixed(1)} ms, ${r.conflict ? 'a conflict' : 'clean'}`);
+		// Theirs' copy may land next to ours' edit (a conflict); clean, the edit is in it once.
+		if (!r.conflict) {
+			expect(r.out).toHaveLength(3000);
+			expect(r.out.filter((l) => l === '# ours\n')).toHaveLength(1);
+		}
+		expect(r.ms).toBeLessThan(300);
+	});
+});
+
+describe('large chunks without anchors: a shared edit is never applied twice (N5, M1)', () => {
+	it('gives the edits’ text or a conflict', () => {
+		fc.assert(
+			fc.property(
+				fc.integer({ min: 2000, max: 6000 }),
+				fc.integer({ min: 0, max: 1999 }),
+				fc.integer({ min: 0, max: 1999 }),
+				fc.integer({ min: 0, max: 1999 }),
+				(n, shared, ea, eb) => {
+					const base = Array.from({ length: n }, (_, i) => (i % 3 === 0 ? '}\n' : 'x\n'));
+					fc.pre(Math.abs(ea - shared) > 3 && Math.abs(eb - shared) > 3 && Math.abs(ea - eb) > 3);
+					const ops: Op[] = [
+						{ from: shared, to: shared + 1, insert: [], who: 'both' },
+						{ from: ea, to: ea + 1, insert: ['ours\n'], who: 'a' },
+						{ from: eb, to: eb + 1, insert: ['theirs\n'], who: 'b' },
+					];
+					const r = apply(base, applyOps(base, ops, 'a'), applyOps(base, ops, 'b'));
+					if (!r.conflict) expect(r.out).toEqual(applyOps(base, ops, null));
+				},
+			),
+			{ ...SEED, numRuns: 100 },
+		);
+	});
 });

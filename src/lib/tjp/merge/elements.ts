@@ -69,8 +69,10 @@ export function elementsOf(text: string, parent: SyntaxNode, from: number, to: n
 	const out: Element[] = [];
 	let at = from;
 	const opensMidLine = from > 0 && text[from - 1] !== '\n';
-	if (opensMidLine && starts.length > 1 && (groups[0]?.first ?? Infinity) > 0) {
-		const end = lineStart(1);
+	// The rest of the `{` line, also when it is all the body holds (`{` then `}` on the next line).
+	const nl = text.indexOf('\n', from);
+	if (opensMidLine && nl >= 0 && nl < to && (groups[0]?.first ?? Infinity) > 0) {
+		const end = nl + 1;
 		out.push({ kind: 'head', from, lead: from, to: end, stmts: [], key: null });
 		at = end;
 	}
@@ -92,17 +94,20 @@ export function elementsOf(text: string, parent: SyntaxNode, from: number, to: n
 }
 
 const DECLS = new WeakMap<Tree, ReadonlyMap<string, number>>();
+const ALL = new WeakMap<Tree, ReadonlyMap<string, number>>();
 
 /**
  * The tasks and resources a tree declares once (by their local key, `task:t`), at the start of
  * their statement: what a move across blocks carries (refine.ts, keyed.ts). A key declared more
- * than once in the file (`task spec` under two parents) is left out. One walk per tree, kept.
+ * than once in the file (`task spec` under two parents) is left out, unless `all`. One walk per
+ * tree, kept.
  */
-export function declsOf(tree: Tree, text: string): ReadonlyMap<string, number> {
-	const kept = DECLS.get(tree);
+export function declsOf(tree: Tree, text: string, all = false): ReadonlyMap<string, number> {
+	const kept = (all ? ALL : DECLS).get(tree);
 	if (kept) return kept;
 	const out = new Map<string, number>();
 	const twice = new Set<string>();
+	const counts = new Map<string, number>();
 	const walk = (n: SyntaxNode): void => {
 		for (let c = n.firstChild; c; c = c.nextSibling) {
 			if (c.name === 'TaskStatement' || c.name === 'ResourceStatement') {
@@ -111,15 +116,29 @@ export function declsOf(tree: Tree, text: string): ReadonlyMap<string, number> {
 					const k = `${c.name === 'TaskStatement' ? 'task' : 'resource'}:${text.slice(id.from, id.to)}`;
 					if (out.has(k)) twice.add(k);
 					out.set(k, c.from);
+					counts.set(k, (counts.get(k) ?? 0) + 1);
 				}
 			}
 			if (c.name === 'Body' || c.name.endsWith('Statement')) walk(c);
 		}
 	};
 	walk(tree.topNode);
+	COUNTS.set(tree, counts);
+	if (all) {
+		ALL.set(tree, out);
+		return out;
+	}
 	for (const k of twice) out.delete(k);
 	DECLS.set(tree, out);
 	return out;
+}
+
+const COUNTS = new WeakMap<Tree, ReadonlyMap<string, number>>();
+
+/** How many times a tree declares the task or resource `key` (`task:t`), at any depth. */
+export function declCount(tree: Tree, text: string, key: string): number {
+	if (!COUNTS.has(tree)) declsOf(tree, text, true);
+	return COUNTS.get(tree)?.get(key) ?? 0;
 }
 
 /** The index of the element holding `pos`, or -1 (elements are sorted and contiguous). */
@@ -134,6 +153,29 @@ export function elementAt(els: readonly Element[], pos: number): number {
 		else return mid;
 	}
 	return -1;
+}
+
+/**
+ * An element of several statements (on shared lines) as one element per statement, each led by
+ * the text before it, and the rest of its lines as an `end` element; others as they are.
+ */
+export function unitsOf(e: Element, text: string): Element[] {
+	if (e.kind !== 'stmt' || e.stmts.length <= 1) return [e];
+	const out: Element[] = [];
+	let at = e.from;
+	for (const st of e.stmts) {
+		out.push({
+			kind: 'stmt',
+			from: at,
+			lead: st.from,
+			to: st.to,
+			stmts: [st],
+			key: statementKey(st, text),
+		});
+		at = st.to;
+	}
+	out.push({ kind: 'end', from: at, lead: at, to: e.to, stmts: [], key: null });
+	return out;
 }
 
 /**

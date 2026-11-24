@@ -17,7 +17,7 @@
  * - A `conflict` region whose two sides are equal (a false conflict) is reported as such; the
  *   caller decides (equal lines merge cleanly; equal keys need not mean equal statements).
  */
-import { diffIndices } from 'node-diff3';
+import { large, pairwise, SMALL, type Hunk } from './hunks';
 
 /** The lines of `text`, each with its '\n'. `splitLines(t).join('') === t`. */
 export function splitLines(text: string): string[] {
@@ -59,17 +59,6 @@ export interface Region {
 	readonly b: IxRange;
 }
 
-interface Hunk {
-	readonly a: boolean;
-	readonly oS: number;
-	readonly oE: number;
-	readonly xS: number;
-	readonly xE: number;
-}
-
-/** Chunks at most this many cells (lines of the base times the longer side's) go to diffIndices. */
-const SMALL = 4096;
-
 /** The longest increasing run of `ys` (patience sorting), as indices into `ys`. */
 function increasing(ys: readonly number[]): number[] {
 	const tails: number[] = [];
@@ -100,29 +89,23 @@ function increasing(ys: readonly number[]): number[] {
 /** A chunk of the three line lists: [o0, o1), [a0, a1), [b0, b1). */
 type Chunk = [number, number, number, number, number, number];
 
-/** The two-way hunks of a chunk without anchors: `diffIndices` on it whole, or one hunk. */
-function pairwise(
-	o: readonly string[],
-	x: readonly string[],
-	c: [number, number, number, number],
-	isA: boolean,
-	out: Hunk[],
-): void {
-	const [oS, oE, xS, xE] = c;
-	if (oS === oE && xS === xE) return;
-	if (oS === oE || xS === xE) {
-		out.push({ a: isA, oS, oE, xS, xE });
-		return;
+/** Runs a step generator to its end (types.ts rule 5: the synchronous forms drive the steps). */
+export function drive<T>(steps: Generator<void, T, void>): T {
+	for (;;) {
+		const r = steps.next();
+		if (r.done) return r.value;
 	}
-	for (const h of diffIndices(o.slice(oS, oE), x.slice(xS, xE))) {
-		out.push({
-			a: isA,
-			oS: oS + h.buffer1[0],
-			oE: oS + h.buffer1[0] + h.buffer1[1],
-			xS: xS + h.buffer2[0],
-			xE: xS + h.buffer2[0] + h.buffer2[1],
-		});
-	}
+}
+
+/** Lines over which a chunk's work is followed by a pause (types.ts rule 5). */
+const STEP_CELLS = 200_000;
+
+/** Lines counted or diffed between two pauses among the pieces of a chunk (types.ts rule 5). */
+const STEP_LINES = 3000;
+
+/** The work done since the last pause, in lines. */
+interface Work {
+	lines: number;
 }
 
 /**
@@ -130,12 +113,16 @@ function pairwise(
  * split at the lines that occur once in each of the three lists, in the same order in all
  * (patience diff's anchors, made three-way), and each piece is diffed whole by `diffIndices`,
  * both ways, as `diff3Merge` would diff it: both two-way diffs see the same pieces, so an edit
- * the two sides made alike lands on the same base lines and is merged once. Ends are not cut
- * two-way, nor three-way: a cut decides alone where an edit among repeated lines goes (two-way
- * it applied a shared edit twice; three-way it moved edits next to each other, a conflict that
- * `diff3Merge` does not have).
+ * the two sides made alike lands on the same base lines and is merged once. A large piece with
+ * no anchor (thousands of equal lines) is first cut at both ends by the lines equal in all three
+ * lists, the same cut for both diffs (review N5); what is still large is cut per diff and diffed
+ * by `myers`. A per-diff cut decides alone where an edit among equal lines goes, which applied a
+ * shared edit twice before (M1): when the two diffs hold an equal edit at different base lines,
+ * the chunk is one conflict instead. Small pieces are not cut: `diffIndices` alone decides, as
+ * in `diff3Merge`.
+ * Pauses (yields) after large pieces, and between pieces every STEP_LINES lines of work.
  */
-function split3(
+function* split3(
 	o: readonly string[],
 	a: readonly string[],
 	b: readonly string[],
@@ -143,21 +130,64 @@ function split3(
 	ha: Hunk[],
 	hb: Hunk[],
 	limit: number,
-): void {
-	const [oS, oE, aS, aE, bS, bE] = c;
-	const small = (oE - oS) * Math.max(aE - aS, bE - bS) <= limit;
-	const anchors = small ? [] : anchorsOf(o, a, b, [oS, oE, aS, aE, bS, bE]);
-	if (anchors.length === 0) {
+	work: Work = { lines: 0 },
+): Generator<void, void, void> {
+	let [oS, oE, aS, aE, bS, bE] = c;
+	const cells = (oE - oS) * Math.max(aE - aS, bE - bS);
+	const anchors = cells <= limit ? [] : anchorsOf(o, a, b, [oS, oE, aS, aE, bS, bE]);
+	work.lines += oE - oS + (aE - aS) + (bE - bS);
+	if (anchors.length === 0 && cells <= SMALL) {
 		pairwise(o, a, [oS, oE, aS, aE], true, ha);
 		pairwise(o, b, [oS, oE, bS, bE], false, hb);
 		return;
 	}
-	let p: [number, number, number] = [oS, aS, bS];
-	for (const [i, j, k] of anchors) {
-		split3(o, a, b, [p[0], i, p[1], j, p[2], k], ha, hb, limit);
-		p = [i + 1, j + 1, k + 1];
+	if (anchors.length > 0) {
+		if (oE - oS > STEP_CELLS / 100) yield;
+		let p: [number, number, number] = [oS, aS, bS];
+		const piece = function* (q: Chunk): Generator<void, void, void> {
+			yield* split3(o, a, b, q, ha, hb, limit, work);
+			if (work.lines >= STEP_LINES) {
+				work.lines = 0;
+				yield;
+			}
+		};
+		for (const [i, j, k] of anchors) {
+			yield* piece([p[0], i, p[1], j, p[2], k]);
+			p = [i + 1, j + 1, k + 1];
+		}
+		yield* piece([p[0], oE, p[1], aE, p[2], bE]);
+		return;
 	}
-	split3(o, a, b, [p[0], oE, p[1], aE, p[2], bE], ha, hb, limit);
+	while (oS < oE && aS < aE && bS < bE && o[oS] === a[aS] && o[oS] === b[bS]) {
+		oS++;
+		aS++;
+		bS++;
+	}
+	while (oE > oS && aE > aS && bE > bS && o[oE - 1] === a[aE - 1] && o[oE - 1] === b[bE - 1]) {
+		oE--;
+		aE--;
+		bE--;
+	}
+	if ((oE - oS) * Math.max(aE - aS, bE - bS) <= SMALL) {
+		pairwise(o, a, [oS, oE, aS, aE], true, ha);
+		pairwise(o, b, [oS, oE, bS, bE], false, hb);
+		yield;
+		return;
+	}
+	const ta = large(o, a, [oS, oE, aS, aE], true);
+	const tb = large(o, b, [oS, oE, bS, bE], false);
+	// Each diff placed its edits among equal lines on its own: an edit the two made alike may sit
+	// at different base lines and be applied twice. Then the chunk is one conflict, never that.
+	const same = (x: Hunk, y: Hunk): boolean =>
+		x.oE - x.oS === y.oE - y.oS && sameRange(a, [x.xS, x.xE], b, [y.xS, y.xE]) && x.oS !== y.oS;
+	if (ta.some((x) => tb.some((y) => same(x, y)))) {
+		ha.push({ a: true, oS, oE, xS: aS, xE: aE });
+		hb.push({ a: false, oS, oE, xS: bS, xE: bE });
+	} else {
+		ha.push(...ta);
+		hb.push(...tb);
+	}
+	yield;
 }
 
 /** Lines once in each list's chunk, as (o, a, b) indices increasing in all three. */
@@ -200,15 +230,15 @@ function anchorsOf(
 	return increasing(byA.map((t) => t[2])).map((k) => byA[k] as [number, number, number]);
 }
 
-function hunks3(
+function* hunks3(
 	o: readonly string[],
 	a: readonly string[],
 	b: readonly string[],
 	limit: number,
-): Hunk[] {
+): Generator<void, Hunk[], void> {
 	const ha: Hunk[] = [];
 	const hb: Hunk[] = [];
-	split3(o, a, b, [0, o.length, 0, a.length, 0, b.length], ha, hb, limit);
+	yield* split3(o, a, b, [0, o.length, 0, a.length, 0, b.length], ha, hb, limit);
 	return [...ha, ...hb].sort((x, y) => x.oS - y.oS);
 }
 
@@ -236,7 +266,17 @@ export function diff3Regions(
 	/** Chunks up to this many cells are diffed whole (tests lower it to exercise the anchors). */
 	limit = SMALL,
 ): Region[] {
-	const all = hunks3(o, a, b, limit);
+	return drive(diff3RegionsSteps(o, a, b, limit));
+}
+
+/** `diff3Regions` in steps: it pauses after the work on each large chunk (types.ts rule 5). */
+export function* diff3RegionsSteps(
+	o: readonly string[],
+	a: readonly string[],
+	b: readonly string[],
+	limit = SMALL,
+): Generator<void, Region[], void> {
+	const all = yield* hunks3(o, a, b, limit);
 	const out: Region[] = [];
 	let cur = 0;
 	let da = 0;

@@ -236,7 +236,7 @@ describe('blocks', () => {
 });
 
 describe('line conflicts', () => {
-	it('keeps a hunk with a syntax error a line conflict, named by its block', () => {
+	it('makes a block both sides changed with a syntax error one conflict of the block', () => {
 		const base = TASK('  effort 3d\n  allocate dev\n');
 		const m = merge1(
 			base,
@@ -253,7 +253,7 @@ describe('line conflicts', () => {
 				false,
 			],
 		]);
-		expect(m.conflicts[0]?.theirs).toBe('  efort 8d\n  allocate qa\n');
+		expect(m.conflicts[0]?.theirs).toBe('task api "Build API" {\n  efort 8d\n  allocate qa\n}\n');
 	});
 
 	it('makes top-level comments changed both ways a text conflict offering both', () => {

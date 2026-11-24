@@ -14,7 +14,15 @@
  */
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { blockKind, statementKey, type Naming } from './hints';
-import { diff3Regions, lineStarts, merge3, splitLines, trueConflict } from './lines';
+import {
+	diff3Regions,
+	diff3RegionsSteps,
+	lineStarts,
+	merge3,
+	splitLines,
+	trueConflict,
+} from './lines';
+import type { BlockPlan } from './check';
 import type { Out, Rng } from './out';
 import type { ConflictSubject, Owner } from './types';
 
@@ -41,6 +49,11 @@ export interface Span {
 export interface Parent {
 	readonly owner: Owner;
 	readonly inBlock: boolean;
+	/**
+	 * Set for a block both sides changed statements of (refine.ts, the structural rule): its body
+	 * is merged as one hunk, statement by statement, following the plan of check.ts.
+	 */
+	readonly plan?: BlockPlan;
 }
 
 export interface Cx {
@@ -52,6 +65,27 @@ export interface Cx {
 	 * steps (types.ts rule 5): it pauses after each line diff of a large span.
 	 */
 	readonly span: (cx: Cx, spans: Tri<Span>, parent: Parent) => Step;
+	/**
+	 * The base ranges of the blocks both sides changed statements of (file.ts `touchedByBoth`),
+	 * sorted: they and the blocks around them are always merged statement by statement.
+	 */
+	readonly forced: readonly Rng[];
+	/** Whether ours declares `key` (`task:t`) in another file of the workspace (a move there). */
+	readonly elsewhere: (key: string) => boolean;
+}
+
+/** Whether a forced block lies in (or is) the base range [from, to). */
+export function forcedIn(cx: Cx, from: number, to: number): boolean {
+	for (const r of cx.forced) {
+		if (r.from >= to) break;
+		if (r.from >= from && r.from < to) return true;
+	}
+	return false;
+}
+
+/** The forced block that starts at base offset `from`, if any. */
+export function isForced(cx: Cx, from: number): boolean {
+	return cx.forced.some((r) => r.from === from);
 }
 
 export const textOf = (cx: Cx, s: SideIx, r: Rng): string => cx.sides[s].text.slice(r.from, r.to);
@@ -79,11 +113,12 @@ export function emitMerged(cx: Cx, r: Tri<Rng>): boolean {
 	return true;
 }
 
-/** Whether a line merge of the three ranges is clean. */
-export function linesClean(cx: Cx, r: Tri<Rng>): boolean {
+/** Whether a line merge of the three ranges is clean, in steps (it pauses inside a large diff). */
+export function* linesClean(cx: Cx, r: Tri<Rng>): Generator<void, boolean, void> {
 	const l = SIDES.map((s) => splitLines(textOf(cx, s, r[s])));
 	const [o, a, b] = l as [string[], string[], string[]];
-	return !diff3Regions(o, a, b).some((g) => trueConflict(g, a, b));
+	const regions = yield* diff3RegionsSteps(o, a, b);
+	return !regions.some((g) => trueConflict(g, a, b));
 }
 
 const orNull = (s: string): string | null => (s === '' ? null : s);
@@ -114,7 +149,7 @@ function blocksIn(cx: Cx, s: SideIx, r: Rng): Set<string> {
 		enter: (n) => {
 			if (n.from < r.from || n.to > r.to) return undefined;
 			const k = blockKind(n.node);
-			if ((k === 'task' || k === 'resource') && n.node.getChild('Id')) {
+			if (k === 'task' || k === 'resource') {
 				const key = statementKey(n.node, text);
 				if (key) out.add(key);
 			}
@@ -145,6 +180,10 @@ export function lineSubject(cx: Cx, r: Tri<Rng>, parent: Parent): ConflictSubjec
 }
 
 /** The three-way merge on lines of one range per side (module comment). */
+/** Both sides' texts of a region are white space only. */
+const blank = (cx: Cx, r: Tri<Rng>): boolean =>
+	textOf(cx, 1, r[1]).trim() === '' && textOf(cx, 2, r[2]).trim() === '';
+
 export function lineMerge(cx: Cx, r: Tri<Rng>, parent: Parent): void {
 	const lines = SIDES.map((s) => splitLines(textOf(cx, s, r[s])));
 	const [o, a, b] = lines as [string[], string[], string[]];
@@ -158,7 +197,15 @@ export function lineMerge(cx: Cx, r: Tri<Rng>, parent: Parent): void {
 		if (g.kind === 'same') emit(cx, 0, ranges[0]);
 		else if (g.kind === 'theirs') emit(cx, 2, ranges[2]);
 		else if (!trueConflict(g, a, b)) emit(cx, 1, ranges[1]);
-		else {
+		else if (blank(cx, ranges)) {
+			// Both sides only changed the spacing between the same tokens (statements typed into a
+			// one-line body at either end): ours' spacing, or theirs' where ours has none.
+			emit(
+				cx,
+				textOf(cx, 1, ranges[1]) === '' ? 2 : 1,
+				ranges[textOf(cx, 1, ranges[1]) === '' ? 2 : 1],
+			);
+		} else {
 			const subject = lineSubject(cx, ranges, parent);
 			const at = emit(cx, 1, ranges[1]);
 			cx.out.conflict({

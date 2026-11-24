@@ -27,9 +27,18 @@
  *   with a kept file (it is not written back) is sync/types.ts, "Files deleted on the provider".
  * - **Refinement** (rule 2). A conflicting hunk inside one task, resource or project block, or
  *   among a file's top-level statements (contract notes), is merged again statement by statement
- *   over the Lezer trees of all three texts. Statements are matched across sides by their key:
- *   the keyword (with its scenario prefix, `delayed:effort`) and, for a block, its id; the sizing
- *   criteria (`effort`, `duration`, `length`, `milestone`) match each other. Then:
+ *   over the Lezer trees of all three texts. So is **every block both sides changed statements
+ *   of** (task, resource, project or supplement body, in any layout: one-line bodies, `{` on its
+ *   own line, tasks without ids), even where the line merge is clean (review round 3): which
+ *   blocks those are is decided from the base tree, by mapping each side's changed line regions
+ *   to the blocks they lie in or reach into, never from the text's layout (blocks.ts). Such a
+ *   block merges cleanly only when every pair of the two sides' changes is provably independent
+ *   under the keyword table (check.ts); anything the table does not know, a statement it cannot
+ *   key (a macro call) or a region with error nodes makes the block one conflict. Statements are
+ *   matched across sides by their key: the keyword (with its scenario prefix, `delayed:effort`)
+ *   and, for a block, its id, or for a task or resource without one its name and position among
+ *   its siblings; the sizing criteria (`effort`, `duration`, `length`, `milestone`) match each
+ *   other. Then:
  *   - a statement changed, added or removed on one side only merges cleanly; identical changes
  *     merge cleanly;
  *   - the same statement changed differently on both sides is one `attribute` conflict (a block
@@ -47,7 +56,14 @@
  *     criteria `effort`, `duration`, `length`, `milestone` are one value) added on both sides to
  *     one block, at the same place or not, are one `attribute` conflict: the merged block never
  *     says a value twice (TaskJuggler would keep the later one silently or with only an
- *     `attr_overwrite` warning); identical ones are kept once.
+ *     `attr_overwrite` warning); identical ones are kept once;
+ *   - **items, not lines**: `depends` and `precedes` are keyed by target (`a` and `!a` are one
+ *     target; one target with different gaps is an `attribute` conflict); `workinghours` by its
+ *     set of weekdays (ranges expanded): sets that intersect are an `attribute` conflict, as a
+ *     later `workinghours` replaces the hours of its days; disjoint sets keep both; `purge X` on
+ *     one side with any change to `X` on the other is a conflict (the order decides what is
+ *     purged); `extend` and `projectids` are single-valued; overlapping `booking`s and `shifts`
+ *     merge and are left to the engine's checks.
  *   Refinement runs only where every side's region parses without error nodes; otherwise the
  *   hunk stays a line conflict (`text`, or `block` `both-edited` when it lies inside one block).
  *   A mismatch can only cost a conflict: it never gives a clean result that drops or doubles a
@@ -74,7 +90,7 @@
  *   steps of each parse, and after refinement); a caller that must not block (the sync
  *   controller) runs the steps in separate tasks and assembles the result exactly as
  *   `mergeWorkspace` does. `mergeFile` and `mergeWorkspace` run the same steps without pausing.
- *   Passing ours' trees (`MergeContext.trees`) saves a parse.
+ *   Passing ours' parsed files (`MergeContext.files`) saves a parse.
  * - **Pure.** No I/O, no clock, no randomness; safe in any task or worker. Where the steps pause
  *   depends on the work done, never on time, and the result never depends on how they are run.
  *   Recent parse trees are kept between merges (a cache keyed by context and text, invisible to
@@ -100,8 +116,19 @@
  *   rule 3's conflict, or for additive statements its clean ours-first merge.
  * - (T6 review, user 2026-11-23) Two new `depends` lines added on both sides merge (rule 3,
  *   additive statements); before, they were an `attribute` conflict without `both`.
- * - (T6 review) `MergeContext.trees` and `mergeFileSteps` are added for the cost rule (rule 5).
+ * - (T6 review) `MergeContext.files` (ours' parsed files, checked against ours' text; it
+ *   replaced a `trees` map trusted on length, N7) and `mergeFileSteps` are added for the cost
+ *   rule (rule 5).
+ * - (T6 review round 3) Rule 2 also covers every block both sides changed statements of, decided
+ *   from the base tree; `workinghours`, `purge`, `depends`/`precedes` targets, `extend` and
+ *   `projectids` follow the item rules above (before, `extend` and `projectids` were additive,
+ *   and two `workinghours` lines merged as additive). A task moved on one side (to another block
+ *   or file) and edited on the other, whose id is not unique or which ours moved to another file,
+ *   is a `text` conflict without `both`. Within one file either choice leaves one copy; across
+ *   files Take theirs keeps ours' moved copy in the other file too, which the engine reports as a
+ *   duplicate id (the merge of one file cannot remove text from another).
  */
+import type { Text } from '@codemirror/state';
 import type { Tree } from '@lezer/common';
 import type { SourceRange } from '../tree';
 import type { IncludeGraph } from '../../workspace/includes';
@@ -121,11 +148,19 @@ export interface MergeContext {
 	 */
 	readonly includes: IncludeGraph;
 	/**
-	 * Ours' trees (`WorkspaceSnapshot.files`, each `TjpFile.tree`), already parsed in the context
-	 * `includes` gives; optional. A tree is used only for the file whose ours text it was parsed
-	 * from, which saves one parse of the file (rule 5).
+	 * Ours' parsed files (`WorkspaceSnapshot.files`, each a `TjpFile`: its text and tree, parsed
+	 * in the context `includes` gives); optional (T6 review N7). A file's tree is used only when
+	 * its text is ours' text for that path (the same string, else equal text); otherwise it is
+	 * ignored and the merge parses. It saves one parse per file (rule 5), and tells the merge
+	 * which tasks ours declares in other files (a task moved to another file, review L4).
 	 */
-	readonly trees?: ReadonlyMap<WorkspacePath, Tree>;
+	readonly files?: ReadonlyMap<WorkspacePath, ParsedFile>;
+}
+
+/** A file as the workspace holds it (`TjpFile`'s text and tree). */
+export interface ParsedFile {
+	readonly text: string | Text;
+	readonly tree: Tree;
 }
 
 /** The result of a workspace merge (6.4). */

@@ -2,11 +2,11 @@
 // One file all sides have (file.ts): the fast paths, the parse context from ours' include graph,
 // ids, and the same result when the merge is computed again.
 import { describe, expect, it } from 'vitest';
-import type { Tree } from '@lezer/common';
 import { mergeFile, mergeFileSteps } from '../../sync/merge';
 import { createWorkspace } from '../../workspace/workspace';
 import { parseTjp } from '../document';
 import { finish, mergeTexts } from './file';
+import type { ParsedFile } from './types';
 import { contextOf } from './testing';
 
 const HEAD = 'project p "P" 2027-01-04 +3m\n';
@@ -64,7 +64,7 @@ describe('mergeTexts', () => {
 	});
 });
 
-describe('mergeFileSteps and ours’ trees (rule 5)', () => {
+describe('mergeFileSteps and ours’ parsed files (rule 5)', () => {
 	const big = (e: (i: number) => string): string =>
 		HEAD +
 		Array.from({ length: 400 }, (_, i) => `task t${i} "T${i}" {\n  effort ${e(i)}\n}\n`).join('');
@@ -85,15 +85,27 @@ describe('mergeFileSteps and ours’ trees (rule 5)', () => {
 		expect(r.value.conflicts.map((c) => c.subject.kind)).toEqual(['attribute']);
 	});
 
-	it('gives the same result with ours’ tree from the workspace, and ignores a tree of other text', () => {
-		const tree = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': ours } })
+	it('gives the same result with ours’ parsed file from the workspace', () => {
+		const file = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': ours } })
 			.snapshot()
-			.files.get('plan.tjp')?.tree;
-		expect(tree).toBeDefined();
+			.files.get('plan.tjp');
+		expect(file).toBeDefined();
 		const plain = mergeFile('plan.tjp', base, ours, theirs, ctx);
-		const withTree = { ...ctx, trees: new Map([['plan.tjp', tree as Tree]]) };
-		expect(mergeFile('plan.tjp', base, `${ours}`, theirs, withTree)).toEqual(plain);
-		const other = { ...ctx, trees: new Map([['plan.tjp', parseTjp(HEAD)]]) };
-		expect(mergeFile('plan.tjp', base, ours, theirs, other)).toEqual(plain);
+		const withFile = { ...ctx, files: new Map([['plan.tjp', file as ParsedFile]]) };
+		expect(mergeFile('plan.tjp', base, `${ours}`, theirs, withFile)).toEqual(plain);
+		const short = { ...ctx, files: new Map([['plan.tjp', { text: HEAD, tree: parseTjp(HEAD) }]]) };
+		expect(mergeFile('plan.tjp', base, ours, theirs, short)).toEqual(plain);
+	});
+
+	it('ignores a tree parsed from other text of the same length (review N7)', () => {
+		const b = `${HEAD}task a "A" {\n  effort 1d\n}\n`;
+		const o = b.replace('  effort 1d\n', '  priority 1\n  effort 1d\n');
+		const t = b.replace('  effort 1d\n', '  effort 1d\n  priority 9\n');
+		const wrong = o.replace('priority 1', '#riority 1');
+		expect(wrong).toHaveLength(o.length);
+		const lie = { ...ctx, files: new Map([['plan.tjp', { text: wrong, tree: parseTjp(wrong) }]]) };
+		const m = mergeFile('plan.tjp', b, o, t, lie);
+		expect(m.conflicts.map((c) => c.subject.kind)).toEqual(['attribute']);
+		expect(m).toEqual(mergeFile('plan.tjp', b, o, t, ctx));
 	});
 });

@@ -6,7 +6,11 @@
 // - `ok` is true when it is on both sides;
 // - no message (error, fatal or warning, as level and id) appears more often than the two edits
 //   bring together: count(merged) <= count(ours) + count(theirs) - count(base). That is what would
-//   have caught a value said twice in one block (`attr_overwrite`, review H1).
+//   have caught a value said twice in one block (`attr_overwrite`, review H1);
+// - for statements typed into one block by both sides (typed-testing.ts: weekdays, purge, one-line
+//   bodies, `{` on its own line, tasks without ids), the two sides' statements put at the end of
+//   the block in either order schedule alike: a clean merge says the edits are independent. That
+//   is what would have caught N1 to N4 of review round 3.
 // Errors that depend on the computed schedule (two timing edits can together push a chain past
 // the project end) are counted, not failed, as in schedule.property.test.ts. MERGE_FIDELITY_RUNS
 // clean merges (default 100 on push; the nightly job sets 2,000, split over its shards by
@@ -27,6 +31,7 @@ import {
 	type TwoSides,
 } from '../../src/lib/tjp/merge/sides-testing';
 import { contextOf, filesOf } from '../../src/lib/tjp/merge/testing';
+import { typedSides, type TypedSides } from '../../src/lib/tjp/merge/typed-testing';
 import { REPO } from '../golden/corpus';
 import { CONFIG } from './config';
 
@@ -49,6 +54,9 @@ const SCHEDULE_DEPENDENT = new Set([
 	'effort_no_allocations',
 	'booking_no_duty',
 	'booking_on_vacation',
+	// Whether an allocated resource gets any slot (two sides' working hours of one resource on
+	// different days, merged cleanly, can leave it none for a task).
+	'allocate_no_assigned',
 ]);
 
 let engine: Engine;
@@ -74,14 +82,26 @@ const counts = (r: ScheduleResult): Map<string, number> => {
 	return out;
 };
 
+/** What the engine decides from a plan, without source positions (the orders differ in lines). */
+const meaning = (r: ScheduleResult): string =>
+	JSON.stringify([
+		r.ok,
+		r.tasks.map((t) => [t.id, t.scenarios]),
+		r.resources.map((x) => [x.id, x.scenarios]),
+		r.bookings,
+		[...counts(r)].sort(),
+	]);
+
 /**
  * The sides of case `n`: edits aimed at adjacent lines, statements typed at random lines (often
- * the same task), and one or four edit-API intents per side on different tasks, in turn.
+ * the same task), statements typed into one block by both, and one or four edit-API intents per
+ * side on different tasks, in turn.
  */
-function sidesOf(seed: number, n: number): TwoSides | null {
-	if (n % 4 === 0) return adjacentSides(seed);
-	if (n % 4 === 3) return handSides(seed);
-	const s = twoSides(seed, LOCAL, n % 4 === 1 ? 0 : 3);
+function sidesOf(seed: number, n: number): TwoSides | TypedSides | null {
+	if (n % 5 === 0) return adjacentSides(seed);
+	if (n % 5 === 3) return handSides(seed);
+	if (n % 5 === 4) return typedSides(seed);
+	const s = twoSides(seed, LOCAL, n % 5 === 1 ? 0 : 3);
 	if (!s) return null;
 	const ta = touched(s.a.intent);
 	const tb = touched(s.b.intent);
@@ -108,6 +128,7 @@ describe('merged plans schedule (13.1)', () => {
 		const tolerated: Record<string, number> = {};
 		let merged = 0;
 		let skipped = 0;
+		const typed = { clean: 0, conflicted: 0, dependent: 0 };
 		seeds.forEach((seed, n) => {
 			if (merged >= share || n % CONFIG.shard.count !== CONFIG.shard.index) return;
 			const s = sidesOf(seed, n);
@@ -122,7 +143,10 @@ describe('merged plans schedule (13.1)', () => {
 				filesOf(s.b.files),
 				contextOf(p.entry, s.a.files),
 			);
+			const t = 'orders' in s ? s : null;
+			const orders = t?.orders ?? null;
 			if (m.conflicts.length > 0) {
+				if (orders) typed.conflicted++;
 				skipped++;
 				return;
 			}
@@ -151,6 +175,14 @@ describe('merged plans schedule (13.1)', () => {
 				} else bad.push(`${k} ${n2} > ${allowed}`);
 			}
 			if (ra.ok && rt.ok && !rm.ok && !scheduleDependent) bad.push('ok went false');
+			if (orders) {
+				typed.clean++;
+				const [x, y] = orders.map((o) => meaning(schedule(o, p.entry, p.c.now)));
+				if (x !== y) {
+					typed.dependent++;
+					bad.push(`merged clean, but the two orders schedule differently: ${t?.what ?? ''}`);
+				}
+			}
 			if (bad.length > 0) {
 				failures.push(
 					`${p.name} seed ${seed}: ${JSON.stringify(s.a.intent)} / ${JSON.stringify(s.b.intent)}: ${bad.join('; ')}`,
@@ -158,7 +190,7 @@ describe('merged plans schedule (13.1)', () => {
 			}
 		});
 		console.info(
-			`merged plans schedule: ${merged} clean merges scheduled, ${skipped} skipped (no case, or a conflict); tolerated ${JSON.stringify(tolerated)}`,
+			`merged plans schedule: ${merged} clean merges scheduled, ${skipped} skipped (no case, or a conflict); tolerated ${JSON.stringify(tolerated)}; typed into one block: ${JSON.stringify(typed)}`,
 		);
 		expect(failures).toEqual([]);
 		expect(merged).toBe(share);

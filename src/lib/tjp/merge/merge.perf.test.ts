@@ -3,8 +3,10 @@
 // files with 20 edits per side. Prints median and p90 of `mergeWorkspace` on Fedora 20,
 // `fedora-res` and the 1,000-task plan, each with 20 edit-API intents per side on different tasks
 // (a clean merge), and with the same plus one attribute set both ways (a merge with a conflict,
-// which parses and refines), cold and computed again from newer ours (8.3). Like the other timing tests, it asserts only a sanity bound ten
+// which parses and refines), cold and computed again from newer ours (8.3). The process's CPU
+// time per merge is printed too: on a shared, loaded machine the wall time is not the work. Like the other timing tests, it asserts only a sanity bound ten
 // times the target; the timing tier enforces the budget in the browser.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { mergeFileSteps } from '../../sync/merge';
 import { createWorkspace } from '../../workspace/workspace';
@@ -79,15 +81,16 @@ describe.each(PLANS)('%s', (id) => {
 			 * sync controller runs it: the whole merge, and its longest step. `fresh` marks the files
 			 * of the sides it names with a comment line of the run, so their texts are new to the
 			 * merge: 'all' is a first merge, 'ours' the merge computed again from newer local text
-			 * (8.3). `trees` passes ours' trees, parsed by the workspace, as the controller does.
+			 * (8.3). `trees` passes ours' parsed files (the workspace's), as the controller does.
 			 */
 			const run = (
 				o: Texts,
 				t: Texts,
 				fresh: 'all' | 'ours',
 				trees: boolean,
-			): { ms: number[]; step: number[]; conflicts: number } => {
+			): { ms: number[]; cpu: number[]; step: number[]; conflicts: number } => {
 				const ms: number[] = [];
+				const cpu: number[] = [];
 				const step: number[] = [];
 				let conflicts = 0;
 				const mark = (f: Texts, i: number): Texts =>
@@ -99,11 +102,12 @@ describe.each(PLANS)('%s', (id) => {
 					const snap = createWorkspace({ entry: p.entry, files: { ...oi } }).snapshot();
 					const c = {
 						includes: snap.includes,
-						...(trees ? { trees: new Map([...snap.files].map(([k, f]) => [k, f.tree])) } : {}),
+						...(trees ? { files: snap.files } : {}),
 					};
 					let whole = 0;
 					let longest = 0;
 					conflicts = 0;
+					const c0 = process.cpuUsage();
 					for (const path of Object.keys(oi)) {
 						const steps = mergeFileSteps(
 							path,
@@ -124,17 +128,21 @@ describe.each(PLANS)('%s', (id) => {
 							}
 						}
 					}
+					const used = process.cpuUsage(c0);
 					ms.push(whole);
+					cpu.push((used.user + used.system) / 1000);
 					step.push(longest);
 				}
-				return { ms: ms.slice(3), step: step.slice(3), conflicts };
+				return { ms: ms.slice(3), cpu: cpu.slice(3), step: step.slice(3), conflicts };
 			};
 			const show = (label: string, r: ReturnType<typeof run> | null): string => {
 				if (!r) return `${label}: none`;
 				const w = stats(r.ms);
 				const s = stats(r.step);
+				const c = stats(r.cpu);
 				return (
-					`${label}: whole median ${w.median.toFixed(1)} / p90 ${w.p90.toFixed(1)} ms, ` +
+					`${label}: whole median ${w.median.toFixed(1)} / p90 ${w.p90.toFixed(1)} ms ` +
+					`(CPU time median ${c.median.toFixed(1)} / p90 ${c.p90.toFixed(1)} ms), ` +
 					`longest step median ${s.median.toFixed(1)} / max ${Math.max(...r.step).toFixed(1)} ms ` +
 					`(${r.conflicts} conflicts)`
 				);
@@ -175,4 +183,93 @@ describe.each(PLANS)('%s', (id) => {
 		},
 		120_000,
 	);
+});
+
+/**
+ * Inputs with large chunks and no anchor line (review N5): thousands of equal lines, where the
+ * line diff's cost used to explode. Each side edits one line far from the other's; the whole merge
+ * (parse, structural pass, refinement) must stay within a hard bound, and its longest step is
+ * printed against the 12.5 ms step budget.
+ */
+describe('large chunks without anchors (review N5)', () => {
+	const H = 'project p "P" 2027-01-04 +3m\n';
+	const repeat = (n: number, s: string): string => Array.from({ length: n }, () => s).join('');
+	const fedora = readFileSync(
+		new URL('../../../../engine/golden/plans/fedora-res/f-20.tjp', import.meta.url),
+		'utf8',
+	);
+	const head = `${fedora.split('\n').slice(0, 1500).join('\n')}\n`;
+	const swap = (t: string, s: string, n: number, by: string): string => {
+		let at = -1;
+		for (let i = 0; i <= n; i++) at = t.indexOf(s, at + 1);
+		return `${t.slice(0, at)}${by}${t.slice(at + s.length)}`;
+	};
+	type Case = [label: string, base: string, ours: string, theirs: string];
+	const macros = `${H}macro m [ ]\ntask a "A" {\n${repeat(3000, '  ${m}\n')}}\n`;
+	const tasks = `${H}${repeat(1300, 'task t "T" {\n  effort 1d\n}\n')}`;
+	const note = `${H}task a "A" {\n  note "\n${repeat(5000, 'x\n')}"\n}\n`;
+	const cases: Case[] = [
+		[
+			'3,000 equal macro calls in one task',
+			macros,
+			swap(macros, '${m}', 100, 'effort 1d'),
+			swap(macros, '${m}', 2900, 'note "n"'),
+		],
+		[
+			'1,300 equal tasks',
+			tasks,
+			swap(tasks, 'effort 1d', 50, 'effort 2d'),
+			swap(tasks, 'effort 1d', 1250, 'effort 3d'),
+		],
+		[
+			'a 5,000-line note',
+			note,
+			swap(note, 'x\n', 100, 'ours\n'),
+			swap(note, 'x\n', 4900, 'theirs\n'),
+		],
+		[
+			'1,500 lines of fedora-res pasted again',
+			head,
+			head.replace('\n', '\n# ours\n'),
+			`${head}${head}`,
+		],
+	];
+
+	it.each(cases)('%s merges within 300 ms', (label, base, ours, theirs) => {
+		const ms: number[] = [];
+		const step: number[] = [];
+		let conflicts = 0;
+		for (let i = 0; i < 6; i++) {
+			const mark = (t: string): string => `${t}# run ${i}\n`;
+			const [b, o, t] = [mark(base), mark(ours), mark(theirs)];
+			const snap = createWorkspace({ entry: 'plan.tjp', files: { 'plan.tjp': o } }).snapshot();
+			const steps = mergeFileSteps('plan.tjp', b, o, t, {
+				includes: snap.includes,
+				files: snap.files,
+			});
+			let whole = 0;
+			let longest = 0;
+			for (;;) {
+				const t0 = performance.now();
+				const r = steps.next();
+				const d = performance.now() - t0;
+				whole += d;
+				longest = Math.max(longest, d);
+				if (r.done) {
+					conflicts = r.value.conflicts.length;
+					break;
+				}
+			}
+			if (i > 0) {
+				ms.push(whole);
+				step.push(longest);
+			}
+		}
+		const w = stats(ms);
+		console.info(
+			`N5 ${label}: whole median ${w.median.toFixed(1)} / p90 ${w.p90.toFixed(1)} ms, ` +
+				`longest step max ${Math.max(...step).toFixed(1)} ms (${conflicts} conflicts)`,
+		);
+		expect(w.p90).toBeLessThan(300);
+	});
 });

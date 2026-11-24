@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { parseTjp } from '../document';
 import { emitMerged, lineMerge, linesClean, lineSubject, type Cx } from './emit';
 import { Naming, OTHER } from './hints';
+import { drive } from './lines';
 import { Out } from './out';
 import { contextOf } from './testing';
 
@@ -15,6 +16,8 @@ function cx(o: string, a: string, b: string): Cx {
 		naming: new Naming('plan.tjp', contextOf('plan.tjp', { 'plan.tjp': a }).includes),
 		out: new Out(),
 		span: function* () {},
+		forced: [],
+		elsewhere: () => false,
 	};
 }
 const all = (
@@ -28,7 +31,7 @@ const all = (
 describe('lineMerge', () => {
 	it('merges what diff3 proves clean', () => {
 		const c = cx('a\nb\nc\n', 'A\nb\nc\n', 'a\nb\nC\n');
-		expect(linesClean(c, all(c))).toBe(true);
+		expect(drive(linesClean(c, all(c)))).toBe(true);
 		lineMerge(c, all(c), { owner: OTHER, inBlock: false });
 		expect(c.out.text()).toBe('A\nb\nC\n');
 	});
@@ -36,7 +39,7 @@ describe('lineMerge', () => {
 	it('names a conflict inside a task by the task, and at the top level as text with both', () => {
 		const t = (e: string): string => `task a "A" {\n  effort ${e}\n}\n# ${e}\n`;
 		const c = cx(t('1d'), t('2d'), t('3d'));
-		expect(linesClean(c, all(c))).toBe(false);
+		expect(drive(linesClean(c, all(c)))).toBe(false);
 		lineMerge(c, all(c), { owner: OTHER, inBlock: false });
 		expect(c.out.text()).toBe(t('2d'));
 		expect(c.out.conflicts.map((x) => [x.subject, x.both, x.ours])).toEqual([

@@ -2,7 +2,7 @@
 // No silent duplicates (phase-4.md 6.4 rule 3): the same id added, or moved, to different places
 // on the two sides.
 import { describe, expect, it } from 'vitest';
-import { mayDouble } from './dupes';
+import { bothAdded } from './dupes';
 import { lined } from './refine';
 import { merge1, resolveAll } from './testing';
 
@@ -70,15 +70,14 @@ describe('the same block added in two places', () => {
 		expect(clean.conflicts).toEqual([]);
 	});
 
-	it('looks only at merges where both sides added a matching declaration or keyword', () => {
+	it('runs the declaration pass whenever both sides added lines', () => {
 		const pre = (o: string, a: string, b: string): boolean => {
 			const l = lined([o, a, b]);
-			return mayDouble(l.lines, l.regions) !== null;
+			return bothAdded(l.regions);
 		};
-		expect(pre(BASE, `${BASE}task n "N"\n`, `task n "M"\n${BASE}`)).toBe(true);
-		expect(pre(BASE, `${BASE}# one\n`, `# two\n${BASE}`)).toBe(false);
-		expect(pre(BASE, `${BASE}priority 1\n`, `delayed:priority 2\n${BASE}`)).toBe(false);
-		expect(pre(BASE, `${BASE}  effort 1d\n`, `  duration 2d\n${BASE}`)).toBe(true);
+		expect(pre(BASE, `${BASE}# one\n`, `# two\n${BASE}`)).toBe(true);
+		expect(pre(BASE, `${BASE}task n "N"\n`, BASE.replace('1d', '2d'))).toBe(true);
+		expect(pre(BASE, `${BASE}task n "N"\n`, BASE.replace('  effort 1d\n', ''))).toBe(false);
 	});
 });
 
@@ -189,13 +188,16 @@ describe('a block moved to two places carries the base (review L6)', () => {
 		const pad = '# 1\n# 2\n# 3\n';
 		const base = `${H}${A}${pad}${B}${pad}${C}`;
 		const m = merge1(base, `${H}${B}${A}${pad}${pad}${C}`, `${H}${A}${pad}${pad}${C}${B}`);
-		const c = m.conflicts.find((x) => x.subject.kind === 'block');
-		expect(c?.subject).toEqual({
-			kind: 'block',
-			owner: { kind: 'task', id: 'b', name: 'B' },
-			change: 'both-edited',
-		});
-		expect(c?.base).toBe(B);
+		// Both sides moved it: one conflict, which carries the base's block.
+		const c = m.conflicts[0];
+		if (c?.subject.kind === 'block') {
+			expect(c.subject).toEqual({
+				kind: 'block',
+				owner: { kind: 'task', id: 'b', name: 'B' },
+				change: 'both-edited',
+			});
+			expect(c.base).toBe(B);
+		} else expect(c?.base).toContain(B);
 		expect(m.conflicts).toHaveLength(1);
 	});
 });

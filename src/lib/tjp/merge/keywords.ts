@@ -15,7 +15,11 @@
  *   set multiple times", TjpSyntaxRules.rb 7711-7737); `shift`/`shifts` ("Multiple shift
  *   assignments are a common idiom", 4984-5010); `leaves` and `vacation` add (`+=`, 4945, 5026,
  *   5331, 5371; the project's `<<`, 3597, 3668); a resource's `booking` adds to a task's bookings;
- *   `journalentry`, `purge`, `extend`, `projectids` and top-level `flags` declare one more each.
+ *   `journalentry`, `purge` and top-level `flags` declare one more each. `extend` and
+ *   `projectids` are not counted as repeatable: unchecked on the engine, they are single-valued
+ *   (a conflict when both sides add one), as the third review allowed.
+ * - **Not additive although repeatable:** `workinghours` replaces the hours of the days it lists,
+ *   and `purge X` clears X (check.ts keys them by weekday and by X).
  * - **Everything else** is single-valued, unknown keywords included (a second `priority`,
  *   `start`, `complete`, `rate`, `timezone`, `limits` … overwrites). The sizing criteria
  *   `effort`, `duration`, `length` and `milestone` are one value: a task has one.
@@ -36,7 +40,6 @@ export const REPEATABLE: ReadonlySet<string> = new Set([
 	'credits',
 	'definitions',
 	'depends',
-	'extend',
 	'fail',
 	'flags',
 	'formats',
@@ -45,7 +48,6 @@ export const REPEATABLE: ReadonlySet<string> = new Set([
 	'leaves',
 	'managers',
 	'precedes',
-	'projectids',
 	'purge',
 	'responsible',
 	'scenarios',

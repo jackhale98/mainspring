@@ -17,12 +17,18 @@
  *   trial: the result is kept when its only conflicts are attributes.
  * - When a precondition fails, the statement lines are one conflict (emit.ts `wholeConflict`), of
  *   the block itself when the element is one block.
+ * - A block both sides changed statements of (blocks.ts) is merged this way even where its lines
+ *   merge cleanly, with the plan check.ts makes for it (or one conflict when check.ts finds a
+ *   change it cannot prove independent), on trial: the result is kept only when the plan did not
+ *   fail and every conflict it holds was emitted; otherwise the block is one conflict.
  */
 import type { SyntaxNode } from '@lezer/common';
 import type { Element } from './elements';
 import {
 	emit,
 	emitMerged,
+	forcedIn,
+	isForced,
 	lineMerge,
 	wholeConflict,
 	linesClean,
@@ -34,6 +40,7 @@ import {
 	type Step,
 	type Tri,
 } from './emit';
+import { checkBlock } from './check';
 import { attrName, blockKind, statementKey } from './hints';
 import { keyedMerge, type Seq } from './keyed';
 import { merge3 } from './lines';
@@ -147,12 +154,24 @@ function plan(cx: Cx, st: Tri<SyntaxNode>): Plan | null {
 	const head = tri((s) => ({ from: st[s].from, to: bs[s].open }));
 	const tail = tri((s) => ({ from: bs[s].close, to: st[s].to }));
 	if (!cleanly(textsOf(cx, head)) || !cleanly(textsOf(cx, tail))) return null;
+	const owner = cx.naming.owner(st[1], cx.sides[1].text);
+	let own: Parent = { owner, inBlock: true };
+	if (isForced(cx, st[0].from)) {
+		// Both sides changed statements of this block: clean only if every pair of changes is
+		// independent (check.ts); else the block is one conflict.
+		const verdict = checkBlock(
+			cx,
+			tri((s) => st[s].getChild('Body')),
+		);
+		if (verdict === 'whole') return null;
+		own = { owner, inBlock: true, plan: verdict };
+	}
 	return {
 		t: 'block',
 		head,
 		tail,
 		body: tri((s) => ({ node: bs[s].body, from: bs[s].open, to: bs[s].close })),
-		own: { owner: cx.naming.owner(st[1], cx.sides[1].text), inBlock: true },
+		own,
 	};
 }
 
@@ -170,9 +189,13 @@ function* statements(cx: Cx, e: Tri<Element>, parent: Parent): Step {
 		only && blockKind(only)
 			? { owner: cx.naming.owner(only, cx.sides[1].text), inBlock: true }
 			: parent;
-	const clean = linesClean(cx, lines);
-	if (lines[0].to - lines[0].from > 20_000) yield;
-	if (clean) {
+	const large = lines[0].to - lines[0].from > 20_000;
+	if (large) yield;
+	const clean = yield* linesClean(cx, lines);
+	if (large) yield;
+	// A block both sides changed statements of is merged statement by statement even where the
+	// line merge is clean (the structural rule, check.ts).
+	if (clean && !forcedIn(cx, e[0].from, e[0].to)) {
 		lineMerge(cx, lines, parent);
 		return;
 	}
@@ -210,6 +233,30 @@ function* statements(cx: Cx, e: Tri<Element>, parent: Parent): Step {
 			return;
 		}
 	}
+	const planned = (plans as Plan[]).some((p) => p.t === 'block' && p.own.plan);
+	if (planned) {
+		// On trial: kept only when the block merged as its plan says, else one conflict.
+		const trial: Cx = { ...cx, out: new Out() };
+		yield* emitAll(trial, plans, st, gap, n, parent);
+		const ok = plans.every((p) => {
+			const pl = p.t === 'block' ? p.own.plan : undefined;
+			return !pl || (!pl.failed && [...pl.holds.keys()].every((k) => pl.done.has(k)));
+		});
+		if (ok) cx.out.append(trial.out);
+		else wholeConflict(cx, lines, fallback);
+		return;
+	}
+	yield* emitAll(cx, plans, st, gap, n, parent);
+}
+
+function* emitAll(
+	cx: Cx,
+	plans: readonly Plan[],
+	st: (i: number) => Tri<SyntaxNode>,
+	gap: (i: number) => Tri<Rng>,
+	n: number,
+	parent: Parent,
+): Step {
 	for (let i = 0; i < n; i++) {
 		emitMerged(cx, gap(i));
 		const p = plans[i] as Plan;

@@ -5,7 +5,8 @@
  *
  * - **Keys.** A statement's key is its keyword with its scenario prefix (`delayed:effort`), and for
  *   a declaration its id (`task:api`, `resource:dev`, `macro:m`, `supplement:task:a.b`,
- *   `include:"x.tji"`, `scenario:plan`, `account:cost`). A statement-level macro call has none:
+ *   `include:"x.tji"`, `scenario:plan`, `account:cost`); a task without an id by its name and its
+ *   place among such siblings (`task#One#1`). A statement-level macro call has none:
  *   it is matched only by its text. Keys are compared as written, so a macro id keys by its text.
  * - **Blocks** are `task`, `resource`, `project` and `supplement` statements: the merge enters
  *   their bodies (refinement), and a deleted or doubly added one is a `block` conflict. A
@@ -85,7 +86,7 @@ export function statementKey(stmt: SyntaxNode, text: string): string | null {
 		case 'TaskStatement':
 		case 'ResourceStatement': {
 			const id = child('Id');
-			return id === null ? attr : `${attr}:${id}`;
+			return id === null ? anonymousKey(stmt, attr, text) : `${attr}:${id}`;
 		}
 		case 'ProjectStatement':
 			return attr;
@@ -106,6 +107,24 @@ export function statementKey(stmt: SyntaxNode, text: string): string | null {
 		default:
 			return attr;
 	}
+}
+
+/**
+ * A task or resource without an id (TaskJuggler numbers it, `_Task_7`): keyed by its name and its
+ * place among the siblings without an id of that name (`task#One#1`, review N4), so the same
+ * block aligns across sides while siblings are added elsewhere.
+ */
+function anonymousKey(stmt: SyntaxNode, attr: string, text: string): string {
+	const nameOf = (n: SyntaxNode): string | null => {
+		const s = n.getChild('Name');
+		return s ? text.slice(s.from, s.to) : null;
+	};
+	const name = nameOf(stmt);
+	let k = 0;
+	for (let n = stmt.prevSibling; n; n = n.prevSibling) {
+		if (n.name === stmt.name && !n.getChild('Id') && nameOf(n) === name) k++;
+	}
+	return `${attr}#${name ?? ''}#${k}`;
 }
 
 /** A string token's value, or null for a templated or broken one. */

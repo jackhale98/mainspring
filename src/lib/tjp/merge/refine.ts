@@ -10,17 +10,20 @@
  * is inside the hunk on every side or on none (a line diff can see a moved block as deleted in
  * one place and added in another). Hunks that end up overlapping are one. Each widened hunk
  * is merged statement by statement (keyed.ts), which enters a block edited on both sides by
- * calling `mergeSpan` on its body again. Everything outside the hunks is the line merge's.
+ * calling `mergeSpan` on its body again. Everything outside the hunks is the line merge's, except
+ * the changed regions inside a block both sides changed statements of (`Cx.forced`, blocks.ts),
+ * which are hunks too; a body with a plan (check.ts) is one hunk, split into its statements.
  *
  * A hunk where any side has an error node among the parent's statements stays a line conflict
  * (emit.ts `lineMerge`); errors inside a nested body are checked when the merge enters it.
  * `mergeSpan` is a generator: it pauses after the line diff of a large span (types.ts rule 5).
  */
 import type { SyntaxNode } from '@lezer/common';
-import { cover, declsOf, elementAt, elementsOf, type Element } from './elements';
+import { cover, declsOf, elementAt, elementsOf, unitsOf, type Element } from './elements';
 import {
 	emit,
 	lineMerge,
+	wholeConflict,
 	SIDES,
 	type Cx,
 	type Parent,
@@ -30,7 +33,14 @@ import {
 	type Step,
 } from './emit';
 import { keyedMerge } from './keyed';
-import { diff3Regions, lineStarts, splitLines, trueConflict, type Region } from './lines';
+import {
+	diff3Regions,
+	diff3RegionsSteps,
+	lineStarts,
+	splitLines,
+	trueConflict,
+	type Region,
+} from './lines';
 import type { Rng } from './out';
 
 /** Whether `node` has an error node below it, not counting what lies inside nested bodies. */
@@ -62,6 +72,13 @@ export interface Lined {
 	readonly regions: readonly Region[];
 }
 
+/** `lined` in steps: it pauses after splitting large texts and during the line merge. */
+export function* linedSteps(texts: Tri<string>): Generator<void, Lined, void> {
+	const lines = texts.map(splitLines) as unknown as Tri<string[]>;
+	if (texts[0].length > BIG) yield;
+	return { lines, regions: yield* diff3RegionsSteps(lines[0], lines[1], lines[2]) };
+}
+
 export function lined(texts: Tri<string>): Lined {
 	const lines = texts.map(splitLines) as unknown as Tri<string[]>;
 	return { lines, regions: diff3Regions(lines[0], lines[1], lines[2]) };
@@ -74,7 +91,9 @@ const BIG = 20_000;
 export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): Step {
 	const { lines, regions } =
 		pre ??
-		lined(SIDES.map((s) => cx.sides[s].text.slice(sp[s].from, sp[s].to)) as unknown as Tri<string>);
+		(yield* linedSteps(
+			SIDES.map((s) => cx.sides[s].text.slice(sp[s].from, sp[s].to)) as unknown as Tri<string>,
+		));
 	// A pause after each line diff of a large span (types.ts rule 5).
 	if (!pre && sp[0].to - sp[0].from > BIG) yield;
 	const starts = lines.map(lineStarts);
@@ -90,17 +109,31 @@ export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): 
 		const s: SideIx = kind === 'same' ? 0 : kind === 'theirs' ? 2 : 1;
 		emit(cx, s, range(k, s));
 	};
+	// Hunks: real conflicts, and every change in or around a block both sides changed statements
+	// of (the structural rule; check.ts), which merges statement by statement even when its line
+	// merge is clean. The body of such a block (`parent.plan`) is one hunk.
 	const conflicts: number[] = [];
 	regions.forEach((g, k) => {
 		if (trueConflict(g, lines[1], lines[2])) conflicts.push(k);
+		else if (g.kind !== 'same') {
+			const r = range(k, 0);
+			if (cx.forced.some((f) => f.from <= r.to && r.from <= f.to)) conflicts.push(k);
+		}
 	});
+	if (parent.plan && regions.some((g) => g.kind !== 'same')) {
+		conflicts.splice(0, conflicts.length, 0, regions.length - 1);
+	}
 	if (conflicts.length === 0) {
 		for (let k = 0; k < regions.length; k++) plain(k);
 		return;
 	}
-	const els = SIDES.map((s) =>
-		elementsOf(cx.sides[s].text, sp[s].node, sp[s].from, sp[s].to),
-	) as unknown as Tri<Element[]>;
+	// In a block both sides changed, statements sharing a line (a one-line body) are elements of
+	// their own, so the plan (check.ts) can hold or leave out each.
+	const els = SIDES.map((s) => {
+		const all = elementsOf(cx.sides[s].text, sp[s].node, sp[s].from, sp[s].to);
+		return parent.plan ? all.flatMap((e) => unitsOf(e, cx.sides[s].text)) : all;
+	}) as unknown as Tri<Element[]>;
+	if (sp[0].to - sp[0].from > BIG) yield;
 	// Keys that name one element per side in the span (a statement's key, or a task or resource
 	// declared anywhere inside it): such an element must be inside a hunk on every side or on
 	// none, else a line diff that saw a move (also into another block) would read it as deleted
@@ -167,7 +200,8 @@ export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): 
 		return [lo, hi];
 	};
 	const groups: Array<[number, number]> = [];
-	for (const k of conflicts) {
+	if (parent.plan) groups.push([0, regions.length - 1]);
+	for (const k of parent.plan ? [] : conflicts) {
 		const last = groups[groups.length - 1];
 		if (last && last[1] >= k) continue;
 		let [lo, hi] = widen(k, k);
@@ -185,6 +219,13 @@ export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): 
 			to: range(hi, s).to,
 		})) as unknown as Tri<Rng>;
 		if (SIDES.some((s) => hasError(sp[s].node, r[s].from, r[s].to))) {
+			// A block both sides changed that does not parse cannot be checked: one conflict.
+			if (parent.plan || cx.forced.some((f) => f.from <= r[0].to && r[0].from <= f.to)) {
+				if (parent.plan) parent.plan.failed = true;
+				wholeConflict(cx, r, parent);
+				k = hi + 1;
+				continue;
+			}
 			for (; k <= hi; k++) {
 				const g = regions[k] as Region;
 				if (trueConflict(g, lines[1], lines[2])) {
