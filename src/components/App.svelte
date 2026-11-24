@@ -233,7 +233,7 @@
 		app.readOnly ||
 			app.keeping.cleared ||
 			app.keeping.unopened !== null ||
-			app.keeping.keep.kind === 'failed',
+			(app.keeping.keep.kind === 'failed' && app.dirty),
 	);
 
 	let body: HTMLElement | undefined = $state();

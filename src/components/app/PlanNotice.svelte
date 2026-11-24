@@ -12,7 +12,8 @@
 	  browser remembers a failed import, so after a failed try the button reloads the page, which
 	  opens the last plan again (the pointer was left alone);
 	- the browser cleared the plans it kept (the eviction marker, 9.4), until dismissed;
-	- changes the store refused for another reason (full, blocked or not usable, 8.1 #8): they are
+	- changes the store refused for another reason (full, blocked or not usable, 8.1 #8: `dirty`; a
+	  plan not changed yet has nothing to lose, and a plan that could not be opened says that): they are
 	  only in this tab. The sync status control says so too, but under 1360 px its label is an icon
 	  alone, so the one state where data is at risk is always said in words here.
 	A lazy chunk: App.svelte mounts it the first time one of them applies. The control (T14) says
@@ -52,7 +53,7 @@
 	const kind = $derived(
 		refused
 			? 'refused'
-			: k.keep.kind === 'failed'
+			: k.keep.kind === 'failed' && app.dirty
 				? 'failed'
 				: app.readOnly
 					? app.heldElsewhere !== null

@@ -33,6 +33,7 @@ function setup(o: { refused: boolean; quota?: boolean }) {
 	const app = $state({
 		keeping,
 		readOnly: true,
+		dirty: true,
 		heldElsewhere: null,
 		storedId: 'w1',
 		activeFile: 'plan.tjp',

@@ -91,7 +91,7 @@
 			"tests/e2e/split-details-drag.spec.ts": 24.6,
 			"tests/e2e/stale-index.spec.ts": 17.4,
 			"tests/e2e/sync-status-screenshots.spec.ts": 0,
-			"tests/e2e/sync-status.spec.ts": 55,
+			"tests/e2e/sync-status.spec.ts": 62,
 			"tests/e2e/text-mode-a11y.spec.ts": 27.9,
 			"tests/e2e/text-mode-android-enter.spec.ts": 0,
 			"tests/e2e/text-mode-screenshots.spec.ts": 0,
