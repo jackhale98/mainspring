@@ -122,10 +122,10 @@
 		min-block-size: var(--size-topbar);
 		padding: 0 20px;
 	}
-	/* The sync control (T14) is a sixth 44 px control here: the gaps and the sides give its room back. */
+	/* The sync control (T14) is a sixth control here, and the brand mark is not drawn: the title gets the room (the gap stays 6 px, the sides are the original 18). */
 	.topbar[data-layout='phone'] {
 		gap: 6px;
-		padding: calc(10px + env(safe-area-inset-top)) 12px 6px;
+		padding: calc(10px + env(safe-area-inset-top)) 18px 6px;
 	}
 	.brand {
 		display: flex;
@@ -150,11 +150,11 @@
 		min-inline-size: 0;
 		flex: 0 1 16rem;
 	}
+	/* The mode switch keeps its width: what is short of room is the plan chip, which ellipsises. */
 	.centre {
 		display: flex;
 		justify-content: center;
-		flex: 1 1 auto;
-		min-inline-size: 0;
+		flex: 1 0 auto;
 	}
 	.title {
 		flex: 1 1 auto;

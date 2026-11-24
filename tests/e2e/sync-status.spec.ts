@@ -120,6 +120,8 @@ test('changes this browser refuses are said not kept, in the control and the pan
 	await expect(control(page)).toHaveAttribute('data-kind', 'failed', { timeout: 10_000 });
 	await expect(control(page)).toHaveAccessibleName(/^Sync status: Changes not kept$/);
 	await expectTapSize(control(page), info);
+	// The icon alone (under 1360 px) is not the only word: the notice says it on every layout.
+	await expect(page.getByTestId('plan-notice')).toContainText(storageStrings.notice.failed);
 	// Said once, in a polite live region.
 	await expect(page.getByRole('status').filter({ hasText: 'Changes not kept' })).toHaveCount(1);
 
@@ -139,6 +141,73 @@ test('changes this browser refuses are said not kept, in the control and the pan
 	await page.keyboard.press('Escape');
 	await expect(panel(page)).toBeHidden();
 	await expect(control(page)).toBeFocused();
+});
+
+test('the panel is a popover on a desktop and a bottom sheet on a tablet; both close with Escape and give the focus back', async ({
+	page,
+}, info) => {
+	test.skip(info.project.name !== 'desktop', 'sets the window width itself');
+	await openApp(page, SAMPLE);
+	await openByKeyboard(page);
+	expect(await panel(page).evaluate((el) => el.matches('[popover]'))).toBe(true);
+	await page.keyboard.press('Escape');
+	await expect(panel(page)).toBeHidden();
+	await expect(control(page)).toBeFocused();
+
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await expect(control(page)).toHaveAttribute('data-kind', 'sample');
+	await openByKeyboard(page);
+	expect(await panel(page).evaluate((el) => el.tagName)).toBe('DIALOG');
+	await expect(panel(page).getByRole('heading', { name: syncStrings.title })).toBeVisible();
+	await axeOpen(page, 'the tablet sheet');
+	await page.keyboard.press('Escape');
+	await expect(panel(page)).toBeHidden();
+	await expect(control(page)).toBeFocused();
+});
+
+test('no control of the top bar overlaps another from a phone to a wide desktop, and the title keeps room on a phone', async ({
+	page,
+}, info) => {
+	test.skip(info.project.name !== 'desktop', 'sets the window width itself');
+	await openApp(page, SAMPLE);
+	const WIDTHS = [1440, 1366, 1280, 1180, 1100, 1024, 820, 700, 600, 412, 390, 360];
+	for (const width of WIDTHS) {
+		await page.setViewportSize({ width, height: width < 600 ? 800 : 900 });
+		await expect(control(page)).toBeVisible();
+		const found = await page.evaluate(() => {
+			const header = document.querySelector('header.topbar');
+			if (!header) return { over: ['no top bar'], title: null, scroll: 0 };
+			const items: Array<{ name: string; l: number; r: number; t: number; b: number }> = [];
+			const add = (el: Element, name: string): void => {
+				const b = el.getBoundingClientRect();
+				const cs = getComputedStyle(el);
+				if (b.width <= 2 || b.height <= 2 || cs.display === 'none' || cs.visibility === 'hidden')
+					return;
+				items.push({ name, l: b.left, r: b.right, t: b.top, b: b.bottom });
+			};
+			for (const el of Array.from(header.children)) {
+				if (el.classList.contains('centre'))
+					for (const c of Array.from(el.children)) add(c, 'mode switch');
+				else add(el, el.getAttribute('data-testid') ?? (el.className || el.tagName));
+			}
+			const over: string[] = [];
+			for (let i = 0; i < items.length; i++)
+				for (let j = i + 1; j < items.length; j++) {
+					const x = items[i]!;
+					const y = items[j]!;
+					const dx = Math.min(x.r, y.r) - Math.max(x.l, y.l);
+					const dy = Math.min(x.b, y.b) - Math.max(x.t, y.t);
+					if (dx > 1 && dy > 1) over.push(`${x.name} and ${y.name} by ${Math.round(dx)} px`);
+				}
+			const title = document.querySelector('.title')?.getBoundingClientRect().width ?? null;
+			return { over, title, scroll: document.documentElement.scrollWidth - innerWidth };
+		});
+		expect(found.over, `${width} px`).toEqual([]);
+		expect(found.scroll, `${width} px`).toBeLessThanOrEqual(0);
+		// The plan's title box on a phone: the room the control and the mark's absence settled.
+		if (width === 390) expect(found.title ?? 0, '390 px').toBeGreaterThanOrEqual(90);
+		if (width === 360) expect(found.title ?? 0, '360 px').toBeGreaterThanOrEqual(60);
+	}
 });
 
 test('a second page on the plan is read-only, says so, and can take the plan from the panel', async ({
