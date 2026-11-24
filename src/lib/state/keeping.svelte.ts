@@ -32,7 +32,7 @@ import type { ListedStorage } from './storage';
 export type KeepState =
 	/** A sample opened unstored: its first change stores a copy (18.7). */
 	| { readonly kind: 'sample' }
-	/** In this browser's store; `at` is the last autosave, null before the first. */
+	/** In this browser's store; `at` is the last autosave, or for a plan reopened from the store when it last wrote it; null before either. */
 	| { readonly kind: 'stored'; readonly at: number | null }
 	/** The store refused the last save or cannot be used: changes are only in this tab. */
 	| { readonly kind: 'failed'; readonly error: StorageError };
@@ -146,7 +146,7 @@ export class Keeping {
 	opened(ws: Workspace, o: Opening): void {
 		const err = this.#error;
 		this.keep = o.stored
-			? { kind: 'stored', at: null }
+			? { kind: 'stored', at: o.keptAt ?? null }
 			: err
 				? { kind: 'failed', error: err }
 				: SAMPLE;

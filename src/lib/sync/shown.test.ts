@@ -14,12 +14,10 @@ function source(o: {
 	keep?: StatusSource['keeping']['keep'];
 	readOnly?: boolean;
 	status?: SyncStatus;
-	plans?: StatusSource['keeping']['plans'];
 }): StatusSource {
 	return {
-		keeping: { keep: o.keep ?? { kind: 'stored', at: 1 }, plans: o.plans ?? [] },
+		keeping: { keep: o.keep ?? { kind: 'stored', at: 1 } },
 		readOnly: o.readOnly ?? false,
-		storedId: 'w1',
 		sync: o.status ? { status: o.status, location: { kind: 'browser' } } : null,
 	};
 }
@@ -36,15 +34,7 @@ describe('statusOf without a controller (T4 today)', () => {
 		});
 	});
 
-	it('a restored plan has not saved yet: the store says when it was last written', () => {
-		const plans = [
-			{ id: 'other', updatedAt: 1 },
-			{ id: 'w1', updatedAt: 99 },
-		];
-		expect(statusOf(source({ keep: { kind: 'stored', at: null }, plans }))).toEqual({
-			kind: 'browser-only',
-			savedAt: 99,
-		});
+	it('a plan not saved yet in this tab says so', () => {
 		expect(statusOf(source({ keep: { kind: 'stored', at: null } }))).toEqual({
 			kind: 'browser-only',
 			savedAt: null,

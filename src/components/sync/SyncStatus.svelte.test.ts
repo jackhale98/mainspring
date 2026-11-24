@@ -18,7 +18,7 @@ afterEach(() => {
 
 function setup(status: Status | null = null) {
 	const app = $state({
-		keeping: { keep: { kind: 'stored', at: 1 } as unknown, plans: [] },
+		keeping: { keep: { kind: 'stored', at: 1 } as unknown },
 		readOnly: false,
 		storedId: 'w1',
 		sync: status ? { status, location: { kind: 'browser' } } : null,

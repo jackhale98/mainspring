@@ -79,7 +79,6 @@
 		const app = $state({
 			keeping: {
 				keep: r.keep ?? { kind: 'stored', at: NOW },
-				plans: [],
 				unopened: null,
 				cleared: false,
 			},

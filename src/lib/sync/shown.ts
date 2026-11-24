@@ -22,8 +22,7 @@
  *
  * `strongest` (status-order.ts) is that order for T7 to derive the controller's status from.
  */
-import type { StoredPlan } from '../storage/store-types';
-import type { Location, WorkspaceId } from '../storage/types';
+import type { Location } from '../storage/types';
 import type { KeepState } from '../state/keeping.svelte';
 import type { SyncController, SyncStatus } from './types';
 
@@ -31,12 +30,8 @@ export type Shown = SyncStatus | { readonly kind: 'sample' } | { readonly kind: 
 
 /** What `statusOf` reads of the app (`AppState` has it). */
 export interface StatusSource {
-	readonly keeping: {
-		readonly keep: KeepState;
-		readonly plans: readonly Pick<StoredPlan, 'id' | 'updatedAt'>[];
-	};
+	readonly keeping: { readonly keep: KeepState };
 	readonly readOnly: boolean;
-	readonly storedId: WorkspaceId | null;
 	/** T7's controller; null until then, and for a plan that is not stored. */
 	readonly sync: Pick<SyncController, 'status' | 'location'> | null;
 }
@@ -51,9 +46,7 @@ export function statusOf(app: StatusSource): Shown {
 	if (app.readOnly) return { kind: 'read-only' };
 	if (c) return c;
 	if (keep.kind === 'sample') return { kind: 'sample' };
-	// The plan was restored: its last save is when the store last wrote it, until this tab saves.
-	const at = keep.at ?? app.keeping.plans.find((p) => p.id === app.storedId)?.updatedAt ?? null;
-	return { kind: 'browser-only', savedAt: at };
+	return { kind: 'browser-only', savedAt: keep.at };
 }
 
 /** Where the open plan lives: the controller's location, else this browser's store. */

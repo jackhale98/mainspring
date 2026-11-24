@@ -179,6 +179,8 @@ describe('plans kept in the browser', () => {
 			'plan.tjp': PLAN,
 			'lib/x.tji': 'task y "Y"\r\n﻿task x "X"\n',
 		});
+		// "Last kept" is when the store last wrote the plan, from the start (T14).
+		expect(statusOf(again)).toMatchObject({ kind: 'browser-only', savedAt: expect.any(Number) });
 		expect(again.history.canUndo).toBe(false);
 		again.history.undo();
 		expect(again.note).toBe(strings.history.reopened);
