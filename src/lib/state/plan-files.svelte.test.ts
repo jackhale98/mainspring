@@ -7,106 +7,21 @@
 // kept when picked again; Save to… writes every file once, never over one that is there, asks
 // about lossy files, and keeps the workspace open at the folder; Export asks about lossy files.
 // On fake-indexeddb, the fake lock manager and the in-memory File System Access fake.
-// Over 400 lines: the four flows share one browser (store, locks, folder) and its helpers.
+// The review's cases (T5 review) are plan-files-safety.svelte.test.ts.
 import 'fake-indexeddb/auto';
-import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { storageStrings } from '../strings-storage';
 import { decodeSnapshot } from '../storage/codec';
 import { createFolderProvider } from '../storage/folder';
-import { createLocalStore } from '../storage/local-store';
-import { createAcquire } from '../storage/lock';
-import { fakeLocks } from '../storage/testing/fake-locks';
 import { FakeFs, memoryHandles } from '../storage/testing/fake-fsa';
 import type { FolderLocation } from '../storage/types';
-import type { Sample } from '../workspace/samples';
-import { FakeEngineClient, flush } from '../workspace/testing/fake-engine-client';
-import { AppState } from './app.svelte';
+import type { AppState } from './app.svelte';
 import { folderProvider } from './plan-files';
-import type { ListedStorage } from './storage';
+import { LATIN1, browser, disposeOpened, enc, picked, ready, texts } from './plan-files-testing';
 
 const S = storageStrings.files;
-const enc = new TextEncoder();
-const SAMPLE: Sample = {
-	id: 'one' as Sample['id'],
-	label: 'One',
-	load: () =>
-		Promise.resolve({
-			entry: 'plan.tjp',
-			files: {
-				'plan.tjp': '﻿project p "P" 2026-01-05 +1m\r\ninclude "lib/x.tji"\r\n',
-				'lib/x.tji': 'task x "X"\n',
-			},
-		}),
-};
-const OTHER: Sample = {
-	id: 'two' as Sample['id'],
-	label: 'Two',
-	load: () =>
-		Promise.resolve({ entry: 'plan.tjp', files: { 'plan.tjp': 'project q "Q" 2026-01-05 +1m\n' } }),
-};
-const LATIN1 = Uint8Array.of(...enc.encode('# caf'), 0xe9, ...enc.encode('\nresource r "R"\n'));
 
-function memory(): ListedStorage & { data: Map<string, string> } {
-	const data = new Map<string, string>();
-	return {
-		data,
-		get length() {
-			return data.size;
-		},
-		key: (i) => [...data.keys()][i] ?? null,
-		getItem: (k) => data.get(k) ?? null,
-		setItem: (k, v) => void data.set(k, v),
-	};
-}
-
-/** One browser with a folder on disk, as the picker gives it. */
-function browser(fs = new FakeFs('acme')) {
-	const factory = new IDBFactory();
-	const prefs = memory();
-	const locks = fakeLocks();
-	const store = createLocalStore({ indexedDB: factory, marker: null });
-	const handles = memoryHandles();
-	let picked = fs;
-	folderProvider(createFolderProvider({ handles, pick: async () => picked.root }));
-	const confirm = vi.fn(() => true);
-	const tab = (): AppState =>
-		new AppState({
-			client: new FakeEngineClient(),
-			samples: [SAMPLE, OTHER],
-			confirm,
-			keyTarget: null,
-			prefs,
-			store: createLocalStore({ indexedDB: factory, marker: null }),
-			acquire: createAcquire({ locks, handoverMs: 200 }),
-		});
-	return { fs, store, prefs, handles, confirm, tab, pickNext: (f: FakeFs) => (picked = f) };
-}
-
-let open: AppState[] = [];
-afterEach(() => {
-	for (const a of open) a.dispose();
-	open = [];
-});
-
-async function ready(a: AppState): Promise<AppState> {
-	open.push(a);
-	await vi.waitFor(() => expect(a.phase).toBe('ready'));
-	await flush();
-	return a;
-}
-
-function picked(path: string, bytes: Uint8Array | string, folder = 'acme'): File {
-	const b = typeof bytes === 'string' ? enc.encode(bytes) : bytes;
-	const name = path.slice(path.lastIndexOf('/') + 1);
-	const f = new File([b as Uint8Array<ArrayBuffer>], name);
-	Object.defineProperty(f, 'webkitRelativePath', {
-		value: folder === '' ? '' : `${folder}/${path}`,
-	});
-	return f;
-}
-
-const texts = (a: AppState) => a.workspace?.texts() ?? {};
+afterEach(disposeOpened);
 
 describe('open files (7.2)', () => {
 	it('makes a browser-only plan of an imported folder, which records its lossy files and reopens', async () => {

@@ -34,7 +34,7 @@ describe('external changes (7.2, 19.14)', () => {
 	it('is the same while nothing changed, and only touched when the text is the same', async () => {
 		const { fs, loc, p, base } = await based();
 		expect(await folderChange(p, loc, base)).toEqual({ kind: 'same' });
-		fs.touch('plan.tjp');
+		fs.touch('plan.tjp', fs.time + 1000);
 		fs.put('parts/deep/tasks.tji', 'task t "T"\n');
 		const c = await folderChange(p, loc, base);
 		expect(c).toEqual({ kind: 'touched', revision: await p.head(loc) });

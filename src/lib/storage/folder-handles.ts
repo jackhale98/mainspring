@@ -41,12 +41,29 @@ export interface FsDirHandle {
 	requestPermission?(d: { readonly mode: 'readwrite' }): Promise<PermissionState>;
 }
 
-/** Where the folder handles are kept (module comment): the database's `handles` store. */
+/**
+ * What the provider last knew of each plan file's content, by path: the size and `lastModified` it
+ * read or wrote it at, and the SHA-256 of the bytes then (hex). folder.ts compares a file with it
+ * right before it overwrites the file (T5 review M3).
+ */
+export type Digest = Readonly<
+	Record<string, readonly [size: number, mtime: number, sha256: string]>
+>;
+
+/**
+ * Where the folder handles are kept (module comment): the database's `handles` store. A location's
+ * `Digest` is kept beside its handle (key `digest:<key>`), so it outlives a reload.
+ */
 export interface HandleStore {
 	get(key: string): Promise<FsDirHandle | null>;
+	/** Every stored handle with its key (not the digests). */
 	all(): Promise<ReadonlyArray<readonly [string, FsDirHandle]>>;
 	put(key: string, h: FsDirHandle): Promise<void>;
+	digest(key: string): Promise<Digest | null>;
+	putDigest(key: string, d: Digest): Promise<void>;
 }
+
+const DIGEST = 'digest:';
 
 /** The `handles` store of the storage database (module comment). */
 export function idbHandles(
@@ -76,11 +93,23 @@ export function idbHandles(
 				let all: FsDirHandle[] = [];
 				on(s.getAllKeys(), (v) => (keys = v));
 				on(s.getAll() as IDBRequest<FsDirHandle[]>, (v) => (all = v));
-				return () => keys.map((k, i) => [String(k), all[i]!] as const);
+				return () =>
+					keys.map((k, i) => [String(k), all[i]!] as const).filter(([k]) => !k.startsWith(DIGEST));
 			}),
 		put: (key, h) =>
 			run('readwrite', (s) => {
 				s.put(h, key);
+				return () => undefined;
+			}),
+		digest: (key) =>
+			run('readonly', (s) => {
+				let d: Digest | null = null;
+				on(s.get(DIGEST + key) as IDBRequest<Digest | undefined>, (v) => (d = v ?? null));
+				return () => d;
+			}),
+		putDigest: (key, d) =>
+			run('readwrite', (s) => {
+				s.put(d, DIGEST + key);
 				return () => undefined;
 			}),
 	};

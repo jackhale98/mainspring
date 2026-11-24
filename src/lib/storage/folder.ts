@@ -56,7 +56,14 @@ import {
 	type WriteResult,
 } from './types';
 
-export type { FsDirHandle, FsFile, FsFileHandle, FsWritable, HandleStore } from './folder-handles';
+export type {
+	Digest,
+	FsDirHandle,
+	FsFile,
+	FsFileHandle,
+	FsWritable,
+	HandleStore,
+} from './folder-handles';
 
 /** A folder provider; `pick` is its own (the other providers have no picker). */
 export interface FolderProvider extends StorageProvider<FolderLocation> {

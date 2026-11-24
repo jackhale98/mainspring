@@ -70,8 +70,8 @@ describe('read and head', () => {
 		expect([...decodeSnapshot(snap).lossy]).toEqual(['parts/people.tji']);
 	});
 
-	it('gives a new revision when a file is touched, changed, added or deleted', async () => {
-		const { fs, loc, p } = setup();
+	it('gives a new revision when a file is touched (a later time), changed, added or deleted', async () => {
+		const { fs, loc, p } = setup(new FakeFs('plans', { step: 1000 }));
 		const seen = new Set([await p.head(loc)]);
 		fs.touch('plan.tjp');
 		seen.add(await p.head(loc));
@@ -227,7 +227,7 @@ describe('write', () => {
 
 	it.each([
 		['changed', (fs: FakeFs) => fs.put('parts/deep/tasks.tji', 'task t "Other"\n')],
-		['only touched', (fs: FakeFs) => fs.touch('parts/deep/tasks.tji')],
+		['only touched', (fs: FakeFs) => fs.touch('parts/deep/tasks.tji', fs.time + 1000)],
 		['added', (fs: FakeFs) => fs.put('other.tji', '')],
 		['deleted', (fs: FakeFs) => fs.remove('parts/deep/tasks.tji')],
 		['the added path made', (fs: FakeFs) => fs.put('new.tji', 'theirs')],

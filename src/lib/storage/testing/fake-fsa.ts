@@ -5,17 +5,22 @@
  *
  * - **`getFile()` is a snapshot**: its size and `lastModified` are the file's at the call, and
  *   reading its bytes after the file changed (or went) rejects with `NotReadableError`.
+ * - **`getFileHandle(name, { create: true })` creates an empty file at once**, as Chromium does.
  * - **`createWritable()` writes to a swap file**: nothing changes until `close()`, which replaces
  *   the file at once and stamps it with the clock's time; `abort()`, or a crash before `close()`
- *   (a writable never closed), leaves the old file as it was.
+ *   (a writable never closed), leaves the old file as it was. `afterClose(name)` runs right after
+ *   a file is replaced (another program writing at that moment).
  * - **A handle of a removed entry** rejects with `NotFoundError`.
+ * - **Case**: `caseInsensitive` folders (the default disks of macOS and Windows) find an entry by
+ *   any case of its name, keep the name it was made with, and `create` opens the entry that is there.
  * - **Permissions**: `queryPermission` answers `permission`; `requestPermission` answers `answer`
  *   and makes it the permission (a user who allows or refuses).
  * - **Faults**: `failNext(op, name)` makes the next call of `op` reject with a `DOMException` of
  *   that name (`QuotaExceededError` on `close`, say).
  *
- * The clock starts at a fixed time and moves 1 s on every read of it, so stamps differ unless a
- * test sets them (`put` and `touch` take a time).
+ * **The clock** (`time`) stands still unless a test moves it (`advance`) or gives a `step`: a
+ * coarse clock like a FAT disk's (2 s) or a network share's, so a write and an edit of the same size
+ * have the same stamp by default (`put` and `touch` take a time too).
  */
 import type { FsDirHandle, FsFile, FsFileHandle, FsWritable, HandleStore } from '../folder';
 
@@ -50,22 +55,41 @@ const encoder = new TextEncoder();
 const asBytes = (b: Uint8Array | string): Uint8Array =>
 	typeof b === 'string' ? encoder.encode(b) : b.slice();
 
+export interface FakeFsOptions {
+	/** Names compare without case (module comment). */
+	readonly caseInsensitive?: boolean;
+	/** How far the clock moves on each read of it; default 0 (module comment). */
+	readonly step?: number;
+}
+
 export class FakeFs {
 	permission: PermissionState = 'granted';
 	answer: PermissionState = 'granted';
 	/** How many files `close()` replaced. */
 	closes = 0;
-	#time = 1_700_000_000_000;
+	/** The clock, ms since the epoch (module comment). */
+	time = 1_700_000_000_000;
+	step: number;
+	readonly caseInsensitive: boolean;
+	/** Runs right after `close()` replaced the file `name` (module comment). */
+	afterClose: ((name: string) => void) | null = null;
 	readonly #faults = new Map<FakeOp, string>();
 	readonly #root: DirNode;
 
-	constructor(name = 'plans') {
+	constructor(name = 'plans', o: FakeFsOptions = {}) {
 		this.#root = new DirNode(name);
+		this.caseInsensitive = o.caseInsensitive === true;
+		this.step = o.step ?? 0;
 	}
 
-	/** The clock: 1 s later on every read. */
+	/** The clock's time, moved by `step` first. */
 	now(): number {
-		return (this.#time += 1000);
+		return (this.time += this.step);
+	}
+
+	/** Moves the clock on. */
+	advance(ms = 1000): void {
+		this.time += ms;
 	}
 
 	/** A handle of the root folder (what the picker gives). */
@@ -90,12 +114,21 @@ export class FakeFs {
 		throw domError(name);
 	}
 
+	/** The entry of `dir` called `name`, by the folder's rule for case. */
+	find(dir: DirNode, name: string): DirNode | FileNode | undefined {
+		const exact = dir.entries.get(name);
+		if (exact || !this.caseInsensitive) return exact;
+		const low = name.toLowerCase();
+		for (const [n, e] of dir.entries) if (n.toLowerCase() === low) return e;
+		return undefined;
+	}
+
 	/** Writes a file (and its folders) at once, as another program would. */
 	put(path: string, bytes: Uint8Array | string, at = this.now()): void {
 		const parts = path.split('/');
 		const name = parts.pop() ?? '';
 		const dir = this.#dirAt(parts.join('/'), true);
-		const old = dir.entries.get(name);
+		const old = this.find(dir, name);
 		if (old instanceof FileNode) {
 			old.bytes = asBytes(bytes);
 			old.lastModified = at;
@@ -115,9 +148,9 @@ export class FakeFs {
 		const parts = path.split('/');
 		const name = parts.pop() ?? '';
 		const dir = this.#dirAt(parts.join('/'), false);
-		const node = dir.entries.get(name);
+		const node = this.find(dir, name);
 		if (!node) throw new Error(`no ${path}`);
-		dir.entries.delete(name);
+		dir.entries.delete(node.name);
 		const mark = (n: DirNode | FileNode): void => {
 			n.removed = true;
 			if (n instanceof DirNode) for (const c of n.entries.values()) mark(c);
@@ -139,7 +172,7 @@ export class FakeFs {
 		return { size: f.bytes.length, lastModified: f.lastModified };
 	}
 
-	/** Every file's path, sorted. */
+	/** Every file's path, as it was made, sorted. */
 	paths(): string[] {
 		const out: string[] = [];
 		const walk = (d: DirNode, prefix: string): void => {
@@ -155,7 +188,7 @@ export class FakeFs {
 	#dirAt(path: string, create: boolean): DirNode {
 		let d = this.#root;
 		for (const p of path === '' ? [] : path.split('/')) {
-			let next = d.entries.get(p);
+			let next = this.find(d, p);
 			if (!next && create) d.entries.set(p, (next = new DirNode(p)));
 			if (!(next instanceof DirNode)) throw new Error(`no folder ${path}`);
 			d = next;
@@ -166,7 +199,7 @@ export class FakeFs {
 	#file(path: string): FileNode {
 		const parts = path.split('/');
 		const name = parts.pop() ?? '';
-		const f = this.#dirAt(parts.join('/'), false).entries.get(name);
+		const f = this.find(this.#dirAt(parts.join('/'), false), name);
 		if (!(f instanceof FileNode)) throw new Error(`no file ${path}`);
 		return f;
 	}
@@ -198,7 +231,7 @@ class FakeDirHandle implements FsDirHandle {
 
 	async getDirectoryHandle(name: string, o?: { readonly create?: boolean }): Promise<FsDirHandle> {
 		this.#live('getDirectoryHandle');
-		let n = this.node.entries.get(name);
+		let n = this.fs.find(this.node, name);
 		if (!n && o?.create) this.node.entries.set(name, (n = new DirNode(name)));
 		if (!n) throw domError('NotFoundError');
 		if (!(n instanceof DirNode)) throw domError('TypeMismatchError');
@@ -207,7 +240,7 @@ class FakeDirHandle implements FsDirHandle {
 
 	async getFileHandle(name: string, o?: { readonly create?: boolean }): Promise<FsFileHandle> {
 		this.#live('getFileHandle');
-		let n = this.node.entries.get(name);
+		let n = this.fs.find(this.node, name);
 		if (!n && o?.create) {
 			n = new FileNode(name, new Uint8Array(0), this.fs.now());
 			this.node.entries.set(name, n);
@@ -290,6 +323,7 @@ class FakeFileHandle implements FsFileHandle {
 				node.lastModified = fs.now();
 				node.version++;
 				fs.closes++;
+				fs.afterClose?.(node.name);
 			},
 			async abort() {
 				open = false;
@@ -299,15 +333,27 @@ class FakeFileHandle implements FsFileHandle {
 }
 
 /** Folder handles kept in memory (folder.ts `HandleStore`). */
-export function memoryHandles(): HandleStore & { readonly map: Map<string, FsDirHandle> } {
+export function memoryHandles(): HandleStore & {
+	readonly map: Map<string, FsDirHandle>;
+	readonly digests: Map<string, Digest>;
+} {
 	const map = new Map<string, FsDirHandle>();
+	const digests = new Map<string, Digest>();
 	return {
 		map,
+		digests,
 		get: (key) => Promise.resolve(map.get(key) ?? null),
 		all: () => Promise.resolve([...map]),
 		put: (key, h) => {
 			map.set(key, h);
 			return Promise.resolve();
 		},
+		digest: (key) => Promise.resolve(digests.get(key) ?? null),
+		putDigest: (key, d) => {
+			digests.set(key, d);
+			return Promise.resolve();
+		},
 	};
 }
+
+type Digest = NonNullable<Awaited<ReturnType<HandleStore['digest']>>>;
