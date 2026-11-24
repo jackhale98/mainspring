@@ -43,6 +43,7 @@ function fileConflict(
 		at: { file, from: 0, to: text.length },
 		atOurs: ours === null ? null : { file, from: 0, to: ours.length },
 		both: false,
+		only: null,
 	};
 	return { text, conflicts: [c] };
 }
@@ -75,8 +76,10 @@ export const mergeWorkspace: MergeWorkspaceFn = (base, ours, theirs, ctx) => {
 	const paths = [...new Set([...ours.keys(), ...theirs.keys(), ...base.keys()])];
 	const files = new Map<WorkspacePath, string>();
 	const conflicts: MergeConflict[] = [];
+	// Every side's other files, so a block moved to another file is seen (types.ts `others`).
+	const c = ctx.others ? ctx : { ...ctx, others: { base, ours, theirs } };
 	for (const p of paths) {
-		const m = mergeFile(p, base.get(p) ?? null, ours.get(p) ?? null, theirs.get(p) ?? null, ctx);
+		const m = mergeFile(p, base.get(p) ?? null, ours.get(p) ?? null, theirs.get(p) ?? null, c);
 		if (m.text !== null) files.set(p, m.text);
 		conflicts.push(...m.conflicts);
 	}

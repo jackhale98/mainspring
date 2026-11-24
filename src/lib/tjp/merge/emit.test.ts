@@ -17,6 +17,7 @@ function cx(o: string, a: string, b: string): Cx {
 		out: new Out(),
 		span: function* () {},
 		forced: [],
+		joint: [],
 		elsewhere: () => false,
 	};
 }

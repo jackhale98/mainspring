@@ -120,10 +120,34 @@ export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): 
 			if (cx.forced.some((f) => f.from <= r.to && r.from <= f.to)) conflicts.push(k);
 		}
 	});
-	if (parent.plan && regions.some((g) => g.kind !== 'same')) {
-		conflicts.splice(0, conflicts.length, 0, regions.length - 1);
+	// A plan that holds or leaves out statements needs the whole body in one hunk (keyed.ts
+	// `planned` reads it); one that does neither only needs every change to be a hunk.
+	const plan = parent.plan;
+	const shaped = !!plan && plan.holds.size + plan.drops.size > 0;
+	if (plan && regions.some((g) => g.kind !== 'same')) {
+		const changed = regions.map((g, k) => (g.kind === 'same' ? -1 : k)).filter((k) => k >= 0);
+		conflicts.splice(0, conflicts.length, ...(shaped ? [0, regions.length - 1] : changed));
 	}
-	if (conflicts.length === 0) {
+	// A declaration with its supplements that must be one conflict (supplements.ts): at the top
+	// level, the regions from its first block to its last on every side.
+	const atTop = !parent.inBlock && SIDES.every((s) => sp[s].node.parent === null);
+	const regionAt = (s: SideIx, pos: number): number => {
+		for (let k = 0; k < regions.length; k++) if (range(k, s).to > pos) return k;
+		return regions.length - 1;
+	};
+	const joints: Array<[number, number]> = [];
+	for (const j of atTop && !parent.plan ? cx.joint : []) {
+		let lo = regions.length - 1;
+		let hi = 0;
+		for (const s of SIDES) {
+			for (const x of j[s]) {
+				lo = Math.min(lo, regionAt(s, x.from));
+				hi = Math.max(hi, regionAt(s, Math.max(x.from, x.to - 1)));
+			}
+		}
+		if (lo <= hi) joints.push([lo, hi]);
+	}
+	if (conflicts.length === 0 && joints.length === 0) {
 		for (let k = 0; k < regions.length; k++) plain(k);
 		return;
 	}
@@ -200,11 +224,14 @@ export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): 
 		return [lo, hi];
 	};
 	const groups: Array<[number, number]> = [];
-	if (parent.plan) groups.push([0, regions.length - 1]);
-	for (const k of parent.plan ? [] : conflicts) {
+	if (shaped) groups.push([0, regions.length - 1]);
+	const seeds: Array<[number, number]> = shaped
+		? []
+		: [...conflicts.map((k): [number, number] => [k, k]), ...joints].sort((x, y) => x[0] - y[0]);
+	for (const [k0, k1] of seeds) {
 		const last = groups[groups.length - 1];
-		if (last && last[1] >= k) continue;
-		let [lo, hi] = widen(k, k);
+		if (last && last[0] <= k0 && last[1] >= k1) continue;
+		let [lo, hi] = widen(k0, k1);
 		while (groups.length > 0 && (groups[groups.length - 1] as [number, number])[1] >= lo) {
 			lo = Math.min(lo, (groups.pop() as [number, number])[0]);
 			[lo, hi] = widen(lo, hi);
@@ -218,6 +245,11 @@ export function* mergeSpan(cx: Cx, sp: Tri<Span>, parent: Parent, pre?: Lined): 
 			from: range(lo, s).from,
 			to: range(hi, s).to,
 		})) as unknown as Tri<Rng>;
+		if (joints.some(([a, b]) => a <= hi && lo <= b)) {
+			wholeConflict(cx, r, parent);
+			k = hi + 1;
+			continue;
+		}
 		if (SIDES.some((s) => hasError(sp[s].node, r[s].from, r[s].to))) {
 			// A block both sides changed that does not parse cannot be checked: one conflict.
 			if (parent.plan || cx.forced.some((f) => f.from <= r[0].to && r[0].from <= f.to)) {

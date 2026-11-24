@@ -50,6 +50,7 @@ describe('resolve', () => {
 		at: { file: 'a.tji', from: 0, to: 2 },
 		atOurs: { file: 'a.tji', from: 0, to: 2 },
 		both: true,
+		only: null,
 		...over,
 	});
 	const m = (files: Record<string, string>, conflicts: MergeConflict[]): WorkspaceMerge => ({

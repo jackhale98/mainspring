@@ -15,7 +15,10 @@ import type { WorkspacePath } from '../../workspace/paths';
 import { parseSteps, reparseSteps, tjpParser } from '../grammar/parser';
 import { Naming, OTHER } from './hints';
 import { touchedByBoth } from './blocks';
-import { declsOf } from './elements';
+import { declCount, declsOf } from './elements';
+import { checkBlock } from './check';
+import { jointOf } from './supplements';
+import { parseTjp } from '../document';
 import {
 	diff3RegionsSteps,
 	drive,
@@ -24,10 +27,10 @@ import {
 	trueConflict,
 	type Region,
 } from './lines';
-import { Out, idKey, type Pending } from './out';
+import { Out, idKey, type Pending, type Rng } from './out';
 import { linedSteps, mergeSpan, type Lined } from './refine';
 import { bothAdded, dedupeSteps } from './dupes';
-import type { Cx, Span, Tri } from './emit';
+import { emit, SIDES, wholeConflict, type Cx, type SideIx, type Span, type Tri } from './emit';
 import type { FileMerge, MergeConflict, MergeContext } from './types';
 
 /** Changed ranges from the base to one side, for an incremental parse. */
@@ -77,6 +80,7 @@ export function finish(file: WorkspacePath, pending: readonly Pending[]): MergeC
 			at: { file, from: c.at.from, to: c.at.to },
 			atOurs: { file, from: c.atOurs.from, to: c.atOurs.to },
 			both: c.both,
+			only: c.only ?? null,
 		};
 	});
 }
@@ -138,20 +142,68 @@ function givenTree(ctx: MergeContext, file: WorkspacePath, ours: string): Tree |
 	return f.text.length === ours.length && f.text.toString() === ours ? f.tree : null;
 }
 
-/** Whether ours declares a task or resource `key` in another of its files (a move there). */
-function elsewhereOf(ctx: MergeContext, file: WorkspacePath): (key: string) => boolean {
-	let keys: Set<string> | null = null;
-	return (key) => {
-		if (!keys) {
-			keys = new Set();
-			for (const [path, f] of ctx.files ?? []) {
+/**
+ * Whether side `s` declares a task or resource `key` in the workspace's other files more often
+ * than the base does: a block it moved there (types.ts `MergeContext.others`; review L4). The
+ * other files are parsed only when a deleted block asks.
+ */
+function elsewhereOf(ctx: MergeContext, file: WorkspacePath): (s: 1 | 2, key: string) => boolean {
+	const counted = new Map<string, Map<string, number>>();
+	const counts = (side: 'base' | 'ours' | 'theirs'): Map<string, number> => {
+		const kept = counted.get(side);
+		if (kept) return kept;
+		const out = new Map<string, number>();
+		const add = (tree: Tree, text: string): void => {
+			for (const k of declsOf(tree, text, true).keys())
+				out.set(k, (out.get(k) ?? 0) + declCount(tree, text, k));
+		};
+		const files = ctx.others?.[side];
+		if (files) {
+			for (const [path, text] of files) {
 				if (path === file) continue;
-				const text = typeof f.text === 'string' ? f.text : f.text.toString();
-				for (const k of declsOf(f.tree, text, true).keys()) keys.add(k);
+				const given = side === 'ours' ? ctx.files?.get(path) : undefined;
+				const tree =
+					given && (typeof given.text === 'string' ? given.text : given.text.toString()) === text
+						? given.tree
+						: parseTjp(text, { top: ctx.includes.tops.get(path) ?? 'global' });
+				add(tree, text);
+			}
+		} else if (side === 'ours') {
+			for (const [path, f] of ctx.files ?? []) {
+				if (path !== file) add(f.tree, typeof f.text === 'string' ? f.text : f.text.toString());
 			}
 		}
-		return keys.has(key);
+		counted.set(side, out);
+		return out;
 	};
+	return (s, key) => {
+		const n = counts(s === 1 ? 'ours' : 'theirs').get(key) ?? 0;
+		return ctx.others ? n > (counts('base').get(key) ?? 0) : n > 0;
+	};
+}
+
+/** One conflict over everything both sides changed at the top level (a top level check.ts cannot clear). */
+function topConflict(cx: Cx, pre: Lined): void {
+	const changed = pre.regions.map((r, k) => (r.kind === 'same' ? -1 : k)).filter((k) => k >= 0);
+	const lo = changed[0] ?? 0;
+	const hi = changed[changed.length - 1] ?? -1;
+	const starts = pre.lines.map(lineStarts);
+	const at = (s: SideIx, k: number, end: boolean): number => {
+		const r = pre.regions[k] as Region;
+		const ix = s === 0 ? r.o : s === 1 ? r.a : r.b;
+		return (starts[s] as number[])[end ? ix[1] : ix[0]] as number;
+	};
+	pre.regions.forEach((r, k) => {
+		if (k < lo || k > hi) {
+			if (r.kind === 'same') emit(cx, 0, { from: at(0, k, false), to: at(0, k, true) });
+		} else if (k === lo) {
+			wholeConflict(
+				cx,
+				SIDES.map((s) => ({ from: at(s, lo, false), to: at(s, hi, true) })) as unknown as Tri<Rng>,
+				{ owner: OTHER, inBlock: false },
+			);
+		}
+	});
 }
 
 /**
@@ -188,17 +240,20 @@ export function* mergeTextSteps(
 		reparseSteps(parser, theirs, baseTree, changes(pre.regions, 'b', so, lineStarts(b))),
 	);
 	const trees: Tri<Tree> = [baseTree, oursTree, theirsTree];
-	// The structural rule (check.ts): blocks both sides changed statements of, from the tree.
+	const sides: Cx['sides'] = [
+		{ text: base, tree: baseTree },
+		{ text: ours, tree: oursTree },
+		{ text: theirs, tree: theirsTree },
+	];
+	// The structural rule (blocks.ts, check.ts): blocks both sides changed statements of, from the
+	// base tree, and declarations checked together with their supplements (supplements.ts).
 	const forced = touchedByBoth(baseTree, pre.regions, so);
+	const joint = jointOf(sides, naming);
+	yield;
 	const conflicted = pre.regions.some((r) => trueConflict(r, a, b));
 	let text: string;
 	let pending: Pending[];
-	if (conflicted || forced.length > 0) {
-		const sides: Cx['sides'] = [
-			{ text: base, tree: baseTree },
-			{ text: ours, tree: oursTree },
-			{ text: theirs, tree: theirsTree },
-		];
+	if (conflicted || forced.blocks.length > 0 || forced.top || joint.length > 0) {
 		for (const s of sides) {
 			declsOf(s.tree, s.text);
 			yield;
@@ -209,11 +264,30 @@ export function* mergeTextSteps(
 			naming,
 			out,
 			span: (c, spans, parent) => mergeSpan(c, spans, parent),
-			forced,
+			forced: forced.blocks,
+			joint,
 			elsewhere: elsewhereOf(ctx, file),
 		};
 		const spans = sides.map((s) => ({ node: s.tree.topNode, from: 0, to: s.text.length }));
-		yield* mergeSpan(cx, spans as unknown as Tri<Span>, { owner: OTHER, inBlock: false }, pre);
+		const top = { owner: OTHER, inBlock: false };
+		// The top level both sides changed is a block of its own (types.ts G1): checked as one, on
+		// trial, and one conflict over what changed when check.ts cannot clear it.
+		const plan = !forced.top
+			? null
+			: joint.length > 0
+				? 'whole'
+				: checkBlock(
+						[base, ours, theirs],
+						[[baseTree.topNode], [oursTree.topNode], [theirsTree.topNode]],
+					);
+		if (plan === 'whole') topConflict(cx, pre);
+		else if (plan) {
+			const trial: Cx = { ...cx, out: new Out() };
+			yield* mergeSpan(trial, spans as unknown as Tri<Span>, { ...top, plan }, pre);
+			if (!plan.failed && [...plan.holds.keys()].every((k) => plan.done.has(k))) {
+				out.append(trial.out);
+			} else topConflict(cx, pre);
+		} else yield* mergeSpan(cx, spans as unknown as Tri<Span>, top, pre);
 		text = out.text();
 		pending = out.conflicts;
 		yield;

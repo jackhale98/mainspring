@@ -70,8 +70,16 @@ export interface Cx {
 	 * sorted: they and the blocks around them are always merged statement by statement.
 	 */
 	readonly forced: readonly Rng[];
-	/** Whether ours declares `key` (`task:t`) in another file of the workspace (a move there). */
-	readonly elsewhere: (key: string) => boolean;
+	/**
+	 * Properties whose declaration and supplements in this file are one conflict (supplements.ts):
+	 * each side's ranges of their blocks.
+	 */
+	readonly joint: readonly Tri<readonly Rng[]>[];
+	/**
+	 * Whether side `s` declares `key` (`task:t`) in the workspace's other files more often than the
+	 * base does: a block that side moved to another file (review L4).
+	 */
+	readonly elsewhere: (s: 1 | 2, key: string) => boolean;
 }
 
 /** Whether a forced block lies in (or is) the base range [from, to). */

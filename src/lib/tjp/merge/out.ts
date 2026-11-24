@@ -23,6 +23,8 @@ export interface Pending {
 	/** In the base text: what the id is computed from. */
 	readonly atBase: Rng;
 	readonly both: boolean;
+	/** The only side a choice may take (types.ts `MergeConflict.only`); absent is null. */
+	readonly only?: 'ours' | 'theirs';
 }
 
 export class Out {

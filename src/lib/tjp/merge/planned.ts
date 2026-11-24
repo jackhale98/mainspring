@@ -70,12 +70,32 @@ export function emitPlanned(
 	parent: Parent,
 	plan: BlockPlan,
 ): boolean {
-	const t = SIDES.map((s) =>
-		run[s].map((e) => textOf(cx, s, whole(e))).join(''),
-	) as unknown as Tri<string>;
-	const side: SideIx | null = t[1] === t[2] || t[2] === t[0] ? 1 : t[1] === t[0] ? 2 : null;
+	const text = (s: SideIx, els: readonly Element[]): string =>
+		els.map((e) => textOf(cx, s, whole(e))).join('');
+	// Both added at one place: what they added alike at the start and the end (a body's `{`
+	// line, its end) is taken once, and the rest must be one side's.
+	let p = 0;
+	let q = 0;
+	if (run[0].length === 0) {
+		const [, a, b] = run;
+		const same = (i: number, j: number): boolean =>
+			text(1, [a[i] as Element]) === text(2, [b[j] as Element]);
+		while (p < a.length && p < b.length && same(p, p)) p++;
+		while (q < a.length - p && q < b.length - p && same(a.length - 1 - q, b.length - 1 - q)) q++;
+	}
+	const mid = SIDES.map((s) =>
+		run[s].slice(s === 0 ? 0 : p, run[s].length - (s === 0 ? 0 : q)),
+	) as unknown as Tri<Element[]>;
+	const t = SIDES.map((s) => text(s, mid[s])) as unknown as Tri<string>;
+	// A side that only added white space there (the rest of a `{` line the other side wrote on one
+	// line) gives way to the other.
+	const blank = (s: 1 | 2): boolean =>
+		mid[s].every((e) => e.kind !== 'stmt') && t[s].trim() === '' && t[0] === '';
+	const side: SideIx | null =
+		t[1] === t[2] || t[2] === t[0] || blank(2) ? 1 : t[1] === t[0] || blank(1) ? 2 : null;
 	if (side === null) return false;
-	for (const e of run[side]) {
+	for (const e of run[1].slice(0, p)) emit(cx, 1, whole(e));
+	for (const e of mid[side]) {
 		const st = only(e);
 		const hold = side === 1 && st ? plan.holds.get(at(1, st)) : undefined;
 		if (!st || !hold) {
@@ -122,5 +142,6 @@ export function emitPlanned(
 		}
 		plan.done.add(at(1, st));
 	}
+	for (const e of run[1].slice(run[1].length - q)) emit(cx, 1, whole(e));
 	return true;
 }

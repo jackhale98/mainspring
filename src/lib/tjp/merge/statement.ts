@@ -18,8 +18,10 @@
  * - When a precondition fails, the statement lines are one conflict (emit.ts `wholeConflict`), of
  *   the block itself when the element is one block.
  * - A block both sides changed statements of (blocks.ts) is merged this way even where its lines
- *   merge cleanly, with the plan check.ts makes for it (or one conflict when check.ts finds a
- *   change it cannot prove independent), on trial: the result is kept only when the plan did not
+ *   merge cleanly; a brace body of another kind (a shift's, `depends a { … }`) is not entered, so
+ *   its statement, changed on both sides, is one `attribute` conflict. A task, resource, project
+ *   or supplement block is merged with the plan check.ts makes for it (or one conflict when
+ *   check.ts finds a change it cannot prove independent), on trial: the result is kept only when the plan did not
  *   fail and every conflict it holds was emitted; otherwise the block is one conflict.
  */
 import type { SyntaxNode } from '@lezer/common';
@@ -160,8 +162,11 @@ function plan(cx: Cx, st: Tri<SyntaxNode>): Plan | null {
 		// Both sides changed statements of this block: clean only if every pair of changes is
 		// independent (check.ts); else the block is one conflict.
 		const verdict = checkBlock(
-			cx,
-			tri((s) => st[s].getChild('Body')),
+			tri((s) => cx.sides[s].text),
+			tri((s) => {
+				const body = st[s].getChild('Body');
+				return body ? [body] : [];
+			}),
 		);
 		if (verdict === 'whole') return null;
 		own = { owner, inBlock: true, plan: verdict };

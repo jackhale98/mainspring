@@ -106,7 +106,12 @@ export function resolve(m: WorkspaceMerge, rs: readonly Resolution[]): Files | U
 	const unresolved = m.conflicts
 		.filter((c) => {
 			const t = choice.get(c.id);
-			return t === undefined || (t === 'both' && !c.both);
+			return (
+				t === undefined ||
+				(t === 'both' && !c.both) ||
+				(t === 'ours' && c.only === 'theirs') ||
+				(t === 'theirs' && c.only === 'ours')
+			);
 		})
 		.map((c) => c.id);
 	if (unresolved.length > 0) return { unresolved };

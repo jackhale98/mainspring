@@ -43,3 +43,16 @@ export function resolveAll(m: WorkspaceMerge, take: Take): Files {
 	if (isUnresolved(r)) throw new Error(`unresolved: ${r.unresolved.join(', ')}`);
 	return r;
 }
+
+/**
+ * Every conflict resolved with `take`, or with the side it offers when it offers only one
+ * (`MergeConflict.only`); throws when some stay unresolved.
+ */
+export function resolveEach(m: WorkspaceMerge, take: 'ours' | 'theirs'): Files {
+	const r = resolve(
+		m,
+		m.conflicts.map((c) => ({ conflict: c.id, take: c.only ?? take })),
+	);
+	if (isUnresolved(r)) throw new Error(`unresolved: ${r.unresolved.join(', ')}`);
+	return r;
+}

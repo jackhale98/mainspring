@@ -66,8 +66,9 @@ describe('files some side lacks (the table)', () => {
 });
 
 describe('resolve', () => {
-	const base = { [ENTRY]: '# a\nx\n# b\n' };
-	const m = mergeAll(ENTRY, base, { [ENTRY]: '# A\nx\n# B\n' }, { [ENTRY]: '# 1\nx\n# 2\n' });
+	const x = 'task x "X"\n';
+	const base = { [ENTRY]: `# a\n${x}# b\n` };
+	const m = mergeAll(ENTRY, base, { [ENTRY]: `# A\n${x}# B\n` }, { [ENTRY]: `# 1\n${x}# 2\n` });
 	const [first, second] = m.conflicts as [MergeConflict, MergeConflict];
 
 	it('lists unresolved conflicts in order; unknown ids are ignored; the last choice wins', () => {
@@ -85,7 +86,7 @@ describe('resolve', () => {
 			{ conflict: second.id, take: 'ours' },
 			{ conflict: first.id, take: 'theirs' },
 		]);
-		expect(isUnresolved(r) ? r : r.get(ENTRY)).toBe('# 1\nx\n# B\n');
+		expect(isUnresolved(r) ? r : r.get(ENTRY)).toBe(`# 1\n${x}# B\n`);
 	});
 
 	it('leaves `both` on a conflict without it unresolved', () => {

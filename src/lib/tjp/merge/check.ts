@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * Whether two sides' changes to one block are independent (review round 3, the structural rule;
- * types.ts rule 2). A task, resource, project or supplement body that both sides changed
- * statements of is merged statement by statement (refine.ts) and is clean only if every pair of
- * changes is provably independent under the keyword table (keywords.ts). The check reads each
- * side's statements of the body by their value slot (a single-valued keyword, without scenario
- * prefix; a repeatable keyword with it; a nested block by its key) and compares them with the
- * base's: what a side added and what it removed (a changed statement is both).
+ * Whether two sides' changes to one block are independent (the structural rule; types.ts G1, G2).
+ * A task, resource, project or supplement body, or the file's top level, that both sides changed
+ * statements of (blocks.ts) is merged statement by statement (refine.ts) and is clean only if
+ * every pair of changes is provably independent under the keyword table (keywords.ts). The check
+ * reads each side's statements of the block (one or more bodies: a declaration with its
+ * supplements in the file, supplements.ts) by their value slot (a single-valued keyword, without
+ * scenario prefix; a repeatable keyword with it; a declaration by its kind and id: a nested block,
+ * `macro m`, `include "x.tji"`, `account a`) and compares them with the base's: what a side added
+ * and what it removed (a changed statement is both).
+ *
+ * These are the only rules for combining two sides' statements: `independent` applies them to
+ * two statements added at one place (keyed.ts), so no other path has its own notion of what may
+ * be said twice.
  *
  * - **Single-valued** (`priority`, `start`, a sizing criterion, `timezone`, any keyword the table
  *   does not know): both sides changed the slot, to different results, is a clash.
@@ -14,7 +20,8 @@
  *   `depends`/`precedes` by target (`a` and `!a` are one), `workinghours` by weekday (each
  *   statement replaces the hours of its days), anything else by its text.
  * - **`purge X`** changed on one side clashes with any change to `X` on the other.
- * - **Nested blocks** are merged in turn; both sides adding one with the same key is a clash.
+ * - **Declarations** (nested blocks, macros, includes, accounts, shifts, reports …) are merged
+ *   in turn; both sides adding one with the same key is a clash.
  * - A statement-level macro call changed on either side, or an error node, cannot be keyed or
  *   read: the whole block is one conflict.
  * - Identical additions are kept once: the copy with a trailing comment if only one has one,
@@ -24,7 +31,7 @@
  * statement taken out (the plan); any other clash makes the whole block one conflict.
  */
 import type { SyntaxNode } from '@lezer/common';
-import { SIDES, type Cx, type SideIx, type Tri } from './emit';
+import { SIDES, type SideIx, type Tri } from './emit';
 import { attrName, blockKind, statementKey } from './hints';
 import { keywordOf, repeatable } from './keywords';
 
@@ -54,15 +61,66 @@ export interface BlockPlan {
 const SIZING = new Set(['effort', 'duration', 'length', 'milestone']);
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
+/** Whether a statement declares something by kind and id (module comment). */
+function declares(st: SyntaxNode, text: string): boolean {
+	return !!blockKind(st) || statementKey(st, text) !== attrName(st, text);
+}
+
 /** The slot a statement is compared in (module comment); null when it cannot be keyed. */
 function slotOf(st: SyntaxNode, text: string): string | null {
 	const key = statementKey(st, text);
 	if (key === null) return null;
-	if (blockKind(st)) return key;
 	const kw = keywordOf(st, text);
+	if (declares(st, text) && !repeatable(kw)) return key;
 	const name = attrName(st, text);
 	if (repeatable(kw)) return name;
 	return SIZING.has(kw) ? `${name.slice(0, -kw.length)}sizing` : name;
+}
+
+/** The slot `purge X` empties. */
+function purged(st: SyntaxNode, text: string): string {
+	const target = text.slice(st.from, st.to).split(/\s+/)[1] ?? '';
+	return SIZING.has(target) ? 'sizing' : target;
+}
+
+/** Whether slot `x` names the same value as `y` without or with a scenario prefix. */
+const prefixed = (x: string, y: string): boolean =>
+	!x.includes(':') && y.includes(':') && y.slice(y.indexOf(':') + 1) === x;
+
+/** Whether a statement has an error node outside nested bodies. */
+function broken(st: SyntaxNode): boolean {
+	let bad = false;
+	st.toTree().iterate({
+		enter: (n) => {
+			if (n.type.isError) bad = true;
+			return bad ? false : n.name === 'Body' ? false : undefined;
+		},
+	});
+	return bad;
+}
+
+/**
+ * Whether two statements, one added by each side to one block (different texts), can both stay:
+ * the rules of `checkBlock` for one addition each (module comment).
+ */
+export function independent(x: SyntaxNode, tx: string, y: SyntaxNode, ty: string): boolean {
+	const sx = slotOf(x, tx);
+	const sy = slotOf(y, ty);
+	if (sx === null || sy === null || broken(x) || broken(y)) return false;
+	const kx = keywordOf(x, tx);
+	const ky = keywordOf(y, ty);
+	const bare = (slot: string): string => slot.slice(slot.indexOf(':') + 1);
+	if (kx === 'purge' && [sy, bare(sy)].includes(purged(x, tx))) return false;
+	if (ky === 'purge' && [sx, bare(sx)].includes(purged(y, ty))) return false;
+	if (sx !== sy) {
+		const single = (st: SyntaxNode, text: string, kw: string): boolean =>
+			!declares(st, text) && !repeatable(kw);
+		return !(single(x, tx, kx) && single(y, ty, ky) && (prefixed(sx, sy) || prefixed(sy, sx)));
+	}
+	if (declares(x, tx) && !repeatable(kx)) return false;
+	if (!repeatable(kx)) return false;
+	const ix = itemsOf(x, tx);
+	return !itemsOf(y, ty).some((k) => ix.includes(k));
 }
 
 /** The items a repeatable statement adds (module comment). */
@@ -105,20 +163,21 @@ interface Side {
 	readonly unkeyed: SyntaxNode[];
 }
 
-function sideOf(body: SyntaxNode | null, text: string): Side {
+function sideOf(bodies: readonly SyntaxNode[], text: string): Side {
 	const bySlot = new Map<string, SyntaxNode[]>();
 	const unkeyed: SyntaxNode[] = [];
-	for (let c = body?.firstChild ?? null; c; c = c.nextSibling) {
-		if (!c.name.endsWith('Statement')) continue;
-		const slot = slotOf(c, text);
-		if (slot === null) {
-			unkeyed.push(c);
-			continue;
+	for (const body of bodies)
+		for (let c = body.firstChild; c; c = c.nextSibling) {
+			if (!c.name.endsWith('Statement')) continue;
+			const slot = slotOf(c, text);
+			if (slot === null) {
+				unkeyed.push(c);
+				continue;
+			}
+			const list = bySlot.get(slot);
+			if (list) list.push(c);
+			else bySlot.set(slot, [c]);
 		}
-		const list = bySlot.get(slot);
-		if (list) list.push(c);
-		else bySlot.set(slot, [c]);
-	}
 	return { text, bySlot, unkeyed };
 }
 
@@ -153,27 +212,32 @@ function commented(text: string, n: SyntaxNode): boolean {
 	return /#|\/\//.test(text.slice(n.to, nl < 0 ? text.length : nl));
 }
 
-function hasErrorIn(body: SyntaxNode | null): boolean {
-	if (!body) return false;
-	for (let c = body.firstChild; c; c = c.nextSibling) {
-		if (c.type.isError) return true;
-		if (c.name === 'Body') continue;
-		let bad = false;
-		c.toTree().iterate({
-			enter: (n) => {
-				if (n.type.isError) bad = true;
-				return bad ? false : n.name === 'Body' ? false : undefined;
-			},
-		});
-		if (bad) return true;
+/** The texts of a block's statements (and stray nodes) that hold an error node, sorted. */
+function errorsIn(bodies: readonly SyntaxNode[], text: string): string[] {
+	const out: string[] = [];
+	for (const body of bodies) {
+		for (let c = body.firstChild; c; c = c.nextSibling) {
+			if (c.type.isError || (c.name !== 'Body' && broken(c)))
+				out.push(text.slice(c.from, c.to).trim());
+		}
 	}
-	return false;
+	return out.sort();
 }
 
-/** The plan for a block both sides changed, or 'whole' when it is one conflict (module comment). */
-export function checkBlock(cx: Cx, bodies: Tri<SyntaxNode | null>): BlockPlan | 'whole' {
-	if (SIDES.some((s) => hasErrorIn(bodies[s]))) return 'whole';
-	const sides = SIDES.map((s) => sideOf(bodies[s], cx.sides[s].text)) as unknown as Tri<Side>;
+/**
+ * The plan for a block both sides changed, or 'whole' when it is one conflict (module comment).
+ * `bodies` are each side's bodies of the block (a `Body`, or the file's top node), none for a
+ * declaration without one.
+ */
+export function checkBlock(
+	texts: Tri<string>,
+	bodies: Tri<readonly SyntaxNode[]>,
+): BlockPlan | 'whole' {
+	// Text with an error node cannot be keyed: the block is one conflict, unless that text is the
+	// same on all three sides (neither side changed it).
+	const errors = SIDES.map((s) => errorsIn(bodies[s], texts[s]).join('\u0000'));
+	if (errors.some((e) => e !== errors[0])) return 'whole';
+	const sides = SIDES.map((s) => sideOf(bodies[s], texts[s])) as unknown as Tri<Side>;
 	const [o, a, b] = sides;
 	const unkeyedA = delta(o, a, (s) => s.unkeyed);
 	const unkeyedB = delta(o, b, (s) => s.unkeyed);
@@ -229,13 +293,13 @@ export function checkBlock(cx: Cx, bodies: Tri<SyntaxNode | null>): BlockPlan | 
 		}
 		const any = (da.added[0] ?? da.removed[0] ?? db.added[0] ?? db.removed[0]) as SyntaxNode;
 		const sample = da.added[0] ? a : da.removed[0] ? o : db.added[0] ? b : o;
-		if (blockKind(any)) {
-			// Nested blocks merge in turn; only one added on both sides with one key clashes.
+		if (declares(any, sample.text) && !repeatable(keywordOf(any, sample.text))) {
+			// Declarations merge in turn; only one added on both sides with one key clashes.
 			if (da.removed.length > 0 || db.removed.length > 0) continue;
 			const [x, y] = [da.added[0], db.added[0]];
 			if (da.added.length === 1 && db.added.length === 1 && x && y) {
 				if (said(a, x) === said(b, y)) collapse(x, y);
-				else clash(slot, true);
+				else clash(slot, !!blockKind(x));
 				continue;
 			}
 			return 'whole';
@@ -279,7 +343,7 @@ export function checkBlock(cx: Cx, bodies: Tri<SyntaxNode | null>): BlockPlan | 
 	for (const x of slots) {
 		if (x.includes(':') || repeatable(x)) continue;
 		for (const y of slots) {
-			if (!y.includes(':') || y.slice(y.indexOf(':') + 1) !== x) continue;
+			if (!prefixed(x, y)) continue;
 			if ((grew(x, 1) && grew(y, 2)) || (grew(y, 1) && grew(x, 2))) return 'whole';
 		}
 	}
@@ -293,14 +357,9 @@ export function checkBlock(cx: Cx, bodies: Tri<SyntaxNode | null>): BlockPlan | 
 			...(changed.get('purge')?.[s].added ?? []),
 			...(changed.get('purge')?.[s].removed ?? []),
 		]) {
-			const target = side.text.slice(n.from, n.to).split(/\s+/)[1] ?? '';
+			const target = purged(n, side.text);
 			for (const slot of slots) {
-				if (
-					(slot === target ||
-						slot.endsWith(`:${target}`) ||
-						(target && slot === (SIZING.has(target) ? 'sizing' : target))) &&
-					touched(slot, other)
-				) {
+				if (target && (slot === target || slot.endsWith(`:${target}`)) && touched(slot, other)) {
 					return 'whole';
 				}
 			}

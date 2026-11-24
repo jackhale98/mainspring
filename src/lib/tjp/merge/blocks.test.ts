@@ -10,7 +10,7 @@ const H = 'project p "P" 2027-01-04 +3m\n';
 function forced(base: string, ours: string, theirs: string): string[] {
 	const [o, a, b] = [base, ours, theirs].map(splitLines) as [string[], string[], string[]];
 	const tree = parseTjp(base);
-	return touchedByBoth(tree, diff3Regions(o, a, b), lineStarts(o)).map(
+	return touchedByBoth(tree, diff3Regions(o, a, b), lineStarts(o)).blocks.map(
 		(r) => base.slice(r.from, r.to).split('\n')[0],
 	) as string[];
 }
@@ -75,7 +75,7 @@ describe('blocksTouched', () => {
 		const tree = parseTjp(t);
 		const at = t.indexOf('effort');
 		const names = (from: number, to: number): string[] =>
-			blocksTouched(tree, from, to).map((n) => t.slice(n.from, t.indexOf('"', n.from)));
+			blocksTouched(tree, from, to).owners.map((n) => t.slice(n.from, t.indexOf('"', n.from)));
 		expect(names(at, at + 6)).toEqual(['task b ']);
 		expect(names(at, at)).toEqual(['task b ']);
 		const line = t.indexOf('  task b');

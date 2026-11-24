@@ -5,13 +5,18 @@
 // - two `workinghours` for the same weekday conflict; for different weekdays both stay;
 // - `purge allocate` against a new allocation conflicts;
 // - anything else merges cleanly with both statements, and swapping the sides changes nothing
-//   but the order. FC_SEED fixes the seed; MERGE_RUNS sizes the runs.
+//   but the order.
+// And for the block kinds of review round 4 (blocks-testing.ts; types.ts G1, G2): a declaration
+// given a body by both sides follows the same rules; a `shift` or `account` body both changed is a
+// conflict; at the top level a macro defined twice or `copyright` said twice is a conflict; a task
+// and its supplement in one file are one block. FC_SEED fixes the seed; MERGE_RUNS sizes the runs.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { mergeWorkspace } from '../../sync/merge';
 import { parseTjp, syntaxIssues, textOf } from '../document';
 import { contextOf, filesOf } from './testing';
 import { typedSides, type TypedSides } from './typed-testing';
+import { blockSides } from './blocks-testing';
 
 const SEED = process.env['FC_SEED'] === undefined ? {} : { seed: Number(process.env['FC_SEED']) };
 const RUNS = Number(process.env['MERGE_RUNS'] ?? 60) * 2;
@@ -37,7 +42,7 @@ describe(
 			const seen: Record<string, number> = {};
 			fc.assert(
 				fc.property(fc.integer({ min: 1, max: 0x7fffffff }), (seed) => {
-					const t = typedSides(seed);
+					const t = seed % 2 === 0 ? typedSides(seed) : blockSides(seed);
 					fc.pre(t !== null);
 					if (!t) return;
 					const { p } = t;
@@ -53,12 +58,13 @@ describe(
 						mergeWorkspace(filesOf(p.files), filesOf(o), filesOf(th), contextOf(p.entry, o));
 					const ab = run(t.a.files, t.b.files);
 					const ba = run(t.b.files, t.a.files);
-					const want = expected(t);
+					const want = 'expect' in t ? t.expect : expected(t);
 					const why = `${p.name}: ${t.what}`;
 					seen[`${t.layout}, ${want}`] = (seen[`${t.layout}, ${want}`] ?? 0) + 1;
-					expect(ab.conflicts.length > 0 ? 'conflict' : 'clean', why).toBe(want);
-					expect(ba.conflicts.length, why).toBe(ab.conflicts.length);
-					if (want === 'conflict') return;
+					const got = ab.conflicts.length > 0 ? 'conflict' : 'clean';
+					if (want !== 'either') expect(got, why).toBe(want);
+					expect(ba.conflicts.length > 0, why).toBe(got === 'conflict');
+					if (got === 'conflict') return;
 					const text = ab.files.get(file) ?? '';
 					for (const s of [...t.typed[0], ...t.typed[1]]) {
 						expect(count(text, s), why).toBe(

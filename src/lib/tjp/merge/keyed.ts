@@ -17,10 +17,10 @@
  * - one element per side with the same key, or one attribute each (a statement replaced by
  *   another on both sides), merge as aligned elements;
  * - runs both sides added at one place keep what they added alike at their start and end, and
- *   anything else both added alike once; the rest is classified as types.ts says: the same
- *   single-valued key (`added-twice`, or an `attribute` conflict for a statement), statements
- *   with different values or additive ones (`depends`, `flags` …, keywords.ts) in a block
- *   (clean, ours first), blocks with different ids (`added-twice` with `both`);
+ *   anything else both added alike once; the rest is classified by check.ts `independent` (the
+ *   one rule set): two that cannot both stay are `added-twice` (blocks) or an `attribute`
+ *   conflict, independent statements in a block merge (clean, ours first), and blocks with
+ *   different ids are `added-twice` with `both`;
  * - anything else is one conflict over the run's whole elements (emit.ts `wholeConflict`), so
  *   either choice takes one side's statements whole.
  * In a block both sides changed statements of, the block's plan (check.ts) shapes the merge as
@@ -43,7 +43,8 @@ import {
 	type Tri,
 } from './emit';
 import { attrName, blockKind, statementKey } from './hints';
-import { keywordOf, repeatable, slotOf } from './keywords';
+import { slotOf } from './keywords';
+import { independent } from './check';
 import { emitPlanned, held, holesIn, planned } from './planned';
 import { alignable, element } from './statement';
 import { diffIndices } from 'node-diff3';
@@ -255,14 +256,14 @@ function deleted(
 	if (blockKind(sk)) {
 		const text = textOf(cx, kept, whole(ek));
 		// The deleting side declares it as often as the base does (a copy elsewhere in this
-		// file), or for ours anywhere in another file: a move, not a deletion. No choice here can
-		// remove the other copy, so it is a `text` conflict without Keep both (review L4), which
-		// holds ours as every text conflict does.
+		// file), or more often in another file: a move, not a deletion. No choice here can remove
+		// the other copy, so it is a `text` conflict that offers only the moving side (and Edit…),
+		// holding ours as every text conflict does (review L4).
 		const key = statementKey(sk, keptText) ?? '';
 		const gone = cx.sides[deletedOn];
 		const moved =
 			declCount(gone.tree, gone.text, key) >= declCount(cx.sides[0].tree, cx.sides[0].text, key) ||
-			(deletedOn === 1 && cx.elsewhere(key));
+			cx.elsewhere(deletedOn, key);
 		const at = moved && deletedOn === 1 ? cx.out.push('') : cx.out.push(text);
 		cx.out.conflict({
 			subject: moved
@@ -275,6 +276,8 @@ function deleted(
 			atOurs: deletedOn === 1 ? { from: pos[1], to: pos[1] } : whole(ek),
 			atBase: whole(eo),
 			both: false,
+			// The other choice would leave a second copy (types.ts `MergeConflict.only`).
+			...(moved ? { only: deletedOn === 1 ? ('ours' as const) : ('theirs' as const) } : {}),
 		});
 		return;
 	}
@@ -326,21 +329,19 @@ function addedTwice(cx: Cx, run: Tri<Element[]>, pos: Tri<number>, parent: Paren
 		emit(cx, 1, r[1]);
 		return;
 	}
-	const slot = (s: SideIx, e: Element): string =>
-		slotOf(single(e) as SyntaxNode, cx.sides[s].text) ?? '';
-	const word = (s: SideIx, e: Element): string =>
-		keywordOf(single(e) as SyntaxNode, cx.sides[s].text);
 	const atBase = { from: pos[0], to: pos[0] };
-	const slotsB = new Set(b.map((e) => slot(2, e)));
-	// Statements that add to each other (`depends`, `allocate`, `flags`…, keywords.ts) do not clash.
-	const clash = a.some((e) => slotsB.has(slot(1, e)) && !repeatable(word(1, e)));
+	// Whether two additions can both stay is check.ts's to say (its item rules: the one rule set).
+	const [ta, tb] = [cx.sides[1].text, cx.sides[2].text];
+	const stays = (x: Element, y: Element): boolean =>
+		independent(single(x) as SyntaxNode, ta, single(y) as SyntaxNode, tb);
+	const clash = a.some((x) => b.some((y) => !stays(x, y)));
 	const blocks = (stmts as SyntaxNode[]).map(blockKind);
 	if (!clash && parent.inBlock && blocks.every((k) => k === null)) {
 		emit(cx, 1, r[1]);
 		for (const e of b) emit(cx, 2, whole(e));
 		return;
 	}
-	if (clash || a.some((e) => slotsB.has(slot(1, e)))) {
+	if (clash) {
 		const sa = single(a[0]);
 		const sb = single(b[0]);
 		if (a.length !== 1 || b.length !== 1 || !sa || !sb || !!blockKind(sa) !== !!blockKind(sb)) {

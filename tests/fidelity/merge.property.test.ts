@@ -10,7 +10,9 @@
 // - for statements typed into one block by both sides (typed-testing.ts: weekdays, purge, one-line
 //   bodies, `{` on its own line, tasks without ids), the two sides' statements put at the end of
 //   the block in either order schedule alike: a clean merge says the edits are independent. That
-//   is what would have caught N1 to N4 of review round 3.
+//   is what would have caught N1 to N4 of review round 3. The same for statements typed into the
+//   block kinds of round 4 (blocks-testing.ts: a declaration given a body by both sides, a shift
+//   assigned to a resource or an account body, the top level, a task and its supplement).
 // Errors that depend on the computed schedule (two timing edits can together push a chain past
 // the project end) are counted, not failed, as in schedule.property.test.ts. MERGE_FIDELITY_RUNS
 // clean merges (default 100 on push; the nightly job sets 2,000, split over its shards by
@@ -32,6 +34,7 @@ import {
 } from '../../src/lib/tjp/merge/sides-testing';
 import { contextOf, filesOf } from '../../src/lib/tjp/merge/testing';
 import { typedSides, type TypedSides } from '../../src/lib/tjp/merge/typed-testing';
+import { blockSides } from '../../src/lib/tjp/merge/blocks-testing';
 import { REPO } from '../golden/corpus';
 import { CONFIG } from './config';
 
@@ -57,6 +60,11 @@ const SCHEDULE_DEPENDENT = new Set([
 	// Whether an allocated resource gets any slot (two sides' working hours of one resource on
 	// different days, merged cleanly, can leave it none for a task).
 	'allocate_no_assigned',
+	// The warnings that go with `sched_runaway` (two sides' working hours on different days, merged
+	// cleanly, can leave too little time to schedule in the project).
+	'runaway',
+	'unscheduled_tasks',
+	'unscheduled_task',
 ]);
 
 let engine: Engine;
@@ -98,10 +106,11 @@ const meaning = (r: ScheduleResult): string =>
  * side on different tasks, in turn.
  */
 function sidesOf(seed: number, n: number): TwoSides | TypedSides | null {
-	if (n % 5 === 0) return adjacentSides(seed);
-	if (n % 5 === 3) return handSides(seed);
-	if (n % 5 === 4) return typedSides(seed);
-	const s = twoSides(seed, LOCAL, n % 5 === 1 ? 0 : 3);
+	if (n % 6 === 0) return adjacentSides(seed);
+	if (n % 6 === 3) return handSides(seed);
+	if (n % 6 === 4) return typedSides(seed);
+	if (n % 6 === 5) return blockSides(seed);
+	const s = twoSides(seed, LOCAL, n % 6 === 1 ? 0 : 3);
 	if (!s) return null;
 	const ta = touched(s.a.intent);
 	const tb = touched(s.b.intent);

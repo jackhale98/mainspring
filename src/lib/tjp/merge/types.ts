@@ -5,6 +5,48 @@
  * `src/lib/sync/merge.ts` exports `mergeWorkspace: MergeWorkspaceFn`, `mergeFile: MergeFileFn`
  * and `resolve: ResolveFn`, and this folder holds the grammar-aware part (`hints.ts`, `refine.ts`).
  *
+ * ## The guarantee (T6 review round 4)
+ *
+ * A **block** is any brace body the grammar parses (task, resource, project, supplement, shift,
+ * account, report, `extend`, `journalentry`, `limits`, the body of `depends a { … }` or
+ * `allocate r { … }`, and every other `{ … }`), a task, resource, project or supplement written
+ * without a body (a block with an empty body, where a side may add one), the file's top level,
+ * and a task or resource together with its supplements in the same file.
+ *
+ * - **G1.** A clean merge never holds two statements that set the same single-valued attribute of
+ *   the same block where either was added or changed by a side. Single-valued is every keyword
+ *   tjp/merge/keywords.ts does not list as repeatable (unknown ones included; the sizing criteria
+ *   are one value); a repeatable one sets the same value as another when their items meet
+ *   (`depends`/`precedes` by target, `workinghours` by weekday, others by text), and `purge X`
+ *   with a change to `X`; a declaration (a nested block, `macro`, `include` by path, `account`,
+ *   `shift` …) with the same kind and id is the same value.
+ * - **G2.** A block both sides changed whose changes the keyword table cannot key (a macro call)
+ *   or prove independent, any block both sides changed that has an error node where a side changed
+ *   it, and any block both sides changed whose kind the table does not cover (every brace body
+ *   but task, resource, project and supplement bodies, the top level, and a declaration with its
+ *   supplements), is a conflict.
+ * - **G3 (a requirement on the caller).** The merge does not see, by design: interactions across
+ *   different blocks or files (a supplement in another file; a parent's attribute and a child's,
+ *   as inheritance; `purge` in a child of what its parent allocates; a move to another file whose
+ *   id also changes, unless `MergeContext.others` shows the move), and meanings that span keywords
+ *   (`start`/`end`/`duration` together, `scheduling` against `start` or `end`, `depends` against
+ *   `precedes`, `shifts` against `workinghours`). These are left to the schedule check on the
+ *   merged text: the caller (the sync controller, T7) must schedule the merged text and treat any
+ *   error or warning beyond what ours and theirs had (count(merged) > count(ours) + count(theirs)
+ *   - count(base), by level and id) as "needs review", never as clean. Message ids seen to catch
+ *   such merges: `attr_overwrite`, `marco_redefinition`, `task_depend_multi`,
+ *   `task_overspecified`, `task_exists`, `resource_exists`, `account_exists`, `shift_exists`,
+ *   `booking_conflict`, `shift_assignment_overlap`, `multiple_durations`, `allocate_no_assigned`,
+ *   and `sched_runaway` with `runaway` and `unscheduled_task(s)` (two sides' working hours on
+ *   different days, merged cleanly, leaving too little time). Known to pass the engine **silently** (no message; only a person can tell): a later
+ *   `workinghours` or `shifts` for the same days in another block of the same resource (a
+ *   supplement in another file, a parent and a child); a parent's attribute changed by one side
+ *   and the child's by the other; a `scheduling` direction against a `start` or `end`; a moved
+ *   task whose full id changed (`t` to `q.t`) when the move is not seen (both copies schedule);
+ *   `copyright` and other report-only attributes said twice in different files. The engine
+ *   property (tests/fidelity/merge.property.test.ts) checks the message rule on every clean
+ *   merge and, for edits typed into one block, that both orders of the two edits schedule alike.
+ *
  * ## Contract
  *
  * - **Text only.** Merges take and give text as the workspace holds it (store-types.ts codec).
@@ -28,13 +70,16 @@
  * - **Refinement** (rule 2). A conflicting hunk inside one task, resource or project block, or
  *   among a file's top-level statements (contract notes), is merged again statement by statement
  *   over the Lezer trees of all three texts. So is **every block both sides changed statements
- *   of** (task, resource, project or supplement body, in any layout: one-line bodies, `{` on its
- *   own line, tasks without ids), even where the line merge is clean (review round 3): which
+ *   of** (a block as "The guarantee" defines it, in any layout: one-line bodies, `{` on its own
+ *   line, tasks without ids), even where the line merge is clean (review rounds 3 and 4): which
  *   blocks those are is decided from the base tree, by mapping each side's changed line regions
  *   to the blocks they lie in or reach into, never from the text's layout (blocks.ts). Such a
  *   block merges cleanly only when every pair of the two sides' changes is provably independent
- *   under the keyword table (check.ts); anything the table does not know, a statement it cannot
- *   key (a macro call) or a region with error nodes makes the block one conflict. Statements are
+ *   under the keyword table (check.ts, G1); anything else makes it a conflict (G2): a task,
+ *   resource, project or supplement body is then one conflict, a top level one conflict over what
+ *   the two sides changed there, a declaration with its supplements one conflict from its first
+ *   block to its last, and any other brace body an `attribute` conflict of the statement that
+ *   owns it. Statements are
  *   matched across sides by their key: the keyword (with its scenario prefix, `delayed:effort`)
  *   and, for a block, its id, or for a task or resource without one its name and position among
  *   its siblings; the sizing criteria (`effort`, `duration`, `length`, `milestone`) match each
@@ -124,9 +169,14 @@
  *   `projectids` follow the item rules above (before, `extend` and `projectids` were additive,
  *   and two `workinghours` lines merged as additive). A task moved on one side (to another block
  *   or file) and edited on the other, whose id is not unique or which ours moved to another file,
- *   is a `text` conflict without `both`. Within one file either choice leaves one copy; across
- *   files Take theirs keeps ours' moved copy in the other file too, which the engine reports as a
- *   duplicate id (the merge of one file cannot remove text from another).
+ *   is a `text` conflict without `both`.
+ * - (T6 review round 4) "The guarantee" (G1-G3) is added, and a block is any brace body, a
+ *   declaration without one, the top level, and a declaration with its supplements in the file.
+ *   `MergeConflict.only` is added: a task one side moved (its id not unique in the file, or to
+ *   another file) and the other edited offers only the moving side's choice and Edit…, as the
+ *   other would leave a second copy; `resolve` refuses the other side. `MergeContext.others` is
+ *   added so a move to another file by either side is seen (also with a new full id, `t` to
+ *   `q.t`).
  */
 import type { Text } from '@codemirror/state';
 import type { Tree } from '@lezer/common';
@@ -155,6 +205,14 @@ export interface MergeContext {
 	 * which tasks ours declares in other files (a task moved to another file, review L4).
 	 */
 	readonly files?: ReadonlyMap<WorkspacePath, ParsedFile>;
+	/**
+	 * All three sides' files (T6 review round 4, L4), so the merge of one file sees a task or
+	 * resource a side moved to another file: that side declares it there more often than the base
+	 * does. `mergeWorkspace` passes them itself; a caller that assembles `mergeWorkspace`'s result
+	 * from `mergeFileSteps` (the sync controller) passes them too. Without them, only
+	 * ours' moves are seen, from `files`, as ours declaring it in another file at all.
+	 */
+	readonly others?: { readonly base: Files; readonly ours: Files; readonly theirs: Files };
 }
 
 /** A file as the workspace holds it (`TjpFile`'s text and tree). */
@@ -273,6 +331,15 @@ export interface MergeConflict {
 	readonly atOurs: SourceRange | null;
 	/** Whether `take: 'both'` is offered (rule 3; contract notes). */
 	readonly both: boolean;
+	/**
+	 * The only side a choice may take, or null when both may be taken (T6 review round 4, L4). A
+	 * task or resource one side moved (to another place in this file while its id occurs more than
+	 * once here, or to another file) and the other side edited in place is a `text` conflict whose
+	 * other choice would leave a second copy: `only` names the moving side ('ours': Take mine and
+	 * Edit… are offered; 'theirs': Take theirs and Edit…). `resolve` leaves a conflict unresolved
+	 * when it is given the other side.
+	 */
+	readonly only: 'ours' | 'theirs' | null;
 }
 
 /**
@@ -292,7 +359,7 @@ export interface Resolution {
  * sync/merge.ts (T6): `export const resolve: ResolveFn`. The merged files with every conflict's
  * region replaced by its choice, or the ids still unresolved, in `m.conflicts` order. A resolution
  * for an unknown id is ignored (a choice whose subject is gone); `both` on a conflict without
- * `both` leaves it unresolved; for one id, the last resolution wins. An `attribute` theirs added
+ * `both`, and the side `only` does not name, leave it unresolved; for one id, the last resolution wins. An `attribute` theirs added
  * goes on its own line with the block's indentation (in a one-line body, on that line). **No choice removes a file**: on a `file`
  * conflict whose chosen side has no file (`theirs` on `deleted-theirs`, `ours` on
  * `deleted-ours`), the file keeps its base text, which the sync controller never writes back

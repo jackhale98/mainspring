@@ -8,9 +8,10 @@
  *   `include:"x.tji"`, `scenario:plan`, `account:cost`); a task without an id by its name and its
  *   place among such siblings (`task#One#1`). A statement-level macro call has none:
  *   it is matched only by its text. Keys are compared as written, so a macro id keys by its text.
- * - **Blocks** are `task`, `resource`, `project` and `supplement` statements: the merge enters
- *   their bodies (refinement), and a deleted or doubly added one is a `block` conflict. A
- *   supplement's owner is the task or resource it supplements, without a name.
+ * - **Block kinds** are `task`, `resource`, `project` and `supplement` statements: the merge
+ *   enters their bodies (refinement), and a deleted or doubly added one is a `block` conflict. A
+ *   supplement's owner is the task or resource it supplements, without a name. (For the
+ *   structural rule every brace body is a block, blocks.ts; other bodies are not entered.)
  * - **Owners.** The full id as the symbol index forms it: the ids of the enclosing declarations of
  *   the same kind, under the prefix in force in the file's first visit (includes.ts: the
  *   `@property` an include site leaves applies before the visit's first include, else the
