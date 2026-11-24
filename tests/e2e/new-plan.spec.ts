@@ -117,7 +117,7 @@ test.describe('New plan', () => {
 		if (touch) {
 			await expect(page.getByTestId('status-button')).toHaveAttribute('data-glyph', 'empty');
 		} else {
-			await expect(status).toContainText('No engine errors or warnings');
+			await expect(status).toContainText('No scheduler problems');
 			await expect(status.getByRole('button', { name: /error|warning|message/i })).toHaveCount(0);
 		}
 

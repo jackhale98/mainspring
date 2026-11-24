@@ -79,7 +79,7 @@
 	<span class="label">{v.label}</span>
 	<span class="pip" aria-hidden="true"></span>
 </button>
-<div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{said}</div>
+<div class="sr-only" role="status" aria-live="polite" data-testid="sync-live">{said}</div>
 <LazyMount
 	when={asked}
 	load={() => import('./SyncPanel.svelte')}

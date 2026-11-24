@@ -81,7 +81,7 @@ test.describe('text mode', () => {
 		await expect(strip).toContainText('last good', { timeout: READY_TIMEOUT_MS });
 		await page.keyboard.press('ControlOrMeta+z');
 		await expect(page.locator('.cm-lintRange-error')).toHaveCount(0, { timeout: 10_000 });
-		await expect(strip).toContainText('No engine errors or warnings', {
+		await expect(strip).toContainText('No scheduler problems', {
 			timeout: READY_TIMEOUT_MS,
 		});
 	});
@@ -163,7 +163,7 @@ test.describe('text mode', () => {
 		const live = page.locator('[role="status"][aria-live="polite"][aria-atomic="true"]');
 		await expect(live).toContainText('Scheduled');
 		await expect(live).toContainText('Finish');
-		await expect(live).toContainText('No engine errors or warnings');
+		await expect(live).toContainText('No scheduler problems');
 	});
 
 	test('the outline is an ARIA tree with arrow keys', async ({ page, viewport }) => {

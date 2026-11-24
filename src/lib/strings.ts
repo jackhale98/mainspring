@@ -1219,7 +1219,7 @@ export const strings = {
 		 */
 		counts: (errors: number, warnings: number) =>
 			errors + warnings === 0
-				? 'No engine errors or warnings'
+				? 'No scheduler problems'
 				: [
 						errors > 0 ? plural(errors, 'error', 'errors') : null,
 						warnings > 0 ? plural(warnings, 'warning', 'warnings') : null,
