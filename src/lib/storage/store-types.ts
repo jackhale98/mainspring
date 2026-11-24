@@ -78,6 +78,11 @@
  *   would write replacement characters unasked (18.11) without it. Set once, when the plan is made.
  * - A folder's `SyncBase` is the decoded `RemoteSnapshot` of its read or of Save to…'s write, with
  *   `kept` empty and `summary` null (no schedule of it yet).
+ * - **Proposal for T8 and T15, not implemented:** `relocate(id, location, base)`, one transaction
+ *   that sets a stored plan's `location` (and `name`) and its base, keeping the id, the files, the
+ *   queue and so the preferences (`ws:<id>`). Save to… today stores the plan anew at the target (a
+ *   new id, the preferences copied) and removes the browser copy (state/app-storage.ts, T5 notes);
+ *   with `relocate` it would be one atomic step, and "Save to GitHub…" (T8) the same.
  */
 import type { ScheduleSummary } from '../sync/types';
 import type { Resolution } from '../tjp/merge/types';

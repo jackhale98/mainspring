@@ -18,11 +18,25 @@
  *   `revisionPaths`; types.ts contract notes).
  * - **Write** (7.2). Every plan file's stamp is checked against `base`'s before the first byte is
  *   written. Any difference (a file changed, only touched, added or deleted on disk) is `moved`,
- *   with nothing written; an added path that is on disk by then is such a difference, never an
- *   overwrite. Each file is written with `createWritable`: a swap file that replaces the file on
- *   `close`, so a crash leaves the old file whole; missing subfolders are created; nothing is
- *   deleted or renamed. The new revision is `base`'s stamps with the written files' new ones. Not
- *   atomic across files: a failure leaves the files before it written (types.ts `failed`).
+ *   with nothing written. So is anything that answers to an added path (below, "Case"), and a path
+ *   through `.git` or whose folder is a file is refused (`failed`) before anything is written.
+ *   Then the files that exist are written, then the added ones, each in path order. Right before a
+ *   file is overwritten it is looked at again: its stamp must be the base's, and its content what
+ *   was read at that stamp (the digest, below); otherwise the write stops there as `moved`, and that
+ *   file and the rest are not written. This catches a change made while other files were being
+ *   written, and an edit with the same size and time (a disk with a coarse clock: FAT's 2 s, a
+ *   network share's 1 s). Each file is written with `createWritable`: a swap file that replaces the
+ *   file on `close`, so a crash leaves the old file whole; missing subfolders are created; nothing
+ *   is deleted or renamed. The new revision is `base`'s stamps with the written files' new ones.
+ *   Not atomic across files: a `failed` or a `moved` part way leaves the files before it written
+ *   (types.ts, contract notes T5).
+ * - **Digests**: what `read` read and `write` wrote, per file (size, `lastModified`, SHA-256), is
+ *   kept beside the handle (folder-handles.ts `Digest`), so the content check holds after a reload.
+ *   A file the digest does not know at the base's stamp is checked by its stamp alone.
+ * - **Case**. A disk that ignores case (the default on macOS and Windows) opens `Plan.tjp` for
+ *   `plan.tjp`. So an added path is first looked up without `create`, every folder of it and the
+ *   file, and anything that answers is `moved`, never opened; this also covers `notes.TJI`, which is
+ *   not a plan file. A write whose paths differ only by case is refused (`failed`, `folder: case`).
  * - **Access**: `queryPermission` and `requestPermission` for `readwrite`; a handle without them (an
  *   origin-private folder) is granted. A location whose handle is not stored (the browser's storage
  *   was cleared) is `denied`: only picking the folder again can give it back.
@@ -33,6 +47,7 @@
  */
 import {
 	idbHandles,
+	type Digest,
 	type FsDirHandle,
 	type FsFile,
 	type FsFileHandle,
@@ -219,6 +234,77 @@ async function settled<T>(signal: AbortSignal | undefined, f: () => Promise<T>):
 	}
 }
 
+/** Two of `paths` that differ only by case, or null (module comment, "Case"). */
+export function caseClash(paths: Iterable<string>): readonly [string, string] | null {
+	const seen = new Map<string, string>();
+	for (const p of paths) {
+		const low = p.toLowerCase();
+		const other = seen.get(low);
+		if (other !== undefined && other !== p) return [other, p];
+		seen.set(low, p);
+	}
+	return null;
+}
+
+/** A path the provider may write: a plan file, a workspace path, not through `.git` (L1). */
+const writable = (p: string): boolean =>
+	isWorkspacePath(p) && isPlanFile(p) && !p.split('/').includes('.git');
+
+/**
+ * Whether anything answers to `path` under `root`, looked up without `create`, so a disk that
+ * ignores case answers for a file of another case (module comment, "Case"). A folder of the path
+ * that is a file rejects with `TypeMismatchError` (L2).
+ */
+async function present(root: FsDirHandle, path: WorkspacePath): Promise<boolean> {
+	const parts = path.split('/');
+	const name = parts.pop() ?? path;
+	let dir = root;
+	try {
+		for (const p of parts) dir = await dir.getDirectoryHandle(p);
+		await dir.getFileHandle(name);
+		return true;
+	} catch (e) {
+		const n = nameOf(e);
+		// A folder where the file would be: something is there.
+		if (
+			n === 'TypeMismatchError' &&
+			(await dir.getDirectoryHandle(name).then(
+				() => true,
+				() => false,
+			))
+		)
+			return true;
+		if (n === 'NotFoundError') return false;
+		throw e;
+	}
+}
+
+/** The SHA-256 of `bytes`, hex. */
+async function sha256(bytes: Uint8Array): Promise<string> {
+	const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>));
+	return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Whether the file is still what the base read (module comment, "Write"): its stamp is the base's,
+ * and its content is what was read at that stamp when the digest knows it (M3).
+ */
+async function unchanged(
+	h: FsFileHandle,
+	base: Stamp,
+	known: Digest[string] | undefined,
+): Promise<boolean> {
+	const f = await h.getFile();
+	if (f.size !== base[0] || f.lastModified !== base[1]) return false;
+	if (!known || known[0] !== base[0] || known[1] !== base[1]) return true;
+	try {
+		return (await sha256(new Uint8Array(await f.arrayBuffer()))) === known[2];
+	} catch (e) {
+		if (racing(e)) return false;
+		throw e;
+	}
+}
+
 /** The file at `path` under `root`, its folders created when `create`. */
 async function fileAt(root: FsDirHandle, path: WorkspacePath): Promise<FsFileHandle> {
 	const parts = path.split('/');
@@ -289,14 +375,30 @@ export function createFolderProvider(o: FolderOptions = {}): FolderProvider {
 		}
 	};
 
+	/** What was read or written of `loc`, with `add`; a digest the store cannot keep is lost. */
+	const remember = async (
+		loc: FolderLocation,
+		add: Digest,
+		keep?: Digest | null,
+	): Promise<void> => {
+		await handles.putDigest(loc.handle, { ...keep, ...add }).catch(() => undefined);
+	};
+	const moved = async (
+		root: FsDirHandle,
+		signal: AbortSignal | undefined,
+	): Promise<WriteResult> => ({
+		status: 'moved',
+		head: revisionOf(stampsNow(await list(root, signal))),
+		commit: null,
+	});
 	const write = async (
 		loc: FolderLocation,
 		req: WriteRequest,
 		signal: AbortSignal | undefined,
 	): Promise<WriteResult> => {
-		for (const p of req.files.keys()) {
-			if (!isWorkspacePath(p) || !isPlanFile(p)) return failed('server', 'folder: not a plan file');
-		}
+		const paths = [...req.files.keys()];
+		if (!paths.every(writable)) return failed('server', 'folder: not a plan file');
+		if (caseClash(paths)) return failed('server', 'folder: case');
 		const base = stampsOf(req.base);
 		if (!base) return failed('server', 'folder: not a folder revision');
 		const root = await dirOf(loc);
@@ -307,9 +409,31 @@ export function createFolderProvider(o: FolderOptions = {}): FolderProvider {
 		for (const [p, b] of req.files) sizes.set(p, b.byteLength);
 		const problem = planLimitProblem(sizes.values());
 		if (problem) return failed('too-large', `folder: ${problem}`);
-		for (const [path, bytes] of [...req.files].sort(byPath)) {
-			signal?.throwIfAborted();
-			now.set(path, await writeFile(l.handles.get(path) ?? (await fileAt(root, path)), bytes));
+		// Added paths: nothing may answer to them, in any case, and their folders are folders (H1, L2).
+		const added = paths.filter((p) => !l.handles.has(p)).sort();
+		for (const p of added) if (await present(root, p)) return moved(root, signal);
+		const known = await handles.digest(loc.handle).catch(() => null);
+		const wrote: Record<string, Digest[string]> = {};
+		try {
+			// The files that exist first, then the added ones (M4), each in path order.
+			for (const path of [...paths.filter((p) => l.handles.has(p)).sort(), ...added]) {
+				signal?.throwIfAborted();
+				const bytes = req.files.get(path) ?? new Uint8Array(0);
+				const there = l.handles.get(path);
+				// Right before it is overwritten, the file is still what the base read (M3).
+				if (
+					there
+						? !(await unchanged(there, base.get(path) ?? [-1, -1], known?.[path]))
+						: await present(root, path)
+				) {
+					return await moved(root, signal);
+				}
+				const stamp = await writeFile(there ?? (await fileAt(root, path)), bytes);
+				now.set(path, stamp);
+				wrote[path] = [stamp[0], stamp[1], await sha256(bytes)];
+			}
+		} finally {
+			if (Object.keys(wrote).length > 0) await remember(loc, wrote, known);
 		}
 		return { status: 'written', revision: revisionOf(now) };
 	};
@@ -340,8 +464,14 @@ export function createFolderProvider(o: FolderOptions = {}): FolderProvider {
 					const problem = planLimitProblem([...l.files.values()].map((f) => f.size));
 					if (problem) throw new StorageFailure(storageError('too-large', `folder: ${problem}`));
 					const files = new Map<WorkspacePath, Uint8Array>();
-					for (const [p, f] of l.files) files.set(p, new Uint8Array(await f.arrayBuffer()));
+					const seen: Record<string, Digest[string]> = {};
+					for (const [p, f] of l.files) {
+						const bytes = new Uint8Array(await f.arrayBuffer());
+						files.set(p, bytes);
+						seen[p] = [f.size, f.lastModified, await sha256(bytes)];
+					}
 					signal?.throwIfAborted();
+					await remember(loc, seen);
 					const times = [...l.files.values()].map((f) => f.lastModified);
 					return {
 						revision: revisionOf(stampsNow(l)),
