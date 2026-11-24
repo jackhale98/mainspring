@@ -226,10 +226,15 @@
 	});
 	/**
 	 * The notice under the top bar (PlanNotice.svelte, lazy): read-only, could not open, cleared,
-	 * or changes another tab refused. Where the plan is kept, and changes the store refused, are the
-	 * top bar's sync status control (T14), on every layout.
+	 * changes the store or another tab refused. Where the plan is kept is the top bar's sync status
+	 * control (T14), on every layout; the notice says in words what the control's icon cannot.
 	 */
-	const planNotice = $derived(app.readOnly || app.keeping.cleared || app.keeping.unopened !== null);
+	const planNotice = $derived(
+		app.readOnly ||
+			app.keeping.cleared ||
+			app.keeping.unopened !== null ||
+			app.keeping.keep.kind === 'failed',
+	);
 
 	let body: HTMLElement | undefined = $state();
 	const axis = $derived(kind === 'desktop' ? 'col' : 'row');

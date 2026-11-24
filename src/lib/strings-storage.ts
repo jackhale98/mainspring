@@ -30,6 +30,9 @@ export const storageStrings = {
 		/** The store is empty but the marker says plans were kept (9.4). */
 		cleared:
 			'This browser cleared the plans that Mainspring kept in it. Plans saved somewhere else are not affected.',
+		/** Changes the store refused (8.1 #8): said in words on every layout, beside the control. */
+		failed:
+			'Your latest changes could not be kept in this browser. They are only in this tab, and closing it loses them.',
 		dismiss: 'Dismiss',
 	},
 } as const;

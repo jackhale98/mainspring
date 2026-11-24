@@ -9,7 +9,7 @@
 
 	It shows `statusOf(app)` (lib/sync/shown.ts): a component of its own is the adapter's only
 	reader, so T7's controller changes nothing here. Pressing it opens the Sync panel, a lazy chunk
-	(SyncPanel.svelte: a popover beside the control, a bottom sheet on a phone), loaded by the first
+	(SyncPanel.svelte: a popover beside the control, a bottom sheet on a tablet and a phone), loaded by the first
 	press. Until it is loaded the button has no popover to toggle, so the first press asks for the
 	chunk; once the panel is there, the declarative `popovertarget` toggles it (a script that also
 	opened it would close it again in the same press).
@@ -29,10 +29,10 @@
 
 	interface Props {
 		app: AppState;
-		/** A phone: the panel is a bottom sheet, which the press opens itself. */
-		phone?: boolean;
+		/** A tablet or a phone: the panel is a bottom sheet, which the press opens itself. */
+		sheet?: boolean;
 	}
-	let { app, phone = false }: Props = $props();
+	let { app, sheet = false }: Props = $props();
 
 	const id = $props.id();
 	const popoverId = `sync-panel-${id}`;
@@ -45,7 +45,7 @@
 	let asked = $state(false);
 
 	function press(): void {
-		if (phone || !panel.ready) {
+		if (sheet || !panel.ready) {
 			panel.open = true;
 			asked = true;
 		}
@@ -69,9 +69,9 @@
 	data-kind={s.kind}
 	data-tone={v.tone}
 	aria-label={name}
-	aria-haspopup={phone ? 'dialog' : undefined}
+	aria-haspopup={sheet ? 'dialog' : undefined}
 	aria-expanded={panel.open}
-	popovertarget={phone ? undefined : popoverId}
+	popovertarget={sheet ? undefined : popoverId}
 	title={name}
 	onclick={press}
 >
@@ -83,7 +83,7 @@
 <LazyMount
 	when={asked}
 	load={() => import('./SyncPanel.svelte')}
-	props={{ app, phone, id: popoverId, panel }}
+	props={{ app, sheet, id: popoverId, panel }}
 />
 
 <style>
@@ -99,7 +99,8 @@
 		block-size: var(--size-control);
 		padding: 0;
 		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-pill);
+		/* A rounded square like its neighbours; the pill form (with a label) matches the plan chip. */
+		border-radius: var(--radius-md);
 		background: var(--color-surface);
 		box-shadow: var(--shadow-chip);
 		color: var(--color-text);
@@ -159,6 +160,7 @@
 	}
 	@container topbar (min-width: 1360px) {
 		.sync {
+			border-radius: var(--radius-pill);
 			inline-size: 12.5rem;
 			justify-content: flex-start;
 			padding-inline: 12px;

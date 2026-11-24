@@ -21,11 +21,11 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function setup(o: { refused: boolean }) {
+function setup(o: { refused: boolean; quota?: boolean }) {
 	const openStored = vi.fn(async () => true);
 	const keeping = $state({
 		keep: o.refused
-			? { kind: 'failed', error: storageError('not-owner', 'taken') }
+			? { kind: 'failed', error: storageError(o.quota ? 'quota' : 'not-owner', 'taken') }
 			: { kind: 'stored', at: 1 },
 		unopened: null,
 		cleared: false,
@@ -74,6 +74,13 @@ describe('the plan notice', () => {
 		expect(notice.dataset['kind']).toBe('refused');
 		expect(notice.querySelector('p')?.textContent).toBe(S.refused);
 		expect(notice.getAttribute('role')).toBe('status');
+	});
+
+	it('says in words that changes the store refused are only in this tab, with the text to copy', () => {
+		const { notice, button } = setup({ refused: true, quota: true });
+		expect(notice.dataset['kind']).toBe('failed');
+		expect(notice.querySelector('p')?.textContent).toBe(S.failed);
+		expect(button(S.copyText)).toBeTruthy();
 	});
 
 	it("copies the open file's text, and says when it could not (N1)", async () => {

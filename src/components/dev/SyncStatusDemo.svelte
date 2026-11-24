@@ -5,7 +5,7 @@
 	folder or GitHub plan, queued writes, a conflict) can be seen, tested with axe and photographed
 	before they exist in the app. Each row is the real control on a fake app whose `sync` is a
 	controller stand-in (`status` and `location` only, what `statusOf` reads). `?wide=1` makes the bar 1400 px so that labels show; `?phone=1` draws the
-	phone's control and sheet. Plain text is fine on this page: it is not user-facing.
+	sheet (a tablet's and a phone's). Plain text is fine on this page: it is not user-facing.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -99,7 +99,7 @@
 	{#each ROWS as r (r.id)}
 		<section class="row" data-row={r.id}>
 			<h2>{r.id}</h2>
-			<div class="bar" class:wide><SyncStatus app={fake(r)} {phone} /></div>
+			<div class="bar" class:wide><SyncStatus app={fake(r)} sheet={phone} /></div>
 		</section>
 	{/each}
 </main>

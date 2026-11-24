@@ -5,15 +5,16 @@
 	wordmark, the plan chip, undo and redo, the centred mode switch, the engine pill and the theme
 	toggle. It answers to its own width (a container query), not the window's: below 900 px the
 	mode switch keeps icons and the active label, the engine pill shrinks to its dot and the
-	wordmark goes. A phone has its own header: the mark, the plan's name as a serif title with the
-	finish date under it, the project button, undo and redo (always visible; a press and hold on Undo
+	wordmark goes. A phone has its own header: the plan's name as a serif title with the finish date under it (no
+	brand mark: its room goes to the title), the sync status control, the project button, undo and redo (always visible; a press and hold on Undo
 	opens the History sheet) and the status button (the plan's state as a shape; it opens the status,
 	the History row, the Appearance choice that replaces the theme toggle here, and the engine
 	details, and carries a pip when a new version is out); its tab bar replaces the mode switch.
 	A desktop and a tablet have the Health button (the finding count; phase-3.md 9.1) before the
 	engine pill: a phone's way to plan health is a row in the status button's card.
 	The sync status control (T14; components/sync/SyncStatus.svelte) sits after the plan chip on every
-	layout: icon and label where the bar is 1100 px or wider, the icon alone under that and on a phone.
+	layout: icon and label where the bar is 1360 px or wider, the icon alone under that and on a phone;
+	its panel is a popover on a desktop and a bottom sheet on a tablet and a phone.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -54,9 +55,8 @@
 <header class="topbar" data-layout={layout}>
 	{#if phone}
 		<h1 class="sr-only">{strings.appName}</h1>
-		<Mark size={26} />
 		<div class="title"><PlanChip {app} title subtitle={finish} /></div>
-		<SyncStatus {app} phone />
+		<SyncStatus {app} sheet />
 		<button
 			type="button"
 			class="project-button"
@@ -94,7 +94,7 @@
 		</h1>
 		<span class="rule" aria-hidden="true"></span>
 		<div class="plan"><PlanChip {app} /></div>
-		<SyncStatus {app} />
+		<SyncStatus {app} sheet={layout === 'tablet'} />
 		<UndoRedo {app} />
 		<div class="centre"><ModeSwitch {mode} {onmode} /></div>
 		<button

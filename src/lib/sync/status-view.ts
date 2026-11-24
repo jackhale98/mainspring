@@ -59,7 +59,7 @@ export function viewOf(s: Shown): StatusView {
 		case 'failed':
 			return view(
 				s.where === 'store' ? L.failedStore : L.failedProvider,
-				'close',
+				'stop',
 				'error',
 				`${s.kind}-${s.where}-${s.error.kind}`,
 				true,
