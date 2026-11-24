@@ -119,14 +119,51 @@ export function independent(x: SyntaxNode, tx: string, y: SyntaxNode, ty: string
 	}
 	if (declares(x, tx) && !repeatable(kx)) return false;
 	if (!repeatable(kx)) return false;
-	const ix = itemsOf(x, tx);
-	return !itemsOf(y, ty).some((k) => ix.includes(k));
+	return !meet(itemsOf(x, tx), itemsOf(y, ty));
+}
+
+/**
+ * An item that meets every other one: a repeatable statement whose items cannot be read (a macro
+ * call in it, a `workinghours` day written in a form this module does not know). Two sides' such
+ * statements in one slot are never proved independent (G2).
+ */
+const ANY = '\u0000any';
+
+/** Whether two statements' items meet: one in common, or either cannot be read. */
+function meet(ix: readonly string[], iy: readonly string[]): boolean {
+	return ix.includes(ANY) || iy.includes(ANY) || iy.some((k) => ix.includes(k));
+}
+
+/** The weekdays a `workinghours` statement sets, or null when its day list cannot be read. */
+export function weekdaysOf(rest: string): string[] | null {
+	// The day list ends where the hours start (a time, or `off`); days are words, `a - b` or `a-b`
+	// a range (TaskJuggler reads both), a comma or a space the separator.
+	const words: string[] = [];
+	for (const w of rest.trim().split(/[\s,]+/)) {
+		if (w === '') continue;
+		if (/^\d/.test(w) || w.toLowerCase() === 'off') break;
+		for (const part of w.split(/(-)/)) if (part !== '') words.push(part.toLowerCase());
+	}
+	const days = new Set<string>();
+	for (let i = 0; i < words.length; i++) {
+		const d = DAYS.indexOf(words[i] as string);
+		if (d < 0) return null;
+		if (words[i + 1] === '-') {
+			const e = DAYS.indexOf(words[i + 2] ?? '');
+			if (e < 0) return null;
+			for (let k = d; k !== (e + 1) % 7; k = (k + 1) % 7) days.add(DAYS[k] as string);
+			i += 2;
+		} else days.add(DAYS[d] as string);
+	}
+	return days.size > 0 ? [...days] : null;
 }
 
 /** The items a repeatable statement adds (module comment). */
 function itemsOf(st: SyntaxNode, text: string): string[] {
 	const kw = keywordOf(st, text);
 	const body = text.slice(st.from, st.to);
+	// A macro call can stand for any item (`depends ${X}`, `workinghours ${D} …`).
+	if (body.includes('${')) return [ANY];
 	if (kw === 'depends' || kw === 'precedes') {
 		const out: string[] = [];
 		for (let c = st.firstChild; c; c = c.nextSibling) {
@@ -136,24 +173,7 @@ function itemsOf(st: SyntaxNode, text: string): string[] {
 		}
 		return out.length > 0 ? out : [body];
 	}
-	if (kw === 'workinghours') {
-		const days = new Set<string>();
-		const words = body.slice(kw.length).split(/[\s,]+/);
-		for (let i = 0; i < words.length; i++) {
-			const w = (words[i] ?? '').toLowerCase();
-			const d = DAYS.indexOf(w);
-			if (d < 0) {
-				if (w !== '-' && w !== '') break;
-				continue;
-			}
-			if (words[i + 1] === '-' && DAYS.includes((words[i + 2] ?? '').toLowerCase())) {
-				const e = DAYS.indexOf((words[i + 2] as string).toLowerCase());
-				for (let k = d; k !== (e + 1) % 7; k = (k + 1) % 7) days.add(DAYS[k] as string);
-				i += 2;
-			} else days.add(DAYS[d] as string);
-		}
-		return days.size > 0 ? [...days] : [body];
-	}
+	if (kw === 'workinghours') return weekdaysOf(body.slice(kw.length)) ?? [ANY];
 	return [body.trim()];
 }
 
@@ -311,8 +331,7 @@ export function checkBlock(
 				const sx = da.added.includes(x) ? a : o;
 				for (const y of [...db.added, ...db.removed]) {
 					const sy = db.added.includes(y) ? b : o;
-					const ix = items(sx, x);
-					if (!items(sy, y).some((k) => ix.includes(k))) continue;
+					if (!meet(items(sx, x), items(sy, y))) continue;
 					if (da.added.includes(x) && db.added.includes(y) && said(a, x) === said(b, y)) {
 						collapse(x, y);
 						continue;

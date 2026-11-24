@@ -14,12 +14,16 @@
  * and a task or resource together with its supplements in the same file.
  *
  * - **G1.** A clean merge never holds two statements that set the same single-valued attribute of
- *   the same block where either was added or changed by a side. Single-valued is every keyword
- *   tjp/merge/keywords.ts does not list as repeatable (unknown ones included; the sizing criteria
- *   are one value); a repeatable one sets the same value as another when their items meet
- *   (`depends`/`precedes` by target, `workinghours` by weekday, others by text), and `purge X`
- *   with a change to `X`; a declaration (a nested block, `macro`, `include` by path, `account`,
- *   `shift` …) with the same kind and id is the same value.
+ *   the same block where one was added or changed by each side (what one side alone says twice
+ *   comes through as that side wrote it). Single-valued is every keyword tjp/merge/keywords.ts does
+ *   not list as repeatable (unknown ones included; the sizing criteria are one value); a repeatable
+ *   one sets the same value as another when their items meet (`depends`/`precedes` by target,
+ *   `workinghours` by weekday in every form TaskJuggler reads, others by text; a statement whose
+ *   items cannot be read, a macro call in it or a day list this module does not know, meets every
+ *   other one), and `purge X` with a change to `X`; a declaration (a nested block, `macro`,
+ *   `include` by path, `account` …) with the same kind and id is the same value. A `shift` declared
+ *   by both sides with one id at different places is not caught here: the engine refuses it
+ *   (`shift_exists`, G3).
  * - **G2.** A block both sides changed whose changes the keyword table cannot key (a macro call)
  *   or prove independent, any block both sides changed that has an error node where a side changed
  *   it, and any block both sides changed whose kind the table does not cover (every brace body
