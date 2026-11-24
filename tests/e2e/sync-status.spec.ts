@@ -101,9 +101,10 @@ test('changes this browser refuses are said not kept, in the control and the pan
 }, info) => {
 	// The browser's storage refuses to open (a private window, blocked site data); the clipboard records.
 	await page.addInitScript(() => {
-		indexedDB.open = (() => {
+		// On the prototype: a property set on `indexedDB` itself can be lost in WebKit (persist.spec.ts).
+		IDBFactory.prototype.open = function (): IDBOpenDBRequest {
 			throw new DOMException('blocked', 'SecurityError');
-		}) as typeof indexedDB.open;
+		};
 		Object.defineProperty(navigator, 'clipboard', {
 			configurable: true,
 			value: {
