@@ -83,7 +83,10 @@ describe('codec and records (6.2)', () => {
 
 	it('records where a plan came from and where it lives', () => {
 		expectTypeOf<StoredPlan['from']>().toEqualTypeOf<
-			{ readonly sample: SampleId } | { readonly newPlan: true } | { readonly opened: true }
+			| { readonly sample: SampleId }
+			| { readonly newPlan: true }
+			// T5: the opened files that were not UTF-8 (18.11).
+			| { readonly opened: true; readonly lossy?: ReadonlySet<WorkspacePath> }
 		>();
 		expectTypeOf<StoredPlan['location']>().toEqualTypeOf<Location>();
 		expectTypeOf<StoredPlan['id']>().toEqualTypeOf<WorkspaceId>();

@@ -28,9 +28,9 @@ import { strings } from '../strings';
 import { createAutosave, type Autosave, type AutosaveState } from '../storage/autosave';
 import { createLocalStore } from '../storage/local-store';
 import { acquire, type HeldLock } from '../storage/lock';
-import type { LocalStore, StoredPlan } from '../storage/store-types';
+import type { LocalStore, StoredPlan, SyncBase } from '../storage/store-types';
 import { isWorkspaceId, StorageFailure, storageError } from '../storage/types';
-import type { Location, WorkspaceId } from '../storage/types';
+import type { Location, WorkspaceId, WorkspacePath } from '../storage/types';
 import type { SampleWorkspace } from '../workspace/samples';
 import type { Workspace } from '../workspace/workspace';
 import type { ListedStorage } from './storage';
@@ -61,6 +61,17 @@ export interface Unstored {
 	readonly from: StoredPlan['from'];
 }
 
+/**
+ * Where an opened plan lives and what it was made from (T5): Save to… and Export read it. `lossy`
+ * names the files that had bytes that are not UTF-8 when they were read (the base's, or
+ * `from.lossy` for opened files, 18.11): their text holds replacement characters.
+ */
+export interface Where {
+	readonly location: Location;
+	readonly from: StoredPlan['from'] | null;
+	readonly lossy: ReadonlySet<WorkspacePath>;
+}
+
 /** A plan about to open (`AppState`'s `#load`). */
 export interface Opening {
 	/** Its `planKey`: a sample's id, `new` (a new plan the store did not take), or `ws:<id>`. */
@@ -77,6 +88,13 @@ export interface Opening {
 	readonly restored?: boolean;
 	/** Opened because the last plan could not be: it does not become the last plan (T4 review H2). */
 	readonly fallback?: boolean;
+	/** Where it lives (T5); default: only in this browser, from nothing known, nothing lossy. */
+	readonly where?: Where;
+	/**
+	 * Its first save stores every file whole (Save to…, T5: the workspace stays open, and what was
+	 * typed while the plan moved is kept too).
+	 */
+	readonly all?: boolean;
 }
 
 /** What the keeper tells `AppState` about the plan it keeps (`k`). */
@@ -160,6 +178,8 @@ export class PlanKeeper {
 				throw new StorageFailure(storageError('server', 'damaged: no entry file'));
 			}
 			const seed = { entry: plan.entry, files: Object.fromEntries(opened.files) };
+			const lossy = new Set(opened.base?.lossy);
+			if ('opened' in plan.from) for (const p of plan.from.lossy ?? []) lossy.add(p);
 			return {
 				key: this.#keyOf(id),
 				label: 'newPlan' in plan.from ? strings.newPlan.listed(plan.name) : plan.name,
@@ -167,6 +187,7 @@ export class PlanKeeper {
 				stored: { id, lock },
 				unstored: null,
 				restored: true,
+				where: { location: plan.location, from: plan.from, lossy },
 			};
 		} catch (e) {
 			lock?.release();
@@ -174,22 +195,41 @@ export class PlanKeeper {
 		}
 	}
 
-	/** Stores a new plan with its lock, and how it opens ("New plan…" is stored at once, 18.7). */
-	async create(p: Unstored, seed: SampleWorkspace): Promise<Opening> {
+	/**
+	 * Stores a new plan with its lock, and how it opens: "New plan…" (18.7, opens on the Gantt),
+	 * opened files, or a folder (T5: at `at.location`, with its sync base and the files it read
+	 * lossy).
+	 */
+	async create(
+		p: Unstored,
+		seed: SampleWorkspace,
+		at: { readonly location: Location; readonly base: SyncBase | null } = {
+			location: BROWSER,
+			base: null,
+		},
+	): Promise<Opening> {
 		const id = await this.#store.create(
-			{ name: p.name, entry: seed.entry, location: BROWSER, from: p.from },
+			{ name: p.name, entry: seed.entry, location: at.location, from: p.from },
 			new Map(Object.entries(seed.files)),
-			null,
+			at.base,
 		);
 		const l = await this.#acquire(id);
+		const lossy = new Set(at.base?.lossy);
+		if ('opened' in p.from) for (const f of p.from.lossy ?? []) lossy.add(f);
 		return {
 			key: this.#keyOf(id),
 			label: p.label,
 			load: () => Promise.resolve(seed),
 			stored: { id, lock: l === 'held-elsewhere' ? null : l },
 			unstored: null,
-			fresh: true,
+			fresh: 'newPlan' in p.from,
+			where: { location: at.location, from: p.from, lossy },
 		};
+	}
+
+	/** Deletes a stored plan and all its records (Save to… moved it elsewhere, T5). */
+	remove(id: WorkspaceId): Promise<void> {
+		return this.#store.remove(id);
 	}
 
 	/** The plans kept in this browser, most recently changed first (the chooser lists them). */
@@ -204,7 +244,8 @@ export class PlanKeeper {
 
 	/**
 	 * Keeps the open plan: a stored one by `id`, with its `lock`; one that opened unstored (`id`
-	 * null) is stored whole by its first save, as `unstored` says. `key` is its preference key now.
+	 * null) is stored whole by its first save, as `unstored` says, and so is every file of one that
+	 * `all` names (Opening `all`). `key` is its preference key now.
 	 */
 	keep(
 		ws: Workspace,
@@ -212,6 +253,7 @@ export class PlanKeeper {
 		lock: HeldLock | null,
 		unstored: Unstored | null,
 		key: string,
+		all = false,
 	): Kept {
 		let sid = id;
 		let held = lock;
@@ -227,7 +269,7 @@ export class PlanKeeper {
 		const saves = createAutosave({
 			workspace: ws,
 			// Unstored: the first save is the whole plan.
-			all: sid === null,
+			all: all || sid === null,
 			save: async (files, snap) => {
 				if (sid !== null) return this.#store.saveFiles(sid, files, snap.version);
 				if (!unstored) return;

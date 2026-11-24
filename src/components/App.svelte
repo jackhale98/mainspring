@@ -231,7 +231,8 @@
 	const showNotice = $derived(!phone && !(kind === 'desktop' && mode === 'text'));
 	/** The notice under the top bar (PlanNotice.svelte, lazy): read-only, cleared, or not kept. */
 	const planNotice = $derived(
-		app.readOnly ||
+		app.planQuestion !== null ||
+			app.readOnly ||
 			app.keeping.cleared ||
 			app.keeping.unopened !== null ||
 			(phone && app.keeping.keep.kind === 'failed'),

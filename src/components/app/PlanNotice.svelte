@@ -12,7 +12,9 @@
 	  browser remembers a failed import, so after a failed try the button reloads the page, which
 	  opens the last plan again (the pointer was left alone);
 	- the browser cleared the plans it kept (the eviction marker, 9.4), until dismissed;
-	- on a phone, which has no footer line, changes that could not be kept (8.1 #8).
+	- on a phone, which has no footer line, changes that could not be kept (8.1 #8);
+	- "which plan?" when a folder or the opened files hold several (18.22, T5; `app.planQuestion`),
+	  a button per plan and Cancel, the focus on the first plan. T15's chooser takes it over.
 	A lazy chunk: App.svelte mounts it the first time one of them applies. T14's sync status takes
 	the failure over.
 -->
@@ -63,6 +65,13 @@
 		copied = { path, ok };
 	}
 
+	const q = $derived(app.planQuestion);
+	let first: HTMLButtonElement | undefined = $state();
+	// The question comes after a picker closed: the focus goes to its first answer.
+	$effect(() => {
+		if (q) first?.focus();
+	});
+
 	/** "Open here instead" takes the open plan; Try again opens the one that could not be opened. */
 	async function open(id: string | null, steal: boolean): Promise<void> {
 		if (id === null || busy) return;
@@ -75,6 +84,27 @@
 	}
 </script>
 
+{#if q}
+	<div
+		class="notice"
+		role="group"
+		aria-labelledby="plan-question"
+		data-testid="plan-question"
+		data-kind="which"
+	>
+		<p id="plan-question">{S.which(q.where, q.plans.length)}</p>
+		{#each q.plans as p, i (p)}
+			{#if i === 0}
+				<button type="button" class="primary" bind:this={first} onclick={() => q.answer(p)}
+					>{p}</button
+				>
+			{:else}
+				<button type="button" class="primary" onclick={() => q.answer(p)}>{p}</button>
+			{/if}
+		{/each}
+		<button type="button" onclick={() => q.answer(null)}>{S.cancel}</button>
+	</div>
+{/if}
 {#if kind}
 	<div class="notice" role="status" data-testid="plan-notice" data-kind={kind}>
 		<p>{S[kind]}</p>

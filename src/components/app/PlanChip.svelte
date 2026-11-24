@@ -10,6 +10,12 @@
 	(ADR-0013 #2). A plan that is open but not kept (the store refused it) has its own entry. The
 	full chooser (rename, delete, locations) is T15's.
 	`title` style puts the name in the serif display face for the phone header.
+	Temporary file entries (T5, until T15's chooser replaces this list, phase-4.md 11.1), a "Files"
+	group last: "Open folder…" where the browser can open a folder in place (Chromium), "Open
+	files…", "Import folder…" on a fine pointer where folder inputs exist, "Save to folder…" (a plan
+	only in this browser, where folders open) and "Export plan files". The two file inputs sit beside
+	the chip, hidden. Pointing at the chip fetches the code behind them, so a picker opens in the
+	gesture.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -28,11 +34,38 @@
 
 	/** The "New plan…" entry's value: not a plan's key. */
 	const CREATE = '__new-plan__';
+	/** The file entries' values (module comment), none of them a plan's key. */
+	const FILES = {
+		'__open-folder__': () => void app.openFolder(),
+		'__open-files__': () => filesInput?.click(),
+		'__import-folder__': () => folderInput?.click(),
+		'__save-folder__': () => void app.saveToFolder(),
+		__export__: () => void app.exportPlan(),
+	} as const;
+	const F = strings.planFiles;
+	let filesInput: HTMLInputElement | undefined = $state();
+	let folderInput: HTMLInputElement | undefined = $state();
+	const fine = globalThis.matchMedia?.('(pointer: fine)').matches ?? true;
+	const canFolder =
+		typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function';
+	const canImport = fine && 'webkitdirectory' in HTMLInputElement.prototype;
+
+	/** Files were picked: they open as a plan (the input is cleared, so the same pick works again). */
+	function picked(input: HTMLInputElement): void {
+		const files = [...(input.files ?? [])];
+		input.value = '';
+		if (files.length > 0) void app.openFiles(files);
+	}
 
 	async function pick(value: string, select: HTMLSelectElement): Promise<void> {
 		if (value === CREATE) {
 			select.value = app.planKey;
 			app.newPlanOpen = true;
+			return;
+		}
+		if (value in FILES) {
+			select.value = app.planKey;
+			FILES[value as keyof typeof FILES]();
 			return;
 		}
 		if (value === app.planKey) return;
@@ -56,14 +89,20 @@
 	);
 </script>
 
-<label class="chip" class:title>
+<label class="chip" class:title onpointerdown={() => app.preloadFiles()}>
 	{#if !title}<Icon name="file" size={15} />{/if}
 	<span class="text" aria-hidden="true">
 		<span class="name">{app.planLabel}</span>
 		{#if title && subtitle !== ''}<span class="sub">{subtitle}</span>{/if}
 	</span>
 	<Icon name="chevronDown" size={title ? 16 : 13} />
-	<Select variant="overlay" value={app.planKey} onchange={pick} aria-label={strings.topBar.sample}>
+	<Select
+		variant="overlay"
+		value={app.planKey}
+		onchange={pick}
+		onfocus={() => app.preloadFiles()}
+		aria-label={strings.topBar.sample}
+	>
 		<option value={CREATE}>{strings.newPlan.chooser}</option>
 		{#if own}
 			<option value={app.planKey}>{app.planLabel}</option>
@@ -80,8 +119,38 @@
 				<option value={sample.id}>{sample.label}</option>
 			{/each}
 		</optgroup>
+		<optgroup label={F.group}>
+			{#if canFolder}<option value="__open-folder__">{F.openFolder}</option>{/if}
+			<option value="__open-files__">{F.openFiles}</option>
+			{#if canImport}<option value="__import-folder__">{F.importFolder}</option>{/if}
+			{#if app.workspace}
+				{#if canFolder && app.planLocation.kind === 'browser' && !app.readOnly}
+					<option value="__save-folder__">{F.saveToFolder}</option>
+				{/if}
+				<option value="__export__">{F.export}</option>
+			{/if}
+		</optgroup>
 	</Select>
 </label>
+<input
+	bind:this={filesInput}
+	type="file"
+	multiple
+	accept={fine ? '.tjp,.tji' : undefined}
+	hidden
+	data-testid="open-files-input"
+	onchange={(e) => picked(e.currentTarget)}
+/>
+{#if canImport}
+	<input
+		bind:this={folderInput}
+		type="file"
+		webkitdirectory
+		hidden
+		data-testid="import-folder-input"
+		onchange={(e) => picked(e.currentTarget)}
+	/>
+{/if}
 
 <style>
 	.chip {

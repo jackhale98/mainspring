@@ -56,6 +56,21 @@
  * - After a plan is reopened its history is empty, and an empty undo or redo says so (the history
  *   outcome has no direction); a read-only tab says nothing.
  * - The cleared notice does not point to GitHub or Export yet (T5, T14); the landing copy is T25's.
+ *
+ * Contract notes (T5; state/plan-files.ts implements them):
+ * - `openFolder` and `openFiles` take `{ choose }`, which asks which plan when there are several
+ *   (18.22); without it `AppState.planQuestion` holds the question until it is answered. A folder
+ *   kept here already (the same location) opens as it was kept, which is how the choice is
+ *   remembered. Their failures are said in the edit toasts' line (`say`), with no status member.
+ * - `saveTo` a folder: `needs-access` without permission, `exists` (nothing written) when a file
+ *   of the plan is there, `cancelled` when the person refused to write files that had bytes that
+ *   are not UTF-8 (18.11; a `confirm`, as Export asks), `synced` with the revision written. The
+ *   store has no way to move a plan (`LocalStore`), so the plan is stored anew at the folder (a
+ *   new id, the views' preferences copied) and the browser copy is removed; the workspace and its
+ *   history stay open. GitHub stays `failed` (`unsupported`) until T8.
+ * - AppState's own members: `pickFolder` (the picker for T15's Save to… flow), `exportPlan`,
+ *   `planLocation`, `planQuestion`, `preloadFiles`, and `saveToFolder` (the chooser's temporary
+ *   entry, which T15 replaces).
  */
 import type { PwaState } from '../../pwa/messages';
 import type { GitHubLocation, Location, WorkspaceId } from '../storage/types';

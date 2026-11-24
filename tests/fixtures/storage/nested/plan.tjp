@@ -1,0 +1,6 @@
+# Storage fixture (tests/fixtures/storage/README.md): a three-file plan in nested folders.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project nest "Nested plan" 2026-03-02 - 2026-04-30
+
+include "people/team.tji"
+include "work/phase1/tasks.tji"

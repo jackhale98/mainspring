@@ -126,6 +126,8 @@ describe('checkBudgets', () => {
 				'run-export.a.js',
 				'plan-keeper.a.js',
 				'PlanNotice.a.js',
+				'plan-files.a.js',
+				'export-files.a.js',
 			]),
 		).toEqual([]);
 	});

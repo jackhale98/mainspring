@@ -170,7 +170,14 @@ export class Keeping {
 				// Not once the plan closed (another opened, or the app was disposed).
 				if (this.#host.current() !== ws || this.#host.readOnly()) return;
 				const s = o.stored;
-				this.#kept = k.keep(ws, s?.id ?? null, s?.lock ?? null, o.unstored, this.#host.key());
+				this.#kept = k.keep(
+					ws,
+					s?.id ?? null,
+					s?.lock ?? null,
+					o.unstored,
+					this.#host.key(),
+					o.all === true,
+				);
 			},
 			(e: unknown) => void this.broken(e),
 		);

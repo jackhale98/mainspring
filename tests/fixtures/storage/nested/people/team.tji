@@ -1,0 +1,3 @@
+# The people of the nested plan.
+resource ana "Ana"
+resource ben "Ben"
