@@ -1,43 +1,49 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Folder plans (phase-4.md 4, 7.2, 13.2, 13.4, 18.22; T5), on small plans from
-// tests/fixtures/storage. Where the browser has the File System Access API (Chromium: desktop and
+// tests/fixtures/storage, through the app's own open, Save to… and export (`?hooks=files`: the
+// controls are T15's). Where the browser has the File System Access API (Chromium: desktop and
 // Pixel 7), `showDirectoryPicker` is replaced by a stand-in that returns a folder of the
 // origin-private file system, a real handle (lib/folder-rig.ts): a folder opens as a plan kept here
 // with the folder as its location, nothing is written to it, and a reload opens it again; a folder of
-// several plans asks which, and opening it again opens the one chosen; Save to folder… writes every
-// file once, byte for byte, and never over a file that is there; and on /dev/folder the provider
-// itself, on a real handle, writes only what it is given, keeps a BOM, CRLF and invalid bytes, refuses
-// to write over a change on disk (`moved`), tells a touch from a change (19.14), keeps its handles
-// across a reload, and asks for the permission again ("Reconnect").
-// Without the API (the iPhone's browser, and Chromium with the picker taken away) the folder entries
-// are absent and the fallback is offered: Open files, Export, "Only in this browser" (13.4). That
-// test runs on every project; the others need the API, which is a capability, not a project.
+// several plans asks which, and opening it again opens the one chosen; Save to… writes every file
+// once, byte for byte, and refuses a folder that holds plan files; and on /dev/folder the provider
+// itself, on a real handle, writes only what it is given, keeps a BOM, CRLF and invalid bytes,
+// refuses to write over a change on disk (`moved`), tells a touch from a change (19.14), keeps its
+// handles across a reload, and asks for the permission again ("Reconnect").
+// Without the API (the iPhone's browser, and Chromium with the picker taken away) opening a folder
+// says that the browser cannot, and the fallback works: open files, export (13.4). That test runs
+// on every project; the others need the API, which is a capability, not a project.
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { strings } from '../../src/lib/strings';
 import { storageStrings } from '../../src/lib/strings-storage';
-import { READY_TIMEOUT_MS, editor, openApp, strip } from './lib/text-mode';
+import { READY_TIMEOUT_MS, editor, strip } from './lib/text-mode';
+import { isTouch } from './lib/gantt-rig';
 import {
 	bytesOf,
-	chooseEntry,
 	chooser,
+	exportPlan,
+	filesInput,
 	fixture,
 	fixturePath,
 	hasFolderApi,
+	openFolder,
+	openWithHooks,
 	pickNext,
 	readFolder,
+	saveToFolder,
 	seedFolder,
+	sharedFile,
 	withPicker,
+	withShareStub,
 	withoutFolderApi,
 } from './lib/folder-rig';
 
 const S = storageStrings.files;
-const F = strings.planFiles;
 
 test.setTimeout(READY_TIMEOUT_MS * 2 + 60_000);
 
 const checked = (page: Page) => chooser(page).locator('option:checked');
-const options = (page: Page) => chooser(page).locator('option');
 
 /** The plan's files as the file switcher lists them (tabs, or a select on a narrow layout). */
 async function fileList(page: Page): Promise<string[]> {
@@ -50,25 +56,34 @@ async function scheduled(page: Page): Promise<void> {
 	await expect(strip(page)).toContainText('Scheduled', { timeout: READY_TIMEOUT_MS });
 }
 
+/** Exports the open plan: the file's name and bytes, from the share sheet or the download. */
+async function exported(page: Page, info: TestInfo): Promise<{ name: string; bytes: number[] }> {
+	if (isTouch(info)) {
+		await exportPlan(page);
+		return sharedFile(page);
+	}
+	const [download] = await Promise.all([page.waitForEvent('download'), exportPlan(page)]);
+	const fs = await import('node:fs');
+	return { name: download.suggestedFilename(), bytes: [...fs.readFileSync(await download.path())] };
+}
+
 test.describe('without the File System Access API', () => {
-	test('offers no folder entries; Open files, Export and "Only in this browser" are there', async ({
+	test('says a folder cannot be opened here; open files and export work', async ({
 		page,
-	}) => {
+	}, info) => {
 		// The iPhone's browser has no picker; on Chromium it is taken away, so the same branch runs.
 		await withoutFolderApi(page);
-		await openApp(page, 'ui-basic');
+		if (isTouch(info)) await withShareStub(page);
+		await openWithHooks(page);
 		expect(await hasFolderApi(page)).toBe(false);
-		const labels = await options(page).allInnerTexts();
-		expect(labels).not.toContain(F.openFolder);
-		expect(labels).not.toContain(F.saveToFolder);
-		expect(labels).toContain(F.openFiles);
-		expect(labels).toContain(F.export);
-		// Opened files are kept only in this browser, and the line says so where there is one.
-		await page.getByTestId('open-files-input').setInputFiles([fixturePath('bom-crlf', 'plan.tjp')]);
+		expect(await openFolder(page)).toBe(false);
+		await expect(page.getByText(S.unsupported).first()).toBeVisible();
+		await filesInput(page).setInputFiles([fixturePath('bom-crlf', 'plan.tjp')]);
 		await expect(checked(page)).toHaveText('plan');
 		await scheduled(page);
-		const line = page.getByTestId('keep-line');
-		if (await line.isVisible()) await expect(line).toHaveText(strings.keep.stored);
+		const out = await exported(page, info);
+		expect(out.name).toBe('plan.tjp');
+		expect(out.bytes).toEqual([...fixture('bom-crlf')['plan.tjp']!]);
 	});
 });
 
@@ -85,12 +100,11 @@ test.describe('with the File System Access API', () => {
 	test('opens a folder as a plan kept with it, writes nothing there, and reopens after a reload', async ({
 		page,
 	}) => {
-		await openApp(page, 'ui-basic');
-		const files = fixture('nested');
-		await seedFolder(page, 'nested', files);
+		await openWithHooks(page);
+		await seedFolder(page, 'nested', fixture('nested'));
 		const before = await readFolder(page, 'nested');
 		await pickNext(page, 'nested');
-		await chooseEntry(page, 'openFolder');
+		expect(await openFolder(page)).toBe(true);
 		await expect(checked(page)).toHaveText('nested');
 		await scheduled(page);
 		expect((await fileList(page)).sort()).toEqual([
@@ -99,8 +113,6 @@ test.describe('with the File System Access API', () => {
 			'work/phase1/tasks.tji',
 		]);
 		await expect(editor(page)).toContainText('project nest "Nested plan"');
-		// Saving to a folder is not offered for a plan that is in one.
-		expect(await options(page).allInnerTexts()).not.toContain(F.saveToFolder);
 		// Nothing was written: the same bytes and times on disk.
 		expect(await readFolder(page, 'nested')).toEqual(before);
 
@@ -117,10 +129,10 @@ test.describe('with the File System Access API', () => {
 	test('asks which plan in a folder of several, and opens the same folder as it was kept', async ({
 		page,
 	}) => {
-		await openApp(page, 'ui-basic');
+		await openWithHooks(page);
 		await seedFolder(page, 'several', fixture('several'));
 		await pickNext(page, 'several');
-		await chooseEntry(page, 'openFolder');
+		const opening = openFolder(page);
 		const ask = page.getByTestId('plan-question');
 		await expect(ask).toContainText(storageStrings.notice.which('several', 2));
 		await expect(ask.getByRole('button')).toHaveText(['alpha.tjp', 'beta.tjp', 'Cancel']);
@@ -131,43 +143,40 @@ test.describe('with the File System Access API', () => {
 			.analyze();
 		expect(axe.violations).toEqual([]);
 		await ask.getByRole('button', { name: 'beta.tjp' }).click();
+		expect(await opening).toBe(true);
 		await expect(checked(page)).toHaveText('several: beta.tjp');
 		await expect(editor(page)).toContainText('project beta');
 
 		// Another plan, then the same folder again: the plan chosen there opens, with no question.
 		await chooser(page).selectOption({ label: strings.samples['ui-people'] });
 		await expect(checked(page)).toHaveText(strings.samples['ui-people']);
-		await chooseEntry(page, 'openFolder');
+		expect(await openFolder(page)).toBe(true);
 		await expect(checked(page)).toHaveText('several: beta.tjp');
 		await expect(ask).toHaveCount(0);
 		await expect(editor(page)).toContainText('project beta');
 	});
 
-	test('Save to folder… writes every file once, byte for byte, and never over a file that is there', async ({
+	test('Save to… writes every file once, byte for byte, and refuses a folder holding plan files', async ({
 		page,
 	}) => {
-		await openApp(page, 'ui-basic');
+		await openWithHooks(page);
 		const sample = fixture('../ui/basic');
 		await seedFolder(page, 'dest', {});
 		await pickNext(page, 'dest');
-		await chooseEntry(page, 'saveToFolder');
-		await expect(page.getByText(S.savedTo('dest'))).toBeVisible();
+		expect(await saveToFolder(page)).toMatchObject({ kind: 'synced' });
 		await expect(checked(page)).toHaveText('dest');
-		const plan = Object.fromEntries(
-			Object.entries(sample).filter(([p]) => p.endsWith('.tjp') || p.endsWith('.tji')),
-		);
 		expect(bytesOf(await readFolder(page, 'dest'))).toEqual(
-			Object.fromEntries(Object.entries(plan).map(([p, b]) => [p, [...b]])),
+			Object.fromEntries(Object.entries(sample).map(([p, b]) => [p, [...b]])),
 		);
 		const written = await readFolder(page, 'dest');
 
-		// Another plan to the same folder: its files are there, so nothing is written.
+		// Another plan to the same folder: it holds plan files now, so nothing is written there.
 		await chooser(page).selectOption({ label: strings.samples['ui-people'] });
 		await expect(checked(page)).toHaveText(strings.samples['ui-people']);
-		await chooseEntry(page, 'saveToFolder');
-		await expect(
-			page.getByText(/is already in that folder|are already in that folder/),
-		).toBeVisible();
+		expect(await saveToFolder(page)).toEqual({
+			kind: 'exists',
+			files: ['lib/build.tji', 'lib/people.tji', 'plan.tjp'],
+		});
 		expect(await readFolder(page, 'dest')).toEqual(written);
 		await expect(checked(page)).toHaveText(strings.samples['ui-people']);
 	});

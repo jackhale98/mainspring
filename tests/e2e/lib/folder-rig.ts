@@ -2,7 +2,8 @@
 /**
  * What the folder and files specs share (phase-4.md 13.2, 13.4): the storage fixtures read from disk,
  * the folder picker's stand-in, folders of the origin-private file system filled and read from the
- * test, the share sheet's stand-in, and the chooser's file entries.
+ * test, the share sheet's stand-in, and the app's open, Save to… and export through the files hook
+ * (`?hooks=files`; T15 builds the controls).
  *
  * - **The picker** (Chromium only, where `showDirectoryPicker` exists): an init script replaces it
  *   with one that returns a folder of `navigator.storage.getDirectory()`, a real handle, named by
@@ -19,6 +20,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { strings } from '../../../src/lib/strings';
+import type { SyncOutcome } from '../../../src/lib/sync/types';
+import { READY_TIMEOUT_MS, strip } from './text-mode';
 
 const FIXTURES = path.join(process.cwd(), 'tests/fixtures/storage');
 
@@ -41,13 +44,43 @@ export const fixturePath = (...parts: string[]): string => path.join(FIXTURES, .
 
 export const chooser = (page: Page): Locator => page.getByLabel(strings.topBar.sample);
 
-/** Chooses one of the chooser's file entries (strings.planFiles). */
-export async function chooseEntry(
-	page: Page,
-	entry: keyof typeof strings.planFiles,
-): Promise<void> {
-	await chooser(page).selectOption({ label: strings.planFiles[entry] });
+/**
+ * Opens the app on a sample with the files hook (`?hooks=files`, src/lib/state/files-hook.ts): the
+ * app's open, Save to… and export, which have no controls until T15, and two file inputs
+ * (`hook-open-files`, `hook-import-folder`) whose files go to `openFiles`.
+ */
+export async function openWithHooks(page: Page, sample = 'ui-basic'): Promise<void> {
+	await page.goto(`/app?sample=${sample}&mode=text&hooks=files`);
+	await expect(page.getByTestId('engine-status')).toHaveText('Engine: Ready', {
+		timeout: READY_TIMEOUT_MS,
+	});
+	await expect(strip(page)).toContainText('Scheduled', { timeout: READY_TIMEOUT_MS });
+	await page.waitForFunction(() => '__mainspringFiles' in window);
 }
+
+type Hook = import('../../../src/lib/state/files-hook').FilesHook;
+
+/** "Open folder…" through the hook (the picker's stand-in answers). */
+export const openFolder = (page: Page): Promise<boolean> =>
+	page.evaluate(() =>
+		(window as unknown as { __mainspringFiles: Hook }).__mainspringFiles.openFolder(),
+	);
+
+/** Save to… a folder through the hook: the outcome, or null when the picker was closed. */
+export const saveToFolder = (page: Page): Promise<SyncOutcome | null> =>
+	page.evaluate(() =>
+		(window as unknown as { __mainspringFiles: Hook }).__mainspringFiles.saveToFolder(),
+	);
+
+/** Export through the hook. */
+export const exportPlan = (page: Page): Promise<void> =>
+	page.evaluate(() =>
+		(window as unknown as { __mainspringFiles: Hook }).__mainspringFiles.exportPlan(),
+	);
+
+/** The hook's input for opened files, and the one for a folder import. */
+export const filesInput = (page: Page): Locator => page.getByTestId('hook-open-files');
+export const folderInput = (page: Page): Locator => page.getByTestId('hook-import-folder');
 
 /** Installs the picker's stand-in and the permission stubs (module comment). Before `goto`. */
 export async function withPicker(page: Page): Promise<void> {
