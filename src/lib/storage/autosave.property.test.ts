@@ -295,5 +295,7 @@ describe('autosave ordering (model test)', () => {
 			fc.asyncProperty(fc.array(op, { maxLength: 40 }), (ops) => run(ops)),
 			{ numRuns: RUNS, ...SEED, examples: EXAMPLES },
 		);
-	});
+		// 100 random sequences through a store: about a second alone, past the 5 s default on a
+		// loaded machine (a timeout seen on 2026-11-24, never a wrong result).
+	}, 30_000);
 });
