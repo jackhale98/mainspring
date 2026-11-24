@@ -4,7 +4,7 @@
 	its panel in every state, with no engine, so that the states T7 and T14 part two will reach (a
 	folder or GitHub plan, queued writes, a conflict) can be seen, tested with axe and photographed
 	before they exist in the app. Each row is the real control on a fake app whose `sync` is a
-	controller stand-in (`status` and `location` only, what `statusOf` reads). `?phone=1` draws the
+	controller stand-in (`status` and `location` only, what `statusOf` reads). `?wide=1` makes the bar 1400 px so that labels show; `?phone=1` draws the
 	phone's control and sheet. Plain text is fine on this page: it is not user-facing.
 -->
 <script lang="ts">
@@ -14,6 +14,7 @@
 	import type { SyncStatus as Status } from '../../lib/sync/types';
 	import SyncStatus from '../sync/SyncStatus.svelte';
 
+	const wide = typeof location !== 'undefined' && new URLSearchParams(location.search).has('wide');
 	const phone =
 		typeof location !== 'undefined' && new URLSearchParams(location.search).has('phone');
 	const NOW = Date.now();
@@ -99,7 +100,7 @@
 	{#each ROWS as r (r.id)}
 		<section class="row" data-row={r.id}>
 			<h2>{r.id}</h2>
-			<div class="bar"><SyncStatus app={fake(r)} {phone} /></div>
+			<div class="bar" class:wide><SyncStatus app={fake(r)} {phone} /></div>
 		</section>
 	{/each}
 </main>
@@ -131,5 +132,9 @@
 		container: topbar / inline-size;
 		flex: 1;
 		min-inline-size: 0;
+	}
+	.bar.wide {
+		flex: none;
+		inline-size: 1400px;
 	}
 </style>
