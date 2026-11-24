@@ -174,7 +174,10 @@
 
 {#snippet content()}
 	<div class="body" bind:this={body}>
-		<InspectorBody />
+		<!-- A read-only tab (another tab has the plan): every field and button of the details is off. -->
+		<fieldset class="edits" disabled={app.readOnly}>
+			<InspectorBody />
+		</fieldset>
 	</div>
 {/snippet}
 
@@ -378,6 +381,12 @@
 		overflow: auto;
 		overscroll-behavior: contain;
 		padding: var(--space-3) var(--space-4) var(--space-6);
+	}
+	.edits {
+		min-inline-size: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
 	}
 	.sr-only {
 		position: absolute;

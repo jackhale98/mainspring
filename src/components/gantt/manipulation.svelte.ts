@@ -153,7 +153,8 @@ export class Manipulation {
 			});
 		});
 		this.#handles = $derived(
-			h.selectedRow() === null
+			// A read-only tab (another tab has the plan) offers no handle.
+			h.selectedRow() === null || app.readOnly
 				? null
 				: this.#refined?.base === this.#base
 					? this.#refined.set
@@ -461,7 +462,7 @@ export class Manipulation {
 		const R = gestureStrings.row;
 		const k = (aria: string, show: string): { aria: string; show: string } => ({ aria, show });
 		return {
-			disabled: key === null || !h.model().rowOf.has(key),
+			disabled: key === null || !h.model().rowOf.has(key) || h.app.readOnly,
 			actions: [
 				{ id: 'up', label: R.up, disabled: !can('up'), ...k('Alt+Shift+ArrowUp', 'Alt+Shift+↑') },
 				{

@@ -119,6 +119,18 @@ export const heading = (panel: Locator, text: string | RegExp): Locator =>
 export const storedSettings = (page: Page, key = SETTINGS_KEY): Promise<string | null> =>
 	page.evaluate((k) => localStorage.getItem(k), key);
 
+/**
+ * The preference key `<prefix>.<plan>` of the open plan once it is stored: a sample's first change
+ * stores its copy (phase-4.md 18.7), which then keeps its preferences under `ws:<id>`. Waits for the
+ * copy (the address drops `?sample=` then).
+ */
+export async function storedPlanKey(page: Page, prefix: string): Promise<string> {
+	await expect(page).not.toHaveURL(/[?&]sample=/, { timeout: 10_000 });
+	const plan = await page.evaluate(() => localStorage.getItem('mainspring.last-plan'));
+	expect(plan).toMatch(/^ws:/);
+	return `${prefix}.${plan}`;
+}
+
 /** The panel says how many problems there are, and the Health button's name says it too. */
 export async function expectTotal(page: Page, info: TestInfo, panel: Locator, n: number) {
 	await expect(panel.getByTestId('health-summary')).toContainText(`${n} problem`, {

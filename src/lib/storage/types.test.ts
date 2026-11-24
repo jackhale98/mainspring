@@ -48,7 +48,7 @@ describe('storage errors (6.1)', () => {
 		expect(isStorageFailure(new DOMException('aborted', 'AbortError'))).toBe(false);
 	});
 
-	it('names the nine kinds of 6.1', () => {
+	it("names the nine kinds of 6.1, and the local store's not-owner (T4 review M1)", () => {
 		expectTypeOf<StorageErrorKind>().toEqualTypeOf<
 			| 'offline'
 			| 'auth'
@@ -59,6 +59,7 @@ describe('storage errors (6.1)', () => {
 			| 'too-large'
 			| 'unsupported'
 			| 'server'
+			| 'not-owner'
 		>();
 		expectTypeOf<StorageError>().toEqualTypeOf<{
 			readonly kind: StorageErrorKind;

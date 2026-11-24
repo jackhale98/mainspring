@@ -168,7 +168,7 @@
 	{/if}
 	{#if awaited && !awaited.module}
 		{#if awaited.failed}
-			<ViewFailed lazy={awaited} dirty={app.dirty} />
+			<ViewFailed lazy={awaited} reload={() => app.reloadPage()} />
 		{:else}
 			<p class="message" role="status" data-testid="people-view-loading">{S.loading}</p>
 		{/if}

@@ -61,9 +61,10 @@
 	const storage = browserStorage();
 	let container: HTMLDivElement | undefined = $state();
 	let ratio = $state(0.4);
+	// Read when a plan opens; written under the plan's key at the time (a sample's copy has its own).
 	$effect(() => {
-		const plan = app.sampleId;
-		untrack(() => (ratio = readRatio(storage, plan)));
+		void app.openSerial;
+		untrack(() => (ratio = readRatio(storage, app.planKey)));
 	});
 </script>
 
@@ -90,7 +91,7 @@
 				label={R.view.divider}
 				firstName={R.view.table}
 				onchange={(v) => (ratio = v)}
-				oncommit={() => writeRatio(storage, app.sampleId, ratio)}
+				oncommit={() => writeRatio(storage, app.planKey, ratio)}
 			/>
 		{/if}
 		<div class="lanes">
@@ -98,7 +99,7 @@
 				{@const Lanes = lanes.module.default}
 				<Lanes {app} {phone} {active} {setBar} />
 			{:else if lanes.failed}
-				<ViewFailed lazy={lanes} dirty={app.dirty} testid="lanes-failed" />
+				<ViewFailed lazy={lanes} reload={() => app.reloadPage()} testid="lanes-failed" />
 			{:else}
 				<p class="message" role="status">{strings.people.loading}</p>
 			{/if}

@@ -71,8 +71,8 @@
 	let failed = $state(false);
 	function retry(): void {
 		if (failures >= 2) {
-			if (app.dirty && !globalThis.confirm(strings.update.confirmReload)) return;
-			location.reload();
+			// What autosave holds is stored first; it asks only if changes would be lost.
+			void app.reloadPage();
 			return;
 		}
 		failed = false;

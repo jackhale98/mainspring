@@ -46,15 +46,18 @@
 <div class="empty" data-testid="no-people">
 	<p class="title">{S.title}</p>
 	<p class="lead">{S.lead}</p>
-	<button
-		type="button"
-		class="add"
-		data-testid="add-person"
-		aria-disabled={busy ? 'true' : undefined}
-		onclick={add}
-	>
-		<Icon name="plus" size={16} stroke={2.2} />{S.add}
-	</button>
+	<!-- A read-only tab (another tab has the plan) adds nobody. -->
+	{#if !app.readOnly}
+		<button
+			type="button"
+			class="add"
+			data-testid="add-person"
+			aria-disabled={busy ? 'true' : undefined}
+			onclick={add}
+		>
+			<Icon name="plus" size={16} stroke={2.2} />{S.add}
+		</button>
+	{/if}
 </div>
 
 <style>

@@ -2,8 +2,9 @@
 <!--
 	What a People view shows when its chunk could not be loaded (offline with nothing cached, a deploy
 	that replaced it): the sentence and "Try again", which imports it once more. Chrome remembers a
-	failed dynamic import, so after the second failure the button is "Reload the page", asking first
-	when the plan was edited (a reload discards it): PeopleSlot.svelte's rule for the shell's own chunk.
+	failed dynamic import, so after the second failure the button is "Reload the page" (`reload`,
+	AppState.reloadPage: what autosave holds is stored first, and it asks only if changes would be
+	lost): PeopleSlot.svelte's rule for the shell's own chunk.
 -->
 <script lang="ts">
 	import { strings } from '../../lib/strings';
@@ -11,17 +12,16 @@
 
 	interface Props {
 		lazy: LazyModule<unknown>;
-		/** Whether the open plan was edited (a reload would discard it). */
-		dirty: boolean;
+		/** Reloads the page the app's way (AppState.reloadPage). */
+		reload: () => unknown;
 		testid?: string;
 	}
-	let { lazy, dirty, testid = 'people-view-failed' }: Props = $props();
+	let { lazy, reload, testid = 'people-view-failed' }: Props = $props();
 	const S = strings.people;
 
 	function again(): void {
 		if (lazy.failures >= 2) {
-			if (dirty && !globalThis.confirm(strings.update.confirmReload)) return;
-			location.reload();
+			reload();
 			return;
 		}
 		lazy.load();

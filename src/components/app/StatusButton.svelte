@@ -47,7 +47,8 @@
 	let unlocated: HTMLDetailsElement | undefined = $state();
 
 	function reload(): void {
-		void updates?.reloadAsking(app.dirty);
+		// What autosave holds is stored first; it asks only if changes would be lost (T4 review L1).
+		void app.flush().then(() => updates?.reloadAsking(app.dirty));
 	}
 
 	/** The History sheet: the way in for anyone who cannot press and hold Undo. */

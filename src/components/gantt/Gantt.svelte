@@ -691,7 +691,7 @@
 		onlevel={(level: ZoomLevel) => zoomBy(ZOOM_PRESETS[level])}
 		ontoday={goToday}
 		oncritical={() => critical.toggle()}
-		people={env.coarse
+		people={env.coarse || app.readOnly
 			? undefined
 			: {
 					people: m.people,
@@ -704,11 +704,13 @@
 					onpickkey: (p) => m.pickByKey(p),
 					ondone: () => m.endAssign(),
 				}}
-		add={{
-			hasSelection: app.selectedTask !== null,
-			canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
-			onadd: (mode) => m.addTask(mode),
-		}}
+		add={app.readOnly
+			? undefined
+			: {
+					hasSelection: app.selectedTask !== null,
+					canSubtask: canAddSubtask(app.outline.byKey, app.selectedTask),
+					onadd: (mode) => m.addTask(mode),
+				}}
 		filter={{
 			people: m.people,
 			flags: flagList,

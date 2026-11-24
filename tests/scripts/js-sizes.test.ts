@@ -105,7 +105,11 @@ describe('checkBudgets', () => {
 
 	it('finds the chunk caps that match no built file', () => {
 		const names = (files: string[]) => unmatchedCaps(files.map((file) => ({ file, gzip: 1 })));
-		expect(names(['editor-controller.a.js'])).toHaveLength(CHUNK_CAPS.length - 1);
+		// The optional caps (heat-shared: split off only in the build with the test pages) may match
+		// nothing; every other cap must match a file.
+		const required = CHUNK_CAPS.filter((c) => !('optional' in c && c.optional)).length;
+		expect(names(['editor-controller.a.js'])).toHaveLength(required - 1);
+		expect(names(['editor-controller.a.js']).join(' ')).not.toMatch(/heat-shared/);
 		expect(
 			names([
 				'editor-controller.a.js',
@@ -120,6 +124,8 @@ describe('checkBudgets', () => {
 				'HealthPanel.a.js',
 				'compute.a.js',
 				'run-export.a.js',
+				'plan-keeper.a.js',
+				'PlanNotice.a.js',
 			]),
 		).toEqual([]);
 	});

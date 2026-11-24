@@ -394,7 +394,7 @@
 
 	// A new plan: forget what is open and the month it was on. (The state outlives the view.)
 	$effect(() => {
-		const id = app.sampleId;
+		const id = app.openSerial;
 		untrack(() => {
 			if (cal.plan === id) return;
 			cal.plan = id;

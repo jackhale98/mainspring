@@ -38,7 +38,7 @@ describe('AppState', () => {
 	it('opens the first sample and follows the runner', async () => {
 		const { app, client } = await open();
 		expect(app.phase).toBe('ready');
-		expect(app.sampleId).toBe('one');
+		expect(app.planKey).toBe('one');
 		expect(app.activeFile).toBe('plan.tjp');
 		expect(app.files).toEqual(['plan.tjp']);
 		expect(app.status?.kind).toBe('scheduling');
@@ -49,7 +49,8 @@ describe('AppState', () => {
 		expect(app.outline.tasks.map((n) => n.localId)).toEqual(['a', 'b']);
 	});
 
-	it('asks before replacing an edited plan, and keeps it when declined', async () => {
+	it('asks before replacing a plan whose changes are only in this tab, and keeps it when declined', async () => {
+		// No IndexedDB here (jsdom): the copy a change stores cannot be kept, so it stays in memory.
 		const confirm = vi.fn(() => false);
 		const { app } = await open(confirm);
 		expect(await app.openSample('two')).toBe(true);
@@ -58,10 +59,11 @@ describe('AppState', () => {
 		const state = ws?.state('plan.tjp');
 		if (!ws || !state) throw new Error('no workspace');
 		ws.commit('plan.tjp', state.update({ changes: { from: 0, insert: '# hi\n' } }), 'typing');
-		expect(app.dirty).toBe(true);
 		expect(await app.openSample('one')).toBe(false);
+		expect(app.dirty).toBe(true);
+		expect(app.keeping.keep.kind).toBe('failed');
 		expect(confirm).toHaveBeenCalledWith(strings.topBar.confirmSwitch);
-		expect(app.sampleId).toBe('two');
+		expect(app.planKey).toBe('two');
 		expect(app.workspace).toBe(ws);
 	});
 

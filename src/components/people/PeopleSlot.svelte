@@ -106,8 +106,8 @@
 
 	function again(): void {
 		if (failed >= 2) {
-			if (app.dirty && !globalThis.confirm(strings.update.confirmReload)) return;
-			location.reload();
+			// What autosave holds is stored first; it asks only if changes would be lost.
+			void app.reloadPage();
 			return;
 		}
 		load();

@@ -2,16 +2,19 @@
 <!--
 	The plan chip (ADR-0009): the open plan's name on a pill with a file icon and a chevron. It is a
 	real <select> underneath, so it opens the native picker (the best on a phone) and keeps its
-	accessible name "Sample plan". Replacing a plan that was edited asks first (AppState). The
-	list is "New plan…" first (it opens the New plan sheet, which App.svelte mounts once, so that
-	a layout change that remounts this chip does not lose what was typed), then the
-	plan made here as "Name (new)" while it is open, then the "Samples" group (ADR-0013 #2).
+	accessible name "Sample plan". Replacing a plan whose changes are only in this tab asks first
+	(AppState). The list is "New plan…" first (it opens the New plan sheet, which App.svelte mounts
+	once, so that a layout change that remounts this chip does not lose what was typed), then the
+	"Your plans" group, the plans kept in this browser, most recently changed first (a plan made
+	here as "Name (new)", a sample's copy as "Name (copy)"; T4 review H2), then the "Samples" group
+	(ADR-0013 #2). A plan that is open but not kept (the store refused it) has its own entry. The
+	full chooser (rename, delete, locations) is T15's.
 	`title` style puts the name in the serif display face for the phone header.
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
+	import { planKey } from '../../lib/state/app-storage';
 	import { strings } from '../../lib/strings';
-	import { NEW_PLAN_ID } from '../../lib/workspace/samples';
 	import Icon from '../Icon.svelte';
 	import Select from '../ui/Select.svelte';
 
@@ -28,15 +31,29 @@
 
 	async function pick(value: string, select: HTMLSelectElement): Promise<void> {
 		if (value === CREATE) {
-			select.value = app.sampleId;
+			select.value = app.planKey;
 			app.newPlanOpen = true;
 			return;
 		}
-		if (value === NEW_PLAN_ID) return;
-		const opened = await app.openSample(value);
+		if (value === app.planKey) return;
+		const opened = value.startsWith('ws:')
+			? await app.openStored(value.slice(3))
+			: await app.openSample(value);
 		// A cancelled switch leaves the old plan open: show it in the picker again.
-		if (!opened) select.value = app.sampleId;
+		if (!opened) select.value = app.planKey;
 	}
+	const kept = $derived(
+		app.keeping.plans.map((p) => ({
+			key: planKey(p.id),
+			label: 'newPlan' in p.from ? strings.newPlan.listed(p.name) : p.name,
+		})),
+	);
+	/** The open plan when it is neither kept here nor a sample: it gets its own entry. */
+	const own = $derived(
+		app.planKey !== '' &&
+			!app.samples.some((s) => s.id === app.planKey) &&
+			!kept.some((p) => p.key === app.planKey),
+	);
 </script>
 
 <label class="chip" class:title>
@@ -46,10 +63,17 @@
 		{#if title && subtitle !== ''}<span class="sub">{subtitle}</span>{/if}
 	</span>
 	<Icon name="chevronDown" size={title ? 16 : 13} />
-	<Select variant="overlay" value={app.sampleId} onchange={pick} aria-label={strings.topBar.sample}>
+	<Select variant="overlay" value={app.planKey} onchange={pick} aria-label={strings.topBar.sample}>
 		<option value={CREATE}>{strings.newPlan.chooser}</option>
-		{#if app.newPlanName !== null}
-			<option value={NEW_PLAN_ID}>{app.planLabel}</option>
+		{#if own}
+			<option value={app.planKey}>{app.planLabel}</option>
+		{/if}
+		{#if kept.length > 0}
+			<optgroup label={strings.newPlan.yourPlans}>
+				{#each kept as p (p.key)}
+					<option value={p.key}>{p.label}</option>
+				{/each}
+			</optgroup>
 		{/if}
 		<optgroup label={strings.newPlan.samplesGroup}>
 			{#each app.samples as sample (sample.id)}

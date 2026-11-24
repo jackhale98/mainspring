@@ -11,6 +11,7 @@ test.describe('New plan', () => {
 	test.setTimeout(READY_TIMEOUT_MS * 2);
 
 	const chooser = (page: Page) => page.getByLabel('Sample plan');
+	const yourPlans = (page: Page) => chooser(page).locator('optgroup[label="Your plans"]');
 	const sheet = (page: Page) => page.getByRole('dialog', { name: 'New plan' });
 	const nameInput = (page: Page) => sheet(page).getByLabel('Name', { exact: true });
 	const text = (page: Page) =>
@@ -75,8 +76,12 @@ test.describe('New plan', () => {
 		await expect.poll(() => text(page)).toBe(header);
 		await expect(chooser(page).locator('option:checked')).toHaveText('Website relaunch (new)');
 		await expect(chooser(page).locator('option').nth(1)).toHaveText('Website relaunch (new)');
-		// The note about this tab applies, where the layout has a footer (not a phone).
-		if (!touch) await expect(page.getByText(/Changes stay in this tab/)).toBeVisible();
+		// The new plan is stored at once (phase-4.md 18.7): the line says so where the layout has a
+		// footer (not a phone).
+		if (!touch)
+			await expect(page.getByTestId('keep-line')).toHaveText(
+				'Only in this browser. Changes are kept as you make them.',
+			);
 
 		// The first action is the +: nothing is selected, so it adds at the end, at once.
 		const add = page.getByTestId('add-task');
@@ -292,9 +297,10 @@ test.describe('New plan', () => {
 		expect(await text(page)).toBe(before);
 	});
 
-	test('an unedited new plan is replaced without a question; an edited one asks first, and declining keeps it', async ({
+	test('a new plan is kept in the browser, so switching never asks, edited or not', async ({
 		page,
 	}, info) => {
+		// Phase 4 (18.7): a new plan is stored at once and autosaved, so nothing is lost by a switch.
 		const touch = isTouch(info);
 		await open(page);
 		let asked = 0;
@@ -305,17 +311,18 @@ test.describe('New plan', () => {
 		const create = async (name: string) => {
 			await fill(page, name, 'None (UTC)');
 			await tap(touch, sheet(page).getByRole('button', { name: 'Create' }));
+			await expect(sheet(page)).toBeHidden();
 		};
 
-		// Unedited: a sample replaces it, and "Draft (new)" leaves the list.
+		// Unedited: a sample replaces it, and "Draft (new)" stays in the list, under "Your plans"
+		// (T4 review H2; T15's chooser does the rest).
 		await create('Draft');
 		await expect(chooser(page).locator('option:checked')).toHaveText('Draft (new)');
 		await chooser(page).selectOption({ label: 'TaskJuggler tutorial' });
 		await expect(chooser(page).locator('option:checked')).toHaveText('TaskJuggler tutorial');
-		await expect(chooser(page).locator('option', { hasText: '(new)' })).toHaveCount(0);
-		expect(asked).toBe(0);
+		await expect(yourPlans(page).locator('option')).toHaveText(['Draft (new)']);
 
-		// Edited: the question comes; declining keeps the plan, and the chooser still shows it.
+		// Edited: no question either.
 		await create('Draft');
 		await expect(chooser(page).locator('option:checked')).toHaveText('Draft (new)');
 		await tap(touch, page.getByTestId('add-task'));
@@ -325,23 +332,31 @@ test.describe('New plan', () => {
 		await page.keyboard.press('Enter');
 		await expect.poll(() => text(page)).toContain('task new_task');
 		await chooser(page).selectOption({ label: 'TaskJuggler tutorial' });
-		await expect.poll(() => asked).toBe(1);
-		await expect(chooser(page).locator('option:checked')).toHaveText('Draft (new)');
-		expect(await text(page)).toContain('task new_task');
+		await expect(chooser(page).locator('option:checked')).toHaveText('TaskJuggler tutorial');
 
-		// Another new plan asks too; the sheet stays open with its answers when declined.
+		// Another new plan from an edited one does not ask.
 		await create('Second');
-		await expect.poll(() => asked).toBe(2);
-		await expect(sheet(page)).toBeVisible();
-		await expect(nameInput(page)).toHaveValue('Second');
-		await expect(chooser(page).locator('option:checked')).toHaveText('Draft (new)');
-
-		// Accepting replaces it.
-		page.removeAllListeners('dialog');
-		page.once('dialog', (d) => void d.accept());
-		await tap(touch, sheet(page).getByRole('button', { name: 'Create' }));
-		await expect(sheet(page)).toBeHidden();
 		await expect(chooser(page).locator('option:checked')).toHaveText('Second (new)');
-		await expect.poll(() => text(page)).toBe('project second "Second" 2026-11-16 +1y\n');
+		await tap(touch, page.getByTestId('add-task'));
+		await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused({
+			timeout: READY_TIMEOUT_MS,
+		});
+		await page.keyboard.press('Enter');
+		await expect.poll(() => text(page)).toContain('task new_task');
+		await create('Third');
+		await expect(chooser(page).locator('option:checked')).toHaveText('Third (new)');
+		await expect.poll(() => text(page)).toBe('project third "Third" 2026-11-16 +1y\n');
+		expect(asked).toBe(0);
+		// Every plan made here is kept and listed, most recently changed first.
+		await expect(yourPlans(page).locator('option')).toHaveText([
+			'Third (new)',
+			'Second (new)',
+			'Draft (new)',
+			'Draft (new)',
+		]);
+		// The first Draft opens again, as it was left.
+		await chooser(page).selectOption({ index: 4 });
+		await expect(chooser(page).locator('option:checked')).toHaveText('Draft (new)');
+		await expect.poll(() => text(page)).toBe('project draft "Draft" 2026-11-16 +1y\n');
 	});
 });

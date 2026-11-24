@@ -35,7 +35,8 @@
 	let { app, updates, phone, quiet = false }: Props = $props();
 
 	function reload(): void {
-		void updates?.reloadAsking(app.dirty);
+		// What autosave holds is stored first; it asks only if changes would be lost (T4 review L1).
+		void app.flush().then(() => updates?.reloadAsking(app.dirty));
 	}
 
 	const s = $derived(app.status);

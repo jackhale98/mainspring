@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!-- The outline: the task tree above the resource tree (not on the phone's Plan tab, where People has
-     the people: user, 2026-11-18), and the notice about unsaved changes. -->
+     the people: user, 2026-11-18), and the line about where the plan is kept. -->
 <script lang="ts">
 	import type { AddMode } from '../lib/gantt/add-task';
 	import type { AppState } from '../lib/state/app.svelte';
@@ -14,7 +14,7 @@
 		app: AppState;
 		/** Heading level offset: the panel sits under an h1 and, on phones, a tab panel. */
 		showTitle?: boolean;
-		/** The unsaved-changes notice at the foot (a phone shows its compact one on every tab). */
+		/** The line at the foot about where the plan is kept (a phone has the notice under its top bar). */
 		showNotice?: boolean;
 		/** What the two trees keep across an unmount (a phone's Plan tab). */
 		views?: { tasks: OutlineView; resources?: OutlineView };
@@ -83,7 +83,7 @@
 			/>
 		</section>
 	{/if}
-	{#if showNotice}<p class="notice">{strings.notice}</p>{/if}
+	{#if showNotice}<p class="notice" data-testid="keep-line">{app.keepLine}</p>{/if}
 </div>
 
 <style>

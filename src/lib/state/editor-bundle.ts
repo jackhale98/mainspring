@@ -10,6 +10,8 @@
  * The keyword docs loader (engine/docs-asset.ts, ADR-0017) is here too, so it is part of this
  * chunk: only an editor needs the full docs, and a Visual-only session never fetches them.
  */
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { createEngineDocsLoader, type EngineDocsLoader } from '../../engine/docs-asset';
 import { engineDirUrl } from '../../engine/engine-url';
 import {
@@ -61,15 +63,21 @@ export interface EditorSupportOptions extends Omit<WorkspaceExtensionOptions, 'd
 	docs: EngineDocsLoader;
 	/** The workspace history that Mod-Z and the browser's undo inputs call (history-keys.ts). */
 	history: HistoryCommands;
+	/**
+	 * Another tab owns the plan (phase-4.md 7.1): the text can be read, selected and searched,
+	 * but not changed.
+	 */
+	readOnly?: boolean;
 }
 
 /** What `Workspace.attachEditor` needs: the TJP extensions and the editor setup (with the undo keys). */
 export function editorSupport(opts: EditorSupportOptions): EditorSupport {
-	const { docs, history, ...rest } = opts;
+	const { docs, history, readOnly = false, ...rest } = opts;
 	const tjp = workspaceExtensions({
 		...rest,
 		docs: () => docsSource(docs),
 		loadDocs: () => docs.load(),
 	});
-	return { extensions: (path, top) => [tjp(path, top), editorSetup(path, history)] };
+	const locked = readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : [];
+	return { extensions: (path, top) => [tjp(path, top), editorSetup(path, history), locked] };
 }

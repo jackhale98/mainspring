@@ -45,6 +45,11 @@ export class ModeState {
 		this.table = parseTableRatio(readPref(this.#storage, tableKey(sample)));
 	}
 
+	/** The open plan's preferences are kept under another key from now on (plan-follow.ts). */
+	rekey(sample: string): void {
+		this.#sample = sample;
+	}
+
 	set(mode: ViewMode): void {
 		this.choice = mode;
 		if (this.#sample !== '') writePref(this.#storage, modeKey(this.#sample), mode);

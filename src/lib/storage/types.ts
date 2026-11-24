@@ -159,7 +159,8 @@ export type StorageErrorKind =
 	| 'rate-limited'
 	| 'too-large'
 	| 'unsupported'
-	| 'server';
+	| 'server'
+	| 'not-owner';
 
 /**
  * A failure a provider or the local store reports (6.1). What each kind means:
@@ -174,6 +175,9 @@ export type StorageErrorKind =
  * - `too-large`: past `PLAN_LIMITS`, or a tree listing GitHub truncated.
  * - `unsupported`: the browser lacks the API (no `showDirectoryPicker`, IndexedDB blocked).
  * - `server`: 5xx, a 422 that is not a moved branch, or a response that does not fit the contract.
+ * - `not-owner` (the local store, T4 review M1): another tab took the plan over since this one
+ *   opened it (its owner epoch is newer, store-types.ts `LocalStore.open`), so this tab's write
+ *   was refused and nothing was written; the tab shows the plan read-only (8.1 #7).
  *
  * The UI words each kind from strings-storage.ts; it never shows `detail`.
  */

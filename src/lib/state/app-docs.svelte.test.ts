@@ -46,6 +46,8 @@ afterEach(() => {
 	app?.dispose();
 	app = null;
 	vi.restoreAllMocks();
+	// The last plan is a preference (phase-4.md 18.7): each test starts on the first sample.
+	localStorage.clear();
 });
 
 /** Delivers the newest request's result and waits for the status to show it. */

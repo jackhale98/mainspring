@@ -54,6 +54,11 @@ export class PeopleViewState {
 		this.segment = (fresh ? null : readSegment(this.#storage, plan)) ?? DEFAULT_SEGMENT;
 	}
 
+	/** The open plan's preferences are kept under another key from now on (plan-follow.ts). */
+	rekey(plan: string): void {
+		this.#plan = plan;
+	}
+
 	setView(view: View): void {
 		this.view = view;
 		if (this.#plan !== '') writeView(this.#storage, this.#plan, view);

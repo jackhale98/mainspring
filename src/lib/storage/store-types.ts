@@ -45,8 +45,10 @@
  *   added ones too), not only the changed ones: the queue's last snapshot is what a merge takes
  *   (7.3). `PendingWrite.changed` records the changed set when it is queued, because a pull can
  *   move the base before the write is sent, and the text it followed is then no longer stored.
- * - `saveFiles`'s `version` orders writes within one store instance (one tab's session); the
- *   workspace version starts again at 0 after a reload, so it is not compared across sessions.
+ * - `saveFiles`'s `version` orders writes within one session of a plan in one store instance:
+ *   from the `open` with `own` (or the `create`) that made it the owner, until another such open.
+ *   The workspace version starts again at 0 whenever a plan opens (a reload, or the same tab opening
+ *   it again after another tab had it), so it is not compared across sessions (T4 review H1).
  * - `cleared()` is added for the eviction notice (9.4); 6.2 had no member for the marker.
  * - The last plan to open on start (18.7) is a preference in `localStorage` (state/storage.ts),
  *   not a store field: `StoredPlan.updatedAt` changes on edits, not on opening.
@@ -54,6 +56,21 @@
  *   tab loses its lock and becomes read-only, which `acquire`'s spec signature cannot express.
  * - `CredentialStore` is added for 10.1 (one record per account); `accounts()` returns no
  *   tokens, so views never hold one.
+ *
+ * Contract notes (T4, accepted in its review; local-store.ts and lock.ts are the implementations):
+ * - `open`'s `own` and the `not-owner` error kind (types.ts) are T4 review M1's: one owner per plan
+ *   in the database too, by an owner epoch that `open` with `own` raises and every write checks.
+ *   `saveFiles`'s order is per session of a plan (H1, the note above).
+ * - lock.ts's `acquire` returns a `HeldLock`: a `PlanLock` with `onAsked(f)`, which the owner uses
+ *   to store what autosave holds before it hands the plan to a tab that asked for it.
+ * - A write to the records of a plan that is gone (removed meanwhile) rejects with `not-found` and
+ *   writes nothing.
+ * - `cleared()` also reports when only the database half of the marker is left; it puts the
+ *   `localStorage` half back when that alone was lost; `remove` of the last plan clears the marker,
+ *   so a plan the user deleted is never reported as cleared. The key is storage/marker.ts's.
+ * - The database (version 1) also has the `credentials` (key `account`, T8) and `handles` (T5)
+ *   object stores, so that those tasks need no upgrade.
+ * - `navigator.storage.persist()` (9.4) is not asked here: T11 asks it, with `PwaState.persisted`.
  */
 import type { ScheduleSummary } from '../sync/types';
 import type { Resolution } from '../tjp/merge/types';
@@ -173,8 +190,14 @@ export interface OpenedPlan {
 export interface LocalStore {
 	/** Every stored plan, most recently updated first. */
 	plans(): Promise<readonly StoredPlan[]>;
-	/** The plan with everything needed to restore it, or null when there is none with this id. */
-	open(id: WorkspaceId): Promise<OpenedPlan | null>;
+	/**
+	 * The plan with everything needed to restore it, or null when there is none with this id.
+	 * `own` (T4 review M1): the tab that holds the plan's lock opens it to write: this raises the
+	 * plan's owner epoch in the same transaction, starts a new session of the plan in this instance
+	 * (the order of `saveFiles`), and makes every later write of another instance that owned it
+	 * fail with `not-owner`. Without `own` it only reads (a read-only tab, a chooser).
+	 */
+	open(id: WorkspaceId, o?: { readonly own?: boolean }): Promise<OpenedPlan | null>;
 	/** Stores a new plan with every file's text; returns its new random id. Sets the marker (9.4). */
 	create(
 		p: Omit<StoredPlan, 'id' | 'updatedAt'>,
@@ -185,7 +208,11 @@ export interface LocalStore {
 	 * Autosave (7.1): the whole text of each changed or added file, tagged with the workspace
 	 * version it is. A path the plan does not have yet is added to it (21). Files not named keep
 	 * their stored text; nothing is deleted or renamed. A call with a lower version than
-	 * the last this store instance saved for the plan is ignored (a slower write that lost a race).
+	 * the last this store instance saved for the plan in this session is ignored (a slower write
+	 * that lost a race). A session starts with the `open` with `own` or the `create` that made this
+	 * instance the plan's owner: a reopened plan is a new session, whose workspace versions start
+	 * again at 0 (T4 review H1). Rejects with `not-owner` when another instance owns the plan now
+	 * (`open`), with nothing written; so do `setBase`, `enqueue`, `dequeue` and `setConflict`.
 	 */
 	saveFiles(
 		id: WorkspaceId,

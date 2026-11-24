@@ -140,8 +140,9 @@ describe('codec and records (6.2)', () => {
 describe('the local store (6.2)', () => {
 	it('fixes the store methods', () => {
 		expectTypeOf<LocalStore['plans']>().toEqualTypeOf<() => Promise<readonly StoredPlan[]>>();
+		// `own` (T4 review M1): the owner opens the plan to write, which raises its owner epoch.
 		expectTypeOf<LocalStore['open']>().toEqualTypeOf<
-			(id: WorkspaceId) => Promise<OpenedPlan | null>
+			(id: WorkspaceId, o?: { readonly own?: boolean }) => Promise<OpenedPlan | null>
 		>();
 		expectTypeOf<LocalStore['create']>().parameters.toEqualTypeOf<
 			[Omit<StoredPlan, 'id' | 'updatedAt'>, ReadonlyMap<string, string>, SyncBase | null]

@@ -46,14 +46,14 @@ describe('openNewPlan', () => {
 		const a = await open();
 		expect(await a.openNewPlan(SPEC)).toBe(true);
 		expect(a.phase).toBe('ready');
-		expect(a.sampleId).toBe('new');
+		expect(a.planKey).toBe('new');
 		expect(a.activeFile).toBe('plan.tjp');
 		expect(a.files).toEqual(['plan.tjp']);
 		expect(a.workspace?.texts()).toEqual({ 'plan.tjp': HEADER });
 		expect(a.dirty).toBe(false);
 		expect(a.history.canUndo).toBe(false);
 		expect(a.history.canRedo).toBe(false);
-		expect(a.newPlanName).toBe('Website');
+		expect(a.fresh).toBe(true);
 		expect(a.planLabel).toBe('Website (new)');
 		expect(a.planLabel).toBe(strings.newPlan.listed('Website'));
 	});
@@ -70,7 +70,7 @@ describe('openNewPlan', () => {
 		const a = await open();
 		const ws = a.workspace;
 		expect(await a.openNewPlan({ ...SPEC, name: '  ' })).toBe(false);
-		expect(a.sampleId).toBe('one');
+		expect(a.planKey).toBe('one');
 		expect(a.workspace).toBe(ws);
 	});
 
@@ -80,12 +80,13 @@ describe('openNewPlan', () => {
 		await a.openNewPlan(SPEC);
 		expect(await a.openSample('one')).toBe(true);
 		expect(confirm).not.toHaveBeenCalled();
-		expect(a.sampleId).toBe('one');
-		expect(a.newPlanName).toBeNull();
+		expect(a.planKey).toBe('one');
+		expect(a.fresh).toBe(false);
 		expect(a.planLabel).toBe('one');
 	});
 
-	it('asks first when the new plan was edited, for a sample and for another new plan', async () => {
+	it('asks first when the new plan was edited and the store cannot keep it, for a sample and for another new plan', async () => {
+		// No IndexedDB here (jsdom): the new plan stays in memory, so its changes would be lost.
 		const confirm = vi.fn(() => false);
 		const a = await open(confirm);
 		await a.openNewPlan(SPEC);
@@ -105,7 +106,8 @@ describe('openNewPlan', () => {
 		expect(a.planLabel).toBe('Other (new)');
 		expect(a.workspace).not.toBe(ws);
 		expect(a.dirty).toBe(false);
-		expect(a.newPlanSerial).toBe(2);
+		// Each plan that opens counts: the views start over for it (plan-follow.ts).
+		expect(a.openSerial).toBe(3);
 	});
 
 	it('is an empty plan, not an error, once the engine answers no_tasks', async () => {
@@ -187,6 +189,6 @@ describe('openNewPlan', () => {
 		type(a, '# edited\n');
 		expect(await a.openNewPlan(SPEC)).toBe(false);
 		expect(confirm).toHaveBeenCalledOnce();
-		expect(a.sampleId).toBe('one');
+		expect(a.planKey).toBe('one');
 	});
 });
