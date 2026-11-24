@@ -93,11 +93,13 @@ export const CHUNK_CAPS = [
 	// 2026-11-24 with T5's "which plan?" question).
 	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_400, lazy: true },
 	// Opening a folder or files, Save to… a folder (T5, phase-4.md 7.2, 12.1): the folder provider,
-	// the import and what they say, fetched by the chooser's file entries and by no first load.
-	{ name: 'plan-files', pattern: /^plan-files\./, cap: 5_000, lazy: true },
-	// The folder provider alone (2,283 bytes on 2026-11-24). Optional: only the build with the test
+	// the import and what they say, fetched by the app's open and Save to… (T15's controls) and by no
+	// first load. 5,148 bytes on 2026-11-24 in the Pages build, the folder provider in it (the content
+	// check, case lookups and digests of the T5 review); 2,633 in the build with the test pages.
+	{ name: 'plan-files', pattern: /^plan-files\./, cap: 5_800, lazy: true },
+	// The folder provider alone (2,845 bytes on 2026-11-24). Optional: only the build with the test
 	// pages splits it off (the /dev/folder page imports it too); elsewhere it is in plan-files.
-	{ name: 'folder', pattern: /^folder\./, cap: 2_600, lazy: true, optional: true },
+	{ name: 'folder', pattern: /^folder\./, cap: 3_200, lazy: true, optional: true },
 	// Export of the plan's files (T5): the zip writer (fflate) and the delivery, fetched by Export.
 	{ name: 'export-files', pattern: /^export-files\./, cap: 5_200, lazy: true },
 ];
