@@ -1,0 +1,39 @@
+---
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Test harness for the folder provider (src/lib/storage/folder.ts, phase-4.md 7.2, 13.2): /dev/folder,
+// routed only when MAINSPRING_DEV_PAGES=1 (scripts/astro-dev-pages.mjs). It puts the module on
+// `window.__folder`, so tests/e2e/folder.spec.ts drives the provider on a real handle (a folder of the
+// origin-private file system) where the app has no control for it yet (the sync controller's Save
+// and external changes are T7's). Plain text is fine here; it is not user-facing.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>Folder test page</title>
+	</head>
+	<body>
+		<main>
+			<h1>Folder test page</h1>
+			<p id="state" data-testid="state">
+				loading
+			</p>
+		</main>
+		<script>
+			// Imported dynamically, as the app does: a static import from this page's entry would make the
+			// modules a chunk shared with the app's first load (js-sizes.mjs measures the build with it).
+			void Promise.all([
+				import('../../lib/storage/folder'),
+				import('../../lib/storage/codec'),
+				import('../../lib/storage/folder-changes'),
+			]).then(([folder, codec, changes]) => {
+				(window as unknown as { __folder: unknown }).__folder = { ...folder, ...codec, ...changes };
+				const state = document.getElementById('state');
+				if (state) state.textContent = 'ready';
+			});
+		</script>
+	</body>
+</html>

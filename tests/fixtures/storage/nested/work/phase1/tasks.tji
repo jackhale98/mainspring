@@ -1,0 +1,10 @@
+# The work of the nested plan.
+task build "Build" {
+  effort 3d
+  allocate ana
+}
+task ship "Ship" {
+  depends build
+  effort 1d
+  allocate ben
+}

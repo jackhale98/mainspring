@@ -15,3 +15,5 @@ docs
 CLAUDE.md
 # Grammar fixtures are byte-exact test inputs; never reformat them.
 tests/fixtures/tjp
+# Storage fixtures: byte-exact (a BOM, CRLF, bytes that are not UTF-8).
+tests/fixtures/storage

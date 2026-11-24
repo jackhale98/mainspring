@@ -25,12 +25,13 @@ describe('devPages integration', () => {
 		expect(injected({ MAINSPRING_DEV_PAGES: '0' })).toEqual([]);
 	});
 
-	it('injects /dev/engine, /dev/gantt-perf, /dev/primitives and /dev/sync-status when MAINSPRING_DEV_PAGES=1', () => {
+	it('injects /dev/engine, /dev/gantt-perf, /dev/primitives, /dev/sync-status and /dev/folder when MAINSPRING_DEV_PAGES=1', () => {
 		expect(injected({ MAINSPRING_DEV_PAGES: '1' }).map((r) => r.pattern)).toEqual([
 			'/dev/engine',
 			'/dev/gantt-perf',
 			'/dev/primitives',
 			'/dev/sync-status',
+			'/dev/folder',
 		]);
 	});
 

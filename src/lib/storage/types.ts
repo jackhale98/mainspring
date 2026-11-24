@@ -45,6 +45,30 @@
  * - The limits use binary megabytes (2 MiB per file, 8 MiB in all); 6.1 says "MB".
  * - `Location` keeps the spec's name. It shadows the DOM's `Location` in a module that imports
  *   it; such a module names the DOM one `globalThis.Location`.
+ *
+ * Contract notes (T5, the folder provider; folder.ts, T5 review):
+ * - **A folder's `moved` can come part way.** Every stamp is checked before the first file is
+ *   written, and each file is checked again, content too, right before it is overwritten (a change
+ *   made meanwhile, or one with the same size and time). A `moved` from that second check leaves
+ *   the files before it written, as a part-done `failed` does: `head` and the next `read` show them
+ *   with the text this write gave, so the caller's merge takes them cleanly (identical on both sides)
+ *   and writes only the rest. The `moved` of `WriteResult` above ("nothing was written") holds when
+ *   the first check finds the difference.
+ * - **An added file can be left empty.** `getFileHandle(name, { create: true })` makes the file at
+ *   once, empty, before its content is written; files that exist are written first and added ones
+ *   last, but an added file whose write fails stays on disk, empty. A pull then finds it added on
+ *   both sides: the sync controller (T7) treats an added file that is empty on the provider while
+ *   the local one has text as this residual case (take ours), not as an add/add conflict.
+ * - **Case.** Paths that differ only by case are refused (`failed`, `server`); an added path that a
+ *   disk ignoring case resolves to a file that is there is `moved`, never an overwrite.
+ * - **A folder's `moved.head` can equal the base.** When only content changed (the same size and
+ *   time), the revision, which is made of stamps, does not move: `head` after such a `moved` is the
+ *   base's revision, `folderChange` answers `same`, and a new `read` gives the same revision string
+ *   with other text. So after a `moved` from a folder the caller (T7) always reads and merges by
+ *   text; it must not compare revisions to decide that nothing changed, or it would get `moved`
+ *   forever (T5 re-check).
+ * - **A lost digest means stamps alone.** If the browser's store refuses the folder's digests, a
+ *   file is checked by its stamp only, as before the content check; one folder key holds one plan.
  */
 import type { WorkspacePath } from '../workspace/paths';
 import { hasIncludeSuffix, isProjectFile } from '../workspace/paths';

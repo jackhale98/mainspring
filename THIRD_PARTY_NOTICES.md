@@ -67,6 +67,11 @@ Astro 7.4.1 (MIT) adds no runtime of its own: the built pages contain no `astro-
 script. The Svelte license text is not yet reproduced in the built site; add it to `/engine/NOTICES.txt`
 or a site-level notices file before a public release.
 
+`fflate` 0.8.2 (MIT, Copyright (c) 2023 Arjun Barrett), pinned exactly, writes the `.zip` of a
+plan's files (phase-4.md 7.2, T5). Only its zip writer is bundled, in the lazily loaded
+`export-files.*.js` chunk that Export fetches. Its license text goes into the site-level notices
+with the others before a public release.
+
 ## Editor packages (from Phase 1)
 
 Phase 1's text mode bundles CodeMirror 6 and Lezer into the page scripts. All of them are MIT

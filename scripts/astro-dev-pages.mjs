@@ -9,6 +9,7 @@ export const DEV_PAGES = [
 	{ pattern: '/dev/gantt-perf', entrypoint: './src/pages/dev/_gantt-perf.astro' },
 	{ pattern: '/dev/primitives', entrypoint: './src/pages/dev/_primitives.astro' },
 	{ pattern: '/dev/sync-status', entrypoint: './src/pages/dev/_sync-status.astro' },
+	{ pattern: '/dev/folder', entrypoint: './src/pages/dev/_folder.astro' },
 ];
 
 /**

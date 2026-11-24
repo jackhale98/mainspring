@@ -22,6 +22,9 @@
 //
 // CHROMIUM_PATH picks a browser that is already installed. PORT (default 4399) is the port of
 // --serve. In GitHub Actions the table goes to the step summary and the warning to an annotation.
+//
+// Over 400 lines: the chunk caps, the walks of the built graph and the browser measurement are one
+// gate, and each cap carries the reason for its number.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -89,13 +92,24 @@ export const CHUNK_CAPS = [
 	// changes a lost plan leaves unstored).
 	{ name: 'keeper', pattern: /^plan-keeper\./, cap: 4_200, lazy: true },
 	// The notice under the top bar (read-only, could not open, cleared, not kept, and changes another
-	// tab refused with "Copy the text", T4 re-check N1; 1,308 bytes on 2026-11-23).
+	// tab refused with "Copy the text", T4 re-check N1; 1,308 bytes on 2026-11-23; 1,302 on
+	// 2026-11-24 with T5's "which plan?" question).
 	{ name: 'plan-notice', pattern: /^PlanNotice\./, cap: 1_400, lazy: true },
 	// The Sync panel behind the status control (T14, phase-4.md 11.1): a popover or a bottom sheet with
 	// the state's sentence, the location and the actions that exist, and its copy (strings-sync.ts), fetched
 	// by the first press of the control and by no first load (2,445 bytes on 2026-11-24). T14 part two
 	// adds the Commit, Sync and Save actions to it, and raises this cap with them.
 	{ name: 'sync-panel', pattern: /^SyncPanel\./, cap: 2_700, lazy: true },
+	// Opening a folder or files, Save to… a folder (T5, phase-4.md 7.2, 12.1): the folder provider,
+	// the import and what they say, fetched by the app's open and Save to… (T15's controls) and by no
+	// first load. 5,148 bytes on 2026-11-24 in the Pages build, the folder provider in it (the content
+	// check, case lookups and digests of the T5 review); 2,633 in the build with the test pages.
+	{ name: 'plan-files', pattern: /^plan-files\./, cap: 5_800, lazy: true },
+	// The folder provider alone (2,845 bytes on 2026-11-24). Optional: only the build with the test
+	// pages splits it off (the /dev/folder page imports it too); elsewhere it is in plan-files.
+	{ name: 'folder', pattern: /^folder\./, cap: 3_200, lazy: true, optional: true },
+	// Export of the plan's files (T5): the zip writer (fflate) and the delivery, fetched by Export.
+	{ name: 'export-files', pattern: /^export-files\./, cap: 5_200, lazy: true },
 ];
 
 /** The caps whose pattern matches no built file: the split moved, and the cap guards nothing. */

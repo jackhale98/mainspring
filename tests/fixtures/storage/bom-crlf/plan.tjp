@@ -1,0 +1,10 @@
+﻿# Storage fixture (tests/fixtures/storage/README.md): a byte order mark and CRLF line ends.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project crlf "CRLF plan" 2026-03-02 - 2026-04-30
+
+resource ana "Ana"
+
+task alpha "Alpha" {
+  effort 2d
+  allocate ana
+}

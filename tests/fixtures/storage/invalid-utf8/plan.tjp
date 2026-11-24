@@ -1,0 +1,10 @@
+# Storage fixture (tests/fixtures/storage/README.md): an included file with a byte that is not UTF-8.
+# SPDX-License-Identifier: GPL-2.0-or-later
+project lossy "Lossy plan" 2026-03-02 - 2026-04-30
+
+include "notes.tji"
+
+task alpha "Alpha" {
+  effort 2d
+  allocate ana
+}

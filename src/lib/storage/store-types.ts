@@ -71,6 +71,18 @@
  * - The database (version 1) also has the `credentials` (key `account`, T8) and `handles` (T5)
  *   object stores, so that those tasks need no upgrade.
  * - `navigator.storage.persist()` (9.4) is not asked here: T11 asks it, with `PwaState.persisted`.
+ *
+ * Contract notes (T5):
+ * - `StoredPlan.from.opened` adds `lossy`: a browser-only plan made of opened or imported files has
+ *   no base to carry `DecodedFiles.lossy`, and its store keeps text only, so Export and Save to…
+ *   would write replacement characters unasked (18.11) without it. Set once, when the plan is made.
+ * - A folder's `SyncBase` is the decoded `RemoteSnapshot` of its read or of Save to…'s write, with
+ *   `kept` empty and `summary` null (no schedule of it yet).
+ * - **Proposal for T8 and T15, not implemented:** `relocate(id, location, base)`, one transaction
+ *   that sets a stored plan's `location` (and `name`) and its base, keeping the id, the files, the
+ *   queue and so the preferences (`ws:<id>`). Save to… today stores the plan anew at the target (a
+ *   new id, the preferences copied) and removes the browser copy (state/app-storage.ts, T5 notes);
+ *   with `relocate` it would be one atomic step, and "Save to GitHub…" (T8) the same.
  */
 import type { ScheduleSummary } from '../sync/types';
 import type { Resolution } from '../tjp/merge/types';
@@ -91,9 +103,14 @@ export interface StoredPlan {
 	readonly location: Location;
 	/** ms since the epoch of the last write to this plan's records. */
 	readonly updatedAt: number;
-	/** A copy of a sample made by its first edit (18.7), a new plan, or files opened or imported. */
+	/**
+	 * A copy of a sample made by its first edit (18.7), a new plan, or files opened or imported.
+	 * `opened.lossy` (T5, contract notes): the opened files whose bytes were not UTF-8 (18.11).
+	 */
 	readonly from:
-		{ readonly sample: SampleId } | { readonly newPlan: true } | { readonly opened: true };
+		| { readonly sample: SampleId }
+		| { readonly newPlan: true }
+		| { readonly opened: true; readonly lossy?: ReadonlySet<WorkspacePath> };
 }
 
 /** A location's plan files as decoded text, with the files that were not valid UTF-8. */

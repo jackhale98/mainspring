@@ -1,0 +1,7 @@
+# Storage fixture (tests/fixtures/storage/README.md): one of two plans in a folder (18.22).
+# SPDX-License-Identifier: GPL-2.0-or-later
+project alpha "Alpha plan" 2026-03-02 - 2026-04-30
+
+task a "Alpha task" {
+  length 2d
+}

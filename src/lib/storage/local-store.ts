@@ -11,8 +11,8 @@
  *   (21): a path the plan has never had is a new record. Nothing here deletes a file but `remove`.
  * - `sync` (key `id`): `{ base, queue, conflict }`, the plan's sync base, queue and waiting conflict.
  * - `meta` (key a name): `stored`, the database's half of the eviction marker (9.4).
- * - `credentials` (key `account`, T8's `CredentialStore`) and `handles` (folder handles, T5):
- *   created with the database, so that their tasks need no upgrade.
+ * - `credentials` (key `account`, T8's `CredentialStore`) and `handles` (folder handles, T5's
+ *   folder.ts): created with the database (db-schema.ts), so that their tasks need no upgrade.
  *
  * - **updatedAt** is set on every write to a plan's records, in the same transaction.
  * - **One owner, in the database too** (8.1 #7; T4 review M1). Each plan's `sync` record holds an
@@ -37,6 +37,7 @@
  * - **A plan that is gone** (removed meanwhile): a write to its records rejects with `not-found`
  *   and writes nothing (the contract does not say; nothing else fits).
  */
+import { DB_NAME, DB_VERSION, upgradeDb } from './db-schema';
 import { failure, on, openDb, transact } from './idb';
 import type {
 	LocalStore,
@@ -70,12 +71,6 @@ export interface LocalStoreOptions {
 	readonly now?: () => number;
 }
 
-function upgrade(db: IDBDatabase): void {
-	db.createObjectStore('plans', { keyPath: 'id' });
-	for (const s of ['files', 'sync', 'meta', 'handles']) db.createObjectStore(s);
-	db.createObjectStore('credentials', { keyPath: 'account' });
-}
-
 /** Every file record of plan `id`: arrays sort after strings, so `[id, []]` ends the range. */
 const filesOf = (id: WorkspaceId): IDBKeyRange => IDBKeyRange.bound([id], [id, []]);
 
@@ -88,10 +83,12 @@ export function createLocalStore(o: LocalStoreOptions = {}): LocalStore {
 	const owned = new Map<WorkspaceId, number>();
 	let db: Promise<IDBDatabase> | null = null;
 	const conn = (): Promise<IDBDatabase> =>
-		(db ??= openDb(factory, o.name ?? 'mainspring', 1, upgrade, () => (db = null)).catch((e) => {
-			db = null;
-			throw e;
-		}));
+		(db ??= openDb(factory, o.name ?? DB_NAME, DB_VERSION, upgradeDb, () => (db = null)).catch(
+			(e) => {
+				db = null;
+				throw e;
+			},
+		));
 	const run = <T>(
 		stores: readonly string[],
 		mode: IDBTransactionMode,

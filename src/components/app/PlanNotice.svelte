@@ -15,27 +15,11 @@
 	- changes the store refused for another reason (full, blocked or not usable, 8.1 #8: `dirty`; a
 	  plan not changed yet has nothing to lose, and a plan that could not be opened says that): they are
 	  only in this tab. The sync status control says so too, but under 1360 px its label is an icon
-	  alone, so the one state where data is at risk is always said in words here.
+	  alone, so the one state where data is at risk is always said in words here;
+	- "which plan?" when a folder or the opened files hold several (18.22, T5; `app.planQuestion`),
+	  a button per plan and Cancel, the focus on the first plan. T15's chooser takes it over.
 	A lazy chunk: App.svelte mounts it the first time one of them applies. The control (T14) says
 	where the open plan is kept; the Sync panel offers the same actions (`plan-actions.ts`).
--->
-<!--
-	The notice under the top bar about where the open plan is kept (phase-4.md 7.1, 9.4), on every
-	layout:
-	- read-only, because another tab has the plan (`elsewhere`: it was open there first; `taken`: it
-	  was taken over there), with "Open here instead", which takes it into this tab;
-	- another tab took the plan before this one had stored its latest changes (`refused`, T4
-	  re-check N1): they stay on screen, read-only; "Copy the text" puts the open file's text on the
-	  clipboard (export is T5's), and "Open here instead" asks first, since it drops them;
-	- the last plan could not be opened (the store or the keeper chunk failed, or the plan is
-	  damaged): a sample is open meanwhile, and Try again opens the plan (T4 review H2, M2). A
-	  browser remembers a failed import, so after a failed try the button reloads the page, which
-	  opens the last plan again (the pointer was left alone);
-	- the browser cleared the plans it kept (the eviction marker, 9.4), until dismissed;
-	A lazy chunk: App.svelte mounts it the first time one of them applies. Where the open plan is
-	kept, and changes the store refused (8.1 #8), are the sync status control's (T14); this notice
-	stays for what blocks the tab or needs a decision, and the control and its panel say the same
-	state in their own words (Sync panel: `plan-actions.ts` does the same things).
 -->
 <script lang="ts">
 	import type { AppState } from '../../lib/state/app.svelte';
@@ -71,6 +55,13 @@
 	/** The file whose text "Copy the text" copied (or failed to), and how that went. */
 	let copied = $state<Copied | null>(null);
 
+	const q = $derived(app.planQuestion);
+	let first: HTMLButtonElement | undefined = $state();
+	// The question comes after a picker closed: the focus goes to its first answer.
+	$effect(() => {
+		if (q) first?.focus();
+	});
+
 	/** "Open here instead" takes the open plan; Try again opens the one that could not be opened. */
 	async function open(retry: string | null): Promise<void> {
 		if (busy || (retry === null && !app.storedId)) return;
@@ -83,6 +74,27 @@
 	}
 </script>
 
+{#if q}
+	<div
+		class="notice"
+		role="group"
+		aria-labelledby="plan-question"
+		data-testid="plan-question"
+		data-kind="which"
+	>
+		<p id="plan-question">{S.which(q.where, q.plans.length)}</p>
+		{#each q.plans as p, i (p)}
+			{#if i === 0}
+				<button type="button" class="primary" bind:this={first} onclick={() => q.answer(p)}
+					>{p}</button
+				>
+			{:else}
+				<button type="button" class="primary" onclick={() => q.answer(p)}>{p}</button>
+			{/if}
+		{/each}
+		<button type="button" onclick={() => q.answer(null)}>{S.cancel}</button>
+	</div>
+{/if}
 {#if kind}
 	<div class="notice" role="status" data-testid="plan-notice" data-kind={kind}>
 		<p>{S[kind]}</p>

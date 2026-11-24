@@ -47,9 +47,11 @@
  * Changes refused because another tab took the plan first stay on screen, read-only and dirty: the
  * notice says so and offers to copy the text, and "Open here instead" asks first (T4 re-check N1).
  * A stored plan that cannot be opened (the store or the keeper chunk failed, or it is damaged)
- * leaves the last-plan pointer alone: a sample opens meanwhile and the notice offers Retry. Folders,
- * files, GitHub, Save to…, the sync controller and the service worker's state are T5, T7, T8, T11
- * and T15's: until then those members answer that nothing is available.
+ * leaves the last-plan pointer alone: a sample opens meanwhile and the notice offers Retry. Opening
+ * a folder or files, Save to… a folder and Export (T5) are plan-files.ts, a lazy chunk; "which
+ * plan?" waits in `planQuestion` unless the caller asks it itself. GitHub, the sync controller and
+ * the service worker's state are T7, T8, T11 and T15's: until then those members answer that
+ * nothing is available.
  *
  * The editor packages are not imported here: `ensureEditor` loads them (editor-bundle.ts) when an
  * editor first mounts and then gives each workspace its editor support, so a Visual-first load
@@ -120,7 +122,9 @@ import type { WorkspaceId } from '../storage/types';
 import type { SyncController, SyncOutcome } from '../sync/types';
 import type { AppStorageState } from './app-storage';
 import { Keeping } from './keeping.svelte';
-import type { Acquire, Opening } from './plan-keeper';
+import type { Acquire, MadeAt, Opening, Unstored, Where } from './plan-keeper';
+import type { ChoosePlan, PlanAsk, PlanFilesHost } from './plan-files';
+import type { FolderLocation, Location } from '../storage/types';
 
 export type PhoneTab = 'plan' | 'gantt' | 'people' | 'text';
 export type Phase = 'loading' | 'ready' | 'failed';
@@ -330,6 +334,14 @@ export class AppState implements AppStorageState {
 	readonly #prefs: ListedStorage | null;
 	/** The open plan was reopened and nothing has changed since: an empty undo says why. */
 	#restored = false;
+	/** How the open plan opened, and where it lives (plan-keeper.ts `Opening`, `Where`). */
+	#opening: Opening | null = null;
+	#where = $state.raw<Where>(HERE);
+	/**
+	 * "Which plan?" while a folder or opened files hold several (18.22): the notice asks it until
+	 * T15's chooser does (`openFolder`'s `choose`). `answer(null)` cancels.
+	 */
+	planQuestion = $state.raw<PlanAsk | null>(null);
 
 	constructor(opts: AppStateOptions = {}) {
 		this.client = opts.client ?? createEngineClient();
@@ -439,17 +451,92 @@ export class AppState implements AppStorageState {
 		return ok && lock !== null;
 	}
 
-	/** Folders, files and GitHub are T5's, T8's and T15's: nothing opens yet. */
-	readonly openFolder = none;
-	readonly openFiles = none;
+	/**
+	 * Opens a folder (Chromium; inside a user gesture) as a plan kept here with the folder as its
+	 * location (plan-files.ts). `choose` asks which plan when it holds several; default the notice.
+	 */
+	openFolder(o: { readonly choose?: ChoosePlan } = {}): Promise<boolean> {
+		return this.#files((m, h) => m.openFolder(h, o.choose));
+	}
+
+	/** Opens files or an imported folder as a browser-only plan (plan-files.ts). */
+	openFiles(files: readonly File[], o: { readonly choose?: ChoosePlan } = {}): Promise<boolean> {
+		return this.#files((m, h) => m.openFiles(h, files, o.choose));
+	}
+
+	/** GitHub is T8's and T15's: nothing opens yet. */
 	readonly openGitHub = none;
 
-	/** Save to… is T15's. */
-	saveTo(): Promise<SyncOutcome> {
-		return Promise.resolve({
-			kind: 'failed',
-			error: { kind: 'unsupported', retryAfterMs: null, detail: 'save-to' },
-		});
+	/** Save to… a folder (plan-files.ts); GitHub is T8's. */
+	saveTo(target: Location): Promise<SyncOutcome> {
+		return this.#files((m, h) => m.saveTo(h, target));
+	}
+
+	/** The folder picker for Save to… (inside a user gesture); null when closed or refused. */
+	pickFolder(): Promise<FolderLocation | null> {
+		return this.#files((m, h) => m.pickFolder(h));
+	}
+
+	/** Exports the plan's files: one `.tjp` or a `.zip`, shared on a phone or downloaded. */
+	exportPlan(): Promise<void> {
+		return this.#files((m, h) => m.exportPlan(h));
+	}
+
+	/** Where the open plan lives (`Location`); T14's location line reads `sync.location` later. */
+	get planLocation(): Location {
+		return this.#where.location;
+	}
+
+	#files<T>(f: (m: typeof import('./plan-files'), h: PlanFilesHost) => Promise<T>): Promise<T> {
+		return plans().then((m) => f(m, this.#filesHost()));
+	}
+
+	#filesHost(): PlanFilesHost {
+		return {
+			keeper: () => this.keeping.keeper(),
+			leave: () => this.#leave(),
+			make: (u, seed, at) => this.#make(u, seed, at),
+			openStored: (id) => this.openStored(id),
+			open: () => {
+				const c = this.#current;
+				return (
+					c && {
+						ws: c.ws,
+						storedId: this.storedId,
+						label: this.#label,
+						where: this.#where,
+						unstored: this.#opening?.unstored ?? null,
+						readOnly: this.readOnly,
+					}
+				);
+			},
+			adopt: (ws, o) => this.#adopt(ws, o),
+			flush: () => this.flush(),
+			confirm: (m) => this.#confirm(m),
+			say: (m, sticky = false) => this.edits?.say(m, sticky),
+			ask: (q) => (this.planQuestion = q),
+			phone: coarsePointer,
+			prefs: () => this.#prefs,
+			key: () => this.planKey,
+		};
+	}
+
+	/** `ws`, still open, is kept as `o` from now on (Save to…): no reload, the history stays. */
+	#adopt(ws: Workspace, o: Opening): boolean {
+		if (this.#current?.ws !== ws || this.readOnly) {
+			o.stored?.lock?.release();
+			return false;
+		}
+		this.keeping.end();
+		this.#opening = o;
+		this.#where = o.where ?? HERE;
+		this.planKey = o.key;
+		this.storedId = o.stored?.id ?? null;
+		this.#label = o.label;
+		writePref(this.#prefs, LAST_PLAN_KEY, o.key);
+		this.keeping.opened(ws, o);
+		this.keeping.refresh();
+		return true;
 	}
 
 	/**
@@ -492,23 +579,27 @@ export class AppState implements AppStorageState {
 		}
 		if (!(await this.#leave())) return false;
 		const name = cleanPlanName(spec.name);
-		const unstored = {
-			name,
-			label: strings.newPlan.listed(name),
-			from: { newPlan: true } as const,
-		};
+		return this.#make({ name, label: strings.newPlan.listed(name), from: { newPlan: true } }, seed);
+	}
+
+	/**
+	 * Stores a new plan (at `at`, default this browser) and opens it; when the store fails it opens
+	 * unstored, and its first change tries to store it again. A new plan opens on the Gantt.
+	 */
+	async #make(u: Unstored, seed: SampleWorkspace, at?: MadeAt): Promise<boolean> {
 		const made = await this.keeping
 			.keeper()
-			.then((k) => k.create(unstored, seed))
+			.then((k) => k.create(u, seed, at))
 			.catch((e: unknown) => void this.keeping.broken(e));
 		return this.#load(
 			made ?? {
 				key: NEW_PLAN_ID,
-				label: unstored.label,
+				label: u.label,
 				load: () => Promise.resolve(seed),
 				stored: null,
-				unstored,
-				fresh: true,
+				// A folder's location and base go with it, so its first save stores it there (M1).
+				unstored: at ? { ...u, at } : u,
+				fresh: 'newPlan' in u.from,
 			},
 		);
 	}
@@ -562,7 +653,8 @@ export class AppState implements AppStorageState {
 		this.#unsubscribe = [
 			ws.subscribe(() => {
 				this.#restored = false;
-				this.keeping.changed(ws, o);
+				// The opening now: Save to… keeps the workspace under another (`#adopt`).
+				this.keeping.changed(ws, this.#opening ?? o);
 			}),
 			runner.subscribe((s) => {
 				this.run = s;
@@ -586,6 +678,8 @@ export class AppState implements AppStorageState {
 		this.activeFile = seed.entry;
 		this.reveal = null;
 		const stored = o.stored;
+		this.#opening = o;
+		this.#where = o.where ?? whereOf(o.unstored);
 		this.storedId = stored?.id ?? null;
 		this.#restored = o.restored === true;
 		// A fallback (the last plan could not be opened) does not become the last plan.
@@ -1103,6 +1197,20 @@ function sampleOpening(sample: Sample): Opening {
 }
 
 const none = (): Promise<boolean> => Promise.resolve(false);
+
+/** Opening files and folders, Save to… and Export: a lazy chunk (plan-files.ts, 12.1). */
+const plans = () => import('./plan-files');
+
+/** A plan only in this browser, from nothing known, with no file that was not UTF-8. */
+const HERE: Where = { location: { kind: 'browser' }, from: null, lossy: new Set() };
+
+/** Where a plan opened unstored lives, with the files it was opened with that were lossy (M1). */
+function whereOf(u: Unstored | null): Where {
+	if (!u) return HERE;
+	const lossy = new Set(u.at?.base.lossy);
+	if ('opened' in u.from) for (const p of u.from.lossy ?? []) lossy.add(p);
+	return { location: u.at?.location ?? HERE.location, from: u.from, lossy };
+}
 
 /** A touch screen: the editor does not take the focus (a touch keyboard would cover it). */
 function coarsePointer(): boolean {
